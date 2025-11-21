@@ -50,8 +50,9 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         client=None,
         credential_refresh_def=None,
         tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         from google.auth.exceptions import DefaultCredentialsError
         from google.cloud import storage as gcs_storage
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
@@ -84,8 +85,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if parsed.scheme != "gs":
             raise Exception(f"Not a GCS URI: {uri}")
         path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return parsed.netloc, path
 
     def _get_bucket(self, bucket):

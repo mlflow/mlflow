@@ -75,18 +75,7 @@ def mock_openai():
         ),
         ("xgboost/xgboost_sklearn", []),
         ("pytorch/MNIST", ["-P", "max_epochs=1"]),
-        (
-            "pytorch/BertNewsClassification",
-            ["-P", "max_epochs=1", "-P", "num_samples=100", "-P", "dataset=20newsgroups"],
-        ),
-        (
-            "pytorch/AxHyperOptimizationPTL",
-            ["-P", "max_epochs=10", "-P", "total_trials=1"],
-        ),
-        (
-            "pytorch/IterativePruning",
-            ["-P", "max_epochs=1", "-P", "total_trials=1"],
-        ),
+        ("pytorch/HPOExample", ["-P", "n_trials=2", "-P", "max_epochs=1"]),
         ("pytorch/CaptumExample", ["-P", "max_epochs=50"]),
         ("supply_chain_security", []),
         ("tensorflow", []),
@@ -166,7 +155,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("evaluation", [sys.executable, "evaluate_with_custom_metrics.py"]),
         ("evaluation", [sys.executable, "evaluate_with_custom_metrics_comprehensive.py"]),
         ("evaluation", [sys.executable, "evaluate_with_model_validation.py"]),
-        ("diviner", [sys.executable, "train.py"]),
         ("spark_udf", [sys.executable, "spark_udf_datetime.py"]),
         ("pyfunc", [sys.executable, "train.py"]),
         ("tensorflow", [sys.executable, "train.py"]),

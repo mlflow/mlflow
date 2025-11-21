@@ -29,6 +29,7 @@ export const EvaluationTableHeader = ({ children, className, groupHeaderContent 
           alignItems: 'center',
           padding: theme.spacing.sm,
           borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+          boxSizing: 'border-box',
         }}
         className="header-group-cell"
       >

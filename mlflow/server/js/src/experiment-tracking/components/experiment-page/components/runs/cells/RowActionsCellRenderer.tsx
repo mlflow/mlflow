@@ -1,13 +1,4 @@
-import {
-  PinIcon,
-  PinFillIcon,
-  LegacyTooltip,
-  VisibleIcon as VisibleHollowIcon,
-  VisibleOffIcon,
-  useDesignSystemTheme,
-  Icon,
-  visuallyHidden,
-} from '@databricks/design-system';
+import { PinIcon, PinFillIcon, useDesignSystemTheme, visuallyHidden, Tooltip } from '@databricks/design-system';
 import type { SuppressKeyboardEventParams } from '@ag-grid-community/core';
 
 // TODO: Import this icon from design system when added
@@ -17,7 +8,6 @@ import React, { useMemo } from 'react';
 import { FormattedMessage, defineMessages } from 'react-intl';
 import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import { RunRowVisibilityControl } from '../../../utils/experimentPage.row-types';
-import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
 import type { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
@@ -71,9 +61,6 @@ const labels = {
   },
 };
 
-// Mouse enter/leave delays passed to tooltips are set to 0 so swift toggling/pinning runs is not hampered
-const MOUSE_DELAYS = { mouseEnterDelay: 0, mouseLeaveDelay: 0 };
-
 export const RowActionsCellRenderer = React.memo(
   (props: {
     data: RunRowType;
@@ -88,8 +75,7 @@ export const RowActionsCellRenderer = React.memo(
     const { groupParentInfo, runDateAndNestInfo, visibilityControl } = props.data;
     const { belongsToGroup } = runDateAndNestInfo || {};
     const isGroupRow = Boolean(groupParentInfo);
-    const isVisibilityButtonDisabled =
-      shouldEnableToggleIndividualRunsInGroups() && visibilityControl === RunRowVisibilityControl.Disabled;
+    const isVisibilityButtonDisabled = visibilityControl === RunRowVisibilityControl.Disabled;
     const { pinned, hidden } = props.value;
     const { runUuid, rowUuid } = props.data;
 
@@ -100,7 +86,7 @@ export const RowActionsCellRenderer = React.memo(
     const isRowHidden = (() => {
       // If "Use grouping from the runs table in charts" option is off and we're displaying a group,
       // we should check if all runs in the group are hidden in order to determine visibility toggle.
-      if (shouldEnableToggleIndividualRunsInGroups() && useGroupedValuesInCharts === false && groupParentInfo) {
+      if (useGroupedValuesInCharts === false && groupParentInfo) {
         return Boolean(groupParentInfo.allRunsHidden);
       }
 
@@ -124,12 +110,7 @@ export const RowActionsCellRenderer = React.memo(
       ? labels.pinning.runs.unpin
       : labels.pinning.runs.pin;
 
-    const isVisibilityButtonHidden = useMemo(() => {
-      if (shouldEnableToggleIndividualRunsInGroups()) {
-        return visibilityControl === RunRowVisibilityControl.Hidden;
-      }
-      return !((groupParentInfo && !isRemainingRunsGroup(groupParentInfo)) || (Boolean(runUuid) && !belongsToGroup));
-    }, [groupParentInfo, belongsToGroup, runUuid, visibilityControl]);
+    const isVisibilityButtonHidden = visibilityControl === RunRowVisibilityControl.Hidden;
 
     return (
       <div css={styles.actionsContainer}>
@@ -147,13 +128,14 @@ export const RowActionsCellRenderer = React.memo(
           ]}
         />
         {((props.data.pinnable && runUuid) || groupParentInfo) && (
-          <LegacyTooltip
-            dangerouslySetAntdProps={MOUSE_DELAYS}
-            placement="right"
+          <Tooltip
+            componentId="mlflow.run.row_actions.pinning.tooltip"
+            delayDuration={0}
+            side="right"
             // We have to force remount of the tooltip with every rerender, otherwise it will jump
             // around when the row order changes.
             key={Math.random()}
-            title={<FormattedMessage {...pinningMessageDescriptor} />}
+            content={<FormattedMessage {...pinningMessageDescriptor} />}
           >
             <label css={styles.actionCheckbox(theme)} className="is-pin-toggle" data-testid="column-pin-toggle">
               <span css={visuallyHidden}>
@@ -179,7 +161,7 @@ export const RowActionsCellRenderer = React.memo(
               />
               {pinned ? <PinFillIcon /> : <PinIcon />}
             </label>
-          </LegacyTooltip>
+          </Tooltip>
         )}
       </div>
     );

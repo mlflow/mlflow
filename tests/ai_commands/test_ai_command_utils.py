@@ -1,5 +1,3 @@
-"""Unit tests for the AI commands utilities."""
-
 import platform
 from unittest import mock
 

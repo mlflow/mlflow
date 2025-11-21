@@ -62,7 +62,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
     when the client is pointing to a Unity Catalog model registry.
     """
 
-    def __init__(self, artifact_uri, registry_uri):
+    def __init__(self, artifact_uri, registry_uri, tracking_uri: str | None = None):
         if not is_oss_unity_catalog_uri(registry_uri):
             raise MlflowException(
                 message="Attempted to instantiate an artifact repo to access models in the "
@@ -73,7 +73,7 @@ class UnityCatalogOSSModelsArtifactRepository(ArtifactRepository):
                 f"MLflow Python client",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        super().__init__(artifact_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         from mlflow.tracking.client import MlflowClient
 
         registry_uri_from_artifact_uri = get_databricks_profile_uri_from_artifact_uri(

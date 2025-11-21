@@ -94,8 +94,6 @@ For alignment to work, each trace must have BOTH judge assessments AND human fee
 **The assessment name must exactly match the judge name** - if your judge is named "product_quality", both the judge's assessments and human feedback must use the name "product_quality".
 
 The order doesn't matter - humans can provide feedback before or after the judge evaluates.
-
-**Note**: Alignment is currently supported only for field-based evaluation using `{{ inputs }}` and `{{ outputs }}` templates. Support for Agent-as-a-Judge evaluation (`{{ trace }}`) and expectations (`{{ expectations }}`) is not yet available.
 :::
 
 ### Step 1: Setup and Generate Traces
@@ -106,6 +104,7 @@ First, create your judge and generate traces with initial assessments:
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
 from mlflow.entities import AssessmentSource, AssessmentSourceType
+from typing import Literal
 import mlflow
 
 # Create experiment and initial judge
@@ -119,6 +118,7 @@ initial_judge = make_judge(
         "is accurate and helpful for the query in {{ inputs }}. "
         "Rate as: excellent, good, fair, or poor"
     ),
+    feedback_value_type=Literal["excellent", "good", "fair", "poor"],
     model="anthropic:/claude-opus-4-1-20250805",
 )
 
@@ -272,6 +272,8 @@ Enable DEBUG logging when:
 
 Keep it at INFO (default) for production use to avoid verbose output.
 
+:::
+
 ## Collecting Feedback for Alignment
 
 The quality of alignment depends on the quality and quantity of feedback. Choose the approach that best fits your situation:
@@ -415,6 +417,7 @@ class MyCustomOptimizer(AlignmentOptimizer):
         return make_judge(
             name=judge.name,
             instructions=improved_instructions,
+            feedback_value_type=str,
             model=judge.model,
         )
 
@@ -512,7 +515,7 @@ def test_alignment_improvement(
     iconSize={48}
     title="Dataset Integration"
     description="Use judges with evaluation datasets for systematic testing."
-    href="/genai/eval-monitor/scorers/llm-judge/datasets"
+    href="/genai/datasets"
     linkText="Learn integration →"
     containerHeight={64}
   />

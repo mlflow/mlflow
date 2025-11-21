@@ -85,5 +85,4 @@ export const AppComponent = () => {
   );
 };
 
-// eslint-disable-next-line no-restricted-syntax
 ReactDOM.render(<AppComponent />, document.getElementById('root'));

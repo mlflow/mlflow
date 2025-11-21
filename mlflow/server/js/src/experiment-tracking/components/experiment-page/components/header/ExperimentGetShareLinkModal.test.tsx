@@ -1,3 +1,4 @@
+import { jest, describe, beforeAll, afterAll, test, expect } from '@jest/globals';
 import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
@@ -12,6 +13,7 @@ import { shouldUseCompressedExperimentViewSharedState } from '../../../../../com
 import { textDecompressDeflate } from '../../../../../common/utils/StringUtils';
 import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../../../common/utils/RoutingTestUtils';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 jest.mock('../../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
@@ -77,16 +79,18 @@ describe('ExperimentGetShareLinkModal', () => {
       const [visible, setVisible] = useState(false);
       return (
         <IntlProvider locale="en">
-          <MockedReduxStoreProvider>
-            <button onClick={() => setVisible(true)}>get link</button>
-            <ExperimentGetShareLinkModal
-              experimentIds={experimentIds}
-              onCancel={onCancel}
-              searchFacetsState={searchFacetsState}
-              uiState={uiState}
-              visible={visible}
-            />
-          </MockedReduxStoreProvider>
+          <DesignSystemProvider>
+            <MockedReduxStoreProvider>
+              <button onClick={() => setVisible(true)}>get link</button>
+              <ExperimentGetShareLinkModal
+                experimentIds={experimentIds}
+                onCancel={onCancel}
+                searchFacetsState={searchFacetsState}
+                uiState={uiState}
+                visible={visible}
+              />
+            </MockedReduxStoreProvider>
+          </DesignSystemProvider>
         </IntlProvider>
       );
     };

@@ -1,5 +1,6 @@
 import json
 import math
+from io import StringIO
 from unittest import mock
 
 import numpy as np
@@ -106,15 +107,12 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
         parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
-        assert (pandas_df_with_all_types == parsed_df).all().all()
+        pd.testing.assert_frame_equal(pandas_df_with_all_types, parsed_df, check_dtype=False)
         # the frame read without schema should match except for the binary values
-        assert (
-            (
-                parsed_df.drop(columns=["binary"])
-                == dataframe_from_raw_json(tmp.path(filename)).drop(columns=["binary"])
-            )
-            .all()
-            .all()
+        pd.testing.assert_frame_equal(
+            parsed_df.drop(columns=["binary"]),
+            dataframe_from_raw_json(tmp.path(filename)).drop(columns=["binary"]),
+            check_dtype=False,
         )
 
     # NB: Drop columns that cannot be encoded by proto_json_utils.pyNumpyEncoder
@@ -187,15 +185,12 @@ def test_pandas_orients_for_input_examples(
         with open(tmp.path(filename)) as f:
             data = json.load(f)
             dataframe = pd.read_json(
-                json.dumps(data), orient=example.info["pandas_orient"], precise_float=True
+                StringIO(json.dumps(data)), orient=example.info["pandas_orient"], precise_float=True
             )
-            assert (
-                (
-                    pandas_df_with_all_types.drop(columns=["binary"])
-                    == dataframe.drop(columns=["binary"])
-                )
-                .all()
-                .all()
+            pd.testing.assert_frame_equal(
+                pandas_df_with_all_types.drop(columns=["binary"]),
+                dataframe.drop(columns=["binary"]),
+                check_dtype=False,
             )
 
     with TempDir() as tmp:
@@ -210,8 +205,10 @@ def test_pandas_orients_for_input_examples(
             # NOTE: when no column names are provided (i.e. values orient),
             # saving an example adds a "data" key rather than directly storing the plain data
             data = data["data"]
-            dataframe = pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
-            assert (dataframe == df_without_columns).all().all()
+            dataframe = pd.read_json(
+                StringIO(json.dumps(data)), orient=example.info["pandas_orient"]
+            )
+            pd.testing.assert_frame_equal(dataframe, df_without_columns, check_dtype=False)
 
     # pass dict with scalars
     with TempDir() as tmp:
@@ -248,21 +245,17 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
         with open(tmp.path(filename)) as f:
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
-            pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
+            pd.read_json(StringIO(json.dumps(data)), orient=example.info["pandas_orient"])
 
         parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
 
         # by definition of NaN, NaN == NaN is False but NaN != NaN is True
-        assert (
-            ((df_with_nan == parsed_df) | ((df_with_nan != df_with_nan) & (parsed_df != parsed_df)))
-            .all()
-            .all()
-        )
+        pd.testing.assert_frame_equal(df_with_nan, parsed_df, check_dtype=False)
         # the frame read without schema should match except for the binary values
         no_schema_df = dataframe_from_raw_json(tmp.path(filename))
         a = parsed_df.drop(columns=["binary"])
         b = no_schema_df.drop(columns=["binary"])
-        assert ((a == b) | ((a != a) & (b != b))).all().all()
+        pd.testing.assert_frame_equal(a, b, check_dtype=False)
 
     # pass multidimensional array
     for col in dict_of_ndarrays_with_nans:

@@ -59,6 +59,24 @@ mlflow.init({
 });
 ```
 
+### Configure with environment variables
+
+The SDK can also read configuration from environment variables so you can avoid
+hard-coding connection details. If `MLFLOW_TRACKING_URI` and
+`MLFLOW_EXPERIMENT_ID` are set, you can initialize the client without passing
+any arguments:
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=123456789
+```
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+
+mlflow.init(); // Uses the values from the environment
+```
+
 Create a trace:
 
 ```typescript
@@ -84,6 +102,45 @@ View traces in MLflow UI:
 
 ![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/891fed9a746477f808dd2b82d3abb2382293c564/docs/static/images/llms/tracing/quickstart/openai-tool-calling-trace-detail.png?raw=true)
 
+## Publishing
+
+1. Run `yarn bump-version --version <new_version>` from this directory to bump the package versions appropriately
+2. `cd` into `core` and run `npm publish`, and repeat for `integrations/openai`
+
+## Adding New Integrations
+
+The TypeScript SDK supports pluggable auto-instrumentation packages under [`integrations/`](./integrations). To add a new integration:
+
+1. Create a new workspace package (for example, `integrations/<provider>`), modeled after the [OpenAI integration](./integrations/openai).
+2. Implement the instrumentation entry points in `src/`, exporting a `register()` helper that configures tracing for the target client library.
+3. Add package metadata (`package.json`, `tsconfig.json`, and optional `README.md`) so the integration can be built and published.
+4. Add unit and/or integration tests under `tests/` that exercise the new instrumentation.
+5. Update the root [`package.json`](./package.json) `build:integrations` and `test:integrations` scripts if your package requires additional build or test commands.
+
+Once your integration package is ready, run the local workflow outlined in [Running the SDK after changes](#running-the-sdk-after-changes) and open a pull request that describes the new provider support.
+
+## Contributing
+
+We welcome contributions of new features, bug fixes, and documentation improvements. To contribute:
+
+1. Review the project-wide [contribution guidelines](../../CONTRIBUTING.md) and follow the MLflow [Code of Conduct](../../CODE_OF_CONDUCT.rst).
+2. Discuss larger proposals in a GitHub issue or the MLflow community channels before investing significant effort.
+3. Fork the repository (or use a feature branch) and make your changes with clear, well-structured commits.
+4. Ensure your code includes tests and documentation updates where appropriate.
+5. Submit a pull request that summarizes the motivation, implementation details, and validation steps. The MLflow team will review and provide feedback.
+
+## Running the SDK after Changes
+
+The TypeScript workspace uses npm workspaces. After modifying the core SDK or any integration:
+
+```bash
+npm install        # Install or update workspace dependencies
+npm run build      # Build the core package and all integrations
+npm run test       # Execute the test suites for the core SDK and integrations
+```
+
+You can run package-specific scripts from their respective directories (for example, `cd core && npm run test`) when iterating on a particular feature. Remember to rebuild before consuming the SDK from another project so that the latest TypeScript output is emitted to `dist/`.
+
 ## Trace Usage
 
 MLflow Tracing empowers you throughout the end-to-end lifecycle of your application. Here's how it helps you at each step of the workflow, click on each section to learn more:
@@ -99,7 +156,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of your applicat
 
 MLflow's tracing capabilities provide deep insights into what happens beneath the abstractions of your application, helping you precisely identify where issues occur.
 
-[Learn more →](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces)
+[Learn more →](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces/ui)
 
 </td>
 <td width="40%">

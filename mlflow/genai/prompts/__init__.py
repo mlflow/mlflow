@@ -9,6 +9,7 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
 
 
@@ -31,7 +32,7 @@ def register_prompt(
     template: str | list[dict[str, Any]],
     commit_message: str | None = None,
     tags: dict[str, str] | None = None,
-    response_format: BaseModel | dict[str, Any] | None = None,
+    response_format: type[BaseModel] | dict[str, Any] | None = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -147,6 +148,8 @@ def load_prompt(
     name_or_uri: str,
     version: str | int | None = None,
     allow_missing: bool = False,
+    link_to_model: bool = True,
+    model_id: str | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -158,12 +161,17 @@ def load_prompt(
         version: The version of the prompt (required when using name, not allowed when using URI).
         allow_missing: If True, return None instead of raising Exception if the specified prompt
             is not found.
+        link_to_model: If True, link the prompt to the model.
+        model_id: The ID of the model to link the prompt to. Only used if link_to_model is True.
 
     Example:
 
     .. code-block:: python
 
         import mlflow
+
+        # Load the latest version of the prompt
+        prompt = mlflow.genai.load_prompt("my_prompt")
 
         # Load a specific version of the prompt
         prompt = mlflow.genai.load_prompt("my_prompt", version=1)
@@ -174,10 +182,16 @@ def load_prompt(
         # Load a prompt version with an alias "production"
         prompt = mlflow.genai.load_prompt("prompts:/my_prompt@production")
 
+        # Load the latest version of the prompt by URI
+        prompt = mlflow.genai.load_prompt("prompts:/my_prompt@latest")
     """
     with suppress_genai_migration_warning():
         return registry_api.load_prompt(
-            name_or_uri=name_or_uri, version=version, allow_missing=allow_missing
+            name_or_uri=name_or_uri,
+            version=version,
+            allow_missing=allow_missing,
+            link_to_model=link_to_model,
+            model_id=model_id,
         )
 
 
@@ -226,3 +240,75 @@ def delete_prompt_alias(name: str, alias: str) -> None:
     """
     with suppress_genai_migration_warning():
         return registry_api.delete_prompt_alias(name=name, alias=alias)
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def get_prompt_tags(name: str) -> Prompt:
+    """Get a prompt's metadata from the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+    """
+    with suppress_genai_migration_warning():
+        return MlflowClient().get_prompt(name=name).tags
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def set_prompt_tag(name: str, key: str, value: str) -> None:
+    """Set a tag on a prompt in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        key: The key of the tag
+        value: The value of the tag for the key
+    """
+    with suppress_genai_migration_warning():
+        MlflowClient().set_prompt_tag(name=name, key=key, value=value)
+        registry_api._load_prompt_cached.cache_clear()
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def delete_prompt_tag(name: str, key: str) -> None:
+    """Delete a tag from a prompt in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        key: The key of the tag
+    """
+    with suppress_genai_migration_warning():
+        MlflowClient().delete_prompt_tag(name=name, key=key)
+        registry_api._load_prompt_cached.cache_clear()
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) -> None:
+    """Set a tag on a prompt version in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt.
+        key: The key of the tag
+        value: The value of the tag for the key
+    """
+    with suppress_genai_migration_warning():
+        MlflowClient().set_prompt_version_tag(name=name, version=version, key=key, value=value)
+        registry_api._load_prompt_cached.cache_clear()
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
+    """Delete a tag from a prompt version in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt.
+        key: The key of the tag
+    """
+    with suppress_genai_migration_warning():
+        MlflowClient().delete_prompt_version_tag(name=name, version=version, key=key)
+        registry_api._load_prompt_cached.cache_clear()

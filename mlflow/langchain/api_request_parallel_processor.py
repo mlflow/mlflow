@@ -26,8 +26,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
-import langchain.chains
-from langchain.callbacks.base import BaseCallbackHandler
+from mlflow.langchain._compat import import_base_callback_handler, try_import_chain
+
+BaseCallbackHandler = import_base_callback_handler()
+Chain = try_import_chain()
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -95,7 +97,7 @@ class APIRequest:
     """
 
     index: int
-    lc_model: langchain.chains.base.Chain
+    lc_model: Any
     request_json: dict[str, Any]
     results: list[tuple[int, str]]
     errors: dict[int, str]
@@ -124,9 +126,10 @@ class APIRequest:
             return try_transform_response_to_chat_format(response)
 
     def single_call_api(self, callback_handlers: list[BaseCallbackHandler] | None):
-        from langchain.schema import BaseRetriever
-
+        from mlflow.langchain._compat import import_base_retriever
         from mlflow.langchain.utils.logging import langgraph_types, lc_runnables_types
+
+        BaseRetriever = import_base_retriever()
 
         if isinstance(self.lc_model, BaseRetriever):
             # Retrievers are invoked differently than Chains
@@ -170,7 +173,7 @@ class APIRequest:
                 response = self._try_convert_response(response)
         else:
             # return_only_outputs is invalid for stream call
-            if isinstance(self.lc_model, langchain.chains.base.Chain) and not self.stream:
+            if Chain and isinstance(self.lc_model, Chain) and not self.stream:
                 kwargs = {"return_only_outputs": True}
             else:
                 kwargs = {}

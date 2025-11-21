@@ -93,8 +93,10 @@ class StagedArtifactUpload(NamedTuple):
 
 
 class CloudArtifactRepository(ArtifactRepository):
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
         # caused by waiting for a chunk-upload/download task within a file-upload/download task.
         # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task

@@ -7,27 +7,19 @@ import { AssessmentDeleteModal } from './AssessmentDeleteModal';
 import { AssessmentSourceName } from './AssessmentSourceName';
 import { timeSinceStr } from './AssessmentsPane.utils';
 import type { Assessment } from '../ModelTrace.types';
-
-const getSourceIcon = (source: Assessment['source']) => {
-  switch (source.source_type) {
-    case 'HUMAN':
-      return UserIcon;
-    case 'LLM_JUDGE':
-      return SparkleIcon;
-    default:
-      return CodeIcon;
-  }
-};
+import { getSourceIcon } from './utils';
 
 export const AssessmentItemHeader = ({
   // connector is not displayed in history items
   renderConnector = true,
   assessment,
   setIsEditing,
+  hideOverflowMenu = false,
 }: {
   renderConnector?: boolean;
   assessment: Assessment;
   setIsEditing?: (isEditing: boolean) => void;
+  hideOverflowMenu?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -83,11 +75,13 @@ export const AssessmentItemHeader = ({
             {timeSinceStr(new Date(assessment.last_update_time))}
           </Typography.Text>
         )}
-        <AssessmentActionsOverflowMenu
-          assessment={assessment}
-          setIsEditing={setIsEditing}
-          setShowDeleteModal={setShowDeleteModal}
-        />
+        {!hideOverflowMenu && (
+          <AssessmentActionsOverflowMenu
+            assessment={assessment}
+            setIsEditing={setIsEditing}
+            setShowDeleteModal={setShowDeleteModal}
+          />
+        )}
         <AssessmentDeleteModal
           assessment={assessment}
           isModalVisible={showDeleteModal}

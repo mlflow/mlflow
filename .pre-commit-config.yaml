@@ -4,10 +4,10 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        files: \.(mdx|ya?ml)$
+        files: \.(mdx|ya?ml|txt)$
       - id: end-of-file-fixer
-        files: \.(proto|txt|sh|rst)$
-        exclude: ^examples/
+        files: \.(txt|sh|rst)$
+        exclude: ^examples/|^mlflow/protos/opentelemetry/
       - id: check-vcs-permalinks
         files: \.py$
         require_serial: true
@@ -123,6 +123,15 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: buf
+        name: buf
+        entry: bin/buf format -d -w --exit-code --exclude-path mlflow/protos/opentelemetry mlflow/protos
+        files: '\.proto$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
       - id: typos
         name: typos
         entry: bin/typos --format brief --force-exclude --color never
@@ -133,9 +142,17 @@ repos:
 
       - id: conftest
         name: conftest
-        entry: bin/conftest test --policy .github/policy.rego
+        entry: bin/conftest test --namespace mlflow --policy .github/policy.rego
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
         exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: regal
+        name: regal
+        entry: bin/regal lint
+        files: '\.rego$'
         language: system
         stages: [pre-commit]
         require_serial: true
@@ -144,7 +161,7 @@ repos:
         name: check-init-py
         entry: uv run --only-group lint dev/check_init_py.py
         language: system
-        files: '^mlflow/.*\.py$'
+        files: '^(mlflow|tests)/.*\.py$'
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false

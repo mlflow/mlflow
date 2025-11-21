@@ -1,8 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-import langchain
 import pytest
-from langchain.agents import AgentExecutor
 from langchain_core.language_models.chat_models import SimpleChatModel
 from langchain_core.messages import (
     AIMessage,
@@ -13,7 +11,6 @@ from langchain_core.messages import (
 )
 from langchain_core.outputs.chat_generation import ChatGeneration
 from langchain_core.outputs.generation import Generation
-from packaging.version import Version
 
 from mlflow.langchain.utils.chat import (
     convert_lc_message_to_chat_message,
@@ -51,10 +48,6 @@ def test_convert_lc_message_to_chat_message(message, expected):
     assert convert_lc_message_to_chat_message(message) == expected
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="AIMessage does not have tool_calls attribute",
-)
 @pytest.mark.parametrize(
     ("message", "expected"),
     [
@@ -171,15 +164,6 @@ def test_transform_response_iter_to_chat_format_ai_message():
         )
 
 
-def test_transform_request_json_for_chat_if_necessary_no_conversion():
-    model = MagicMock(spec=AgentExecutor)
-    request_json = {"messages": [{"role": "user", "content": "some_input"}]}
-    assert transform_request_json_for_chat_if_necessary(request_json, model) == (
-        request_json,
-        False,
-    )
-
-
 def test_transform_request_json_for_chat_if_necessary_conversion():
     model = MagicMock(spec=SimpleChatModel)
     request_json = {"messages": [{"role": "user", "content": "some_input"}]}
@@ -251,10 +235,6 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
         # Legacy completion generation object
         (Generation(text="foo"), None),
     ],
-)
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Old version of LangChain does not support usage metadata",
 )
 def test_parse_token_usage(generation, expected):
     assert parse_token_usage([generation]) == expected

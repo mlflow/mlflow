@@ -26,6 +26,7 @@ def download_artifacts(
     artifact_path: str | None = None,
     dst_path: str | None = None,
     tracking_uri: str | None = None,
+    registry_uri: str | None = None,
 ) -> str:
     """Download an artifact file or directory to a local directory.
 
@@ -60,6 +61,7 @@ def download_artifacts(
             the local filesystem, unless the artifacts already exist on the local
             filesystem, in which case their local path is returned directly.
         tracking_uri: The tracking URI to be used when downloading artifacts.
+        registry_uri: The registry URI to be used when downloading artifacts.
 
     Returns:
         The location of the artifact file or directory on the local filesystem.
@@ -80,7 +82,7 @@ def download_artifacts(
 
     if artifact_uri is not None:
         return _download_artifact_from_uri(
-            artifact_uri, output_path=dst_path, tracking_uri=tracking_uri
+            artifact_uri, output_path=dst_path, tracking_uri=tracking_uri, registry_uri=registry_uri
         )
 
     # Use `runs:/<run_id>/<artifact_path>` to download both run and model (if exists) artifacts
@@ -89,6 +91,7 @@ def download_artifacts(
             f"runs:/{posixpath.join(run_id, artifact_path)}",
             output_path=dst_path,
             tracking_uri=tracking_uri,
+            registry_uri=registry_uri,
         )
 
     artifact_path = artifact_path if artifact_path is not None else ""
@@ -98,6 +101,7 @@ def download_artifacts(
     artifact_repo = get_artifact_repository(
         add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri),
         tracking_uri=tracking_uri,
+        registry_uri=registry_uri,
     )
     return artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
 

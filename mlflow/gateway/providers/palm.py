@@ -1,7 +1,8 @@
 import time
+import warnings
 from typing import Any
 
-from mlflow.gateway.config import PaLMConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, PaLMConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
@@ -12,8 +13,13 @@ class PaLMProvider(BaseProvider):
     NAME = "PaLM"
     CONFIG_TYPE = PaLMConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
+        warnings.warn(
+            "PaLM provider is deprecated and will be removed in a future MLflow version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
         if config.model.config is None or not isinstance(config.model.config, PaLMConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.palm_config: PaLMConfig = config.model.config

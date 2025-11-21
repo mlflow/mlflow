@@ -52,6 +52,7 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocation,
     TraceLocationType,
+    UCSchemaLocation,
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.view_type import ViewType
@@ -96,6 +97,7 @@ __all__ = [
     "TraceLocationType",
     "MlflowExperimentLocation",
     "InferenceTableLocation",
+    "UCSchemaLocation",
     "TraceState",
     "SpanStatusCode",
     "_DatasetSummary",
@@ -112,7 +114,9 @@ __all__ = [
     "AssessmentSourceType",
     "Expectation",
     "Feedback",
-    "EvaluationDataset",
+    # Note: EvaluationDataset is intentionally excluded from __all__ to prevent
+    # circular import issues during plugin registration. It can still be imported
+    # explicitly via: from mlflow.entities import EvaluationDataset
     "DatasetRecord",
     "DatasetRecordSource",
     "DatasetRecordSourceType",

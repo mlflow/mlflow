@@ -11,10 +11,12 @@ from mlflow.entities.assessment import (
     Feedback,
 )
 from mlflow.genai import judges
-from mlflow.genai.judges.builtin import _sanitize_feedback
+from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers import Safety, Scorer
+from mlflow.genai.scorers import RelevanceToQuery, Safety, Scorer
+from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import SerializedScorer
+from mlflow.genai.scorers.builtin_scorers import _sanitize_scorer_feedback
 
 from tests.genai.conftest import databricks_only
 
@@ -30,32 +32,184 @@ def create_test_feedback(value: str, error: str | None = None) -> Feedback:
     )
 
 
-def test_sanitize_feedback_happy_path():
+def test_sanitize_scorer_feedback_happy_path():
     feedback = create_test_feedback("yes")
-    result = _sanitize_feedback(feedback)
+    result = _sanitize_scorer_feedback(feedback)
     assert isinstance(result.value, judges.CategoricalRating)
     assert result.value == judges.CategoricalRating.YES
 
 
-def test_sanitize_feedback_no():
+def test_sanitize_scorer_feedback_no():
     feedback = create_test_feedback("no")
-    result = _sanitize_feedback(feedback)
+    result = _sanitize_scorer_feedback(feedback)
     assert isinstance(result.value, judges.CategoricalRating)
     assert result.value == judges.CategoricalRating.NO
 
 
-def test_sanitize_feedback_unknown():
+def test_sanitize_scorer_feedback_unknown():
     feedback = create_test_feedback("unknown")
-    result = _sanitize_feedback(feedback)
+    result = _sanitize_scorer_feedback(feedback)
     assert isinstance(result.value, judges.CategoricalRating)
     assert result.value == judges.CategoricalRating.UNKNOWN
 
 
-def test_sanitize_feedback_error():
+def test_sanitize_scorer_feedback_error():
     feedback = create_test_feedback(None, error=AssessmentError(error_code="test_error"))
-    result = _sanitize_feedback(feedback)
+    result = _sanitize_scorer_feedback(feedback)
     assert result.value is None
     assert result.error == AssessmentError(error_code="test_error")
+
+
+@pytest.mark.parametrize(
+    ("input_value", "expected"),
+    [
+        ("true", CategoricalRating.YES),
+        ("True", CategoricalRating.YES),
+        ("TRUE", CategoricalRating.YES),
+        ("pass", CategoricalRating.YES),
+        ("passed", CategoricalRating.YES),
+        ("correct", CategoricalRating.YES),
+        ("success", CategoricalRating.YES),
+        ("1", CategoricalRating.YES),
+        ("1.0", CategoricalRating.YES),
+        ("false", CategoricalRating.NO),
+        ("False", CategoricalRating.NO),
+        ("FALSE", CategoricalRating.NO),
+        ("fail", CategoricalRating.NO),
+        ("failed", CategoricalRating.NO),
+        ("incorrect", CategoricalRating.NO),
+        ("failure", CategoricalRating.NO),
+        ("0", CategoricalRating.NO),
+        ("0.0", CategoricalRating.NO),
+        ("maybe", CategoricalRating.UNKNOWN),
+        ("partially", CategoricalRating.UNKNOWN),
+        ("2", CategoricalRating.UNKNOWN),
+        ("  yes  ", CategoricalRating.YES),
+        ("  true  ", CategoricalRating.YES),
+        ("  false  ", CategoricalRating.NO),
+    ],
+)
+def test_sanitize_scorer_feedback_boolean_synonyms(input_value, expected):
+    feedback = create_test_feedback(input_value)
+    result = _sanitize_scorer_feedback(feedback)
+    assert result.value == expected
+    assert result.rationale == "Test rationale"
+
+
+def test_sanitize_scorer_feedback_preserves_empty_string():
+    feedback = Feedback(
+        name="test_metric",
+        value="",
+        rationale="Test",
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test-judge"),
+        error="Empty value",
+    )
+    sanitized = _sanitize_scorer_feedback(feedback)
+    assert sanitized.value == ""
+    assert sanitized.error == "Empty value"
+
+
+def test_sanitize_scorer_feedback_handles_categorical_rating_input():
+    for rating in [CategoricalRating.YES, CategoricalRating.NO, CategoricalRating.UNKNOWN]:
+        feedback = create_test_feedback(rating)
+        sanitized = _sanitize_scorer_feedback(feedback)
+        assert sanitized.value == rating
+
+
+@pytest.mark.parametrize(
+    ("values", "expected_mean"),
+    [
+        (["yes", "true", "pass", "correct", "1"], 1.0),
+        (["no", "false", "fail", "incorrect", "0"], 0.0),
+        (["yes", "no", "true", "false"], 0.5),
+        (["pass", "fail", "1", "0"], 0.5),
+        (["yes", "no", "maybe"], 0.5),
+        (["true", "unknown", "false"], 0.5),
+    ],
+)
+def test_aggregation_with_sanitized_boolean_values(values, expected_mean):
+    eval_results = []
+    for i, value in enumerate(values):
+        feedback = create_test_feedback(value)
+        sanitized = _sanitize_scorer_feedback(feedback)
+        eval_item = EvalItem(
+            inputs={"question": f"Q{i}"},
+            outputs={"answer": f"A{i}"},
+            request_id=f"req_{i}",
+            expectations={},
+        )
+        eval_result = EvalResult(assessments=[sanitized], eval_item=eval_item)
+        eval_results.append(eval_result)
+
+    scorer = mock.Mock(spec=Scorer)
+    scorer.name = "test_feedback"
+    scorer.aggregations = ["mean"]
+
+    metrics = compute_aggregated_metrics(eval_results, [scorer])
+    assert "test_feedback/mean" in metrics
+    assert metrics["test_feedback/mean"] == pytest.approx(expected_mean)
+
+
+def test_aggregation_excludes_unknown_boolean_values():
+    values = ["yes", "no", "maybe", "partially", "true", "false", "unknown"]
+    eval_results = []
+    for i, value in enumerate(values):
+        feedback = create_test_feedback(value)
+        sanitized = _sanitize_scorer_feedback(feedback)
+        eval_item = EvalItem(
+            inputs={"question": f"Q{i}"},
+            outputs={"answer": f"A{i}"},
+            request_id=f"req_{i}",
+            expectations={},
+        )
+        eval_result = EvalResult(assessments=[sanitized], eval_item=eval_item)
+        eval_results.append(eval_result)
+
+    scorer = mock.Mock(spec=Scorer)
+    scorer.name = "test_feedback"
+    scorer.aggregations = ["mean", "min", "max"]
+
+    metrics = compute_aggregated_metrics(eval_results, [scorer])
+    assert metrics["test_feedback/mean"] == 0.5
+    assert metrics["test_feedback/min"] == 0.0
+    assert metrics["test_feedback/max"] == 1.0
+
+
+def test_builtin_scorer_handles_boolean_synonyms():
+    with mock.patch("mlflow.genai.judges.is_context_relevant") as mock_judge:
+        mock_feedback = Feedback(
+            name="relevance_to_query",
+            value="true",
+            rationale="The context is relevant",
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
+        )
+        mock_judge.return_value = mock_feedback
+
+        scorer = RelevanceToQuery()
+        result = scorer(
+            inputs={"question": "What is the capital of France?"},
+            outputs="Paris is the capital of France.",
+        )
+        assert result.value == CategoricalRating.YES
+        assert result.rationale == "The context is relevant"
+
+
+def test_builtin_scorer_handles_numeric_boolean_values():
+    with mock.patch("mlflow.genai.judges.is_context_relevant") as mock_judge:
+        for input_val, expected in [("1", CategoricalRating.YES), ("0", CategoricalRating.NO)]:
+            mock_feedback = Feedback(
+                name="relevance_to_query",
+                value=input_val,
+                rationale="Test rationale",
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"
+                ),
+            )
+            mock_judge.return_value = mock_feedback
+
+            scorer = RelevanceToQuery()
+            result = scorer(inputs={"question": "Test question"}, outputs="Test context")
+            assert result.value == expected
 
 
 def test_meets_guidelines_oss():

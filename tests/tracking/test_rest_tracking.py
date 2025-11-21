@@ -38,6 +38,8 @@ from mlflow.entities import (
     RunInputs,
     RunTag,
     Span,
+    SpanEvent,
+    SpanStatusCode,
     ViewType,
 )
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -56,15 +58,20 @@ from mlflow.environment_variables import (
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
 )
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.genai.datasets import (
+    add_dataset_to_experiments,
+    create_dataset,
+    remove_dataset_from_experiments,
+)
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
-from mlflow.server.handlers import _get_sampled_steps_from_steps, initialize_backend_stores
+from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -98,17 +105,12 @@ def store_type(request):
     return request.param
 
 
-def to_db_uri(db_path: Path) -> str:
-    db_uri = db_path.as_uri()
-    return ("sqlite://" if sys.platform == "win32" else "sqlite:////") + db_uri[len("file://") :]
-
-
 @pytest.fixture(scope="module")
 def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
     tmp_dir = tmp_path_factory.mktemp("sqlite_db")
     db_path = tmp_dir / "mlflow.db"
-    backend_uri = to_db_uri(db_path)
+    backend_uri = f"sqlite:///{db_path}"
     artifact_uri = (tmp_dir / "artifacts").as_uri()
 
     store = SqlAlchemyStore(backend_uri, artifact_uri)
@@ -125,7 +127,7 @@ def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
         # Copy the cached database for this test
         db_path = tmp_path / "mlflow.db"
         shutil.copy(cached_db, db_path)
-        backend_uri = to_db_uri(db_path)
+        backend_uri = f"sqlite:///{db_path}"
 
     # Force-reset backend stores before each test.
     handlers._tracking_store = None
@@ -1456,24 +1458,6 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
     assert response_limited.json().get("metrics") == expected_metrics
 
 
-@pytest.mark.parametrize(
-    ("min_step", "max_step", "max_results", "nums", "expected"),
-    [
-        # should be evenly spaced and include the beginning and
-        # end despite sometimes making it go above max_results
-        (0, 10, 5, list(range(10)), {0, 2, 4, 6, 8, 9}),
-        # if the clipped list is shorter than max_results,
-        # then everything will be returned
-        (4, 8, 5, list(range(10)), {4, 5, 6, 7, 8}),
-        # works if steps are logged in intervals
-        (0, 100, 5, list(range(0, 101, 20)), {0, 20, 40, 60, 80, 100}),
-        (0, 1000, 5, list(range(0, 1001, 10)), {0, 200, 400, 600, 800, 1000}),
-    ],
-)
-def test_get_sampled_steps_from_steps(min_step, max_step, max_results, nums, expected):
-    assert _get_sampled_steps_from_steps(min_step, max_step, max_results, nums) == expected
-
-
 def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
         assert resp.status_code == 400
@@ -2526,7 +2510,6 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
     assert trace_info.request_metadata == {
         "meta1": "apple",
         "meta2": "grape",
-        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert _exclude_system_tags(trace_info.tags) == {
         "tag1": "football",
@@ -2540,7 +2523,6 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
         request_metadata={
             "meta1": "orange",
             "meta3": "banana",
-            TRACE_SCHEMA_VERSION_KEY: "2",
         },
         tags={
             "tag1": "soccer",
@@ -2556,7 +2538,6 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
         "meta1": "orange",
         "meta2": "grape",
         "meta3": "banana",
-        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert _exclude_system_tags(trace_info.tags) == {
         "tag1": "soccer",
@@ -2566,48 +2547,61 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
 
 
 def test_start_trace(mlflow_client):
-    experiment_id = mlflow_client.create_experiment("start end trace")
-
-    # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
-    # so we use the underlying tracking client to test them.
-    client = mlflow_client._tracing_client
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow.set_experiment("start end trace").experiment_id
 
     # Helper function to remove auto-added system tags (mlflow.xxx) from testing
-    def _exclude_system_tags(tags: dict[str, str]):
-        return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
+    def _exclude_system_keys(d: dict[str, str]):
+        return {k: v for k, v in d.items() if not k.startswith("mlflow.")}
 
-    trace_info = TraceInfo(
-        trace_id="tr-1234",
-        trace_location=TraceLocation.from_experiment_id(experiment_id),
-        request_time=1000,
-        execution_duration=2000,
-        state=TraceState.OK,
-        trace_metadata={
-            "meta1": "apple",
-            "meta2": "grape",
-            TRACE_SCHEMA_VERSION_KEY: "3",
-        },
-        tags={
-            "tag1": "football",
-            "tag2": "basketball",
-        },
-    )
-    trace_info = client.start_trace(trace_info)
-    assert trace_info.trace_id == "tr-1234"
-    assert trace_info.experiment_id == experiment_id
-    assert trace_info.request_time == 1000
-    assert trace_info.execution_duration == 2000
-    assert trace_info.state == TraceState.OK
-    assert trace_info.trace_metadata == {
+    with mock.patch("mlflow.tracing.export.mlflow_v3._logger.warning") as mock_warning:
+        with mlflow.start_span(name="test") as span:
+            mlflow.update_current_trace(
+                tags={
+                    "tag1": "football",
+                    "tag2": "basketball",
+                },
+                metadata={
+                    "meta1": "apple",
+                    "meta2": "grape",
+                },
+            )
+
+    trace = mlflow_client.get_trace(span.trace_id)
+    assert trace.info.trace_id == span.trace_id
+    assert trace.info.experiment_id == experiment_id
+    assert trace.info.request_time > 0
+    assert trace.info.execution_duration is not None
+    assert trace.info.state == TraceState.OK
+    assert _exclude_system_keys(trace.info.trace_metadata) == {
         "meta1": "apple",
         "meta2": "grape",
-        TRACE_SCHEMA_VERSION_KEY: "3",
     }
-    assert _exclude_system_tags(trace_info.tags) == {
+    assert trace.info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
+    assert _exclude_system_keys(trace.info.tags) == {
         "tag1": "football",
         "tag2": "basketball",
     }
-    assert trace_info == client.get_trace_info(trace_info.trace_id)
+
+    # No "Failed to log span to MLflow backend" warning should be issued
+    for call in mock_warning.call_args_list:
+        assert "Failed to log span to MLflow backend" not in str(call)
+
+
+def test_get_trace(mlflow_client):
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("get trace")
+    span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
+    mlflow_client.end_trace(request_id=span.request_id, status=TraceStatus.OK)
+    trace = mlflow_client.get_trace(span.request_id)
+    assert trace is not None
+    assert trace.info.request_id == span.request_id
+    assert trace.info.experiment_id == experiment_id
+    assert trace.info.state == TraceState.OK
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "test"
+    assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
+    assert trace.data.spans[0].status.description == ""
 
 
 def test_search_traces(mlflow_client):
@@ -2652,6 +2646,53 @@ def test_search_traces(mlflow_client):
     )
     assert _get_request_ids(traces) == [request_id_1]
     assert traces.token is None
+
+
+def test_search_traces_parameter_validation(mlflow_client):
+    with pytest.raises(
+        MlflowException,
+        match="Locations must be a list of experiment IDs",
+    ):
+        mlflow_client.search_traces(locations=["catalog.schema"])
+
+
+def test_search_traces_match_text(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support full text search")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("search traces full text")
+
+    # Create test traces
+    def _create_trace(name, attributes):
+        span = mlflow_client.start_trace(name=name, experiment_id=experiment_id)
+        span.set_attributes(attributes)
+        mlflow_client.end_trace(request_id=span.trace_id, status=TraceStatus.OK)
+        return span.trace_id
+
+    trace_id_1 = _create_trace(name="trace1", attributes={"test": "value1"})
+    trace_id_2 = _create_trace(name="trace2", attributes={"test": "value2"})
+    trace_id_3 = _create_trace(name="trace3", attributes={"test3": "I like it"})
+
+    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    assert len([t.info.trace_id for t in traces]) == 3
+    assert traces.token is None
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%trace%'"
+    )
+    assert len([t.info.trace_id for t in traces]) == 3
+    assert traces.token is None
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%value%'"
+    )
+    assert {t.info.trace_id for t in traces} == {trace_id_1, trace_id_2}
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
+    )
+    assert [t.info.trace_id for t in traces] == [trace_id_3]
 
 
 def test_delete_traces(mlflow_client):
@@ -2804,19 +2845,41 @@ def test_set_and_delete_trace_tag(mlflow_client):
     assert "tag2" not in trace_info.tags
 
 
+@pytest.mark.parametrize("allow_partial", [True, False])
+def test_get_trace_handler(mlflow_client, allow_partial: bool, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support get trace handler")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+
+    with mlflow.start_span(name="test") as span:
+        span.set_attributes({"fruit": "apple"})
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/3.0/mlflow/traces/get",
+        params={"trace_id": span.trace_id, "allow_partial": allow_partial},
+    )
+
+    assert response.status_code == 200
+
+    trace = response.json()["trace"]
+    assert trace["trace_info"]["trace_id"] == span.trace_id
+    assert len(trace["spans"]) == 1
+    assert trace["spans"][0]["name"] == "test"
+    attributes = trace["spans"][0]["attributes"]
+    assert {"key": "fruit", "value": {"string_value": "apple"}} in attributes
+
+
 def test_get_trace_artifact_handler(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
-    experiment_id = mlflow_client.create_experiment("get trace artifact")
-
-    span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
-    request_id = span.request_id
-    span.set_attributes({"fruit": "apple"})
-    mlflow_client.end_trace(request_id=request_id)
+    with mlflow.start_span(name="test") as span:
+        span.set_attributes({"fruit": "apple"})
+        span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
-        params={"request_id": request_id},
+        params={"request_id": span.trace_id},
     )
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
@@ -2866,31 +2929,6 @@ def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
     linked_trace_ids = [t.info.trace_id for t in linked_traces]
     assert len(linked_trace_ids) == 2
     assert set(linked_trace_ids) == {trace_id_1, trace_id_2}
-
-
-def test_get_trace_info_v4_format(mlflow_client):
-    with mlflow.start_span(name="test_span_v4") as span:
-        span.set_inputs({"input_key": "input_value"})
-        span.set_outputs({"output_key": "output_value"})
-        span.set_attributes({"attr1": "value1"})
-
-    original_trace_id = span.trace_id
-
-    trace_info = mlflow_client.get_trace(original_trace_id).info
-
-    location = "catalog.schema"
-    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{original_trace_id}"
-
-    with mock.patch.object(
-        mlflow_client._tracing_client.store, "get_trace_info"
-    ) as mock_get_trace_info:
-        mock_get_trace_info.return_value = trace_info
-
-        trace_info_v4 = mlflow_client.get_trace(v4_trace_id).info
-
-        mock_get_trace_info.assert_called_once_with(v4_trace_id)
-        assert trace_info_v4.trace_id == original_trace_id
-        assert trace_info_v4.state == trace_info.state
 
 
 def test_get_metric_history_bulk_interval_graphql(mlflow_client):
@@ -3674,6 +3712,195 @@ def test_evaluation_dataset_upsert_records(mlflow_client, store_type):
     assert response.status_code != 200
 
 
+def test_add_dataset_to_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("dataset_exp_1")
+    exp2 = mlflow_client.create_experiment("dataset_exp_2")
+    exp3 = mlflow_client.create_experiment("dataset_exp_3")
+
+    dataset = create_dataset(
+        name="test_multi_exp_dataset",
+        experiment_id=[exp1],
+        tags={"test": "multi_exp"},
+    )
+
+    assert len(dataset.experiment_ids) == 1
+    assert exp1 in dataset.experiment_ids
+
+    updated_dataset = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2, exp3],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 3
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 in updated_dataset.experiment_ids
+    assert exp3 in updated_dataset.experiment_ids
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(retrieved.experiment_ids) == 3
+    assert exp1 in retrieved.experiment_ids
+    assert exp2 in retrieved.experiment_ids
+    assert exp3 in retrieved.experiment_ids
+
+
+def test_remove_dataset_from_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("dataset_remove_exp_1")
+    exp2 = mlflow_client.create_experiment("dataset_remove_exp_2")
+    exp3 = mlflow_client.create_experiment("dataset_remove_exp_3")
+
+    dataset = create_dataset(
+        name="test_remove_exp_dataset",
+        experiment_id=[exp1, exp2, exp3],
+        tags={"test": "remove_exp"},
+    )
+
+    assert len(dataset.experiment_ids) == 3
+
+    updated_dataset = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 2
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 not in updated_dataset.experiment_ids
+    assert exp3 in updated_dataset.experiment_ids
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(retrieved.experiment_ids) == 2
+
+    updated_dataset = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp1, exp3],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 0
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(retrieved.experiment_ids) == 0
+
+
+def test_add_multiple_experiments_at_once_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exps = [mlflow_client.create_experiment(f"bulk_add_exp_{i}") for i in range(5)]
+
+    dataset = create_dataset(
+        name="test_bulk_add_dataset",
+        experiment_id=[exps[0]],
+        tags={"test": "bulk_add"},
+    )
+
+    updated_dataset = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=exps[1:],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 5
+    for exp in exps:
+        assert exp in updated_dataset.experiment_ids
+
+
+def test_dataset_experiment_association_error_cases_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("error_test_exp")
+
+    with pytest.raises(MlflowException, match="not found"):
+        add_dataset_to_experiments(
+            dataset_id="d-nonexistent1234567890abcdef1234",
+            experiment_ids=[exp1],
+        )
+
+    with pytest.raises(MlflowException, match="not found"):
+        remove_dataset_from_experiments(
+            dataset_id="d-nonexistent1234567890abcdef1234",
+            experiment_ids=[exp1],
+        )
+
+
+def test_idempotent_add_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("idempotent_test_exp_1")
+    exp2 = mlflow_client.create_experiment("idempotent_test_exp_2")
+
+    dataset = create_dataset(
+        name="test_idempotent_dataset",
+        experiment_id=[exp1, exp2],
+        tags={"test": "idempotent"},
+    )
+
+    assert len(dataset.experiment_ids) == 2
+
+    updated_dataset = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp1],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 2
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 in updated_dataset.experiment_ids
+
+
+def test_idempotent_remove_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("remove_idempotent_test_exp_1")
+    exp2 = mlflow_client.create_experiment("remove_idempotent_test_exp_2")
+
+    dataset = create_dataset(
+        name="test_remove_idempotent_dataset",
+        experiment_id=[exp1],
+        tags={"test": "remove_idempotent"},
+    )
+
+    assert len(dataset.experiment_ids) == 1
+
+    updated_dataset = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 1
+    assert exp1 in updated_dataset.experiment_ids
+
+
+def test_client_api_add_remove_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("client_api_exp_1")
+    exp2 = mlflow_client.create_experiment("client_api_exp_2")
+    exp3 = mlflow_client.create_experiment("client_api_exp_3")
+
+    dataset = mlflow_client.create_dataset(
+        name="test_client_api_dataset",
+        experiment_id=[exp1],
+        tags={"test": "client_api"},
+    )
+
+    updated_dataset = mlflow_client.add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2, exp3],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 3
+
+    updated_dataset = mlflow_client.remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 2
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 not in updated_dataset.experiment_ids
+    assert exp3 in updated_dataset.experiment_ids
+
+
 def test_scorer_CRUD(mlflow_client, store_type):
     if store_type == "file":
         pytest.skip("File store doesn't support scorer CRUD operations")
@@ -3687,7 +3914,7 @@ def test_scorer_CRUD(mlflow_client, store_type):
     serialized_scorer = json.dumps(scorer_data)
 
     version = store.register_scorer(experiment_id, "test_scorer", serialized_scorer)
-    assert version == 1
+    assert version.scorer_version == 1
 
     # Test list scorers
     scorers = store.list_scorers(experiment_id)
@@ -3720,7 +3947,7 @@ def test_scorer_CRUD(mlflow_client, store_type):
     serialized_scorer_v2 = json.dumps(scorer_data_v2)
 
     version_v2 = store.register_scorer(str(experiment_id), "test_scorer", serialized_scorer_v2)
-    assert version_v2 == 2
+    assert version_v2.scorer_version == 2
 
     # Verify list scorers returns latest version
     scorers_after_v2 = store.list_scorers(str(experiment_id))
@@ -3788,11 +4015,11 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
     if use_async:
         # Use await to execute the async method
         result_spans = await mlflow_client._tracking_client.store.log_spans_async(
-            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+            location=experiment_id, spans=[mlflow_span_to_log]
         )
     else:
         result_spans = mlflow_client._tracking_client.store.log_spans(
-            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+            location=experiment_id, spans=[mlflow_span_to_log]
         )
 
     # Verify the spans were returned (indicates successful logging)

@@ -147,6 +147,11 @@ def create_experiments(store, experiment_names):
     return ids
 
 
+def test_file_store_deprecation_warning(tmp_path):
+    with pytest.warns(FutureWarning, match="filesystem tracking backend.*will be deprecated"):
+        FileStore(str(tmp_path / "mlruns"))
+
+
 def test_valid_root(store):
     store._check_root_dir()
     shutil.rmtree(store.root_directory)
@@ -430,7 +435,7 @@ def _verify_experiment(fs, exp_id, exp_data):
 
 def _verify_logged(store, run_id, metrics, params, tags):
     run = store.get_run(run_id)
-    all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     assert len(all_metrics) == len(metrics)
     logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
     assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
@@ -3008,7 +3013,6 @@ def test_legacy_start_trace_v2(store):
     assert trace_info.timestamp_ms == timestamp_ms
     assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
-    assert trace_info.request_metadata == {TRACE_SCHEMA_VERSION_KEY: "2"}
     assert trace_info.tags == tags
 
     with pytest.raises(MlflowException, match=r"Experiment fake_exp_id does not exist."):
@@ -3063,7 +3067,6 @@ def test_start_trace(store):
     assert new_trace_info.execution_time_ms == 100
     assert new_trace_info.state == TraceState.OK
     assert new_trace_info.tags["mlflow.artifactLocation"] is not None
-    assert new_trace_info.trace_metadata == {TRACE_SCHEMA_VERSION_KEY: "3"}
     assert new_trace_info.client_request_id == trace_info.client_request_id
 
 
@@ -3366,6 +3369,46 @@ def test_search_traces_filter_trace_metadata(store):
     )
 
 
+def test_search_traces_with_like_ilike_filters(generate_trace_infos):
+    trace_infos = generate_trace_infos.trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+
+    # Test LIKE operator for trace name (case-sensitive)
+    _validate_search_traces(store, [exp_id], "name LIKE 'trace_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "name LIKE 'trace_0'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], "name LIKE 'trace_1%'", [trace_infos[1]])
+    _validate_search_traces(store, [exp_id], "name LIKE 'TRACE_%'", [])  # case-sensitive
+
+    # Test ILIKE operator for trace name (case-insensitive)
+    _validate_search_traces(store, [exp_id], "name ILIKE 'TRACE_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "name ILIKE 'TRACE_0'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], "name ILIKE 'TrAcE_1'", [trace_infos[1]])
+
+    # Test LIKE operator for tags
+    _validate_search_traces(store, [exp_id], "tag.test_tag LIKE 'tag_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "tag.test_tag LIKE 'tag_0'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], "tag.test_tag LIKE 'TAG_%'", [])  # case-sensitive
+
+    # Test ILIKE operator for tags using both 'tag' and 'tags' prefix
+    _validate_search_traces(store, [exp_id], "tag.test_tag ILIKE 'TAG_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "tags.test_tag ILIKE 'TAG_0'", [trace_infos[0]])
+
+    # Test LIKE/ILIKE for run_id
+    _validate_search_traces(store, [exp_id], "run_id LIKE 'run_%'", trace_infos[5:][::-1])
+    _validate_search_traces(store, [exp_id], "run_id LIKE 'run_5'", [trace_infos[5]])
+    _validate_search_traces(store, [exp_id], "run_id ILIKE 'RUN_5'", [trace_infos[5]])
+    _validate_search_traces(store, [exp_id], "run_id ILIKE 'RUN_%'", trace_infos[5:][::-1])
+
+    # Test combined filters with LIKE/ILIKE
+    _validate_search_traces(
+        store, [exp_id], "name LIKE 'trace_%' AND status = 'OK'", trace_infos[:5][::-1]
+    )
+    _validate_search_traces(
+        store, [exp_id], "tag.test_tag ILIKE 'TAG_%' AND timestamp < 20", trace_infos[:2][::-1]
+    )
+
+
 @pytest.mark.parametrize(
     ("filter_string", "error"),
     [
@@ -3376,12 +3419,7 @@ def test_search_traces_filter_trace_metadata(store):
         ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
         ("trace.status < 'OK'", r"Invalid comparator '<'"),
         ("name IN ('foo', 'bar')", r"Invalid comparator 'IN'"),
-        # We don't support LIKE/ILIKE operators for trace search because it may
-        # cause performance issues with large attributes and tags.
-        ("name LIKE 'trace_%'", r"Invalid comparator 'LIKE'"),
-        ("run_id ILIKE 'run_%'", r"Invalid comparator 'ILIKE'"),
-        ("tag.test_tag LIKE 'tag_%'", r"Invalid comparator 'LIKE'"),
-        ("tags.test_tag ILIKE 'tag_%'", r"Invalid comparator 'ILIKE'"),
+        ("feedback.correctness = 'true'", r"Assessment filtering requires database support"),
     ],
 )
 def test_search_traces_invalid_filter(generate_trace_infos, filter_string, error):

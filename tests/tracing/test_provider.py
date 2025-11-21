@@ -6,9 +6,11 @@ from opentelemetry import trace
 
 import mlflow
 import mlflow.tracking._tracking_service
+from mlflow.entities.trace_location import MlflowExperimentLocation, UCSchemaLocation
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
+    MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
@@ -17,26 +19,30 @@ from mlflow.tracing.export.inference_table import (
     InferenceTableSpanExporter,
 )
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
+from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
-    _setup_tracer_provider,
+    _initialize_tracer_provider,
     is_tracing_enabled,
     start_span_in_context,
     trace_disabled,
 )
+from mlflow.tracing.utils import get_active_spans_table_name
 
 from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
 
 
 @pytest.fixture
 def mock_setup_tracer_provider():
-    # To count the number of times _setup_tracer_provider is called
+    # To count the number of times _initialize_tracer_provider is called
     with mock.patch(
-        "mlflow.tracing.provider._setup_tracer_provider", side_effect=_setup_tracer_provider
+        "mlflow.tracing.provider._initialize_tracer_provider",
+        side_effect=_initialize_tracer_provider,
     ) as setup_mock:
         yield setup_mock
 
@@ -85,23 +91,7 @@ def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_
 
 
 def test_set_destination_mlflow_experiment(monkeypatch):
-    # Set destination with experiment_id
-    mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="123"))
-
-    tracer = _get_tracer("test")
-    processors = tracer.span_processor._span_processors
-    assert len(processors) == 1
-    assert isinstance(processors[0], MlflowV3SpanProcessor)
-    assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
-
-    # Set destination with experiment_id and tracking_uri
-    mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="456"))
-
-    tracer = _get_tracer("test")
-    processors = tracer.span_processor._span_processors
-
-    # Experiment with Databricks tracking URI -> V3 exporter should be used
-    mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="456"))
+    mlflow.tracing.set_destination(destination=MlflowExperimentLocation(experiment_id="123"))
 
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
@@ -120,15 +110,71 @@ def test_set_destination_databricks(monkeypatch):
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
 
 
-def test_set_destination_databricks_serving(mock_databricks_serving_with_tracing_env, monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
-    mlflow.tracing.set_destination(destination=Databricks(experiment_id="123"))
+def test_set_destination_databricks_uc(monkeypatch):
+    mlflow.tracing.set_destination(
+        destination=UCSchemaLocation(
+            catalog_name="catalog",
+            schema_name="schema",
+        )
+    )
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+    assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
+    assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
+
+
+def test_set_destination_from_env_var_mlflow_experiment(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "123")
 
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowV3SpanProcessor)
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+
+
+def test_set_destination_from_env_var_databricks_uc(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+    assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
+    assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
+
+
+def test_set_destination_in_model_serving(mock_databricks_serving_with_tracing_env, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+    assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
+    assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
+
+
+def test_set_destination_deprecated_classes():
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    with pytest.warns(FutureWarning, match="`mlflow.tracing.destination.MlflowExperiment``"):
+        mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="123"))
+
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, MlflowExperimentLocation)
+    assert destination.experiment_id == "123"
+
+    with pytest.warns(FutureWarning, match="`mlflow.tracing.destination.Databricks`"):
+        mlflow.tracing.set_destination(destination=Databricks(experiment_id="123"))
+
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, MlflowExperimentLocation)
+    assert destination.experiment_id == "123"
 
 
 def test_disable_enable_tracing():
@@ -217,7 +263,9 @@ def test_trace_disabled_decorator(enabled_initially):
         assert enable_mock.call_count == (1 if enabled_initially else 0)
 
 
-def test_disable_enable_tracing_not_mutate_otel_provider():
+def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+
     # This test validates that disable/enable MLflow tracing does not mutate the OpenTelemetry's
     # global tracer provider instance.
     otel_tracer_provider = trace.get_tracer_provider()
@@ -367,40 +415,38 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
 
     # Test 1: OTLP exclusive mode (dual export = false, default)
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")
-    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
-        with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
-            mock_get_exporter.return_value = mock.MagicMock()
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter,
+    ):
+        mock_get_exporter.return_value = mock.MagicMock()
 
-            mlflow.tracing.reset()
-            tracer = _get_tracer("test")
+        mlflow.tracing.reset()
+        tracer = _get_tracer("test")
 
-            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+        processors = tracer.span_processor._span_processors
 
-            assert _MLFLOW_TRACER_PROVIDER is not None
-            processors = tracer.span_processor._span_processors
-
-            # Should have only OTLP processor as primary
-            assert len(processors) == 1
-            assert isinstance(processors[0], OtelSpanProcessor)
+        # Should have only OTLP processor as primary
+        assert len(processors) == 1
+        assert isinstance(processors[0], OtelSpanProcessor)
 
     # Test 2: Dual export mode (both MLflow and OTLP)
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
-    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
-        with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
-            mock_get_exporter.return_value = mock.MagicMock()
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter,
+    ):
+        mock_get_exporter.return_value = mock.MagicMock()
 
-            mlflow.tracing.reset()
-            tracer = _get_tracer("test")
+        mlflow.tracing.reset()
+        tracer = _get_tracer("test")
 
-            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+        processors = tracer.span_processor._span_processors
 
-            assert _MLFLOW_TRACER_PROVIDER is not None
-            processors = tracer.span_processor._span_processors
-
-            # Should have both processors
-            assert len(processors) == 2
-            assert isinstance(processors[0], OtelSpanProcessor)
-            assert isinstance(processors[1], MlflowV3SpanProcessor)
+        # Should have both processors
+        assert len(processors) == 2
+        assert isinstance(processors[0], OtelSpanProcessor)
+        assert isinstance(processors[1], MlflowV3SpanProcessor)
 
 
 @skip_when_testing_trace_sdk

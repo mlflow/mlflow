@@ -1,5 +1,3 @@
-"""Tests for DSPy utility functions."""
-
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -185,7 +183,6 @@ def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment, mo
 
 
 def test_create_dspy_signature(mock_judge):
-    """Test creating DSPy signature."""
     pytest.importorskip("dspy", reason="DSPy not installed")
 
     signature = create_dspy_signature(mock_judge)
@@ -219,7 +216,6 @@ def test_agreement_metric():
 
 
 def test_agreement_metric_error_handling():
-    """Test agreement metric error handling."""
     # Test with invalid inputs
     result = agreement_metric(None, None)
     assert result is False
@@ -330,3 +326,28 @@ def test_construct_dspy_lm_utility_method(model, expected_type):
         assert isinstance(result, dspy.LM)
         # Ensure MLflow URI format is converted (no :/ in the model)
         assert ":/" not in result.model
+
+
+def test_agent_eval_lm_uses_optimizer_session_name():
+    """Test that AgentEvalLM uses mlflow-judge-optimizer session name."""
+    from mlflow.utils import AttrDict
+
+    pytest.importorskip("dspy", reason="DSPy not installed")
+
+    mock_response = AttrDict({"output": "test response", "error_message": None})
+
+    with (
+        patch("mlflow.genai.judges.optimizers.dspy_utils.call_chat_completions") as mock_call,
+        patch("mlflow.genai.judges.optimizers.dspy_utils.VERSION", "1.0.0"),
+    ):
+        mock_call.return_value = mock_response
+
+        agent_lm = AgentEvalLM()
+        agent_lm.forward(prompt="test prompt")
+
+        # Verify call_chat_completions was called with the optimizer session name
+        mock_call.assert_called_once_with(
+            user_prompt="test prompt",
+            system_prompt=None,
+            session_name="mlflow-judge-optimizer-v1.0.0",
+        )

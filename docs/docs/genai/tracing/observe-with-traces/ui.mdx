@@ -1,6 +1,7 @@
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # MLflow Tracing UI
 
@@ -16,19 +17,19 @@ This table includes high-level information about the traces, such as the trace I
   <TabItem value="search" label="Search" default>
     Using the search bar in the UI, you can easily filter your traces based on name, tags, or other metadata. Check out the [search docs](/genai/tracing/search-traces) for details about the query string format.
 
-    ![Searching traces](/images/llms/tracing/trace-session-id.gif)
+    <video src={useBaseUrl("/images/llms/tracing/trace-session-id.mp4")} controls loop autoPlay muted aria-label="Searching traces" />
 
   </TabItem>
   <TabItem value="delete" label="Delete">
     The UI supports bulk deletion of traces. Simply select the traces you want to delete by checking the checkboxes, and then pressing the "Delete" button.
 
-    ![Deleting traces](/images/llms/tracing/trace-delete.gif)
+    <video src={useBaseUrl("/images/llms/tracing/trace-delete.mp4")} controls loop autoPlay muted aria-label="Deleting traces" />
 
   </TabItem>
   <TabItem value="edit-tags" label="Edit Tags">
     You can also edit key-value tags on your traces via the UI.
 
-    ![Traces tag update](/images/llms/tracing/trace-set-tag.gif)
+    <video src={useBaseUrl("/images/llms/tracing/trace-set-tag.mp4")} controls loop autoPlay muted aria-label="Traces tag update" />
 
   </TabItem>
 </Tabs>
@@ -37,7 +38,7 @@ This table includes high-level information about the traces, such as the trace I
 
 In order to browse the span data of an individual trace, simply click on the link in the "Trace ID" or "Trace name" columns to open the trace viewer:
 
-![Trace Browser](/images/llms/tracing/tracing-top.gif)
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
 
 ## Jupyter Notebook integration
 
@@ -50,7 +51,7 @@ you to debug your applications without having to tab out of your development env
 
 ![Jupyter Trace UI](/images/llms/tracing/jupyter-trace-ui.png)
 
-This feature requires using an [MLflow Tracking Server](/ml/tracking/server), as
+This feature requires using an [MLflow Tracking Server](/self-hosting/architecture/tracking-server), as
 this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
 Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
 

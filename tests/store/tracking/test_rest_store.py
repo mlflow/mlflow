@@ -35,7 +35,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
-from mlflow.entities.trace_location import TraceLocation, TraceLocationType
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -47,6 +47,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
+    AddDatasetToExperiments,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
@@ -66,8 +67,8 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     GetLoggedModel,
     GetScorer,
+    GetTrace,
     GetTraceInfoV3,
-    GetTraceInfoV4,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -77,6 +78,7 @@ from mlflow.protos.service_pb2 import (
     LogModel,
     LogParam,
     RegisterScorer,
+    RemoveDatasetFromExperiments,
     RestoreExperiment,
     RestoreRun,
     SearchEvaluationDatasets,
@@ -93,9 +95,9 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
-from mlflow.store.tracking.rest_store import _METHOD_TO_INFO, RestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
@@ -126,8 +128,7 @@ def mock_http_request():
     )
 
 
-@mock.patch("requests.Session.request")
-def test_successful_http_request(request):
+def test_successful_http_request():
     def mock_request(*args, **kwargs):
         # Filter out None arguments
         assert args == ("POST", "https://hello/api/2.0/mlflow/experiments/search")
@@ -144,39 +145,34 @@ def test_successful_http_request(request):
         response.text = '{"experiments": [{"name": "Exp!", "lifecycle_stage": "active"}]}'
         return response
 
-    request.side_effect = mock_request
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://hello"))
+        experiments = store.search_experiments()
+        assert experiments[0].name == "Exp!"
 
-    store = RestStore(lambda: MlflowHostCreds("https://hello"))
-    experiments = store.search_experiments()
-    assert experiments[0].name == "Exp!"
 
-
-@mock.patch("requests.Session.request")
-def test_failed_http_request(request):
+def test_failed_http_request():
     response = mock.MagicMock()
     response.status_code = 404
     response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "No experiment"}'
-    request.return_value = response
+    with mock.patch("requests.Session.request", return_value=response):
+        store = RestStore(lambda: MlflowHostCreds("https://hello"))
+        with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST: No experiment"):
+            store.search_experiments()
 
-    store = RestStore(lambda: MlflowHostCreds("https://hello"))
-    with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST: No experiment"):
-        store.search_experiments()
 
-
-@mock.patch("requests.Session.request")
-def test_failed_http_request_custom_handler(request):
+def test_failed_http_request_custom_handler():
     response = mock.MagicMock()
     response.status_code = 404
     response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "No experiment"}'
-    request.return_value = response
 
-    store = CustomErrorHandlingRestStore(lambda: MlflowHostCreds("https://hello"))
-    with pytest.raises(MyCoolException, match="cool"):
-        store.search_experiments()
+    with mock.patch("requests.Session.request", return_value=response):
+        store = CustomErrorHandlingRestStore(lambda: MlflowHostCreds("https://hello"))
+        with pytest.raises(MyCoolException, match="cool"):
+            store.search_experiments()
 
 
-@mock.patch("requests.Session.request")
-def test_response_with_unknown_fields(request):
+def test_response_with_unknown_fields():
     experiment_json = {
         "experiment_id": "1",
         "name": "My experiment",
@@ -189,12 +185,11 @@ def test_response_with_unknown_fields(request):
     response.status_code = 200
     experiments = {"experiments": [experiment_json]}
     response.text = json.dumps(experiments)
-    request.return_value = response
-
-    store = RestStore(lambda: MlflowHostCreds("https://hello"))
-    experiments = store.search_experiments()
-    assert len(experiments) == 1
-    assert experiments[0].name == "My experiment"
+    with mock.patch("requests.Session.request", return_value=response):
+        store = RestStore(lambda: MlflowHostCreds("https://hello"))
+        experiments = store.search_experiments()
+        assert len(experiments) == 1
+        assert experiments[0].name == "My experiment"
 
 
 def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None):
@@ -793,7 +788,7 @@ def test_search_traces():
     # Test with databricks tracking URI (using v3 endpoint)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         trace_infos, token = store.search_traces(
-            experiment_ids=experiment_ids,
+            locations=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
@@ -827,74 +822,24 @@ def test_search_traces():
     assert trace_infos[0].state == TraceStatus.OK.to_state()
     # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
     assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
 
 
-def test_search_unified_traces():
-    """Test the search_traces method when using SearchUnifiedTraces with sql_warehouse_id."""
+def test_search_traces_errors():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 200
+    with pytest.raises(
+        MlflowException,
+        match="Locations must be a list of experiment IDs",
+    ):
+        store.search_traces(locations=["catalog.schema"])
 
-    # Format the response (using TraceInfo format for online path)
-    response.text = json.dumps(
-        {
-            "traces": [
-                {
-                    "request_id": "tr-1234",
-                    "experiment_id": "1234",
-                    "timestamp_ms": 123,
-                    "execution_time_ms": 456,
-                    "status": "OK",
-                    "tags": [
-                        {"key": "k", "value": "v"},
-                    ],
-                    "request_metadata": [
-                        {"key": "key", "value": "value"},
-                    ],
-                }
-            ],
-            "next_page_token": "token",
-        }
-    )
-
-    # Parameters for search_traces
-    experiment_ids = ["1234"]
-    filter_string = "status = 'OK'"
-    max_results = 10
-    order_by = ["timestamp_ms DESC"]
-    page_token = "12345abcde"
-    sql_warehouse_id = "warehouse123"
-    model_id = "model123"
-
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        trace_infos, token = store.search_traces(
-            experiment_ids=experiment_ids,
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=page_token,
-            sql_warehouse_id=sql_warehouse_id,
-            model_id=model_id,
-        )
-
-        # Verify the correct endpoint was called
-        call_args = mock_http.call_args[1]
-        assert call_args["endpoint"] == "/api/2.0/mlflow/unified-traces"
-
-        # Verify the correct trace info objects were returned
-        assert len(trace_infos) == 1
-        assert isinstance(trace_infos[0], TraceInfo)
-        assert trace_infos[0].trace_id == "tr-1234"
-        assert trace_infos[0].experiment_id == "1234"
-        assert trace_infos[0].request_time == 123
-        # V3's state maps to V2's status
-        assert trace_infos[0].state == TraceStatus.OK.to_state()
-        assert trace_infos[0].tags == {"k": "v"}
-        assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
-        assert token == "token"
+    with pytest.raises(
+        MlflowException,
+        match="Searching traces by model_id is not supported on the current tracking server.",
+    ):
+        store.search_traces(model_id="model_id")
 
 
 def test_get_artifact_uri_for_trace_compatibility():
@@ -964,6 +909,36 @@ def test_delete_traces(delete_traces_kwargs):
         res = store.delete_traces(**delete_traces_kwargs)
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
         assert res == 1
+
+
+def test_delete_traces_with_batching():
+    """Test that delete_traces batches requests when trace_ids exceed the batch size limit."""
+    from mlflow.environment_variables import _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE
+
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Create 250 trace IDs to test batching (should create 3 batches: 100, 100, 50)
+    num_traces = 250
+    trace_ids = [f"tr-{i}" for i in range(num_traces)]
+
+    # Each batch returns some number of deleted traces
+    response.text = json.dumps({"traces_deleted": 100})
+
+    batch_size = _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get()
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.delete_traces(experiment_id="0", trace_ids=trace_ids)
+
+        # Verify that we made 3 API calls (250 / 100 = 3 batches)
+        expected_num_calls = math.ceil(num_traces / batch_size)
+        assert mock_http.call_count == expected_num_calls
+
+        # Verify that batch sizes are [100, 100, 50]
+        batch_sizes = [len(call[1]["json"]["request_ids"]) for call in mock_http.call_args_list]
+        assert batch_sizes == [100, 100, 50]
 
 
 def test_set_trace_tag():
@@ -1322,7 +1297,7 @@ def test_get_trace_info():
         assert isinstance(result, TraceInfo)
         assert result.trace_id == span.trace_id
         assert result.experiment_id == "0"
-        assert result.trace_metadata == {"key1": "value1", "mlflow.trace_schema.version": "3"}
+        assert result.trace_metadata == {"key1": "value1"}
         assert result.tags == {"tag1": "value1"}
         assert result.state == TraceState.OK
         assert len(result.assessments) == 4
@@ -1332,96 +1307,60 @@ def test_get_trace_info():
         assert result.assessments[3].name == "complex_expectation"
 
 
-def test_get_trace_info_v4_format(monkeypatch):
-    with mlflow.start_span(name="test_span_v4") as span:
-        span.set_inputs({"input": "test_value"})
-        span.set_outputs({"output": "result"})
+def test_get_trace():
+    # Generate a sample trace with spans
+    with mlflow.start_span(name="root_span") as span:
+        span.set_inputs({"input": "value"})
+        span.set_outputs({"output": "value"})
+        with mlflow.start_span(name="child_span") as child:
+            child.set_inputs({"child_input": "child_value"})
 
     trace = mlflow.get_trace(span.trace_id)
     trace_proto = trace.to_proto()
-    mock_v4_response = GetTraceInfoV4.Response(trace=trace_proto)
+    mock_response = GetTrace.Response(trace=trace_proto)
 
-    store = RestStore(lambda: MlflowHostCreds("https://test"))
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
 
-    location = "catalog.schema"
-    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{span.trace_id}"
+    with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
+        result = store.get_trace(span.trace_id, allow_partial=True)
 
-    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "test-warehouse")
-    with mock.patch.object(store, "_call_endpoint", return_value=mock_v4_response) as mock_call:
-        result = store.get_trace_info(v4_trace_id)
+        # Verify we get the expected object back
+        assert isinstance(result, Trace)
+        assert result.info.trace_id == span.trace_id
+        assert len(result.data.spans) == 2
 
+        # Verify the endpoint was called with correct parameters
         mock_call.assert_called_once()
         call_args = mock_call.call_args
-
-        assert call_args[0][0] == GetTraceInfoV4
-
-        request_body = call_args[0][1]
-        request_data = json.loads(request_body)
-        assert request_data["trace_id"] == span.trace_id
-        assert request_data["location"] == location
-        assert request_data["sql_warehouse_id"] == "test-warehouse"
-
-        endpoint = call_args[1]["endpoint"]
-        assert f"/traces/{location}/{span.trace_id}/info" in endpoint
-
-        assert isinstance(result, TraceInfo)
-        assert result.trace_id == span.trace_id
+        assert call_args[0][0] == GetTrace
+        # Check the request body contains the trace_id and allow_partial
+        request_body_json = json.loads(call_args[0][1])
+        assert request_body_json["trace_id"] == span.trace_id
+        assert request_body_json["allow_partial"] is True
 
 
-def test_get_trace_info_v4_fallback_to_v3():
-    with mlflow.start_span(name="test_span_v3") as span:
-        span.set_inputs({"input": "test_value"})
-
-    trace = mlflow.get_trace(span.trace_id)
-    trace_proto = trace.to_proto()
-    mock_v3_response = GetTraceInfoV3.Response(trace=trace_proto)
-
-    store = RestStore(lambda: MlflowHostCreds("https://test"))
-
-    with mock.patch.object(store, "_call_endpoint", return_value=mock_v3_response) as mock_call:
-        result = store.get_trace_info(span.trace_id)
-
-        mock_call.assert_called_once()
-        call_args = mock_call.call_args
-        assert call_args[0][0] == GetTraceInfoV3
-
-        request_body = call_args[0][1]
-        request_data = json.loads(request_body)
-        assert request_data["trace_id"] == span.trace_id
-
-        assert isinstance(result, TraceInfo)
-        assert result.trace_id == span.trace_id
-
-
-def test_get_trace_info_v4_different_location_formats():
+def test_get_trace_with_allow_partial_false():
+    # Generate a sample trace
     with mlflow.start_span(name="test_span") as span:
         span.set_inputs({"input": "value"})
 
     trace = mlflow.get_trace(span.trace_id)
-    trace.info.trace_location = TraceLocation.from_uc_schema("catalog", "schema")
-    mock_response = GetTraceInfoV4.Response(trace=trace.to_proto())
-    store = RestStore(lambda: MlflowHostCreds("https://test"))
+    trace_proto = trace.to_proto()
+    mock_response = GetTrace.Response(trace=trace_proto)
 
-    test_locations = ["experiment123", "catalog.schema"]
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
 
-    for location in test_locations:
-        v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{span.trace_id}"
+    with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
+        result = store.get_trace(span.trace_id, allow_partial=False)
 
-        with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
-            result = store.get_trace_info(v4_trace_id)
+        # Verify we get the expected object back
+        assert isinstance(result, Trace)
+        assert result.info.trace_id == span.trace_id
 
-            call_args = mock_call.call_args
-            request_data = json.loads(call_args[0][1])
-            assert request_data["location"] == location
-            assert request_data["trace_id"] == span.trace_id
-
-            endpoint = call_args[1]["endpoint"]
-            assert f"/traces/{location}/{span.trace_id}/info" in endpoint
-
-            assert isinstance(result, TraceInfo)
-            assert result.trace_location.type == TraceLocationType.UC_SCHEMA
-            assert result.trace_location.uc_schema.catalog_name == "catalog"
-            assert result.trace_location.uc_schema.schema_name == "schema"
+        # Verify the endpoint was called with allow_partial=False
+        call_args = mock_call.call_args
+        request_body_json = json.loads(call_args[0][1])
+        assert request_body_json["allow_partial"] is False
 
 
 def test_log_logged_model_params():
@@ -1464,7 +1403,7 @@ def test_log_logged_model_params():
             _, endpoint, method, json_body, response_proto = call.args
 
             # Verify endpoint and method are correct
-            assert endpoint, method == _METHOD_TO_INFO[LogLoggedModelParamsRequest]
+            assert endpoint, method == RestStore._METHOD_TO_INFO[LogLoggedModelParamsRequest]
             assert json_body == batches[i]
 
 
@@ -1506,7 +1445,6 @@ def test_log_logged_model_params():
 def test_create_logged_models_with_params(
     monkeypatch, params_count, expected_call_count, create_batch_size, log_batch_size
 ):
-    """Test creating logged models with parameters."""
     # Set environment variables using monkeypatch
     monkeypatch.setenv(_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, str(create_batch_size))
     monkeypatch.setenv(_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, str(log_batch_size))
@@ -2007,7 +1945,7 @@ def test_evaluation_dataset_merge_records():
         last_update_time=1234567890,
     )
 
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_get_store:
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
         with mock.patch.object(store, "get_dataset") as mock_get:
@@ -2122,7 +2060,7 @@ def test_evaluation_dataset_lazy_loading_records():
         last_update_time=1234567890,
     )
 
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_get_store:
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
         with mock.patch.object(store, "_load_dataset_records") as mock_load:
@@ -2450,6 +2388,81 @@ def test_evaluation_dataset_user_tracking_search():
         assert request_json["filter_string"] == "last_updated_by = 'user2'"
 
 
+def test_add_dataset_to_experiments():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = AddDatasetToExperiments.Response()
+        response.dataset.dataset_id = "d-1234567890abcdef1234567890abcdef"
+        response.dataset.name = "test_dataset"
+        response.dataset.experiment_ids.extend(["0", "1", "3", "4"])
+        response.dataset.created_time = 1234567890
+        response.dataset.last_update_time = 1234567890
+        response.dataset.digest = "abc123"
+
+        mock_call.side_effect = [response]
+
+        result = store.add_dataset_to_experiments(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+            experiment_ids=["3", "4"],
+        )
+
+        assert mock_call.call_count == 1
+        assert result.dataset_id == "d-1234567890abcdef1234567890abcdef"
+        assert "3" in result.experiment_ids
+        assert "4" in result.experiment_ids
+        assert "0" in result.experiment_ids
+        assert "1" in result.experiment_ids
+
+        req = AddDatasetToExperiments(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+            experiment_ids=["3", "4"],
+        )
+        mock_call.assert_called_once_with(
+            AddDatasetToExperiments,
+            message_to_json(req),
+            endpoint="/api/3.0/mlflow/datasets/d-1234567890abcdef1234567890abcdef/add-experiments",
+        )
+
+
+def test_remove_dataset_from_experiments():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = RemoveDatasetFromExperiments.Response()
+        response.dataset.dataset_id = "d-1234567890abcdef1234567890abcdef"
+        response.dataset.name = "test_dataset"
+        response.dataset.experiment_ids.extend(["0", "1"])
+        response.dataset.created_time = 1234567890
+        response.dataset.last_update_time = 1234567890
+        response.dataset.digest = "abc123"
+
+        mock_call.side_effect = [response]
+
+        result = store.remove_dataset_from_experiments(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+            experiment_ids=["3"],
+        )
+
+        assert mock_call.call_count == 1
+        assert result.dataset_id == "d-1234567890abcdef1234567890abcdef"
+        assert "3" not in result.experiment_ids
+        assert "0" in result.experiment_ids
+        assert "1" in result.experiment_ids
+
+        req = RemoveDatasetFromExperiments(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+            experiment_ids=["3"],
+        )
+        mock_call.assert_called_once_with(
+            RemoveDatasetFromExperiments,
+            message_to_json(req),
+            endpoint="/api/3.0/mlflow/datasets/d-1234567890abcdef1234567890abcdef/remove-experiments",
+        )
+
+
 def test_register_scorer():
     """Test register_scorer method."""
     store = RestStore(lambda: None)
@@ -2459,18 +2472,24 @@ def test_register_scorer():
         name = "accuracy_scorer"
         serialized_scorer = "serialized_scorer_data"
 
-        # Mock response
         mock_response = mock.MagicMock()
         mock_response.version = 1
+        mock_response.scorer_id = "test-scorer-id"
+        mock_response.experiment_id = experiment_id
+        mock_response.name = name
+        mock_response.serialized_scorer = serialized_scorer
+        mock_response.creation_time = 1234567890
         mock_call_endpoint.return_value = mock_response
 
-        # Call the method
-        version = store.register_scorer(experiment_id, name, serialized_scorer)
+        scorer_version = store.register_scorer(experiment_id, name, serialized_scorer)
 
-        # Verify result
-        assert version == 1
+        assert scorer_version.scorer_version == 1
+        assert scorer_version.scorer_id == "test-scorer-id"
+        assert scorer_version.experiment_id == experiment_id
+        assert scorer_version.scorer_name == name
+        assert scorer_version._serialized_scorer == serialized_scorer
+        assert scorer_version.creation_time == 1234567890
 
-        # Verify API call
         mock_call_endpoint.assert_called_once_with(
             RegisterScorer,
             message_to_json(

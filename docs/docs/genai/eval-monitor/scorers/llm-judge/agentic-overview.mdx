@@ -1,96 +1,77 @@
 ---
-title: Agent-as-a-Judge Overview
-sidebar_label: Overview
+title: Agent-based Scorers (Agent-as-a-Judge)
 description: Understanding how judges become autonomous agents for deep trace analysis
 ---
 
-import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import ConceptOverview from "@site/src/components/ConceptOverview";
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import ImageBox from "@site/src/components/ImageBox";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Brain, Search, Activity, GitBranch, Target, Shield, FileText } from "lucide-react";
+import { Brain, Wrench, Users } from "lucide-react";
 
-# Agent-as-a-Judge: Autonomous Trace Analysis
+# Agent-based Scorer (aka. Agent-as-a-Judge)
 
 Agent-as-a-Judge represents a paradigm shift in LLM evaluation. Instead of simply assessing inputs and outputs, these judges act as **autonomous agents** equipped with tools to investigate your application's execution in depth.
 
-## What Is Agent-as-a-Judge in MLflow?
+## How it works
 
-When you use the `{{ trace }}` template variable in your judge instructions, MLflow transforms your judge from a passive evaluator into an active investigator. The judge gains access to MCP (Model Context Protocol) tools that interface with MLflow's APIs, enabling it to:
+![](/images/mlflow-3/eval-monitor/scorers/llm-judge-vs-agent-judge.png)
 
-<FeatureHighlights features={[
-  {
-    icon: Search,
-    title: "Explore Execution Flows",
-    description: "Navigate through traces, fetching specific spans as needed to understand the application's behavior."
-  },
-  {
-    icon: Activity,
-    title: "Analyze Performance",
-    description: "Examine timing, latency, and resource usage across different components of your application."
-  },
-  {
-    icon: GitBranch,
-    title: "Detect Patterns",
-    description: "Identify bottlenecks, redundancies, circular logic, and inefficient execution paths."
-  },
-  {
-    icon: Shield,
-    title: "Verify Behavior",
-    description: "Check tool usage, error handling, retry logic, and compliance with expected patterns."
-  }
-]} />
+Agent-as-a-Judge uses the following tools to investigate traces logged to the MLflow backend. These tools enable the judge to act like an experienced debugger, systematically exploring your application's execution.
 
-## Field-Based vs Agent-as-a-Judge Evaluation
+| Tool               | Description                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| `GetTraceInfo`     | Retrieves high-level information about a trace including timing, status, and metadata.               |
+| `ListSpans`        | Lists all spans in a trace with their hierarchy, timing, and basic attributes.                       |
+| `GetSpan`          | Fetches detailed information about a specific span including inputs, outputs, and custom attributes. |
+| `SearchTraceRegex` | Searches for patterns across all span data using regular expressions.                                |
+
+:::info Why not directly pass a trace to LLM?
+
+While it works for simple cases, traces from real-world applications are often large and complex. Passing the entire trace to LLM will quickly run into context window limit and degrade the judge accuracy. Agentic-approach uses tools to explore the trace structure and fetch the necessary details without eating up the context window.
+
+:::
+
+## Comparison with LLM-as-a-Judge
 
 Understanding when to use each approach depends on where you are in your development lifecycle:
 
-| **Aspect**             | **Agent-as-a-Judge**                                                                                                                                       | **Field-Based Judges (LLM-as-a-Judge)**                                                                                               |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **Development stage**  | Early development, iteration, and refinement                                                                                                               | Near-production validation and production monitoring                                                                                  |
-| **Primary purpose**    | Investigation and debugging                                                                                                                                | Quality assurance and monitoring                                                                                                      |
-| **Ease of setup**      | Simple - just describe what to investigate                                                                                                                 | Requires careful prompt engineering and refinement                                                                                    |
-| **What they evaluate** | Complete execution traces                                                                                                                                  | Specific inputs and outputs                                                                                                           |
-| **Focus**              | Complete end-to-end trajectory                                                                                                                             | Specific fields in the data                                                                                                           |
-| **Template variables** | `{{ trace }}`                                                                                                                                              | `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`                                                                                 |
-| **When to use**        | • Getting started with a new application<br/>• Revising and refining your agent<br/>• Identifying failure patterns<br/>• Understanding unexpected behavior | • Final validation before deployment<br/>• Production monitoring<br/>• Regression testing<br/>• Meeting specific quality expectations |
-| **Capabilities**       | • Deep investigation of execution flow<br/>• Root cause analysis<br/>• Performance bottleneck detection<br/>• Tool usage patterns                          | • Fast pass/fail checks<br/>• Quality scoring<br/>• Output validation<br/>• Compliance verification                                   |
-| **Performance**        | Slower (explores trace in detail)                                                                                                                          | Fast execution                                                                                                                        |
-| **Cost**               | Higher (more context and tool usage)                                                                                                                       | Lower (less context)                                                                                                                  |
+| **Aspect**             | **Agent-as-a-Judge**                       | **LLM-as-a-Judge**                                 |
+| ---------------------- | ------------------------------------------ | -------------------------------------------------- |
+| **Ease of setup**      | Simple - just describe what to investigate | Requires careful prompt engineering and refinement |
+| **What they evaluate** | Complete execution traces and trajectory   | Specific inputs and outputs fields                 |
+| **Performance**        | Slower (explores trace in detail)          | Fast execution                                     |
+| **Cost**               | Higher (more context and tool usage)       | Lower (less context)                               |
 
-## When to Use Each Approach
+### When to use Agent-as-a-Judge?
 
-### Use Agent-as-a-Judge During Development
+Agent-as-a-Judge is suitable for **bootstrapping** the evaluation flywheel.
 
-Agent-as-a-Judge is your investigative tool during the development and refinement phases. It's easier to get started with Agent-as-a-Judge because you can simply describe what you want to investigate without careful prompt engineering:
+- Getting started with a new application
+- Revising and refining your agent
+- Identifying failure patterns
+- Understanding unexpected behavior
 
-- **Getting started**: When building a new agent or application and need to understand its behavior
-- **Rapid iteration**: During development cycles when you're making frequent changes
-- **Debugging**: When failures occur and you need to understand root causes
-- **Optimization**: When identifying performance bottlenecks or inefficient patterns
-- **Refinement**: When improving agent reasoning and decision-making logic
+### When to use LLM-as-a-Judge?
 
-The higher cost and slower execution are justified by the deep insights you gain during these critical development phases, and the quick setup time means you can start evaluating immediately.
+LLM-as-a-Judge is more efficient for evaluating a particular criteria, therefore suitable for **continuous evaluation** and **production use**.
 
-### Switch to Field-Based Judges for Production
+- Production monitoring
+- Regression testing
+- Final validation before deployment
+- Meeting specific quality expectations
 
-Field-Based Judges become essential as you approach production:
+## Quickstart
 
-- **Pre-deployment validation**: Ensure outputs meet quality standards
-- **Regression testing**: Verify that changes don't break existing functionality
-- **Production monitoring**: Continuously assess output quality at scale
-- **SLA compliance**: Verify responses meet defined expectations
-- **A/B testing**: Compare different model versions based on output quality
-
-The fast execution and lower cost make field-based judges ideal for high-volume production evaluation.
-
-## Creating an Agent-as-a-Judge
-
-To create an Agent-as-a-Judge, simply include `{{ trace }}` in your instructions:
+To create an Agent-as-a-Judge, simply call the `make_judge` API and pass an instruction with the **`{{ trace }}`** template variable:
 
 ```python
-from mlflow.genai.judges import make_judge
 import mlflow
+from mlflow.genai.judges import make_judge
+from typing import Literal
 import time
 
 performance_judge = make_judge(
@@ -104,10 +85,21 @@ performance_judge = make_judge(
         "- Proper use of caching mechanisms\n\n"
         "Rate as: 'optimal', 'acceptable', or 'needs_improvement'"
     ),
-    model="anthropic:/claude-opus-4-1-20250805",
+    feedback_value_type=Literal["optimal", "acceptable", "needs_improvement"],
+    model="openai:/gpt-5",
+    # model="anthropic:/claude-opus-4-1-20250805",
 )
+```
 
+:::note
 
+The usage of `{{ trace }}` template variable is important. If the template does not contain `{{ trace }}`, MLflow assumes the scorer is a normal LLM-as-a-Judge and does not use MCP tools.
+
+:::
+
+Then, generate a trace from your application and pass it to the scorer:
+
+```python
 @mlflow.trace
 def slow_data_processor(query: str):
     """Example application with performance bottlenecks."""
@@ -135,13 +127,6 @@ print(f"Performance Rating: {feedback.value}")
 print(f"Analysis: {feedback.rationale}")
 ```
 
-This example creates an Agent-as-a-Judge that analyzes performance issues, then runs it against a sample application with intentional bottlenecks:
-
-- A database query taking 2.5 seconds (exceeding the 2-second threshold)
-- Three redundant API calls that could be optimized
-
-The judge will output something like:
-
 ```
 Performance Rating: needs_improvement
 Analysis: Found critical performance issues:
@@ -152,7 +137,147 @@ Analysis: Found critical performance issues:
    the redundant operations or implementing caching
 ```
 
-### Viewing Agent Tool Calls with Debug Logs
+<ImageBox src="/images/mlflow-3/eval-monitor/scorers/agentic-judge-result.png" alt="Agent-as-a-Judge Evaluation Results" />
+
+## Running the Judge against Batch Traces
+
+To apply the scorer to a batch of traces, use the <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink> API.
+
+```python
+import mlflow
+
+# Retrieve traces from MLflow
+traces = mlflow.search_traces(filter_string="timestamp > 1727174400000")
+
+# Run evaluation with Agent-as-a-Judge
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[performance_judge],
+)
+```
+
+## Advanced Examples
+
+<TabsWrapper>
+  <Tabs>
+  <TabItem value="tool_usage" label="Tool Usage Analysis">
+
+```python
+tool_optimization_judge = make_judge(
+    name="tool_optimizer",
+    instructions=(
+        "Analyze tool usage patterns in {{ trace }}.\n\n"
+        "Check for:\n"
+        "1. Unnecessary tool calls (could be answered without tools)\n"
+        "2. Wrong tool selection (better tool available)\n"
+        "3. Inefficient sequencing (could parallelize or reorder)\n"
+        "4. Missing tool usage (should have used a tool)\n\n"
+        "Provide specific optimization suggestions.\n"
+        "Rate efficiency as: 'optimal', 'good', 'suboptimal', or 'poor'"
+    ),
+    feedback_value_type=Literal["optimal", "good", "suboptimal", "poor"],
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+
+  </TabItem>
+  <TabItem value="loop_detection" label="Loop Detection">
+
+```python
+loop_detector_judge = make_judge(
+    name="loop_detector",
+    instructions=(
+        "Detect problematic loops in {{ trace }}.\n\n"
+        "Identify:\n"
+        "1. Infinite loop risks\n"
+        "2. Unnecessary iterations\n"
+        "3. Circular reasoning patterns\n"
+        "4. Recursive calls without proper termination\n\n"
+        "Report specific span patterns that indicate issues.\n"
+        "Classify as: 'clean', 'warning', or 'critical'"
+    ),
+    feedback_value_type=Literal["clean", "warning", "critical"],
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+
+  </TabItem>
+  <TabItem value="reasoning_chain" label="Reasoning Analysis">
+
+```python
+reasoning_judge = make_judge(
+    name="reasoning_validator",
+    instructions=(
+        "Evaluate the reasoning chain in {{ trace }}.\n\n"
+        "Analysis criteria:\n"
+        "1. Logical Progression: Does each step follow logically from the previous?\n"
+        "2. Assumption Validity: Are assumptions reasonable and stated?\n"
+        "3. Evidence Usage: Is evidence properly cited and used?\n"
+        "4. Conclusion Soundness: Does the conclusion follow from the premises?\n\n"
+        "Identify specific reasoning flaws with span IDs.\n"
+        "Score 1-100 for reasoning quality."
+    ),
+    feedback_value_type=int,
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+
+  </TabItem>
+  <TabItem value="rag" label="RAG Agent Evaluation">
+
+```python
+rag_judge = make_judge(
+    name="rag_evaluator",
+    instructions=(
+        "Evaluate the RAG agent's behavior in {{ trace }}.\n\n"
+        "Check for:\n"
+        "1. Were the right documents retrieved?\n"
+        "2. Is the response grounded in the retrieved context?\n"
+        "3. Are sources properly cited?\n\n"
+        "Rate as: 'good', 'acceptable', or 'poor'"
+    ),
+    feedback_value_type=Literal["good", "acceptable", "poor"],
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+
+
+# Use with your RAG pipeline
+@mlflow.trace
+def rag_pipeline(query):
+    docs = retrieve_documents(query)
+    response = generate_with_context(query, docs)
+    return response
+
+
+result = rag_pipeline("What is MLflow?")
+trace = mlflow.get_last_active_trace()
+evaluation = rag_judge(trace=trace)
+```
+
+  </TabItem>
+  <TabItem value="error_handling" label="Error Handling Assessment">
+```python
+error_handling_judge = make_judge(
+    name="error_handler_checker",
+    instructions=(
+        "Analyze error handling in the {{ trace }}.\n\n"
+        "Look for:\n"
+        "1. Spans with error status or exceptions\n"
+        "2. Retry attempts and their patterns\n"
+        "3. Fallback mechanisms\n"
+        "4. Error propagation and recovery\n\n"
+        "Identify specific error scenarios and how they were handled.\n"
+        "Rate as: 'robust', 'adequate', or 'fragile'"
+    ),
+    feedback_value_type=Literal["robust", "adequate", "fragile"],
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Debugging Agent Judges
 
 To see the actual MCP tool calls that the Agent-as-a-Judge makes while analyzing your trace, enable debug logging:
 
@@ -179,58 +304,28 @@ DEBUG:mlflow.genai.judges:Calling tool: GetSpan with span_id=def456
 DEBUG:mlflow.genai.judges:Tool response: {"duration_ms": 2500, "inputs": {"query": "SELECT * FROM users"}, ...}
 ```
 
-This visibility helps you understand:
-
-- Which tools the judge uses to investigate your traces
-- What information it extracts at each step
-- How it arrives at its final assessment
-
-When invoked with a trace, this judge will:
-
-1. **Explore the trace structure** - Navigate through all spans to understand the execution flow
-2. **Analyze timing data** - Calculate durations and identify operations exceeding thresholds
-3. **Detect patterns** - Identify redundant operations like the repeated API calls
-4. **Provide actionable feedback** - Return specific recommendations for optimization
-
-## Key Capabilities
-
-Agent-as-a-Judge can access:
-
-- **Span hierarchy**: Understanding parent-child relationships
-- **Timing data**: Start times, end times, and durations
-- **Input/output data**: What each component received and produced
-- **Attributes**: Custom metadata and tags
-- **Error information**: Exceptions, stack traces, and error messages
-- **Tool calls**: Which tools were used and their results
-
 ## Next Steps
 
 <TilesGrid>
   <TileCard
-    icon={Search}
-    iconSize={48}
-    title="Trace Analysis"
-    description="Learn how judges use tools to investigate traces"
-    href="/genai/eval-monitor/scorers/llm-judge/trace-analysis"
-    linkText="Explore tools →"
-    containerHeight={64}
+    icon={Wrench}
+    title="Evaluation Quickstart"
+    description="Get started with MLflow's evaluation framework."
+    href="/genai/eval-monitor/quickstart"
+    linkText="Start evaluating →"
   />
   <TileCard
-    icon={Activity}
-    iconSize={48}
-    title="Agent Behavior"
-    description="Evaluate complex agent behaviors and workflows"
-    href="/genai/eval-monitor/scorers/llm-judge/agent-behavior-patterns"
-    linkText="Learn patterns →"
-    containerHeight={64}
+    icon={Users}
+    title="Collect Human Feedback"
+    description="Learn how to collect human feedback for evaluation."
+    href="/genai/assessments/feedback"
+    linkText="Collect feedback →"
   />
   <TileCard
-    icon={FileText}
-    iconSize={48}
-    title="make_judge API"
-    description="See complete examples and API documentation"
-    href="/genai/eval-monitor/scorers/llm-judge/make-judge"
-    linkText="View API →"
-    containerHeight={64}
+    icon={Brain}
+    title="Aligning Judges with Human Feedback"
+    description="Learn how to align your scorer with human feedback."
+    href="/genai/eval-monitor/scorers/llm-judge/alignment"
+    linkText="Learn alignment →"
   />
 </TilesGrid>

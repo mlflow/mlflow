@@ -1,5 +1,6 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Tracing Quickstart
 
@@ -187,7 +188,7 @@ View them in the MLflow UI at: http://127.0.0.1:5000
 
 5. **Explore the trace details** including input messages, system prompts, model parameters (temperature, max_tokens, etc.), output responses, execution time, token usage, and the complete request/response flow
 
-![MLflow Traces UI](/images/llms/tracing/tracing-top.gif)
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
 
 ## Step 5: Add custom tracing (Optional)
 

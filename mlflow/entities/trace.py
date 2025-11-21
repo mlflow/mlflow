@@ -11,6 +11,7 @@ from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -76,10 +77,17 @@ class Trace(_MlflowObject):
         return cls.from_dict(trace_dict)
 
     def _serialize_for_mimebundle(self):
-        # databricks notebooks will use the request ID to
+        # databricks notebooks will use the trace ID to
         # fetch the trace from the backend. including the
         # full JSON can cause notebooks to exceed size limits
-        return json.dumps(self.info.request_id)
+        return json.dumps(
+            {
+                "trace_id": self.info.trace_id,
+                # TODO: remove this once sql_warehouse_id
+                # is optional in the v4 tracing APIs
+                "sql_warehouse_id": MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            }
+        )
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """
@@ -309,9 +317,16 @@ class Trace(_MlflowObject):
     def to_proto(self):
         """
         Convert into a proto object to sent to the MLflow backend.
-
-        NB: The Trace definition in MLflow backend doesn't include the `data` field,
-            but rather only contains TraceInfoV3.
         """
 
-        return ProtoTrace(trace_info=self.info.to_proto())
+        return ProtoTrace(
+            trace_info=self.info.to_proto(),
+            spans=[span.to_otel_proto() for span in self.data.spans],
+        )
+
+    @classmethod
+    def from_proto(cls, proto: ProtoTrace) -> "Trace":
+        return cls(
+            info=TraceInfo.from_proto(proto.trace_info),
+            data=TraceData(spans=[Span.from_otel_proto(span) for span in proto.spans]),
+        )

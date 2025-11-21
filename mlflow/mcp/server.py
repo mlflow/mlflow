@@ -1,14 +1,17 @@
 import contextlib
 import io
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import click
 from click.types import BOOL, FLOAT, INT, STRING, UUID
-from fastmcp import FastMCP
-from fastmcp.tools import FunctionTool
 
 from mlflow.ai_commands.ai_command_utils import get_command_body, list_commands
+from mlflow.cli.scorers import commands as scorers_cli
 from mlflow.cli.traces import commands as traces_cli
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+    from fastmcp.tools import FunctionTool
 
 
 def param_type_to_json_schema_type(pt: click.ParamType) -> str:
@@ -38,7 +41,12 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
         schema = {
             "type": param_type_to_json_schema_type(p.type),
         }
-        if p.default is not None:
+        if p.default is not None and (
+            # In click >= 8.3.0, the default value is set to `Sentinel.UNSET` when no default is
+            # provided. Skip setting the default in this case.
+            # See https://github.com/pallets/click/pull/3030 for more details.
+            not isinstance(p.default, str) and repr(p.default) != "Sentinel.UNSET"
+        ):
             schema["default"] = p.default
         if isinstance(p, click.Option):
             schema["description"] = (p.help or "").strip()
@@ -69,10 +77,12 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
     return wrapper
 
 
-def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
+def cmd_to_function_tool(cmd: click.Command) -> "FunctionTool":
     """
     Converts a Click command to a FunctionTool.
     """
+    from fastmcp.tools import FunctionTool
+
     return FunctionTool(
         fn=fn_wrapper(cmd),
         name=cmd.callback.__name__,
@@ -81,8 +91,11 @@ def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
     )
 
 
-def register_prompts(mcp: FastMCP) -> None:
+def register_prompts(mcp: "FastMCP") -> None:
     """Register AI commands as MCP prompts."""
+    from mlflow.telemetry.events import AiCommandRunEvent
+    from mlflow.telemetry.track import _record_event
+
     for command in list_commands():
         # Convert slash-separated keys to underscores for MCP names
         mcp_name = command["key"].replace("/", "_")
@@ -92,6 +105,7 @@ def register_prompts(mcp: FastMCP) -> None:
             @mcp.prompt(name=mcp_name, description=command["description"])
             def ai_command_prompt() -> str:
                 """Execute an MLflow AI command prompt."""
+                _record_event(AiCommandRunEvent, {"command_key": cmd_key, "context": "mcp"})
                 return get_command_body(cmd_key)
 
             return ai_command_prompt
@@ -100,10 +114,16 @@ def register_prompts(mcp: FastMCP) -> None:
         make_prompt(command["key"])
 
 
-def create_mcp() -> FastMCP:
+def create_mcp() -> "FastMCP":
+    from fastmcp import FastMCP
+
+    tools = [
+        *[cmd_to_function_tool(cmd) for cmd in traces_cli.commands.values()],
+        *[cmd_to_function_tool(cmd) for cmd in scorers_cli.commands.values()],
+    ]
     mcp = FastMCP(
         name="Mlflow MCP",
-        tools=[cmd_to_function_tool(cmd) for cmd in traces_cli.commands.values()],
+        tools=tools,
     )
 
     register_prompts(mcp)

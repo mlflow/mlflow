@@ -105,15 +105,8 @@ export function startSpan(options: SpanOptions): LiveSpan {
       parentContext
     ) as OTelSpan;
 
-    // Create and register the MLflow span
-    const mlflowSpan = createAndRegisterMlflowSpan(
-      otelSpan,
-      options.spanType,
-      options.inputs,
-      options.attributes
-    );
-
-    return mlflowSpan;
+    // SpanProcessor should have already registered the mlflow span
+    return getMlflowSpan(otelSpan, options);
   } catch (error) {
     console.warn('Failed to start span', error);
     return new NoOpSpan();
@@ -156,13 +149,8 @@ export function withSpan<T>(
     let mlflowSpan: LiveSpan | NoOpSpan;
 
     try {
-      // Create and register the MLflow span
-      mlflowSpan = createAndRegisterMlflowSpan(
-        otelSpan,
-        spanOptions.spanType,
-        spanOptions.inputs,
-        spanOptions.attributes
-      );
+      // SpanProcessor should have already registered the mlflow span
+      mlflowSpan = getMlflowSpan(otelSpan as OTelSpan, spanOptions);
     } catch (error) {
       console.debug('Failed to create and register MLflow span', error);
       mlflowSpan = new NoOpSpan();
@@ -211,6 +199,26 @@ export function withSpan<T>(
   });
 }
 
+function getMlflowSpan(otelSpan: OTelSpan, options: SpanOptions): LiveSpan | NoOpSpan {
+  // MlflowSpanProcessor should have already registered the span
+  const traceManager = InMemoryTraceManager.getInstance();
+  const mlflowTraceId = traceManager.getMlflowTraceIdFromOtelId(otelSpan.spanContext().traceId);
+  const mlflowSpan =
+    traceManager.getSpan(mlflowTraceId, otelSpan.spanContext().spanId) || new NoOpSpan();
+
+  // Set custom properties to the span
+  if (options.inputs) {
+    mlflowSpan.setInputs(options.inputs);
+  }
+  if (options.attributes) {
+    mlflowSpan.setAttributes(options.attributes);
+  }
+  if (options.spanType) {
+    mlflowSpan.setSpanType(options.spanType);
+  }
+  return mlflowSpan;
+}
+
 /**
  * Helper function to create and register an MLflow span from an OpenTelemetry span
  * @param otelSpan The OpenTelemetry span
@@ -219,7 +227,7 @@ export function withSpan<T>(
  * @param attributes Optional attributes to set on the span
  * @returns The created and registered MLflow LiveSpan
  */
-function createAndRegisterMlflowSpan(
+export function createAndRegisterMlflowSpan(
   otelSpan: OTelSpan | ApiSpan,
   spanType?: SpanType,
   inputs?: any,

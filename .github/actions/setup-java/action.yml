@@ -3,7 +3,7 @@ description: "Set up Java"
 inputs:
   java-version:
     description: "java-version"
-    default: 11
+    default: 17
     required: false
 
   distribution:

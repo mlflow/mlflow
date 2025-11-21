@@ -26,7 +26,7 @@ def filestore_not_supported(func: F) -> F:
             f"(e.g., SQLite, PostgreSQL, MySQL). Please configure MLflow "
             f"with a SQL backend using --backend-store-uri. "
             f"For SQLite setup instructions, see: "
-            f"https://mlflow.org/docs/latest/ml/tracking/server/#configure-server",
+            f"https://mlflow.org/docs/latest/self-hosting/architecture/tracking-server/#configure-server",
             error_code=FEATURE_DISABLED,
         )
 

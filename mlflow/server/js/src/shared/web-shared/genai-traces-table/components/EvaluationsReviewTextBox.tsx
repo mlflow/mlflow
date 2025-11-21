@@ -1,9 +1,9 @@
 import { isString } from 'lodash';
 import React, { useMemo } from 'react';
 
-import { CopyIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { CopyActionButton } from '@databricks/web-shared/copy';
 
-import { EvaluationsReviewCopyButton } from './EvaluationsReviewCopyButton';
 import { EvaluationsReviewExpandedJSONValueCell } from './EvaluationsReviewExpandableCell';
 import { EXPECTED_FACTS_FIELD_NAME, stringifyValue } from './GenAiEvaluationTracesReview.utils';
 import { useMarkdownConverter } from '../utils/MarkdownUtils';
@@ -47,12 +47,7 @@ export const EvaluationsReviewTextBox = ({
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography.Text bold>{title}</Typography.Text>
         {showCopyIcon && (
-          <EvaluationsReviewCopyButton
-            copyText={stringifyValue(value)}
-            showLabel={false}
-            type="tertiary"
-            icon={<CopyIcon />}
-          />
+          <CopyActionButton copyText={stringifyValue(value)} componentId="mlflow.evaluations_review.textbox.copy" />
         )}
       </div>
       <Typography.Paragraph

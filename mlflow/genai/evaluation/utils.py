@@ -1,6 +1,7 @@
 import json
 import logging
 import math
+from collections import defaultdict
 from concurrent.futures import Future, as_completed
 from typing import TYPE_CHECKING, Any, Collection
 
@@ -13,6 +14,8 @@ from mlflow.genai.evaluation.constant import (
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
+from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.utils.search import traces_to_df
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -23,7 +26,7 @@ except ImportError:
 if TYPE_CHECKING:
     from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
-    from mlflow.genai.evaluation.entities import EvalResult
+    from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 
     try:
         import pyspark.sql.dataframe
@@ -32,12 +35,17 @@ if TYPE_CHECKING:
             pd.DataFrame
             | pyspark.sql.dataframe.DataFrame
             | list[dict]
+            | list[Trace]
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
         )
     except ImportError:
         EvaluationDatasetTypes = (
-            pd.DataFrame | list[dict] | ManagedEvaluationDataset | EntityEvaluationDataset
+            pd.DataFrame
+            | list[dict]
+            | list[Trace]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
         )
 
 
@@ -54,17 +62,24 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     Takes in a dataset in the format that `mlflow.genai.evaluate()` expects and
     converts it into a pandas DataFrame.
     """
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+
     if isinstance(data, list):
-        # validate that every item in the list is a dict and has inputs as key
-        for item in data:
-            if not isinstance(item, dict):
-                raise MlflowException.invalid_parameter_value(
-                    "Every item in the list must be a dictionary."
-                )
+        if all(isinstance(item, Trace) for item in data):
+            data = traces_to_df(data)
+        else:
+            for item in data:
+                if not isinstance(item, dict):
+                    raise MlflowException.invalid_parameter_value(
+                        "Every item in the list must be a dictionary."
+                    )
         df = pd.DataFrame(data)
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
+    elif isinstance(data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
+        df = data.to_df()
     else:
         try:
             from mlflow.utils.spark_utils import get_spark_dataframe_type
@@ -98,25 +113,13 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
 
 def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
-    Takes in a dataset in the multiple format that mlflow.genai.evaluate() expects and converts it
-    into standardized Pandas DataFrame.
-    The expected schema can be found at:
-    https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
-
-    NB: The harness secretly support 'expectations' column as well. It accepts a dictionary of
-        expectations, which is same as the schema that mlflow.genai.evaluate() expects.
-        Therefore, we can simply pass through expectations column.
+    Takes in a dataset in the multiple format that mlflow.genai.evaluate() expects and converts
+    it into a standardized Pandas DataFrame.
     """
-    column_mapping = {
-        "inputs": "request",
-        "outputs": "response",
-    }
-
     df = _convert_eval_set_to_df(data)
 
     return (
-        df.rename(columns=column_mapping)
-        .pipe(_deserialize_trace_column_if_needed)
+        df.pipe(_deserialize_trace_column_if_needed)
         .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )
@@ -170,7 +173,7 @@ def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
 
 def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     """
-    Add `request` and `response`columns from traces if it is not already present.
+    Add `inputs` and `outputs` columns from traces if it is not already present.
     """
     if "trace" not in df.columns:
         return df
@@ -180,10 +183,10 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
             return json.loads(att)
         return None
 
-    if "request" not in df.columns:
-        df["request"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "request"))
-    if "response" not in df.columns:
-        df["response"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "response"))
+    if "inputs" not in df.columns:
+        df["inputs"] = df["trace"].apply(lambda trace: trace.data._get_root_span().inputs)
+    if "outputs" not in df.columns:
+        df["outputs"] = df["trace"].apply(lambda trace: trace.data._get_root_span().outputs)
     return df
 
 
@@ -385,6 +388,64 @@ def validate_tags(tags: Any) -> None:
 
     if errors:
         raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
+
+
+def _classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]]:
+    """
+    Separate scorers into single-turn and multi-turn categories.
+
+    Args:
+        scorers: List of scorer instances.
+
+    Returns:
+        tuple: (single_turn_scorers, multi_turn_scorers)
+    """
+    single_turn_scorers = []
+    multi_turn_scorers = []
+
+    for scorer in scorers:
+        if scorer.is_session_level_scorer:
+            multi_turn_scorers.append(scorer)
+        else:
+            single_turn_scorers.append(scorer)
+
+    return single_turn_scorers, multi_turn_scorers
+
+
+def _group_traces_by_session(eval_items: list["EvalItem"]) -> dict[str, list["EvalItem"]]:
+    """
+    Group evaluation items containing traces by session_id.
+
+    Args:
+        eval_items: List of EvalItem objects.
+
+    Returns:
+        dict: {session_id: [eval_item, ...]} where eval items are grouped by session.
+              Only items with traces that have a session_id are included in the output.
+    """
+    session_groups = defaultdict(list)
+
+    for item in eval_items:
+        if not hasattr(item, "trace") or item.trace is None:
+            continue
+
+        if session_id := item.trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+            session_groups[session_id].append(item)
+
+    return dict(session_groups)
+
+
+def _get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
+    """
+    Find the chronologically first trace in a session based on request_time.
+
+    Args:
+        session_items: List of EvalItem objects from the same session.
+
+    Returns:
+        EvalItem: The eval item with the earliest trace in chronological order.
+    """
+    return min(session_items, key=lambda x: x.trace.info.request_time)
 
 
 def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:

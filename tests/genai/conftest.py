@@ -23,10 +23,6 @@ def mock_init_auth():
 
 @pytest.fixture(params=[True, False], ids=["databricks", "oss"])
 def is_in_databricks(request):
-    # NB: The mlflow.genai.evaluate() API is only runnable when the tracking URI is set
-    # to Databricks. However, we cannot test against real Databricks server in CI, so
-    # we spoof the check by patching the is_databricks_uri() function.
-
     if request.param and not IS_DBX_AGENTS_INSTALLED:
         pytest.skip("Skipping Databricks test because `databricks-agents` is not installed.")
 
@@ -37,7 +33,6 @@ def is_in_databricks(request):
             pytest.skip("Skipping OSS test in CI because `databricks-agents` is installed.")
 
     with (
-        mock.patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=request.param),
         mock.patch("mlflow.genai.judges.utils.is_databricks_uri", return_value=request.param),
         mock.patch(
             "mlflow.utils.databricks_utils.is_databricks_default_tracking_uri",
