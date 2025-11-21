@@ -1047,6 +1047,15 @@ def check_databricks_secret_scope_access(scope_name):
                 f"Error: {e}"
             )
 
+def get_sgc_job_run_id() -> str | None:
+    dbutils = _get_dbutils()
+    if dbutils:
+        try:
+            return dbutils.jobs.taskValues.get("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", debugValue=None)
+        except Exception as e:
+            return None
+    return None
+
 
 def _construct_databricks_run_url(
     host: str,

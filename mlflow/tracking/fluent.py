@@ -37,6 +37,7 @@ from mlflow.environment_variables import (
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
+    MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_RUN_ID,
@@ -64,6 +65,7 @@ from mlflow.utils.autologging_utils import (
     is_testing,
 )
 from mlflow.utils.databricks_utils import (
+    get_sgc_job_run_id,
     is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
 )
@@ -262,6 +264,40 @@ class ActiveRun(Run):
         return exc_type is None
 
 
+def _get_sgc_mlflow_run_id_for_resumption(client: "MlflowClient", experiment_id: str | None, sgc_job_run_id_tag_key : str | None) -> str | None:
+    """
+    Retrieves the MLflow run ID associated with a specific SGC job run ID tag key for potential run resumption.
+
+    This function searches the experiment (specified by `experiment_id`, or the default if None) for an experiment tag
+    named `sgc_job_run_id_tag_key`. If the tag exists, its value (the run ID to resume) is returned;
+    otherwise, returns None.
+
+    Args:
+        client: MlflowClient instance used to query experiment information.
+        experiment_id: The experiment ID to search, or None to use the default experiment.
+        sgc_job_run_id_tag_key: The experiment tag key that maps the SGC job run ID to an MLflow run ID.
+
+    Returns:
+        str or None: The MLflow run ID to resume, if found; otherwise None.
+    """
+    prev_mlflow_run_id = None
+    # Determine the experiment ID to search in
+    if experiment_id:
+        search_exp_id = experiment_id
+    else:
+        # Get the default experiment ID
+        search_exp_id = _get_experiment_id()
+    try:
+        exp = client.get_experiment(search_exp_id)
+        # Check if experiment has the tag for resumption
+        if exp.tags and sgc_job_run_id_tag_key in exp.tags:
+            prev_mlflow_run_id = exp.tags[sgc_job_run_id_tag_key]
+            _logger.info(f"Resuming MLflow run: {prev_mlflow_run_id} using SGC tag key: {sgc_job_run_id_tag_key}")
+    except Exception as e:
+        _logger.debug(f"Failed to retrieve SGC run ID: {e}")
+    return prev_mlflow_run_id
+
+
 def start_run(
     run_id: str | None = None,
     experiment_id: str | None = None,
@@ -388,11 +424,21 @@ def start_run(
             ).format(active_run_stack[0].info.run_id)
         )
     client = MlflowClient()
+    
+    # If SGC run resumption is enabled, get the SGC job run ID tag key
+    sgc_job_run_id_tag_key = None
+    if MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.get():
+        sgc_job_run_id = get_sgc_job_run_id()
+        if sgc_job_run_id:
+            sgc_job_run_id_tag_key = f"databricks_mlflow_sgc_resume_run_job_run_id_{sgc_job_run_id}"
+    
     if run_id:
         existing_run_id = run_id
     elif run_id := MLFLOW_RUN_ID.get():
         existing_run_id = run_id
         del os.environ[MLFLOW_RUN_ID.name]
+    elif sgc_job_run_id_tag_key:
+        existing_run_id = _get_sgc_mlflow_run_id_for_resumption(client, experiment_id, sgc_job_run_id_tag_key)
     else:
         existing_run_id = None
     if existing_run_id:
@@ -480,6 +526,18 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
+
+        # If SGC run resumption is enabled, set the experiment tag mapping SGC job_run_id to this run_id for future run resumption
+        if sgc_job_run_id_tag_key:
+            try:
+                client.set_experiment_tag(exp_id_for_run, sgc_job_run_id_tag_key, active_run_obj.info.run_id)
+                _logger.info(
+                    f"Set experiment tag {sgc_job_run_id_tag_key} = {active_run_obj.info.run_id} "
+                    f"for SGC run resumption"
+                )
+            except Exception as e:
+                _logger.debug(f"Failed to set experiment tag for SGC resumption: {e}")
+
 
     if log_system_metrics is None:
         # If `log_system_metrics` is not specified, we will check environment variable.
