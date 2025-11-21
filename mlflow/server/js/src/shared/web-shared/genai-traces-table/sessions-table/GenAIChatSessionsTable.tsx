@@ -107,33 +107,41 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
             </div>
           )}
           {row.getVisibleCells().map((cell) => (
-            <Link
+            <TableCell
               key={cell.id}
-              to={{
-                pathname: MlflowUtils.getExperimentChatSessionPageRoute(
-                  row.original.experimentId,
-                  row.original.sessionId,
-                ),
-                search,
+              css={{
+                backgroundColor: 'transparent',
+                flex: `calc(var(--col-${cell.column.id}-size) / 100)`,
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                '> span:first-of-type': {
+                  padding: `${theme.spacing.xs}px 0px`,
+                  width: '100%',
+                },
+                ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
               }}
             >
-              <TableCell
+              <Link
+                to={{
+                  pathname: MlflowUtils.getExperimentChatSessionPageRoute(
+                    row.original.experimentId,
+                    row.original.sessionId,
+                  ),
+                  search,
+                }}
                 css={{
-                  backgroundColor: 'transparent',
-                  flex: `calc(var(--col-${cell.column.id}-size) / 100)`,
                   display: 'flex',
-                  flexDirection: 'row',
+                  width: '100%',
+                  height: '100%',
                   alignItems: 'center',
-                  '> span:first-of-type': {
-                    padding: `${theme.spacing.xs}px 0px`,
-                    width: '100%',
-                  },
-                  ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
+                  color: 'inherit',
+                  textDecoration: 'none',
                 }}
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            </Link>
+              </Link>
+            </TableCell>
           ))}
         </TableRow>
       );
