@@ -14,7 +14,7 @@
     "convert-notebooks": "python scripts/convert-notebooks.py",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
-    "clear": "docusaurus clear",
+    "clear": "docusaurus clear && git clean -Xdf docs/",
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
