@@ -10,6 +10,7 @@ The actual span ingestion logic would need to properly convert incoming OTel for
 to MLflow spans, which requires more complex conversion logic.
 """
 
+import logging
 from collections import defaultdict
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -32,6 +33,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 # Create FastAPI router for OTel endpoints
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 
+_logger = logging.getLogger(__name__)
 
 @otel_router.post("", status_code=200)
 async def export_traces(
@@ -60,10 +62,9 @@ async def export_traces(
     """
     # Validate Content-Type header
     if content_type != "application/x-protobuf":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid Content-Type: {content_type}. Expected: application/x-protobuf",
-        )
+        msg = f"Invalid Content-Type: {content_type}. Expected: application/x-protobuf"
+        _logger.error(msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
     body = await request.body()
     parsed_request = ExportTraceServiceRequest()
@@ -75,17 +76,15 @@ async def export_traces(
         # Check if we actually parsed any data
         # If no resource_spans were parsed, the data was likely invalid
         if not parsed_request.resource_spans:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid OpenTelemetry protobuf format - no spans found",
-            )
+            msg = "Invalid OpenTelemetry protobuf format - no spans found"
+            _logger.error(msg)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
-    except DecodeError:
+    except DecodeError as e:
         # This will catch errors in Python protobuf library 3.x
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid OpenTelemetry protobuf format",
-        )
+        msg = f"Invalid OpenTelemetry protobuf format: {e}"
+        _logger.error(f"{msg}: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
     # Group spans by trace_id to support BatchSpanProcessor
     # log_spans requires all spans in a batch to have the same trace_id
@@ -96,11 +95,10 @@ async def export_traces(
                 try:
                     mlflow_span = Span.from_otel_proto(otel_proto_span)
                     spans_by_trace_id[mlflow_span.trace_id].append(mlflow_span)
-                except Exception:
-                    raise HTTPException(
-                        status_code=422,
-                        detail="Cannot convert OpenTelemetry span to MLflow span",
-                    )
+                except Exception as e:
+                    msg = "Cannot convert OpenTelemetry span to MLflow span"
+                    _logger.error(f"{msg}: {e}")
+                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
 
     if spans_by_trace_id:
         store = _get_tracking_store()
@@ -134,10 +132,9 @@ async def export_traces(
             error_msg = "\n".join(
                 [f"Trace {trace_id}: {error}" for trace_id, error in errors.items()]
             )
-            raise HTTPException(
-                status_code=422,
-                detail=f"Failed to log OpenTelemetry spans: {error_msg}",
-            )
+            msg = f"Failed to log OpenTelemetry spans: {error_msg}"
+            _logger.error(msg)
+            raise HTTPException(status_code=422, detail=msg)
 
         if completed_trace_ids:
             trace_source = (
