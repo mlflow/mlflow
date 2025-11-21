@@ -27,8 +27,8 @@ for Anthropic by calling the <APILink fn="mlflow.anthropic.autolog" /> function,
 </TabItem>
 <TabItem value="typescript" label="JS / TS">
     ```typescript
-import Anthropic from "@anthropic-ai/sdk";
-import { tracedAnthropic } from "mlflow-anthropic";
+    import Anthropic from "@anthropic-ai/sdk";
+    import { tracedAnthropic } from "mlflow-anthropic";
 
     const client = tracedAnthropic(new Anthropic());
     ```
@@ -108,8 +108,8 @@ To request support for additional APIs, please open a [feature request](https://
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
     ```typescript
-import Anthropic from "@anthropic-ai/sdk";
-import { tracedAnthropic } from "mlflow-anthropic";
+    import Anthropic from "@anthropic-ai/sdk";
+    import { tracedAnthropic } from "mlflow-anthropic";
 
     // Wrap the Anthropic client with the tracedAnthropic function
     const client = tracedAnthropic(new Anthropic());
