@@ -964,6 +964,92 @@ service MlflowService {
     };
   }
 
+  // Workspace APIs
+  rpc listWorkspaces(ListWorkspaces) returns (ListWorkspaces.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/workspaces"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List Workspaces"
+    };
+  }
+
+  rpc createWorkspace(CreateWorkspace) returns (CreateWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/workspaces"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Workspace"
+    };
+  }
+
+  rpc getWorkspace(GetWorkspace) returns (GetWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/workspaces/{workspace_name}"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Workspace"
+    };
+  }
+
+  rpc updateWorkspace(UpdateWorkspace) returns (UpdateWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/workspaces/{workspace_name}"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update Workspace"
+    };
+  }
+
+  rpc deleteWorkspace(DeleteWorkspace) returns (DeleteWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/workspaces/{workspace_name}"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Workspace"
+    };
+  }
+
   rpc createLoggedModel(CreateLoggedModel) returns (CreateLoggedModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -3571,4 +3657,78 @@ message Scorer {
   optional int64 creation_time = 5;
   // The unique identifier for the scorer.
   optional string scorer_id = 6;
+}
+
+// Workspace metadata returned by workspace APIs.
+message Workspace {
+  // The unique workspace name.
+  optional string name = 1 [(validate_required) = true];
+
+  // Optional workspace description.
+  optional string description = 2;
+}
+
+// List workspaces available to the current principal.
+message ListWorkspaces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {
+    // Collection of workspace records.
+    repeated Workspace workspaces = 1;
+  }
+}
+
+// Create a new workspace.
+message CreateWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Workspace name to create.
+  optional string name = 1 [(validate_required) = true];
+
+  // Optional workspace description.
+  optional string description = 2;
+
+  message Response {
+    // Metadata describing the created workspace.
+    optional Workspace workspace = 1;
+  }
+}
+
+// Retrieve workspace metadata.
+message GetWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the workspace to fetch.
+  optional string workspace_name = 1 [(validate_required) = true];
+
+  message Response {
+    // Metadata describing the requested workspace.
+    optional Workspace workspace = 1;
+  }
+}
+
+// Update workspace metadata.
+message UpdateWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the workspace to update.
+  optional string workspace_name = 1 [(validate_required) = true];
+
+  // Optional description update.
+  optional string description = 2;
+
+  message Response {
+    // Metadata describing the updated workspace.
+    optional Workspace workspace = 1;
+  }
+}
+
+// Delete a workspace.
+message DeleteWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the workspace to delete.
+  optional string workspace_name = 1 [(validate_required) = true];
+
+  message Response {}
 }

@@ -40,6 +40,7 @@ mlflow.client.MlflowClient.create_prompt_version
 mlflow.client.MlflowClient.create_registered_model
 mlflow.client.MlflowClient.create_run
 mlflow.client.MlflowClient.create_webhook
+mlflow.client.MlflowClient.create_workspace
 mlflow.client.MlflowClient.delete_dataset
 mlflow.client.MlflowClient.delete_dataset_tag
 mlflow.client.MlflowClient.delete_experiment
@@ -61,6 +62,7 @@ mlflow.client.MlflowClient.delete_tag
 mlflow.client.MlflowClient.delete_trace_tag
 mlflow.client.MlflowClient.delete_traces
 mlflow.client.MlflowClient.delete_webhook
+mlflow.client.MlflowClient.delete_workspace
 mlflow.client.MlflowClient.detach_prompt_from_run
 mlflow.client.MlflowClient.download_artifacts
 mlflow.client.MlflowClient.end_span
@@ -84,6 +86,8 @@ mlflow.client.MlflowClient.get_registered_model
 mlflow.client.MlflowClient.get_run
 mlflow.client.MlflowClient.get_trace
 mlflow.client.MlflowClient.get_webhook
+mlflow.client.MlflowClient.get_workspace
+mlflow.client.MlflowClient.get_workspace_store_uri
 mlflow.client.MlflowClient.link_prompt_version_to_model
 mlflow.client.MlflowClient.link_prompt_version_to_run
 mlflow.client.MlflowClient.link_prompt_versions_to_trace
@@ -92,6 +96,7 @@ mlflow.client.MlflowClient.list_artifacts
 mlflow.client.MlflowClient.list_logged_model_artifacts
 mlflow.client.MlflowClient.list_logged_prompts
 mlflow.client.MlflowClient.list_webhooks
+mlflow.client.MlflowClient.list_workspaces
 mlflow.client.MlflowClient.load_prompt
 mlflow.client.MlflowClient.load_table
 mlflow.client.MlflowClient.log_artifact
@@ -146,6 +151,7 @@ mlflow.client.MlflowClient.update_model_version
 mlflow.client.MlflowClient.update_registered_model
 mlflow.client.MlflowClient.update_run
 mlflow.client.MlflowClient.update_webhook
+mlflow.client.MlflowClient.update_workspace
 mlflow.config.disable_system_metrics_logging
 mlflow.config.enable_async_logging
 mlflow.config.enable_system_metrics_logging
@@ -529,6 +535,10 @@ mlflow.entities.WebhookTestResult
 mlflow.entities.WebhookTestResult.from_proto
 mlflow.entities.WebhookTestResult.to_proto
 mlflow.entities.Workspace
+mlflow.entities.Workspace.from_dict
+mlflow.entities.Workspace.from_proto
+mlflow.entities.Workspace.to_dict
+mlflow.entities.Workspace.to_proto
 mlflow.entities.assessment.Assessment
 mlflow.entities.assessment.Expectation
 mlflow.entities.assessment.Feedback
