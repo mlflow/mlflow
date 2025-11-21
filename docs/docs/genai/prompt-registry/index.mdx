@@ -173,11 +173,17 @@ To use a prompt in your GenAI application, you can load it with the <APILink fn=
 
 Prompts are cached in memory with a default TTL of 60 seconds to reduce latency. You can customize this behavior:
 
-- **Custom TTL**: `mlflow.genai.load_prompt("summarization-prompt/", version=1, cache_ttl_seconds=300)` (5 minutes)
-- **Bypass cache**: `mlflow.genai.load_prompt("summarization-prompt/", version=1, cache_ttl_seconds=0)`
+- **Custom TTL**: `mlflow.genai.load_prompt("prompts:/summarization-prompt/1", cache_ttl_seconds=300)` (5 minutes)
+- **Bypass cache**: `mlflow.genai.load_prompt("prompts:/summarization-prompt/1", cache_ttl_seconds=0)`
 - **Global config**: Set `MLFLOW_PROMPT_CACHE_TTL_SECONDS` environment variable
 
-To delete cached prompts programmatically, use `PromptCache.get_instance().delete("prompt-name", version=1)` or `PromptCache.get_instance().delete("prompt-name", label="production")` from `mlflow.prompt.registry_utils`.
+To delete cached prompts programmatically, use the code below:
+
+```python
+from mlflow.prompt.registry_utils import PromptCache
+
+PromptCache.get_instance().delete("summarization-prompt/", version=1)
+```
 
 :::
 

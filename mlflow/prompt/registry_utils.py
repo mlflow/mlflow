@@ -386,3 +386,27 @@ class PromptCache:
             return f"{name}-label:{label}"
         else:
             return f"{name}-latest"
+
+    @staticmethod
+    def generate_cache_key_from_uri(prompt_uri: str) -> str:
+        """
+        Generate cache key from a parsed prompt URI.
+
+        Args:
+            prompt_uri: A prompt URI in format "prompts:/name/version" or "prompts:/name@label"
+
+        Returns:
+            A unique cache key string
+        """
+        uri_path = prompt_uri.replace("prompts:/", "")
+
+        if "@" in uri_path:
+            # Alias format: "name@label"
+            prompt_name, label = uri_path.split("@", 1)
+            return PromptCache.generate_cache_key(prompt_name, label=label)
+        else:
+            # Version format: "name/version"
+            parts = uri_path.split("/")
+            prompt_name = parts[0]
+            prompt_version = int(parts[1]) if len(parts) > 1 else None
+            return PromptCache.generate_cache_key(prompt_name, version=prompt_version)

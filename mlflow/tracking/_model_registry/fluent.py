@@ -832,23 +832,9 @@ def _load_prompt_with_cache(
     """
     cache = PromptCache.get_instance()
 
-    # Parse URI to extract name and version/label for cache key
+    # Parse URI and generate cache key
     prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
-
-    # Extract name and version/label from URI for cache key generation
-    # URI formats: "prompts:/name/version" or "prompts:/name@label"
-    uri_path = prompt_uri.replace("prompts:/", "")
-
-    if "@" in uri_path:
-        # Alias format: "name@label"
-        prompt_name, label = uri_path.split("@", 1)
-        cache_key = PromptCache.generate_cache_key(prompt_name, label=label)
-    else:
-        # Version format: "name/version"
-        parts = uri_path.split("/")
-        prompt_name = parts[0]
-        prompt_version = int(parts[1]) if len(parts) > 1 else None
-        cache_key = PromptCache.generate_cache_key(prompt_name, version=prompt_version)
+    cache_key = PromptCache.generate_cache_key_from_uri(prompt_uri)
 
     # Try to get from cache
     cached_prompt = cache.get(cache_key)
