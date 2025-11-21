@@ -1,13 +1,22 @@
+import logging
+
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
 from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import generate_trace_id_v3
+from mlflow.tracing.utils import (
+    _bypass_attribute_guard,
+    generate_trace_id_v3,
+    get_mlflow_span_for_otel_span,
+)
+from mlflow.tracing.utils.environment import resolve_env_metadata
+
+_logger = logging.getLogger(__name__)
 
 
 class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
@@ -37,8 +46,10 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
         # Only register traces with trace manager when NOT in dual export mode
         # In dual export mode, MLflow span processors handle trace registration
         self._should_register_traces = not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()
-        if self._should_register_traces:
-            self._trace_manager = InMemoryTraceManager.get_instance()
+
+        # Always get trace manager for reading metadata and adding it in root span
+        # even if trace is managed with MLflow span processor.
+        self._trace_manager = InMemoryTraceManager.get_instance()
 
     def on_start(self, span: OTelReadableSpan, parent_context=None):
         if self._should_register_traces:
@@ -58,8 +69,29 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
         if self._export_metrics:
             self.record_metrics_for_span(span)
 
-        if self._should_register_traces and not span.parent:
-            self._trace_manager.pop_trace(span.context.trace_id)
+        if not span.parent:
+            try:
+                mlflow_span = get_mlflow_span_for_otel_span(span)
+                with self._trace_manager.get_trace(mlflow_span.trace_id) as trace:
+                    metadatas = trace.info.trace_metadata
+
+                # Add metadata added in Mflow span processor if NOT in dual mode.
+                if self._should_register_traces:
+                    # TODO: should we also add metadata in added in _get_basic_trace_metadata() ?
+                    metadatas.update(resolve_env_metadata())
+                if metadatas:
+                    with _bypass_attribute_guard(mlflow_span._span):
+                        for key, value in metadatas.items():
+                            attribute_key = SpanAttributeKey.METADATA.format(key=key)
+                            mlflow_span.set_attribute(attribute_key, value)
+            except Exception as e:
+                _logger.warning(
+                    f"Adding metadata to root span failed: {e}",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+
+            if self._should_register_traces:
+                self._trace_manager.pop_trace(span.context.trace_id)
 
         super().on_end(span)
 
