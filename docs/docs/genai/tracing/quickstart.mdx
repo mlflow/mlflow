@@ -1,5 +1,6 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Tracing Quickstart
 
@@ -187,7 +188,7 @@ View them in the MLflow UI at: http://127.0.0.1:5000
 
 5. **Explore the trace details** including input messages, system prompts, model parameters (temperature, max_tokens, etc.), output responses, execution time, token usage, and the complete request/response flow
 
-<video src="/images/llms/tracing/tracing-top.mp4" controls loop autoPlay muted />
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted />
 
 ## Step 5: Add custom tracing (Optional)
 
@@ -259,6 +260,7 @@ locations = ["san francisco", "  New York  ", "tokyo"]
 
 for location in locations:
     print(f"\n--- Processing: {location} ---")
+
     response = get_enhanced_weather_response(location)
     print(f"Response: {response[:100]}...")
 

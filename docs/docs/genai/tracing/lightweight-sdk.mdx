@@ -88,7 +88,7 @@ The lightweight SDK works with various observability platforms. Choose your pref
 
         </div>
         <div class="flex-item padding-md">
-          <video src="/images/llms/tracing/tracing-top.mp4" controls loop autoPlay muted />
+          <video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted />
         </div>
       </div>
     </div>
@@ -334,8 +334,10 @@ def your_function():
 
 ## Package Size Comparison
 
-| Package          | Size    | Dependencies | Use Case                                        |
-| ---------------- | ------- | ------------ | ----------------------------------------------- |
+| Package | Size | Dependencies | Use Case |
+| ------- | ---- | ------------ | -------- |
+
+import useBaseUrl from '@docusaurus/useBaseUrl';
 | `mlflow`         | ~1000MB | 20+ packages | Development, experimentation, full ML lifecycle |
 | `mlflow-tracing` | ~5MB    | 5-8 packages | Production tracing, monitoring, observability   |
 

@@ -3,6 +3,8 @@ sidebar_position: 1
 sidebar_label: OpenAI
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import { APILink } from "@site/src/components/APILink";
 import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TOCInline from "@theme/TOCInline";
@@ -13,7 +15,7 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing OpenAI
 
-<video src="/images/llms/tracing/openai-tracing.mp4" controls loop autoPlay muted />
+<video src={useBaseUrl("/images/llms/tracing/openai-tracing.mp4")} controls loop autoPlay muted />
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for OpenAI. By enabling auto tracing
 for OpenAI by calling the <APILink fn="mlflow.openai.autolog" /> function, MLflow will capture traces for LLM invocation and log them to the active MLflow Experiment. In Typescript, you can instead use the `tracedOpenAI` function to wrap the OpenAI client.

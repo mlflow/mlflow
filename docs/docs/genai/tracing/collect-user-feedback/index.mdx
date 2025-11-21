@@ -10,7 +10,7 @@ Capturing user feedback is critical for understanding the real-world quality of 
 
 ## Adding Feedback with MLflow UI
 
-<video src="/images/llms/tracing/logging-feedback.mp4" controls loop autoPlay muted />
+<video src={useBaseUrl("/images/llms/tracing/logging-feedback.mp4")} controls loop autoPlay muted />
 
 ## Adding Feedback with API
 
@@ -63,8 +63,10 @@ mlflow.log_assessment(trace_id="<your trace id>", assessment=feedback)
 
 MLflow feedback supports various formats to match your application's needs:
 
-| Feedback Type | Description                    | Example Use Cases                   |
-| ------------- | ------------------------------ | ----------------------------------- |
+| Feedback Type | Description | Example Use Cases |
+| ------------- | ----------- | ----------------- |
+
+import useBaseUrl from '@docusaurus/useBaseUrl';
 | **Boolean**   | Simple `True`/`False` feedback | Thumbs up/down, correct/incorrect   |
 | **Numeric**   | Integer or float ratings       | 1-5 star ratings, confidence scores |
 | **Text**      | Free-form text feedback        | Detailed quality breakdowns         |

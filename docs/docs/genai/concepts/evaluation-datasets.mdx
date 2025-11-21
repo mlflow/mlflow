@@ -21,7 +21,7 @@ Unlike static test files, evaluation datasets are **living validation collection
 
 They can be viewed directly within the MLflow UI.
 
-<video src="/images/eval-datasets.mp4" controls loop autoPlay muted />
+<video src={useBaseUrl("/images/eval-datasets.mp4")} controls loop autoPlay muted />
 
 ## Core Components
 
@@ -54,8 +54,10 @@ Evaluation datasets are composed of several key elements that work together to p
 
 The <APILink fn="mlflow.entities.EvaluationDataset" text="EvaluationDataset" /> object contains the following fields:
 
-| Field              | Type                  | Description                                                              |
-| ------------------ | --------------------- | ------------------------------------------------------------------------ |
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+
+import useBaseUrl from '@docusaurus/useBaseUrl';
 | `dataset_id`       | `str`                 | Unique identifier for the dataset (format: `d-{32 hex chars}`)           |
 | `name`             | `str`                 | Human-readable name for the dataset                                      |
 | `digest`           | `str`                 | Content hash for data integrity verification                             |
