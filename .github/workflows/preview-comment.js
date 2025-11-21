@@ -128,7 +128,16 @@ function getCommentTemplate({
   let changedPagesSection = "";
 
   if (changedPages && changedPages.length > 0) {
-    const pageLinks = changedPages.map(({ link, status }) => `- ${link} (${status})`).join("\n");
+    const pageLinks = changedPages
+      .map(({ link, status }) => {
+        let statusText = status;
+        // Add warning for removed and renamed files to avoid page-not-found
+        if (status === "removed" || status === "renamed") {
+          statusText = `${status}, ⚠️ add a redirect`;
+        }
+        return `- ${link} (${statusText})`;
+      })
+      .join("\n");
 
     // Only collapse if there are more than 5 changed pages
     if (changedPages.length > 5) {

@@ -461,7 +461,7 @@ def _get_ordered_runs(store: SqlAlchemyStore, order_clauses, experiment_id):
 
 def _verify_logged(store, run_id, metrics, params, tags):
     run = store.get_run(run_id)
-    all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     assert len(all_metrics) == len(metrics)
     logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
     assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
@@ -2913,7 +2913,7 @@ def test_log_batch(store: SqlAlchemyStore):
     run = store.get_run(run_id)
     assert run.data.tags == {"t1": "t1val", "t2": "t2val", MLFLOW_RUN_NAME: "my_run"}
     assert run.data.params == {"p1": "p1val", "p2": "p2val"}
-    metric_histories = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    metric_histories = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
     assert set(metrics) == {("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)}
 
@@ -2927,7 +2927,7 @@ def test_log_batch_limits(store: SqlAlchemyStore):
     metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
     store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])
     run = store.get_run(run_id)
-    metric_histories = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    metric_histories = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
     assert set(metrics) == set(metric_tuples)
 

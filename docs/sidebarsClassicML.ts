@@ -152,44 +152,14 @@ const sidebarsClassicML: SidebarsConfig = {
               ],
             },
             {
-              type: 'category',
-              label: 'Scikit Learn',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/sklearn/quickstart/quickstart-sklearn-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/sklearn/guide/index',
-                  label: 'Scikit Learn within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/sklearn/index',
-              },
+              type: 'doc',
+              id: 'traditional-ml/sklearn/index',
+              label: 'Scikit-learn',
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/xgboost/index',
               label: 'XGBoost',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/xgboost/quickstart/quickstart-xgboost-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/xgboost/guide/index',
-                  label: 'XGBoost within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/xgboost/index',
-              },
             },
             {
               type: 'doc',
@@ -212,25 +182,6 @@ const sidebarsClassicML: SidebarsConfig = {
           label: 'Deep Learning',
           items: [
             {
-              type: 'category',
-              label: 'Keras',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/keras/quickstart/quickstart-keras-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/keras/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/keras/index',
-              },
-            },
-            {
               type: 'doc',
               id: 'deep-learning/pytorch/index',
               label: 'PyTorch',
@@ -239,6 +190,11 @@ const sidebarsClassicML: SidebarsConfig = {
               type: 'doc',
               id: 'deep-learning/tensorflow/index',
               label: 'TensorFlow',
+            },
+            {
+              type: 'doc',
+              id: 'deep-learning/keras/index',
+              label: 'Keras',
             },
             {
               type: 'category',
@@ -355,18 +311,9 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/spacy/index',
               label: 'spaCy',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/spacy/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/spacy/index',
-              },
             },
           ],
           link: {

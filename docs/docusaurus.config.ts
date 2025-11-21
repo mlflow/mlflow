@@ -749,8 +749,12 @@ const config: Config = {
             from: ['/deep-learning/keras'],
           },
           {
-            to: '/ml/deep-learning/keras/quickstart/quickstart-keras',
+            to: '/ml/deep-learning/keras',
             from: ['/deep-learning/keras/quickstart/quickstart_keras'],
+          },
+          {
+            to: '/ml/deep-learning/keras',
+            from: ['/deep-learning/keras/guide', '/ml/deep-learning/keras/guide'],
           },
           {
             to: '/ml/deep-learning/pytorch',
@@ -764,6 +768,15 @@ const config: Config = {
               '/ml/deep-learning/pytorch/guide',
               '/deep-learning/pytorch/quickstart/pytorch_quickstart',
               '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
+            ],
+          },
+          // Redirect consolidated spaCy guide to index
+          {
+            to: '/ml/deep-learning/spacy',
+            from: [
+              '/deep-learning/spacy/guide',
+              '/classic-ml/deep-learning/spacy/guide',
+              '/ml/deep-learning/spacy/guide',
             ],
           },
           {
@@ -800,13 +813,15 @@ const config: Config = {
             to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow'],
           },
+          // Redirect consolidated tensorflow guide and quickstart to index
           {
             to: '/ml/deep-learning/tensorflow',
-            from: ['/deep-learning/tensorflow/guide'],
-          },
-          {
-            to: '/ml/deep-learning/tensorflow',
-            from: ['/deep-learning/tensorflow/quickstart/quickstart_tensorflow'],
+            from: [
+              '/deep-learning/tensorflow/guide',
+              '/ml/deep-learning/tensorflow/guide',
+              '/deep-learning/tensorflow/quickstart/quickstart_tensorflow',
+              '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
+            ],
           },
           {
             to: '/ml/deep-learning/transformers',
@@ -1095,6 +1110,16 @@ const config: Config = {
           {
             to: '/ml/tutorials-and-examples',
             from: ['/tutorials-and-examples'],
+          },
+          // Redirect removed sklearn subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/sklearn/',
+            from: ['/ml/traditional-ml/sklearn/guide', '/ml/traditional-ml/sklearn/quickstart/quickstart-sklearn'],
+          },
+          // Redirect removed XGBoost subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/xgboost/',
+            from: ['/ml/traditional-ml/xgboost/guide', '/ml/traditional-ml/xgboost/quickstart/quickstart-xgboost'],
           },
         ],
       },

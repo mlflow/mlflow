@@ -241,6 +241,7 @@ docstring-code-format = true
 docstring-code-line-length = 88
 
 [tool.ruff.lint]
+preview = true
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "B006",    # multiple-argument-default
@@ -316,6 +317,8 @@ select = [
   "W",       # warning
 ]
 ignore = [
+  "E265", # no-space-after-block-comment
+  "E266", # multiple-leading-hashes-for-block-comment
   "E402", # module-import-not-at-top-of-file
   "E721", # type-comparison
   "E741", # ambiguous-variable-name
@@ -339,6 +342,10 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.isort]
 forced-separate = ["tests"]
+# https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc
+# The `docker` package is marked as third-party because a `docker` directory exists in the repository root,
+# which would otherwise cause ruff to incorrectly classify it as first-party.
+known-third-party = ["docker"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "Do not use pkg_resources. Use importlib.resources or importlib.metadata instead."
@@ -459,7 +466,7 @@ filterwarnings = [
   "error::pydantic.PydanticDeprecatedSince20:mlflow",
   "error::pydantic.PydanticDeprecatedSince20:tests",
   # Silence filesystem backend deprecation warnings (https://github.com/mlflow/mlflow/issues/18534)
-  "ignore:Filesystem (tracking|model registry) backend.*is deprecated:FutureWarning",
+  "ignore:The filesystem (tracking|model registry) backend.*will be deprecated:FutureWarning",
 ]
 timeout = 1200
 
