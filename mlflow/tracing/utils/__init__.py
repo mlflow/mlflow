@@ -302,7 +302,7 @@ def generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id: int) -> str:
     Returns:
         The MLflow trace ID string in format "tr-<hex_trace_id>".
     """
-    return TRACE_REQUEST_ID_PREFIX + encode_trace_id(otel_trace_id)
+    return TRACE_REQUEST_ID_PREFIX + uuid.uuid4().hex
 
 
 def generate_trace_id_v4_from_otel_trace_id(otel_trace_id: int, location: str) -> str:
@@ -316,7 +316,8 @@ def generate_trace_id_v4_from_otel_trace_id(otel_trace_id: int, location: str) -
     Returns:
         The MLflow trace ID string in format "trace:/<location>/<hex_trace_id>".
     """
-    return construct_trace_id_v4(location, encode_trace_id(otel_trace_id))
+    unique_hex = uuid.uuid4().hex
+    return construct_trace_id_v4(location, unique_hex)
 
 
 def generate_trace_id_v4(span: OTelSpan, location: str) -> str:
