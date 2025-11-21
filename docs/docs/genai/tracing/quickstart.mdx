@@ -260,7 +260,6 @@ locations = ["san francisco", "  New York  ", "tokyo"]
 
 for location in locations:
     print(f"\n--- Processing: {location} ---")
-
     response = get_enhanced_weather_response(location)
     print(f"Response: {response[:100]}...")
 
