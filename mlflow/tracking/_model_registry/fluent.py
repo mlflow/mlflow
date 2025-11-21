@@ -1,4 +1,3 @@
-import functools
 import json
 import logging
 import threading
@@ -14,11 +13,15 @@ from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, 
 from mlflow.entities.run import Run
 from mlflow.environment_variables import (
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
-    MLFLOW_PROMPT_CACHE_MAX_SIZE,
+    MLFLOW_PROMPT_CACHE_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
+from mlflow.prompt.registry_utils import (
+    PromptCache,
+    parse_prompt_name_or_uri,
+    require_prompt_registry,
+)
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     NOT_FOUND,
@@ -691,6 +694,7 @@ def load_prompt(
     allow_missing: bool = False,
     link_to_model: bool = True,
     model_id: str | None = None,
+    cache_ttl_seconds: int | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -706,6 +710,9 @@ def load_prompt(
                        by `model_id`, or the active model ID if `model_id` is None and
                        there is an active model.
         model_id: The ID of the model to which to link the prompt, if `link_to_model` is True.
+        cache_ttl_seconds: Time-to-live in seconds for the cached prompt. If not specified,
+            uses the value from MLFLOW_PROMPT_CACHE_TTL_SECONDS environment variable (default 60).
+            Set to 0 to bypass the cache and always fetch from the server.
 
     Example:
 
@@ -722,6 +729,12 @@ def load_prompt(
         # Load a prompt version with an alias "production"
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")
 
+        # Load with custom cache TTL (5 minutes)
+        prompt = mlflow.load_prompt("my_prompt", version=1, cache_ttl_seconds=300)
+
+        # Bypass cache entirely
+        prompt = mlflow.load_prompt("my_prompt", version=1, cache_ttl_seconds=0)
+
     """
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="load_prompt"),
@@ -729,26 +742,27 @@ def load_prompt(
         stacklevel=3,
     )
 
-    if "@" in name_or_uri:
-        # Don't cache prompts loaded by alias since aliases can change over time
+    # Determine TTL for caching
+    ttl = (
+        cache_ttl_seconds
+        if cache_ttl_seconds is not None
+        else MLFLOW_PROMPT_CACHE_TTL_SECONDS.get()
+    )
+
+    if ttl <= 0:
+        # Cache disabled - fetch directly from server
         prompt = _load_prompt_not_cached(
             name_or_uri=name_or_uri,
             version=version,
             allow_missing=allow_missing,
         )
     else:
-        # Otherwise, we use a cached function to avoid loading the same prompt multiple times.
-        # If the prompt from the cache is not found and allowing_missing is True, we
-        # try to load the prompt from the client without cache, since it may have been
-        # registered after the cache was created (uncommon scenario).
-        prompt = _load_prompt_cached(
+        # Use TTL-based cache
+        prompt = _load_prompt_with_cache(
             name_or_uri=name_or_uri,
             version=version,
             allow_missing=allow_missing,
-        ) or _load_prompt_not_cached(
-            name_or_uri=name_or_uri,
-            version=version,
-            allow_missing=allow_missing,
+            ttl_seconds=ttl,
         )
     if prompt is None:
         return
@@ -804,16 +818,51 @@ def load_prompt(
     return prompt
 
 
-@functools.lru_cache(maxsize=MLFLOW_PROMPT_CACHE_MAX_SIZE.get())
-def _load_prompt_cached(
+def _load_prompt_with_cache(
     name_or_uri: str,
     version: str | int | None = None,
     allow_missing: bool = False,
+    ttl_seconds: int = 60,
 ) -> PromptVersion | None:
     """
-    Internal cached function to load prompts from registry.
+    Load prompt with TTL-based caching.
+
+    If the prompt is in cache and not expired, returns immediately.
+    Otherwise, fetches from server and caches the result.
     """
-    return _load_prompt_not_cached(name_or_uri, version, allow_missing)
+    cache = PromptCache.get_instance()
+
+    # Parse URI to extract name and version/label for cache key
+    prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
+
+    # Extract name and version/label from URI for cache key generation
+    # URI formats: "prompts:/name/version" or "prompts:/name@label"
+    uri_path = prompt_uri.replace("prompts:/", "")
+
+    if "@" in uri_path:
+        # Alias format: "name@label"
+        prompt_name, label = uri_path.split("@", 1)
+        cache_key = PromptCache.generate_cache_key(prompt_name, label=label)
+    else:
+        # Version format: "name/version"
+        parts = uri_path.split("/")
+        prompt_name = parts[0]
+        prompt_version = int(parts[1]) if len(parts) > 1 else None
+        cache_key = PromptCache.generate_cache_key(prompt_name, version=prompt_version)
+
+    # Try to get from cache
+    cached_prompt = cache.get(cache_key)
+    if cached_prompt is not None:
+        return cached_prompt
+
+    # Cache miss - fetch from server
+    prompt = _load_prompt_not_cached(name_or_uri, version, allow_missing)
+
+    # Cache the result (including None for allow_missing cases)
+    if prompt is not None:
+        cache.set(cache_key, prompt, ttl_seconds)
+
+    return prompt
 
 
 def _load_prompt_not_cached(

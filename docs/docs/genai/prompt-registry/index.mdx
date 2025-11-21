@@ -167,7 +167,19 @@ Once you have multiple versions of a prompt, you can compare them to understand 
 
 ### 4. Load and Use the Prompt
 
-To use a prompt in your GenAI application, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object:
+To use a prompt in your GenAI application, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object.
+
+:::tip Prompt Caching
+
+Prompts are cached in memory with a default TTL of 60 seconds to reduce latency. You can customize this behavior:
+
+- **Custom TTL**: `mlflow.genai.load_prompt("summarization-prompt/", version=1, cache_ttl_seconds=300)` (5 minutes)
+- **Bypass cache**: `mlflow.genai.load_prompt("summarization-prompt/", version=1, cache_ttl_seconds=0)`
+- **Global config**: Set `MLFLOW_PROMPT_CACHE_TTL_SECONDS` environment variable
+
+To invalidate cached prompts programmatically, use `PromptCache.get_instance().invalidate("prompt-name")` from `mlflow.prompt.registry_utils`.
+
+:::
 
 ```python
 import mlflow
