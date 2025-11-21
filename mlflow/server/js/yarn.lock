@@ -2683,7 +2683,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@databricks/design-system@npm:^1.7.0":
+"@databricks/design-system@npm:^1.12.21":
   version: 1.12.22
   resolution: "@databricks/design-system@npm:1.12.22"
   dependencies:
@@ -4487,7 +4487,7 @@ __metadata:
     "@babel/preset-react": "npm:^7.27.1"
     "@babel/preset-typescript": "npm:^7.27.1"
     "@craco/craco": "npm:7.0.0-alpha.0"
-    "@databricks/design-system": "npm:^1.7.0"
+    "@databricks/design-system": "npm:^1.12.21"
     "@emotion/babel-plugin": "npm:^11.11.0"
     "@emotion/babel-preset-css-prop": "npm:^11.11.0"
     "@emotion/cache": "npm:^11.11.0"
