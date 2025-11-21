@@ -81,6 +81,11 @@ const config: Config = {
   clientModules: [require.resolve('./src/docusaurus.theme.js')],
 
   themeConfig: {
+    docs: {
+      sidebar: {
+        autoCollapseCategories: true,
+      },
+    },
     mermaid: {
       theme: { light: 'neutral', dark: 'dark' },
       options: {

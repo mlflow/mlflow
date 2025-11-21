@@ -440,6 +440,7 @@ html[data-genai-theme='true'] {
 .theme-doc-sidebar-container {
   background-color: transparent;
   border-right: none !important;
+  padding-top: 2rem;
   margin-right: 2rem;
 }
 
