@@ -278,7 +278,7 @@ export const ModelListTable = ({
   const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
   const table = useReactTable<EnrichedModelEntity>(
-    'mlflow/web/js/src/model-registry/components/model-list/ModelListTable.tsx',
+    'mlflow/server/js/src/model-registry/components/model-list/ModelListTable.tsx',
     {
       data: enrichedModelsData,
       columns: tableColumns,

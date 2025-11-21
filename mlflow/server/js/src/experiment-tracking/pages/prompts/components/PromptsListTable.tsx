@@ -92,7 +92,7 @@ export const PromptsListTable = ({
   const { theme } = useDesignSystemTheme();
   const columns = usePromptsTableColumns();
 
-  const table = useReactTable('mlflow/web/js/src/experiment-tracking/pages/prompts/components/PromptsListTable.tsx', {
+  const table = useReactTable('mlflow/server/js/src/experiment-tracking/pages/prompts/components/PromptsListTable.tsx', {
     data: prompts ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),

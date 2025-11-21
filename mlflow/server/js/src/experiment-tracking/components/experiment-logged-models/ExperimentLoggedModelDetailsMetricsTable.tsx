@@ -161,7 +161,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
   );
 
   const table = useReactTable(
-    'mlflow/web/js/src/experiment-tracking/components/experiment-logged-models/ExperimentLoggedModelDetailsMetricsTable.tsx',
+    'mlflow/server/js/src/experiment-tracking/components/experiment-logged-models/ExperimentLoggedModelDetailsMetricsTable.tsx',
     {
       data: filteredMetrics,
       getCoreRowModel: getCoreRowModel(),

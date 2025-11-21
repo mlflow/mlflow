@@ -125,9 +125,9 @@ export const TableFilterItem = ({
       result.push(
         // TODO: Added via UI sync, but doesn't work in databricks yet. Uncomment
         // these when the search API supports them
-        // { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
+        { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
         { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
-        // { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
+        { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
       );
     }
 

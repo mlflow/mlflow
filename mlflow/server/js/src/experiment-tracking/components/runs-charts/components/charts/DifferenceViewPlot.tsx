@@ -217,7 +217,7 @@ export const DifferenceViewPlot = ({
   });
 
   const table = useReactTable(
-    'mlflow/web/js/src/experiment-tracking/components/runs-charts/components/charts/DifferenceViewPlot.tsx',
+    'mlflow/server/js/src/experiment-tracking/components/runs-charts/components/charts/DifferenceViewPlot.tsx',
     {
       columns,
       data: dataRows,
