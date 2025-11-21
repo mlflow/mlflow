@@ -528,6 +528,7 @@ mlflow.entities.WebhookStatus.to_proto
 mlflow.entities.WebhookTestResult
 mlflow.entities.WebhookTestResult.from_proto
 mlflow.entities.WebhookTestResult.to_proto
+mlflow.entities.Workspace
 mlflow.entities.assessment.Assessment
 mlflow.entities.assessment.Expectation
 mlflow.entities.assessment.Feedback
@@ -627,6 +628,7 @@ mlflow.entities.webhook.Webhook
 mlflow.entities.webhook.WebhookEvent
 mlflow.entities.webhook.WebhookStatus
 mlflow.entities.webhook.WebhookTestResult
+mlflow.entities.workspace.Workspace
 mlflow.evaluate
 mlflow.exceptions.get_error_code
 mlflow.finalize_logged_model

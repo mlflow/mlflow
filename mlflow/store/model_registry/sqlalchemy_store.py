@@ -61,6 +61,7 @@ from mlflow.utils.validation import (
     _validate_webhook_name,
     _validate_webhook_url,
 )
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -194,12 +195,14 @@ class SqlAlchemyStore(AbstractStore):
                     creation_time=creation_time,
                     last_updated_time=creation_time,
                     description=description,
+                    workspace=DEFAULT_WORKSPACE_NAME,
                 )
                 tags_dict = {}
                 for tag in tags or []:
                     tags_dict[tag.key] = tag.value
                 registered_model.registered_model_tags = [
-                    SqlRegisteredModelTag(key=key, value=value) for key, value in tags_dict.items()
+                    SqlRegisteredModelTag(workspace=DEFAULT_WORKSPACE_NAME, key=key, value=value)
+                    for key, value in tags_dict.items()
                 ]
                 session.add(registered_model)
                 session.flush()
@@ -696,7 +699,11 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             # check if registered model exists
             self._get_registered_model(session, name)
-            session.merge(SqlRegisteredModelTag(name=name, key=tag.key, value=tag.value))
+            session.merge(
+                SqlRegisteredModelTag(
+                    workspace=DEFAULT_WORKSPACE_NAME, name=name, key=tag.key, value=tag.value
+                )
+            )
 
     def delete_registered_model_tag(self, name, key):
         """
@@ -803,12 +810,14 @@ class SqlAlchemyStore(AbstractStore):
                         run_id=run_id,
                         run_link=run_link,
                         description=description,
+                        workspace=DEFAULT_WORKSPACE_NAME,
                     )
                     tags_dict = {}
                     for tag in tags or []:
                         tags_dict[tag.key] = tag.value
                     model_version.model_version_tags = [
-                        SqlModelVersionTag(key=key, value=value) for key, value in tags_dict.items()
+                        SqlModelVersionTag(workspace=DEFAULT_WORKSPACE_NAME, key=key, value=value)
+                        for key, value in tags_dict.items()
                     ]
                     session.add_all([sql_registered_model, model_version])
                     session.flush()
@@ -1193,7 +1202,13 @@ class SqlAlchemyStore(AbstractStore):
             # check if model version exists
             self._get_sql_model_version(session, name, version)
             session.merge(
-                SqlModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
+                SqlModelVersionTag(
+                    workspace=DEFAULT_WORKSPACE_NAME,
+                    name=name,
+                    version=version,
+                    key=tag.key,
+                    value=tag.value,
+                )
             )
 
     def delete_model_version_tag(self, name, version, key):
@@ -1248,7 +1263,11 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             # check if model version exists
             self._get_sql_model_version(session, name, version)
-            session.merge(SqlRegisteredModelAlias(name=name, alias=alias, version=version))
+            session.merge(
+                SqlRegisteredModelAlias(
+                    workspace=DEFAULT_WORKSPACE_NAME, name=name, alias=alias, version=version
+                )
+            )
 
     def delete_registered_model_alias(self, name, alias):
         """
