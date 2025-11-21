@@ -62,9 +62,11 @@ def test_trace_metrics_time_granularity_to_proto(
 def test_trace_metrics_metric_data_point_from_proto():
     metric_data_point_proto = pb.MetricDataPoint(
         dimensions={"trace_status": "OK", "time_bucket": "2025-11-13"},
-        metrics={"trace.count": "150"},
+        metric_name="trace",
+        values={"count": "150"},
     )
     assert MetricDataPoint.from_proto(metric_data_point_proto) == MetricDataPoint(
         dimensions={"trace_status": "OK", "time_bucket": "2025-11-13"},
-        metrics={"trace.count": "150"},
+        metric_name="trace",
+        values={"count": "150"},
     )

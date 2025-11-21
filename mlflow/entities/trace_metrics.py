@@ -45,11 +45,13 @@ class TimeGranularity(str, Enum):
 @dataclass
 class MetricDataPoint(_MlflowObject):
     dimensions: dict[str, str]
-    metrics: dict[str, str]
+    metric_name: str
+    values: dict[str, str]
 
     @classmethod
     def from_proto(cls, proto: pb.MetricDataPoint) -> "MetricDataPoint":
         return cls(
             dimensions=dict(proto.dimensions),
-            metrics=dict(proto.metrics),
+            metric_name=proto.metric_name,
+            values=dict(proto.values),
         )
