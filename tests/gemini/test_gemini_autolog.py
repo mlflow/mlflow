@@ -195,6 +195,7 @@ def test_generate_content_enable_disable_autolog(is_async):
         traces = get_traces()
         assert len(traces) == 1
 
+        assert False
 
 def test_generate_content_tracing_with_error(is_async):
     if is_async:
@@ -499,6 +500,7 @@ def test_chat_session_autolog(is_async):
         # No new trace should be created
         traces = get_traces()
         assert len(traces) == 1
+        assert False
 
 
 def test_count_tokens_autolog():
