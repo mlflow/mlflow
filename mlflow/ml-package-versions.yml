@@ -880,6 +880,7 @@ agno:
     maximum: "2.1.4"
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
+      ">= 2.0.0": ["opentelemetry-exporter-otlp", "openinference-instrumentation-agno", ""]
     run: pytest tests/agno
     test_tracing_sdk: true
 
