@@ -298,7 +298,7 @@ def create_mcp_approval_response_item(
         id (str): The unique id of the approval response.
         approval_request_id (str): The id of the approval request being answered.
         approve (bool): Whether the request was approved.
-        reason (str): The reason for the approval.
+        reason (Optional[str]): The reason for the approval.
     """
     return {
         "type": "mcp_approval_response",
