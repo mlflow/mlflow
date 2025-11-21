@@ -3,6 +3,7 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import ImageBox from "@site/src/components/ImageBox";
 import { BarChart3, Target, FileText, Search } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Collect User Feedback
 
@@ -66,10 +67,9 @@ MLflow feedback supports various formats to match your application's needs:
 | Feedback Type | Description | Example Use Cases |
 | ------------- | ----------- | ----------------- |
 
-import useBaseUrl from '@docusaurus/useBaseUrl';
-| **Boolean**   | Simple `True`/`False` feedback | Thumbs up/down, correct/incorrect   |
-| **Numeric**   | Integer or float ratings       | 1-5 star ratings, confidence scores |
-| **Text**      | Free-form text feedback        | Detailed quality breakdowns         |
+| **Boolean** | Simple `True`/`False` feedback | Thumbs up/down, correct/incorrect |
+| **Numeric** | Integer or float ratings | 1-5 star ratings, confidence scores |
+| **Text** | Free-form text feedback | Detailed quality breakdowns |
 
 ## Supported Feedback Sources
 

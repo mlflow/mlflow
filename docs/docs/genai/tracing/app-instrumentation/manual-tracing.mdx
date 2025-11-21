@@ -1,6 +1,7 @@
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
 import { APILink } from "@site/src/components/APILink";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Manual Tracing
 
@@ -21,10 +22,8 @@ The <APILink fn="mlflow.trace" /> decorator allows you to create a span for any 
 
 The @mlflow.trace decorator currently supports the following types of functions:
 
-| Function Type | Supported |
-| ------------- | --------- |
-
-import useBaseUrl from '@docusaurus/useBaseUrl';
+| Function Type   | Supported       |
+| --------------- | --------------- |
 | Sync            | Yes             |
 | Async           | Yes (>= 2.16.0) |
 | Generator       | Yes (>= 2.20.2) |

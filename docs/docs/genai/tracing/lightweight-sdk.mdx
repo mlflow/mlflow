@@ -2,6 +2,7 @@ import { Card, CardGroup, TitleCard } from "@site/src/components/Card";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import NebiusLogo from '@site/static/images/logos/nebius-logo.png';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Lightweight Tracing SDK Optimized for Production Usage
 
@@ -337,9 +338,8 @@ def your_function():
 | Package | Size | Dependencies | Use Case |
 | ------- | ---- | ------------ | -------- |
 
-import useBaseUrl from '@docusaurus/useBaseUrl';
-| `mlflow`         | ~1000MB | 20+ packages | Development, experimentation, full ML lifecycle |
-| `mlflow-tracing` | ~5MB    | 5-8 packages | Production tracing, monitoring, observability   |
+| `mlflow` | ~1000MB | 20+ packages | Development, experimentation, full ML lifecycle |
+| `mlflow-tracing` | ~5MB | 5-8 packages | Production tracing, monitoring, observability |
 
 The lightweight SDK is **95% smaller** than the full MLflow package, making it ideal for:
 
