@@ -3,10 +3,7 @@ import time
 
 import pytest
 
-from mlflow.prompt.registry_utils import (
-    DEFAULT_PROMPT_CACHE_TTL_SECONDS,
-    PromptCache,
-)
+from mlflow.prompt.registry_utils import PromptCache
 
 
 @pytest.fixture(autouse=True)
@@ -167,10 +164,6 @@ def test_concurrent_operations():
         t.join()
 
     assert len(errors) == 0
-
-
-def test_default_ttl_constant():
-    assert DEFAULT_PROMPT_CACHE_TTL_SECONDS == 60
 
 
 def test_set_uses_default_ttl():

@@ -22,9 +22,6 @@ from mlflow.prompt.constants import (
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
 
-# Default TTL for prompt cache (60 seconds, matching LangFuse default)
-DEFAULT_PROMPT_CACHE_TTL_SECONDS = 60
-
 _logger = logging.getLogger(__name__)
 
 
@@ -328,7 +325,7 @@ class PromptCache:
         self,
         key: str,
         value: Any,
-        ttl_seconds: float = DEFAULT_PROMPT_CACHE_TTL_SECONDS,
+        ttl_seconds: float = 60,
     ) -> None:
         """
         Store a prompt in the cache.
