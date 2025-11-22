@@ -557,7 +557,8 @@ def _try_extract_retrieval_context_with_llm(
                 {"content": chunk.content, "doc_uri": chunk.doc_uri} for chunk in ctx.chunks
             ]
 
-        # Filter to only keep top-level retrieval spans (not nested under other retrieval spans)
+        # Filter to keep only top-level retrieval spans (not nested under other retrieval spans),
+        # which is consistent with the programmatic approach (_get_top_level_retrieval_spans)
         parent_map = {span.span_id: span.parent_id for span in trace.data.spans}
 
         def has_retrieval_ancestor(span_id: str) -> bool:
