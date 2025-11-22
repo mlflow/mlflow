@@ -578,7 +578,7 @@ class _MultiTurnTestScorer(mlflow.genai.Scorer):
     def is_session_level_scorer(self) -> bool:
         return True
 
-    def __call__(self, session_traces=None, **kwargs):
+    def __call__(self, traces=None, **kwargs):
         return 1.0
 
 

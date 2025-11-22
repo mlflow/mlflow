@@ -374,8 +374,8 @@ def _evaluate_multi_turn_scorers(
         # Evaluate each multi-turn scorer
         for scorer in multi_turn_scorers:
             try:
-                # Call scorer with session_traces parameter
-                value = scorer.run(session_traces=traces)
+                # Call scorer with session parameter
+                value = scorer.run(session=traces)
                 feedbacks = standardize_scorer_value(scorer.name, value)
 
                 # Add session_id to metadata for each feedback
