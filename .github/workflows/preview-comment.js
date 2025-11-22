@@ -17,7 +17,8 @@ async function isUrlAccessible(url) {
     // treat 200 and 3xx as "accessible", 404 as "missing"
     return res.ok || (res.status >= 300 && res.status < 400);
   } catch (e) {
-    return false;
+    console.error(`Error checking accessibility for ${url}:`, e);
+    return undefined;
   }
 }
 
@@ -156,8 +157,8 @@ function getCommentTemplate({
           } else if (isAccessible === false) {
             statusText = `${status}, ❌ add a redirect`;
           } else {
-            // If accessibility check wasn't performed or failed
-            statusText = `${status}, ⚠️ add a redirect`;
+            // If accessibility check failed
+            statusText = `${status}, ⚠️ failed to check`;
           }
         }
         return `- ${link} (${statusText})`;
@@ -254,12 +255,7 @@ module.exports = async ({ github, context, env }) => {
             // Check accessibility for removed or renamed pages
             let isAccessible;
             if (status === "removed" || status === "renamed") {
-              try {
-                isAccessible = await isUrlAccessible(pageUrl);
-              } catch (error) {
-                console.error(`Error checking accessibility for ${pageUrl}:`, error);
-                // Leave as undefined if check fails
-              }
+              isAccessible = await isUrlAccessible(pageUrl);
             }
 
             return {
