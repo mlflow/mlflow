@@ -9,7 +9,7 @@ const MARKER = "<!-- documentation preview -->";
 /**
  * Check if a URL is accessible
  * @param {string} url - URL to check
- * @returns {Promise<boolean>} True if the URL is accessible (200 or 3xx), false otherwise
+ * @returns {Promise<boolean|undefined>} True if the URL is accessible (200 or 3xx), false otherwise; undefined if an error occurs
  */
 async function isUrlAccessible(url) {
   try {
