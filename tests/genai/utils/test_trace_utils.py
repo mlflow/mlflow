@@ -701,7 +701,6 @@ def test_does_store_support_trace_linking():
 
 
 def test_llm_extraction_called_when_no_retrieval_contexts_found_programmatically():
-    # Create trace with no RETRIEVER spans - programmatic extraction returns {}
     span = create_span(
         span_id=1,
         parent_id=None,
@@ -711,9 +710,8 @@ def test_llm_extraction_called_when_no_retrieval_contexts_found_programmatically
     )
     trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[span]))
 
-    # Mock the LLM extraction function
     with mock.patch(
-        "mlflow.genai.utils.trace_utils._extract_retrieval_context_with_llm"
+        "mlflow.genai.utils.trace_utils._try_extract_retrieval_context_with_llm"
     ) as mock_llm:
         mock_llm.return_value = {
             span.span_id: [{"content": "LLM extracted doc", "doc_uri": "https://example.com/doc1"}]
@@ -728,20 +726,17 @@ def test_llm_extraction_called_when_no_retrieval_contexts_found_programmatically
 
 
 def test_llm_extraction_not_called_when_retrieval_contexts_found_programmatically():
-    # Create trace with RETRIEVER span (even with empty outputs)
-    # Programmatic extraction returns {"span_id": []}
     span = create_span(
         span_id=1,
         parent_id=None,
         inputs="question",
-        outputs=[],  # Empty outputs but still a RETRIEVER span
+        outputs=[],
         span_type=SpanType.RETRIEVER,
     )
     trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[span]))
 
-    # Mock the LLM extraction function
     with mock.patch(
-        "mlflow.genai.utils.trace_utils._extract_retrieval_context_with_llm"
+        "mlflow.genai.utils.trace_utils._try_extract_retrieval_context_with_llm"
     ) as mock_llm:
         result = extract_retrieval_context_from_trace(trace)
 
@@ -750,9 +745,6 @@ def test_llm_extraction_not_called_when_retrieval_contexts_found_programmaticall
 
 
 def test_llm_extraction_filters_nested_retrieval_spans():
-    # Create trace with hierarchy:
-    # Span 1 (root LLM) -> Span 2 (search) -> Span 3 (nested search)
-    #                   -> Span 4 (search)
     span1 = create_span(
         span_id=1,
         parent_id=None,
@@ -765,11 +757,11 @@ def test_llm_extraction_filters_nested_retrieval_spans():
         parent_id=1,
         inputs="search query",
         outputs={},
-        span_type=SpanType.UNKNOWN,  # Not RETRIEVER, so programmatic extraction won't find it
+        span_type=SpanType.UNKNOWN,
     )
     span3 = create_span(
         span_id=3,
-        parent_id=2,  # Nested under span 2
+        parent_id=2,
         inputs="nested search",
         outputs={},
         span_type=SpanType.UNKNOWN,
@@ -786,7 +778,6 @@ def test_llm_extraction_filters_nested_retrieval_spans():
         data=TraceData(spans=[span1, span2, span3, span4]),
     )
 
-    # Mock the LLM call to return all 3 spans as retrieval spans
     with mock.patch(
         "mlflow.genai.judges.utils.get_chat_completions_with_structured_output"
     ) as mock_llm:
@@ -797,7 +788,7 @@ def test_llm_extraction_filters_nested_retrieval_spans():
                     chunks=[RetrievedChunk(content="doc from span 2")],
                 ),
                 RetrievedChunksForSpan(
-                    span_id=span3.span_id,  # Nested under span 2, should be filtered
+                    span_id=span3.span_id,
                     chunks=[RetrievedChunk(content="doc from span 3")],
                 ),
                 RetrievedChunksForSpan(
@@ -819,7 +810,6 @@ def test_llm_extraction_filters_nested_retrieval_spans():
 def test_llm_extraction_skipped_for_databricks_model():
     from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 
-    # Create trace with no RETRIEVER spans - would trigger LLM extraction
     span = create_span(
         span_id=1,
         parent_id=None,
@@ -829,7 +819,6 @@ def test_llm_extraction_skipped_for_databricks_model():
     )
     trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[span]))
 
-    # Mock get_default_model to return "databricks"
     with mock.patch("mlflow.genai.judges.utils.get_default_model") as mock_get_default:
         mock_get_default.return_value = _DATABRICKS_DEFAULT_JUDGE_MODEL
 
@@ -837,3 +826,24 @@ def test_llm_extraction_skipped_for_databricks_model():
 
         assert result == {}
         mock_get_default.assert_called()
+
+
+def test_llm_extraction_returns_empty_dict_on_exception():
+    span = create_span(
+        span_id=1,
+        parent_id=None,
+        inputs="question",
+        outputs={"answer": "response"},
+        span_type=SpanType.LLM,
+    )
+    trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[span]))
+
+    with mock.patch(
+        "mlflow.genai.utils.trace_utils._try_extract_retrieval_context_with_llm"
+    ) as mock_llm:
+        mock_llm.side_effect = Exception("LLM extraction failed")
+
+        result = extract_retrieval_context_from_trace(trace)
+
+        assert result == {}
+        mock_llm.assert_called_once_with(trace, None)
