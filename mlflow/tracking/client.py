@@ -54,7 +54,10 @@ from mlflow.entities.webhook import (
     WebhookStatus,
     WebhookTestResult,
 )
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASYNC_LOGGING,
+    MLFLOW_PROMPT_CACHE_TTL_SECONDS,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
@@ -66,6 +69,7 @@ from mlflow.prompt.constants import (
     RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import (
+    PromptCache,
     has_prompt_tag,
     model_version_to_prompt_version,
     parse_prompt_name_or_uri,
@@ -661,6 +665,12 @@ class MlflowClient:
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 
+        # Invalidate "latest" cache entry since we just created a new version
+        try:
+            PromptCache.get_instance().delete(name, label="latest")
+        except KeyError:
+            pass
+
         return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
     @translate_prompt_exception
@@ -728,6 +738,7 @@ class MlflowClient:
         name_or_uri: str,
         version: str | int | None = None,
         allow_missing: bool = False,
+        cache_ttl_seconds: int | None = None,
     ) -> PromptVersion | None:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -754,15 +765,41 @@ class MlflowClient:
                 using URI).
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
+            cache_ttl_seconds: Time-to-live for caching the prompt in seconds. If None, uses
+                the MLFLOW_PROMPT_CACHE_TTL_SECONDS environment variable (default 60).
+                Set to 0 to disable caching.
         """
         prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
+
+        # Determine TTL for caching
+        ttl = (
+            cache_ttl_seconds
+            if cache_ttl_seconds is not None
+            else MLFLOW_PROMPT_CACHE_TTL_SECONDS.get()
+        )
+
+        # Check cache if TTL > 0
+        if ttl > 0:
+            cache = PromptCache.get_instance()
+            cache_key = PromptCache.generate_cache_key_from_uri(prompt_uri)
+            cached_prompt = cache.get(cache_key)
+            if cached_prompt is not None:
+                return cached_prompt
+
+        # Fetch from server
         try:
             name, version_or_alias = self.parse_prompt_uri(prompt_uri)
             registry_client = self._get_registry_client()
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
-                return registry_client.get_prompt_version_by_alias(name, version_or_alias)
+                prompt = registry_client.get_prompt_version_by_alias(name, version_or_alias)
             else:
-                return registry_client.get_prompt_version(name, version_or_alias)
+                prompt = registry_client.get_prompt_version(name, version_or_alias)
+
+            # Cache the result if TTL > 0
+            if ttl > 0 and prompt is not None:
+                cache.set(cache_key, prompt, ttl_seconds=ttl)
+
+            return prompt
         except MlflowException as exc:
             if allow_missing and exc.error_code in (
                 ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
@@ -969,6 +1006,12 @@ class MlflowClient:
         self._validate_prompt(name, version)
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
+        # Invalidate cache for this alias since it now points to a different version
+        try:
+            PromptCache.get_instance().delete(name, label=alias)
+        except KeyError:
+            pass
+
     @require_prompt_registry
     @translate_prompt_exception
     def delete_prompt_alias(self, name: str, alias: str) -> None:
@@ -995,6 +1038,12 @@ class MlflowClient:
             value: The tag value.
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
+
+        # Invalidate cache for this specific version
+        try:
+            PromptCache.get_instance().delete(name, version=int(version))
+        except KeyError:
+            pass
 
     @experimental(version="3.0.0")
     @require_prompt_registry
