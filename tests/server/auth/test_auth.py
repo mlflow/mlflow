@@ -28,8 +28,14 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
-from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION, GET_SCORER_PERMISSION
+from mlflow.server import auth as auth_module
+from mlflow.server.auth.routes import (
+    CREATE_REGISTERED_MODEL_PERMISSION,
+    GET_REGISTERED_MODEL_PERMISSION,
+    GET_SCORER_PERMISSION,
+)
 from mlflow.utils.os import is_windows
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 from tests.server.auth.auth_test_utils import ADMIN_PASSWORD, ADMIN_USERNAME, User, create_user
@@ -82,6 +88,11 @@ def test_authenticate(client, monkeypatch):
 def test_validate_username_and_password(client, username, password):
     with pytest.raises(requests.exceptions.HTTPError, match=r"BAD REQUEST"):
         create_user(client.tracking_uri, username=username, password=password)
+
+
+def test_proxy_artifact_path_detection():
+    assert auth_module._is_proxy_artifact_path("/api/2.0/mlflow-artifacts/artifacts/foo")
+    assert auth_module._is_proxy_artifact_path("/ajax-api/2.0/mlflow-artifacts/artifacts/foo")
 
 
 def _mlflow_search_experiments_rest(base_uri, headers):
@@ -331,6 +342,7 @@ def test_create_and_delete_registered_model(client, monkeypatch):
     permission = response.json()["registered_model_permission"]
     assert permission["name"] == rm.name
     assert permission["permission"] == "MANAGE"
+    assert permission["workspace"] == DEFAULT_WORKSPACE_NAME
 
     # trying to create a model with the same name should fail
     with User(username1, password1, monkeypatch):
@@ -352,15 +364,68 @@ def test_create_and_delete_registered_model(client, monkeypatch):
 
     assert response.status_code == 404
     assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-    assert (
-        response.json()["message"]
-        == f"Registered model permission with name={rm.name} and username={username1} not found"
+    expected_message = (
+        "Registered model permission with "
+        f"workspace={DEFAULT_WORKSPACE_NAME}, name={rm.name} "
+        f"and username={username1} not found"
     )
+    assert response.json()["message"] == expected_message
 
     # now we should be able to create a model with the same name
     with User(username1, password1, monkeypatch):
         rm = client.create_registered_model("test_model")
     assert rm.name == "test_model"
+
+
+def test_delete_registered_model_clears_all_permissions(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, _password2 = create_user(client.tracking_uri)
+
+    # create a registered model and grant user2 READ
+    with User(username1, password1, monkeypatch):
+        rm = client.create_registered_model("test_model_permissions")
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            CREATE_REGISTERED_MODEL_PERMISSION,
+            json_payload={"name": rm.name, "username": username2, "permission": "READ"},
+            auth=(username1, password1),
+        )
+
+    # confirm permission exists for user2
+    with User(username1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
+            params={"name": rm.name, "username": username2},
+            auth=(username1, password1),
+        )
+    assert response.ok
+    assert response.json()["registered_model_permission"]["permission"] == "READ"
+
+    # delete the registered model
+    with User(username1, password1, monkeypatch):
+        client.delete_registered_model(rm.name)
+
+    # confirm permissions are deleted for *all* users (check as admin)
+    for username in (username1, username2):
+        response = requests.get(
+            url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
+            params={"name": rm.name, "username": username},
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        )
+        assert response.status_code == 404
+        assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    # recreate model with the same name; user2 should not regain access implicitly
+    with User(username1, password1, monkeypatch):
+        rm2 = client.create_registered_model(rm.name)
+    assert rm2.name == rm.name
+
+    response = requests.get(
+        url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
+        params={"name": rm.name, "username": username2},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert response.status_code == 404
 
 
 def _wait(url: str):
@@ -434,7 +499,7 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
                 tmp_file_with_numbers = tmp_path / "123456.txt"
                 tmp_file_with_numbers.touch()
                 with pytest.raises(requests.HTTPError, match="Permission denied"):
-                    client.log_artifact(run.info.run_id, tmp_file)
+                    client.log_artifact(run.info.run_id, tmp_file_with_numbers)
         finally:
             # Kill the server process to prevent `prc.wait()` (called when exiting the context
             # manager) from waiting forever.
