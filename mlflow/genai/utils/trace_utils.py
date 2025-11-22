@@ -401,23 +401,17 @@ def _extract_retrieval_context_with_llm(
             ChatMessage(
                 role="system",
                 content=(
-                    "You are a trace analysis assistant. Your job is to examine MLflow traces "
-                    "and identify spans that retrieved information to help answer queries.\n\n"
-                    "You have access to these tools:\n"
-                    "- list_spans: Get a list of all spans in the trace with basic metadata\n"
-                    "- get_span: Get detailed information about a specific span, including its "
-                    "outputs\n"
-                    "- get_root_span: Get the root span of the trace\n"
-                    "- search_trace_regex: Search the trace for text patterns\n\n"
-                    "Your task is to find spans whose outputs contain information that helps "
-                    "answer the user's query, then extract that information as retrieval contexts."
+                    "You are a trace analysis expert. Your job is to examine agent execution"
+                    " traces, identify spans (operations) where the agent retrieved information"
+                    " (e.g. by querying a knowledge base, searching documents, or calling an API), "
+                    " and extract the retrieved information from those spans."
                 ),
             ),
             ChatMessage(
                 role="user",
                 content=(
                     "Find spans that retrieved information by calling the available tools. "
-                    "The trace is already loaded - just call list_spans and get_span to "
+                    "The trace is already loaded - just call your available tools to "
                     "analyze it.\n\n"
                     "Look for spans whose outputs contain substantive data such as:\n"
                     "- Documents, text chunks, or passages\n"
