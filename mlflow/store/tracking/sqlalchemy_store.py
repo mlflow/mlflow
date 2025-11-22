@@ -1987,7 +1987,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def _hard_delete_logged_model(self, model_id):
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
             session.delete(logged_model)

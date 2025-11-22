@@ -849,31 +849,28 @@ def test_mlflow_gc_with_datasets(sqlite_store):
         store.get_experiment(experiment_id)
 
 
-def test_mlflow_gc_logged_model(tmp_path):
-    store = FileStore(str(tmp_path), str(tmp_path))
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_model(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     model = store.create_logged_model(experiment_id=exp_id)
-    artifact_repo = get_artifact_repository(model.artifact_location)
-    artifact_file = tmp_path / "artifact.txt"
-    artifact_file.write_text("content")
-    artifact_repo.log_artifact(str(artifact_file))
+
     store.delete_logged_model(model.model_id)
-    subprocess.check_output(
-        [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", str(tmp_path)]
-    )
-    model_dir = store._get_model_dir(exp_id, model.model_id)
-    assert not os.path.exists(model_dir)
+    subprocess.check_output([sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", uri])
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(model.model_id)
 
 
-def test_mlflow_gc_logged_models_older_than(file_store):
-    store, uri = file_store
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_models_older_than(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     old_time = time.time() - (2 * 24 * 60 * 60)
     with mock.patch("time.time", return_value=old_time):
         model = store.create_logged_model(experiment_id=exp_id)
 
     store.delete_logged_model(model.model_id)
-    model_dir = store._get_model_dir(exp_id, model.model_id)
 
     subprocess.check_call(
         [
@@ -888,19 +885,18 @@ def test_mlflow_gc_logged_models_older_than(file_store):
         ]
     )
 
-    assert os.path.exists(model_dir)
+    retrieved_model = store.get_logged_model(model.model_id, allow_deleted=True)
+    assert retrieved_model.model_id == model.model_id
 
 
-def test_mlflow_gc_logged_models_deletes_when_older_than(file_store):
-    store, uri = file_store
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_models_deletes_when_older_than(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     model = store.create_logged_model(experiment_id=exp_id)
-    model_dir = store._get_model_dir(exp_id, model.model_id)
 
     old_deletion_ms = int((time.time() - (2 * 24 * 60 * 60)) * 1000)
-    with mock.patch(
-        "mlflow.store.tracking.file_store.get_current_time_millis", return_value=old_deletion_ms
-    ):
+    with mock.patch("mlflow.utils.time.get_current_time_millis", return_value=old_deletion_ms):
         store.delete_logged_model(model.model_id)
 
     subprocess.check_call(
@@ -916,26 +912,22 @@ def test_mlflow_gc_logged_models_deletes_when_older_than(file_store):
         ]
     )
 
-    assert not os.path.exists(model_dir)
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(model.model_id)
 
 
-def test_mlflow_gc_logged_models_mixed_time(file_store):
-    store, uri = file_store
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     old_model = store.create_logged_model(experiment_id=exp_id)
     recent_model = store.create_logged_model(experiment_id=exp_id)
-    old_model_dir = store._get_model_dir(exp_id, old_model.model_id)
-    recent_model_dir = store._get_model_dir(exp_id, recent_model.model_id)
 
     old_deletion_ms = int((time.time() - (3 * 24 * 60 * 60)) * 1000)
-    with mock.patch(
-        "mlflow.store.tracking.file_store.get_current_time_millis", return_value=old_deletion_ms
-    ):
+    with mock.patch("mlflow.utils.time.get_current_time_millis", return_value=old_deletion_ms):
         store.delete_logged_model(old_model.model_id)
 
-    with mock.patch(
-        "mlflow.store.tracking.file_store.get_current_time_millis"
-    ) as current_time_mock:
+    with mock.patch("mlflow.utils.time.get_current_time_millis") as current_time_mock:
         current_time_mock.return_value = int(time.time() * 1000)
         store.delete_logged_model(recent_model.model_id)
 
@@ -952,5 +944,8 @@ def test_mlflow_gc_logged_models_mixed_time(file_store):
         ]
     )
 
-    assert not os.path.exists(old_model_dir)
-    assert os.path.exists(recent_model_dir)
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(old_model.model_id)
+
+    retrieved_model = store.get_logged_model(recent_model.model_id, allow_deleted=True)
+    assert retrieved_model.model_id == recent_model.model_id
