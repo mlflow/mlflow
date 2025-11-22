@@ -1,3 +1,7 @@
+from mlflow.exceptions import MlflowException
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
+
+
 class User:
     def __init__(
         self,
@@ -142,10 +146,16 @@ class RegisteredModelPermission:
         name,
         user_id,
         permission,
+        workspace=None,
     ):
+        self._workspace = resolve_entity_workspace_name(workspace)
         self._name = name
         self._user_id = user_id
         self._permission = permission
+
+    @property
+    def workspace(self):
+        return self._workspace
 
     @property
     def name(self):
@@ -165,6 +175,7 @@ class RegisteredModelPermission:
 
     def to_json(self):
         return {
+            "workspace": self.workspace,
             "name": self.name,
             "user_id": self.user_id,
             "permission": self.permission,
@@ -176,6 +187,7 @@ class RegisteredModelPermission:
             name=dictionary["name"],
             user_id=dictionary["user_id"],
             permission=dictionary["permission"],
+            workspace=dictionary.get("workspace"),
         )
 
 
@@ -225,6 +237,49 @@ class ScorerPermission:
         return cls(
             experiment_id=dictionary["experiment_id"],
             scorer_name=dictionary["scorer_name"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
+
+
+class WorkspacePermission:
+    def __init__(self, workspace, user_id, permission):
+        if not all([workspace, user_id, permission]):
+            raise MlflowException.invalid_parameter_value(
+                "workspace, user_id, and permission are required."
+            )
+        self._workspace = workspace
+        self._user_id = user_id
+        self._permission = permission
+
+    @property
+    def workspace(self):
+        return self._workspace
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def permission(self):
+        return self._permission
+
+    def to_json(self):
+        return {
+            "workspace": self.workspace,
+            "user_id": self.user_id,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        required_fields = ["workspace", "user_id", "permission"]
+        if missing := [field for field in required_fields if field not in dictionary]:
+            raise MlflowException.invalid_parameter_value(
+                f"Missing required fields: {', '.join(missing)}"
+            )
+        return cls(
+            workspace=dictionary["workspace"],
             user_id=dictionary["user_id"],
             permission=dictionary["permission"],
         )

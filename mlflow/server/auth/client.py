@@ -1,8 +1,11 @@
+from urllib.parse import quote
+
 from mlflow.server.auth.entities import (
     ExperimentPermission,
     RegisteredModelPermission,
     ScorerPermission,
     User,
+    WorkspacePermission,
 )
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
@@ -17,6 +20,8 @@ from mlflow.server.auth.routes import (
     GET_REGISTERED_MODEL_PERMISSION,
     GET_SCORER_PERMISSION,
     GET_USER,
+    LIST_USER_WORKSPACE_PERMISSIONS,
+    LIST_WORKSPACE_PERMISSIONS,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_SCORER_PERMISSION,
@@ -24,7 +29,7 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_PASSWORD,
 )
 from mlflow.utils.credentials import get_default_host_creds
-from mlflow.utils.rest_utils import http_request_safe
+from mlflow.utils.rest_utils import http_request, verify_rest_response
 
 
 class AuthServiceClient:
@@ -41,10 +46,19 @@ class AuthServiceClient:
         """
         self.tracking_uri = tracking_uri
 
-    def _request(self, endpoint, method, **kwargs):
+    def _request(self, endpoint, method, *, expected_status: int = 200, **kwargs):
         host_creds = get_default_host_creds(self.tracking_uri)
-        resp = http_request_safe(host_creds, endpoint, method, **kwargs)
+        resp = http_request(host_creds, endpoint, method, **kwargs)
+        resp = verify_rest_response(resp, endpoint, expected_status=expected_status)
+        if resp.status_code == 204 or not resp.content:
+            return {}
         return resp.json()
+
+    def _workspace_endpoint(self, template: str, workspace_name: str) -> str:
+        """
+        Replace the workspace placeholder in ``template`` with a URL-encoded name.
+        """
+        return template.replace("<workspace_name>", quote(workspace_name, safe=""))
 
     def create_user(self, username: str, password: str):
         """
@@ -655,3 +669,80 @@ class AuthServiceClient:
                 "username": username,
             },
         )
+
+    def list_workspace_permissions(self, workspace_name: str) -> list[WorkspacePermission]:
+        """
+        List the permissions configured for the specified workspace.
+
+        Args:
+            workspace_name: The workspace name.
+
+        Returns:
+            A list of :py:class:`mlflow.server.auth.entities.WorkspacePermission` objects.
+        """
+
+        endpoint = self._workspace_endpoint(LIST_WORKSPACE_PERMISSIONS, workspace_name)
+        resp = self._request(endpoint, "GET")
+        return [WorkspacePermission.from_json(p) for p in resp["permissions"]]
+
+    def set_workspace_permission(
+        self, workspace_name: str, username: str, permission: str
+    ) -> WorkspacePermission:
+        """
+        Create or update a workspace-level permission for a user.
+
+        Args:
+            workspace_name: The workspace name.
+            username: The username receiving the permission.
+            permission: Permission to grant. Must be one of "READ", "EDIT",
+                "MANAGE", "NO_PERMISSIONS".
+
+        Returns:
+            A :py:class:`mlflow.server.auth.entities.WorkspacePermission` object.
+        """
+
+        endpoint = self._workspace_endpoint(LIST_WORKSPACE_PERMISSIONS, workspace_name)
+        resp = self._request(
+            endpoint,
+            "POST",
+            json={
+                "username": username,
+                "permission": permission,
+            },
+        )
+        return WorkspacePermission.from_json(resp["permission"])
+
+    def delete_workspace_permission(self, workspace_name: str, username: str) -> None:
+        """
+        Delete a workspace-level permission for a user.
+
+        Args:
+            workspace_name: The workspace name.
+            username: The username whose permission should be removed.
+        """
+
+        endpoint = self._workspace_endpoint(LIST_WORKSPACE_PERMISSIONS, workspace_name)
+        self._request(
+            endpoint,
+            "DELETE",
+            params={"username": username},
+            expected_status=204,
+        )
+
+    def list_user_workspace_permissions(self, username: str) -> list[WorkspacePermission]:
+        """
+        List workspace-level permissions assigned to a user.
+
+        Args:
+            username: The username.
+
+        Returns:
+            A list of :py:class:`mlflow.server.auth.entities.WorkspacePermission` objects.
+        """
+
+        resp = self._request(
+            LIST_USER_WORKSPACE_PERMISSIONS,
+            "GET",
+            params={"username": username},
+        )
+        return [WorkspacePermission.from_json(p) for p in resp["permissions"]]

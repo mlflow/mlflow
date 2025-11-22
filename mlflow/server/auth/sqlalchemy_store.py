@@ -2,6 +2,7 @@ from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
@@ -14,20 +15,37 @@ from mlflow.server.auth.db.models import (
     SqlRegisteredModelPermission,
     SqlScorerPermission,
     SqlUser,
+    SqlWorkspacePermission,
 )
 from mlflow.server.auth.entities import (
     ExperimentPermission,
     RegisteredModelPermission,
     ScorerPermission,
     User,
+    WorkspacePermission,
 )
-from mlflow.server.auth.permissions import _validate_permission
+from mlflow.server.auth.permissions import Permission, _validate_permission, get_permission
 from mlflow.store.db.utils import _get_managed_session_maker, create_sqlalchemy_engine_with_retry
+from mlflow.utils import workspace_context
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_password, _validate_username
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 class SqlAlchemyStore:
+    @classmethod
+    def _get_active_workspace_name(cls) -> str:
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return DEFAULT_WORKSPACE_NAME
+
+        if workspace_name := workspace_context.get_request_workspace():
+            return workspace_name
+
+        raise MlflowException.invalid_parameter_value(
+            "Active workspace is required. Configure a default workspace or call "
+            "mlflow.set_workspace() before interacting with the authentication store."
+        )
+
     def init_db(self, db_uri):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
@@ -181,6 +199,12 @@ class SqlAlchemyStore:
             perm = self._get_experiment_permission(session, experiment_id, username)
             session.delete(perm)
 
+    def delete_workspace_permissions_for_workspace(self, workspace_name: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlWorkspacePermission).filter(
+                SqlWorkspacePermission.workspace == workspace_name
+            ).delete(synchronize_session=False)
+
     def create_registered_model_permission(
         self, name: str, username: str, permission: str
     ) -> RegisteredModelPermission:
@@ -188,15 +212,20 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             try:
                 user = self._get_user(session, username=username)
+                workspace_name = self._get_active_workspace_name()
                 perm = SqlRegisteredModelPermission(
-                    name=name, user_id=user.id, permission=permission
+                    workspace=workspace_name,
+                    name=name,
+                    user_id=user.id,
+                    permission=permission,
                 )
                 session.add(perm)
                 session.flush()
                 return perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"Registered model permission (name={name}, username={username}) "
+                    "Registered model permission "
+                    f"with workspace={workspace_name}, name={name} and username={username} "
                     f"already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
@@ -206,9 +235,11 @@ class SqlAlchemyStore:
     ) -> SqlRegisteredModelPermission:
         try:
             user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             return (
                 session.query(SqlRegisteredModelPermission)
                 .filter(
+                    SqlRegisteredModelPermission.workspace == workspace_name,
                     SqlRegisteredModelPermission.name == name,
                     SqlRegisteredModelPermission.user_id == user.id,
                 )
@@ -216,13 +247,15 @@ class SqlAlchemyStore:
             )
         except NoResultFound:
             raise MlflowException(
-                f"Registered model permission with name={name} and username={username} not found",
+                "Registered model permission "
+                f"with workspace={workspace_name}, name={name} and username={username} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         except MultipleResultsFound:
             raise MlflowException(
-                f"Found multiple registered model permissions with name={name} "
-                f"and username={username}",
+                "Registered model permission "
+                f"with workspace={workspace_name}, name={name} and username={username} "
+                "found multiple times",
                 INVALID_STATE,
             )
 
@@ -235,9 +268,13 @@ class SqlAlchemyStore:
     def list_registered_model_permissions(self, username: str) -> list[RegisteredModelPermission]:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             perms = (
                 session.query(SqlRegisteredModelPermission)
-                .filter(SqlRegisteredModelPermission.user_id == user.id)
+                .filter(
+                    SqlRegisteredModelPermission.user_id == user.id,
+                    SqlRegisteredModelPermission.workspace == workspace_name,
+                )
                 .all()
             )
             return [p.to_mlflow_entity() for p in perms]
@@ -256,15 +293,123 @@ class SqlAlchemyStore:
             perm = self._get_registered_model_permission(session, name, username)
             session.delete(perm)
 
+    def delete_registered_model_permissions(self, name: str) -> None:
+        """
+        Delete *all* registered model permission rows for the given model name in the active
+        workspace.
+
+        This is primarily used as cleanup when a registered model is deleted to ensure that
+        previously granted permissions do not implicitly carry over if a new model is later created
+        with the same name.
+        """
+        with self.ManagedSessionMaker() as session:
+            workspace_name = self._get_active_workspace_name()
+            session.query(SqlRegisteredModelPermission).filter(
+                SqlRegisteredModelPermission.workspace == workspace_name,
+                SqlRegisteredModelPermission.name == name,
+            ).delete(synchronize_session=False)
+
     def rename_registered_model_permissions(self, old_name: str, new_name: str):
         with self.ManagedSessionMaker() as session:
+            workspace_name = self._get_active_workspace_name()
             perms = (
                 session.query(SqlRegisteredModelPermission)
-                .filter(SqlRegisteredModelPermission.name == old_name)
+                .filter(
+                    SqlRegisteredModelPermission.workspace == workspace_name,
+                    SqlRegisteredModelPermission.name == old_name,
+                )
                 .all()
             )
             for perm in perms:
                 perm.name = new_name
+
+    def list_workspace_permissions(self, workspace_name: str) -> list[WorkspacePermission]:
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session.query(SqlWorkspacePermission)
+                .filter(SqlWorkspacePermission.workspace == workspace_name)
+                .all()
+            )
+            return [row.to_mlflow_entity() for row in rows]
+
+    def list_user_workspace_permissions(self, username: str) -> list[WorkspacePermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            rows = (
+                session.query(SqlWorkspacePermission)
+                .filter(SqlWorkspacePermission.user_id == user.id)
+                .all()
+            )
+            return [row.to_mlflow_entity() for row in rows]
+
+    def set_workspace_permission(
+        self, workspace_name: str, username: str, permission: str
+    ) -> WorkspacePermission:
+        _validate_permission(permission)
+
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            entity = session.get(
+                SqlWorkspacePermission,
+                (workspace_name, user.id),
+            )
+            if entity is None:
+                entity = SqlWorkspacePermission(
+                    workspace=workspace_name,
+                    user_id=user.id,
+                    permission=permission,
+                )
+                session.add(entity)
+            else:
+                entity.permission = permission
+            session.flush()
+            return entity.to_mlflow_entity()
+
+    def delete_workspace_permission(self, workspace_name: str, username: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            entity = session.get(
+                SqlWorkspacePermission,
+                (workspace_name, user.id),
+            )
+            if entity is None:
+                raise MlflowException(
+                    (
+                        "Workspace permission does not exist for "
+                        f"workspace='{workspace_name}', username='{username}'"
+                    ),
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            session.delete(entity)
+
+    def list_accessible_workspace_names(self, username: str | None) -> set[str]:
+        if username is None:
+            return set()
+
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            rows: list[SqlWorkspacePermission] = (
+                session.query(SqlWorkspacePermission)
+                .filter(SqlWorkspacePermission.user_id == user.id)
+                .all()
+            )
+            accessible: set[str] = set()
+            for row in rows:
+                permission = row.permission
+                if get_permission(permission).can_read:
+                    accessible.add(row.workspace)
+            return accessible
+
+    def get_workspace_permission(self, workspace_name: str, username: str) -> Permission | None:
+        """
+        Get the workspace permission for a user.
+        """
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            entity = session.get(SqlWorkspacePermission, (workspace_name, user.id))
+            if entity is not None:
+                return get_permission(entity.permission)
+        return None
 
     def create_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str
