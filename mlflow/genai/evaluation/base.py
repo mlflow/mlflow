@@ -15,6 +15,7 @@ from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
+    _validate_multi_turn_input,
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
@@ -242,6 +243,9 @@ def evaluate(
     is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     scorers = validate_scorers(scorers)
+
+    # Validate multi-turn input if multi-turn scorers are present
+    _validate_multi_turn_input(data, scorers, predict_fn)
 
     df = _convert_to_eval_set(data)
 
