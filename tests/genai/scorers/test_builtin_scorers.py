@@ -11,6 +11,8 @@ from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
+    Completeness,
+    ConversationCompleteness,
     Correctness,
     Equivalence,
     ExpectationsGuidelines,
@@ -20,6 +22,7 @@ from mlflow.genai.scorers import (
     RetrievalRelevance,
     RetrievalSufficiency,
     Safety,
+    UserFrustration,
 )
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.builtin_scorers import (
@@ -29,6 +32,7 @@ from mlflow.genai.scorers.builtin_scorers import (
     get_all_scorers,
     resolve_scorer_fields,
 )
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.uri import is_databricks_uri
 
 from tests.genai.conftest import databricks_only
@@ -573,7 +577,8 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    assert len(scorers) == (8 if tracking_uri == "databricks" else 6)
+    # Now we have 9 scorers for OSS (added Completeness) and 11 for Databricks
+    assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
@@ -1316,3 +1321,140 @@ def test_validate_required_fields_all_present():
     fields = ExtractedFields(inputs="some input", outputs="some output")
 
     _validate_required_fields(fields, judge, "TestScorer")
+
+
+def test_user_frustration_with_session():
+    """Test UserFrustration scorer with a list of traces from the same session."""
+    # Create multiple traces representing a conversation session
+    session_id = "test_session_123"
+    traces = []
+    for i in range(3):
+        with mlflow.start_span(name=f"conversation_turn_{i}") as span:
+            span.set_inputs({"question": f"User question {i}"})
+            span.set_outputs(f"AI response {i}")
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="user_frustration", value="not_frustrated", rationale="User is satisfied"
+        ),
+    ) as mock_invoke_judge:
+        scorer = UserFrustration()
+        result = scorer(session=traces)
+
+        assert result.name == "user_frustration"
+        assert result.value == "not_frustrated"
+        assert result.rationale == "User is satisfied"
+        mock_invoke_judge.assert_called_once()
+
+
+def test_user_frustration_with_custom_name_and_model(monkeypatch: pytest.MonkeyPatch):
+    session_id = "test_session_456"
+    traces = []
+    with mlflow.start_span(name="test_turn") as span:
+        span.set_inputs({"question": "Test question"})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="custom_frustration_check",
+            value="not_frustrated",
+            rationale="All good",
+        ),
+    ) as mock_invoke_judge:
+        scorer = UserFrustration(name="custom_frustration_check", model="openai:/gpt-4")
+        result = scorer(session=traces)
+
+        assert result.name == "custom_frustration_check"
+        assert result.value == "not_frustrated"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name"),
+    [
+        (None, None, "conversation_completeness"),
+        ("custom_completion_check", "openai:/gpt-4", "custom_completion_check"),
+    ],
+)
+def test_conversation_completeness_with_session(name, model, expected_name):
+    """Test ConversationCompleteness scorer with a list of traces from the same session."""
+    # Create multiple traces representing a conversation session
+    session_id = "test_session_789"
+    traces = []
+    for i in range(3):
+        with mlflow.start_span(name=f"conversation_turn_{i}") as span:
+            span.set_inputs({"question": f"User question {i}"})
+            span.set_outputs(f"AI response {i}")
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name=expected_name, value="complete", rationale="All needs addressed"
+        ),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = ConversationCompleteness(**kwargs)
+        result = scorer(session=traces)
+
+        assert result.name == expected_name
+        assert result.value == "complete"
+        assert result.rationale == "All needs addressed"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name", "rationale"),
+    [
+        (None, None, "completeness", "All questions answered"),
+        ("custom_completeness_check", "openai:/gpt-4", "custom_completeness_check", "All good"),
+    ],
+)
+def test_completeness_with_inputs_outputs(name, model, expected_name, rationale):
+    """Test Completeness scorer with direct inputs and outputs."""
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="complete", rationale=rationale),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = Completeness(**kwargs)
+        result = scorer(
+            inputs={"question": "What is MLflow?"},
+            outputs="MLflow is an open-source platform for managing the ML lifecycle.",
+        )
+
+        assert result.name == expected_name
+        assert result.value == "complete"
+        assert result.rationale == rationale
+        mock_invoke_judge.assert_called_once()
+
+
+def test_completeness_with_trace():
+    """Test Completeness scorer with trace."""
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name="completeness", value="complete", rationale="Fully addressed"),
+    ) as mock_invoke_judge:
+        trace = create_simple_trace()
+        scorer = Completeness()
+        result = scorer(trace=trace)
+
+        assert result.name == "completeness"
+        assert result.value == "complete"
+        assert result.rationale == "Fully addressed"
+        mock_invoke_judge.assert_called_once()

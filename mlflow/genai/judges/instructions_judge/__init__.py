@@ -559,7 +559,7 @@ class InstructionsJudge(Judge):
         if not template_vars:
             raise MlflowException(
                 "Instructions template must contain at least one variable (e.g., {{ inputs }}, "
-                "{{ outputs }}, {{ trace }}, or {{ expectations }}).",
+                "{{ outputs }}, {{ trace }}, {{ expectations }}, or {{ conversation }}).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
