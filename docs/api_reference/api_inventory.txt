@@ -165,6 +165,7 @@ mlflow.config.set_system_metrics_sampling_interval
 mlflow.config.set_tracking_uri
 mlflow.create_experiment
 mlflow.create_external_model
+mlflow.create_workspace
 mlflow.crewai.autolog
 mlflow.data.dataset.Dataset
 mlflow.data.dataset.Dataset.to_dict
@@ -227,6 +228,7 @@ mlflow.delete_logged_model_tag
 mlflow.delete_run
 mlflow.delete_tag
 mlflow.delete_trace_tag
+mlflow.delete_workspace
 mlflow.deployments.BaseDeploymentClient
 mlflow.deployments.BaseDeploymentClient.create_deployment
 mlflow.deployments.BaseDeploymentClient.create_endpoint
@@ -888,6 +890,7 @@ mlflow.get_registry_uri
 mlflow.get_run
 mlflow.get_trace
 mlflow.get_tracking_uri
+mlflow.get_workspace
 mlflow.groq.autolog
 mlflow.h2o.get_default_conda_env
 mlflow.h2o.get_default_pip_requirements
@@ -931,6 +934,7 @@ mlflow.lightgbm.get_default_pip_requirements
 mlflow.lightgbm.load_model
 mlflow.lightgbm.log_model
 mlflow.lightgbm.save_model
+mlflow.list_workspaces
 mlflow.litellm.autolog
 mlflow.llama_index.autolog
 mlflow.llama_index.load_model
@@ -1195,10 +1199,14 @@ mlflow.server.auth.client.AuthServiceClient.delete_experiment_permission
 mlflow.server.auth.client.AuthServiceClient.delete_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.delete_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.delete_user
+mlflow.server.auth.client.AuthServiceClient.delete_workspace_permission
 mlflow.server.auth.client.AuthServiceClient.get_experiment_permission
 mlflow.server.auth.client.AuthServiceClient.get_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.get_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.get_user
+mlflow.server.auth.client.AuthServiceClient.list_user_workspace_permissions
+mlflow.server.auth.client.AuthServiceClient.list_workspace_permissions
+mlflow.server.auth.client.AuthServiceClient.set_workspace_permission
 mlflow.server.auth.client.AuthServiceClient.update_experiment_permission
 mlflow.server.auth.client.AuthServiceClient.update_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.update_scorer_permission
@@ -1216,6 +1224,9 @@ mlflow.server.auth.entities.ScorerPermission.to_json
 mlflow.server.auth.entities.User
 mlflow.server.auth.entities.User.from_json
 mlflow.server.auth.entities.User.to_json
+mlflow.server.auth.entities.WorkspacePermission
+mlflow.server.auth.entities.WorkspacePermission.from_json
+mlflow.server.auth.entities.WorkspacePermission.to_json
 mlflow.server.get_app_client
 mlflow.set_active_model
 mlflow.set_experiment
@@ -1231,6 +1242,7 @@ mlflow.set_tag
 mlflow.set_tags
 mlflow.set_trace_tag
 mlflow.set_tracking_uri
+mlflow.set_workspace
 mlflow.shap.get_default_conda_env
 mlflow.shap.get_default_pip_requirements
 mlflow.shap.get_underlying_model_flavor
@@ -1457,6 +1469,7 @@ mlflow.types.schema.Schema
 mlflow.types.schema.TensorSpec
 mlflow.update_assessment
 mlflow.update_current_trace
+mlflow.update_workspace
 mlflow.utils.async_logging.run_operations.RunOperations
 mlflow.utils.async_logging.run_operations.RunOperations.wait
 mlflow.utils.async_logging.run_operations.get_combined_run_operations

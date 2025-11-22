@@ -90,6 +90,10 @@ Each component is designed to be pluggable, so you can customize it to meet your
 
 To learn more about the architecture and available backend options, see [Architecture](./architecture/overview).
 
+## Multi-Tenancy
+
+MLflow supports [workspaces](/self-hosting/workspaces) for multi-tenant deployments. Workspaces provide logical isolation of experiments, models, and artifacts within a single MLflow instance, enabling multiple teams or projects to share infrastructure while maintaining complete data separation. Note: workspaces require a SQL database backend and are opt-in.
+
 ## Access Control & Security
 
 MLflow support [username/password login](./security/basic-http-auth) via basic HTTP authentication, [SSO (Single Sign-On)](./security/sso), and [custom authentication plugins](./security/custom).

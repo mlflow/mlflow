@@ -139,6 +139,9 @@ jobs:
             ./tests/db/compose.sh run --rm --no-TTY $service pytest \
               tests/store/tracking/test_sqlalchemy_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
+              tests/store/model_registry/test_sqlalchemy_store_workspace.py \
+              tests/store/workspace/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_store_workspace.py \
               tests/db
               RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
           done

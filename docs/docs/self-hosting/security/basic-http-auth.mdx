@@ -1066,6 +1066,10 @@ Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
       <td>Default permission on all resources</td>
     </tr>
     <tr>
+      <td>`grant_default_workspace_access`</td>
+      <td>Whether users inherit `default_permission` for the reserved `default` workspace</td>
+    </tr>
+    <tr>
       <td>`database_uri`</td>
       <td>Database location to store permission and user data</td>
     </tr>
@@ -1083,6 +1087,39 @@ Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
     </tr>
   </tbody>
 </table>
+
+### `grant_default_workspace_access`
+
+`grant_default_workspace_access` controls whether the reserved `default`
+workspace automatically applies the value of `default_permission` to every
+authenticated user.
+
+- **Type:** Boolean
+- **Default:** `false`
+- **Recommended secure default:** Leave disabled (`false`) so the `default`
+  workspace stays private until you explicitly grant access.
+- **Purpose:** Enable only when you need backwards-compatible behavior where all
+  users inherit the fallback permission for the `default` workspace.
+
+When this option remains `false`, new users can still authenticate and obtain
+`default_permission` on other resources, but they cannot see or act in the
+`default` workspace unless you grant access explicitly through workspace ACLs or
+groups. Setting it to `true` causes the workspace to inherit whichever level you
+selected for `default_permission` (for example, `READ`, `WRITE`, or `MANAGE`),
+giving every authenticated user that level of access.
+
+```ini title="Example: allow all users read-only access to the default workspace"
+[mlflow]
+default_permission = READ
+grant_default_workspace_access = true
+```
+
+::::warning
+Enabling `grant_default_workspace_access` while `default_permission` is set to a
+permissive value (such as `WRITE` or `MANAGE`) effectively grants every user the
+same capabilities in the `default` workspace. Other workspaces are unaffected by
+this flag and still require explicit grants.
+::::
 
 Alternatively, assign the environment variable `MLFLOW_AUTH_CONFIG_PATH` to point
 to your custom configuration file.
