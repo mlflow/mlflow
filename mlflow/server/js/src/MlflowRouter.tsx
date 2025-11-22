@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 
 import ErrorModal from './experiment-tracking/components/modals/ErrorModal';
@@ -11,6 +11,7 @@ import {
   Route,
   Routes,
   createLazyRouteElement,
+  useParams,
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
 
@@ -19,7 +20,6 @@ import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tra
 import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/route-defs';
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
-import { shouldEnableExperimentPageChildRoutes } from './common/utils/FeatureUtils';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
 
 /**
@@ -49,6 +49,13 @@ const MlflowRootRoute = ({
 
   const [showSidebar, setShowSidebar] = useState(true);
   const { theme } = useDesignSystemTheme();
+  const { experimentId } = useParams();
+
+  // Hide sidebar if we are in a single experiment page
+  const isSingleExperimentPage = Boolean(experimentId);
+  useEffect(() => {
+    setShowSidebar(!isSingleExperimentPage);
+  }, [isSingleExperimentPage]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -111,22 +118,18 @@ export const MlflowRouter = ({
   );
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const hashRouter = useMemo(
-    () => {
-      if (!shouldEnableExperimentPageChildRoutes()) {
-        return null;
-      }
-      return createHashRouter([
+    () =>
+      createHashRouter([
         {
           path: '/',
           element: <MlflowRootRoute isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} useChildRoutesOutlet />,
           children: routes,
         },
-      ]);
-    },
-    [routes, isDarkTheme, setIsDarkTheme] /* eslint-disable-line react-hooks/exhaustive-deps */,
+      ]),
+    [routes, isDarkTheme, setIsDarkTheme],
   );
 
-  if (hashRouter && shouldEnableExperimentPageChildRoutes()) {
+  if (hashRouter) {
     return (
       <React.Suspense fallback={<LegacySkeleton />}>
         <RouterProvider router={hashRouter} />

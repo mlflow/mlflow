@@ -1,3 +1,4 @@
+import { describe, expect, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 import { IntlProvider } from 'react-intl';
@@ -17,7 +18,7 @@ describe('ExperimentViewManagementMenu', () => {
     name: 'test/experiment/name',
     artifactLocation: 'file:/tmp/mlruns',
     lifecycleStage: 'active',
-    allowedActions: [],
+    allowedActions: ['RENAME', 'DELETE'],
     creationTime: 0,
     lastUpdateTime: 0,
     tags: [],

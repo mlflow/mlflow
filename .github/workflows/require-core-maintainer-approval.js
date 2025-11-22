@@ -1,30 +1,27 @@
-const CORE_MAINTAINERS = new Set([
-  "B-Step62",
-  "BenWilson2",
-  "daniellok-db",
-  "dbczumar",
-  "gabrielfu",
-  "harupy",
-  "serena-ruan",
-  "TomeHirata",
-  "WeichenXu123",
-  "xq-yin",
-]);
+async function getMaintainers({ github, context }) {
+  const collaborators = await github.paginate(github.rest.repos.listCollaborators, {
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+  });
+  return collaborators
+    .filter(({ role_name }) => ["admin", "maintain"].includes(role_name))
+    .map(({ login }) => login)
+    .sort();
+}
 
 module.exports = async ({ github, context, core }) => {
+  const maintainers = await getMaintainers({ github, context });
   const reviews = await github.paginate(github.rest.pulls.listReviews, {
     owner: context.repo.owner,
     repo: context.repo.repo,
     pull_number: context.issue.number,
   });
   const maintainerApproved = reviews.some(
-    ({ state, user: { login } }) => state === "APPROVED" && CORE_MAINTAINERS.has(login)
+    ({ state, user: { login } }) => state === "APPROVED" && maintainers.includes(login)
   );
   if (!maintainerApproved) {
-    const maintainerList = Array.from(CORE_MAINTAINERS)
-      .map((maintainer) => `${maintainer}`)
-      .join(", ");
-    const message = `This PR requires an approval from at least one of core maintainers: ${maintainerList}.`;
+    const maintainerList = maintainers.join(", ");
+    const message = `This PR requires an approval from at least one of the core maintainers: ${maintainerList}.`;
     core.setFailed(message);
   }
 };

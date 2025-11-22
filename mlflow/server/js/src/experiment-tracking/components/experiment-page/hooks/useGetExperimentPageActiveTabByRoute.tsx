@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { shouldEnableExperimentPageChildRoutes } from '../../../../common/utils/FeatureUtils';
 import { matchPath, useLocation } from '../../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
@@ -11,6 +10,11 @@ const ExperimentPageRoutePathToTabNameMap = map(
     [RoutePaths.experimentPageTabRuns]: ExperimentPageTabName.Runs,
     [RoutePaths.experimentPageTabTraces]: ExperimentPageTabName.Traces,
     [RoutePaths.experimentPageTabModels]: ExperimentPageTabName.Models,
+    [RoutePaths.experimentPageTabEvaluationRuns]: ExperimentPageTabName.EvaluationRuns,
+    [RoutePaths.experimentPageTabDatasets]: ExperimentPageTabName.Datasets,
+    [RoutePaths.experimentPageTabChatSessions]: ExperimentPageTabName.ChatSessions,
+    [RoutePaths.experimentPageTabSingleChatSession]: ExperimentPageTabName.SingleChatSession,
+    [RoutePaths.experimentPageTabScorers]: ExperimentPageTabName.Scorers,
   },
   (tabName, routePath) => ({ routePath, tabName }),
 );
@@ -30,12 +34,10 @@ export const useGetExperimentPageActiveTabByRoute = () => {
   const { pathname } = useLocation();
 
   const tabNameFromRoute = useMemo(() => {
-    if (!shouldEnableExperimentPageChildRoutes()) {
-      return;
-    }
     const tabName = getTabNameFromRoutePath(pathname);
     return tabName;
   }, [pathname]);
+
   return {
     tabName: tabNameFromRoute,
     topLevelTabName: getTopLevelTab(tabNameFromRoute),

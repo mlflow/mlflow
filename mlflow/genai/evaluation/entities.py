@@ -86,21 +86,16 @@ class EvalItem:
         )
 
     @classmethod
-    def _parse_inputs(cls, data: str | dict[str, Any]) -> dict[str, Any]:
+    def _parse_inputs(cls, data: str | dict[str, Any]) -> Any:
         # The inputs can be either a dictionary or JSON-serialized version of it.
         if isinstance(data, dict):
             return data
         elif isinstance(data, str):  # JSON-serialized string
             try:
                 return json.loads(data)
-            except Exception as e:
-                raise MlflowException.invalid_parameter_value(
-                    "Failed to parse inputs as JSON."
-                ) from e
-
-        raise MlflowException.invalid_parameter_value(
-            f"inputs must be a dictionary or JSON serializable: {type(data)}"
-        )
+            except Exception:
+                pass
+        return data
 
     def get_expectation_assessments(self) -> list[Expectation]:
         """Get the expectations as a list of Expectation objects."""
@@ -171,15 +166,25 @@ class EvalResult:
 class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
-    result_df: pd.DataFrame
+    result_df: pd.DataFrame | None
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
+        result_df_str = (
+            f"{len(self.result_df)} rows x {len(self.result_df.columns)} cols"
+            if self.result_df is not None
+            else "None"
+        )
         return (
             "EvaluationResult(\n"
             f"  run_id: {self.run_id}\n"
             "  metrics:\n"
             f"    {metrics_str}\n"
-            f"  result_df: [{len(self.result_df)} rows x {len(self.result_df.columns)} cols]\n"
+            f"  result_df: {result_df_str}\n"
             ")"
         )
+
+    # For backwards compatibility
+    @property
+    def tables(self) -> dict[str, pd.DataFrame]:
+        return {"eval_results": self.result_df} if self.result_df is not None else {}

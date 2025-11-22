@@ -44,6 +44,16 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
+      - name: Check OpenTelemetry protos are up-to-date
+        run: |
+          ./mlflow/protos/opentelemetry/update.sh
+          GIT_STATUS="$(git status --porcelain mlflow/protos/opentelemetry/)"
+          if [ "$GIT_STATUS" ]; then
+            echo "OpenTelemetry proto files are outdated. Please run './mlflow/protos/opentelemetry/update.sh'"
+            echo "Git status:"
+            echo "$GIT_STATUS"
+            exit 1
+          fi
       - name: Run tests
         run: |
           ./dev/test-generate-protos.sh

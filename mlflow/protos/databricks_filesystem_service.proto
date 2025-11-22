@@ -8,35 +8,38 @@ package mlflow.filesystem;
 import "databricks.proto";
 import "scalapb/scalapb.proto";
 
-option java_package = "com.databricks.api.proto.filesystem";
 option java_generate_equals_and_hash = true;
+option java_package = "com.databricks.api.proto.filesystem";
 option py_generic_services = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+option (scalapb.options) = {flat_package: true};
 
 service FilesystemService {
-
   // Only for internal usage for now. Endpoint and request format are to be finalized.
   rpc CreateDownloadUrl(CreateDownloadUrlRequest) returns (CreateDownloadUrlResponse) {
     option (rpc) = {
       endpoints: {
-        method: "POST",
-        path: "/fs/create-download-url",
-        since { major: 2, minor: 0 },
-      },
-      visibility: PUBLIC_UNDOCUMENTED,
+        method: "POST"
+        path: "/fs/create-download-url"
+        since: {
+          major: 2
+          minor: 0
+        }
+      }
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
   rpc CreateUploadUrl(CreateUploadUrlRequest) returns (CreateUploadUrlResponse) {
     option (rpc) = {
       endpoints: {
-        method: "POST",
-        path: "/fs/create-upload-url",
-        since { major: 2, minor: 0 },
-      },
-      visibility: PUBLIC_UNDOCUMENTED,
+        method: "POST"
+        path: "/fs/create-upload-url"
+        since: {
+          major: 2
+          minor: 0
+        }
+      }
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 }

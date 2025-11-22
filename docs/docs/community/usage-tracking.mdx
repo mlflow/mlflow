@@ -60,6 +60,12 @@ The below section outlines the data currently collected in this version of MLflo
       <td>As an identifier for the data in current MLflow session</td>
     </tr>
     <tr>
+      <td>Unique installation ID</td>
+      <td>A randomly generated, non-personally identifiable UUID is created for each installation—defined as each time MLflow is imported. Added in MLflow 3.7.0.</td>
+      <td>45e2751243e84c7e87aca6ac25d75a0d</td>
+      <td>As an identifier for the data in current MLflow installation</td>
+    </tr>
+    <tr>
       <td>Source SDK</td>
       <td>The current used SDK name</td>
       <td>mlflow | mlflow-skinny | mlflow-tracing</td>
@@ -172,9 +178,19 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>None</td>
     </tr>
     <tr>
+      <td>load_prompt</td>
+      <td>Whether alias is used</td>
+      <td>`{"uses_alias": True}`</td>
+    </tr>
+    <tr>
       <td>start_trace</td>
       <td>None</td>
       <td>None</td>
+    </tr>
+    <tr>
+      <td>traces_received_by_server</td>
+      <td>Type of client (sanitized) that submitted the traces and number of completed traces received</td>
+      <td>`{"source": "MLFLOW_PYTHON_CLIENT", "count": 3}`</td>
     </tr>
     <tr>
       <td>log_assessment</td>
@@ -198,8 +214,8 @@ For events with None in the `Tracked Parameters` column, only the event name is 
     </tr>
     <tr>
       <td>prompt_optimization</td>
-      <td>None</td>
-      <td>None</td>
+      <td>Optimizer type, number of prompts, and number of scorers</td>
+      <td>`{"optimizer_type": True, "prompt_count": 5, "scorer_count": 1}`</td>
     </tr>
     <tr>
       <td>log_dataset</td>
@@ -240,6 +256,11 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>autologging</td>
       <td>Flavor and metadata</td>
       <td>`{"flavor": "openai", "log_traces": True, "disable": False}`</td>
+    </tr>
+    <tr>
+      <td>ai_command_run</td>
+      <td>Command key and invocation context (cli or mcp)</td>
+      <td>`{"command_key": "genai/analyze_experiment", "context": "cli"}`</td>
     </tr>
   </tbody>
 </Table>

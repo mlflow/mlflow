@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Button,
   DangerIcon,
@@ -11,21 +12,15 @@ import {
   TableHeader,
   TableRow,
   TableSkeleton,
-  LegacyTooltip,
   useDesignSystemTheme,
+  Tooltip,
 } from '@databricks/design-system';
 import { isArray, isObject, isUndefined } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SortingState, PaginationState } from '@tanstack/react-table';
-import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel, getPaginationRowModel } from '@tanstack/react-table';
 import React from 'react';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import type { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
@@ -172,20 +167,23 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
       }),
     [rows, columns],
   );
-  const table = useReactTable({
-    columns: tableColumns,
-    data: tableData,
-    state: {
-      pagination,
-      sorting,
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/components/artifact-view-components/ShowArtifactLoggedTableView.tsx',
+    {
+      columns: tableColumns,
+      data: tableData,
+      state: {
+        pagination,
+        sorting,
+      },
+      onSortingChange: setSorting,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
     },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-  });
+  );
 
   const paginationComponent = (
     <Pagination
@@ -306,12 +304,12 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
         }}
       >
         <DropdownMenu.Root modal={false}>
-          <LegacyTooltip
-            title={intl.formatMessage({
+          <Tooltip
+            componentId="mlflow.run.artifact_view.table_settings.tooltip"
+            content={intl.formatMessage({
               defaultMessage: 'Table settings',
               description: 'Run view > artifact view > logged table > table settings tooltip',
             })}
-            useAsLabel
           >
             <DropdownMenu.Trigger
               asChild
@@ -322,7 +320,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
             >
               <Button componentId="mlflow.run.artifact_view.table_settings" icon={<GearIcon />} />
             </DropdownMenu.Trigger>
-          </LegacyTooltip>
+          </Tooltip>
           <DropdownMenu.Content css={{ maxHeight: theme.general.heightSm * 10, overflowY: 'auto' }} side="left">
             <DropdownMenu.Arrow />
             <DropdownMenu.CheckboxItem

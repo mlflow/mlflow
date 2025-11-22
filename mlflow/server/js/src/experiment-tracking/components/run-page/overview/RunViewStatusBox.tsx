@@ -7,7 +7,18 @@ import type { MlflowRunStatus } from '../../../../graphql/__generated__/graphql'
 /**
  * Displays run status cell in run detail overview.
  */
-export const RunViewStatusBox = ({ status }: { status: RunInfoEntity['status'] | MlflowRunStatus | null }) => {
+export const RunViewStatusBox = ({
+  status,
+  useSpinner = false,
+  className,
+}: {
+  status: RunInfoEntity['status'] | MlflowRunStatus | null;
+  /**
+   * Determines if animated spinner will be used for RUNNING state. If false, clock icon will be used.
+   */
+  useSpinner?: boolean;
+  className?: string;
+}) => {
   const { theme } = useDesignSystemTheme();
   const getTagColor = () => {
     if (status === 'FINISHED') {
@@ -81,8 +92,9 @@ export const RunViewStatusBox = ({ status }: { status: RunInfoEntity['status'] |
     <Tag
       componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewstatusbox.tsx_81"
       css={{ backgroundColor: getTagColor() }}
+      className={className}
     >
-      {status && <RunStatusIcon status={status} />}{' '}
+      {status && <RunStatusIcon status={status} useSpinner={useSpinner} />}{' '}
       <Typography.Text css={{ marginLeft: theme.spacing.sm }}>{getStatusLabel()}</Typography.Text>
     </Tag>
   );

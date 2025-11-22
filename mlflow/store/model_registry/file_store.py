@@ -4,6 +4,7 @@ import shutil
 import sys
 import time
 import urllib
+import warnings
 from os.path import join
 
 from mlflow.entities.model_registry import (
@@ -132,6 +133,15 @@ class FileStore(AbstractStore):
         """
 
         super().__init__()
+        warnings.warn(
+            "The filesystem model registry backend (e.g., './mlruns') will be deprecated in "
+            "February 2026. Consider transitioning to a database backend (e.g., "
+            "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
+            "See https://github.com/mlflow/mlflow/issues/18534 for more details and migration "
+            "guidance.",
+            FutureWarning,
+            stacklevel=2,
+        )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         # Create models directory if needed
         if not exists(self.models_directory):

@@ -1,6 +1,9 @@
+import shutil
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Literal
 from unittest import mock
 from unittest.mock import ANY, MagicMock
 
@@ -8,19 +11,23 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
-from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
-from mlflow.tracing.constant import TraceMetadataKey
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import initialize_backend_stores
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
+from tests.helper_functions import get_safe_port
 from tests.tracing.helper import get_traces
+from tests.tracking.integration_test_utils import ServerThread
 
 _DUMMY_CHAT_RESPONSE = {
     "id": "1",
@@ -71,6 +78,7 @@ def relevance(inputs, outputs):
 
 
 @scorer
+@mlflow.trace(span_type=SpanType.EVALUATOR)
 def has_trace(trace):
     return trace is not None
 
@@ -78,7 +86,10 @@ def has_trace(trace):
 def _validate_assessments(traces):
     """Validate assessments are added to the traces"""
     for trace in traces:
-        assert len(trace.info.assessments) == 6  # 2 expectations + 4 feedbacks
+        assert len(trace.info.assessments) == 6, (
+            f"Expected 6 assessments, got {len(trace.info.assessments)}"
+            f"Assessments: {[a.name for a in trace.info.assessments]}"
+        )  # 2 expectations + 4 feedbacks
         assessments = {a.name: a for a in trace.info.assessments}
         a_exact_match = assessments["exact_match"]
         assert isinstance(a_exact_match, Feedback)
@@ -87,14 +98,17 @@ def _validate_assessments(traces):
         assert a_exact_match.source.source_type == AssessmentSourceType.CODE
         # Scorer name is used as source_id
         assert a_exact_match.source.source_id == "exact_match"
+        assert a_exact_match.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_is_concise = assessments["is_concise"]
         assert isinstance(a_is_concise, Feedback)
         assert isinstance(a_is_concise.value, bool)
+        assert a_is_concise.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_has_trace = assessments["has_trace"]
         assert isinstance(a_has_trace, Feedback)
         assert a_has_trace.value is True
+        assert a_has_trace.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_relevance = assessments["relevance"]
         assert isinstance(a_relevance, Feedback)
@@ -102,6 +116,7 @@ def _validate_assessments(traces):
         assert a_relevance.source.source_id == "gpt"
         assert a_relevance.source.source_type == "LLM_JUDGE"
         assert a_relevance.rationale == "The response is relevant to the question"
+        assert a_relevance.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_expected_response = assessments["expected_response"]
         assert isinstance(a_expected_response, Expectation)
@@ -111,11 +126,96 @@ def _validate_assessments(traces):
 
         a_max_length = assessments["max_length"]
         assert isinstance(a_max_length, Expectation)
-        assert isinstance(a_max_length.value, int)
+        assert isinstance(a_max_length.value, (int, float))
         assert a_max_length.source.source_type == AssessmentSourceType.HUMAN
 
 
-def test_evaluate_with_static_dataset(is_in_databricks):
+def _validate_eval_result_df(result: EvaluationResult):
+    search_traces_df = mlflow.search_traces(run_id=result.run_id)
+    assert result.result_df is not None
+    assert len(result.result_df) == len(search_traces_df)
+    assert set(result.result_df.columns) >= set(search_traces_df.columns)
+
+    actual = result.result_df.sort_values(by="trace_id").reset_index(drop=True)
+    expected = search_traces_df.sort_values(by="trace_id").reset_index(drop=True)
+    for i in range(len(actual)):
+        assert actual.iloc[i].trace_id == expected.iloc[i].trace_id
+        assert actual.iloc[i].spans == expected.iloc[i].spans
+        assert actual.iloc[i].assessments == expected.iloc[i].assessments
+        assert actual.iloc[i]["exact_match/value"] is not None
+        assert actual.iloc[i]["is_concise/value"] is not None
+        assert actual.iloc[i]["relevance/value"] is not None
+        assert actual.iloc[i]["has_trace/value"] is not None
+        assert actual.iloc[i]["expected_response/value"] is not None
+        assert actual.iloc[i]["max_length/value"] is not None
+
+    # backwards compatibility
+    assert len(result.tables["eval_results"]) == len(result.result_df)
+
+
+@dataclass
+class ServerConfig:
+    host_type: Literal["local", "remote", "databricks"]
+    backend_type: Literal["file", "sqlalchemy"] | None = None
+
+
+@pytest.fixture(scope="module")
+def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
+    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_dir / "mlflow.db"
+    backend_uri = f"sqlite:///{db_path}"
+    artifact_uri = (tmp_dir / "artifacts").as_uri()
+
+    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store.engine.dispose()
+    return db_path
+
+
+# Test with different server configurations
+# 1. local file backend
+# 2. local sqlalchemy backend
+# 3. remote server running on file backend
+# 4. remote server running on sqlalchemy backend
+@pytest.fixture(
+    params=[
+        ServerConfig(host_type="local", backend_type="file"),
+        ServerConfig(host_type="local", backend_type="sqlalchemy"),
+        ServerConfig(host_type="remote", backend_type="file"),
+        ServerConfig(host_type="remote", backend_type="sqlalchemy"),
+    ],
+    ids=["local_file", "local_sqlalchemy", "remote_file", "remote_sqlalchemy"],
+)
+def server_config(request, tmp_path: Path, cached_db: Path):
+    """Provides an MLflow Tracking API client pointed at the local tracking server."""
+    config = request.param
+
+    match config.backend_type:
+        case "file":
+            backend_uri = tmp_path.joinpath("file").as_uri()
+        case "sqlalchemy":
+            # Copy the cached database for this test
+            db_path = tmp_path / "mlflow.db"
+            shutil.copy(cached_db, db_path)
+            backend_uri = f"sqlite:///{db_path}"
+
+    match config.host_type:
+        case "local":
+            mlflow.set_tracking_uri(backend_uri)
+            yield config
+
+        case "remote":
+            # Force-reset backend stores before each test.
+            handlers._tracking_store = None
+            handlers._model_registry_store = None
+            initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
+
+            with ServerThread(app, get_safe_port()) as url:
+                mlflow.set_tracking_uri(url)
+                yield config
+
+
+def test_evaluate_with_static_dataset(server_config):
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -166,6 +266,7 @@ def test_evaluate_with_static_dataset(is_in_databricks):
         assert span.outputs == data[i]["outputs"]
 
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
     # Dataset input should be logged to the run
     run = mlflow.get_run(result.run_id)
@@ -173,12 +274,9 @@ def test_evaluate_with_static_dataset(is_in_databricks):
     assert run.inputs.dataset_inputs[0].dataset.name == "dataset"
     assert run.inputs.dataset_inputs[0].dataset.source_type == "code"
 
-    if not is_in_databricks:
-        assert run.data.tags[MLFLOW_RUN_IS_EVALUATION] == "true"
-
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
-def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
+def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
     model_id = mlflow.set_active_model(name="test-model-id").model_id
 
     data = [
@@ -241,68 +339,49 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
         assert span.outputs == "I don't know"
 
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
 
-@pytest.mark.skip(reason="TODO: OSS MLflow backend doesn't support trace->run linking yet")
-def test_evaluate_with_traces(pass_full_dataframe, monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize("return_type", ["pandas", "list"])
+def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config, return_type):
     questions = ["What is MLflow?", "What is Spark?"]
 
     @mlflow.trace(span_type=SpanType.AGENT)
     def predict(question: str) -> str:
         return TestModel().predict(question)
 
-    for question in questions:
-        predict(question)
+    predict(questions[0])
+    trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_response",
+        value="MLflow is a tool for ML",
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="max_length",
+        value=100,
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    predict(questions[1])
+    trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_response",
+        value="Spark is a fast data processing engine",
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="max_length",
+        value=1,
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
 
-    data = mlflow.search_traces()
+    data = mlflow.search_traces(return_type=return_type)
     assert len(data) == len(questions)
 
-    # OSS MLflow backend doesn't support assessment APIs now, so we need to manually add them
-    def add_assessment_to_trace_json(trace_json: str, assessments: list[Assessment]):
-        trace = Trace.from_json(trace_json)
-        trace.info.assessments = assessments
-        return trace.to_json()
-
-    data.at[0, "trace"] = add_assessment_to_trace_json(
-        data.at[0, "trace"],
-        [
-            Expectation(
-                name="expected_response",
-                trace_id="tr-123",
-                value="MLflow is a tool for ML",
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-            Expectation(
-                name="max_length",
-                trace_id="tr-123",
-                value=100,
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-        ],
-    )
-    data.at[1, "trace"] = add_assessment_to_trace_json(
-        data.at[1, "trace"],
-        [
-            Expectation(
-                name="expected_response",
-                trace_id="tr-123",
-                value="Spark is a fast data processing engine",
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-            Expectation(
-                name="max_length",
-                trace_id="tr-123",
-                value=1,
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-        ],
-    )
-
-    if not pass_full_dataframe:
-        data = data[["trace"]]
-
-    # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
-    monkeypatch.setenv("AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED", "false")
     result = mlflow.genai.evaluate(
         data=data,
         scorers=[exact_match, is_concise, relevance, has_trace],
@@ -314,9 +393,13 @@ def test_evaluate_with_traces(pass_full_dataframe, monkeypatch: pytest.MonkeyPat
     assert metrics["relevance/mean"] == 1.0
     assert metrics["has_trace/mean"] == 1.0
 
-    # Assessments should be added to the traces in-place and no new trace should be created
-    traces = get_traces()
-    assert len(traces) == len(questions)
+    if server_config.backend_type == "sqlalchemy":
+        # Assessments should be added to the traces in-place and no new trace should be created
+        traces = get_traces()
+        assert len(traces) == len(questions)
+    else:
+        # File store doesn't support trace linking, so each trace will be cloned to the eval run
+        assert len(get_traces()) == len(questions) * 2
 
     # Traces are associated with the eval run
     traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
@@ -327,6 +410,7 @@ def test_evaluate_with_traces(pass_full_dataframe, monkeypatch: pytest.MonkeyPat
 
     # Validate assessments are added to the traces
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
 
 def test_evaluate_with_managed_dataset(is_in_databricks):
@@ -372,9 +456,7 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
             mock.patch(
                 "databricks.rag_eval.datasets.entities._get_client", return_value=mock_client
             ),
-            mock.patch(
-                "mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True
-            ),
+            mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True),
         ):
             dataset = create_dataset(
                 uc_table_name="mlflow.managed.dataset", experiment_id="exp-123"
@@ -454,6 +536,7 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
     assert len(traces) == 2
 
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
 
 def test_evaluate_with_managed_dataset_from_searched_traces():
@@ -559,16 +642,12 @@ def test_empty_scorers_allowed():
 
     data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is an ML platform"}]
 
-    with (
-        mock.patch("mlflow.genai.evaluation.base._evaluate_oss") as mock_evaluate_oss,
-        mock.patch("mlflow.genai.evaluation.base.clean_up_extra_traces") as mock_clean_up,
-    ):
+    with mock.patch("mlflow.genai.evaluation.base._run_harness") as mock_evaluate_oss:
         mock_evaluate_oss.return_value = mock_result
         result = mlflow.genai.evaluate(data=data, scorers=[])
 
     assert result is mock_result
     mock_evaluate_oss.assert_called_once()
-    mock_clean_up.assert_called_once_with(mock_result.run_id, ANY)
 
 
 @pytest.mark.parametrize("pass_full_dataframe", [True, False])
@@ -578,8 +657,6 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
     However, when a trace is provided, it doesn't need to be validated and the
     harness can handle it nicely.
     """
-    if not is_in_databricks:
-        pytest.skip("OSS genai evaluator doesn't support trace input yet")
     with mlflow.start_span() as span:
         span.set_inputs("What is MLflow?")
         span.set_outputs("MLflow is a tool for ML")
@@ -592,14 +669,10 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
     mlflow.genai.evaluate(data=traces, scorers=[RelevanceToQuery()])
 
 
-def test_max_workers_env_var(is_in_databricks, monkeypatch):
-    harness_module = (
-        "databricks.rag_eval.evaluation" if is_in_databricks else "mlflow.genai.evaluation"
-    )
-
+def test_max_workers_env_var(monkeypatch):
     def _validate_max_workers(expected_max_workers):
         with mock.patch(
-            f"{harness_module}.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
+            "mlflow.genai.evaluation.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
         ) as mock_executor:
             mlflow.genai.evaluate(
                 data=[
@@ -621,10 +694,10 @@ def test_max_workers_env_var(is_in_databricks, monkeypatch):
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "20")
     _validate_max_workers(20)
 
-    # legacy env var is supported for databricks
-    if is_in_databricks:
-        monkeypatch.setenv("RAG_EVAL_MAX_WORKERS", "30")
-        _validate_max_workers(30)
+    # legacy env var for backward compatibility
+    monkeypatch.delenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", raising=False)
+    monkeypatch.setenv("RAG_EVAL_MAX_WORKERS", "30")
+    _validate_max_workers(30)
 
 
 def test_dataset_name_is_logged_correctly(is_in_databricks):
@@ -909,3 +982,96 @@ def test_evaluate_with_only_trace_in_eval_dataset():
     )
 
     assert result.metrics["has_trace/mean"] == 1.0
+
+
+@pytest.mark.parametrize("is_enabled", [True, False])
+def test_evaluate_with_scorer_tracing(server_config, monkeypatch, is_enabled):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", str(is_enabled).lower())
+
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {
+                "expected_response": "MLflow is a tool for ML",
+                "max_length": 100,
+            },
+        },
+        {
+            "inputs": {"question": "What is Spark?"},
+            "expectations": {
+                "expected_response": "Spark is a fast data processing engine",
+                "max_length": 1,
+            },
+        },
+    ]
+
+    result = mlflow.genai.evaluate(
+        predict_fn=TestModel().predict,
+        data=data,
+        scorers=[exact_match, is_concise, relevance, has_trace],
+    )
+
+    metrics = result.metrics
+    assert metrics["exact_match/mean"] == 0.0
+    assert metrics["is_concise/mean"] == 0.5
+    assert metrics["relevance/mean"] == 1.0
+    assert metrics["has_trace/mean"] == 1.0
+
+    traces = get_traces()
+    if is_enabled:
+        assert len(traces) == len(data) * 5  # 1 trace for prediction + 4 scorer traces
+    else:
+        assert len(traces) == len(data)
+
+    # Traces should be associated with the eval run
+    traces = mlflow.search_traces(
+        filter_string="tags.`mlflow.eval.requestId` != 'None'",
+        run_id=result.run_id,
+        return_type="list",
+    )
+    assert len(traces) == len(data)
+
+    # Each assessment should have a source trace ID
+    for trace in traces:
+        for a in trace.info.assessments:
+            if isinstance(a, Feedback) and is_enabled:
+                assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] is not None
+                assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] != trace.info.trace_id
+            else:
+                assert AssessmentMetadataKey.SCORER_TRACE_ID not in a.metadata
+
+
+@pytest.mark.parametrize("diff_experiment_id", [True, False])
+def test_eval_with_traces_log_spans_correctly(diff_experiment_id):
+    exp_id = mlflow.set_experiment("traces exp").experiment_id
+    with mlflow.start_span() as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is a tool for ML"})
+        span.set_attributes({"key": "value"})
+        with mlflow.start_span() as child_span:
+            child_span.set_inputs("test")
+
+    # set to a different experiment
+    if diff_experiment_id:
+        mlflow.set_experiment("diff exp")
+
+    # search traces from the original experiment
+    trace_df = mlflow.search_traces(locations=[exp_id])
+
+    result = mlflow.genai.evaluate(
+        data=trace_df,
+        scorers=[has_trace],
+    )
+
+    assert result.metrics["has_trace/mean"] == 1.0
+
+    traces = get_traces()
+    assert len(traces) == 1
+    # copied trace should contain all spans
+    assert len(traces[0].data.spans) == 2
+    span = traces[0].data.spans[0]
+    assert span.get_attribute("key") == "value"
+    assert span.inputs == {"question": "What is MLflow?"}
+    assert span.outputs == {"answer": "MLflow is a tool for ML"}
+    child_span = traces[0].data.spans[1]
+    assert child_span.inputs == "test"

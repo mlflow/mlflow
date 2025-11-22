@@ -1,6 +1,10 @@
 import React, { useMemo } from 'react';
 import {
+  ArrowLeftIcon,
+  BeakerIcon,
   Breadcrumb,
+  Button,
+  InfoBookIcon,
   ParagraphSkeleton,
   TitleSkeleton,
   Tooltip,
@@ -20,10 +24,19 @@ import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifact
 import { InfoPopover } from '@databricks/design-system';
 import { TabSelectorBar } from './tab-selector-bar/TabSelectorBar';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
-import { getExperimentKindFromTags } from '../../../../utils/ExperimentKindUtils';
+import { getExperimentKindFromTags, isGenAIExperimentKind } from '../../../../utils/ExperimentKindUtils';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
+import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
-import type { ExperimentKind } from '../../../../constants';
+import { ExperimentKind } from '../../../../constants';
+
+const getDocLinkHref = (experimentKind: ExperimentKind) => {
+  if (isGenAIExperimentKind(experimentKind)) {
+    return 'https://mlflow.org/docs/latest/genai/?rel=mlflow_ui';
+  }
+  return 'https://mlflow.org/docs/latest/ml/getting-started/?rel=mlflow_ui';
+};
+
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
  * controls for renaming, deleting and editing permissions.
@@ -60,6 +73,7 @@ export const ExperimentViewHeader = React.memo(
       [],
     );
     const experimentIds = useMemo(() => (experiment ? [experiment?.experimentId] : []), [experiment]);
+
     // Extract the last part of the experiment name
     const normalizedExperimentName = useMemo(() => experiment.name.split('/').pop(), [experiment.name]);
 
@@ -107,18 +121,53 @@ export const ExperimentViewHeader = React.memo(
     };
 
     const experimentKind = inferredExperimentKind ?? getExperimentKindFromTags(experiment.tags);
+    const docLinkHref = getDocLinkHref(experimentKind ?? ExperimentKind.NO_INFERRED_TYPE);
 
     return (
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
-        <Breadcrumb includeTrailingCaret>
-          {breadcrumbs.map((breadcrumb, index) => (
-            <Breadcrumb.Item key={index}>{breadcrumb}</Breadcrumb.Item>
-          ))}
-        </Breadcrumb>
-        <div css={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.xs,
+          marginBottom: shouldEnableExperimentPageSideTabs() ? theme.spacing.xs : theme.spacing.sm,
+        }}
+      >
+        {!shouldEnableExperimentPageSideTabs() && (
+          <Breadcrumb includeTrailingCaret>
+            {breadcrumbs.map((breadcrumb, index) => (
+              <Breadcrumb.Item key={index}>{breadcrumb}</Breadcrumb.Item>
+            ))}
+          </Breadcrumb>
+        )}
+        <div
+          css={{
+            display: 'grid',
+            gridTemplateColumns: shouldEnableExperimentPageSideTabs() ? '1fr auto auto' : '1fr 1fr 1fr',
+          }}
+        >
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', overflow: 'hidden', minWidth: 250 }}
           >
+            {shouldEnableExperimentPageSideTabs() && (
+              <>
+                <Link to={Routes.experimentsObservatoryRoute}>
+                  <Button
+                    componentId="mlflow.experiment-page.header.back-icon-button"
+                    type="tertiary"
+                    icon={<ArrowLeftIcon />}
+                  />
+                </Link>
+                <div
+                  css={{
+                    borderRadius: theme.borders.borderRadiusSm,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                    padding: theme.spacing.sm,
+                  }}
+                >
+                  <BeakerIcon />
+                </div>
+              </>
+            )}
             <Tooltip
               content={normalizedExperimentName}
               componentId="mlflow.experiment_view.header.experiment-name-tooltip"
@@ -145,20 +194,45 @@ export const ExperimentViewHeader = React.memo(
             {experimentKindSelector}
             {getInfoTooltip()}
           </div>
-          <TabSelectorBar experimentKind={experimentKind} />
+          {shouldEnableExperimentPageSideTabs() ? <div /> : <TabSelectorBar experimentKind={experimentKind} />}
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
+            {shouldEnableExperimentPageSideTabs() && (
+              <ExperimentViewManagementMenu
+                experiment={experiment}
+                setEditing={setEditing}
+                refetchExperiment={refetchExperiment}
+              />
+            )}
             <ExperimentViewHeaderShareButton
+              type={shouldEnableExperimentPageSideTabs() ? undefined : 'primary'}
               experimentIds={experimentIds}
               searchFacetsState={searchFacetsState}
               uiState={uiState}
             />
-            <ExperimentViewManagementMenu
-              experiment={experiment}
-              setEditing={setEditing}
-              refetchExperiment={refetchExperiment}
-            />
+            {shouldEnableExperimentPageSideTabs() && (
+              <Typography.Link
+                componentId="mlflow.experiment-page.header.docs-link"
+                href={docLinkHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button componentId="mlflow.experiment-page.header.docs-link-button" icon={<InfoBookIcon />}>
+                  <FormattedMessage
+                    defaultMessage="View docs"
+                    description="Text for docs link button on experiment view page header"
+                  />
+                </Button>
+              </Typography.Link>
+            )}
+            {!shouldEnableExperimentPageSideTabs() && (
+              <ExperimentViewManagementMenu
+                experiment={experiment}
+                setEditing={setEditing}
+                refetchExperiment={refetchExperiment}
+              />
+            )}
           </div>
         </div>
       </div>

@@ -60,6 +60,11 @@ def rm_data(registered_model_names, tmp_path):
     return rm_data
 
 
+def test_file_store_deprecation_warning(tmp_path):
+    with pytest.warns(FutureWarning, match="filesystem model registry backend.*will be deprecated"):
+        FileStore(str(tmp_path / "model_registry"))
+
+
 def test_create_registered_model(store):
     # Error cases
     with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):

@@ -1,7 +1,7 @@
 import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SearchExperimentsApiResponse } from '../../../types';
 import { useLocalStorage } from '@mlflow/mlflow/src/shared/web-shared/hooks/useLocalStorage';
 import type { CursorPaginationProps } from '@databricks/design-system';
@@ -94,6 +94,12 @@ export const useExperimentListQuery = ({
     version: 0,
     initialValue: [{ id: 'last_update_time', desc: true }],
   });
+
+  // Reset pagination when filters or sorting changes
+  useEffect(() => {
+    setCurrentPageToken(undefined);
+    previousPageTokens.current = [];
+  }, [searchFilter, tagsFilter, sorting]);
 
   const pageSizeSelect: CursorPaginationProps['pageSizeSelect'] = {
     options: [10, 25, 50, 100],
