@@ -416,7 +416,51 @@ def _to_dict(obj: Any) -> dict[str, Any]:
     return json.loads(json_str)
 
 
-def _extract_retrieval_context_with_llm(
+def extract_retrieval_context_from_trace(
+    trace: Trace | None, model: str | None = None
+) -> dict[str, list[Any]]:
+    """
+    Extract the retrieval context from the trace.
+
+    First attempts programmatic extraction from spans with type RETRIEVER.
+    If no retrieval contexts are found, falls back to LLM-based extraction using
+    tool calling to examine trace spans.
+
+    Args:
+        trace: MLflow trace object to extract retrieval context from.
+        model: Optional model URI to use for LLM-based extraction fallback.
+               If None, uses the default model.
+
+    Returns:
+        Dictionary mapping span IDs to lists of retrieved chunks.
+        Each chunk is a dict with 'content' (str) and optional 'doc_uri' (str).
+        Returns empty dict if extraction fails or no retrieval contexts found.
+
+    Note:
+        This function does not raise exceptions. If extraction fails, returns empty dict.
+    """
+    if trace is None or trace.data is None:
+        return {}
+
+    top_level_retrieval_spans = _get_top_level_retrieval_spans(trace)
+    if len(top_level_retrieval_spans) > 0:
+        retrieved = {}
+        for retrieval_span in top_level_retrieval_spans:
+            try:
+                contexts = [_parse_chunk(chunk) for chunk in retrieval_span.outputs or []]
+                retrieved[retrieval_span.span_id] = [c for c in contexts if c is not None]
+            except Exception as e:
+                _logger.debug(
+                    f"Fail to get retrieval context from span: {retrieval_span}. Error: {e!r}"
+                )
+
+        if retrieved:
+            return retrieved
+
+    return _try_extract_retrieval_context_with_llm(trace, model)
+
+
+def _try_extract_retrieval_context_with_llm(
     trace: Trace,
     model: str | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
@@ -537,52 +581,6 @@ def _extract_retrieval_context_with_llm(
             e,
         )
         return {}
-
-
-def extract_retrieval_context_from_trace(
-    trace: Trace | None, model: str | None = None
-) -> dict[str, list[Any]]:
-    """
-    Extract the retrieval context from the trace.
-
-    First attempts programmatic extraction from spans with type RETRIEVER.
-    If no retrieval contexts are found, falls back to LLM-based extraction using
-    tool calling to examine trace spans.
-
-    Args:
-        trace: MLflow trace object to extract retrieval context from.
-        model: Optional model URI to use for LLM-based extraction fallback.
-               If None, uses the default model.
-
-    Returns:
-        Dictionary mapping span IDs to lists of retrieved chunks.
-        Each chunk is a dict with 'content' (str) and optional 'doc_uri' (str).
-        Returns empty dict if extraction fails or no retrieval contexts found.
-
-    Note:
-        This function does not raise exceptions. If extraction fails, returns empty dict.
-    """
-    if trace is None or trace.data is None:
-        return {}
-
-    # Step 1: Try programmatic extraction
-    top_level_retrieval_spans = _get_top_level_retrieval_spans(trace)
-    if len(top_level_retrieval_spans) > 0:
-        retrieved = {}
-        for retrieval_span in top_level_retrieval_spans:
-            try:
-                contexts = [_parse_chunk(chunk) for chunk in retrieval_span.outputs or []]
-                retrieved[retrieval_span.span_id] = [c for c in contexts if c is not None]
-            except Exception as e:
-                _logger.debug(
-                    f"Fail to get retrieval context from span: {retrieval_span}. Error: {e!r}"
-                )
-
-        if retrieved:
-            return retrieved
-
-    # Step 2: Fall back to LLM extraction if programmatic extraction found nothing
-    return _extract_retrieval_context_with_llm(trace, model)
 
 
 def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
