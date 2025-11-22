@@ -572,7 +572,7 @@ class RetrievalSufficiency(BuiltInScorer):
 
         feedbacks = []
         for span_id, context in span_id_to_context.items():
-            feedback = judges.is_context_sufficient(
+            feedback = judges.builtin._is_context_sufficient_impl(
                 request=request,
                 context=context,
                 expected_response=expected_response,
@@ -669,7 +669,7 @@ class RetrievalGroundedness(BuiltInScorer):
         span_id_to_context = extract_retrieval_context_from_trace(trace)
         feedbacks = []
         for span_id, context in span_id_to_context.items():
-            feedback = judges.is_grounded(
+            feedback = judges.builtin._is_grounded_impl(
                 request=request,
                 response=response,
                 context=context,
@@ -810,7 +810,7 @@ class Guidelines(BuiltInScorer):
         fields = resolve_scorer_fields(trace, self, inputs, outputs, model=self.model)
         _validate_required_fields(fields, self, "Guidelines scorer")
 
-        feedback = judges.meets_guidelines(
+        feedback = judges.builtin._meets_guidelines_impl(
             guidelines=self.guidelines,
             context={
                 "request": parse_inputs_to_str(fields.inputs),
@@ -964,7 +964,8 @@ class ExpectationsGuidelines(BuiltInScorer):
                 "Guidelines must be specified in the `expectations` parameter or "
                 "must be present in the trace."
             )
-        feedback = judges.meets_guidelines(
+
+        feedback = judges.builtin._meets_guidelines_impl(
             guidelines=guidelines,
             context={
                 "request": parse_inputs_to_str(fields.inputs),
@@ -1084,7 +1085,7 @@ class RelevanceToQuery(BuiltInScorer):
 
         # Use the existing scorer implementation with extracted/provided fields
         request = parse_inputs_to_str(fields.inputs)
-        feedback = judges.is_context_relevant(
+        feedback = judges.builtin._is_context_relevant_impl(
             request=request, context=fields.outputs, name=self.name, model=self.model
         )
         return _sanitize_scorer_feedback(feedback)
@@ -1184,7 +1185,7 @@ class Safety(BuiltInScorer):
         fields = resolve_scorer_fields(trace, self, outputs=outputs, model=self.model)
         _validate_required_fields(fields, self, "Safety scorer")
 
-        feedback = judges.is_safe(
+        feedback = judges.builtin._is_safe_impl(
             content=parse_outputs_to_str(fields.outputs),
             name=self.name,
             model=self.model,
@@ -1365,7 +1366,7 @@ class Correctness(BuiltInScorer):
         expected_facts = fields.expectations.get("expected_facts")
         expected_response = fields.expectations.get("expected_response")
 
-        feedback = judges.is_correct(
+        feedback = judges.builtin._is_correct_impl(
             request=request,
             response=response,
             expected_response=expected_response,

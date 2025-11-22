@@ -176,7 +176,7 @@ def test_aggregation_excludes_unknown_boolean_values():
 
 
 def test_builtin_scorer_handles_boolean_synonyms():
-    with mock.patch("mlflow.genai.judges.is_context_relevant") as mock_judge:
+    with mock.patch("mlflow.genai.judges.builtin._is_context_relevant_impl") as mock_judge:
         mock_feedback = Feedback(
             name="relevance_to_query",
             value="true",
@@ -195,7 +195,7 @@ def test_builtin_scorer_handles_boolean_synonyms():
 
 
 def test_builtin_scorer_handles_numeric_boolean_values():
-    with mock.patch("mlflow.genai.judges.is_context_relevant") as mock_judge:
+    with mock.patch("mlflow.genai.judges.builtin._is_context_relevant_impl") as mock_judge:
         for input_val, expected in [("1", CategoricalRating.YES), ("0", CategoricalRating.NO)]:
             mock_feedback = Feedback(
                 name="relevance_to_query",

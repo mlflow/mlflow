@@ -357,7 +357,7 @@ def test_builtin_scorer_round_trip():
 
     # Test execution with mocking
     with patch(
-        "mlflow.genai.judges.is_context_relevant",
+        "mlflow.genai.judges.builtin._is_context_relevant_impl",
         return_value=Feedback(name="relevance_to_query", value="yes", metadata={"chunk_index": 0}),
     ) as mock_judge:
         result = deserialized(
@@ -425,7 +425,7 @@ def test_builtin_scorer_with_parameters_round_trip():
 
     # Test that it can be executed with mocking
     with patch(
-        "mlflow.genai.judges.meets_guidelines",
+        "mlflow.genai.judges.builtin._meets_guidelines_impl",
         return_value=Feedback(
             name="tone", value=True, rationale="Response is appropriately courteous"
         ),
@@ -519,7 +519,7 @@ def test_builtin_scorer_with_aggregations_round_trip():
     }
 
     with patch(
-        "mlflow.genai.judges.is_context_relevant",
+        "mlflow.genai.judges.builtin._is_context_relevant_impl",
         return_value=Feedback(name="relevance_with_aggs", value="yes"),
     ) as mock_judge:
         # Test original scorer
