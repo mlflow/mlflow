@@ -73,8 +73,12 @@ class TraceJSONEncoder(json.JSONEncoder):
             import pydantic
 
             if isinstance(obj, pydantic.BaseModel):
-                return obj.model_dump()
+                _logger.warning("1 Serializing Pydantic model: %s", obj)
+                result = obj.model_dump()
+                _logger.warning("2 Serialized Pydantic model: %s", result)
+                return result
         except ImportError:
+            _logger.warning("Pydantic not installed, skipping Pydantic model serialization")
             pass
 
         # Some dataclass object defines __str__ method that doesn't return the full object
@@ -82,17 +86,26 @@ class TraceJSONEncoder(json.JSONEncoder):
         # E.g. https://github.com/run-llama/llama_index/blob/29ece9b058f6b9a1cf29bc723ed4aa3a39879ad5/llama-index-core/llama_index/core/chat_engine/types.py#L63-L64
         if is_dataclass(obj):
             try:
-                return asdict(obj)
+                _logger.warning("3 Serializing dataclass: %s", obj)
+                result = asdict(obj)
+                _logger.warning("4 Serialized dataclass: %s", result)
+                return result
             except TypeError:
+                _logger.warning("Failed to serialize dataclass: %s", obj)
                 pass
 
         # Some object has dangerous side effect in __str__ method, so we use class name instead.
         if not self._is_safe_to_encode_str(obj):
+            _logger.warning("Object is not safe to encode as string: %s", obj)
             return type(obj)
 
         try:
-            return super().default(obj)
+            _logger.warning("5 Serializing object: %s", obj)
+            result = super().default(obj)
+            _logger.warning("6 Serialized object: %s", result)
+            return result
         except TypeError:
+            _logger.warning("Failed to serialize object: %s", obj)
             return str(obj)
 
     def _is_safe_to_encode_str(self, obj) -> bool:
