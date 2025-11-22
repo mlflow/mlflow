@@ -286,6 +286,7 @@ select = [
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF039",  # unraw-re-pattern
   "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
   "S102",    # exec-builtin
