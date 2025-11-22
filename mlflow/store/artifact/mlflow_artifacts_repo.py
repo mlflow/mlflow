@@ -75,7 +75,7 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
             resolved = base_url
         else:
             resolved = f"{track_parse.path}/{base_url}/{uri_parse.path}"
-        resolved = re.sub("//+", "/", resolved)
+        resolved = re.sub(r"//+", "/", resolved)
 
         resolved_artifacts_uri = urlunparse(
             (
