@@ -1,0 +1,132 @@
+# Workspace Configuration
+
+Reference for the core flags and environment variables for workspace mode. For setup and end-to-end flows, see [Getting Started](/self-hosting/workspaces/getting-started). For provider details and artifact routing options, see [Workspace Providers](/self-hosting/workspaces/workspace-providers).
+
+## Server Configuration (enable/disable)
+
+Enable workspaces with the flag:
+
+```bash
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts \
+  --enable-workspaces
+```
+
+Or with environment variables:
+
+```bash
+export MLFLOW_ENABLE_WORKSPACES=true
+mlflow server \
+  --backend-store-uri ... \
+  --default-artifact-root ...
+```
+
+To use a non-default workspace provider (or store workspace metadata in a separate database), set `--workspace-store-uri` or `MLFLOW_WORKSPACE_STORE_URI`. When unset, MLflow reuses the backend store URI.
+
+Disable by restarting without `--enable-workspaces` after moving all resources into the `default` workspace and deleting non-default workspaces.
+
+## Artifact Behavior
+
+By default, artifacts are isolated by workspace through path prefixing. When an experiment is created in a workspace, MLflow automatically generates an artifact location under:
+
+```text
+<default_artifact_root>/workspaces/<workspace-name>/<experiment-id>
+```
+
+Optionally, a workspace can override its default artifact root. When `default_artifact_root` is set on a workspace, new experiments use:
+
+```text
+<workspace_default_artifact_root>/<experiment-id>
+```
+
+Existing experiments and runs keep their stored locations (legacy unprefixed paths under `default` continue to work).
+
+To override the artifact root for a specific workspace, set `default_artifact_root` on the workspace (via `mlflow.create_workspace(...)`, `mlflow.update_workspace(...)`, `MlflowClient.create_workspace(...)`, `MlflowClient.update_workspace(...)`, or the workspace REST API).
+
+::::note Client-specified artifact locations
+
+When workspaces are enabled, client-supplied `artifact_location` values for experiments are rejected to prevent bypassing workspace isolation. The server automatically manages artifact locations to ensure proper isolation.
+
+::::
+
+## Workspace Resolution
+
+The active workspace is determined in the following order:
+
+1. Explicit `mlflow.set_workspace()` call
+2. `MLFLOW_WORKSPACE` environment variable
+3. Provider's `get_default_workspace()` implementation
+
+If no workspace can be resolved and the provider does not support a default workspace, API calls will return an error.
+
+Clients that predate workspace support cannot set a workspace and will only access the provider's default workspace. To use non-default workspaces, upgrade client libraries and set a workspace explicitly.
+
+## Migration and Compatibility
+
+Enabling workspaces on an existing deployment:
+
+1. Existing resources are automatically assigned to the `default` workspace
+2. Artifact locations remain unchanged
+3. Existing client usage continues to work in the `default` workspace; clients must be updated to access non-default workspaces
+4. Once resources exist in non-default workspaces, the workspaces feature cannot be disabled until all resources in non-default workspaces are deleted.
+5. Experiments can no longer set `artifact_location` directly; artifact roots must come from the server default or a workspace `default_artifact_root`.
+
+The `default` workspace is reserved and cannot be deleted or renamed. It provides backward compatibility for existing deployments.
+
+:::::caution Existing installations without `--default-artifact-root`
+If you enable workspaces on a deployment that previously ran without `--default-artifact-root`, set `default_artifact_root` on the reserved `default` workspace (for example via `mlflow.update_workspace(...)` or `MlflowClient.update_workspace(...)`). Without this value, new experiments cannot be created.
+:::::
+
+### Migration: set `default_artifact_root` on the `default` workspace
+
+For deployments that do not specify `--default-artifact-root` before enabling workspaces, set a workspace-level default artifact root on the reserved `default` workspace so experiments continue to be creatable.
+
+Python SDK:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# Set the artifact root on the reserved default workspace
+mlflow.update_workspace(
+    name="default",
+    default_artifact_root="s3://mlflow-artifacts",
+)
+```
+
+REST API:
+
+```bash
+curl -X PATCH http://localhost:5000/api/3.0/mlflow/workspaces/default \
+  -H "Content-Type: application/json" \
+  -d '{"default_artifact_root": "s3://mlflow-artifacts"}'
+```
+
+When workspaces are enabled, experiments cannot set `artifact_location` directly; artifact roots must come from the server default or the workspace `default_artifact_root`.
+
+## Detecting Workspace Support Programmatically
+
+- Call `GET /api/3.0/mlflow/server-features` to check `workspaces_enabled`.
+- The endpoint is reachable without a workspace header; a `404` indicates an older server without workspace support.
+
+## Environment Variables
+
+| Variable                                           | Description                                                                  | Default                                    |
+| -------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------ |
+| `MLFLOW_ENABLE_WORKSPACES`                         | Enable workspace mode                                                        | `false`                                    |
+| `MLFLOW_WORKSPACE_STORE_URI`                       | Override the workspace provider URI; falls back to the resolved tracking URI | None (falls back to resolved tracking URI) |
+| `MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY`    | Max entries in the workspace artifact root cache                             | `128`                                      |
+| `MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS` | Cache TTL in seconds for workspace artifact root resolution                  | `60`                                       |
+
+`MLFLOW_WORKSPACE_STORE_URI` selects where the workspace catalog lives (and which provider to use), not which workspace; if unset, the tracking URI is reused. Providers are discovered via the `mlflow.workspace_provider` entry point.
+
+The artifact root cache settings apply to the default SQL workspace provider and control how frequently workspace artifact roots are refreshed.
+
+## Next Steps
+
+- [Getting Started](/self-hosting/workspaces/getting-started) - Step-by-step enablement
+- [Workspace Providers](/self-hosting/workspaces/workspace-providers) - Provider selection and artifact routing
+- [Permissions](/self-hosting/workspaces/permissions) - Configure access control
+- [Troubleshooting](/self-hosting/troubleshooting) - Common issues and fixes
