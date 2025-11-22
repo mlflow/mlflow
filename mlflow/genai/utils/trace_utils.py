@@ -485,6 +485,23 @@ def _try_extract_retrieval_context_with_llm(
     )
     from mlflow.types.llm import ChatMessage
 
+    output_example = json.dumps(
+        RetrievedChunksForTrace(
+            retrieval_contexts=[
+                RetrievedChunksForSpan(
+                    span_id="span ID where data was retrieved",
+                    chunks=[
+                        RetrievedChunk(
+                            content="text content as string (required)",
+                            doc_uri="source URI if available, otherwise null",
+                        )
+                    ],
+                )
+            ]
+        ).model_dump(),
+        indent=2,
+    )
+
     model_uri = model or get_default_model()
 
     # Skip LLM extraction if using Databricks default model (not yet supported for tool calling)
@@ -525,20 +542,7 @@ def _try_extract_retrieval_context_with_llm(
                     "provide information\n"
                     "3. Common field names: 'content', 'text', 'page_content', 'results', 'data'\n"
                     "4. Convert structured data to strings when necessary\n\n"
-                    "Return your findings in this format:\n"
-                    "{\n"
-                    '  "retrieval_contexts": [\n'
-                    "    {\n"
-                    '      "span_id": "span ID where data was retrieved",\n'
-                    '      "chunks": [\n'
-                    "        {\n"
-                    '          "content": "text content as string (required)",\n'
-                    '          "doc_uri": "source URI if available, otherwise null"\n'
-                    "        }\n"
-                    "      ]\n"
-                    "    }\n"
-                    "  ]\n"
-                    "}"
+                    f"Return your findings in this format:\n{output_example}"
                 ),
             ),
         ]
@@ -550,7 +554,6 @@ def _try_extract_retrieval_context_with_llm(
             trace=trace,
         )
 
-        # Convert to expected format: dict[span_id, list[dict]]
         extracted = {}
         for ctx in result.retrieval_contexts:
             extracted[ctx.span_id] = [
