@@ -97,8 +97,8 @@ class SqlExperiment(Base):
     """
     name = Column(String(256), nullable=False)
     """
-    Experiment name: `String` (limit 256 characters). Unique per workspace (see
-    ``uq_experiments_workspace_name``) and *Non null* in the table schema.
+    Experiment name: `String` (limit 256 characters). Unique *within a workspace* (enforced by
+                     the ``workspace`` + ``name`` constraint) and *Non null* in the table schema.
     """
     workspace = Column(
         String(63),
@@ -107,7 +107,8 @@ class SqlExperiment(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     """
-    Workspace identifier for this experiment. Defaults to ``'default'`` for legacy rows.
+    Workspace identifier for this experiment: `String` (limit 63 characters). Defaults to
+    ``'default'`` when not explicitly provided.
     """
     artifact_location = Column(String(256), nullable=True)
     """
@@ -155,6 +156,7 @@ class SqlExperiment(Base):
             tags=[t.to_mlflow_entity() for t in self.tags],
             creation_time=self.creation_time,
             last_update_time=self.last_update_time,
+            workspace=self.workspace,
         )
 
 
@@ -1319,7 +1321,7 @@ class SqlEvaluationDataset(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     """
-    Workspace name that scopes this dataset. Defaults to ``'default'`` for legacy rows.
+    Workspace name that scopes this dataset.
     """
 
     name = Column(String(255), nullable=False)
@@ -1410,6 +1412,7 @@ class SqlEvaluationDataset(Base):
             last_update_time=self.last_update_time,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
             # experiment_ids will be loaded lazily when accessed
         )
 
@@ -1433,6 +1436,7 @@ class SqlEvaluationDataset(Base):
         # SqlEvaluationDatasetTag objects
         return cls(
             dataset_id=dataset.dataset_id,
+            workspace=dataset.workspace,
             name=dataset.name,
             schema=dataset.schema,
             profile=dataset.profile,
@@ -1992,6 +1996,16 @@ class SqlJob(Base):
     Job parameters: `Text`.
     """
 
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace identifier for this job: `String` (limit 63 characters). Defaults to ``'default'``.
+    """
+
     timeout = Column(sa.types.Float(precision=53), nullable=True)
     """
     Job execution timeout in seconds: `Float`
@@ -2021,6 +2035,7 @@ class SqlJob(Base):
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
             "index_jobs_function_status_creation_time",
+            "workspace",
             "function_fullname",
             "status",
             "creation_time",
@@ -2050,4 +2065,5 @@ class SqlJob(Base):
             result=self.result,
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
+            workspace=self.workspace,
         )

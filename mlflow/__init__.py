@@ -263,6 +263,14 @@ if not IS_TRACING_SDK_ONLY:
         set_model_version_tag,
         set_prompt_alias,
     )
+    from mlflow.tracking._workspace.fluent import (
+        create_workspace,
+        delete_workspace,
+        get_workspace,
+        list_workspaces,
+        set_workspace,
+        update_workspace,
+    )
     from mlflow.tracking.fluent import (
         ActiveModel,
         ActiveRun,
@@ -330,9 +338,11 @@ if not IS_TRACING_SDK_ONLY:
         "clear_active_model",
         "create_experiment",
         "create_external_model",
+        "create_workspace",
         "delete_experiment",
         "delete_run",
         "delete_tag",
+        "delete_workspace",
         "disable_system_metrics_logging",
         "doctor",
         "enable_system_metrics_logging",
@@ -349,6 +359,7 @@ if not IS_TRACING_SDK_ONLY:
         "get_parent_run",
         "get_registry_uri",
         "get_run",
+        "get_workspace",
         "initialize_logged_model",
         "last_active_run",
         "last_logged_model",
@@ -381,6 +392,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_active_model",
         "set_experiment_tag",
         "set_experiment_tags",
+        "set_workspace",
         "delete_experiment_tag",
         "set_model_version_tag",
         "set_registry_uri",
@@ -390,6 +402,8 @@ if not IS_TRACING_SDK_ONLY:
         "set_tag",
         "set_tags",
         "start_run",
+        "list_workspaces",
+        "update_workspace",
         "validate_evaluation_results",
         "Image",
         # Prompt Registry APIs

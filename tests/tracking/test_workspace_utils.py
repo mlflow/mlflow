@@ -1,18 +1,5 @@
-import pytest
-
-from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_WORKSPACE_URI
+from mlflow.environment_variables import MLFLOW_WORKSPACE_URI
 from mlflow.tracking._workspace import utils as workspace_utils
-
-
-@pytest.fixture(autouse=True)
-def _reset_workspace_uri(monkeypatch):
-    workspace_utils.set_workspace_uri(None)
-    monkeypatch.delenv(MLFLOW_WORKSPACE_URI.name, raising=False)
-    monkeypatch.delenv(MLFLOW_TRACKING_URI.name, raising=False)
-    yield
-    workspace_utils.set_workspace_uri(None)
-    monkeypatch.delenv(MLFLOW_WORKSPACE_URI.name, raising=False)
-    monkeypatch.delenv(MLFLOW_TRACKING_URI.name, raising=False)
 
 
 def test_resolve_workspace_uri_prefers_explicit_argument(monkeypatch):

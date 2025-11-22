@@ -1180,3 +1180,7 @@ class AbstractStore:
             WebhookTestResult indicating success/failure and response details
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not support test_webhook")
+
+    def supports_workspaces(self) -> bool:
+        """Return whether this model registry store supports workspace-aware operations."""
+        return False

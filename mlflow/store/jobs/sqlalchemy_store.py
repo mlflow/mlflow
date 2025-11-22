@@ -11,6 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob
+from mlflow.store.workspace_aware_mixin import WorkspaceAwareMixin
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 
@@ -19,7 +20,7 @@ sqlalchemy.orm.configure_mappers()
 _LIST_JOB_PAGE_SIZE = 100
 
 
-class SqlAlchemyJobStore(AbstractJobStore):
+class SqlAlchemyJobStore(WorkspaceAwareMixin, AbstractJobStore):
     """
     SQLAlchemy compliant backend store for storing Job metadata.
     This store interacts with SQL store using SQLAlchemy abstractions defined
@@ -56,7 +57,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Returns:
             Job entity instance
         """
-        with self.ManagedSessionMaker() as session:
+        with self._workspace_session() as (session, workspace):
             job_id = str(uuid.uuid4())
             creation_time = get_current_time_millis()
 
@@ -65,6 +66,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 creation_time=creation_time,
                 function_fullname=function_fullname,
                 params=params,
+                workspace=workspace,
                 timeout=timeout,
                 status=JobStatus.PENDING.to_int(),
                 result=None,
@@ -76,8 +78,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
             return job.to_mlflow_entity()
 
     def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> None:
-        with self.ManagedSessionMaker() as session:
-            job = self._get_sql_job(session, job_id)
+        with self._workspace_session() as (session, workspace):
+            job = self._get_sql_job(session, job_id, workspace)
 
             job.status = new_status.to_int()
             if result is not None:
@@ -95,21 +97,30 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Raises:
             MlflowException: If job is not in PENDING state or doesn't exist
         """
-        with self.ManagedSessionMaker() as session:
+        with self._workspace_session() as (session, workspace):
             # Atomic update: only transition from PENDING to RUNNING
             rows_updated = (
                 session.query(SqlJob)
-                .filter(SqlJob.id == job_id, SqlJob.status == JobStatus.PENDING.to_int())
+                .filter(
+                    SqlJob.id == job_id,
+                    SqlJob.workspace == workspace,
+                    SqlJob.status == JobStatus.PENDING.to_int(),
+                )
                 .update(
                     {
                         SqlJob.status: JobStatus.RUNNING.to_int(),
                         SqlJob.last_update_time: get_current_time_millis(),
-                    }
+                    },
+                    synchronize_session=False,
                 )
             )
 
             if rows_updated == 0:
-                job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+                job = (
+                    session.query(SqlJob)
+                    .filter(SqlJob.id == job_id, SqlJob.workspace == workspace)
+                    .one_or_none()
+                )
                 if job is None:
                     raise MlflowException(
                         f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
@@ -175,8 +186,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
         max_retries = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES.get()
 
-        with self.ManagedSessionMaker() as session:
-            job = self._get_sql_job(session, job_id)
+        with self._workspace_session() as (session, workspace):
+            job = self._get_sql_job(session, job_id, workspace)
 
             if job.retry_count >= max_retries:
                 job.status = JobStatus.FAILED.to_int()
@@ -212,6 +223,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             Iterator of Job entities that match the filters, ordered by creation time (oldest first)
         """
         offset = 0
+        workspace = self._get_active_workspace()
 
         def filter_by_params(job_params: dict[str, Any]) -> bool:
             for key in params:
@@ -228,6 +240,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 query = session.query(SqlJob)
 
                 # Apply filters
+                query = query.filter(SqlJob.workspace == workspace)
                 if function_fullname is not None:
                     query = query.filter(SqlJob.function_fullname == function_fullname)
 
@@ -270,8 +283,12 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 # Move to next page
                 offset += _LIST_JOB_PAGE_SIZE
 
-    def _get_sql_job(self, session, job_id) -> SqlJob:
-        job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+    def _get_sql_job(self, session, job_id, workspace) -> SqlJob:
+        job = (
+            session.query(SqlJob)
+            .filter(SqlJob.id == job_id, SqlJob.workspace == workspace)
+            .one_or_none()
+        )
         if job is None:
             raise MlflowException(
                 f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
@@ -291,8 +308,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Raises:
             MlflowException: If job with the given ID is not found
         """
-        with self.ManagedSessionMaker() as session:
-            job = self._get_sql_job(session, job_id)
+        with self._workspace_session() as (session, workspace):
+            job = self._get_sql_job(session, job_id, workspace)
             if job is None:
                 raise MlflowException(
                     f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST

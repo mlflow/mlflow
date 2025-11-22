@@ -74,6 +74,7 @@ CREATE TABLE jobs (
 	result TEXT,
 	retry_count INTEGER NOT NULL,
 	last_update_time BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 

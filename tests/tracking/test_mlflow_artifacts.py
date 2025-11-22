@@ -12,6 +12,11 @@ import requests
 import mlflow
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_WORKSPACE,
+    MLFLOW_WORKSPACE_URI,
+)
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import LOCALHOST, get_safe_port
@@ -34,8 +39,15 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
         "--artifacts-destination",
         artifacts_destination,
         *extra_cmd,
+        # Explicitly disable workspaces for the server to avoid environment variable inheritance
+        # from the test environment
+        "--no-enable-workspaces",
     ]
-    process = subprocess.Popen(cmd)
+    env = os.environ.copy()
+    env.pop(MLFLOW_ENABLE_WORKSPACES.name, None)
+    env.pop(MLFLOW_WORKSPACE.name, None)
+    env.pop(MLFLOW_WORKSPACE_URI.name, None)
+    process = subprocess.Popen(cmd, env=env)
     _await_server_up_or_die(port)
     return process
 

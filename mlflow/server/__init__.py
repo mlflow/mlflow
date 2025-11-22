@@ -34,6 +34,8 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
     get_trace_artifact_handler,
     upload_artifact_handler,
+    workspace_before_request_handler,
+    workspace_teardown_request_handler,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
@@ -70,8 +72,12 @@ if is_running_as_server:
 
     security.init_security_middleware(app)
 
+app.before_request(workspace_before_request_handler)
+app.teardown_request(workspace_teardown_request_handler)
+
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+
 
 if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter

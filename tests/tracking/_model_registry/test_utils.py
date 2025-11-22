@@ -17,6 +17,8 @@ from mlflow.tracking._model_registry.utils import (
 )
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 
+from tests.helpers.db_mocks import mock_get_managed_session_maker
+
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
 # environment variable. See
 # http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
@@ -286,6 +288,10 @@ def test_get_store_sqlalchemy_store(db_type, monkeypatch):
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
         mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
+        mock.patch(
+            "mlflow.store.db.utils._get_managed_session_maker",
+            new=mock_get_managed_session_maker,
+        ),
         mock.patch(
             "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore."
             "_verify_registry_tables_exist"

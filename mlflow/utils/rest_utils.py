@@ -20,6 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
+    MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import (
     CUSTOMER_UNAUTHORIZED,
@@ -40,6 +41,7 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -55,6 +57,39 @@ _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
 )
+
+
+def _resolve_active_workspace() -> str | None:
+    from mlflow.tracking._workspace.context import get_current_workspace
+
+    workspace = get_current_workspace()
+    if workspace is None:
+        workspace = MLFLOW_WORKSPACE.get()
+
+    if workspace is None:
+        return None
+
+    if isinstance(workspace, str):
+        workspace = workspace.strip()
+        if not workspace:
+            return None
+
+    return workspace
+
+
+def _should_include_workspace_header(endpoint: str) -> bool:
+    """
+    Determine whether to attach the workspace header for a given endpoint.
+
+    Workspace administration endpoints encode the workspace in the path and must not receive
+    the workspace header.
+    """
+
+    if not endpoint:
+        return True
+
+    normalized = endpoint if endpoint.startswith("/") else f"/{endpoint}"
+    return "/mlflow/workspaces" not in normalized
 
 
 def http_request(
@@ -118,6 +153,10 @@ def http_request(
     headers = dict(**resolve_request_headers())
     if extra_headers:
         headers = dict(**headers, **extra_headers)
+
+    workspace = _resolve_active_workspace()
+    if workspace and _should_include_workspace_header(endpoint):
+        headers.setdefault(WORKSPACE_HEADER_NAME, workspace)
 
     if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
         headers["x-databricks-traffic-id"] = traffic_id
@@ -577,6 +616,7 @@ def call_endpoint(
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
         json_body = json.loads(json_body)
+
     call_kwargs = {
         "host_creds": host_creds,
         "endpoint": endpoint,
@@ -613,7 +653,12 @@ def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_heade
     for i, (endpoint, method) in enumerate(endpoints):
         try:
             return call_endpoint(
-                host_creds, endpoint, method, json_body, response_proto, extra_headers
+                host_creds,
+                endpoint,
+                method,
+                json_body,
+                response_proto,
+                extra_headers,
             )
         except RestException as e:
             if e.error_code != ErrorCode.Name(ENDPOINT_NOT_FOUND) or i == len(endpoints) - 1:
