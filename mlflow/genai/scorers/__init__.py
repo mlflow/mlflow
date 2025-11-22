@@ -33,6 +33,8 @@ _LAZY_IMPORTS = {
     "RetrievalRelevance",
     "RetrievalSufficiency",
     "Safety",
+    "UserFrustration",
+    "ConversationCompleteness",
     "get_all_scorers",
 }
 
@@ -65,6 +67,7 @@ def __dir__():
 # This gives us the best of both worlds: type hints without circular imports.
 if TYPE_CHECKING:
     from mlflow.genai.scorers.builtin_scorers import (
+        ConversationCompleteness,
         Correctness,
         Equivalence,
         ExpectationsGuidelines,
@@ -74,10 +77,12 @@ if TYPE_CHECKING:
         RetrievalRelevance,
         RetrievalSufficiency,
         Safety,
+        UserFrustration,
         get_all_scorers,
     )
 
 __all__ = [
+    "ConversationCompleteness",
     "Correctness",
     "ExpectationsGuidelines",
     "Guidelines",
@@ -87,6 +92,7 @@ __all__ = [
     "RetrievalRelevance",
     "RetrievalSufficiency",
     "Safety",
+    "UserFrustration",
     "Scorer",
     "scorer",
     "ScorerSamplingConfig",
