@@ -701,7 +701,6 @@ def test_does_store_support_trace_linking():
 
 
 def test_llm_extraction_called_when_no_retrieval_contexts_found_programmatically():
-    """Verify LLM extraction is called when programmatic extraction finds no retrieval contexts."""
     # Create trace with no RETRIEVER spans - programmatic extraction returns {}
     span = create_span(
         span_id=1,
@@ -722,7 +721,6 @@ def test_llm_extraction_called_when_no_retrieval_contexts_found_programmatically
 
         result = extract_retrieval_context_from_trace(trace, model="gpt-4o-mini")
 
-        # Verify LLM function WAS called since programmatic found nothing
         mock_llm.assert_called_once_with(trace, "gpt-4o-mini")
         assert result == {
             span.span_id: [{"content": "LLM extracted doc", "doc_uri": "https://example.com/doc1"}]
@@ -730,7 +728,6 @@ def test_llm_extraction_called_when_no_retrieval_contexts_found_programmatically
 
 
 def test_llm_extraction_not_called_when_retrieval_contexts_found_programmatically():
-    """Verify LLM extraction is NOT called when programmatic extraction finds RETRIEVER spans."""
     # Create trace with RETRIEVER span (even with empty outputs)
     # Programmatic extraction returns {"span_id": []}
     span = create_span(
@@ -748,14 +745,11 @@ def test_llm_extraction_not_called_when_retrieval_contexts_found_programmaticall
     ) as mock_llm:
         result = extract_retrieval_context_from_trace(trace)
 
-        # Verify LLM function was NOT called - programmatic found RETRIEVER spans
         mock_llm.assert_not_called()
-        # Should return result from programmatic extraction
         assert result == {span.span_id: []}
 
 
 def test_llm_extraction_filters_nested_retrieval_spans():
-    """Verify LLM extraction filters out spans nested under other retrieval spans."""
     # Create trace with hierarchy:
     # Span 1 (root LLM) -> Span 2 (search) -> Span 3 (nested search)
     #                   -> Span 4 (search)
@@ -815,18 +809,14 @@ def test_llm_extraction_filters_nested_retrieval_spans():
 
         result = extract_retrieval_context_from_trace(trace, model="gpt-4o-mini")
 
-        # Verify only top-level retrieval spans are returned
         assert span2.span_id in result
-        assert span3.span_id not in result  # Filtered because parent span 2 is also retrieval
+        assert span3.span_id not in result
         assert span4.span_id in result
-
-        # Verify the content is correct
         assert result[span2.span_id] == [{"content": "doc from span 2", "doc_uri": None}]
         assert result[span4.span_id] == [{"content": "doc from span 4", "doc_uri": None}]
 
 
 def test_llm_extraction_skipped_for_databricks_model():
-    """Verify LLM extraction is skipped when using Databricks model."""
     from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 
     # Create trace with no RETRIEVER spans - would trigger LLM extraction
@@ -843,10 +833,7 @@ def test_llm_extraction_skipped_for_databricks_model():
     with mock.patch("mlflow.genai.judges.utils.get_default_model") as mock_get_default:
         mock_get_default.return_value = _DATABRICKS_DEFAULT_JUDGE_MODEL
 
-        # Should return empty dict without attempting LLM extraction
         result = extract_retrieval_context_from_trace(trace)
 
-        # Verify result is empty (databricks model was skipped)
         assert result == {}
-        # Verify get_default_model was called
         mock_get_default.assert_called()
