@@ -573,6 +573,22 @@ def initialize_backend_stores(
             "--enable-workspaces requires a model registry backend that supports workspaces"
         )
 
+    try:
+        from mlflow.server import auth as auth_module
+
+        auth_store = getattr(auth_module, "store", None)
+    except ImportError:
+        # Auth module requires Flask-WTF; gracefully handle case
+        auth_store = None
+
+    if auth_store is not None:
+        supports = getattr(auth_store, "supports_workspaces", None)
+        if supports is None or not supports():
+            raise MlflowException.invalid_parameter_value(
+                "--enable-workspaces requires an authentication backend that supports "
+                "workspace permissions"
+            )
+
     _get_workspace_store(
         workspace_uri=workspace_store_uri,
         tracking_uri=backend_store_uri,

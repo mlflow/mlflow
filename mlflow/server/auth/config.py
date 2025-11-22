@@ -11,6 +11,7 @@ class AuthConfig(NamedTuple):
     admin_username: str
     admin_password: str
     authorization_function: str
+    grant_default_workspace_access: bool
 
 
 def _get_auth_config_path() -> str:
@@ -30,5 +31,8 @@ def read_auth_config() -> AuthConfig:
         admin_password=config["mlflow"]["admin_password"],
         authorization_function=config["mlflow"].get(
             "authorization_function", "mlflow.server.auth:authenticate_request_basic_auth"
+        ),
+        grant_default_workspace_access=config.getboolean(
+            "mlflow", "grant_default_workspace_access", fallback=False
         ),
     )

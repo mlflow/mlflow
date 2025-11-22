@@ -31,3 +31,5 @@ GET_METRIC_HISTORY_BULK_INTERVAL = _get_ajax_path("/mlflow/metrics/get-history-b
 SEARCH_DATASETS = _get_ajax_path("/mlflow/experiments/search-datasets")
 CREATE_PROMPTLAB_RUN = _get_ajax_path("/mlflow/runs/create-promptlab-run")
 GATEWAY_PROXY = _get_ajax_path("/mlflow/gateway-proxy")
+LIST_WORKSPACE_PERMISSIONS = _get_rest_path("/mlflow/workspaces/<workspace_name>/permissions")
+LIST_USER_WORKSPACE_PERMISSIONS = _get_rest_path("/mlflow/workspaces/permissions/search")
