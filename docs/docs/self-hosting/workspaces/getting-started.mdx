@@ -1,0 +1,294 @@
+# Getting Started with Workspaces
+
+This guide walks through setting up and using MLflow workspaces for multi-tenant deployments.
+
+## Prerequisites
+
+Before enabling workspaces, ensure you have:
+
+- A SQL database backend (PostgreSQL, MySQL, SQLite, or MSSQL)
+- MLflow server configured with a backend store URI
+- Database migrations applied via `mlflow db upgrade`
+
+:::warning File-based backends not supported
+
+Workspaces require a SQL database backend. File-based tracking and model registry stores are not supported when workspaces are enabled.
+
+:::
+
+## Step 1: Start MLflow with Workspaces Enabled
+
+Start the MLflow server with the `--enable-workspaces` flag:
+
+```bash
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts \
+  --enable-workspaces
+```
+
+Or use the environment variable:
+
+```bash
+export MLFLOW_ENABLE_WORKSPACES=true
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts
+```
+
+When the server starts, it will:
+
+1. Verify that both tracking and model registry stores support workspaces
+2. Create the `default` workspace if it doesn't exist
+3. Backfill existing resources with the `default` workspace
+4. Enable the workspace header middleware that enforces `X-MLFLOW-WORKSPACE`
+
+## Step 2: Create a Workspace
+
+As an administrator, create a workspace using the MLflow SDK:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# Create a new workspace
+workspace = mlflow.create_workspace(
+    name="team-a", description="Workspace for Team A machine learning projects"
+)
+print(f"Created workspace: {workspace.name}")
+```
+
+Or using the MlflowClient:
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient("http://localhost:5000")
+workspace = client.create_workspace(name="team-a", description="Workspace for Team A")
+print(f"Created workspace: {workspace.name}")
+```
+
+You can also use the REST API directly:
+
+```bash
+curl -X POST http://localhost:5000/api/2.0/mlflow/workspaces \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "team-a",
+    "description": "Workspace for Team A machine learning projects"
+  }'
+```
+
+### Workspace Naming Rules
+
+Workspace names must follow DNS-safe conventions:
+
+- Pattern: `^[a-z0-9][-a-z0-9]*[a-z0-9]$`
+- Minimum length: 2 characters
+- Maximum length: 63 characters
+- Lowercase alphanumeric with hyphens allowed in the middle
+- Cannot start or end with a hyphen
+
+Reserved names that cannot be used:
+
+- `default` - Reserved for legacy single-tenant resources
+- `workspaces` - Prevents path conflicts
+- `api`, `ajax-api`, `static-files` - Prevent conflicts with server routes
+
+## Step 3: Grant Workspace Permissions (Optional)
+
+If authentication is enabled, grant permissions to users:
+
+```bash
+curl -X POST http://localhost:5000/api/2.0/mlflow/workspaces/team-a/permissions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "alice",
+    "resource_type": "experiments",
+    "permission": "MANAGE"
+  }'
+```
+
+Available permission levels:
+
+- `READ` - View resources
+- `EDIT` - View and modify resources
+- `MANAGE` - Full control including permissions
+- `NO_PERMISSIONS` - Explicitly deny access
+
+Resource types:
+
+- `experiments` - Applies to all experiments in the workspace
+- `registered_models` - Applies to all models and prompts in the workspace
+- `*` - Wildcard for all resource types
+
+## Step 4: Use Workspaces from Python Client
+
+Set the active workspace before performing operations:
+
+```python
+import mlflow
+
+# Configure tracking URI
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# Set active workspace
+mlflow.set_workspace("team-a")
+
+# Create experiment (automatically scoped to team-a)
+experiment_id = mlflow.create_experiment("my-experiment")
+
+# Start a run
+with mlflow.start_run(experiment_id=experiment_id):
+    mlflow.log_param("learning_rate", 0.01)
+    mlflow.log_metric("accuracy", 0.95)
+
+print(f"Logged run in workspace: {mlflow.get_workspace()}")
+```
+
+## Step 5: Switch Between Workspaces
+
+Users can switch between workspaces as needed:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# Work with team-a workspace
+mlflow.set_workspace("team-a")
+experiments_a = mlflow.search_experiments()
+print(f"Team A has {len(experiments_a)} experiments")
+
+# Switch to team-b workspace
+mlflow.set_workspace("team-b")
+experiments_b = mlflow.search_experiments()
+print(f"Team B has {len(experiments_b)} experiments")
+
+# List all accessible workspaces
+workspaces = mlflow.list_workspaces()
+for ws in workspaces:
+    print(f"- {ws.name}: {ws.description}")
+```
+
+## Managing Workspaces
+
+### List Workspaces
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# List all accessible workspaces
+workspaces = mlflow.list_workspaces()
+for workspace in workspaces:
+    print(f"{workspace.name}: {workspace.description}")
+```
+
+When authentication is enabled, this returns only workspaces accessible to the authenticated user.
+
+### Get Workspace Details
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient("http://localhost:5000")
+workspace = client.get_workspace("team-a")
+print(f"Workspace: {workspace.name}")
+print(f"Description: {workspace.description}")
+```
+
+### Update Workspace Description
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# Update workspace description
+updated = mlflow.update_workspace(
+    name="team-a", description="Updated description for Team A"
+)
+print(f"Updated: {updated.name}")
+```
+
+:::note Workspace names are immutable
+
+Workspace names cannot be changed after creation. Only the description can be updated.
+
+:::
+
+### Delete Workspace
+
+A workspace can only be deleted if it contains no resources:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# Delete empty workspace
+mlflow.delete_workspace("team-a")
+```
+
+The delete operation will fail if the workspace contains any experiments, registered models, or prompts. Child resources (runs, model versions) count via their parent associations.
+
+### REST API Alternatives
+
+All workspace management operations are also available via REST API:
+
+```bash
+# List workspaces
+curl http://localhost:5000/api/2.0/mlflow/workspaces
+
+# Get workspace
+curl http://localhost:5000/api/2.0/mlflow/workspaces/team-a
+
+# Update workspace
+curl -X PATCH http://localhost:5000/api/2.0/mlflow/workspaces/team-a \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Updated description"}'
+
+# Delete workspace
+curl -X DELETE http://localhost:5000/api/2.0/mlflow/workspaces/team-a
+```
+
+## Using REST APIs with Workspaces
+
+REST API calls specify the workspace via the `X-MLFLOW-WORKSPACE` header:
+
+```bash
+# Create experiment in team-a workspace
+curl -X POST http://localhost:5000/api/2.0/mlflow/experiments/create \
+  -H "Content-Type: application/json" \
+  -H "X-MLFLOW-WORKSPACE: team-a" \
+  -d '{"name": "my-experiment"}'
+
+# List experiments in team-a workspace
+curl http://localhost:5000/api/2.0/mlflow/experiments/list \
+  -H "X-MLFLOW-WORKSPACE: team-a"
+```
+
+## Troubleshooting
+
+### Error: "Active workspace is required"
+
+This error occurs when calling MLflow APIs without setting a workspace and the provider doesn't support a default workspace. Solution:
+
+```python
+mlflow.set_workspace("your-workspace-name")
+```
+
+Or set the environment variable:
+
+```bash
+export MLFLOW_WORKSPACE=your-workspace-name
+```
+
+## Next Steps
+
+- [Configuration](../configuration) - Learn about server configuration options
+- [Workspace Providers](../workspace-providers) - Understand the provider architecture
+- [Permissions](../permissions) - Configure workspace-scoped access control

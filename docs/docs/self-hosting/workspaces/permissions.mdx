@@ -1,0 +1,187 @@
+# Workspace Permissions
+
+Workspace-scoped permissions provide convenient access control for all resources within a workspace. This feature works alongside MLflow's existing resource-level permissions when [authentication](/self-hosting/security/basic-http-auth) is enabled.
+
+## Overview
+
+Workspace permissions allow administrators to grant broad access to groups of resources without managing individual experiment or model permissions. They act as convenience grants that complement (not replace) resource-level permissions.
+
+### Permission Levels
+
+The same permission levels from MLflow authentication apply at the workspace level:
+
+| Permission       | Can Read | Can Update | Can Delete | Can Manage Permissions |
+| ---------------- | -------- | ---------- | ---------- | ---------------------- |
+| `READ`           | Yes      | No         | No         | No                     |
+| `EDIT`           | Yes      | Yes        | No         | No                     |
+| `MANAGE`         | Yes      | Yes        | Yes        | Yes                    |
+| `NO_PERMISSIONS` | No       | No         | No         | No                     |
+
+### Resource Types
+
+Workspace permissions can be scoped to specific resource types:
+
+- `experiments` - Applies to all experiments in the workspace
+- `registered_models` - Applies to all registered models and prompts in the workspace
+- `*` - Wildcard for all resource types in the workspace
+
+## How Workspace Permissions Work
+
+Workspace permissions and resource permissions work independently:
+
+1. **Workspace-level grant**: `alice` has `READ` permission on `experiments` in workspace `team-a`
+   - Alice can read all experiments in `team-a` by default
+
+2. **Resource-level exception**: `alice` has `NO_PERMISSIONS` on experiment `exp-123` in `team-a`
+   - Alice can read all experiments in `team-a` except `exp-123`
+
+3. **Direct resource grant**: `bob` has `EDIT` permission on experiment `exp-456` in `team-a` but no workspace permission
+   - Bob can access only `exp-456`, not other experiments in the workspace
+   - The workspace `team-a` does not appear in Bob's `mlflow.list_workspaces()` results
+
+### Permission Resolution Order
+
+When checking access, MLflow evaluates permissions in the following order:
+
+1. **Admin check**: Admins have full access to all workspaces
+2. **Explicit resource permission**: Directly assigned permissions on the specific resource
+3. **Workspace permission**: Permission granted at the workspace level for that resource type
+4. **Default permission**: Configured default permission (if authentication allows)
+
+## Managing Workspace Permissions
+
+### Prerequisites
+
+Workspace permissions require:
+
+- Workspaces enabled (`--enable-workspaces`)
+- Authentication enabled (`--app-name basic-auth`)
+- Admin privileges to manage permissions
+
+### Grant Workspace Permission
+
+```bash
+curl -X POST http://localhost:5000/api/2.0/mlflow/workspaces/team-a/permissions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "alice",
+    "resource_type": "experiments",
+    "permission": "READ"
+  }'
+```
+
+Grant permission for all resource types using wildcard:
+
+```bash
+curl -X POST http://localhost:5000/api/2.0/mlflow/workspaces/team-a/permissions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "bob",
+    "resource_type": "*",
+    "permission": "MANAGE"
+  }'
+```
+
+### List Workspace Permissions
+
+Get all permissions for a workspace:
+
+```bash
+curl http://localhost:5000/api/2.0/mlflow/workspaces/team-a/permissions
+```
+
+Get permissions for a specific user:
+
+```bash
+curl http://localhost:5000/api/2.0/mlflow/workspaces/team-a/permissions/alice
+```
+
+### Revoke Workspace Permission
+
+```bash
+curl -X DELETE "http://localhost:5000/api/2.0/mlflow/workspaces/team-a/permissions?username=alice&resource_type=experiments"
+```
+
+## Workspace Visibility in list_workspaces()
+
+The `mlflow.list_workspaces()` function returns workspaces based on the following logic:
+
+- User must have **workspace-level permission** for the workspace to appear
+- Direct resource permissions without workspace permissions do **not** grant workspace visibility
+- Admins see all workspaces
+
+Example scenario:
+
+```python
+# alice has workspace permission on team-a
+# bob has only resource permission on exp-123 in team-a
+
+import os
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# As alice - provide Basic Auth credentials via environment variables
+os.environ["MLFLOW_TRACKING_USERNAME"] = "alice"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+workspaces = mlflow.list_workspaces()
+print([w.name for w in workspaces])  # ["team-a"] - alice sees the workspace
+
+# As bob
+os.environ["MLFLOW_TRACKING_USERNAME"] = "bob"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+workspaces = mlflow.list_workspaces()
+print([w.name for w in workspaces])  # [] - bob doesn't see team-a
+
+# But bob can still access the experiment directly if he knows it exists
+mlflow.set_workspace("team-a")
+experiment = mlflow.get_experiment("123")  # Works!
+```
+
+## Best Practices
+
+### Use Workspace Permissions For
+
+- Granting broad access to all resources of a type in a workspace
+- Simplifying permission management for team-based access
+- Default permissions for new resources created in the workspace
+
+### Use Resource Permissions For
+
+- Fine-grained control over specific experiments or models
+- Exceptions to workspace-level grants
+- Sharing specific resources across workspace boundaries
+
+## Troubleshooting
+
+### Permission Denied Errors
+
+If users receive permission denied errors:
+
+1. Verify the user has workspace-level permission:
+
+   ```bash
+   curl http://localhost:5000/api/2.0/mlflow/workspaces/team-a/permissions/alice
+   ```
+
+2. Check if there's an explicit `NO_PERMISSIONS` on the specific resource
+
+3. Verify the workspace exists and the user has access
+
+### Workspace Not Visible in list_workspaces()
+
+If a workspace doesn't appear in `mlflow.list_workspaces()`:
+
+1. User needs workspace-level permission (resource-level permission is not enough)
+2. Grant workspace permission:
+   ```bash
+   curl -X POST http://localhost:5000/api/2.0/mlflow/workspaces/team-a/permissions \
+     -H "Content-Type: application/json" \
+     -d '{"username": "user", "resource_type": "*", "permission": "READ"}'
+   ```
+
+## Next Steps
+
+- [Configuration](/self-hosting/workspaces/configuration) - Server configuration options
+- [Workspace Providers](/self-hosting/workspaces/workspace-providers) - Implement custom providers
+- [Authentication](/self-hosting/security/basic-http-auth) - Set up MLflow authentication
