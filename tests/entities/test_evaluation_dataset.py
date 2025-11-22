@@ -204,6 +204,26 @@ def test_evaluation_dataset_to_from_dict():
     assert dataset2._records[0].inputs["question"] == "What is MLflow?"
 
 
+def test_evaluation_dataset_non_default_workspace_round_trip():
+    workspace = "team-non-default"
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="abc123",
+        created_time=123456789,
+        last_update_time=987654321,
+        workspace=workspace,
+    )
+    dataset._records = []
+    dataset._experiment_ids = []
+
+    as_dict = dataset.to_dict()
+    assert as_dict["workspace"] == workspace
+
+    hydrated = EvaluationDataset.from_dict(as_dict)
+    assert hydrated.workspace == workspace
+
+
 def test_evaluation_dataset_to_from_dict_minimal():
     dataset = EvaluationDataset(
         dataset_id="dataset123",

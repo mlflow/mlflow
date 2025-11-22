@@ -1,7 +1,8 @@
 from mlflow.entities import Experiment, LifecycleStage
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-from tests.helper_functions import random_file, random_int
+from tests.helper_functions import random_file, random_int, random_str
 
 
 def _check(exp, exp_id, name, location, lifecycle_stage, creation_time, last_update_time):
@@ -12,6 +13,7 @@ def _check(exp, exp_id, name, location, lifecycle_stage, creation_time, last_upd
     assert exp.lifecycle_stage == lifecycle_stage
     assert exp.creation_time == creation_time
     assert exp.last_update_time == last_update_time
+    assert exp.workspace == DEFAULT_WORKSPACE_NAME
 
 
 def test_creation_and_hydration():
@@ -39,6 +41,7 @@ def test_creation_and_hydration():
         "tags": {},
         "creation_time": creation_time,
         "last_update_time": last_update_time,
+        "workspace": DEFAULT_WORKSPACE_NAME,
     }
     assert dict(exp) == as_dict
     proto = exp.to_proto()
@@ -61,5 +64,27 @@ def test_string_repr():
     assert (
         str(exp)
         == "<Experiment: artifact_location='hi', creation_time=1662004217511, experiment_id=0, "
-        "last_update_time=1662004217511, lifecycle_stage='active', name='myname', tags={}>"
+        "last_update_time=1662004217511, lifecycle_stage='active', name='myname', tags={}, "
+        "workspace='default'>"
     )
+
+
+def test_experiment_non_default_workspace_round_trip():
+    workspace = f"team-{random_str()}"
+    exp = Experiment(
+        experiment_id=str(random_int()),
+        name=f"exp_{random_int()}",
+        artifact_location="dbfs:/mlflow/workspace-test",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+        creation_time=1662004217511,
+        last_update_time=1662004218511,
+        workspace=workspace,
+    )
+
+    as_dict = dict(exp)
+    assert as_dict["workspace"] == workspace
+    as_dict.pop("tags", None)
+
+    hydrated = Experiment.from_dictionary(as_dict)
+    assert hydrated.workspace == workspace
+    assert workspace in str(hydrated)

@@ -58,6 +58,7 @@ WORKSPACE_TABLES = {
     "registered_model_aliases",
     "evaluation_datasets",
     "webhooks",
+    "jobs",
 }
 
 
@@ -111,6 +112,11 @@ def log_everything():
         metadata,
         autoload_with=engine,
     )
+    jobs_table = sa.Table(
+        "jobs",
+        metadata,
+        autoload_with=engine,
+    )
     with engine.begin() as conn:
         conn.execute(
             sa.insert(evaluation_datasets_table).values(
@@ -123,6 +129,19 @@ def log_everything():
                 last_update_time=0,
                 created_by="user",
                 last_updated_by="user",
+            )
+        )
+        conn.execute(
+            sa.insert(jobs_table).values(
+                id=uuid.uuid4().hex,
+                creation_time=0,
+                function_fullname="tests.db.check_migration.log_everything",
+                params="{}",
+                timeout=None,
+                status=0,
+                result=None,
+                retry_count=0,
+                last_update_time=0,
             )
         )
 

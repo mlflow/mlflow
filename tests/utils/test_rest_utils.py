@@ -16,6 +16,7 @@ from mlflow.exceptions import InvalidUrlException, MlflowException, RestExceptio
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.protos.service_pb2 import GetRun
 from mlflow.pyfunc.scoring_server import NumpyEncoder
+from mlflow.tracking._workspace.context import WorkspaceContext
 from mlflow.tracking.request_header.default_request_header_provider import (
     _CLIENT_VERSION,
     _USER_AGENT,
@@ -32,6 +33,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     http_request_safe,
 )
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 from tests import helper_functions
 
@@ -104,6 +106,28 @@ def test_http_request_hostonly():
             headers=DefaultRequestHeaderProvider().request_headers(),
             timeout=120,
         )
+
+
+def test_http_request_includes_workspace_header_for_mlflow_routes():
+    host_only = MlflowHostCreds("http://my-host")
+    response = mock.MagicMock()
+    response.status_code = 200
+    with WorkspaceContext("team-a"):
+        with mock.patch("requests.Session.request", return_value=response) as mock_request:
+            http_request(host_only, "/api/2.0/mlflow/runs/search", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert headers[WORKSPACE_HEADER_NAME] == "team-a"
+
+
+def test_http_request_omits_workspace_header_for_workspace_admin_routes():
+    host_only = MlflowHostCreds("http://my-host")
+    response = mock.MagicMock()
+    response.status_code = 200
+    with WorkspaceContext("team-a"):
+        with mock.patch("requests.Session.request", return_value=response) as mock_request:
+            http_request(host_only, "/api/2.0/mlflow/workspaces/team-a", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert WORKSPACE_HEADER_NAME not in headers
 
 
 def test_http_request_cleans_hostname():

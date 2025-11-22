@@ -15,6 +15,21 @@ def enable_workspaces(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
 
 
+@pytest.fixture(autouse=True)
+def stub_workspace_dependencies(monkeypatch):
+    """
+    Prevent workspace endpoint tests from hitting real tracking stores.
+    """
+    monkeypatch.setattr(
+        "mlflow.server.handlers._ensure_default_workspace_experiment",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "mlflow.server.handlers._workspace_contains_resources",
+        lambda *_args, **_kwargs: False,
+    )
+
+
 @pytest.fixture
 def app(monkeypatch):
     flask_app = Flask(__name__)

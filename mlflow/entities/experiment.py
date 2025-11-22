@@ -2,6 +2,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import ExperimentTag as ProtoExperimentTag
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class Experiment(_MlflowObject):
@@ -20,6 +21,7 @@ class Experiment(_MlflowObject):
         tags=None,
         creation_time=None,
         last_update_time=None,
+        workspace: str | None = None,
     ):
         super().__init__()
         self._experiment_id = experiment_id
@@ -29,6 +31,7 @@ class Experiment(_MlflowObject):
         self._tags = {tag.key: tag.value for tag in (tags or [])}
         self._creation_time = creation_time
         self._last_update_time = last_update_time
+        self._workspace = resolve_entity_workspace_name(workspace)
 
     @property
     def experiment_id(self):
@@ -62,6 +65,10 @@ class Experiment(_MlflowObject):
         self._tags[tag.key] = tag.value
 
     @property
+    def workspace(self) -> str:
+        return self._workspace
+
+    @property
     def creation_time(self):
         return self._creation_time
 
@@ -77,6 +84,8 @@ class Experiment(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto):
+        # Workspace is intentionally derived from the request context (falling back to the active
+        # workspace resolver) and therefore is not persisted in the ProtoExperiment.
         experiment = cls(
             proto.experiment_id,
             proto.name,
@@ -106,4 +115,6 @@ class Experiment(_MlflowObject):
         experiment.tags.extend(
             [ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()]
         )
+        # Workspace is intentionally omitted because it is derived from the active context rather
+        # than read from ProtoExperiment serialization.
         return experiment

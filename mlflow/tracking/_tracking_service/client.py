@@ -9,6 +9,7 @@ import os
 import sys
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 from mlflow.entities import (
     ExperimentTag,
@@ -28,6 +29,7 @@ from mlflow.entities import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
 from mlflow.exceptions import MlflowException
@@ -56,6 +58,7 @@ from mlflow.telemetry.events import (
 )
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
+from mlflow.tracking._workspace.context import get_current_workspace
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
@@ -74,6 +77,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -286,7 +290,9 @@ class TrackingServiceClient:
         Args:
             name: The experiment name. Must be unique.
             artifact_location: The location to store run artifacts. If not provided, the server
-                picks an appropriate default.
+                picks an appropriate default. When workspaces are enabled, artifact_location cannot
+                be specified. The server uses the workspace's default artifact location and returns
+                INVALID_PARAMETER_VALUE if provided.
             tags: A dictionary of key-value pairs that are converted into
                 :py:class:`mlflow.entities.ExperimentTag` objects.
 
@@ -773,7 +779,12 @@ class TrackingServiceClient:
         if is_databricks_uri(self.tracking_uri):
             experiment_url = f"{host_url}/ml/experiments/{experiment_id}"
         else:
-            experiment_url = f"{host_url}/#/experiments/{experiment_id}"
+            workspace_name = get_current_workspace()
+            workspace_name = workspace_name.strip() if isinstance(workspace_name, str) else None
+            experiment_path = f"/experiments/{experiment_id}"
+            if workspace_name and workspace_name != DEFAULT_WORKSPACE_NAME:
+                experiment_path = f"/workspaces/{quote(workspace_name, safe='')}{experiment_path}"
+            experiment_url = f"{host_url}/#{experiment_path}"
         run_url = f"{experiment_url}/runs/{run_id}"
 
         sys.stdout.write(f"🏃 View run {run_name} at: {run_url}\n")
