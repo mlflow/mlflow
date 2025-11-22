@@ -257,5 +257,7 @@ def test_tracing_client_get_trace_error_handling():
     )
     store.start_trace(trace_info)
 
-    with pytest.raises(MlflowException, match=rf"Trace with ID {trace_id} is not found"):
+    with pytest.raises(
+        MlflowException, match=rf"Trace with ID {trace_id} is not fully exported yet"
+    ):
         client.get_trace(trace_id)
