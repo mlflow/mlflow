@@ -423,6 +423,24 @@ def test_get_retrieval_context_from_trace(spans, expected_retrieval_context):
             },
             "{'messages': [{'role': 'assistant', 'k': 'First'}, {'role': 'user', 'k': 'Second'}]}",
         ),
+        # Strands format - list of messages with role and content
+        (
+            [{"role": "user", "content": [{"text": "hello"}]}],
+            '[{"role": "user", "content": [{"text": "hello"}]}]',
+        ),
+        # Strands format - multiple messages with simple string content
+        (
+            [
+                {"role": "user", "content": "First"},
+                {"role": "assistant", "content": "Second"},
+            ],
+            '[{"role": "user", "content": "First"}, {"role": "assistant", "content": "Second"}]',
+        ),
+        # Strands format - single message with string content
+        (
+            [{"role": "user", "content": "Single message"}],
+            "Single message",
+        ),
     ],
 )
 def test_parse_inputs_to_str(input_data, expected):
