@@ -55,6 +55,32 @@ const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
 
+## Environment configuration
+
+Set the following environment variables before your application starts so the
+SDK can authenticate with MLflow and annotate traces consistently:
+
+| Variable                  | Description                                                                                         |
+|---------------------------|-----------------------------------------------------------------------------------------------------|
+| `MLFLOW_TRACKING_URI`     | Base URL for your MLflow tracking server (for example `http://localhost:5001` or `databricks`).      |
+| `MLFLOW_EXPERIMENT_ID`    | Experiment that should receive the emitted traces.                                                  |
+| `OTEL_RESOURCE_ATTRIBUTES`| Optional resource metadata (comma-delimited `key=value` pairs) applied to every span/trace.          |
+| `OTEL_SERVICE_NAME`       | Optional override for the OpenTelemetry resource service name reported in spans.                    |
+
+### Optional: OTLP dual export
+
+The SDK can forward spans to an OTLP collector in addition to MLflow. Configure the
+variables below to enable that workflow:
+
+| Variable                              | Description                                                                                                       |
+|---------------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| `MLFLOW_ENABLE_OTLP_EXPORTER`         | Enables the OTLP exporter (`true` by default).                                                                    |
+| `MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT`| When `true`, emit spans to both MLflow REST and OTLP. When `false`, OTLP replaces the MLflow destination.          |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`  | Collector endpoint for OTLP traces (for example `http://localhost:4318/v1/traces`).                                |
+| `OTEL_EXPORTER_OTLP_HEADERS`          | Optional comma-delimited headers such as `Authorization=Bearer <token>`.                                          |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` / `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` | Set to `http/protobuf` (default) or `grpc`.                                   |
+
+
 ## Documentation 📘
 
 Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk).

@@ -164,11 +164,28 @@ export class MlflowSpanProcessor implements SpanProcessor {
 }
 
 export class MlflowSpanExporter implements SpanExporter {
-  private _client: MlflowClient;
-  private _pendingExports: Record<string, Promise<void>> = {}; // traceId -> export promise
+  private readonly destinations: TraceDestination[];
+  private readonly pendingExports: Record<string, Promise<void>> = {}; // traceId -> export promise
 
-  constructor(client: MlflowClient) {
-    this._client = client;
+  constructor(client: MlflowClient, options?: MlflowSpanExporterOptions) {
+    const includeMlflowDestination = options?.enableMlflowDestination ?? true;
+    const destinations: TraceDestination[] = [];
+
+    if (includeMlflowDestination) {
+      destinations.push(new MlflowRestTraceDestination(client));
+    }
+
+    if (options?.additionalDestinations) {
+      destinations.push(...options.additionalDestinations);
+    }
+
+    if (destinations.length === 0) {
+      console.warn(
+        'MlflowSpanExporter instantiated without any trace destinations. No traces will be exported.'
+      );
+    }
+
+    this.destinations = destinations;
   }
 
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
@@ -189,30 +206,21 @@ export class MlflowSpanExporter implements SpanExporter {
       traceManager.lastActiveTraceId = trace.info.traceId;
 
       // Export trace to backend and track the promise
-      const exportPromise = this.exportTraceToBackend(trace).catch((error) => {
+      const exportPromise = this.exportTraceToDestinations(trace).catch((error) => {
         console.error(`Failed to export trace ${trace.info.traceId}:`, error);
       });
-      this._pendingExports[trace.info.traceId] = exportPromise;
+      this.pendingExports[trace.info.traceId] = exportPromise;
     }
   }
 
-  /**
-   * Export a complete trace to the MLflow backend
-   * Step 1: Create trace metadata via StartTraceV3 endpoint
-   * Step 2: Upload trace data (spans) via artifact repository pattern
-   */
-  private async exportTraceToBackend(trace: Trace): Promise<void> {
+  private async exportTraceToDestinations(trace: Trace): Promise<void> {
+    if (this.destinations.length === 0) {
+      return;
+    }
     try {
-      // Step 1: Create trace metadata in backend
-      const traceInfo = await this._client.createTrace(trace.info);
-      // Step 2: Upload trace data (spans) to artifact storage
-      await this._client.uploadTraceData(traceInfo, trace.data);
-    } catch (error) {
-      console.error(`Failed to export trace ${trace.info.traceId}:`, error);
-      throw error;
+      await Promise.all(this.destinations.map((destination) => destination.exportTrace(trace)));
     } finally {
-      // Remove the promise from the pending exports
-      delete this._pendingExports[trace.info.traceId];
+      delete this.pendingExports[trace.info.traceId];
     }
   }
 
@@ -221,8 +229,10 @@ export class MlflowSpanExporter implements SpanExporter {
    * Waits for all async export operations to complete.
    */
   async forceFlush(): Promise<void> {
-    await Promise.all(Object.values(this._pendingExports));
-    this._pendingExports = {};
+    await Promise.all(Object.values(this.pendingExports));
+    for (const key of Object.keys(this.pendingExports)) {
+      delete this.pendingExports[key];
+    }
   }
 
   /**
@@ -231,5 +241,28 @@ export class MlflowSpanExporter implements SpanExporter {
    */
   async shutdown(): Promise<void> {
     await this.forceFlush();
+  }
+}
+
+export interface TraceDestination {
+  exportTrace(trace: Trace): Promise<void>;
+}
+
+export interface MlflowSpanExporterOptions {
+  enableMlflowDestination?: boolean;
+  additionalDestinations?: TraceDestination[];
+}
+
+class MlflowRestTraceDestination implements TraceDestination {
+  constructor(private readonly client: MlflowClient) {}
+
+  /**
+   * Export a complete trace to the MLflow backend
+   * Step 1: Create trace metadata via StartTraceV3 endpoint
+   * Step 2: Upload trace data (spans) via artifact repository pattern
+   */
+  async exportTrace(trace: Trace): Promise<void> {
+    const traceInfo = await this.client.createTrace(trace.info);
+    await this.client.uploadTraceData(traceInfo, trace.data);
   }
 }
