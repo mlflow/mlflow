@@ -1,7 +1,7 @@
 import os
 from typing import Any
 
-from opentelemetry.proto.common.v1.common_pb2 import AnyValue
+from opentelemetry.proto.common.v1.common_pb2 import AnyValue, ArrayValue, KeyValueList
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER
@@ -140,15 +140,19 @@ def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     elif isinstance(value, bytes):
         pb_any_value.bytes_value = value
     elif isinstance(value, (list, tuple)):
-        # Handle arrays
+        # Explicitly set array_value using CopyFrom to ensure the field is set even for empty lists
+        array_value = ArrayValue()
         for item in value:
-            _set_otel_proto_anyvalue(pb_any_value.array_value.values.add(), item)
+            _set_otel_proto_anyvalue(array_value.values.add(), item)
+        pb_any_value.array_value.CopyFrom(array_value)
     elif isinstance(value, dict):
-        # Handle key-value lists
+        # Explicitly set kvlist_value using CopyFrom to ensure the field is set even for empty dicts
+        kvlist_value = KeyValueList()
         for k, v in value.items():
-            kv = pb_any_value.kvlist_value.values.add()
+            kv = kvlist_value.values.add()
             kv.key = str(k)
             _set_otel_proto_anyvalue(kv.value, v)
+        pb_any_value.kvlist_value.CopyFrom(kvlist_value)
     else:
         # For unknown types, convert to string
         pb_any_value.string_value = str(value)
