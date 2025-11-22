@@ -1025,12 +1025,14 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
 
         Args:
             model_id: ID of the model to fetch.
+            allow_deleted: If ``True``, allow fetching logged models in the deleted lifecycle
+                stage. Defaults to ``False``.
 
         Returns:
             The fetched model.
