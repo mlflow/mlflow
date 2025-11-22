@@ -214,3 +214,59 @@ def test_prompt_cache_env_variable(monkeypatch):
     prompt = mlflow.genai.load_prompt("env_var_prompt", version=1)
     assert prompt is not None
     assert prompt.template == "Hello!"
+
+
+def test_register_prompt_invalidates_latest_cache():
+    """Test that registering a new version invalidates the @latest cache entry."""
+    # Register first version
+    mlflow.genai.register_prompt(name="latest_cache_test", template="Version 1")
+
+    # Load using @latest and cache it
+    prompt_v1 = mlflow.genai.load_prompt("prompts:/latest_cache_test@latest")
+    assert prompt_v1.template == "Version 1"
+
+    # Verify it's cached
+    cache = PromptCache.get_instance()
+    key = PromptCache.generate_cache_key("latest_cache_test", label="latest")
+    assert cache.get(key) is not None
+
+    # Register a new version - should invalidate @latest cache
+    mlflow.genai.register_prompt(name="latest_cache_test", template="Version 2")
+
+    # Cache should be invalidated
+    assert cache.get(key) is None
+
+    # Loading @latest should now return version 2
+    prompt_v2 = mlflow.genai.load_prompt("prompts:/latest_cache_test@latest")
+    assert prompt_v2.template == "Version 2"
+    assert prompt_v2.version == 2
+
+
+def test_set_prompt_alias_invalidates_alias_cache():
+    """Test that setting an alias invalidates the cache for that alias."""
+    # Register two versions
+    mlflow.genai.register_prompt(name="alias_cache_test", template="Version 1")
+    mlflow.genai.register_prompt(name="alias_cache_test", template="Version 2")
+
+    # Set alias to version 1
+    mlflow.genai.set_prompt_alias("alias_cache_test", alias="production", version=1)
+
+    # Load using alias and cache it
+    prompt_v1 = mlflow.genai.load_prompt("prompts:/alias_cache_test@production")
+    assert prompt_v1.template == "Version 1"
+
+    # Verify it's cached
+    cache = PromptCache.get_instance()
+    key = PromptCache.generate_cache_key("alias_cache_test", label="production")
+    assert cache.get(key) is not None
+
+    # Update alias to point to version 2 - should invalidate cache
+    mlflow.genai.set_prompt_alias("alias_cache_test", alias="production", version=2)
+
+    # Cache should be invalidated
+    assert cache.get(key) is None
+
+    # Loading @production should now return version 2
+    prompt_v2 = mlflow.genai.load_prompt("prompts:/alias_cache_test@production")
+    assert prompt_v2.template == "Version 2"
+    assert prompt_v2.version == 2

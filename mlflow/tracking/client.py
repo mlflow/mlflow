@@ -665,6 +665,12 @@ class MlflowClient:
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 
+        # Invalidate "latest" cache entry since we just created a new version
+        try:
+            PromptCache.get_instance().delete(name, label="latest")
+        except KeyError:
+            pass
+
         return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
     @translate_prompt_exception
@@ -1000,6 +1006,12 @@ class MlflowClient:
         self._validate_prompt(name, version)
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
+        # Invalidate cache for this alias since it now points to a different version
+        try:
+            PromptCache.get_instance().delete(name, label=alias)
+        except KeyError:
+            pass
+
     @require_prompt_registry
     @translate_prompt_exception
     def delete_prompt_alias(self, name: str, alias: str) -> None:
@@ -1026,6 +1038,12 @@ class MlflowClient:
             value: The tag value.
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
+
+        # Invalidate cache for this specific version
+        try:
+            PromptCache.get_instance().delete(name, version=int(version))
+        except KeyError:
+            pass
 
     @experimental(version="3.0.0")
     @require_prompt_registry
