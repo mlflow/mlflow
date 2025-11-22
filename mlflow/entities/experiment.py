@@ -85,6 +85,8 @@ class Experiment(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto):
+        # Workspace is intentionally derived from the request context (falling back to the active
+        # workspace resolver) and therefore is not persisted in the ProtoExperiment.
         experiment = cls(
             proto.experiment_id,
             proto.name,
@@ -115,4 +117,6 @@ class Experiment(_MlflowObject):
         experiment.tags.extend(
             [ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()]
         )
+        # Workspace is intentionally omitted because it is derived from the active context rather
+        # than read from ProtoExperiment serialization.
         return experiment

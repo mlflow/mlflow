@@ -29,6 +29,7 @@ from mlflow.entities import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
 from mlflow.exceptions import MlflowException
@@ -289,7 +290,9 @@ class TrackingServiceClient:
         Args:
             name: The experiment name. Must be unique.
             artifact_location: The location to store run artifacts. If not provided, the server
-                picks an appropriate default.
+                picks an appropriate default. When workspaces are enabled, artifact_location cannot
+                be specified. The server uses the workspace's default artifact location and returns
+                INVALID_PARAMETER_VALUE if provided.
             tags: A dictionary of key-value pairs that are converted into
                 :py:class:`mlflow.entities.ExperimentTag` objects.
 

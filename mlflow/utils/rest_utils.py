@@ -624,6 +624,7 @@ def call_endpoint(
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
         json_body = json.loads(json_body)
+
     call_kwargs = {
         "host_creds": host_creds,
         "endpoint": endpoint,
@@ -667,7 +668,12 @@ def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_heade
     for i, (endpoint, method) in enumerate(endpoints):
         try:
             return call_endpoint(
-                host_creds, endpoint, method, json_body, response_proto, extra_headers
+                host_creds,
+                endpoint,
+                method,
+                json_body,
+                response_proto,
+                extra_headers,
             )
         except RestException as e:
             if e.error_code != ErrorCode.Name(ENDPOINT_NOT_FOUND) or i == len(endpoints) - 1:

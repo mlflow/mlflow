@@ -340,9 +340,9 @@ if not IS_TRACING_SDK_ONLY:
         "create_external_model",
         "create_workspace",
         "delete_experiment",
-        "delete_workspace",
         "delete_run",
         "delete_tag",
+        "delete_workspace",
         "disable_system_metrics_logging",
         "doctor",
         "enable_system_metrics_logging",
@@ -393,6 +393,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_active_model",
         "set_experiment_tag",
         "set_experiment_tags",
+        "set_workspace",
         "delete_experiment_tag",
         "set_model_version_tag",
         "set_registry_uri",
@@ -401,8 +402,8 @@ if not IS_TRACING_SDK_ONLY:
         "set_system_metrics_sampling_interval",
         "set_tag",
         "set_tags",
-        "set_workspace",
         "start_run",
+        "update_workspace",
         "validate_evaluation_results",
         "Image",
         # Prompt Registry APIs
@@ -415,7 +416,6 @@ if not IS_TRACING_SDK_ONLY:
         "delete_prompt_alias",
         "set_logged_model_tags",
         "delete_logged_model_tag",
-        "update_workspace",
     ]
 
 

@@ -21,6 +21,7 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     Expectation,
+    Experiment,
     ExperimentTag,
     Feedback,
     FileInfo,
@@ -62,6 +63,7 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
@@ -192,7 +194,11 @@ from mlflow.protos.webhooks_pb2 import (
     WebhookService,
 )
 from mlflow.server.validation import _validate_content_type
-from mlflow.server.workspace_helpers import _get_workspace_store
+from mlflow.server.workspace_helpers import (
+    _get_workspace_store,
+    workspace_before_request_handler,
+    workspace_teardown_request_handler,
+)
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -202,7 +208,6 @@ from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRes
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
-from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -252,6 +257,14 @@ _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
+
+__all__ = [
+    "TrackingStoreRegistryWrapper",
+    "ModelRegistryStoreRegistryWrapper",
+    "get_endpoints",
+    "workspace_before_request_handler",
+    "workspace_teardown_request_handler",
+]
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -521,11 +534,17 @@ def _get_job_store(backend_store_uri: str | None = None) -> AbstractJobStore:
     global _job_store
     if _job_store is None:
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        if not store_uri:
+            raise MlflowException.invalid_parameter_value(
+                "Job store requires a database backend URI"
+            )
         try:
             extract_db_type_from_uri(store_uri)
         except MlflowException:
             # Require a database backend URI for the job store
-            raise ValueError("Job store requires a database backend URI")
+            raise MlflowException.invalid_parameter_value(
+                "Job store requires a database backend URI"
+            )
 
         _job_store = SqlAlchemyJobStore(store_uri)
     return _job_store
@@ -538,16 +557,24 @@ def initialize_backend_stores(
     workspace_store_uri: str | None = None,
 ) -> None:
     tracking_store = _get_tracking_store(backend_store_uri, default_artifact_root)
-
-    if MLFLOW_ENABLE_WORKSPACES.get():
-        workspace_store = _get_workspace_store(workspace_store_uri, tracking_uri=backend_store_uri)
-        get_default_workspace_optional(workspace_store)
-        _verify_tracking_store_workspace_support(tracking_store)
-
+    registry_store = None
     try:
-        _get_model_registry_store(registry_store_uri)
+        registry_store = _get_model_registry_store(registry_store_uri)
     except UnsupportedModelRegistryStoreURIException:
         pass
+
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        if not default_artifact_root:
+            raise MlflowException.invalid_parameter_value(
+                "--enable-workspaces requires --default-artifact-root to be set."
+            )
+
+        _verify_tracking_store_workspace_support(tracking_store)
+        _verify_model_registry_store_workspace_support(registry_store)
+        _get_workspace_store(
+            workspace_uri=workspace_store_uri,
+            tracking_uri=backend_store_uri,
+        )
 
 
 def _verify_tracking_store_workspace_support(tracking_store: AbstractTrackingStore) -> None:
@@ -555,6 +582,21 @@ def _verify_tracking_store_workspace_support(tracking_store: AbstractTrackingSto
     if not callable(supports_fn) or not supports_fn():
         raise MlflowException(
             "The configured tracking store does not support workspace-aware operations. "
+            "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
+            error_code=INVALID_STATE,
+        )
+
+
+def _verify_model_registry_store_workspace_support(
+    registry_store: AbstractModelRegistryStore,
+) -> None:
+    if registry_store is None:
+        return
+
+    supports_fn = getattr(registry_store, "supports_workspaces", None)
+    if not callable(supports_fn) or not supports_fn():
+        raise MlflowException(
+            "The configured model registry store does not support workspace-aware operations. "
             "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
             error_code=INVALID_STATE,
         )
@@ -837,6 +879,97 @@ def _workspace_not_supported(message: str) -> MlflowException:
     return MlflowException(message, FEATURE_DISABLED)
 
 
+def _ensure_default_workspace_experiment(workspace_name: str) -> None:
+    tracking_store = _get_tracking_store()
+    if tracking_store is None:
+        return
+
+    with workspace_context.WorkspaceContext(workspace_name):
+        experiment = tracking_store.get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME)
+        if experiment is not None:
+            return
+        try:
+            tracking_store.create_experiment(Experiment.DEFAULT_EXPERIMENT_NAME)
+        except MlflowException as exc:
+            if exc.error_code != RESOURCE_ALREADY_EXISTS:
+                raise
+
+
+def _workspace_contains_resources(workspace_name: str) -> bool:
+    """
+    Return True if the workspace contains experiments, runs, jobs, webhooks, or registry artifacts.
+
+    The default experiment is treated as a real resource when it has runs, so operators cannot
+    delete a workspace while legacy resources still exist under the implicit default.
+    """
+    try:
+        job_store = _get_job_store()
+    except MlflowException:
+        job_store = None
+
+    if job_store is not None:
+        with workspace_context.WorkspaceContext(workspace_name):
+            try:
+                if next(job_store.list_jobs(), None) is not None:
+                    return True
+            except MlflowException:
+                pass
+
+    tracking_store = _get_tracking_store()
+    if tracking_store is not None:
+        with workspace_context.WorkspaceContext(workspace_name):
+            non_default = tracking_store.search_experiments(
+                view_type=ViewType.ALL,
+                filter_string=f'name != "{Experiment.DEFAULT_EXPERIMENT_NAME}"',
+                max_results=1,
+            )
+            non_default = (
+                non_default.to_list() if hasattr(non_default, "to_list") else list(non_default)
+            )
+            if non_default:
+                return True
+
+            default_experiment = tracking_store.get_experiment_by_name(
+                Experiment.DEFAULT_EXPERIMENT_NAME
+            )
+            if default_experiment is not None:
+                runs_page = tracking_store.search_runs(
+                    [default_experiment.experiment_id],
+                    filter_string="",
+                    run_view_type=ViewType.ALL,
+                    max_results=1,
+                )
+                if len(runs_page) > 0:
+                    # The implicit default experiment still holds runs; consider the workspace
+                    # non-empty even if users never created named experiments.
+                    return True
+
+    try:
+        registry_store = _get_model_registry_store()
+    except (MlflowException, UnsupportedModelRegistryStoreURIException):
+        registry_store = None
+    if registry_store is not None:
+        with workspace_context.WorkspaceContext(workspace_name):
+            try:
+                models = registry_store.search_registered_models(
+                    filter_string=None, max_results=1, page_token=None
+                )
+                models = models.to_list() if hasattr(models, "to_list") else models
+            except NotImplementedError:
+                models = []
+            if len(models) > 0:
+                return True
+
+            try:
+                webhooks = registry_store.list_webhooks(max_results=1)
+            except (NotImplementedError, MlflowException):
+                webhooks = []
+            if len(webhooks) > 0:
+                return True
+
+    return False
+
+
 @catch_mlflow_exception
 def _server_features_handler():
     """
@@ -886,6 +1019,7 @@ def _create_workspace_handler():
     except NotImplementedError:
         raise _workspace_not_supported("Workspace creation is not supported by this provider")
 
+    _ensure_default_workspace_experiment(workspace.name)
     response_message = CreateWorkspace.Response()
     response_message.workspace.MergeFrom(workspace.to_proto())
     response = _wrap_response(response_message)
@@ -933,6 +1067,11 @@ def _update_workspace_handler(workspace_name: str):
 def _delete_workspace_handler(workspace_name: str):
     WorkspaceNameValidator.validate(workspace_name)
     store = _get_workspace_store()
+    if _workspace_contains_resources(workspace_name):
+        raise MlflowException(
+            f"Cannot delete workspace '{workspace_name}' because it contains resources",
+            INVALID_STATE,
+        )
     try:
         store.delete_workspace(workspace_name)
     except NotImplementedError:

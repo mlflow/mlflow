@@ -29,6 +29,7 @@ _WORKSPACE_TABLES = [
     "registered_model_aliases",
     "evaluation_datasets",
     "webhooks",
+    "jobs",
 ]
 
 # Older SQLite migrations emitted unnamed foreign keys. When batch-altering tables we need the
@@ -354,6 +355,15 @@ def upgrade():
         with _with_batch("webhooks") as batch_op:
             batch_op.add_column(_workspace_column())
 
+        op.drop_index("index_jobs_function_status_creation_time", table_name="jobs")
+        with _with_batch("jobs") as batch_op:
+            batch_op.add_column(_workspace_column())
+        op.create_index(
+            "index_jobs_function_status_creation_time",
+            "jobs",
+            ["workspace", "function_fullname", "status", "creation_time"],
+        )
+
         _create_workspace_indexes_and_catalog()
 
         return
@@ -480,6 +490,14 @@ def upgrade():
             table,
             _workspace_column(),
         )
+
+    op.drop_index("index_jobs_function_status_creation_time", table_name="jobs")
+    op.add_column("jobs", _workspace_column())
+    op.create_index(
+        "index_jobs_function_status_creation_time",
+        "jobs",
+        ["workspace", "function_fullname", "status", "creation_time"],
+    )
 
     _create_workspace_indexes_and_catalog()
 
@@ -639,6 +657,15 @@ def downgrade():
         with _with_batch("webhooks") as batch_op:
             batch_op.drop_column("workspace")
 
+        op.drop_index("index_jobs_function_status_creation_time", table_name="jobs")
+        with _with_batch("jobs") as batch_op:
+            batch_op.drop_column("workspace")
+        op.create_index(
+            "index_jobs_function_status_creation_time",
+            "jobs",
+            ["function_fullname", "status", "creation_time"],
+        )
+
         op.drop_table("workspaces")
         return
 
@@ -662,6 +689,7 @@ def downgrade():
     op.drop_constraint("registered_model_tag_pk", "registered_model_tags", type_="primary")
     op.drop_constraint("model_version_pk", "model_versions", type_="primary")
     op.drop_constraint("registered_model_pk", "registered_models", type_="primary")
+    op.drop_index("index_jobs_function_status_creation_time", table_name="jobs")
 
     if dialect_name == "mssql":
         # SQL Server binds defaults via named constraints. If we try to drop the column while a
@@ -684,6 +712,7 @@ def downgrade():
     op.drop_column("experiments", "workspace")
     op.drop_column("evaluation_datasets", "workspace")
     op.drop_column("webhooks", "workspace")
+    op.drop_column("jobs", "workspace")
 
     op.create_primary_key("registered_model_pk", "registered_models", ["name"])
     op.create_primary_key("model_version_pk", "model_versions", ["name", "version"])
@@ -725,6 +754,12 @@ def downgrade():
         ["name", "version"],
         ["name", "version"],
         onupdate="CASCADE",
+    )
+
+    op.create_index(
+        "index_jobs_function_status_creation_time",
+        "jobs",
+        ["function_fullname", "status", "creation_time"],
     )
 
     op.drop_table("workspaces")

@@ -11,6 +11,7 @@ import math
 import os
 import pathlib
 import posixpath
+import re
 import shutil
 import subprocess
 import sys
@@ -70,9 +71,10 @@ from mlflow.genai.datasets import (
 )
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
-from mlflow.server import handlers
+from mlflow.server import handlers, workspace_helpers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
@@ -159,7 +161,11 @@ def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
 
 @pytest.fixture
 def workspace_mlflow_client(
-    store_type: str, tmp_path: Path, cached_db: Path, monkeypatch: pytest.MonkeyPatch
+    store_type: str,
+    tmp_path: Path,
+    cached_db: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    disable_workspace_mode_by_default,
 ):
     """Provides an MLflow client with workspaces enabled against the local tracking server."""
 
@@ -199,7 +205,7 @@ def workspace_mlflow_client(
 
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    handlers._workspace_store = None
+    workspace_helpers._workspace_store = None
 
     initialize_backend_stores(
         backend_store_uri=backend_uri,
@@ -221,10 +227,6 @@ def workspace_mlflow_client(
         mlflow.set_tracking_uri(previous_tracking_uri)
         handlers._tracking_store = None
         handlers._model_registry_store = None
-        handlers._workspace_store = None
-
-        from mlflow.server import workspace_helpers
-
         workspace_helpers._workspace_store = None
 
 
@@ -3427,6 +3429,7 @@ def test_log_url_uses_legacy_route_without_workspace(mlflow_client: MlflowClient
 
 
 def test_log_url_includes_workspace_segment(workspace_mlflow_client: MlflowClient, monkeypatch):
+    monkeypatch.setattr(RestStore, "supports_workspaces", lambda self: True)
     workspace_mlflow_client._tracking_client._workspace_support = True
     with WorkspaceContext("team-a"):
         exp_id = workspace_mlflow_client.create_experiment("test_log_url_workspace_route")
@@ -4423,6 +4426,49 @@ def test_rest_tracking_defaults_to_default_workspace(workspace_mlflow_client):
     assert final_run.info.experiment_id == exp_id
 
 
+def test_rest_model_registry_defaults_to_default_workspace(
+    workspace_mlflow_client, store_type: str
+):
+    if store_type != "sqlalchemy":
+        pytest.skip("Model registry requires a SQL-backed store")
+
+    client = workspace_mlflow_client
+    from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+    model_name = f"default-rest-model-{uuid.uuid4().hex[:6]}"
+    version = client.create_model_version(
+        client.create_registered_model(model_name).name,
+        source="s3://default-workspace/model",
+        run_id=uuid.uuid4().hex,
+    )
+    version_id = version.version
+
+    fetched_model = client.get_registered_model(model_name)
+    assert fetched_model.name == model_name
+    fetched_version = client.get_model_version(model_name, version_id)
+    assert fetched_version.version == version_id
+
+    other_workspace = f"registry-default-{uuid.uuid4().hex[:6]}"
+    client.create_workspace(other_workspace)
+
+    with WorkspaceContext(other_workspace):
+        with pytest.raises(
+            MlflowException, match=f"Registered Model with name={model_name} not found"
+        ):
+            client.get_registered_model(model_name)
+        with pytest.raises(
+            MlflowException,
+            match=rf"Model Version \(name={model_name}, version={version_id}\) not found",
+        ):
+            client.get_model_version(model_name, version_id)
+
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        final_model = client.get_registered_model(model_name)
+        assert final_model.name == model_name
+        final_version = client.get_model_version(model_name, version_id)
+        assert final_version.version == version_id
+
+
 def test_rest_tracking_legacy_endpoints_respect_workspace_isolation(workspace_mlflow_client):
     client = workspace_mlflow_client
     from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -4465,6 +4511,56 @@ def test_rest_tracking_legacy_endpoints_respect_workspace_isolation(workspace_ml
     )
     assert missing_resp.status_code == 404
     assert "No Experiment with id" in missing_resp.text
+
+
+def test_rest_model_registry_legacy_endpoints_respect_workspace_isolation(
+    workspace_mlflow_client, store_type: str
+):
+    if store_type != "sqlalchemy":
+        pytest.skip("Model registry requires a SQL-backed store")
+
+    client = workspace_mlflow_client
+    from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+    other_workspace = f"legacy-registry-{uuid.uuid4().hex[:6]}"
+    client.create_workspace(other_workspace)
+    other_model_name = f"legacy-other-model-{uuid.uuid4().hex[:6]}"
+
+    with WorkspaceContext(other_workspace):
+        client.create_registered_model(other_model_name)
+
+    model_name = f"legacy-default-model-{uuid.uuid4().hex[:6]}"
+    create_resp = _legacy_rest_request(
+        client.tracking_uri,
+        "POST",
+        "/api/2.0/mlflow/registered-models/create",
+        json={"name": model_name},
+    )
+    assert create_resp.status_code == 200
+    model_payload = create_resp.json()["registered_model"]
+    assert model_payload["name"] == model_name
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        fetched_model = client.get_registered_model(model_name)
+        assert getattr(fetched_model, "workspace", DEFAULT_WORKSPACE_NAME) == DEFAULT_WORKSPACE_NAME
+
+    get_resp = _legacy_rest_request(
+        client.tracking_uri,
+        "GET",
+        "/api/2.0/mlflow/registered-models/get",
+        params={"name": model_name},
+    )
+    assert get_resp.status_code == 200
+    retrieved = get_resp.json()["registered_model"]
+    assert retrieved["name"] == model_name
+
+    missing_resp = _legacy_rest_request(
+        client.tracking_uri,
+        "GET",
+        "/api/2.0/mlflow/registered-models/get",
+        params={"name": other_model_name},
+    )
+    assert missing_resp.status_code == 404
+    assert "Registered Model with name" in missing_resp.text
 
 
 @pytest.mark.parametrize("use_async", [False, True])
@@ -4649,6 +4745,83 @@ def test_workspace_graphql_respects_context(workspace_mlflow_client):
         runs_body = runs_resp.json()
         assert not _graphql_error_messages(runs_body)
         assert runs_body["data"]["mlflowSearchRuns"]["runs"] == []
+
+
+def test_workspace_graphql_model_versions_respect_context(workspace_mlflow_client):
+    client = workspace_mlflow_client
+    team_a = f"team-reg-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"team-reg-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    model_a = f"graphql-model-a-{uuid.uuid4().hex[:6]}"
+    model_b = f"graphql-model-b-{uuid.uuid4().hex[:6]}"
+
+    with WorkspaceContext(team_a):
+        client.create_registered_model(model_a)
+        version_a = client.create_model_version(
+            name=model_a,
+            source="s3://workspace-a/model",
+            run_id=uuid.uuid4().hex,
+        )
+
+    with WorkspaceContext(team_b):
+        client.create_registered_model(model_b)
+        version_b = client.create_model_version(
+            name=model_b,
+            source="s3://workspace-b/model",
+            run_id=uuid.uuid4().hex,
+        )
+
+    search_query = """
+        query SearchModelVersions($filter: String) {
+            mlflowSearchModelVersions(input: {filter: $filter}) {
+                modelVersions { name version }
+                apiError { message }
+            }
+        }
+    """
+
+    def _versions(resp_json):
+        payload = resp_json["data"]["mlflowSearchModelVersions"]
+        assert payload["apiError"] is None
+        return [(entry["name"], entry["version"]) for entry in payload["modelVersions"]]
+
+    with WorkspaceContext(team_a):
+        resp = _graphql_post(
+            client.tracking_uri,
+            search_query,
+            variables={"filter": f"name = '{model_a}'"},
+            operation="SearchModelVersions",
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert not _graphql_error_messages(body)
+        assert _versions(body) == [(model_a, str(version_a.version))]
+
+    with WorkspaceContext(team_b):
+        resp = _graphql_post(
+            client.tracking_uri,
+            search_query,
+            variables={"filter": f"name = '{model_a}'"},
+            operation="SearchModelVersions",
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert not _graphql_error_messages(body)
+        assert _versions(body) == []
+
+        resp = _graphql_post(
+            client.tracking_uri,
+            search_query,
+            variables={"filter": f"name = '{model_b}'"},
+            operation="SearchModelVersions",
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert not _graphql_error_messages(body)
+        assert _versions(body) == [(model_b, str(version_b.version))]
 
 
 def test_workspace_graphql_get_run_respects_context(workspace_mlflow_client):
@@ -4846,3 +5019,111 @@ def test_graphql_defaults_to_default_workspace(workspace_mlflow_client):
     assert not _graphql_error_messages(runs_payload)
     run_ids = {entry["info"]["runId"] for entry in runs_payload["data"]["mlflowSearchRuns"]["runs"]}
     assert run_default.info.run_id in run_ids
+
+
+def test_rest_model_registry_respects_workspace_context(workspace_mlflow_client, store_type: str):
+    if store_type != "sqlalchemy":
+        pytest.skip("Model registry requires a SQL-backed store")
+
+    client = workspace_mlflow_client
+    team_a = f"team-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"team-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    model_a = f"rest-model-a-{uuid.uuid4().hex[:6]}"
+    model_b = f"rest-model-b-{uuid.uuid4().hex[:6]}"
+
+    with WorkspaceContext(team_a):
+        client.create_registered_model(model_a)
+
+    with WorkspaceContext(team_b):
+        with pytest.raises(
+            MlflowException, match=f"Registered Model with name={model_a} not found"
+        ):
+            client.get_registered_model(model_a)
+        client.create_registered_model(model_b)
+
+    with WorkspaceContext(team_a):
+        models = {rm.name for rm in client.search_registered_models()}
+        assert model_a in models
+        assert model_b not in models
+        with pytest.raises(
+            MlflowException, match=f"Registered Model with name={model_b} not found"
+        ):
+            client.get_registered_model(model_b)
+
+    with WorkspaceContext(team_b):
+        models = {rm.name for rm in client.search_registered_models()}
+        assert model_b in models
+        assert model_a not in models
+
+        with pytest.raises(
+            MlflowException, match=f"Registered Model with name={model_a} not found"
+        ):
+            client.get_registered_model(model_a)
+
+
+def test_rest_model_registry_mutations_are_workspace_scoped(
+    workspace_mlflow_client, store_type: str
+):
+    if store_type != "sqlalchemy":
+        pytest.skip("Model registry requires a SQL-backed store")
+
+    client = workspace_mlflow_client
+    team_a = f"registry-team-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"registry-team-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    model_name = f"rest-registry-model-{uuid.uuid4().hex[:6]}"
+    with WorkspaceContext(team_a):
+        client.create_registered_model(model_name)
+        version = client.create_model_version(
+            name=model_name,
+            source="s3://example-bucket/model.tar.gz",
+            run_id=uuid.uuid4().hex,
+        )
+        version_id = version.version
+
+        client.set_registered_model_tag(model_name, "owner", "team-a")
+        client.set_model_version_tag(model_name, version_id, "stage", "train")
+        client.transition_model_version_stage(model_name, version_id, "Staging")
+        client.set_registered_model_alias(model_name, "champion", version_id)
+        client.delete_model_version_tag(model_name, version_id, "stage")
+
+        download_uri = client.get_model_version_download_uri(model_name, version_id)
+        assert download_uri == "s3://example-bucket/model.tar.gz"
+
+        alias_version = client.get_model_version_by_alias(model_name, "champion")
+        assert alias_version.version == version_id
+
+    with WorkspaceContext(team_b):
+        client.create_registered_model(f"{model_name}-b")
+
+        registry_calls = [
+            lambda: client.set_registered_model_tag(model_name, "owner", "team-b"),
+            lambda: client.set_model_version_tag(model_name, version_id, "stage", "eval"),
+            lambda: client.transition_model_version_stage(model_name, version_id, "Production"),
+            lambda: client.set_registered_model_alias(model_name, "challenger", version_id),
+            lambda: client.delete_registered_model_tag(model_name, "owner"),
+            lambda: client.get_model_version_download_uri(model_name, version_id),
+            lambda: client.delete_model_version(model_name, version_id),
+        ]
+        for call in registry_calls:
+            with pytest.raises(
+                MlflowException, match=r"(Registered Model|Model Version)"
+            ) as excinfo:
+                call()
+            message = str(excinfo.value)
+            if f"Registered Model with name={model_name} not found" in message:
+                assert True
+            else:
+                assert re.search(
+                    rf"Model Version \(name={model_name}, version={version_id}\) not found",
+                    message,
+                )
+
+        assert client.search_registered_models()

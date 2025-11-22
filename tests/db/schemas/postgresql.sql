@@ -69,6 +69,7 @@ CREATE TABLE jobs (
 	creation_time BIGINT NOT NULL,
 	function_fullname VARCHAR(500) NOT NULL,
 	params TEXT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	timeout DOUBLE PRECISION,
 	status INTEGER NOT NULL,
 	result TEXT,

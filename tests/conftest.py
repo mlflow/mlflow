@@ -559,6 +559,10 @@ def disable_workspace_mode_by_default(monkeypatch):
     Ensure tests default to single-tenant mode regardless of the outer environment.
     Individual tests can still opt in by setting ``MLFLOW_ENABLE_WORKSPACES`` explicitly.
     """
+    try:
+        from mlflow.server import workspace_helpers
+    except ImportError:
+        workspace_helpers = None
 
     for env_var in (
         MLFLOW_ENABLE_WORKSPACES,
@@ -573,6 +577,9 @@ def disable_workspace_mode_by_default(monkeypatch):
     if workspace_utils is not None:
         workspace_utils.set_workspace_store_uri(None)
 
+    if workspace_helpers is not None:
+        workspace_helpers._workspace_store = None
+
     yield
 
     if workspace_context is not None:
@@ -580,6 +587,9 @@ def disable_workspace_mode_by_default(monkeypatch):
 
     if workspace_utils is not None:
         workspace_utils.set_workspace_store_uri(None)
+
+    if workspace_helpers is not None:
+        workspace_helpers._workspace_store = None
 
 
 @pytest.fixture(autouse=True)

@@ -20,7 +20,7 @@ class SqlWorkspace(Base):
 
     __table_args__ = (sa.PrimaryKeyConstraint("name", name="workspaces_pk"),)
 
-    def __repr__(self) -> str:  # pragma: no cover
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<SqlWorkspace ({self.name})>"
 
     def to_mlflow_entity(self) -> Workspace:

@@ -10,6 +10,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from typing_extensions import Self
+
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
@@ -391,6 +393,17 @@ class ArtifactRepository:
         """
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             self.log_artifact(temp_file)
+
+    def for_workspace(self, workspace_name: str | None) -> Self:
+        """Return a workspace-scoped repository instance.
+
+        The default implementation returns ``self`` because the artifact URI already embeds any
+        workspace-specific prefix. Custom artifact repositories may override this to adjust
+        credentials, buckets, or other configuration on a per-workspace basis. The method accepts
+        ``None`` for compatibility with single-tenant deployments.
+        """
+
+        return self
 
 
 @contextmanager

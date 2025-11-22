@@ -4,8 +4,6 @@ Mixin class providing common workspace functionality for stores.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.utils.workspace_context import get_request_workspace
@@ -54,12 +52,3 @@ class WorkspaceAwareMixin:
             "Active workspace is required. Configure a default workspace or call "
             "mlflow.set_workspace() before interacting with the store."
         )
-
-    @contextmanager
-    def _workspace_session(self):
-        """
-        Context manager that provides both database session and active workspace.
-        """
-        workspace = self._get_active_workspace()
-        with self.ManagedSessionMaker() as session:
-            yield session, workspace
