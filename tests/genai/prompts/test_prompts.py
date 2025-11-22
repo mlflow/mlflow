@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -858,9 +859,7 @@ def test_load_prompt_caching_works():
 
 
 def test_load_prompt_caching_respects_ttl_env_var():
-    """Test that prompt caching respects the MLFLOW_PROMPT_CACHE_TTL_SECONDS environment variable."""
-    import time
-
+    """Test that prompt caching respects the MLFLOW_PROMPT_CACHE_TTL_SECONDS env var."""
     from mlflow.prompt.registry_utils import PromptCache
 
     # Reset cache
