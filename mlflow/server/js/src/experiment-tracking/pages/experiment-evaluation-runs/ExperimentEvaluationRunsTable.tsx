@@ -82,7 +82,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
     }, [selectedColumns, uniqueColumns, viewMode]);
 
     const table = useReactTable<RunEntityOrGroupData>(
-      'mlflow/web/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
+      'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
       {
         columns,
         data: data,

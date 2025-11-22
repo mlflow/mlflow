@@ -1,4 +1,7 @@
-import importlib.metadata as _meta
+"""
+Autologging logic for Agno V1 using MLflow's tracing API.
+"""
+
 import logging
 from typing import Any
 
@@ -11,20 +14,6 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 FLAVOR_NAME = "agno"
 _logger = logging.getLogger(__name__)
-
-# AGNO SDK doesn't provide version parameter from 1.7.1 onwards. Hence we capture the
-# latest version manually
-
-try:
-    import agno
-
-    if not hasattr(agno, "__version__"):
-        try:
-            agno.__version__ = _meta.version("agno")
-        except _meta.PackageNotFoundError:
-            agno.__version__ = "1.7.7"
-except ImportError:
-    pass
 
 
 def _compute_span_name(instance, original) -> str:

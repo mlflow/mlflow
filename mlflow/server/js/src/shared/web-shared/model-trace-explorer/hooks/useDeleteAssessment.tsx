@@ -33,6 +33,7 @@ export const useDeleteAssessment = ({
   const assessmentId = assessment?.assessment_id;
 
   const logCachedDeleteAction = useTraceCachedActions((state) => state.logRemovedAssessment);
+  const logCachedAddAction = useTraceCachedActions((state) => state.logAddedAssessment);
 
   const updateTraceVariables = useModelTraceExplorerUpdateTraceContext();
   const isSkipped = skip || !traceId || !assessmentId;
@@ -59,9 +60,14 @@ export const useDeleteAssessment = ({
     },
     onSuccess: () => {
       if (shouldUseTracesV4API() && !isSkipped) {
+        if (assessment.overriddenAssessment) {
+          const restoredAssessment = { ...assessment.overriddenAssessment, valid: true };
+          logCachedAddAction(traceId, restoredAssessment);
+        }
         logCachedDeleteAction(traceId, assessment);
       }
       queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, traceId] });
+      updateTraceVariables.invalidateTraceQuery?.(traceId);
       invalidateMlflowSearchTracesCache({ queryClient });
       onSuccess?.();
     },

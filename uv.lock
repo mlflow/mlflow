@@ -14,10 +14,7 @@ members = [
     "mlflow",
     "mlflow-test-plugin",
 ]
-constraints = [
-    { name = "langchain", specifier = "<1.0.0" },
-    { name = "xgboost", specifier = "<3.1.0" },
-]
+constraints = [{ name = "xgboost", specifier = "<3.1.0" }]
 excludes = ["databricks-connect"]
 
 [[package]]
@@ -3530,7 +3527,7 @@ requires-dist = [
     { name = "huey", specifier = ">=2.5.0,<3" },
     { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<9" },
     { name = "kubernetes", marker = "extra == 'extras'" },
-    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.7,<=0.3.27" },
+    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.7,<=1.0.5" },
     { name = "matplotlib", specifier = "<4" },
     { name = "mlflow-dbstore", marker = "extra == 'sqlserver'" },
     { name = "mlflow-jfrog-plugin", marker = "extra == 'jfrog'" },

@@ -172,7 +172,7 @@ class EvaluationResult:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
         result_df_str = (
             f"{len(self.result_df)} rows x {len(self.result_df.columns)} cols"
-            if self.result_df
+            if self.result_df is not None
             else "None"
         )
         return (
