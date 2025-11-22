@@ -20,6 +20,10 @@ from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.judges.prompts.completeness import (
+    COMPLETENESS_ASSESSMENT_NAME,
+    COMPLETENESS_PROMPT,
+)
 from mlflow.genai.judges.prompts.context_sufficiency import (
     CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS,
 )
@@ -1687,6 +1691,8 @@ class ConversationCompleteness(BuiltInScorer):
     ConversationCompleteness evaluates whether an AI assistant fully addresses all user requests
     by the end of the conversation.
 
+    For evaluating the completeness of a single user prompt, use the Completeness scorer instead.
+
     This scorer analyzes a complete conversation (represented as a list of traces) to determine
     if the assistant successfully addressed all the user's requests in a conversation. It returns
     "yes" or "no".
@@ -1778,6 +1784,137 @@ class ConversationCompleteness(BuiltInScorer):
         raise NotImplementedError("Alignment is not supported for session-level scorers.")
 
 
+@experimental(version="3.7.0")
+@format_docstring(_MODEL_API_DOC)
+class Completeness(BuiltInScorer):
+    """
+    Completeness evaluates whether an AI assistant fully addresses all user questions
+    in a single user prompt.
+
+    For evaluating the completeness of a conversation, use the ConversationCompleteness scorer
+    instead.
+
+    This scorer analyzes a single turn of interaction (user input and AI response) to determine
+    if the AI successfully answered all questions and provided all requested information.
+    It returns "complete" or "incomplete".
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "completeness".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Completeness
+
+        assessment = Completeness(name="my_completeness_check")(
+            inputs={"question": "What is MLflow and what are its main features?"},
+            outputs="MLflow is an open-source platform for managing the ML lifecycle.",
+        )
+        print(assessment)  # Feedback with value "complete" or "incomplete"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Completeness
+
+        data = [
+            {
+                "inputs": {"question": "What is MLflow and what are its main features?"},
+                "outputs": "MLflow is an open-source platform.",
+            },
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[Completeness()])
+    """
+
+    name: str = COMPLETENESS_ASSESSMENT_NAME
+    model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate whether the AI fully addresses all user questions in a single turn."
+    )
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    def _get_judge(self) -> InstructionsJudge:
+        """Return an InstructionsJudge with the completeness prompt."""
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=Literal["complete", "incomplete"],
+            )
+        return self._judge
+
+    @property
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
+        return COMPLETENESS_PROMPT
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the Completeness judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data, e.g. "
+                    "{'question': 'What is MLflow and what are its main features?'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description=(
+                    "The response from the model, e.g. "
+                    "'MLflow is an open-source platform for managing the ML lifecycle.'"
+                ),
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        inputs: dict[str, Any] | None = None,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        """
+        Evaluate completeness of a single turn interaction.
+
+        This scorer analyzes whether the AI assistant fully addressed all user questions
+        for a single user prompt. It evaluates whether all questions were answered and all requested
+        information was provided.
+
+        Args:
+            inputs: A dictionary of input data, e.g. {"question": "What is MLflow?"}.
+                Optional when trace is provided.
+            outputs: The response from the model, e.g. "MLflow is a platform for ML."
+                Optional when trace is provided.
+            trace: MLflow trace object containing the execution to evaluate. When provided,
+                inputs and outputs will be automatically extracted from the trace.
+
+        Returns:
+            A Feedback object with 'complete'/'incomplete'.
+        """
+        return self._get_judge()(
+            inputs=inputs,
+            outputs=outputs,
+            trace=trace,
+        )
+
+
 def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.
@@ -1807,6 +1944,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
         Equivalence(),
         UserFrustration(),
         ConversationCompleteness(),
+        Completeness(),
     ]
     if is_databricks_uri(mlflow.get_tracking_uri()):
         scorers.extend([Safety(), RetrievalRelevance()])

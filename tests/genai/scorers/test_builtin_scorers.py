@@ -11,6 +11,7 @@ from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
+    Completeness,
     ConversationCompleteness,
     Correctness,
     Equivalence,
@@ -576,7 +577,8 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    assert len(scorers) == (10 if tracking_uri == "databricks" else 8)
+    # Now we have 9 scorers for OSS (added Completeness) and 11 for Databricks
+    assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
@@ -1418,4 +1420,50 @@ def test_conversation_completeness_with_session(name, model, expected_name):
         assert result.name == expected_name
         assert result.value == "yes"
         assert result.rationale == "All needs addressed"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name", "rationale"),
+    [
+        (None, None, "completeness", "All questions answered"),
+        ("custom_completeness_check", "openai:/gpt-4", "custom_completeness_check", "All good"),
+    ],
+)
+def test_completeness_with_inputs_outputs(name, model, expected_name, rationale):
+    """Test Completeness scorer with direct inputs and outputs."""
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="complete", rationale=rationale),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = Completeness(**kwargs)
+        result = scorer(
+            inputs={"question": "What is MLflow?"},
+            outputs="MLflow is an open-source platform for managing the ML lifecycle.",
+        )
+
+        assert result.name == expected_name
+        assert result.value == "complete"
+        assert result.rationale == rationale
+        mock_invoke_judge.assert_called_once()
+
+
+def test_completeness_with_trace():
+    """Test Completeness scorer with trace."""
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name="completeness", value="complete", rationale="Fully addressed"),
+    ) as mock_invoke_judge:
+        trace = create_simple_trace()
+        scorer = Completeness()
+        result = scorer(trace=trace)
+
+        assert result.name == "completeness"
+        assert result.value == "complete"
+        assert result.rationale == "Fully addressed"
         mock_invoke_judge.assert_called_once()
