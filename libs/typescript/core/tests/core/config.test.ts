@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { init, getConfig, readDatabricksConfig } from '../../src/core/config';
+import { init, getConfig, readDatabricksConfig, getDatabricksAuthProvider } from '../../src/core/config';
 
 describe('Config', () => {
   describe('init and getConfig', () => {
@@ -116,12 +116,23 @@ describe('Config', () => {
       const tempDir = path.join(os.tmpdir(), 'mlflow-databricks-test-' + Date.now());
       const configPath = path.join(tempDir, '.databrickscfg');
 
+      const clearDatabricksEnv = () => {
+        delete process.env.DATABRICKS_HOST;
+        delete process.env.DATABRICKS_TOKEN;
+        delete process.env.DATABRICKS_CLIENT_ID;
+        delete process.env.DATABRICKS_CLIENT_SECRET;
+        delete process.env.DATABRICKS_OAUTH_SCOPES;
+        delete process.env.DATABRICKS_OAUTH_TOKEN_ENDPOINT;
+      };
+
       beforeEach(() => {
         fs.mkdirSync(tempDir, { recursive: true });
+        clearDatabricksEnv();
       });
 
       afterEach(() => {
         fs.rmSync(tempDir, { recursive: true, force: true });
+        clearDatabricksEnv();
       });
 
       it('should read Databricks config for default profile', () => {
@@ -267,10 +278,67 @@ token = config-token`;
         const result = getConfig();
         expect(result.host).toBe('https://env-workspace.databricks.com');
         expect(result.databricksToken).toBe('env-token');
+      });
 
-        // Clean up environment variables
-        delete process.env.DATABRICKS_HOST;
-        delete process.env.DATABRICKS_TOKEN;
+      it('should read Databricks client credentials from config file', () => {
+        const configContent = `[DEFAULT]
+host = https://client-workspace.databricks.com
+client_id = client-id
+client_secret = client-secret
+oauth_scopes = scope1 scope2`;
+
+        fs.writeFileSync(configPath, configContent);
+
+        const config = {
+          trackingUri: 'databricks',
+          experimentId: '123456789',
+          databricksConfigPath: configPath
+        };
+
+        init(config);
+
+        const result = getConfig();
+        expect(result.host).toBe('https://client-workspace.databricks.com');
+        expect(result.databricksToken).toBeUndefined();
+        expect(result.databricksClientId).toBe('client-id');
+        expect(result.databricksClientSecret).toBe('client-secret');
+        expect(result.databricksOauthScopes).toEqual(['scope1', 'scope2']);
+      });
+
+      it('should create auth provider for environment client credentials', async () => {
+        process.env.DATABRICKS_HOST = 'https://env-client.databricks.com';
+        process.env.DATABRICKS_CLIENT_ID = 'env-client-id';
+        process.env.DATABRICKS_CLIENT_SECRET = 'env-client-secret';
+        process.env.DATABRICKS_OAUTH_SCOPES = 'scope-x';
+
+        const fetchMock = jest.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ access_token: 'fetched-token', expires_in: 60 }),
+          text: () => Promise.resolve('')
+        });
+
+        const originalFetch = globalThis.fetch;
+        (globalThis as { fetch?: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+
+        try {
+          init({
+            trackingUri: 'databricks',
+            experimentId: '123456789',
+            databricksConfigPath: configPath
+          });
+
+          const provider = getDatabricksAuthProvider();
+          expect(provider).not.toBeNull();
+          await expect(provider!.getAccessToken()).resolves.toBe('fetched-token');
+        } finally {
+          if (originalFetch) {
+            (globalThis as { fetch?: typeof fetch }).fetch = originalFetch;
+          } else {
+            delete (globalThis as { fetch?: typeof fetch }).fetch;
+          }
+        }
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
       });
     });
   });
@@ -358,15 +426,34 @@ token = default-token`;
       );
     });
 
-    it('should throw error if token missing in profile', () => {
+    it('should throw error if token and client credentials are missing in profile', () => {
       const configContent = `[DEFAULT]
 host = https://default-workspace.databricks.com`;
 
       fs.writeFileSync(configPath, configContent);
 
       expect(() => readDatabricksConfig(configPath)).toThrow(
-        "Failed to read Databricks config: Token not found for profile 'DEFAULT' in Databricks config file"
+        "Failed to read Databricks config: Authentication details not found for profile 'DEFAULT' in Databricks config file"
       );
+    });
+
+    it('should read client credentials when present', () => {
+      const configContent = `[DEFAULT]
+host = https://default-workspace.databricks.com
+client_id = test-client
+client_secret = test-secret
+oauth_scopes = scopeA scopeB
+oauth_token_endpoint = https://accounts.databricks.com/oidc/token`;
+
+      fs.writeFileSync(configPath, configContent);
+
+      const result = readDatabricksConfig(configPath);
+      expect(result.host).toBe('https://default-workspace.databricks.com');
+      expect(result.token).toBeUndefined();
+      expect(result.clientId).toBe('test-client');
+      expect(result.clientSecret).toBe('test-secret');
+      expect(result.oauthScopes).toEqual(['scopeA', 'scopeB']);
+      expect(result.oauthTokenEndpoint).toBe('https://accounts.databricks.com/oidc/token');
     });
 
     it('should handle malformed config file', () => {

@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "commonjs",
+  "module": "commonjs",
+  "moduleResolution": "node10",
     "allowJs": true,
     "checkJs": true,
     "declaration": true,
@@ -9,7 +10,11 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "./",
+    "paths": {
+      "@opentelemetry/sdk-node": ["../node_modules/@opentelemetry/sdk-node"]
+    }
   },
   "include": ["src/**/*"]
 }
