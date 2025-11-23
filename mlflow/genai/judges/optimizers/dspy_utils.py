@@ -297,7 +297,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             example_inputs.append("expectations")
         example = dspy.Example(
             result=str(expected_result.feedback.value).lower(),
-            rationale=expected_result.rationale if expected_result.rationale else "",
+            rationale=expected_result.rationale or "",
             **example_kwargs,
         )
 

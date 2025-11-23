@@ -251,6 +251,7 @@ select = [
   "DTZ003",  # call-datetime-utcnow
   "E",       # error
   "F",       # Pyflakes
+  "FURB110", # if-exp-instead-of-or-operator
   "FURB188", # slice-to-remove-prefix-or-suffix
   "C4",      # flake8-comprehensions
   "I",       # isort
@@ -286,6 +287,7 @@ select = [
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF039",  # unraw-re-pattern
   "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
   "S102",    # exec-builtin

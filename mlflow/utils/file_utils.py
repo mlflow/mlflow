@@ -23,10 +23,10 @@ import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from subprocess import CalledProcessError, TimeoutExpired
 from types import TracebackType
-from typing import Any
-from typing import Union
+from typing import Any, Union
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -467,9 +467,22 @@ def _get_local_file_size(file):
     return round(os.path.getsize(file) / 1024.0, 1)
 
 
-def get_parent_dir(path: Union[str, pathlib.Path]) -> str:
 
-    return os.path.abspath(os.path.join(path, os.pardir))
+def get_parent_dir(path: Union[str, Path]) -> str:
+    """
+    Return the parent directory of the given path.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        A file or directory path.
+
+    Returns
+    -------
+    str
+        Absolute path of the parent directory.
+    """
+    return os.path.abspath(os.path.join(str(path), os.pardir))
 
 
 def relative_path_to_artifact_path(path):
@@ -1016,3 +1029,4 @@ class ExclusiveFileLock:
         # Release lock
         fcntl.flock(self.fd, fcntl.LOCK_UN)
         self.fd.close()
+
