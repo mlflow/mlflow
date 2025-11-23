@@ -9,6 +9,7 @@ export {
   isModelTrace,
   isV3ModelTraceInfo,
   isV3ModelTraceSpan,
+  isV4ModelTraceSpan,
   getModelTraceSpanEndTime,
   getModelTraceSpanStartTime,
   getModelTraceSpanId,
@@ -40,3 +41,4 @@ export { ModelTraceExplorerUpdateTraceContextProvider } from './contexts/UpdateT
 export { SingleChatTurnMessages } from './session-view/SingleChatTurnMessages';
 export { ModelTraceExplorerChatMessage } from './right-pane/ModelTraceExplorerChatMessage';
 export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessments';
+export { getTraceTokenUsage } from './ModelTraceExplorer.utils';

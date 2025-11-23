@@ -8,6 +8,7 @@ import {
   type Assessment,
   type ExpectationAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
+import { getSpanAttribute } from '@databricks/web-shared/genai-traces-table';
 
 /**
  * Fetches trace information and data for a given trace ID.
@@ -105,8 +106,8 @@ function extractFieldFromSpan(
   }
 
   // V3 format or V2 with attributes - check attributes
-  if (rootSpan.attributes?.[v3AttributeKey] !== undefined) {
-    return ensureString(rootSpan.attributes[v3AttributeKey]);
+  if (getSpanAttribute(rootSpan.attributes, v3AttributeKey) !== undefined) {
+    return ensureString(getSpanAttribute(rootSpan.attributes, v3AttributeKey));
   }
 
   return null;

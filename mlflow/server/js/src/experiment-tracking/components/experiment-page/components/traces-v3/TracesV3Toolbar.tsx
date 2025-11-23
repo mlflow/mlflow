@@ -2,7 +2,15 @@ import { SpeechBubbleIcon, Tag, Typography, useDesignSystemTheme } from '@databr
 import { TracesV3DateSelector } from './TracesV3DateSelector';
 import { FormattedMessage } from '@databricks/i18n';
 
-export const TracesV3Toolbar = ({ viewState, sessionId }: { viewState: string; sessionId?: string }) => {
+export const TracesV3Toolbar = ({
+  viewState,
+  sessionId,
+  className,
+}: {
+  viewState: string;
+  sessionId?: string;
+  className?: string;
+}) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const { theme } = useDesignSystemTheme();
 
@@ -15,6 +23,7 @@ export const TracesV3Toolbar = ({ viewState, sessionId }: { viewState: string; s
         borderBottom: `1px solid ${theme.colors.grey100}`,
         paddingBottom: `${theme.spacing.sm}px`,
       }}
+      className={className}
     >
       {/**
        * in the single chat session view, the date sector is irrelevant as we

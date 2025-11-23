@@ -30,9 +30,6 @@ const ExperimentChatSessionsPageImpl = () => {
   const monitoringConfig = useMonitoringConfig();
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
-    options: {
-      fetchPolicy: 'cache-only',
-    },
   });
 
   const timeRange = useMemo(() => {

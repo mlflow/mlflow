@@ -26,12 +26,8 @@ export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[
 };
 
 const TracesComponent = ({ experimentIds }: { experimentIds: string[] }) => {
-  // A cache-only query to get the loading state
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId: experimentIds[0],
-    options: {
-      fetchPolicy: 'cache-only',
-    },
   });
 
   if (shouldEnableTracesV3View() || isExperimentEvalResultsMonitoringUIEnabled()) {

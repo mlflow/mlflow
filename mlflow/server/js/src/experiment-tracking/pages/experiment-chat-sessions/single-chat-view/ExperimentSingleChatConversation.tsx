@@ -106,6 +106,7 @@ export const ExperimentSingleChatConversation = ({
                 />
               </Button>
             </div>
+            {/* TODO: add turn-level metrics */}
             <SingleChatTurnMessages key={traceId} trace={trace} />
             {shouldEnableAssessmentsInSessions() && (
               <>

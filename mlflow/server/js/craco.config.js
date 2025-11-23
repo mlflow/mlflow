@@ -248,7 +248,7 @@ module.exports = function () {
 
           // We'll ignore only dependencies in 'node_modules' directly within certain
           // directories in order to avoid false positive matches in nested modules.
-          const validNodeModulesRoots = ['mlflow/web/js'];
+          const validNodeModulesRoots = ['mlflow/server/js'];
 
           // prettier-ignore
           // eslint-disable-next-line max-len
