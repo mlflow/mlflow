@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
 from types import TracebackType
 from typing import Any
+from typing import Union
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -466,7 +467,8 @@ def _get_local_file_size(file):
     return round(os.path.getsize(file) / 1024.0, 1)
 
 
-def get_parent_dir(path):
+def get_parent_dir(path: Union[str, pathlib.Path]) -> str:
+
     return os.path.abspath(os.path.join(path, os.pardir))
 
 
