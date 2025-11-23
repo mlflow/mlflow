@@ -31,6 +31,7 @@ import type {
   RawModelTraceChatMessage,
   ModelTraceContentType,
   SpanFilterState,
+  ModelTraceSpanV4,
   ModelTraceSpanV3,
   ModelTraceSpanV2,
   ModelTraceInfoV3,
@@ -40,6 +41,7 @@ import type {
   ModelTraceLocation,
 } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
+import { parseJSONSafe } from './TagUtils';
 import {
   normalizeAnthropicChatInput,
   normalizeAnthropicChatOutput,
@@ -71,6 +73,7 @@ import {
 import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
 import { TOKEN_USAGE_METADATA_KEY } from './constants';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
+import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -405,9 +408,9 @@ export const normalizeNewSpanData = (
   assessmentMap: Record<string, Assessment[]>,
   traceId: string,
 ): ModelTraceSpanNode => {
-  const spanType = tryDeserializeAttribute(span.attributes?.['mlflow.spanType']);
-  const inputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanInputs']);
-  const outputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanOutputs']);
+  const spanType = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanType') as string);
+  const inputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanInputs') as string);
+  const outputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanOutputs') as string);
   const parentId = getModelTraceSpanParentId(span);
   const spanId = getModelTraceSpanId(span);
 
@@ -419,10 +422,15 @@ export const normalizeNewSpanData = (
   }
 
   // data that powers the "chat" tab
-  const messagesAttributeValue = tryDeserializeAttribute(span.attributes?.['mlflow.chat.messages']);
-  const messageFormat = tryDeserializeAttribute(span.attributes?.['mlflow.message.format']);
+  const messagesAttributeValue = tryDeserializeAttribute(
+    getSpanAttribute(span.attributes, 'mlflow.chat.messages') as string,
+  );
+  const messageFormat = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.message.format') as string);
   const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat);
-  const chatTools = getChatToolsFromSpan(tryDeserializeAttribute(span.attributes?.['mlflow.chat.tools']), inputs);
+  const chatTools = getChatToolsFromSpan(
+    tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.chat.tools') as string),
+    inputs,
+  );
 
   // remove other private mlflow attributes
   const attributes = mapValues(
@@ -505,6 +513,10 @@ export function isV3ModelTraceInfo(info: ModelTrace['info']): info is ModelTrace
   return 'trace_location' in info;
 }
 
+export function isV4ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV4 {
+  return 'start_time_unix_nano' in span && Array.isArray(span.attributes);
+}
+
 export function isV3ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV3 {
   return 'start_time_unix_nano' in span;
 }
@@ -514,23 +526,25 @@ export function isV2ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpan
 }
 
 export function getModelTraceSpanId(span: ModelTraceSpan): string {
-  return isV3ModelTraceSpan(span)
+  return isV3ModelTraceSpan(span) || isV4ModelTraceSpan(span)
     ? decodeSpanId(span.span_id ?? '', true)
     : decodeSpanId(span.context?.span_id ?? '', false);
 }
 
 export function getModelTraceSpanParentId(span: ModelTraceSpan): string {
-  return isV3ModelTraceSpan(span)
+  return isV3ModelTraceSpan(span) || isV4ModelTraceSpan(span)
     ? decodeSpanId(span.parent_span_id ?? '', true)
     : decodeSpanId(span.parent_id ?? '', false);
 }
 
 export function getModelTraceSpanStartTime(span: ModelTraceSpan): number {
-  return isV3ModelTraceSpan(span) ? Number(span.start_time_unix_nano) : Number(span.start_time);
+  return isV3ModelTraceSpan(span) || isV4ModelTraceSpan(span)
+    ? Number(span.start_time_unix_nano)
+    : Number(span.start_time);
 }
 
 export function getModelTraceSpanEndTime(span: ModelTraceSpan): number {
-  return isV3ModelTraceSpan(span) ? Number(span.end_time_unix_nano) : Number(span.end_time);
+  return isV3ModelTraceSpan(span) || isV4ModelTraceSpan(span) ? Number(span.end_time_unix_nano) : Number(span.end_time);
 }
 
 export function getModelTraceId(trace: ModelTrace): string {
@@ -591,7 +605,7 @@ export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | n
     // not using `isV2Span` here because for legacy reasons,
     // V1 and V2 are rolled into in the same type. "parent_id" is
     // the way we distinguish between the two.
-    if (isV3ModelTraceSpan(span) || 'parent_id' in span) {
+    if (isV3ModelTraceSpan(span) || isV4ModelTraceSpan(span) || 'parent_id' in span) {
       // reusing the same function for v2 and v3 as the changes are small
       return normalizeNewSpanData(span, rootStart, rootEnd, children, assessmentMap, traceId);
     }
@@ -1240,3 +1254,8 @@ export const getTotalTokens = (traceInfo: ModelTraceInfoV3): number | null => {
     return null;
   }
 };
+
+export const getTraceTokenUsage = (
+  traceInfo: ModelTraceInfoV3,
+): { input_tokens?: number; output_tokens?: number; total_tokens?: number } =>
+  parseJSONSafe(traceInfo?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY] ?? '{}');

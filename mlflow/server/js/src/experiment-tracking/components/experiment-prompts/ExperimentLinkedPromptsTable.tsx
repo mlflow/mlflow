@@ -85,7 +85,7 @@ export const ExperimentLinkedPromptsTable = ({ data }: Props) => {
   );
 
   const table = useReactTable(
-    'mlflow/server/js/src/experiment-tracking/components/experiment-prompts/ExperimentLinkedPromptsTable.tsx',
+    'mlflow/web/js/src/experiment-tracking/components/experiment-prompts/ExperimentLinkedPromptsTable.tsx',
     {
       data,
       getRowId: (row) => row.name,

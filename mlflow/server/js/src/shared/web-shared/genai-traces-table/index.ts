@@ -72,6 +72,9 @@ export {
   getTraceInfoInputs,
   getTraceInfoOutputs,
   convertTraceInfoV3ToRunEvalEntry,
+  getSpanAttribute,
+  isV4TraceId,
+  parseV4TraceId,
 } from './utils/TraceUtils';
 
 export {

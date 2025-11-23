@@ -6,10 +6,13 @@ import type {
   ExpectationAssessment,
   FeedbackAssessment,
   ModelTrace,
+  ModelTraceSpan,
   ModelTraceInfoV3,
   RetrieverDocument,
+  ModelTraceLocationUcSchema,
 } from '@databricks/web-shared/model-trace-explorer';
 
+import { createTraceLocationForUCSchema } from './TraceLocationUtils';
 import {
   MLFLOW_ASSESSMENT_SOURCE_RUN_ID,
   MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG,
@@ -358,15 +361,15 @@ export function getRetrievedContextFromTrace(
 
   const retrievalSpans = trace.data.spans.filter(
     (span) =>
-      span.attributes?.['mlflow.spanType'] &&
-      safelyParseValue(span.attributes?.['mlflow.spanType']) === ModelTraceSpanType.RETRIEVER,
+      getSpanAttribute(span.attributes, 'mlflow.spanType') &&
+      safelyParseValue(getSpanAttribute(span.attributes, 'mlflow.spanType') as string) === ModelTraceSpanType.RETRIEVER,
   );
   if (retrievalSpans.length === 0) {
     return [];
   }
 
   // Return the last retrieval span chronologically since it is the one analyzed by our judges.
-  const spanOutputs = retrievalSpans.at(-1)?.attributes?.['mlflow.spanOutputs'];
+  const spanOutputs = getSpanAttribute(retrievalSpans.at(-1)?.attributes, 'mlflow.spanOutputs');
   if (!spanOutputs) {
     return [];
   }
@@ -401,4 +404,74 @@ const getRetrievalAssessmentsByName = (
   );
 
   return filteredResponseAssessmentsByName;
+};
+
+/**
+ * Extract an attribute value from span attributes.
+ * V3 traces have flat objects: { 'mlflow.spanInputs': '{"x": 10}' }
+ * V4 traces have arrays: [{ key: 'mlflow.spanInputs', value: { string_value: '{"x":10}' } }]
+ */
+export const getSpanAttribute = (
+  attributes: ModelTraceSpan['attributes'],
+  attributeKey: string,
+): string | undefined => {
+  if (!attributes) {
+    return undefined;
+  }
+
+  // V3: attributes is a flat object
+  if (!Array.isArray(attributes)) {
+    return attributes[attributeKey];
+  }
+
+  // V4: attributes is an array - find the matching key
+  const attribute = attributes.find((attr) => attr.key === attributeKey);
+  if (!attribute?.value) {
+    return undefined;
+  }
+
+  // V4 values are typed - return whichever type is present
+  return attribute.value.string_value ?? attribute.value.int_value ?? attribute.value.bool_value;
+};
+
+/**
+ * V4 UC traces: trace:/catalog_name.schema_name/trace_id
+ * V3 traces or others: trace_id as-is
+ * Both V3 and V4 traces have the same traceInfo schema; what's different is the trace location
+ */
+export const formatTraceId = (traceInfo: ModelTraceInfoV3 | undefined, fallbackId: string): string => {
+  const traceId = traceInfo?.trace_id || fallbackId;
+
+  // Check if this is a V4 UC schema trace
+  if (isV4Trace(traceInfo)) {
+    const location = traceInfo.trace_location as ModelTraceLocationUcSchema;
+    const { catalog_name, schema_name } = location.uc_schema;
+    return `trace:/${catalog_name}.${schema_name}/${traceId}`;
+  }
+
+  return traceId;
+};
+
+export const isV4Trace = (traceInfo: ModelTraceInfoV3 | undefined): traceInfo is ModelTraceInfoV3 => {
+  return traceInfo?.trace_location?.type === 'UC_SCHEMA' && traceInfo.trace_location.uc_schema !== undefined;
+};
+
+export const isV4TraceId = (traceId: string): boolean => {
+  return traceId.startsWith('trace:/');
+};
+
+type ParsedV4TraceId = {
+  trace_id: string;
+  trace_location: ModelTraceLocationUcSchema;
+};
+
+export const parseV4TraceId = (traceId: string): ParsedV4TraceId | undefined => {
+  if (!isV4TraceId(traceId)) {
+    return undefined;
+  }
+  const [, trace_location, trace_id] = traceId.split('/');
+  return {
+    trace_id,
+    trace_location: createTraceLocationForUCSchema(trace_location),
+  };
 };

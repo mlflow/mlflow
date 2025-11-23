@@ -21,6 +21,7 @@ import {
   isV3ModelTraceInfo,
   ModelTraceExplorer,
   ModelTraceExplorerUpdateTraceContextProvider,
+  shouldEnableAssessmentsInSessions,
   shouldUseTracesV4API,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -35,6 +36,8 @@ import {
   ExperimentSingleChatConversationSkeleton,
 } from './ExperimentSingleChatConversation';
 import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
+import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
+import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
 
 const ContextProviders = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
@@ -52,9 +55,6 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
-    options: {
-      fetchPolicy: 'cache-only',
-    },
   });
 
   const traceSearchLocations = useMemo(
@@ -79,6 +79,8 @@ const ExperimentSingleChatSessionPageImpl = () => {
     return traceInfos?.sort((a, b) => new Date(a.request_time).getTime() - new Date(b.request_time).getTime());
   }, [traceInfos]);
 
+  const chatSessionMetrics = useExperimentSingleChatMetrics({ traceInfos: sortedTraceInfos });
+
   const getTrace = getTraceV3;
   const getAssessmentTitle = useCallback((assessmentName: string) => assessmentName, []);
   const {
@@ -97,7 +99,18 @@ const ExperimentSingleChatSessionPageImpl = () => {
         // prettier-ignore
         viewState="single-chat-session"
         sessionId={sessionId}
+        css={
+          shouldEnableAssessmentsInSessions()
+            ? {
+                borderBottom: 'none',
+              }
+            : undefined
+        }
       />
+
+      {shouldEnableAssessmentsInSessions() && (
+        <ExperimentSingleChatSessionMetrics chatSessionMetrics={chatSessionMetrics} />
+      )}
       {isLoadingTraceDatas || isLoadingTraceInfos ? (
         <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <ExperimentSingleChatSessionSidebarSkeleton />
