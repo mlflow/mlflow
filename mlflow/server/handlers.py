@@ -3902,10 +3902,10 @@ def _search_evaluation_datasets_handler():
         experiment_ids=list(request_message.experiment_ids)
         if request_message.experiment_ids
         else None,
-        filter_string=request_message.filter_string if request_message.filter_string else None,
-        max_results=request_message.max_results if request_message.max_results else None,
+        filter_string=request_message.filter_string or None,
+        max_results=request_message.max_results or None,
         order_by=list(request_message.order_by) if request_message.order_by else None,
-        page_token=request_message.page_token if request_message.page_token else None,
+        page_token=request_message.page_token or None,
     )
 
     response_message = SearchEvaluationDatasets.Response()
@@ -4034,8 +4034,8 @@ def _get_dataset_records_handler(dataset_id):
         },
     )
 
-    max_results = request_message.max_results if request_message.max_results else 1000
-    page_token = request_message.page_token if request_message.page_token else None
+    max_results = request_message.max_results or 1000
+    page_token = request_message.page_token or None
 
     # Use the pagination-aware method
     records, next_page_token = _get_tracking_store()._load_dataset_records(

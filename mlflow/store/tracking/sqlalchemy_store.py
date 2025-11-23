@@ -3335,7 +3335,7 @@ class SqlAlchemyStore(AbstractStore):
 
         # Determine trace status from root span if available
         root_span_status = self._get_trace_status_from_root_span(spans)
-        trace_status = root_span_status if root_span_status else TraceState.IN_PROGRESS.value
+        trace_status = root_span_status or TraceState.IN_PROGRESS.value
 
         with self.ManagedSessionMaker() as session:
             # Try to get the trace info to check if trace exists

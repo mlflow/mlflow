@@ -82,7 +82,7 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
                 # scheme
                 track_parse.scheme,
                 # netloc
-                uri_parse.netloc if uri_parse.netloc else track_parse.netloc,
+                uri_parse.netloc or track_parse.netloc,
                 # path
                 resolved,
                 # params
