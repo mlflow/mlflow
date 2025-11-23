@@ -253,6 +253,7 @@ select = [
   "F",       # Pyflakes
   "FURB110", # if-exp-instead-of-or-operator
   "FURB188", # slice-to-remove-prefix-or-suffix
+  "FURB192", # sorted-min-max
   "C4",      # flake8-comprehensions
   "I",       # isort
   "ISC001",  # single-line-implicit-string-concatenation
