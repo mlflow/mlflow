@@ -37,28 +37,6 @@ _CHOICES_KEY = "choices"
 _CONTENT_KEY = "content"
 
 
-class RetrievedChunk(BaseModel):
-    """A single retrieved document chunk."""
-
-    content: str = Field(description="The text content of the retrieved chunk")
-    doc_uri: str | None = Field(default=None, description="Optional source/URI of the document")
-
-
-class RetrievedChunksForSpan(BaseModel):
-    """Retrieved chunks from a single span."""
-
-    span_id: str = Field(description="The ID of the span where retrieval occurred")
-    chunks: list[RetrievedChunk] = Field(description="List of retrieved document chunks")
-
-
-class RetrievedChunksForTrace(BaseModel):
-    """All retrieved chunks from a trace."""
-
-    retrieval_contexts: list[RetrievedChunksForSpan] = Field(
-        description="Retrieval contexts from all spans in the trace"
-    )
-
-
 def extract_request_from_trace(trace: Trace) -> str | None:
     """
     Extract request text from an MLflow trace object.
@@ -585,6 +563,28 @@ def _try_extract_retrieval_context_with_llm(
             e,
         )
         return {}
+
+
+class RetrievedChunk(BaseModel):
+    """A single retrieved document chunk."""
+
+    content: str = Field(description="The text content of the retrieved chunk")
+    doc_uri: str | None = Field(default=None, description="Optional source/URI of the document")
+
+
+class RetrievedChunksForSpan(BaseModel):
+    """Retrieved chunks from a single span."""
+
+    span_id: str = Field(description="The ID of the span where retrieval occurred")
+    chunks: list[RetrievedChunk] = Field(description="List of retrieved document chunks")
+
+
+class RetrievedChunksForTrace(BaseModel):
+    """All retrieved chunks from a trace."""
+
+    retrieval_contexts: list[RetrievedChunksForSpan] = Field(
+        description="Retrieval contexts from all spans in the trace"
+    )
 
 
 def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
