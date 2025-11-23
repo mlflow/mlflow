@@ -1632,9 +1632,7 @@ class RestStore(AbstractStore):
                 for record_dict in records_dicts:
                     records.append(DatasetRecord.from_dict(record_dict))
 
-            next_page_token = (
-                response_proto.next_page_token if response_proto.next_page_token else None
-            )
+            next_page_token = response_proto.next_page_token or None
             return records, next_page_token
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
