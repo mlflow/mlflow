@@ -482,7 +482,10 @@ def _try_extract_retrieval_context_with_llm(
 
     model_uri = model or get_default_model()
 
-    # Skip LLM extraction if using Databricks default model (not yet supported for tool calling)
+    # Skip LLM extraction if using Databricks default model
+    #
+    # TODO: Implement client logic for calling Databricks default model
+    # with tools and structured output for information extraction
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         _logger.debug(
             f"Skipping LLM-based retrieval extraction: model '{model_uri}' "
