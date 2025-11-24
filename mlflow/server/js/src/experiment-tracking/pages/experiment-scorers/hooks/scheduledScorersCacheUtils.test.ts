@@ -44,12 +44,14 @@ describe('scheduledScorersCacheUtils', () => {
               builtin: { name: 'guidelines' },
               sample_rate: 0.8,
               filter_string: 'status = "completed"',
+              scorer_version: 1,
             },
             {
               name: 'custom_scorer',
               serialized_scorer: '{"name": "custom", "call_source": "return True"}',
               custom: {},
               sample_rate: 0.6,
+              scorer_version: 1,
             },
           ],
         },
@@ -75,12 +77,14 @@ describe('scheduledScorersCacheUtils', () => {
             type: 'llm',
             llmTemplate: 'Guidelines',
             guidelines: ['Be helpful', 'Be accurate'],
+            version: 1,
           },
           {
             name: 'custom_scorer',
             sampleRate: 60, // 0.6 * 100
             type: 'custom-code',
             code: 'return True',
+            version: 1,
           },
         ],
       });
@@ -100,6 +104,7 @@ describe('scheduledScorersCacheUtils', () => {
               serialized_scorer: '{"name": "correctness", "builtin_scorer_class": "Correctness"}',
               builtin: { name: 'correctness' },
               sample_rate: 0.5,
+              scorer_version: 1,
             },
           ],
         },
@@ -123,6 +128,7 @@ describe('scheduledScorersCacheUtils', () => {
             sampleRate: 50, // 0.5 * 100
             type: 'llm',
             llmTemplate: 'Correctness',
+            version: 1,
           },
         ],
       });
@@ -191,6 +197,7 @@ describe('scheduledScorersCacheUtils', () => {
               serialized_scorer: '{"name": "test", "builtin_scorer_class": "Correctness"}',
               builtin: { name: 'test' },
               sample_rate: 0.5,
+              scorer_version: 1,
             },
           ],
         },

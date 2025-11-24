@@ -68,7 +68,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
               onClick={stopPropagationClick}
             >
               <FormattedMessage
-                defaultMessage="Automatically evaluate future traces using this scorer"
+                defaultMessage="Automatically evaluate future traces using this judge"
                 description="Checkbox label for enabling automatic evaluation"
               />
             </Checkbox>
@@ -89,7 +89,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
               </FormUI.Label>
               <FormUI.Hint>
                 <FormattedMessage
-                  defaultMessage="Percentage of traces evaluated by this scorer."
+                  defaultMessage="Percentage of traces evaluated by this judge."
                   description="Hint text for sample rate slider"
                 />
               </FormUI.Hint>

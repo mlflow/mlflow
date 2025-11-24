@@ -5,6 +5,7 @@ import { LLM_TEMPLATE } from '../types';
 import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
 import type { ScorerType } from '../constants';
+import type { RegisterScorerResponse, MLflowScorer } from '../api';
 
 // Union type for all form data - combines both form interfaces
 export type ScorerFormData = (LLMScorerFormData | CustomCodeScorerFormData) & {
@@ -32,6 +33,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
     name: config.name,
     // Convert from backend float (0-1) to frontend percentage (0-100)
     sampleRate: config.sample_rate !== undefined ? config.sample_rate * 100 : undefined,
+    version: config.scorer_version,
   };
 
   // Only add filterString if it has a value
@@ -46,11 +48,13 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
     if (serializedData.instructions_judge_pydantic_data) {
       // Instructions-based LLM scorer
       const instructions = serializedData.instructions_judge_pydantic_data.instructions || '';
+      const model = serializedData.instructions_judge_pydantic_data.model;
       const result = {
         ...baseFields,
         type: 'llm',
         llmTemplate: LLM_TEMPLATE.CUSTOM,
         instructions,
+        model,
       } as LLMScorer;
       return result;
     } else if (serializedData.builtin_scorer_class === LLM_TEMPLATE.GUIDELINES) {
@@ -140,8 +144,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
         original_func_name: null,
         instructions_judge_pydantic_data: {
           instructions: llmScorer.instructions || '',
-          // TODO: We should support additional models later
-          model: 'databricks',
+          ...(llmScorer.model && { model: llmScorer.model }),
         },
       });
       config.custom = {};
@@ -187,6 +190,30 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
 }
 
 /**
+ * Convert registerScorer API response to ScorerConfig
+ * Maps the response fields from the /api/3.0/mlflow/scorers/register endpoint to the ScorerConfig type.
+ */
+export function convertRegisterScorerResponseToConfig(response: RegisterScorerResponse): ScorerConfig {
+  return {
+    name: response.name,
+    serialized_scorer: response.serialized_scorer,
+    scorer_version: response.version,
+  };
+}
+
+/**
+ * Convert MLflowScorer from listScorers API response to ScorerConfig
+ * Maps the response fields from the /api/3.0/mlflow/scorers/list endpoint to the ScorerConfig type.
+ */
+export function convertMLflowScorerToConfig(scorer: MLflowScorer): ScorerConfig {
+  return {
+    name: scorer.scorer_name,
+    serialized_scorer: scorer.serialized_scorer,
+    scorer_version: scorer.scorer_version,
+  };
+}
+
+/**
  * Convert ScorerFormData to ScheduledScorer for API calls
  * Supports both creating new scorers and updating existing ones
  */
@@ -219,6 +246,8 @@ export function convertFormDataToScheduledScorer(
             : undefined,
         // Add instructions if this is a Custom scorer
         instructions: llmFormData.llmTemplate === LLM_TEMPLATE.CUSTOM ? llmFormData.instructions : undefined,
+        // Add model only for Custom (instructions-based) scorers
+        model: llmFormData.llmTemplate === LLM_TEMPLATE.CUSTOM ? llmFormData.model : undefined,
       };
       return result;
     }
@@ -264,6 +293,8 @@ export function convertFormDataToScheduledScorer(
     // Add instructions if this is a Custom scorer
     if (llmFormData.llmTemplate === LLM_TEMPLATE.CUSTOM) {
       (updatedScorer as LLMScorer).instructions = llmFormData.instructions;
+      // Add model only for Custom (instructions-based) scorers
+      (updatedScorer as LLMScorer).model = llmFormData.model;
     }
   }
 

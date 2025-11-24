@@ -2,6 +2,7 @@ import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 
 import {
   GearIcon,
+  GavelIcon,
   ListBorderIcon,
   ListIcon,
   ModelsIcon,
@@ -63,12 +64,9 @@ const ModelsTabConfig = {
 };
 const ScorersTabConfig = {
   label: (
-    <FormattedMessage
-      defaultMessage="Scorers"
-      description="Label for the scorers tab in the MLflow experiment navbar"
-    />
+    <FormattedMessage defaultMessage="Judges" description="Label for the judges tab in the MLflow experiment navbar" />
   ),
-  icon: <SparkleIcon />,
+  icon: <GavelIcon />,
   getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Scorers),
 };
 
@@ -108,10 +106,9 @@ export const CustomExperimentTabConfigMap: TabConfigMap = {
       />
     ),
   },
-  [ExperimentPageTabName.Traces]: TracesTabConfig,
+  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
 };
 
 export const DefaultTabConfigMap: TabConfigMap = {
   ...CustomExperimentTabConfigMap,
-  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
 };

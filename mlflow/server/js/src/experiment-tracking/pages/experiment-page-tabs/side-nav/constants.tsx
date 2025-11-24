@@ -47,8 +47,8 @@ const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
-          defaultMessage="Scorers"
-          description="Label for the scorers tab in the MLflow experiment navbar"
+          defaultMessage="Judges"
+          description="Label for the judges tab in the MLflow experiment navbar"
         />
       ),
       icon: <GavelIcon />,

@@ -1,15 +1,12 @@
 import { useQuery, type UseQueryResult } from '@databricks/web-shared/query-client';
 import { UnknownError, type PredefinedError } from '@databricks/web-shared/errors';
 import type { ScheduledScorer, ScorerConfig } from '../types';
-import { transformScorerConfig } from '../utils/scorerTransformUtils';
-import { listScheduledScorers } from '../api';
+import { convertMLflowScorerToConfig, transformScorerConfig } from '../utils/scorerTransformUtils';
+import { listScheduledScorers, ListScorersResponse } from '../api';
 
 // Define response types
 export type GetScheduledScorersResponse = {
-  experiment_id: string;
-  scheduled_scorers?: {
-    scorers: ScorerConfig[];
-  };
+  scorers?: ScorerConfig[];
 };
 
 export interface ScheduledScorersResponse {
@@ -26,13 +23,13 @@ export function useGetScheduledScorers(
       if (!experimentId) {
         throw new UnknownError('Experiment ID is required');
       }
-      const response: GetScheduledScorersResponse = await listScheduledScorers(experimentId);
+      const response: ListScorersResponse = await listScheduledScorers(experimentId);
 
       // Transform the response to match ScheduledScorersResponse
-      const scheduledScorers = response.scheduled_scorers?.scorers?.map(transformScorerConfig) || [];
+      const scheduledScorers = response.scorers?.map(convertMLflowScorerToConfig).map(transformScorerConfig) || [];
 
       return {
-        experimentId: response.experiment_id,
+        experimentId: experimentId,
         scheduledScorers,
       };
     },

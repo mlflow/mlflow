@@ -29,6 +29,7 @@ describe('scorerCardUtils', () => {
           guidelines: 'Be objective\nConsider context\nRate consistently',
           instructions: '',
           filterString: 'status == "success"',
+          model: '',
         });
       });
 
@@ -57,6 +58,7 @@ describe('scorerCardUtils', () => {
           guidelines: '',
           instructions: '',
           filterString: 'model_name == "gpt-4"',
+          model: '',
         });
       });
 
@@ -80,6 +82,7 @@ describe('scorerCardUtils', () => {
           guidelines: '',
           instructions: '',
           filterString: '',
+          model: '',
         });
       });
 
@@ -106,6 +109,7 @@ describe('scorerCardUtils', () => {
           guidelines: '',
           instructions: '',
           filterString: '',
+          model: '',
         });
       });
     });

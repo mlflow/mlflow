@@ -32,8 +32,8 @@ const ErrorFallback = ({ error }: { error?: Error }) => {
       <Empty
         title={
           <FormattedMessage
-            defaultMessage="Unable to load experiment scorers"
-            description="Error message when experiment scorers page fails to load"
+            defaultMessage="Unable to load experiment judges"
+            description="Error message when experiment judges page fails to load"
           />
         }
         description={
@@ -41,8 +41,8 @@ const ErrorFallback = ({ error }: { error?: Error }) => {
             <span>{error.message}</span>
           ) : (
             <FormattedMessage
-              defaultMessage="We encountered an issue loading the scorers interface. Please refresh the page or contact support if the problem persists."
-              description="Error description for experiment scorers page loading failure"
+              defaultMessage="We encountered an issue loading the judges interface. Please refresh the page or contact support if the problem persists."
+              description="Error description for experiment judges page loading failure"
             />
           )
         }
@@ -87,16 +87,16 @@ const ExperimentScorersPage: React.FC<ExperimentScorersPageProps> = () => {
             image={<SparkleIcon css={{ fontSize: 48, color: theme.colors.textSecondary }} />}
             title={
               <FormattedMessage
-                defaultMessage="Create and manage scorers"
-                description="Title for the empty state of the scorers page"
+                defaultMessage="Create and manage judges"
+                description="Title for the empty state of the judges page"
               />
             }
             description={
               <div css={{ maxWidth: 600, textAlign: 'center' }}>
                 <Spacer size="sm" />
                 <FormattedMessage
-                  defaultMessage="Configure predefined scorers, create guidelines-based LLM scorers, or build custom scorer functions to track your unique metrics. {link}"
-                  description="Description for the empty state of the scorers page"
+                  defaultMessage="Configure predefined judges, create guidelines-based LLM judges, or build custom judge functions to track your unique metrics. {link}"
+                  description="Description for the empty state of the judges page"
                   values={{
                     link: (
                       <Typography.Link
@@ -106,8 +106,8 @@ const ExperimentScorersPage: React.FC<ExperimentScorersPageProps> = () => {
                         rel="noreferrer"
                       >
                         <FormattedMessage
-                          defaultMessage="Learn more about configuring scorers"
-                          description="Link text for configuring scorers documentation"
+                          defaultMessage="Learn more about configuring judges"
+                          description="Link text for configuring judges documentation"
                         />
                       </Typography.Link>
                     ),

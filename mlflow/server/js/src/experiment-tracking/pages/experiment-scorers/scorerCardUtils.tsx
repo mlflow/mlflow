@@ -81,6 +81,7 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     guidelines: scorer.type === 'llm' ? (scorer as LLMScorer).guidelines?.join('\n') || '' : '',
     instructions: scorer.type === 'llm' ? (scorer as LLMScorer).instructions || '' : '',
     filterString: scorer.filterString || '',
+    model: scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '',
   };
 };
 

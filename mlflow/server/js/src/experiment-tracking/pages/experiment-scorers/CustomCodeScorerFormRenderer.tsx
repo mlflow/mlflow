@@ -72,7 +72,7 @@ const CustomCodeScorerFormRenderer: React.FC<CustomCodeScorerFormRendererProps> 
   };
 
   if (mode === SCORER_FORM_MODE.CREATE) {
-    const step1Code = `pip install --upgrade "mlflow[databricks]>=3.1.0"`;
+    const step1Code = `pip install --upgrade "mlflow>=3.1.0"`;
 
     const step2Code = `from mlflow.genai.scorers import scorer, ScorerSamplingConfig
 from typing import Optional, Any
@@ -100,8 +100,8 @@ custom_scorer = custom_scorer.start(sampling_config=ScorerSamplingConfig(sample_
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <Typography.Text>
           <FormattedMessage
-            defaultMessage="Follow these steps to create a custom scorer using your own code. {link}"
-            description="Brief instructions for custom scorer functions"
+            defaultMessage="Follow these steps to create a custom judge using your own code. {link}"
+            description="Brief instructions for custom judge functions"
             values={{
               link: (
                 <Typography.Link
@@ -120,12 +120,12 @@ custom_scorer = custom_scorer.start(sampling_config=ScorerSamplingConfig(sample_
           <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
             <FormattedMessage
               defaultMessage="Step 1: Install MLflow"
-              description="Step 1 title for custom scorer creation"
+              description="Step 1 title for custom judge creation"
             />
           </Typography.Title>
           <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.md, maxWidth: 800 }}>
             <FormattedMessage
-              defaultMessage="Install or upgrade MLflow with the Databricks extras to ensure you have the latest scorer functionality."
+              defaultMessage="Install or upgrade MLflow to ensure you have the latest judge functionality."
               description="Step 1 description for installing MLflow"
             />
           </Typography.Text>
@@ -140,14 +140,14 @@ custom_scorer = custom_scorer.start(sampling_config=ScorerSamplingConfig(sample_
         <div>
           <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
             <FormattedMessage
-              defaultMessage="Step 2: Define your scorer function"
-              description="Step 2 title for custom scorer creation"
+              defaultMessage="Step 2: Define your judge function"
+              description="Step 2 title for custom judge creation"
             />
           </Typography.Title>
           <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.md, maxWidth: 800 }}>
             <FormattedMessage
-              defaultMessage="Create a custom scorer function using the {decorator} decorator. Implement your scoring logic in the function body. {link}"
-              description="Step 2 description for defining scorer function"
+              defaultMessage="Create a custom judge function using the {decorator} decorator. Implement your scoring logic in the function body. {link}"
+              description="Step 2 description for defining judge function"
               values={{
                 decorator: <Typography.Text code>@scorer</Typography.Text>,
                 link: (
@@ -173,14 +173,14 @@ custom_scorer = custom_scorer.start(sampling_config=ScorerSamplingConfig(sample_
         <div>
           <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
             <FormattedMessage
-              defaultMessage="Step 3: Register and start the scorer"
-              description="Step 3 title for custom scorer creation"
+              defaultMessage="Step 3: Register and start the judge"
+              description="Step 3 title for custom judge creation"
             />
           </Typography.Title>
           <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.md, maxWidth: 800 }}>
             <FormattedMessage
-              defaultMessage="Register your scorer and start it with a sampling configuration. The scorer will then be available for use and will show up in this UI."
-              description="Step 3 description for registering and starting scorer"
+              defaultMessage="Register your judge and start it with a sampling configuration. The judge will then be available for use and will show up in this UI."
+              description="Step 3 description for registering and starting judge"
             />
           </Typography.Text>
           <CodeBlockWithCopy

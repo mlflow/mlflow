@@ -1,23 +1,23 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import type { Control, UseFormSetValue, UseFormGetValues } from 'react-hook-form';
-import { Controller, useWatch } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
 import {
   useDesignSystemTheme,
   Typography,
   Input,
   FormUI,
-  DialogCombobox,
-  DialogComboboxContent,
-  DialogComboboxOptionList,
-  DialogComboboxOptionListSelectItem,
-  DialogComboboxTrigger,
-  DialogComboboxHintRow,
-  DialogComboboxFooter,
-  DialogComboboxAddButton,
-  SparkleDoubleIcon,
   Button,
   DropdownMenu,
   ChevronDownIcon,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxAddButton,
+  DialogComboboxFooter,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListSelectItem,
+  DialogComboboxHintRow,
+  SparkleDoubleIcon,
+  DialogComboboxTrigger,
   PlusIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
@@ -25,7 +25,7 @@ import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
 import type { SCORER_TYPE } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE } from './types';
-import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
+import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
 
 const getEvalMonitorDocUrl = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/';
@@ -44,6 +44,7 @@ export interface LLMScorerFormData {
   scorerType: typeof SCORER_TYPE.LLM;
   guidelines?: string;
   instructions?: string;
+  model?: string;
 }
 
 interface LLMScorerFormRendererProps {
@@ -58,21 +59,18 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
   const intl = useIntl();
   const { templateOptions, displayMap } = useTemplateOptions();
 
-  // Watch the selected LLM template to conditionally show guidelines textarea
-  const selectedTemplate = useWatch({ control, name: 'llmTemplate' });
-
   // Helper to append variable to instructions field
   const appendVariable = (variable: string) => {
     const currentValue = getValues('instructions') || '';
     setValue('instructions', currentValue + variable, { shouldValidate: true });
   };
 
-  // Update name when template changes
-  useEffect(() => {
-    if (mode === SCORER_FORM_MODE.CREATE && selectedTemplate) {
-      setValue('name', selectedTemplate);
-    }
-  }, [selectedTemplate, setValue, mode]);
+  // Helper to handle template selection and pre-fill instructions
+  const handleTemplateChange = (newTemplate: string) => {
+    // Pre-fill instructions for built-in templates, or clear for Custom
+    const instructions = TEMPLATE_INSTRUCTIONS_MAP[newTemplate] || '';
+    setValue('instructions', instructions, { shouldValidate: true });
+  };
 
   const sectionStyles = {
     display: 'flex' as const,
@@ -95,159 +93,114 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
       }}
     >
       {/* Select Built-in scorer section */}
-      <div css={sectionStyles}>
-        <FormUI.Label aria-required htmlFor="mlflow-experiment-scorers-built-in-scorer">
-          <FormattedMessage defaultMessage="LLM template" description="Section header for LLM template selection" />
-        </FormUI.Label>
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="Choose a built-in template or create a custom template. {learnMore}"
-            description="Hint text for LLM template selection with documentation link"
-            values={{
-              learnMore: (
-                <Typography.Link
-                  componentId={`${COMPONENT_ID_PREFIX}.built-in-templates-learn-more-link`}
-                  href={getEvalMonitorDocUrl()}
-                  openInNewTab
-                >
-                  <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
-                </Typography.Link>
-              ),
-            }}
-          />
-        </FormUI.Hint>
-        <Controller
-          name="llmTemplate"
-          control={control}
-          render={({ field }) => (
-            <div css={{ marginTop: '8px' }} onClick={stopPropagationClick}>
-              <DialogCombobox
-                componentId={`${COMPONENT_ID_PREFIX}.built-in-scorer-select`}
-                id="mlflow-experiment-scorers-built-in-scorer"
-                value={field.value ? [field.value] : []}
-              >
-                <DialogComboboxTrigger
-                  withInlineLabel={false}
-                  allowClear={false}
-                  disabled={mode !== SCORER_FORM_MODE.CREATE}
-                  placeholder={intl.formatMessage({
-                    defaultMessage: 'Select an LLM template',
-                    description: 'Placeholder for LLM template selection',
-                  })}
-                  renderDisplayedValue={(value) => (
-                    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                      {value === LLM_TEMPLATE.CUSTOM ? <PlusIcon /> : <SparkleDoubleIcon />}
-                      <span>{displayMap[value] || value}</span>
-                    </div>
-                  )}
-                />
-                <DialogComboboxContent maxHeight={350}>
-                  <DialogComboboxOptionList>
-                    {templateOptions
-                      .filter((option) => option.value !== LLM_TEMPLATE.CUSTOM)
-                      .map((option) => (
-                        <DialogComboboxOptionListSelectItem
-                          key={option.value}
-                          value={option.value}
-                          onChange={() => field.onChange(option.value)}
-                          checked={field.value === option.value}
-                          icon={<SparkleDoubleIcon />}
-                        >
-                          {option.label}
-                          <DialogComboboxHintRow>{option.hint}</DialogComboboxHintRow>
-                        </DialogComboboxOptionListSelectItem>
-                      ))}
-                  </DialogComboboxOptionList>
-                  <DialogComboboxFooter>
-                    <DialogComboboxAddButton onClick={() => field.onChange(LLM_TEMPLATE.CUSTOM)}>
-                      {templateOptions.find((option) => option.value === LLM_TEMPLATE.CUSTOM)?.label}
-                    </DialogComboboxAddButton>
-                  </DialogComboboxFooter>
-                </DialogComboboxContent>
-              </DialogCombobox>
-            </div>
-          )}
-        />
-      </div>
-      {/* Name section */}
-      <div css={sectionStyles}>
-        <FormUI.Label htmlFor="mlflow-experiment-scorers-name">
-          <FormattedMessage defaultMessage="Name" description="Section header for optional scorer name" />
-        </FormUI.Label>
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="Must be unique in this experiment. Cannot be changed after creation."
-            description="Hint text for Name section"
-          />
-        </FormUI.Hint>
-        <Controller
-          name="name"
-          control={control}
-          render={({ field }) => (
-            <Input
-              {...field}
-              componentId={`${COMPONENT_ID_PREFIX}.name-input`}
-              id="mlflow-experiment-scorers-name"
-              disabled={mode !== SCORER_FORM_MODE.CREATE}
-              css={{ cursor: mode === SCORER_FORM_MODE.CREATE ? 'text' : 'auto' }}
-              onClick={stopPropagationClick}
-            />
-          )}
-        />
-      </div>
-      {/* Guidelines section - only shown when Guidelines template is selected */}
-      {selectedTemplate === 'Guidelines' && (
+      {mode === SCORER_FORM_MODE.CREATE && (
         <div css={sectionStyles}>
-          <FormUI.Label htmlFor="mlflow-experiment-scorers-guidelines" aria-required>
-            <FormattedMessage defaultMessage="Guidelines" description="Section header for scorer guidelines" />
+          <FormUI.Label aria-required htmlFor="mlflow-experiment-scorers-built-in-scorer">
+            <FormattedMessage defaultMessage="LLM template" description="Section header for LLM template selection" />
           </FormUI.Label>
           <FormUI.Hint>
             <FormattedMessage
-              defaultMessage="Add a set of instructions for the scorer. Enter one guideline per line. {learnMore}"
-              description="Hint text for Guidelines section with documentation link"
-              values={{
-                learnMore: (
-                  <Typography.Link
-                    componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
-                    href={getLlmJudgeDocUrl()}
-                    openInNewTab
-                  >
-                    <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
-                  </Typography.Link>
-                ),
-              }}
+              defaultMessage="Start with a built-in LLM judge template or create your own."
+              description="Hint text for LLM template selection with documentation link"
             />
           </FormUI.Hint>
           <Controller
-            name="guidelines"
+            name="llmTemplate"
             control={control}
-            rules={{
-              required: selectedTemplate === 'Guidelines',
-            }}
             render={({ field }) => (
-              <Input.TextArea
+              <div css={{ marginTop: '8px' }} onClick={stopPropagationClick}>
+                <DialogCombobox
+                  componentId={`${COMPONENT_ID_PREFIX}.built-in-scorer-select`}
+                  id="mlflow-experiment-scorers-built-in-scorer"
+                  value={field.value ? [field.value] : []}
+                >
+                  <DialogComboboxTrigger
+                    withInlineLabel={false}
+                    allowClear={false}
+                    disabled={mode !== SCORER_FORM_MODE.CREATE}
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'Select an LLM template',
+                      description: 'Placeholder for LLM template selection',
+                    })}
+                    renderDisplayedValue={(value) => (
+                      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                        {value === LLM_TEMPLATE.CUSTOM ? <PlusIcon /> : <SparkleDoubleIcon />}
+                        <span>{displayMap[value] || value}</span>
+                      </div>
+                    )}
+                  />
+                  <DialogComboboxContent maxHeight={350}>
+                    <DialogComboboxOptionList>
+                      {templateOptions
+                        .filter((option) => option.value !== LLM_TEMPLATE.CUSTOM)
+                        .map((option) => (
+                          <DialogComboboxOptionListSelectItem
+                            key={option.value}
+                            value={option.value}
+                            onChange={() => {
+                              field.onChange(option.value);
+                              handleTemplateChange(option.value);
+                            }}
+                            checked={field.value === option.value}
+                            icon={<SparkleDoubleIcon />}
+                          >
+                            {option.label}
+                            <DialogComboboxHintRow>{option.hint}</DialogComboboxHintRow>
+                          </DialogComboboxOptionListSelectItem>
+                        ))}
+                    </DialogComboboxOptionList>
+                    <DialogComboboxFooter>
+                      <DialogComboboxAddButton
+                        onClick={() => {
+                          field.onChange(LLM_TEMPLATE.CUSTOM);
+                          handleTemplateChange(LLM_TEMPLATE.CUSTOM);
+                        }}
+                      >
+                        {templateOptions.find((option) => option.value === LLM_TEMPLATE.CUSTOM)?.label}
+                      </DialogComboboxAddButton>
+                    </DialogComboboxFooter>
+                  </DialogComboboxContent>
+                </DialogCombobox>
+              </div>
+            )}
+          />
+        </div>
+      )}
+      {/* Name section - only show in create/edit modes */}
+      {mode !== SCORER_FORM_MODE.DISPLAY && (
+        <div css={sectionStyles}>
+          <FormUI.Label htmlFor="mlflow-experiment-scorers-name">
+            <FormattedMessage defaultMessage="Name" description="Section header for optional judge name" />
+          </FormUI.Label>
+          <FormUI.Hint>
+            <FormattedMessage
+              defaultMessage="Must be unique in this experiment. Cannot be changed after creation."
+              description="Hint text for Name section"
+            />
+          </FormUI.Hint>
+          <Controller
+            name="name"
+            control={control}
+            render={({ field }) => (
+              <Input
                 {...field}
-                componentId={`${COMPONENT_ID_PREFIX}.guidelines-text-area`}
-                id="mlflow-experiment-scorers-guidelines"
-                readOnly={mode === SCORER_FORM_MODE.DISPLAY}
-                rows={3}
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'The response must be in English',
-                  description: 'Placeholder text for guidelines textarea',
-                })}
-                css={{ resize: 'vertical', cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
+                componentId={`${COMPONENT_ID_PREFIX}.name-input`}
+                id="mlflow-experiment-scorers-name"
+                disabled={mode !== SCORER_FORM_MODE.CREATE}
+                placeholder="Custom"
+                css={{ cursor: mode === SCORER_FORM_MODE.CREATE ? 'text' : 'auto' }}
                 onClick={stopPropagationClick}
               />
             )}
           />
         </div>
       )}
-      {/* Instructions section - only shown when Custom template is selected */}
-      {selectedTemplate === LLM_TEMPLATE.CUSTOM && (
+      {/* Instructions section */}
+      <div css={sectionStyles}>
         <div css={sectionStyles}>
           <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <FormUI.Label htmlFor="mlflow-experiment-scorers-instructions" aria-required>
-              <FormattedMessage defaultMessage="Instructions" description="Section header for scorer instructions" />
+              <FormattedMessage defaultMessage="Instructions" description="Section header for judge instructions" />
             </FormUI.Label>
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
@@ -372,8 +325,45 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
             )}
           />
         </div>
-      )}
-      <EvaluateTracesSectionRenderer control={control} mode={mode} />
+      </div>
+      {/* Model section */}
+      <div css={sectionStyles}>
+        <FormUI.Label htmlFor="mlflow-experiment-scorers-model">
+          <FormattedMessage defaultMessage="Model" description="Section header for model input" />
+        </FormUI.Label>
+        <FormUI.Hint>
+          <FormattedMessage
+            defaultMessage="Specify the model for LLM evaluation. {learnMore}"
+            description="Hint text for model input with documentation link"
+            values={{
+              learnMore: (
+                <Typography.Link
+                  componentId={`${COMPONENT_ID_PREFIX}.model-learn-more-link`}
+                  href="https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/#supported-models"
+                  openInNewTab
+                >
+                  <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
+                </Typography.Link>
+              ),
+            }}
+          />
+        </FormUI.Hint>
+        <Controller
+          name="model"
+          control={control}
+          render={({ field }) => (
+            <Input
+              {...field}
+              componentId={`${COMPONENT_ID_PREFIX}.model-input`}
+              id="mlflow-experiment-scorers-model"
+              disabled={mode === SCORER_FORM_MODE.DISPLAY}
+              placeholder={mode === SCORER_FORM_MODE.DISPLAY ? '' : 'openai:/gpt-4o-mini'}
+              css={{ cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
+              onClick={stopPropagationClick}
+            />
+          )}
+        />
+      </div>
     </div>
   );
 };

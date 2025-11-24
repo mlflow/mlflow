@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 import type { PredefinedError } from '@databricks/web-shared/errors';
 import type { ScorerConfig } from '../types';
-import type { GetScheduledScorersResponse } from './useGetScheduledScorers';
-import { updateScheduledScorersCache } from './scheduledScorersCacheUtils';
-import { listScheduledScorers, updateScheduledScorers, deleteScheduledScorers } from '../api';
+import { removeScheduledScorersFromCache } from './scheduledScorersCacheUtils';
+import { deleteScheduledScorers } from '../api';
 
 // Define response types based on monitoring_service.proto
 export type DeleteScheduledScorersResponse = {
@@ -11,6 +10,7 @@ export type DeleteScheduledScorersResponse = {
   scheduled_scorers?: {
     scorers: ScorerConfig[];
   };
+  scorerNames?: string[];
 };
 
 export const useDeleteScheduledScorerMutation = () => {
@@ -25,28 +25,10 @@ export const useDeleteScheduledScorerMutation = () => {
     } // TVariables - input type
   >({
     mutationFn: async ({ experimentId, scorerNames }) => {
-      // If no specific scorer names provided, delete all scorers using the DELETE endpoint
-      if (!scorerNames || scorerNames.length === 0) {
-        return await deleteScheduledScorers(experimentId);
-      }
-
-      // For selective deletion, get existing scorers and remove only specified ones using PATCH
-      const existingData: GetScheduledScorersResponse = await listScheduledScorers(experimentId);
-      const existingScorerConfigs = existingData.scheduled_scorers?.scorers || [];
-
-      // Filter out the scorers to be deleted
-      const remainingScorerConfigs = existingScorerConfigs.filter((config) => !scorerNames.includes(config.name));
-
-      // If no scorers remain after filtering, delete all scorers using DELETE endpoint
-      if (remainingScorerConfigs.length === 0) {
-        return await deleteScheduledScorers(experimentId);
-      }
-
-      // Otherwise, update with the remaining scorers using PATCH endpoint
-      return await updateScheduledScorers(experimentId, { scorers: remainingScorerConfigs });
+      return await deleteScheduledScorers(experimentId, scorerNames);
     },
     onSuccess: (data, variables) => {
-      updateScheduledScorersCache(queryClient, data, variables.experimentId);
+      removeScheduledScorersFromCache(queryClient, variables.experimentId, variables.scorerNames);
     },
   });
 };
