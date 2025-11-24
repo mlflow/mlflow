@@ -1,4 +1,5 @@
 import { SpeechBubbleIcon, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { CopyActionButton } from '@databricks/web-shared/copy';
 import { TracesV3DateSelector } from './TracesV3DateSelector';
 import { FormattedMessage } from '@databricks/i18n';
 
@@ -40,6 +41,13 @@ export const TracesV3Toolbar = ({ viewState, sessionId }: { viewState: string; s
           <Typography.Title level={3} withoutMargins>
             {sessionId}
           </Typography.Title>
+          {sessionId && (
+            <CopyActionButton
+              copyText={sessionId}
+              componentId="mlflow.chat-sessions.copy-session-id"
+              buttonProps={{ icon: undefined }}
+            />
+          )}
         </div>
       )}
     </div>

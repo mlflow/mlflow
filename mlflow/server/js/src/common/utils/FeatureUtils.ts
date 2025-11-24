@@ -154,7 +154,3 @@ export const shouldDisableAssessmentsPaneOnFetchFailure = () => {
 export const shouldEnableExperimentPageSideTabs = () => {
   return true;
 };
-
-export const shouldEnableChatSessionsTab = () => {
-  return true;
-};

@@ -691,11 +691,13 @@ export const traceInfoCellRenderer = (
   } else if (colId === SESSION_COLUMN_ID) {
     const value = currentTraceInfo?.trace_metadata?.['mlflow.trace.session'];
     const otherValue = otherTraceInfo?.trace_metadata?.['mlflow.trace.session'];
+    const currentTraceId = currentTraceInfo?.trace_id;
+    const otherTraceId = otherTraceInfo?.trace_id;
     return (
       <StackedComponents
         first={
           value ? (
-            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId}>
+            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId} traceId={currentTraceId}>
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -720,7 +722,7 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId}>
+            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId} traceId={otherTraceId}>
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
