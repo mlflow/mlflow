@@ -1,6 +1,5 @@
 import { FormattedMessage } from '@databricks/i18n';
 import ErrorUtils from '@mlflow/mlflow/src/common/utils/ErrorUtils';
-import { shouldEnableChatSessionsTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { withErrorBoundary } from '@mlflow/mlflow/src/common/utils/withErrorBoundary';
 import { TracesV3Toolbar } from '../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import invariant from 'invariant';
@@ -13,7 +12,7 @@ import {
   createTraceLocationForUCSchema,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
-import { useMonitoringConfig } from '../../hooks/useMonitoringConfig';
+import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
 import { SESSION_ID_METADATA_KEY, shouldUseTracesV4API } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
@@ -73,13 +72,6 @@ const ExperimentChatSessionsPageImpl = () => {
     deleteTracesAction,
   };
 
-  // the tab will not be added to the navbar if this is disbled, but just
-  // in case users navigate to it directly, we return an empty div to
-  // avoid displaying any in-progress work.
-  if (!shouldEnableChatSessionsTab()) {
-    return <div />;
-  }
-
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <TracesV3Toolbar
@@ -101,7 +93,9 @@ const ExperimentChatSessionsPageImpl = () => {
 const ExperimentChatSessionsPage = () => {
   return (
     <ExperimentChatSessionsPageWrapper>
-      <ExperimentChatSessionsPageImpl />
+      <MonitoringConfigProvider>
+        <ExperimentChatSessionsPageImpl />
+      </MonitoringConfigProvider>
     </ExperimentChatSessionsPageWrapper>
   );
 };

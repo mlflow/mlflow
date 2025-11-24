@@ -365,9 +365,11 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
     ]
     with mock.patch("mlflow.genai.judges.is_context_relevant"):
         mlflow.genai.evaluate(
-            data=data, scorers=[sample_scorer, RelevanceToQuery()], predict_fn=model.predict
+            data=data,
+            scorers=[sample_scorer, RelevanceToQuery(name="my_judge")],
+            predict_fn=model.predict,
         )
-        expected_params = {"builtin_scorers": ["relevance_to_query"]}
+        expected_params = {"builtin_scorers": ["RelevanceToQuery"]}
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
         )

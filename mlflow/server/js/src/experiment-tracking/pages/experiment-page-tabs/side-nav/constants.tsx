@@ -13,7 +13,7 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { shouldEnableChatSessionsTab, enableScorersUI } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { enableScorersUI } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
@@ -153,7 +153,7 @@ export const useExperimentPageSideNavConfig = ({
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
-    const baseConfig = {
+    return {
       ...(hasTrainingRuns
         ? {
             // append training runs to top-level if they exist
@@ -174,11 +174,8 @@ export const useExperimentPageSideNavConfig = ({
             'top-level': [],
           }),
       ...ExperimentPageSideNavGenAIConfig,
-    };
-
-    if (shouldEnableChatSessionsTab()) {
-      baseConfig.observability = [
-        ...baseConfig.observability,
+      observability: [
+        ...ExperimentPageSideNavGenAIConfig.observability,
         {
           label: (
             <FormattedMessage
@@ -189,26 +186,23 @@ export const useExperimentPageSideNavConfig = ({
           icon: <SpeechBubbleIcon />,
           tabName: ExperimentPageTabName.ChatSessions,
         },
-      ];
-    }
-
-    if (enableScorersUI()) {
-      baseConfig.evaluation = [
-        ...baseConfig.evaluation,
-        {
-          label: (
-            <FormattedMessage
-              defaultMessage="Judges"
-              description="Label for the judges tab in the MLflow experiment navbar"
-            />
-          ),
-          icon: <GavelIcon />,
-          tabName: ExperimentPageTabName.Judges,
-        },
-      ];
-    }
-
-    return baseConfig;
+      ],
+      evaluation: enableScorersUI()
+        ? [
+            ...ExperimentPageSideNavGenAIConfig.evaluation,
+            {
+              label: (
+                <FormattedMessage
+                  defaultMessage="Judges"
+                  description="Label for the judges tab in the MLflow experiment navbar"
+                />
+              ),
+              icon: <GavelIcon />,
+              tabName: ExperimentPageTabName.Judges,
+            },
+          ]
+        : ExperimentPageSideNavGenAIConfig.evaluation,
+    };
   }
 
   return ExperimentPageSideNavCustomModelConfig;

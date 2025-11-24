@@ -99,7 +99,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
     @experiment_ids.setter
     def experiment_ids(self, value: list[str]):
         """Set experiment IDs directly."""
-        self._experiment_ids = value if value else []
+        self._experiment_ids = value or []
 
     def _load_experiment_ids(self):
         """Load experiment IDs from the backend."""

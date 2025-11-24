@@ -251,7 +251,12 @@ select = [
   "DTZ003",  # call-datetime-utcnow
   "E",       # error
   "F",       # Pyflakes
+  "FURB110", # if-exp-instead-of-or-operator
+  "FURB129", # readlines-in-for
+  "FURB142", # for-loop-set-mutations
+  "FURB167", # regex-flag-alias
   "FURB188", # slice-to-remove-prefix-or-suffix
+  "FURB192", # sorted-min-max
   "C4",      # flake8-comprehensions
   "I",       # isort
   "ISC001",  # single-line-implicit-string-concatenation
@@ -286,6 +291,7 @@ select = [
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF039",  # unraw-re-pattern
   "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
   "S102",    # exec-builtin
@@ -408,6 +414,9 @@ yhat = "yhat"                      # ŷ
 iternal = "internal"               # typo of "internal"
 instumentation = "instrumentation" # typo of "instrumentation"
 selectin = "selectin"              # SQLAlchemy lazy loading strategy
+tpe = "tpe"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
+TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
+indx = "indx"                      # intentional shorthand for index
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
@@ -447,6 +456,8 @@ extend-ignore-re = [
   # Azure Kubernetes Service
   "\\(AKS\\)",
   "AKS",
+  # Song lyrics - "Don't Stop Believin'" by Journey
+  "livin'",
 ]
 
 [tool.pytest.ini_options]
