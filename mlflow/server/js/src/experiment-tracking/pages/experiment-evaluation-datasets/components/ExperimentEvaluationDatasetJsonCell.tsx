@@ -47,6 +47,10 @@ export const JsonCell = ({
   const lineCount = useMemo(() => value.split('\n').length, [value]);
   const rows = useMemo(() => Math.min(Math.max(lineCount + 1, 3), 20), [lineCount]);
 
+  // Max height depends on row size: 'md' shows 20 lines, 'lg' shows 30 lines
+  const maxHeightInLines = rowSize === 'md' ? 20 : 30;
+  const maxHeight = theme.typography.fontSizeLg * maxHeightInLines;
+
   return (
     <div css={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: theme.spacing.xs, flex: 1 }}>
       {rowSize === 'sm' ? (
@@ -74,7 +78,7 @@ export const JsonCell = ({
             padding: theme.spacing.xs,
             backgroundColor: theme.colors.backgroundSecondary,
             fontSize: `${theme.typography.fontSizeSm}px`,
-            maxHeight: theme.typography.fontSizeLg * 20,
+            maxHeight,
           }}
         >
           <HighlightedText text={value} searchFilter={searchFilter} theme={theme} />
