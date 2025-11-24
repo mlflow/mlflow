@@ -46,7 +46,7 @@ export const shouldRerunExperimentUISeeding = () => false;
  * Feature flag to enable Scorers UI tab in experiment page
  */
 export const enableScorersUI = () => {
-  return true;
+  return false;
 };
 
 /**
