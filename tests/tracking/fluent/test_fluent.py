@@ -2555,10 +2555,8 @@ def test_start_run_sgc_resumption_disabled(empty_active_run_stack, monkeypatch):
     # Disable SGC resumption feature
     monkeypatch.setenv(MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.name, "false")
 
-    # Mock get_sgc_job_run_id
-    with mock.patch(
-        "mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id
-    ) as mock_get_sgc:
+    # Mock get_sgc_job_run_id (but won't be used since feature is disabled)
+    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id):
         # Create first run
         with mlflow.start_run(experiment_id=experiment_id) as first_run:
             first_run_id = first_run.info.run_id
@@ -2566,9 +2564,6 @@ def test_start_run_sgc_resumption_disabled(empty_active_run_stack, monkeypatch):
         # Create second run - should be a new run since feature is disabled
         with mlflow.start_run(experiment_id=experiment_id) as second_run:
             second_run_id = second_run.info.run_id
-
-        # When disabled, the mock may not be called or may be called but ignored
-        # We just verify it was set up correctly
 
     # Verify they are different runs
     assert second_run_id != first_run_id
@@ -2584,8 +2579,8 @@ def test_start_run_sgc_resumption_no_job_run_id(empty_active_run_stack, monkeypa
 
     # Mock get_sgc_job_run_id to return None
     with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=None) as mock_get_sgc:
-        with mlflow.start_run(experiment_id=experiment_id) as run:
-            run_id = run.info.run_id
+        with mlflow.start_run(experiment_id=experiment_id):
+            pass
 
         mock_get_sgc.assert_called_once()
 

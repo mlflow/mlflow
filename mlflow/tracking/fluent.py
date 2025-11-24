@@ -36,8 +36,8 @@ from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
-    MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
+    MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_RUN_ID,
@@ -268,26 +268,24 @@ def _get_sgc_mlflow_run_id_for_resumption(
     client: "MlflowClient", experiment_id: str | None, sgc_job_run_id_tag_key: str | None
 ) -> str | None:
     """
-    Retrieves the MLflow run ID associated with a specific SGC job run ID tag key for potential run resumption.
+    Retrieves the MLflow run ID associated with a specific SGC job run ID tag key
+    for potential run resumption.
 
-    This function searches the experiment (specified by `experiment_id`, or the default if None) for an experiment tag
-    named `sgc_job_run_id_tag_key`. If the tag exists, its value (the run ID to resume) is returned;
-    otherwise, returns None.
+    This function searches the experiment (specified by `experiment_id`, or the
+    default if None) for an experiment tag named `sgc_job_run_id_tag_key`. If the
+    tag exists, its value (the run ID to resume) is returned; otherwise, returns None.
 
     Args:
         client: MlflowClient instance used to query experiment information.
-        experiment_id: The experiment ID to search, or None to use the default experiment.
-        sgc_job_run_id_tag_key: The experiment tag key that maps the SGC job run ID to an MLflow run ID.
+        experiment_id: The experiment ID to search, or None to use the default.
+        sgc_job_run_id_tag_key: The experiment tag key that maps the SGC job run ID
+            to an MLflow run ID.
 
     Returns:
         str or None: The MLflow run ID to resume, if found; otherwise None.
     """
     # Determine the experiment ID to search in
-    if experiment_id:
-        search_exp_id = experiment_id
-    else:
-        # Get the default experiment ID
-        search_exp_id = _get_experiment_id()
+    search_exp_id = experiment_id or _get_experiment_id()
 
     try:
         exp = client.get_experiment(search_exp_id)
@@ -295,7 +293,8 @@ def _get_sgc_mlflow_run_id_for_resumption(
         if exp and exp.tags and sgc_job_run_id_tag_key in exp.tags:
             prev_mlflow_run_id = exp.tags[sgc_job_run_id_tag_key]
             _logger.info(
-                f"Resuming MLflow run: {prev_mlflow_run_id} using SGC tag key: {sgc_job_run_id_tag_key}"
+                f"Resuming MLflow run: {prev_mlflow_run_id} "
+                f"using SGC tag key: {sgc_job_run_id_tag_key}"
             )
             return prev_mlflow_run_id
     except Exception as e:
