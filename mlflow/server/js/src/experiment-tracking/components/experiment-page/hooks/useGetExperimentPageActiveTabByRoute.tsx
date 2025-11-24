@@ -8,6 +8,7 @@ import { map } from 'lodash';
 const ExperimentPageRoutePathToTabNameMap = map(
   {
     [RoutePaths.experimentPageTabRuns]: ExperimentPageTabName.Runs,
+    [RoutePaths.experimentPageTabCharts]: ExperimentPageTabName.Charts,
     [RoutePaths.experimentPageTabTraces]: ExperimentPageTabName.Traces,
     [RoutePaths.experimentPageTabModels]: ExperimentPageTabName.Models,
     [RoutePaths.experimentPageTabEvaluationRuns]: ExperimentPageTabName.EvaluationRuns,

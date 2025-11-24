@@ -2,6 +2,7 @@ import React from 'react';
 import { ExperimentKind } from '../../../constants';
 import { ExperimentPageTabName } from '../../../constants';
 import {
+  ChartLineIcon,
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
@@ -32,6 +33,16 @@ export type ExperimentPageSideNavSectionKey = 'top-level' | 'observability' | 'e
 
 const ExperimentPageSideNavGenAIConfig = {
   observability: [
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Charts"
+          description="Label for the charts tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <ChartLineIcon />,
+      tabName: ExperimentPageTabName.Charts,
+    },
     {
       label: (
         <FormattedMessage

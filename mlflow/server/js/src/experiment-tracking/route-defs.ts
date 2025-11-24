@@ -39,6 +39,11 @@ const getExperimentPageRouteDefs = () => {
           element: createLazyRouteElement(() => import('./pages/experiment-runs/ExperimentRunsPage')),
         },
         {
+          path: RoutePaths.experimentPageTabCharts,
+          pageId: PageId.experimentPageTabCharts,
+          element: createLazyRouteElement(() => import('./pages/experiment-charts/ExperimentChartsPage')),
+        },
+        {
           path: RoutePaths.experimentPageTabTraces,
           pageId: PageId.experimentPageTabTraces,
           element: createLazyRouteElement(() => import('./pages/experiment-traces/ExperimentTracesPage')),

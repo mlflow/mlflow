@@ -16,6 +16,7 @@ export enum PageId {
   // Child routes for experiment page:
   experimentPageTabRuns = 'mlflow.experiment.tab.runs',
   experimentPageTabModels = 'mlflow.experiment.tab.models',
+  experimentPageTabCharts = 'mlflow.experiment.tab.charts',
   experimentPageTabTraces = 'mlflow.experiment.tab.traces',
   experimentPageTabEvaluationRuns = 'mlflow.experiment.tab.evaluation-runs',
   experimentPageTabDatasets = 'mlflow.experiment.tab.datasets',
@@ -46,6 +47,9 @@ export class RoutePaths {
   // Child routes for experiment page:
   static get experimentPageTabRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/runs');
+  }
+  static get experimentPageTabCharts() {
+    return createMLflowRoutePath('/experiments/:experimentId/charts');
   }
   static get experimentPageTabTraces() {
     return createMLflowRoutePath('/experiments/:experimentId/traces');

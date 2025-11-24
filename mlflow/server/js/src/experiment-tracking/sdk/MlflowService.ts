@@ -358,4 +358,35 @@ export class MlflowService {
         request_ids: traceRequestIds,
       },
     }) as Promise<{ traces_deleted: number }>;
+
+  /**
+   * Traces API: query trace metrics
+   */
+  static queryTraceMetrics = (params: {
+    experiment_ids: string[];
+    view_type: 'TRACES' | 'SPANS' | 'ASSESSMENTS';
+    measure: string;
+    aggregation_type: ('COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'P25' | 'P50' | 'P75' | 'P90' | 'P95' | 'P99')[];
+    dimensions?: string[];
+    filters?: string[];
+    time_granularity?: 'MINUTE' | 'HOUR' | 'DAY' | 'WEEK' | 'MONTH';
+    start_time_ms?: number;
+    end_time_ms?: number;
+    max_results?: number;
+    page_token?: string;
+  }) => {
+    type QueryTraceMetricsResponse = {
+      data_points: Array<{
+        dimensions: Record<string, string>;
+        metric_name?: string;
+        values: Record<string, string>;
+      }>;
+      next_page_token?: string;
+    };
+
+    return postJson({
+      relativeUrl: 'ajax-api/2.0/mlflow/traces/metrics',
+      data: params,
+    }) as Promise<QueryTraceMetricsResponse>;
+  };
 }
