@@ -34,6 +34,7 @@ import {
   ExperimentSingleChatConversationSkeleton,
 } from './ExperimentSingleChatConversation';
 import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
+import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
 
 const ContextProviders = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
@@ -52,7 +53,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   const selectedTraceIdFromUrl = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
-    return searchParams.get('selectedTraceId');
+    return searchParams.get(SELECTED_TRACE_ID_QUERY_PARAM);
   }, [location.search]);
 
   const { loading: isLoadingExperiment } = useGetExperimentQuery({

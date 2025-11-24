@@ -10,6 +10,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../experiment-tracking/constants';
 import { getExperimentChatSessionPageRoute } from './MlflowUtils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
 import { Link, useLocation } from './RoutingUtils';
@@ -35,9 +36,10 @@ export const ModelTraceHeaderSessionIdTag = ({
     [],
   );
 
+  const baseUrl = getExperimentChatSessionPageRoute(experimentId, sessionId);
   const sessionPageUrl = traceId
-    ? `${getExperimentChatSessionPageRoute(experimentId, sessionId)}?selectedTraceId=${encodeURIComponent(traceId)}`
-    : getExperimentChatSessionPageRoute(experimentId, sessionId);
+    ? `${baseUrl}?${new URLSearchParams({ [SELECTED_TRACE_ID_QUERY_PARAM]: traceId }).toString()}`
+    : baseUrl;
 
   // If already on the session page, clicking the Session ID should copy it to clipboard
   // instead of navigating (which would be a no-op)

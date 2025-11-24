@@ -1,17 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
-import { MemoryRouter } from 'react-router-dom';
+import { TestRouter, testRoute } from '../utils/RoutingTestUtils';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 
 describe('SessionIdLinkWrapper', () => {
   const renderComponent = (props: { sessionId: string; experimentId: string; traceId?: string }) => {
     return render(
       <IntlProvider locale="en">
-        <MemoryRouter>
-          <SessionIdLinkWrapper {...props}>
-            <span>Test Content</span>
-          </SessionIdLinkWrapper>
-        </MemoryRouter>
+        <TestRouter
+          routes={[
+            testRoute(
+              <SessionIdLinkWrapper {...props}>
+                <span>Test Content</span>
+              </SessionIdLinkWrapper>,
+            ),
+          ]}
+        />
       </IntlProvider>,
     );
   };

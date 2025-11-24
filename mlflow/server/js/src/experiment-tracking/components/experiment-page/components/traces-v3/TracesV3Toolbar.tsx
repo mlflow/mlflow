@@ -1,20 +1,11 @@
-import { CopyIcon, SpeechBubbleIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { SpeechBubbleIcon, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { CopyActionButton } from '@databricks/web-shared/copy';
 import { TracesV3DateSelector } from './TracesV3DateSelector';
 import { FormattedMessage } from '@databricks/i18n';
-import { useCallback, useState } from 'react';
 
 export const TracesV3Toolbar = ({ viewState, sessionId }: { viewState: string; sessionId?: string }) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const { theme } = useDesignSystemTheme();
-  const [showCopyTooltip, setShowCopyTooltip] = useState(false);
-
-  const handleCopySessionId = useCallback(() => {
-    if (sessionId) {
-      navigator.clipboard.writeText(sessionId);
-      setShowCopyTooltip(true);
-      setTimeout(() => setShowCopyTooltip(false), 2000);
-    }
-  }, [sessionId]);
 
   return (
     <div
@@ -50,29 +41,13 @@ export const TracesV3Toolbar = ({ viewState, sessionId }: { viewState: string; s
           <Typography.Title level={3} withoutMargins>
             {sessionId}
           </Typography.Title>
-          <Tooltip
-            componentId="mlflow.chat-sessions.copy-session-id"
-            content={
-              showCopyTooltip ? (
-                <FormattedMessage defaultMessage="Copied!" description="Tooltip after copying session ID" />
-              ) : (
-                <FormattedMessage defaultMessage="Copy session ID" description="Tooltip for copy session ID button" />
-              )
-            }
-            open={showCopyTooltip ? true : undefined}
-          >
-            <CopyIcon
-              onClick={handleCopySessionId}
-              css={{
-                cursor: 'pointer',
-                color: theme.colors.textSecondary,
-                fontSize: 16,
-                '&:hover': {
-                  color: theme.colors.textPrimary,
-                },
-              }}
+          {sessionId && (
+            <CopyActionButton
+              copyText={sessionId}
+              componentId="mlflow.chat-sessions.copy-session-id"
+              buttonProps={{ icon: undefined }}
             />
-          </Tooltip>
+          )}
         </div>
       )}
     </div>
