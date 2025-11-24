@@ -21,11 +21,9 @@ DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE = (
 )
 
 
-def _check_deepeval_installed() -> bool:
+def _check_deepeval_installed():
     try:
         import deepeval  # noqa: F401
-
-        return True
     except ImportError:
         raise MlflowException(
             DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE,
@@ -146,10 +144,8 @@ def map_mlflow_to_test_case(
     tags = _dict_to_kv_list(trace.info.tags) if trace else []
     completion_time = trace.info.execution_duration * 1000 if trace else None
 
-    # Extract fields from expectations
     expected_output = None
     expected_tools = None
-
     if expectations:
         if "expected_output" in expectations:
             expected_output = parse_outputs_to_str(expectations["expected_output"])
@@ -159,10 +155,8 @@ def map_mlflow_to_test_case(
             if isinstance(expected_tool_calls, list):
                 expected_tools = _convert_to_deepeval_tool_calls(expected_tool_calls)
 
-    # Extract actual tool calls from trace spans
     tools_called = _extract_tool_calls_from_trace(trace) if trace else None
 
-    # Extract retrieval context from trace
     span_id_to_context = extract_retrieval_context_from_trace(trace) if trace else {}
     retrieval_context = [str(context) for context in span_id_to_context.values()]
 

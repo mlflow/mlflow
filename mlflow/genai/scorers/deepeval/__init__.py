@@ -37,21 +37,15 @@ class DeepEvalScorer(Scorer):
     def __init__(
         self,
         metric_name: str,
-        threshold: float = 0.5,
         model: str = "databricks",
-        include_reason: bool = True,
-        strict_mode: bool = False,
         **metric_kwargs,
     ):
         """
-        Initialize a DeepEval metric adapter.
+        Initialize a DeepEval metric scorer.
 
         Args:
             metric_name: Name of the DeepEval metric (e.g., "answer_relevancy")
-            threshold: Score threshold for success (default: 0.5)
             model: Model URI in MLflow format (default: "databricks")
-            include_reason: Whether to include reasoning in feedback
-            strict_mode: Whether to use strict mode (forces threshold to 1.0)
             metric_kwargs: Additional metric-specific parameters
         """
         super().__init__(name=metric_name)
@@ -60,10 +54,7 @@ class DeepEvalScorer(Scorer):
         deepeval_model = create_deepeval_model(model)
 
         self._metric = metric_class(
-            threshold=threshold,
             model=deepeval_model,
-            include_reason=include_reason,
-            strict_mode=strict_mode,
             verbose_mode=False,
             async_mode=False,
             **metric_kwargs,
@@ -120,10 +111,7 @@ class DeepEvalScorer(Scorer):
 
 def get_judge(
     metric_name: str,
-    threshold: float = 0.5,
     model: str = "databricks",
-    include_reason: bool = True,
-    strict_mode: bool = False,
     **metric_kwargs,
 ) -> DeepEvalScorer:
     """
@@ -131,11 +119,8 @@ def get_judge(
 
     Args:
         metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy", "Faithfulness")
-        threshold: Score threshold for success (default: 0.5)
         model: Model URI in MLflow format (default: "databricks")
-        include_reason: Whether to include reasoning in feedback
-        strict_mode: Whether to use strict mode (forces threshold to 1.0)
-        metric_kwargs: Additional metric-specific parameters
+        metric_kwargs: Additional metric-specific parameters (e.g., threshold, include_reason)
 
     Returns:
         DeepEvalScorer instance that can be called with MLflow's judge interface
@@ -144,18 +129,12 @@ def get_judge(
         >>> judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
         >>> feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
 
-        >>> judge = get_judge("Faithfulness")
-        >>> feedback = judge(
-        ...     outputs="Paris is the capital of France",
-        ...     expectations={"retrieval_context": ["Paris is France's capital city"]},
-        ... )
+        >>> judge = get_judge("Faithfulness", model="openai:/gpt-4")
+        >>> feedback = judge(trace=trace)
     """
     return DeepEvalScorer(
         metric_name=metric_name,
-        threshold=threshold,
         model=model,
-        include_reason=include_reason,
-        strict_mode=strict_mode,
         **metric_kwargs,
     )
 
