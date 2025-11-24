@@ -158,7 +158,7 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
           placeholder="Search dataset records"
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
-          css={{ width: '400px' }}
+          css={{ maxWidth: '540px', flex: 1 }}
         />
       </div>
     </div>
