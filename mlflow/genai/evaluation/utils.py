@@ -452,7 +452,7 @@ def get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
     return min(session_items, key=lambda x: x.trace.info.request_time)
 
 
-def _validate_session_level_input(scorers: list[Scorer], predict_fn: Any) -> None:
+def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: Any) -> None:
     """
     Validate input parameters when session-level scorers are present.
 

@@ -826,9 +826,9 @@ def test_get_first_trace_in_session_same_timestamp():
 # ==================== Tests for Multi-Turn Validation ====================
 
 
-def test_validate_session_level_input_no_session_level_scorers():
+def test_validate_session_level_evaluation_inputs_no_session_level_scorers():
     """Test that validation passes when there are no session-level scorers."""
-    from mlflow.genai.evaluation.utils import _validate_session_level_input
+    from mlflow.genai.evaluation.utils import validate_session_level_evaluation_inputs
 
     @scorer
     def single_turn_scorer(outputs):
@@ -837,18 +837,18 @@ def test_validate_session_level_input_no_session_level_scorers():
     scorers_list = [single_turn_scorer]
 
     # Should not raise any exceptions
-    _validate_session_level_input(
+    validate_session_level_evaluation_inputs(
         scorers=scorers_list,
         predict_fn=None,
     )
 
 
-def test_validate_session_level_input_feature_flag_disabled():
+def test_validate_session_level_evaluation_inputs_feature_flag_disabled():
     """Test that validation raises error when feature flag is disabled."""
     import os
 
     from mlflow.exceptions import MlflowException
-    from mlflow.genai.evaluation.utils import _validate_session_level_input
+    from mlflow.genai.evaluation.utils import validate_session_level_evaluation_inputs
 
     # Make sure feature flag is disabled
     os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
@@ -860,18 +860,18 @@ def test_validate_session_level_input_feature_flag_disabled():
         MlflowException,
         match="Multi-turn evaluation is not enabled",
     ):
-        _validate_session_level_input(
+        validate_session_level_evaluation_inputs(
             scorers=scorers_list,
             predict_fn=None,
         )
 
 
-def test_validate_session_level_input_with_predict_fn():
+def test_validate_session_level_evaluation_inputs_with_predict_fn():
     """Test that validation raises error when predict_fn is provided with session-level scorers."""
     import os
 
     from mlflow.exceptions import MlflowException
-    from mlflow.genai.evaluation.utils import _validate_session_level_input
+    from mlflow.genai.evaluation.utils import validate_session_level_evaluation_inputs
 
     # Enable feature flag
     os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
@@ -887,7 +887,7 @@ def test_validate_session_level_input_with_predict_fn():
             MlflowException,
             match="Multi-turn scorers are not yet supported with predict_fn",
         ):
-            _validate_session_level_input(
+            validate_session_level_evaluation_inputs(
                 scorers=scorers_list,
                 predict_fn=dummy_predict_fn,
             )
@@ -895,11 +895,11 @@ def test_validate_session_level_input_with_predict_fn():
         os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
 
 
-def test_validate_session_level_input_valid():
+def test_validate_session_level_evaluation_inputs_valid():
     """Test that validation passes with valid session-level input."""
     import os
 
-    from mlflow.genai.evaluation.utils import _validate_session_level_input
+    from mlflow.genai.evaluation.utils import validate_session_level_evaluation_inputs
 
     # Enable feature flag
     os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
@@ -909,7 +909,7 @@ def test_validate_session_level_input_valid():
         scorers_list = [multi_turn_scorer]
 
         # Should not raise any exceptions
-        _validate_session_level_input(
+        validate_session_level_evaluation_inputs(
             scorers=scorers_list,
             predict_fn=None,
         )
@@ -917,11 +917,11 @@ def test_validate_session_level_input_valid():
         os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
 
 
-def test_validate_session_level_input_mixed_scorers():
+def test_validate_session_level_evaluation_inputs_mixed_scorers():
     """Test validation with mixed single-turn and session-level scorers."""
     import os
 
-    from mlflow.genai.evaluation.utils import _validate_session_level_input
+    from mlflow.genai.evaluation.utils import validate_session_level_evaluation_inputs
 
     # Enable feature flag
     os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
@@ -935,7 +935,7 @@ def test_validate_session_level_input_mixed_scorers():
         scorers_list = [single_turn_scorer, multi_turn_scorer]
 
         # Should not raise any exceptions
-        _validate_session_level_input(
+        validate_session_level_evaluation_inputs(
             scorers=scorers_list,
             predict_fn=None,
         )
