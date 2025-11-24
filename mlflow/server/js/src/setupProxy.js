@@ -7,7 +7,7 @@ module.exports = function (app) {
   // Exception: If the caller has specified an MLFLOW_PROXY, we instead forward server requests
   // there.
   // eslint-disable-next-line no-undef
-  const proxyTarget = process.env.MLFLOW_PROXY || 'http://127.0.0.1:5000/';
+  const proxyTarget = process.env.MLFLOW_PROXY || 'http://localhost:5000/';
   // eslint-disable-next-line no-undef
   const proxyStaticTarget = process.env.MLFLOW_STATIC_PROXY || proxyTarget;
   app.use(
