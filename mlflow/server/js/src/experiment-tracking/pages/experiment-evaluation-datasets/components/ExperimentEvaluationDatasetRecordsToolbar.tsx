@@ -1,13 +1,20 @@
 import {
   Button,
+  ChevronDownIcon,
   ColumnsIcon,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxCustomButtonTriggerWrapper,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListCheckboxItem,
   DropdownMenu,
   RowsIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { ColumnDef } from '@tanstack/react-table';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { useMemo, useState } from 'react';
 import type { EvaluationDataset, EvaluationDatasetRecord } from '../types';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
 
@@ -18,6 +25,69 @@ const getTotalRecordsCount = (profile: string | undefined): number | undefined =
 
   const profileJson = parseJSONSafe(profile);
   return profileJson?.num_records ?? undefined;
+};
+
+const ColumnSelector = ({
+  columns,
+  columnVisibility,
+  setColumnVisibility,
+}: {
+  columns: ColumnDef<EvaluationDatasetRecord, any>[];
+  columnVisibility: Record<string, boolean>;
+  setColumnVisibility: (columnVisibility: Record<string, boolean>) => void;
+}) => {
+  const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
+
+  const handleChange = (columnId: string) => {
+    setColumnVisibility({
+      ...columnVisibility,
+      [columnId]: !columnVisibility[columnId],
+    });
+  };
+
+  return (
+    <DialogCombobox
+      componentId="mlflow.eval-datasets.records-toolbar.column-selector"
+      label="Columns"
+      multiSelect
+    >
+      <DialogComboboxCustomButtonTriggerWrapper>
+        <Button
+          endIcon={<ChevronDownIcon />}
+          componentId="mlflow.eval-datasets.records-toolbar.columns-toggle"
+        >
+          <div
+            css={{
+              display: 'flex',
+              gap: theme.spacing.sm,
+              alignItems: 'center',
+            }}
+          >
+            <ColumnsIcon />
+            {intl.formatMessage({
+              defaultMessage: 'Columns',
+              description: 'Column selector button for dataset records table',
+            })}
+          </div>
+        </Button>
+      </DialogComboboxCustomButtonTriggerWrapper>
+      <DialogComboboxContent>
+        <DialogComboboxOptionList>
+          {columns
+            .filter((column) => column.id !== 'outputs')
+            .map((column) => (
+              <DialogComboboxOptionListCheckboxItem
+                key={column.id}
+                value={column.header as string}
+                checked={columnVisibility[column.id ?? ''] ?? false}
+                onChange={() => handleChange(column.id ?? '')}
+              />
+            ))}
+        </DialogComboboxOptionList>
+      </DialogComboboxContent>
+    </DialogCombobox>
+  );
 };
 
 export const ExperimentEvaluationDatasetRecordsToolbar = ({
@@ -108,29 +178,11 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
             </DropdownMenu.RadioGroup>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <Button componentId="mlflow.eval-datasets.records-toolbar.columns-toggle" icon={<ColumnsIcon />} />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            {columns.map((column) => (
-              <DropdownMenu.CheckboxItem
-                componentId="mlflow.eval-datasets.records-toolbar.column-checkbox"
-                key={column.id}
-                checked={columnVisibility[column.id ?? ''] ?? false}
-                onCheckedChange={(checked) =>
-                  setColumnVisibility({
-                    ...columnVisibility,
-                    [column.id ?? '']: checked,
-                  })
-                }
-              >
-                <DropdownMenu.ItemIndicator />
-                <Typography.Text>{column.header}</Typography.Text>
-              </DropdownMenu.CheckboxItem>
-            ))}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+        <ColumnSelector
+          columns={columns}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+        />
       </div>
     </div>
   );
