@@ -6,10 +6,7 @@ import type { EvaluationDataset } from '../types';
 
 export const DatasetIdCell = ({ row }: { row: Row<EvaluationDataset> }) => {
   const datasetId = row.original.dataset_id;
-  const { copy, tooltipOpen, tooltipMessage, handleTooltipOpenChange } = useCopyController(
-    datasetId,
-    'Click to copy',
-  );
+  const { copy, tooltipOpen, tooltipMessage, handleTooltipOpenChange } = useCopyController(datasetId, 'Click to copy');
 
   return (
     <Tooltip
