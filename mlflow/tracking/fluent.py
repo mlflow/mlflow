@@ -282,24 +282,26 @@ def _get_sgc_mlflow_run_id_for_resumption(
     Returns:
         str or None: The MLflow run ID to resume, if found; otherwise None.
     """
-    prev_mlflow_run_id = None
     # Determine the experiment ID to search in
     if experiment_id:
         search_exp_id = experiment_id
     else:
         # Get the default experiment ID
         search_exp_id = _get_experiment_id()
+
     try:
         exp = client.get_experiment(search_exp_id)
         # Check if experiment has the tag for resumption
-        if exp.tags and sgc_job_run_id_tag_key in exp.tags:
+        if exp and exp.tags and sgc_job_run_id_tag_key in exp.tags:
             prev_mlflow_run_id = exp.tags[sgc_job_run_id_tag_key]
             _logger.info(
                 f"Resuming MLflow run: {prev_mlflow_run_id} using SGC tag key: {sgc_job_run_id_tag_key}"
             )
+            return prev_mlflow_run_id
     except Exception as e:
-        _logger.debug(f"Failed to retrieve SGC run ID: {e}")
-    return prev_mlflow_run_id
+        _logger.debug(f"Failed to retrieve SGC run ID: {e}", exc_info=True)
+
+    return None
 
 
 def start_run(
@@ -533,7 +535,8 @@ def start_run(
             run_name=run_name,
         )
 
-        # If SGC run resumption is enabled, set the experiment tag mapping SGC job_run_id to this run_id for future run resumption
+        # If SGC run resumption is enabled, set the experiment tag mapping
+        # SGC job_run_id to this run_id for future run resumption
         if sgc_job_run_id_tag_key:
             try:
                 client.set_experiment_tag(
@@ -544,7 +547,9 @@ def start_run(
                     f"for SGC run resumption"
                 )
             except Exception as e:
-                _logger.debug(f"Failed to set experiment tag for SGC resumption: {e}")
+                _logger.debug(
+                    f"Failed to set experiment tag for SGC resumption: {e}", exc_info=True
+                )
 
     if log_system_metrics is None:
         # If `log_system_metrics` is not specified, we will check environment variable.

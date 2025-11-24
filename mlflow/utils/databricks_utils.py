@@ -1056,6 +1056,7 @@ def get_sgc_job_run_id() -> str | None:
                 "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", debugValue=None
             )
         except Exception as e:
+            _logger.debug(f"Failed to retrieve SGC job run ID from task values: {e}", exc_info=True)
             return None
     return None
 

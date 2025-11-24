@@ -2420,7 +2420,6 @@ def test_log_metric_with_dataset_entity():
 
 
 def test_get_sgc_mlflow_run_id_for_resumption_with_tag(empty_active_run_stack):
-    """Test _get_sgc_mlflow_run_id_for_resumption successfully retrieves run ID from experiment tag."""
     from mlflow.tracking.fluent import _get_sgc_mlflow_run_id_for_resumption
 
     # Create an experiment with a tag
@@ -2440,7 +2439,6 @@ def test_get_sgc_mlflow_run_id_for_resumption_with_tag(empty_active_run_stack):
 
 
 def test_get_sgc_mlflow_run_id_for_resumption_without_tag(empty_active_run_stack):
-    """Test _get_sgc_mlflow_run_id_for_resumption returns None when tag doesn't exist."""
     from mlflow.tracking.fluent import _get_sgc_mlflow_run_id_for_resumption
 
     experiment_id = mlflow.create_experiment("test_sgc_no_tag")
@@ -2454,7 +2452,6 @@ def test_get_sgc_mlflow_run_id_for_resumption_without_tag(empty_active_run_stack
 
 
 def test_get_sgc_mlflow_run_id_for_resumption_with_default_experiment(empty_active_run_stack):
-    """Test _get_sgc_mlflow_run_id_for_resumption uses default experiment when experiment_id is None."""
     from mlflow.tracking.fluent import _get_sgc_mlflow_run_id_for_resumption
 
     # Use default experiment
@@ -2474,7 +2471,6 @@ def test_get_sgc_mlflow_run_id_for_resumption_with_default_experiment(empty_acti
 
 
 def test_get_sgc_mlflow_run_id_for_resumption_handles_exception():
-    """Test _get_sgc_mlflow_run_id_for_resumption handles exceptions gracefully."""
     from mlflow.tracking.fluent import _get_sgc_mlflow_run_id_for_resumption
 
     client = MlflowClient()
@@ -2488,7 +2484,6 @@ def test_get_sgc_mlflow_run_id_for_resumption_handles_exception():
 
 
 def test_start_run_sgc_resumption_creates_tag(empty_active_run_stack, monkeypatch):
-    """Test start_run sets experiment tag for SGC resumption when enabled."""
     from mlflow.environment_variables import MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS
 
     experiment_id = mlflow.create_experiment("test_sgc_create_tag")
@@ -2498,9 +2493,13 @@ def test_start_run_sgc_resumption_creates_tag(empty_active_run_stack, monkeypatc
     monkeypatch.setenv(MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.name, "true")
 
     # Mock get_sgc_job_run_id to return a job run ID
-    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id):
+    with mock.patch(
+        "mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id
+    ) as mock_get_sgc:
         with mlflow.start_run(experiment_id=experiment_id) as run:
             run_id = run.info.run_id
+
+        mock_get_sgc.assert_called_once()
 
         # Check that the experiment tag was set
         client = MlflowClient()
@@ -2511,7 +2510,6 @@ def test_start_run_sgc_resumption_creates_tag(empty_active_run_stack, monkeypatc
 
 
 def test_start_run_sgc_resumption_resumes_run(empty_active_run_stack, monkeypatch):
-    """Test start_run resumes existing run using SGC tag when available."""
     from mlflow.environment_variables import MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS
 
     experiment_id = mlflow.create_experiment("test_sgc_resume")
@@ -2522,16 +2520,22 @@ def test_start_run_sgc_resumption_resumes_run(empty_active_run_stack, monkeypatc
     monkeypatch.setenv(MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.name, "true")
 
     # Create an initial run and set the experiment tag
-    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id):
+    with mock.patch(
+        "mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id
+    ) as mock_get_sgc:
         with mlflow.start_run(experiment_id=experiment_id) as first_run:
             first_run_id = first_run.info.run_id
             mlflow.log_param("initial_param", "value1")
+        mock_get_sgc.assert_called()
 
     # Start a new run with the same SGC job run ID - should resume the previous run
-    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id):
+    with mock.patch(
+        "mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id
+    ) as mock_get_sgc:
         with mlflow.start_run(experiment_id=experiment_id) as resumed_run:
             resumed_run_id = resumed_run.info.run_id
             mlflow.log_param("resumed_param", "value2")
+        mock_get_sgc.assert_called()
 
     # Verify it's the same run
     assert resumed_run_id == first_run_id
@@ -2543,7 +2547,6 @@ def test_start_run_sgc_resumption_resumes_run(empty_active_run_stack, monkeypatc
 
 
 def test_start_run_sgc_resumption_disabled(empty_active_run_stack, monkeypatch):
-    """Test start_run creates new run when SGC resumption is disabled."""
     from mlflow.environment_variables import MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS
 
     experiment_id = mlflow.create_experiment("test_sgc_disabled")
@@ -2553,7 +2556,9 @@ def test_start_run_sgc_resumption_disabled(empty_active_run_stack, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.name, "false")
 
     # Mock get_sgc_job_run_id
-    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id):
+    with mock.patch(
+        "mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id
+    ) as mock_get_sgc:
         # Create first run
         with mlflow.start_run(experiment_id=experiment_id) as first_run:
             first_run_id = first_run.info.run_id
@@ -2562,12 +2567,14 @@ def test_start_run_sgc_resumption_disabled(empty_active_run_stack, monkeypatch):
         with mlflow.start_run(experiment_id=experiment_id) as second_run:
             second_run_id = second_run.info.run_id
 
+        # When disabled, the mock may not be called or may be called but ignored
+        # We just verify it was set up correctly
+
     # Verify they are different runs
     assert second_run_id != first_run_id
 
 
 def test_start_run_sgc_resumption_no_job_run_id(empty_active_run_stack, monkeypatch):
-    """Test start_run creates new run when get_sgc_job_run_id returns None."""
     from mlflow.environment_variables import MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS
 
     experiment_id = mlflow.create_experiment("test_sgc_no_job_id")
@@ -2576,9 +2583,11 @@ def test_start_run_sgc_resumption_no_job_run_id(empty_active_run_stack, monkeypa
     monkeypatch.setenv(MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.name, "true")
 
     # Mock get_sgc_job_run_id to return None
-    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=None):
+    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=None) as mock_get_sgc:
         with mlflow.start_run(experiment_id=experiment_id) as run:
             run_id = run.info.run_id
+
+        mock_get_sgc.assert_called_once()
 
         # No tag should be set since job_run_id is None
         client = MlflowClient()
@@ -2591,7 +2600,6 @@ def test_start_run_sgc_resumption_no_job_run_id(empty_active_run_stack, monkeypa
 def test_start_run_sgc_resumption_explicit_run_id_takes_precedence(
     empty_active_run_stack, monkeypatch
 ):
-    """Test that explicit run_id parameter takes precedence over SGC resumption."""
     from mlflow.environment_variables import MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS
 
     experiment_id = mlflow.create_experiment("test_sgc_precedence")
@@ -2613,13 +2621,16 @@ def test_start_run_sgc_resumption_explicit_run_id_takes_precedence(
     client.set_experiment_tag(experiment_id, sgc_tag_key, run1_id)
 
     # Start run with explicit run_id=run2_id, should resume run2 not run1
-    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id):
+    with mock.patch(
+        "mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id
+    ) as mock_get_sgc:
         with mlflow.start_run(run_id=run2_id, experiment_id=experiment_id) as resumed_run:
             assert resumed_run.info.run_id == run2_id
+        # The mock should be called even though explicit run_id takes precedence
+        mock_get_sgc.assert_called()
 
 
 def test_start_run_sgc_resumption_handles_tag_set_error(empty_active_run_stack, monkeypatch):
-    """Test start_run handles errors when setting experiment tag gracefully."""
     from mlflow.environment_variables import MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS
 
     experiment_id = mlflow.create_experiment("test_sgc_tag_error")
@@ -2628,12 +2639,17 @@ def test_start_run_sgc_resumption_handles_tag_set_error(empty_active_run_stack, 
     # Enable SGC resumption feature
     monkeypatch.setenv(MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.name, "true")
 
-    # Mock get_sgc_job_run_id
-    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id):
-        # Mock set_experiment_tag to raise an exception
-        with mock.patch.object(
+    # Mock get_sgc_job_run_id and set_experiment_tag
+    with (
+        mock.patch(
+            "mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id
+        ) as mock_get_sgc,
+        mock.patch.object(
             MlflowClient, "set_experiment_tag", side_effect=Exception("Tag error")
-        ):
-            # Should still create run successfully despite tag error
-            with mlflow.start_run(experiment_id=experiment_id) as run:
-                assert run.info.run_id is not None
+        ) as mock_set_tag,
+    ):
+        # Should still create run successfully despite tag error
+        with mlflow.start_run(experiment_id=experiment_id) as run:
+            assert run.info.run_id is not None
+        mock_get_sgc.assert_called_once()
+        mock_set_tag.assert_called_once()
