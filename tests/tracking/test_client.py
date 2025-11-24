@@ -3513,29 +3513,25 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
 
         assert isinstance(client._tracking_client.store, SqlAlchemyTrackingStore)
 
-        trace_id = f"tr-{uuid.uuid4().hex}"
-        mock_trace_info = mock.Mock(spec=TraceInfo)
-        mock_trace_info.trace_id = trace_id
-        mock_trace_info.tags = {TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE}
+        with mlflow.start_span():
+            pass
+
+        trace_id = mlflow.get_last_active_trace_id()
         sql_alchemy_store_module = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(
-            f"{sql_alchemy_store_module}.get_trace_info",
-            return_value=mock_trace_info,
+        with (
+            mock.patch(f"{sql_alchemy_store_module}.get_trace") as mock_get_trace,
         ):
-            with (
-                mock.patch(f"{sql_alchemy_store_module}.get_trace") as mock_get_trace,
-            ):
-                mlflow.get_trace(trace_id)
+            mlflow.get_trace(trace_id)
 
-            mock_get_trace.assert_called_once_with(trace_id)
+        mock_get_trace.assert_called_once_with(trace_id)
 
-            with (
-                mock.patch(
-                    f"{sql_alchemy_store_module}.get_trace",
-                    side_effect=MlflowNotImplementedException,
-                ),
-                mock.patch(f"{sql_alchemy_store_module}.batch_get_traces") as mock_batch_get_traces,
-            ):
-                mlflow.get_trace(trace_id)
+        with (
+            mock.patch(
+                f"{sql_alchemy_store_module}.get_trace",
+                side_effect=MlflowNotImplementedException,
+            ),
+            mock.patch(f"{sql_alchemy_store_module}.batch_get_traces") as mock_batch_get_traces,
+        ):
+            mlflow.get_trace(trace_id)
 
-            mock_batch_get_traces.assert_called_once_with([trace_id])
+        mock_batch_get_traces.assert_called_once_with([trace_id])
