@@ -1177,7 +1177,7 @@ def test_create_function_call_output_item():
                 {"role": "assistant", "content": '"I can help you calculate 4*3"'},
                 {"role": "assistant", "content": "I can help you calculate 4*"},
                 {
-                    "role": "tool",
+                    "role": "assistant",
                     "content": "mcp approval request",
                     "tool_calls": [
                         {
