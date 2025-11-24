@@ -767,14 +767,14 @@ class MlflowClient:
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
             cache_ttl_seconds: Time-to-live for caching the prompt in seconds. If None, uses
-                the MLFLOW_PROMPT_CACHE_TTL_SECONDS environment variable (default 60).
-                Set to 0 to disable caching.
+                the value from `MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS` environment variable for
+                alias-based prompts (default 60), and the value from
+                `MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS` environment variable for version-based
+                prompts (default None, no TTL). Set to 0 to disable caching.
         """
         prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
 
         if cache_ttl_seconds is None:
-            # Default to MLFLOW_PROMPT_CACHE_TTL_SECONDS environment variable if not specified
-            # for the alias format, and None (no TTL) for the version format.
             cache_ttl_seconds = (
                 MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.get()
                 if "@" in prompt_uri
