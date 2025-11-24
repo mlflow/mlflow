@@ -13,7 +13,7 @@ import {
   createTraceLocationForUCSchema,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
-import { useMonitoringConfig } from '../../hooks/useMonitoringConfig';
+import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
 import { SESSION_ID_METADATA_KEY, shouldUseTracesV4API } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
@@ -101,7 +101,9 @@ const ExperimentChatSessionsPageImpl = () => {
 const ExperimentChatSessionsPage = () => {
   return (
     <ExperimentChatSessionsPageWrapper>
-      <ExperimentChatSessionsPageImpl />
+      <MonitoringConfigProvider>
+        <ExperimentChatSessionsPageImpl />
+      </MonitoringConfigProvider>
     </ExperimentChatSessionsPageWrapper>
   );
 };
