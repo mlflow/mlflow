@@ -1319,3 +1319,172 @@ def test_register_prompt_with_nested_variables():
         "user.preferences.greeting",
     }
     assert prompt.variables == expected_variables
+
+
+def test_load_prompt_with_text_fallback():
+    """Test load_prompt with fallback returns PromptVersion from fallback template."""
+    # Try to load a non-existent prompt with a text fallback
+    fallback_template = "This is a fallback prompt with {{variable}}"
+    prompt = mlflow.genai.load_prompt(
+        "nonexistent_prompt",
+        version=1,
+        allow_missing=True,
+        fallback=fallback_template,
+        link_to_model=False,
+    )
+
+    # Verify the fallback prompt was created
+    assert prompt is not None
+    assert isinstance(prompt, PromptVersion)
+    assert prompt.template == fallback_template
+    assert prompt.name == "fallback_nonexistent_prompt"
+    assert prompt.version == 0
+    assert prompt.variables == {"variable"}
+    assert prompt.is_text_prompt
+
+
+def test_load_prompt_with_chat_fallback():
+    """Test load_prompt with chat-style fallback template."""
+    # Try to load a non-existent prompt with a chat fallback
+    fallback_template = [
+        {"role": "system", "content": "You are a helpful {{style}} assistant."},
+        {"role": "user", "content": "{{question}}"},
+    ]
+    prompt = mlflow.genai.load_prompt(
+        "nonexistent_chat_prompt",
+        version=1,
+        allow_missing=True,
+        fallback=fallback_template,
+        link_to_model=False,
+    )
+
+    # Verify the fallback prompt was created as a chat prompt
+    assert prompt is not None
+    assert isinstance(prompt, PromptVersion)
+    assert prompt.template == fallback_template
+    assert prompt.name == "fallback_nonexistent_chat_prompt"
+    assert prompt.version == 0
+    assert prompt.variables == {"style", "question"}
+    assert not prompt.is_text_prompt
+
+
+def test_load_prompt_with_fallback_format():
+    """Test that fallback prompts can be formatted correctly."""
+    # Create a fallback prompt with variables
+    fallback_template = "Hello {{name}}, you are {{role}}!"
+    prompt = mlflow.genai.load_prompt(
+        "missing_prompt",
+        version=1,
+        allow_missing=True,
+        fallback=fallback_template,
+        link_to_model=False,
+    )
+
+    # Format the fallback prompt
+    formatted = prompt.format(name="Alice", role="admin")
+    assert formatted == "Hello Alice, you are admin!"
+
+
+def test_load_prompt_without_fallback_returns_none():
+    """Test that load_prompt returns None when no fallback is provided."""
+    # Try to load a non-existent prompt without fallback
+    prompt = mlflow.genai.load_prompt(
+        "definitely_does_not_exist",
+        version=1,
+        allow_missing=True,
+        link_to_model=False,
+    )
+
+    assert prompt is None
+
+
+def test_load_prompt_existing_prompt_ignores_fallback():
+    """Test that fallback is only used when prompt doesn't exist."""
+    # Register a real prompt
+    mlflow.genai.register_prompt(name="real_prompt", template="Real template: {{value}}")
+
+    # Load with fallback - should get the real prompt, not the fallback
+    fallback_template = "Fallback template: {{value}}"
+    prompt = mlflow.genai.load_prompt(
+        "real_prompt",
+        version=1,
+        fallback=fallback_template,
+        link_to_model=False,
+    )
+
+    # Verify we got the real prompt, not the fallback
+    assert prompt.template == "Real template: {{value}}"
+    assert prompt.name == "real_prompt"
+    assert prompt.version == 1
+
+
+def test_load_prompt_fallback_with_uri_format():
+    """Test fallback works with URI format name_or_uri."""
+    # Try to load with URI format
+    fallback_template = "Fallback for URI: {{data}}"
+    prompt = mlflow.genai.load_prompt(
+        "prompts:/missing_prompt/5",
+        allow_missing=True,
+        fallback=fallback_template,
+        link_to_model=False,
+    )
+
+    # Verify the fallback prompt was created
+    assert prompt is not None
+    assert prompt.template == fallback_template
+    # Name should be based on the full URI
+    assert "fallback" in prompt.name.lower()
+
+
+def test_load_prompt_fallback_auto_allows_missing():
+    """Test that fallback automatically enables allow_missing."""
+    fallback_template = "Fallback: {{x}}"
+
+    # Even with allow_missing=False explicitly set, providing fallback should override it
+    # and return the fallback instead of raising an error
+    prompt = mlflow.genai.load_prompt(
+        "nonexistent_strict",
+        version=1,
+        allow_missing=False,  # Explicitly set to False
+        fallback=fallback_template,
+        link_to_model=False,
+    )
+
+    # Should get the fallback, not an error
+    assert prompt is not None
+    assert prompt.template == fallback_template
+    assert prompt.name == "fallback_nonexistent_strict"
+
+
+def test_load_prompt_fallback_with_complex_chat_template():
+    """Test fallback with complex chat template including multiple variables."""
+    fallback_template = [
+        {"role": "system", "content": "You are a {{role}} named {{name}}."},
+        {"role": "user", "content": "{{greeting}}, how do I {{task}}?"},
+        {"role": "assistant", "content": "I can help you with {{task}}."},
+    ]
+
+    prompt = mlflow.genai.load_prompt(
+        "complex_missing",
+        version=1,
+        allow_missing=True,
+        fallback=fallback_template,
+        link_to_model=False,
+    )
+
+    # Verify the fallback prompt
+    assert prompt is not None
+    assert prompt.template == fallback_template
+    assert prompt.variables == {"role", "name", "greeting", "task"}
+    assert not prompt.is_text_prompt
+
+    # Test formatting
+    formatted = prompt.format(
+        role="helpful assistant",
+        name="Alex",
+        greeting="Hello",
+        task="deploy a model",
+    )
+    assert formatted[0]["content"] == "You are a helpful assistant named Alex."
+    assert formatted[1]["content"] == "Hello, how do I deploy a model?"
+    assert formatted[2]["content"] == "I can help you with deploy a model."

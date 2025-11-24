@@ -150,6 +150,7 @@ def load_prompt(
     allow_missing: bool = False,
     link_to_model: bool = True,
     model_id: str | None = None,
+    fallback: str | list[dict[str, Any]] | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -160,9 +161,12 @@ def load_prompt(
         name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
         version: The version of the prompt (required when using name, not allowed when using URI).
         allow_missing: If True, return None instead of raising Exception if the specified prompt
-            is not found.
+            is not found. Note: If ``fallback`` is provided, this is automatically set to True.
         link_to_model: If True, link the prompt to the model.
         model_id: The ID of the model to link the prompt to. Only used if link_to_model is True.
+        fallback: The fallback prompt to use if the prompt loading fails. It follows the same format
+            as the template parameter in ``register_prompt``. When provided, automatically sets
+            ``allow_missing=True``.
 
     Example:
 
@@ -184,6 +188,17 @@ def load_prompt(
 
         # Load the latest version of the prompt by URI
         prompt = mlflow.genai.load_prompt("prompts:/my_prompt@latest")
+
+        # Load the latest version of the prompt with a fallback, if the loading fails, the fallback
+        # template will be used instead.
+        # Note: allow_missing is automatically set to True when fallback is provided
+        prompt = mlflow.genai.load_prompt(
+            "my_prompt",
+            fallback=[
+                {"role": "system", "content": "You are a helpful {{style}} assistant."},
+                {"role": "user", "content": "{{question}}"},
+            ],
+        )
     """
     with suppress_genai_migration_warning():
         return registry_api.load_prompt(
@@ -192,6 +207,7 @@ def load_prompt(
             allow_missing=allow_missing,
             link_to_model=link_to_model,
             model_id=model_id,
+            fallback=fallback,
         )
 
 
