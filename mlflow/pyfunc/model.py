@@ -1077,7 +1077,7 @@ def _save_model_with_class_artifacts_params(
             fetched from huggingface hub using repo_id `prajjwal1/bert-tiny` directly. If ``None``,
             no artifacts are added to the model.
         conda_env: Either a dictionary representation of a Conda environment or the path to a Conda
-            environment yaml file. If provided, this decsribes the environment this model should be
+            environment yaml file. If provided, this describes the environment this model should be
             run in. At minimum, it should specify the dependencies contained in
             :func:`get_default_conda_env()`. If ``None``, the default
             :func:`get_default_conda_env()` environment is added to the model.

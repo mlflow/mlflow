@@ -402,7 +402,7 @@ def _copy_project(src_path, dst_path=""):
         patterns = []
         if os.path.exists(docker_ignore):
             with open(docker_ignore) as f:
-                patterns = [x.strip() for x in f.readlines()]
+                patterns = [x.strip() for x in f]
 
         def ignore(_, names):
             res = set()
