@@ -33,5 +33,5 @@ export const shouldUseTracesV4API = () => {
 };
 
 export const shouldEnableChatSessionsTab = () => {
-  return false;
+  return true;
 };
