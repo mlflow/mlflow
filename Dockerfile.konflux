@@ -1,0 +1,46 @@
+FROM registry.access.redhat.com/ubi9/nodejs-20:9.6 AS ui-builder
+WORKDIR /opt/app-root/src
+USER 0
+RUN npm install -g yarn
+COPY --chown=1001:0 mlflow/server/js/ .
+USER 1001
+RUN yarn install --silent \
+    && yarn build
+
+FROM registry.access.redhat.com/ubi9/python-311:9.6 AS python-builder
+WORKDIR /src
+USER 0
+COPY --chown=1001:0 . .
+RUN set -eux; \
+    python -m pip install --no-cache-dir build; \
+    python -m build --wheel --outdir /tmp/dist; \
+    python -m build --wheel --outdir /tmp/dist kubernetes-workspace-provider
+
+FROM registry.access.redhat.com/ubi9/python-311:9.6
+ARG MLFLOW_VERSION=3.3.2
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+WORKDIR /app
+
+USER 0
+COPY --from=python-builder /tmp/dist/mlflow-*.whl /tmp/dist/
+COPY --from=python-builder /tmp/dist/mlflow_kubernetes_workspace_provider-*.whl /tmp/dist/
+RUN python -m pip install --no-cache-dir /tmp/dist/mlflow-*.whl /tmp/dist/mlflow_kubernetes_workspace_provider-*.whl \
+    && rm -f /tmp/dist/mlflow-*.whl /tmp/dist/mlflow_kubernetes_workspace_provider-*.whl
+
+# Copy built UI from builder stage
+COPY --from=ui-builder /opt/app-root/src/build /tmp/mlflow-ui-build
+
+RUN set -eux; \
+    # Copy the UI build into the installed mlflow package
+    py_site=$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])'); \
+    mkdir -p "$py_site/mlflow/server/js/build"; \
+    rm -rf "$py_site/mlflow/server/js/build"/* || true; \
+    cp -r /tmp/mlflow-ui-build/* "$py_site/mlflow/server/js/build/"; \
+    rm -rf /tmp/mlflow-ui-build
+
+EXPOSE 5000
+
+# Default command. Override in Kubernetes as needed.
+USER 1001
+CMD ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000", "--app-name", "kubernetes-auth", "--enable-workspaces", "--workspace-store-uri", "kubernetes://", "--serve-artifacts"]
