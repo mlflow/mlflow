@@ -134,12 +134,12 @@ def map_mlflow_to_test_case(
     from deepeval.test_case import LLMTestCase
 
     if trace:
-        inputs = resolve_inputs_from_trace(trace, inputs)
-        outputs = resolve_outputs_from_trace(trace, outputs)
-        expectations = resolve_expectations_from_trace(trace, expectations)
+        inputs = resolve_inputs_from_trace(inputs, trace)
+        outputs = resolve_outputs_from_trace(outputs, trace)
+        expectations = resolve_expectations_from_trace(expectations, trace)
 
     context = _dict_to_kv_list(expectations) if expectations else None
-    additional_metadata = trace.info.metadata if trace else {}
+    additional_metadata = trace.info.trace_metadata if trace else {}
     tags = _dict_to_kv_list(trace.info.tags) if trace else []
     completion_time = trace.info.execution_duration * 1000 if trace else None
 
