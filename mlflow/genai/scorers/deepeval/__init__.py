@@ -80,33 +80,42 @@ class DeepEvalScorer(Scorer):
         Returns:
             Feedback object with pass/fail value, rationale, and score in metadata
         """
-        test_case = map_mlflow_to_test_case(
-            metric_name=self.name,
-            inputs=inputs,
-            outputs=outputs,
-            expectations=expectations,
-            trace=trace,
+        assessment_source = AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id=f"deepeval/{self.name}",
         )
 
-        self._metric.measure(test_case)
+        try:
+            test_case = map_mlflow_to_test_case(
+                metric_name=self.name,
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=trace,
+            )
 
-        score = self._metric.score
-        reason = self._metric.reason
-        success = self._metric.is_successful()
+            self._metric.measure(test_case)
 
-        return Feedback(
-            name=self.name,
-            value=CategoricalRating.YES if success else CategoricalRating.NO,
-            rationale=reason,
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id=f"deepeval/{self.name}",
-            ),
-            metadata={
-                "score": score,
-                "threshold": self._metric.threshold,
-            },
-        )
+            score = self._metric.score
+            reason = self._metric.reason
+            success = self._metric.is_successful()
+
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES if success else CategoricalRating.NO,
+                rationale=reason,
+                source=assessment_source,
+                metadata={
+                    "score": score,
+                    "threshold": self._metric.threshold,
+                },
+            )
+        except Exception as e:
+            return Feedback(
+                name=self.name,
+                error=e,
+                source=assessment_source,
+            )
 
 
 def get_judge(

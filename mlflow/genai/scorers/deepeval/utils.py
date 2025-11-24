@@ -41,7 +41,6 @@ def create_deepeval_model(model_uri: str):
         return DatabricksDeepEvalLLM()
     elif ":" in model_uri:
         provider, model_name = model_uri.split(":", 1)
-        provider = provider.lstrip("/")
         model_name = model_name.lstrip("/")
         return LiteLLMModel(model=f"{provider}/{model_name}")
 
