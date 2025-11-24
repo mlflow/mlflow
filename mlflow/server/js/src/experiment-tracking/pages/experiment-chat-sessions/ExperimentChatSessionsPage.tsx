@@ -13,15 +13,17 @@ import {
   createTraceLocationForUCSchema,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
-import { useMonitoringConfig } from '../../hooks/useMonitoringConfig';
+import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
 import { SESSION_ID_METADATA_KEY, shouldUseTracesV4API } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { getChatSessionsFilter } from './utils';
 import { ExperimentChatSessionsPageWrapper } from './ExperimentChatSessionsPageWrapper';
+import { useGetDeleteTracesAction } from '../../components/experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
 
 const ExperimentChatSessionsPageImpl = () => {
   const { experimentId } = useParams();
+  const [searchQuery, setSearchQuery] = useState<string>('');
   invariant(experimentId, 'Experiment ID must be defined');
 
   const [monitoringFilters] = useMonitoringFilters();
@@ -61,8 +63,15 @@ const ExperimentChatSessionsPageImpl = () => {
     locations: traceSearchLocations,
     timeRange,
     filters,
+    searchQuery,
     disabled: false,
   });
+
+  const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations });
+
+  const traceActions = {
+    deleteTracesAction,
+  };
 
   // the tab will not be added to the navbar if this is disbled, but just
   // in case users navigate to it directly, we return an empty div to
@@ -77,7 +86,14 @@ const ExperimentChatSessionsPageImpl = () => {
         // prettier-ignore
         viewState="sessions"
       />
-      <GenAIChatSessionsTable experimentId={experimentId} traces={traces ?? []} isLoading={isLoading || isFetching} />
+      <GenAIChatSessionsTable
+        experimentId={experimentId}
+        traces={traces ?? []}
+        isLoading={isLoading}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        traceActions={traceActions}
+      />
     </div>
   );
 };
@@ -85,7 +101,9 @@ const ExperimentChatSessionsPageImpl = () => {
 const ExperimentChatSessionsPage = () => {
   return (
     <ExperimentChatSessionsPageWrapper>
-      <ExperimentChatSessionsPageImpl />
+      <MonitoringConfigProvider>
+        <ExperimentChatSessionsPageImpl />
+      </MonitoringConfigProvider>
     </ExperimentChatSessionsPageWrapper>
   );
 };

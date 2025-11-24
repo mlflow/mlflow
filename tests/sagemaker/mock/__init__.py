@@ -1047,7 +1047,7 @@ class ModelDescription:
             "ModelName": self.model.model_name,
             "PrimaryContainer": self.model.primary_container,
             "ExecutionRoleArn": self.model.execution_role_arn,
-            "VpcConfig": self.model.vpc_config if self.model.vpc_config else {},
+            "VpcConfig": self.model.vpc_config or {},
             "CreationTime": self.model.creation_time,
         }
 
