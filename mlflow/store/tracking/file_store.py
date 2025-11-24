@@ -2387,20 +2387,37 @@ class FileStore(AbstractStore):
             )
         os.remove(tag_path)
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
 
         Args:
             model_id: ID of the model to fetch.
+            allow_deleted: If ``True``, allow fetching logged models in the deleted lifecycle
+                stage. Defaults to ``False``.
 
         Returns:
             The fetched model.
         """
-        return LoggedModel.from_dictionary(self._get_model_dict(model_id))
+        if not allow_deleted:
+            return LoggedModel.from_dictionary(self._get_model_dict(model_id))
+
+        exp_id, model_dir = self._find_model_root(model_id)
+        if model_dir is None:
+            raise MlflowException(
+                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            )
+
+        model = self._get_model_from_dir(model_dir)
+        if model.experiment_id != exp_id:
+            raise MlflowException(
+                f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
+            )
+        return model
 
     def delete_logged_model(self, model_id: str) -> None:
         model = self.get_logged_model(model_id)
+        model.last_updated_timestamp = get_current_time_millis()
         model_dict = self._make_persisted_model_dict(model)
         model_dict["lifecycle_stage"] = LifecycleStage.DELETED
         model_dir = self._get_model_dir(model.experiment_id, model.model_id)
@@ -2410,6 +2427,41 @@ class FileStore(AbstractStore):
             model_dict,
             overwrite=True,
         )
+
+    def _hard_delete_logged_model(self, model_id: str) -> None:
+        model = self.get_logged_model(model_id, allow_deleted=True)
+        model_dir = self._get_model_dir(model.experiment_id, model.model_id)
+        shutil.rmtree(model_dir)
+
+    def _get_deleted_logged_models(self, older_than=0) -> list[str]:
+        current_time = get_current_time_millis()
+        experiment_ids = self._get_active_experiments(False) + self._get_deleted_experiments(False)
+        deleted_models = []
+        for exp_id in experiment_ids:
+            experiment_dir = self._get_experiment_path(exp_id, assert_exists=True)
+            models_folder = os.path.join(experiment_dir, FileStore.MODELS_FOLDER_NAME)
+            if not exists(models_folder):
+                continue
+            model_dirs = list_all(
+                models_folder,
+                filter_func=lambda path: all(
+                    os.path.basename(os.path.normpath(path)) != reservedFolderName
+                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                )
+                and os.path.isdir(path),
+                full_path=True,
+            )
+            for m_dir in model_dirs:
+                try:
+                    m_dict = self._get_model_info_from_dir(m_dir)
+                except MissingConfigException:
+                    continue
+                if (
+                    m_dict.get("lifecycle_stage") == LifecycleStage.DELETED
+                    and m_dict.get("last_updated_timestamp", 0) <= current_time - older_than
+                ):
+                    deleted_models.append(m_dict["model_id"])
+        return deleted_models
 
     def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
         return append_to_uri_path(

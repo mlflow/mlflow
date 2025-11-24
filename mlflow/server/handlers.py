@@ -3505,7 +3505,8 @@ def _log_logged_model_params(model_id: str):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_logged_model(model_id: str):
-    model = _get_tracking_store().get_logged_model(model_id)
+    allow_deleted = request.args.get("allow_deleted", "false").lower() == "true"
+    model = _get_tracking_store().get_logged_model(model_id, allow_deleted=allow_deleted)
     response_message = GetLoggedModel.Response(model=model.to_proto())
     return _wrap_response(response_message)
 

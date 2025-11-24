@@ -973,17 +973,21 @@ class RestStore(AbstractStore):
                 LogLoggedModelParamsRequest, json_body=req_body, endpoint=f"{endpoint}/params"
             )
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
 
         Args:
             model_id: ID of the model to fetch.
+            allow_deleted: If ``True``, allow fetching logged models in the deleted lifecycle
+                stage. Defaults to ``False``.
 
         Returns:
             The fetched model.
         """
         endpoint = get_logged_model_endpoint(model_id)
+        if allow_deleted:
+            endpoint = f"{endpoint}?allow_deleted=true"
         response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
 
