@@ -10,6 +10,7 @@ from unittest import mock
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
+import click
 import numpy as np
 import pandas as pd
 import pytest
@@ -22,6 +23,7 @@ from mlflow import pyfunc
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
 from mlflow.entities import ViewType
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE_URI
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -34,12 +36,45 @@ from mlflow.utils.time import get_current_time_millis
 from tests.helper_functions import PROTOBUF_REQUIREMENT, get_safe_port, pyfunc_serve_and_score_model
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
+for _param in server.params:
+    if "--enable-workspaces" in _param.opts:
+        _param.default = False
+        break
+
+
+@pytest.fixture(autouse=True)
+def _reset_workspace_env(monkeypatch):
+    """
+    Ensure tests don't inherit workspace-enabled state from the environment.
+    Individual tests can still opt-in by setting the env var explicitly.
+    """
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    monkeypatch.delenv(MLFLOW_WORKSPACE_URI.name, raising=False)
+
+
+def _workspace_disabled_env():
+    """
+    Return a copy of the process environment without workspace-specific flags.
+    This ensures spawned subprocesses don't accidentally inherit workspace config.
+    """
+    env = os.environ.copy()
+    env.pop(MLFLOW_ENABLE_WORKSPACES.name, None)
+    env.pop(MLFLOW_WORKSPACE_URI.name, None)
+    return env
+
+
+def invoke_server(args=None, **kwargs):
+    args = list(args) if args else []
+    if not any(flag in args for flag in ("--enable-workspaces", "--no-enable-workspaces")):
+        args.insert(0, "--no-enable-workspaces")
+    return CliRunner().invoke(server, args, **kwargs)
+
 
 @pytest.mark.parametrize("command", ["server"])
 def test_mlflow_server_command(command):
     port = get_safe_port()
     cmd = ["mlflow", command, "--port", str(port)]
-    process = subprocess.Popen(cmd)
+    process = subprocess.Popen(cmd, env=_workspace_disabled_env())
     try:
         _await_server_up_or_die(port)
         resp = requests.get(f"http://localhost:{port}/health")
@@ -51,17 +86,17 @@ def test_mlflow_server_command(command):
 
 def test_server_static_prefix_validation():
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server)
+        invoke_server()
         run_server_mock.assert_called_once()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--static-prefix", "/mlflow"])
+        invoke_server(["--static-prefix", "/mlflow"])
         run_server_mock.assert_called_once()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        result = CliRunner().invoke(server, ["--static-prefix", "mlflow/"])
+        result = invoke_server(["--static-prefix", "mlflow/"])
         assert "--static-prefix must begin with a '/'." in result.output
         run_server_mock.assert_not_called()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        result = CliRunner().invoke(server, ["--static-prefix", "/mlflow/"])
+        result = invoke_server(["--static-prefix", "/mlflow/"])
         assert "--static-prefix should not end with a '/'." in result.output
         run_server_mock.assert_not_called()
 
@@ -70,7 +105,7 @@ def test_server_uvicorn_options():
     """Test that uvicorn options are properly handled."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test default behavior (uvicorn should be used when no server options specified)
-        CliRunner().invoke(server)
+        invoke_server()
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
             registry_store_uri=mock.ANY,
@@ -92,7 +127,7 @@ def test_server_uvicorn_options():
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test with uvicorn-opts - use different options than dev mode
-        CliRunner().invoke(server, ["--uvicorn-opts", "--loop asyncio --limit-concurrency 100"])
+        invoke_server(["--uvicorn-opts", "--loop asyncio --limit-concurrency 100"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
             registry_store_uri=mock.ANY,
@@ -118,7 +153,7 @@ def test_server_dev_mode():
     """Test that --dev flag sets proper uvicorn options."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test with --dev flag (should set uvicorn opts)
-        CliRunner().invoke(server, ["--dev"])
+        invoke_server(["--dev"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
             registry_store_uri=mock.ANY,
@@ -144,7 +179,7 @@ def test_server_gunicorn_options():
     """Test that gunicorn options are properly handled."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test that gunicorn-opts disables uvicorn
-        CliRunner().invoke(server, ["--gunicorn-opts", "--timeout 120 --max-requests 1000"])
+        invoke_server(["--gunicorn-opts", "--timeout 120 --max-requests 1000"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
             registry_store_uri=mock.ANY,
@@ -165,9 +200,7 @@ def test_server_gunicorn_options():
         )
 
     # Test conflicting options
-    result = CliRunner().invoke(
-        server, ["--uvicorn-opts", "--reload", "--gunicorn-opts", "--log-level debug"]
-    )
+    result = invoke_server(["--uvicorn-opts", "--reload", "--gunicorn-opts", "--log-level debug"])
     assert result.exit_code != 0
     assert "Cannot specify multiple server options" in result.output
 
@@ -176,38 +209,184 @@ def test_server_mlflow_artifacts_options():
     handlers._tracking_store = None
     handlers._model_registry_store = None
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only"])
+        invoke_server(["--artifacts-only"])
         run_server_mock.assert_called_once()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--serve-artifacts"])
+        invoke_server(["--serve-artifacts"])
         run_server_mock.assert_called_once()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--no-serve-artifacts"])
+        invoke_server(["--no-serve-artifacts"])
         run_server_mock.assert_called_once()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only"])
+        invoke_server(["--artifacts-only"])
         run_server_mock.assert_called_once()
+
+
+def test_server_artifacts_only_conflicts_with_enable_workspaces():
+    with pytest.raises(
+        click.UsageError, match="--enable-workspaces cannot be combined with --artifacts-only"
+    ):
+        invoke_server(
+            ["--artifacts-only", "--enable-workspaces"],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
+def test_server_workspace_uri_sets_env_when_workspaces_enabled(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    workspace_uri = f"sqlite:///{tmp_path / 'workspace.db'}"
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root_path = tmp_path / "artifacts"
+    artifact_root_path.mkdir()
+    artifact_root = artifact_root_path.as_uri()
+
+    MLFLOW_WORKSPACE_URI.unset()
+    MLFLOW_ENABLE_WORKSPACES.unset()
+
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = invoke_server(
+                [
+                    "--enable-workspaces",
+                    "--workspace-store-uri",
+                    workspace_uri,
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            run_server_mock.assert_called_once()
+            init_backend.assert_called_once()
+            args, kwargs = init_backend.call_args
+            # initialize_backend_stores(backend_store_uri, registry_store_uri,
+            # default_artifact_root, *, workspace_store_uri=...)
+            assert kwargs["workspace_store_uri"] == workspace_uri
+            assert os.environ["MLFLOW_WORKSPACE_URI"] == workspace_uri
+            assert MLFLOW_ENABLE_WORKSPACES.get() is True
+    finally:
+        MLFLOW_WORKSPACE_URI.unset()
+        MLFLOW_ENABLE_WORKSPACES.unset()
+
+
+def test_server_workspace_uri_warns_without_enable(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    workspace_uri = f"sqlite:///{tmp_path / 'workspace.db'}"
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root_path = tmp_path / "artifacts"
+    artifact_root_path.mkdir()
+    artifact_root = artifact_root_path.as_uri()
+
+    MLFLOW_WORKSPACE_URI.unset()
+    MLFLOW_ENABLE_WORKSPACES.unset()
+
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+            mock.patch("mlflow.cli._logger.warning") as warn_mock,
+        ):
+            result = invoke_server(
+                [
+                    "--workspace-store-uri",
+                    workspace_uri,
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                    "--no-enable-workspaces",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            run_server_mock.assert_called_once()
+            init_backend.assert_called_once()
+            warn_mock.assert_called_once()
+            args, kwargs = init_backend.call_args
+            assert kwargs["workspace_store_uri"] == workspace_uri
+            warning_msg = warn_mock.call_args[0][0]
+            expect_warning = "--workspace-store-uri was provided but workspaces are not enabled"
+            assert expect_warning in warning_msg
+            assert "MLFLOW_WORKSPACE_URI" not in os.environ
+            assert MLFLOW_ENABLE_WORKSPACES.get() is False
+    finally:
+        MLFLOW_WORKSPACE_URI.unset()
+        MLFLOW_ENABLE_WORKSPACES.unset()
+
+
+def test_server_workspace_uri_cli_overrides_env(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    existing_workspace_uri = f"sqlite:///{tmp_path / 'existing-workspace.db'}"
+    new_workspace_uri = f"sqlite:///{tmp_path / 'workspace.db'}"
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root_path = tmp_path / "artifacts"
+    artifact_root_path.mkdir()
+    artifact_root = artifact_root_path.as_uri()
+
+    MLFLOW_WORKSPACE_URI.set(existing_workspace_uri)
+    MLFLOW_ENABLE_WORKSPACES.set(False)
+
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = invoke_server(
+                [
+                    "--enable-workspaces",
+                    "--workspace-store-uri",
+                    new_workspace_uri,
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            run_server_mock.assert_called_once()
+            init_backend.assert_called_once()
+            args, kwargs = init_backend.call_args
+            assert kwargs["workspace_store_uri"] == new_workspace_uri
+            assert os.environ["MLFLOW_WORKSPACE_URI"] == new_workspace_uri
+            assert MLFLOW_ENABLE_WORKSPACES.get() is True
+    finally:
+        MLFLOW_WORKSPACE_URI.unset()
+        MLFLOW_ENABLE_WORKSPACES.unset()
 
 
 @pytest.mark.parametrize("command", [server])
 def test_tracking_uri_validation_failure(command):
+    assert command is server
     handlers._tracking_store = None
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # SQLAlchemy expects postgresql:// not postgres://
-        CliRunner().invoke(
-            command,
+        invoke_server(
             [
                 "--backend-store-uri",
                 "postgres://user:pwd@host:5432/mydb",
                 "--default-artifact-root",
                 "./mlruns",
-            ],
+            ]
         )
         run_server_mock.assert_not_called()
 
 
 @pytest.mark.parametrize("command", [server])
 def test_tracking_uri_validation_sql_driver_uris(command):
+    assert command is server
     handlers._tracking_store = None
     handlers._model_registry_store = None
     with (
@@ -215,14 +394,13 @@ def test_tracking_uri_validation_sql_driver_uris(command):
         mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"),
         mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"),
     ):
-        result = CliRunner().invoke(
-            command,
+        result = invoke_server(
             [
                 "--backend-store-uri",
                 "mysql+pymysql://user:pwd@host:5432/mydb",
                 "--default-artifact-root",
                 "./mlruns",
-            ],
+            ]
         )
         assert result.exit_code == 0
         run_server_mock.assert_called()
@@ -233,6 +411,7 @@ def test_tracking_uri_validation_sql_driver_uris(command):
 
 @pytest.mark.parametrize("command", [server])
 def test_registry_store_uri_different_from_tracking_store(command):
+    assert command is server
     handlers._tracking_store = None
     handlers._model_registry_store = None
 
@@ -251,14 +430,13 @@ def test_registry_store_uri_different_from_tracking_store(command):
             "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"
         ) as registry_store,
     ):
-        result = CliRunner().invoke(
-            command,
+        result = invoke_server(
             [
                 "--backend-store-uri",
                 "./mlruns",
                 "--registry-store-uri",
                 "mysql://user:pwd@host:5432/mydb",
-            ],
+            ]
         )
         assert result.exit_code == 0
         run_server_mock.assert_called()
@@ -318,7 +496,8 @@ def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
             "gc",
             "--backend-store-uri",
             sqlite_store[1],
-        ]
+        ],
+        env=_workspace_disabled_env(),
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
@@ -350,6 +529,7 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
             check=True,
             capture_output=True,
             text=True,
+            env=_workspace_disabled_env(),
         )
     assert "is not older than the required age" in exp.value.stderr
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
@@ -368,7 +548,8 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
             "1s",
             "--run-ids",
             run.info.run_id,
-        ]
+        ],
+        env=_workspace_disabled_env(),
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
@@ -380,7 +561,8 @@ def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
     run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
     store.delete_run(run.info.run_id)
     subprocess.check_output(
-        [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", file_store[1]]
+        [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", file_store[1]],
+        env=_workspace_disabled_env(),
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
@@ -405,7 +587,8 @@ def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
             file_store[1],
             "--run-ids",
             run.info.run_id,
-        ]
+        ],
+        env=_workspace_disabled_env(),
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
@@ -427,7 +610,8 @@ def test_mlflow_gc_not_deleted_run(file_store):
                 file_store[1],
                 "--run-ids",
                 run.info.run_id,
-            ]
+            ],
+            env=_workspace_disabled_env(),
         )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 1
@@ -454,6 +638,7 @@ def test_mlflow_gc_file_store_older_than(file_store):
             check=True,
             capture_output=True,
             text=True,
+            env=_workspace_disabled_env(),
         )
     assert "is not older than the required age" in exp.value.stderr
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
@@ -472,7 +657,8 @@ def test_mlflow_gc_file_store_older_than(file_store):
             "1s",
             "--run-ids",
             run.info.run_id,
-        ]
+        ],
+        env=_workspace_disabled_env(),
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
@@ -647,7 +833,7 @@ def test_mlflow_models_serve(enable_mlserver):
 def test_mlflow_tracking_disabled_in_artifacts_only_mode():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    process = subprocess.Popen(cmd)
+    process = subprocess.Popen(cmd, env=_workspace_disabled_env())
     _await_server_up_or_die(port)
     resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
     assert (
@@ -660,7 +846,7 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
 def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    with subprocess.Popen(cmd, cwd=tmp_path) as process:
+    with subprocess.Popen(cmd, cwd=tmp_path, env=_workspace_disabled_env()) as process:
         try:
             _await_server_up_or_die(port)
             resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
@@ -674,7 +860,7 @@ def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
-    process = subprocess.Popen(cmd)
+    process = subprocess.Popen(cmd, env=_workspace_disabled_env())
     try:
         _await_server_up_or_die(port)
         endpoint = "/api/2.0/mlflow-artifacts/artifacts"
@@ -693,8 +879,7 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
         mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"),
         mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"),
     ):
-        result = CliRunner().invoke(
-            server,
+        result = invoke_server(
             ["--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
             catch_exceptions=False,
         )
@@ -710,10 +895,14 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
 
 def test_mlflow_ui_is_alias_for_mlflow_server():
     mlflow_ui_stdout = subprocess.check_output(
-        [sys.executable, "-m", "mlflow", "ui", "--help"], text=True
+        [sys.executable, "-m", "mlflow", "ui", "--help"],
+        text=True,
+        env=_workspace_disabled_env(),
     )
     mlflow_server_stdout = subprocess.check_output(
-        [sys.executable, "-m", "mlflow", "server", "--help"], text=True
+        [sys.executable, "-m", "mlflow", "server", "--help"],
+        text=True,
+        env=_workspace_disabled_env(),
     )
     assert (
         mlflow_ui_stdout.replace("Usage: python -m mlflow ui", "Usage: python -m mlflow server")
@@ -730,6 +919,7 @@ def test_cli_with_python_mod():
             "--version",
         ],
         text=True,
+        env=_workspace_disabled_env(),
     )
     assert stdout.rstrip().endswith(mlflow.__version__)
     stdout = subprocess.check_output(
@@ -741,6 +931,7 @@ def test_cli_with_python_mod():
             "--help",
         ],
         text=True,
+        env=_workspace_disabled_env(),
     )
     assert "mlflow server" in stdout
 
@@ -807,7 +998,9 @@ def test_server_with_env_file(tmp_path):
     env_file.write_text("TEST_VAR=test_value\n")
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        result = CliRunner().invoke(cli, ["--env-file", str(env_file), "server"])
+        result = CliRunner().invoke(
+            cli, ["--env-file", str(env_file), "server", "--no-enable-workspaces"]
+        )
         assert result.exit_code == 0
         run_server_mock.assert_called_once()
         # Verify env_file parameter is passed
@@ -838,7 +1031,8 @@ def test_mlflow_gc_with_datasets(sqlite_store):
     assert len(experiments) == 2
 
     subprocess.check_call(
-        [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", sqlite_store[1]]
+        [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", sqlite_store[1]],
+        env=_workspace_disabled_env(),
     )
     experiments = store.search_experiments(view_type=ViewType.ALL)
 

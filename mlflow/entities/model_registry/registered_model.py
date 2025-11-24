@@ -9,6 +9,7 @@ from mlflow.entities.model_registry.registered_model_tag import RegisteredModelT
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
 from mlflow.protos.model_registry_pb2 import RegisteredModelAlias as ProtoRegisteredModelAlias
 from mlflow.protos.model_registry_pb2 import RegisteredModelTag as ProtoRegisteredModelTag
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class RegisteredModel(_ModelRegistryEntity):
@@ -27,6 +28,7 @@ class RegisteredModel(_ModelRegistryEntity):
         aliases=None,
         deployment_job_id=None,
         deployment_job_state=None,
+        workspace: str | None = None,
     ):
         # Constructor is called only from within the system by various backend stores.
         super().__init__()
@@ -39,6 +41,7 @@ class RegisteredModel(_ModelRegistryEntity):
         self._aliases = {alias.alias: alias.version for alias in (aliases or [])}
         self._deployment_job_id = deployment_job_id
         self._deployment_job_state = deployment_job_state
+        self._workspace = resolve_entity_workspace_name(workspace)
 
     @property
     def name(self):
@@ -100,6 +103,11 @@ class RegisteredModel(_ModelRegistryEntity):
         """Dictionary of aliases (string) -> version for the current registered model."""
         return self._aliases
 
+    @property
+    def workspace(self) -> str:
+        """Workspace name for the registered model."""
+        return self._workspace
+
     @classmethod
     def _properties(cls):
         # aggregate with base class properties since cls.__dict__ does not do it automatically
@@ -130,12 +138,15 @@ class RegisteredModel(_ModelRegistryEntity):
     def from_proto(cls, proto):
         # input: mlflow.protos.model_registry_pb2.RegisteredModel
         # returns RegisteredModel entity
+        # Workspace is intentionally derived from the request context (falling back to the active
+        # workspace resolver) and therefore is not persisted in the ProtoRegisteredModel.
         registered_model = cls(
             proto.name,
             proto.creation_timestamp,
             proto.last_updated_timestamp,
             proto.description,
             [ModelVersion.from_proto(mvd) for mvd in proto.latest_versions],
+            workspace=None,
         )
         for tag in proto.tags:
             registered_model._add_tag(RegisteredModelTag.from_proto(tag))
@@ -176,4 +187,6 @@ class RegisteredModel(_ModelRegistryEntity):
                 for alias, version in self._aliases.items()
             ]
         )
+        # Workspace is intentionally omitted because it is derived from the active context rather
+        # than read from ProtoRegisteredModel serialization.
         return rmd

@@ -1730,7 +1730,10 @@ def test_delete_model_version_deletes_alias(store):
     store.delete_model_version(model_name, 2)
     model = store.get_registered_model(model_name)
     assert model.aliases == {}
-    with pytest.raises(MlflowException, match=r"Registered model alias test_alias not found."):
+    with pytest.raises(
+        MlflowException,
+        match=r"Registered model alias test_alias not found.",
+    ):
         store.get_model_version_by_alias(model_name, "test_alias")
 
 
@@ -1740,7 +1743,7 @@ def test_delete_model_deletes_alias(store):
     store.delete_registered_model(model_name)
     with pytest.raises(
         MlflowException,
-        match=r"Registered model alias test_alias not found.",
+        match=rf"Registered Model with name={model_name} not found",
     ):
         store.get_model_version_by_alias(model_name, "test_alias")
 

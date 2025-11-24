@@ -24,6 +24,7 @@ from mlflow.utils.uri import (
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
+_SERVER_ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
 
 
 def _has_existing_mlruns_data() -> bool:
@@ -181,7 +182,9 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
     if artifact_uri is None:
-        artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        artifact_uri = os.environ.get(
+            _SERVER_ARTIFACT_ROOT_ENV_VAR, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        )
     return SqlAlchemyStore(store_uri, artifact_uri)
 
 

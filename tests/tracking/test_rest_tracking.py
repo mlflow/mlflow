@@ -9,11 +9,13 @@ import math
 import os
 import pathlib
 import posixpath
+import re
 import shutil
 import subprocess
 import sys
 import time
 import urllib.parse
+import uuid
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -23,7 +25,9 @@ import pandas as pd
 import pytest
 import requests
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from werkzeug.datastructures import Authorization
 
+import mlflow
 import mlflow.experiments
 import mlflow.pyfunc
 from mlflow import MlflowClient
@@ -53,6 +57,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
     MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
@@ -66,6 +71,7 @@ from mlflow.genai.datasets import (
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import handlers
+from mlflow.server.auth.permissions import READ
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -73,6 +79,7 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import build_otel_context
+from mlflow.tracking._workspace.context import WorkspaceContext, get_current_workspace
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
@@ -87,6 +94,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 from tests.helper_functions import get_safe_port
 from tests.integration.utils import invoke_cli_runner
@@ -102,6 +110,8 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def store_type(request):
     """Provides the store type for parameterized tests."""
+    if MLFLOW_ENABLE_WORKSPACES.get() and request.param == "file":
+        pytest.skip("File backend does not support workspaces.")
     return request.param
 
 
@@ -134,8 +144,89 @@ def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
     handlers._model_registry_store = None
     initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
 
-    with ServerThread(app, get_safe_port()) as url:
-        yield MlflowClient(url)
+    previous_registry_uri = mlflow.get_registry_uri()
+    previous_tracking_uri = mlflow.get_tracking_uri()
+
+    try:
+        with ServerThread(app, get_safe_port()) as url:
+            if store_type == "sqlalchemy":
+                mlflow.set_registry_uri(url)
+            mlflow.set_tracking_uri(url)
+            yield MlflowClient(url)
+    finally:
+        mlflow.set_registry_uri(previous_registry_uri)
+        mlflow.set_tracking_uri(previous_tracking_uri)
+
+
+@pytest.fixture
+def workspace_mlflow_client(
+    store_type: str, tmp_path: Path, cached_db: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Provides an MLflow client with workspaces enabled against the local tracking server."""
+
+    if store_type != "sqlalchemy":
+        pytest.skip("Workspace REST tests require a SQL-backed store")
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    default_artifact_root = artifact_dir.as_uri()
+
+    db_path = tmp_path / "mlflow.db"
+    shutil.copy(cached_db, db_path)
+    backend_uri = f"sqlite:///{db_path}"
+    registry_uri = backend_uri
+    workspace_uri = backend_uri
+
+    from mlflow.entities.workspace import Workspace as WorkspaceEntity
+    from mlflow.store.workspace.dbmodels.models import SqlWorkspace
+    from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore as WorkspaceSQLStore
+    from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+    init_store = WorkspaceSQLStore(workspace_uri)
+    SqlWorkspace.__table__.create(init_store._engine, checkfirst=True)
+    try:
+        for name, desc in [
+            (DEFAULT_WORKSPACE_NAME, "Default workspace"),
+            ("team-a", "Team A workspace"),
+        ]:
+            try:
+                init_store.create_workspace(WorkspaceEntity(name=name, description=desc))
+            except MlflowException:
+                pass
+    finally:
+        init_store._engine.dispose()
+
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    handlers._workspace_store = None
+
+    initialize_backend_stores(
+        backend_store_uri=backend_uri,
+        registry_store_uri=registry_uri,
+        default_artifact_root=default_artifact_root,
+        workspace_store_uri=workspace_uri,
+    )
+
+    previous_registry_uri = mlflow.get_registry_uri()
+    previous_tracking_uri = mlflow.get_tracking_uri()
+
+    try:
+        with ServerThread(app, get_safe_port()) as url:
+            mlflow.set_registry_uri(url)
+            mlflow.set_tracking_uri(url)
+            yield MlflowClient(url)
+    finally:
+        mlflow.set_registry_uri(previous_registry_uri)
+        mlflow.set_tracking_uri(previous_tracking_uri)
+        handlers._tracking_store = None
+        handlers._model_registry_store = None
+        handlers._workspace_store = None
+
+        from mlflow.server import workspace_helpers
+
+        workspace_helpers._workspace_store = None
 
 
 @pytest.fixture
@@ -623,7 +714,7 @@ def test_path_validation(mlflow_client):
 
     def assert_response(resp):
         assert resp.status_code == 400
-        assert response.json() == {
+        assert resp.json() == {
             "error_code": "INVALID_PARAMETER_VALUE",
             "message": "Invalid path",
         }
@@ -1567,7 +1658,7 @@ def test_create_model_version_with_path_source(mlflow_client):
     assert "To use a local path as a model version" in response.json()["message"]
 
 
-def test_create_model_version_with_non_local_source(mlflow_client):
+def test_create_model_version_with_non_local_source(mlflow_client, store_type: str):
     name = "model"
     mlflow_client.create_registered_model(name)
     exp_id = mlflow_client.create_experiment("test")
@@ -1737,36 +1828,37 @@ def test_create_model_version_with_non_local_source(mlflow_client):
     assert response.status_code == 400
     assert "Invalid model version source" in response.json()["message"]
 
-    model = mlflow_client.create_logged_model(experiment_id=exp_id)
-    response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
-        json={
-            "name": name,
-            "source": model.artifact_location,
-            "model_id": model.model_id,
-        },
-    )
-    assert response.status_code == 200
+    if store_type == "sqlalchemy":
+        model = mlflow_client.create_logged_model(experiment_id=exp_id)
+        response = requests.post(
+            f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+            json={
+                "name": name,
+                "source": model.artifact_location,
+                "model_id": model.model_id,
+            },
+        )
+        assert response.status_code == 200
 
-    response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
-        json={
-            "name": name,
-            "source": model.model_uri,
-            "model_id": model.model_id,
-        },
-    )
-    assert response.status_code == 200
+        response = requests.post(
+            f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+            json={
+                "name": name,
+                "source": model.model_uri,
+                "model_id": model.model_id,
+            },
+        )
+        assert response.status_code == 200
 
-    response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
-        json={
-            "name": name,
-            "source": "file:///path/to/model",
-            "model_id": model.model_id,
-        },
-    )
-    assert response.status_code == 400
+        response = requests.post(
+            f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+            json={
+                "name": name,
+                "source": "file:///path/to/model",
+                "model_id": model.model_id,
+            },
+        )
+        assert response.status_code == 400
 
 
 def test_create_model_version_with_file_uri(mlflow_client):
@@ -3323,6 +3415,30 @@ def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
     assert captured_output.getvalue() == ""
 
 
+def test_log_url_uses_legacy_route_without_workspace(mlflow_client: MlflowClient, monkeypatch):
+    exp_id = mlflow_client.create_experiment("test_log_url_default_route")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    mlflow_client._tracking_client._supports_workspaces = True
+    captured_output = StringIO()
+    monkeypatch.setattr(sys, "stdout", captured_output)
+    mlflow_client._tracking_client._log_url(run.info.run_id)
+    output = captured_output.getvalue()
+    assert f"/#/experiments/{exp_id}" in output
+    assert "/workspaces/" not in output
+
+
+def test_log_url_includes_workspace_segment(workspace_mlflow_client: MlflowClient, monkeypatch):
+    workspace_mlflow_client._tracking_client._supports_workspaces = True
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_mlflow_client.create_experiment("test_log_url_workspace_route")
+        run = workspace_mlflow_client.create_run(experiment_id=exp_id)
+        captured_output = StringIO()
+        monkeypatch.setattr(sys, "stdout", captured_output)
+        workspace_mlflow_client._tracking_client._log_url(run.info.run_id)
+    output = captured_output.getvalue()
+    assert f"/#/workspaces/{urllib.parse.quote('team-a', safe='')}/experiments/{exp_id}" in output
+
+
 def test_assessments_end_to_end(mlflow_client):
     """Test complete assessment CRUD workflow using REST API."""
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
@@ -3977,6 +4093,582 @@ def test_scorer_CRUD(mlflow_client, store_type):
     mlflow_client.delete_experiment(experiment_id)
 
 
+def test_rest_workspace_crud(workspace_mlflow_client):
+    client = workspace_mlflow_client
+    workspace_name = f"team-{uuid.uuid4().hex[:8]}"
+
+    created = client.create_workspace(workspace_name, description="initial description")
+    assert created.name == workspace_name
+    assert created.description == "initial description"
+
+    fetched = client.get_workspace(workspace_name)
+    assert fetched.name == workspace_name
+    assert fetched.description == "initial description"
+
+    updated = client.update_workspace(workspace_name, description="updated description")
+    assert updated.description == "updated description"
+
+    names = {ws.name for ws in client.list_workspaces()}
+    assert workspace_name in names
+
+    client.delete_workspace(workspace_name)
+    names_after_delete = {ws.name for ws in client.list_workspaces()}
+    assert workspace_name not in names_after_delete
+
+    with pytest.raises(MlflowException, match=f"Workspace '{workspace_name}' not found"):
+        client.get_workspace(workspace_name)
+
+
+def test_rest_tracking_respects_workspace_context(workspace_mlflow_client):
+    client = workspace_mlflow_client
+    team_a = f"team-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"team-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    with WorkspaceContext(team_a):
+        exp_a = client.create_experiment("rest-workspace-exp-a")
+        run_a = client.create_run(exp_a)
+        run_a_id = run_a.info.run_id
+        client.log_metric(run_a_id, key="accuracy", value=0.9)
+        fetched_run_a = client.get_run(run_a_id)
+        assert fetched_run_a.info.run_id == run_a_id
+        assert fetched_run_a.info.experiment_id == exp_a
+        run_ids = {run.info.run_id for run in client.search_runs([exp_a])}
+        assert run_a_id in run_ids
+
+    with WorkspaceContext(team_b):
+        exp_b = client.create_experiment("rest-workspace-exp-b")
+        with pytest.raises(MlflowException, match=f"No Experiment with id={exp_a} exists"):
+            client.get_experiment(exp_a)
+        with pytest.raises(MlflowException, match=f"Run with id={run_a_id} not found"):
+            client.get_run(run_a_id)
+        runs = client.search_runs([exp_a])
+        assert runs == []
+        run_b = client.create_run(exp_b)
+        run_b_id = run_b.info.run_id
+        client.log_metric(run_b_id, key="accuracy", value=0.95)
+
+    with WorkspaceContext(team_a):
+        assert client.get_experiment(exp_a).name == "rest-workspace-exp-a"
+        names = {exp.name for exp in client.search_experiments()}
+        assert "rest-workspace-exp-a" in names
+        assert "rest-workspace-exp-b" not in names
+        with pytest.raises(MlflowException, match=f"No Experiment with id={exp_b} exists"):
+            client.get_experiment(exp_b)
+        with pytest.raises(MlflowException, match=f"Run with id={run_b_id} not found"):
+            client.get_run(run_b_id)
+        runs = client.search_runs([exp_b])
+        assert runs == []
+        run_ids = {run.info.run_id for run in client.search_runs([exp_a])}
+        assert run_a_id in run_ids
+
+    with WorkspaceContext(team_b):
+        assert client.get_experiment(exp_b).name == "rest-workspace-exp-b"
+        names = {exp.name for exp in client.search_experiments()}
+        assert "rest-workspace-exp-b" in names
+        assert "rest-workspace-exp-a" not in names
+        fetched_run_b = client.get_run(run_b_id)
+        assert fetched_run_b.info.run_id == run_b_id
+        assert fetched_run_b.info.experiment_id == exp_b
+        run_ids = {run.info.run_id for run in client.search_runs([exp_b])}
+        assert run_b_id in run_ids
+        with pytest.raises(MlflowException, match=f"Run with id={run_a_id} not found"):
+            client.get_run(run_a_id)
+
+
+def test_rest_run_operations_are_workspace_scoped(workspace_mlflow_client):
+    client = workspace_mlflow_client
+    team_a = f"run-team-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"run-team-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    with WorkspaceContext(team_a):
+        exp_a = client.create_experiment("rest-run-ops-exp-a")
+        run_a = client.create_run(exp_a)
+        run_a_id = run_a.info.run_id
+
+        client.log_param(run_a_id, "alpha", "1")
+        client.log_metric(run_a_id, "accuracy", 0.9)
+        client.set_tag(run_a_id, "region", "a")
+
+        batch_metrics = [Metric(key="loss", value=0.4, timestamp=get_current_time_millis(), step=0)]
+        batch_params = [Param("beta", "2")]
+        batch_tags = [RunTag("phase", "train")]
+        client.log_batch(run_a_id, metrics=batch_metrics, params=batch_params, tags=batch_tags)
+
+        history = client.get_metric_history(run_a_id, "loss")
+        assert history[-1].value == 0.4
+
+        client.delete_tag(run_a_id, "region")
+        run_info = client.get_run(run_a_id)
+        assert run_info.info.experiment_id == exp_a
+        assert "region" not in run_info.data.tags
+
+        runs = client.search_runs([exp_a])
+        assert run_a_id in {run.info.run_id for run in runs}
+
+        client.delete_run(run_a_id)
+        assert client.get_run(run_a_id).info.lifecycle_stage == "deleted"
+        client.restore_run(run_a_id)
+        client.set_terminated(run_a_id, "FINISHED")
+        assert client.get_run(run_a_id).info.status == "FINISHED"
+
+        snapshot = client.get_run(run_a_id)
+        expected_params = dict(snapshot.data.params)
+        expected_metrics = dict(snapshot.data.metrics)
+        expected_tags = dict(snapshot.data.tags)
+        expected_status = snapshot.info.status
+        expected_stage = snapshot.info.lifecycle_stage
+
+    with WorkspaceContext(team_b):
+        exp_b = client.create_experiment("rest-run-ops-exp-b")
+        run_b = client.create_run(exp_b)
+        run_b_id = run_b.info.run_id
+
+        def _call_safely(fn):
+            try:
+                fn()
+            except MlflowException:
+                pass
+
+        _call_safely(lambda: client.log_param(run_a_id, "gamma", "3"))
+        _call_safely(lambda: client.log_metric(run_a_id, "accuracy", 1.0))
+        _call_safely(lambda: client.set_tag(run_a_id, "region", "b"))
+        _call_safely(lambda: client.delete_tag(run_a_id, "phase"))
+        _call_safely(lambda: client.log_batch(run_a_id, metrics=[], params=[], tags=[]))
+        try:
+            cross_history = client.get_metric_history(run_a_id, "loss")
+        except MlflowException:
+            cross_history = []
+        assert cross_history == []
+        _call_safely(lambda: client.delete_run(run_a_id))
+        _call_safely(lambda: client.restore_run(run_a_id))
+        _call_safely(lambda: client.set_terminated(run_a_id, "KILLED"))
+
+        cross_runs = client.search_runs([exp_a])
+        # Searching for an experiment that does not exist in the current workspace should
+        # return an empty list.
+        assert cross_runs == []
+        assert run_a_id not in {run.info.run_id for run in cross_runs}
+
+        run_infos = client.search_runs([exp_b])
+        assert run_b_id in {run.info.run_id for run in run_infos}
+        client.log_metric(run_b_id, "accuracy", 0.75)
+        assert client.get_metric_history(run_b_id, "accuracy")
+
+    with WorkspaceContext(team_a):
+        restored = client.get_run(run_a_id)
+        assert dict(restored.data.params) == expected_params
+        assert dict(restored.data.metrics) == expected_metrics
+        assert dict(restored.data.tags) == expected_tags
+        assert restored.info.status == expected_status
+        assert restored.info.lifecycle_stage == expected_stage
+
+
+def test_rest_artifact_operations_are_workspace_scoped(workspace_mlflow_client, tmp_path: Path):
+    client = workspace_mlflow_client
+    team_a = f"artifact-team-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"artifact-team-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    artifact_file = tmp_path / "artifact.txt"
+    artifact_file.write_text("hello world")
+
+    with WorkspaceContext(team_a):
+        exp_a = client.create_experiment("rest-artifact-exp-a")
+        run_a = client.create_run(exp_a)
+        run_a_id = run_a.info.run_id
+
+        client.log_artifact(run_a_id, str(artifact_file))
+        artifacts = client.list_artifacts(run_a_id)
+        assert {info.path for info in artifacts} == {"artifact.txt"}
+
+        download_dir = tmp_path / "downloaded"
+        download_dir.mkdir()
+        downloaded_path = client.download_artifacts(
+            run_a_id, "artifact.txt", dst_path=str(download_dir)
+        )
+        assert Path(downloaded_path).read_text() == "hello world"
+        expected_artifacts = {info.path for info in client.list_artifacts(run_a_id)}
+
+    with WorkspaceContext(team_b):
+        exp_b = client.create_experiment("rest-artifact-exp-b")
+        run_b = client.create_run(exp_b)
+
+        try:
+            client.log_artifact(run_a_id, str(artifact_file))
+        except MlflowException:
+            pass
+
+        try:
+            cross_artifacts = client.list_artifacts(run_a_id)
+        except MlflowException:
+            cross_artifacts = []
+        assert "artifact.txt" not in {info.path for info in cross_artifacts}
+
+        try:
+            client.download_artifacts(run_a_id, "artifact.txt")
+        except MlflowException:
+            pass
+        else:
+            assert False, "Artifact download across workspaces unexpectedly succeeded"
+
+        other_file = tmp_path / "artifact-b.txt"
+        other_file.write_text("team b")
+        client.log_artifact(run_b.info.run_id, str(other_file))
+        assert client.list_artifacts(run_b.info.run_id)
+
+    with WorkspaceContext(team_a):
+        artifacts_after = {info.path for info in client.list_artifacts(run_a_id)}
+        assert artifacts_after == expected_artifacts
+
+
+def test_rest_logged_model_operations_are_workspace_scoped(workspace_mlflow_client):
+    client = workspace_mlflow_client
+    team_a = f"logged-model-team-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"logged-model-team-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    model_a_id = None
+    model_b_id = None
+    exp_a = None
+    exp_b = None
+
+    with WorkspaceContext(team_a):
+        exp_a = client.create_experiment("rest-logged-model-exp-a")
+        model_a = client.create_logged_model(
+            exp_a, name=f"rest-logged-model-a-{uuid.uuid4().hex[:6]}"
+        )
+        model_a_id = model_a.model_id
+        client.finalize_logged_model(model_a_id, LoggedModelStatus.READY)
+        client.set_logged_model_tags(model_a_id, {"team": "a"})
+        client.log_model_params(model_a_id, {"alpha": "1"})
+
+        models_a = client.search_logged_models([exp_a])
+        assert {m.model_id for m in models_a} == {model_a_id}
+        fetched_a = client.get_logged_model(model_a_id)
+        assert fetched_a.tags == {"team": "a"}
+        assert fetched_a.params == {"alpha": "1"}
+
+    with WorkspaceContext(team_b):
+        exp_b = client.create_experiment("rest-logged-model-exp-b")
+        model_b = client.create_logged_model(
+            exp_b, name=f"rest-logged-model-b-{uuid.uuid4().hex[:6]}"
+        )
+        model_b_id = model_b.model_id
+        client.finalize_logged_model(model_b_id, LoggedModelStatus.READY)
+        client.set_logged_model_tags(model_b_id, {"team": "b"})
+        client.log_model_params(model_b_id, {"beta": "2"})
+
+        cross_workspace_error = r"(Logged model with ID|Failed to get logged model)"
+        for call in (
+            lambda: client.get_logged_model(model_a_id),
+            lambda: client.finalize_logged_model(model_a_id, LoggedModelStatus.FAILED),
+            lambda: client.set_logged_model_tags(model_a_id, {"team": "b"}),
+            lambda: client.delete_logged_model_tag(model_a_id, "team"),
+            lambda: client.delete_logged_model(model_a_id),
+            lambda: client.log_model_params(model_a_id, {"beta": "3"}),
+        ):
+            with pytest.raises(MlflowException, match=cross_workspace_error):
+                call()
+
+        assert list(client.search_logged_models([exp_a])) == []
+        models_b = client.search_logged_models([exp_b])
+        assert {m.model_id for m in models_b} == {model_b_id}
+
+    with WorkspaceContext(team_a):
+        models_in_a = client.search_logged_models([exp_a])
+        assert {m.model_id for m in models_in_a} == {model_a_id}
+        assert list(client.search_logged_models([exp_b])) == []
+
+        fetched_a = client.get_logged_model(model_a_id)
+        assert fetched_a.tags == {"team": "a"}
+        assert fetched_a.params == {"alpha": "1"}
+
+        with pytest.raises(MlflowException, match=cross_workspace_error):
+            client.get_logged_model(model_b_id)
+
+
+def test_rest_model_registry_respects_workspace_context(workspace_mlflow_client, store_type: str):
+    if store_type != "sqlalchemy":
+        pytest.skip("Model registry requires a SQL-backed store")
+
+    client = workspace_mlflow_client
+    team_a = f"team-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"team-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    model_a = f"rest-model-a-{uuid.uuid4().hex[:6]}"
+    model_b = f"rest-model-b-{uuid.uuid4().hex[:6]}"
+
+    with WorkspaceContext(team_a):
+        client.create_registered_model(model_a)
+
+    with WorkspaceContext(team_b):
+        with pytest.raises(
+            MlflowException, match=f"Registered Model with name={model_a} not found"
+        ):
+            client.get_registered_model(model_a)
+        client.create_registered_model(model_b)
+
+    with WorkspaceContext(team_a):
+        models = {rm.name for rm in client.search_registered_models()}
+        assert model_a in models
+        assert model_b not in models
+        with pytest.raises(
+            MlflowException, match=f"Registered Model with name={model_b} not found"
+        ):
+            client.get_registered_model(model_b)
+
+    with WorkspaceContext(team_b):
+        models = {rm.name for rm in client.search_registered_models()}
+        assert model_b in models
+        assert model_a not in models
+
+        with pytest.raises(
+            MlflowException, match=f"Registered Model with name={model_a} not found"
+        ):
+            client.get_registered_model(model_a)
+
+
+def test_rest_model_registry_mutations_are_workspace_scoped(
+    workspace_mlflow_client, store_type: str
+):
+    if store_type != "sqlalchemy":
+        pytest.skip("Model registry requires a SQL-backed store")
+
+    client = workspace_mlflow_client
+    team_a = f"registry-team-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"registry-team-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    model_name = f"rest-registry-model-{uuid.uuid4().hex[:6]}"
+    with WorkspaceContext(team_a):
+        client.create_registered_model(model_name)
+        version = client.create_model_version(
+            name=model_name,
+            source="s3://example-bucket/model.tar.gz",
+            run_id=uuid.uuid4().hex,
+        )
+        version_id = version.version
+
+        client.set_registered_model_tag(model_name, "owner", "team-a")
+        client.set_model_version_tag(model_name, version_id, "stage", "train")
+        client.transition_model_version_stage(model_name, version_id, "Staging")
+        client.set_registered_model_alias(model_name, "champion", version_id)
+        client.delete_model_version_tag(model_name, version_id, "stage")
+
+        download_uri = client.get_model_version_download_uri(model_name, version_id)
+        assert download_uri == "s3://example-bucket/model.tar.gz"
+
+        alias_version = client.get_model_version_by_alias(model_name, "champion")
+        assert alias_version.version == version_id
+
+    with WorkspaceContext(team_b):
+        client.create_registered_model(f"{model_name}-b")
+
+        registry_calls = [
+            lambda: client.set_registered_model_tag(model_name, "owner", "team-b"),
+            lambda: client.set_model_version_tag(model_name, version_id, "stage", "eval"),
+            lambda: client.transition_model_version_stage(model_name, version_id, "Production"),
+            lambda: client.set_registered_model_alias(model_name, "challenger", version_id),
+            lambda: client.delete_registered_model_tag(model_name, "owner"),
+            lambda: client.get_model_version_download_uri(model_name, version_id),
+            lambda: client.delete_model_version(model_name, version_id),
+        ]
+        for call in registry_calls:
+            with pytest.raises(
+                MlflowException, match=r"(Registered Model|Model Version)"
+            ) as excinfo:
+                call()
+            message = str(excinfo.value)
+            if f"Registered Model with name={model_name} not found" in message:
+                assert True
+            else:
+                assert re.search(
+                    rf"Model Version \(name={model_name}, version={version_id}\) not found",
+                    message,
+                )
+
+        assert client.search_registered_models()
+
+
+def test_rest_tracking_defaults_to_default_workspace(workspace_mlflow_client):
+    client = workspace_mlflow_client
+
+    exp_id = client.create_experiment("rest-default-workspace-exp")
+    run = client.create_run(exp_id)
+    run_id = run.info.run_id
+    client.log_metric(run_id, "accuracy", 0.77)
+    fetched = client.get_run(run_id)
+    assert fetched.info.experiment_id == exp_id
+
+    run_infos = client.search_runs([exp_id])
+    assert run_id in {run.info.run_id for run in run_infos}
+
+    other_workspace = f"default-team-{uuid.uuid4().hex[:6]}"
+    client.create_workspace(other_workspace)
+
+    with WorkspaceContext(other_workspace):
+        with pytest.raises(MlflowException, match=f"No Experiment with id={exp_id} exists"):
+            client.get_experiment(exp_id)
+        with pytest.raises(MlflowException, match=f"Run with id={run_id} not found"):
+            client.get_run(run_id)
+        assert client.search_runs([exp_id]) == []
+
+    final_run = client.get_run(run_id)
+    assert final_run.info.experiment_id == exp_id
+
+
+def test_rest_model_registry_defaults_to_default_workspace(
+    workspace_mlflow_client, store_type: str
+):
+    if store_type != "sqlalchemy":
+        pytest.skip("Model registry requires a SQL-backed store")
+
+    client = workspace_mlflow_client
+    from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+    model_name = f"default-rest-model-{uuid.uuid4().hex[:6]}"
+    version = client.create_model_version(
+        client.create_registered_model(model_name).name,
+        source="s3://default-workspace/model",
+        run_id=uuid.uuid4().hex,
+    )
+    version_id = version.version
+
+    fetched_model = client.get_registered_model(model_name)
+    assert fetched_model.name == model_name
+    fetched_version = client.get_model_version(model_name, version_id)
+    assert fetched_version.version == version_id
+
+    other_workspace = f"registry-default-{uuid.uuid4().hex[:6]}"
+    client.create_workspace(other_workspace)
+
+    with WorkspaceContext(other_workspace):
+        with pytest.raises(
+            MlflowException, match=f"Registered Model with name={model_name} not found"
+        ):
+            client.get_registered_model(model_name)
+        with pytest.raises(
+            MlflowException,
+            match=rf"Model Version \(name={model_name}, version={version_id}\) not found",
+        ):
+            client.get_model_version(model_name, version_id)
+
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        final_model = client.get_registered_model(model_name)
+        assert final_model.name == model_name
+        final_version = client.get_model_version(model_name, version_id)
+        assert final_version.version == version_id
+
+
+def test_rest_tracking_legacy_endpoints_respect_workspace_isolation(workspace_mlflow_client):
+    client = workspace_mlflow_client
+    from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+    other_workspace = f"legacy-other-{uuid.uuid4().hex[:6]}"
+    client.create_workspace(other_workspace)
+
+    with WorkspaceContext(other_workspace):
+        other_exp_id = client.create_experiment("legacy-nondefault-exp")
+
+    exp_name = f"legacy-default-exp-{uuid.uuid4().hex[:6]}"
+    create_resp = _legacy_rest_request(
+        client.tracking_uri,
+        "POST",
+        "/api/2.0/mlflow/experiments/create",
+        json={"name": exp_name},
+    )
+    assert create_resp.status_code == 200
+    exp_id = create_resp.json()["experiment_id"]
+
+    get_resp = _legacy_rest_request(
+        client.tracking_uri,
+        "GET",
+        "/api/2.0/mlflow/experiments/get",
+        params={"experiment_id": exp_id},
+    )
+    assert get_resp.status_code == 200
+    experiment_payload = get_resp.json()["experiment"]
+    assert experiment_payload["name"] == exp_name
+    fetched_experiment = client.get_experiment(exp_id)
+    assert (
+        getattr(fetched_experiment, "workspace", DEFAULT_WORKSPACE_NAME) == DEFAULT_WORKSPACE_NAME
+    )
+
+    missing_resp = _legacy_rest_request(
+        client.tracking_uri,
+        "GET",
+        "/api/2.0/mlflow/experiments/get",
+        params={"experiment_id": other_exp_id},
+    )
+    assert missing_resp.status_code == 404
+    assert "No Experiment with id" in missing_resp.text
+
+
+def test_rest_model_registry_legacy_endpoints_respect_workspace_isolation(
+    workspace_mlflow_client, store_type: str
+):
+    if store_type != "sqlalchemy":
+        pytest.skip("Model registry requires a SQL-backed store")
+
+    client = workspace_mlflow_client
+    from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+    other_workspace = f"legacy-registry-{uuid.uuid4().hex[:6]}"
+    client.create_workspace(other_workspace)
+    other_model_name = f"legacy-other-model-{uuid.uuid4().hex[:6]}"
+
+    with WorkspaceContext(other_workspace):
+        client.create_registered_model(other_model_name)
+
+    model_name = f"legacy-default-model-{uuid.uuid4().hex[:6]}"
+    create_resp = _legacy_rest_request(
+        client.tracking_uri,
+        "POST",
+        "/api/2.0/mlflow/registered-models/create",
+        json={"name": model_name},
+    )
+    assert create_resp.status_code == 200
+    model_payload = create_resp.json()["registered_model"]
+    assert model_payload["name"] == model_name
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        fetched_model = client.get_registered_model(model_name)
+        assert getattr(fetched_model, "workspace", DEFAULT_WORKSPACE_NAME) == DEFAULT_WORKSPACE_NAME
+
+    get_resp = _legacy_rest_request(
+        client.tracking_uri,
+        "GET",
+        "/api/2.0/mlflow/registered-models/get",
+        params={"name": model_name},
+    )
+    assert get_resp.status_code == 200
+    retrieved = get_resp.json()["registered_model"]
+    assert retrieved["name"] == model_name
+
+    missing_resp = _legacy_rest_request(
+        client.tracking_uri,
+        "GET",
+        "/api/2.0/mlflow/registered-models/get",
+        params={"name": other_model_name},
+    )
+    assert missing_resp.status_code == 404
+    assert "Registered Model with name" in missing_resp.text
+
+
 @pytest.mark.parametrize("use_async", [False, True])
 @pytest.mark.asyncio
 async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type, use_async):
@@ -4025,3 +4717,464 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
     # Verify the spans were returned (indicates successful logging)
     assert len(result_spans) == 1
     assert result_spans[0].name == f"test-rest-store-span-{use_async}"
+
+
+def _graphql_post(
+    tracking_uri: str,
+    query: str,
+    *,
+    variables: dict[str, object] | None = None,
+    operation: str | None = None,
+) -> requests.Response:
+    workspace = get_current_workspace()
+    endpoint = "/graphql"
+    payload: dict[str, object] = {"query": query}
+    if variables is not None:
+        payload["variables"] = variables
+    if operation is not None:
+        payload["operationName"] = operation
+    headers = {"content-type": "application/json; charset=utf-8"}
+    if workspace:
+        headers[WORKSPACE_HEADER_NAME] = workspace
+    return requests.post(
+        urllib.parse.urljoin(f"{tracking_uri.rstrip('/')}/", endpoint.lstrip("/")),
+        json=payload,
+        headers=headers,
+    )
+
+
+def _graphql_error_messages(payload: dict[str, object]) -> list[str]:
+    errors = payload.get("errors") or []
+    if isinstance(errors, list):
+        messages = []
+        for err in errors:
+            if isinstance(err, dict) and err.get("message") is not None:
+                messages.append(str(err["message"]))
+            elif err is not None:
+                messages.append(str(err))
+        return messages
+    if errors is not None:
+        return [str(errors)]
+    return []
+
+
+def _legacy_rest_request(
+    tracking_uri: str,
+    method: str,
+    endpoint: str,
+    *,
+    json: dict[str, object] | None = None,
+    params: dict[str, object] | None = None,
+) -> requests.Response:
+    url = urllib.parse.urljoin(f"{tracking_uri.rstrip('/')}/", endpoint.lstrip("/"))
+    headers = None
+    workspace = get_current_workspace()
+    if workspace and "/mlflow/workspaces" not in endpoint:
+        headers = {WORKSPACE_HEADER_NAME: workspace}
+    return requests.request(method.upper(), url, json=json, params=params, headers=headers)
+
+
+def test_workspace_graphql_respects_context(workspace_mlflow_client):
+    client = workspace_mlflow_client
+    team_a = f"team-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"team-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    with WorkspaceContext(team_a):
+        exp_a = client.create_experiment("graphql-workspace-exp-a")
+        run_a = client.create_run(exp_a)
+
+        experiment_query = """
+            query GetExperiment($id: String!) {
+                mlflowGetExperiment(input: {experimentId: $id}) {
+                    experiment { name }
+                }
+            }
+        """
+        resp = _graphql_post(
+            client.tracking_uri,
+            experiment_query,
+            variables={"id": exp_a},
+            operation="GetExperiment",
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert not _graphql_error_messages(payload)
+        assert (
+            payload["data"]["mlflowGetExperiment"]["experiment"]["name"]
+            == "graphql-workspace-exp-a"
+        )
+
+        search_query = """
+            query SearchRuns($ids: [String!]!) {
+                mlflowSearchRuns(input: {experimentIds: $ids}) {
+                    runs { info { runId } }
+                }
+            }
+        """
+        resp = _graphql_post(
+            client.tracking_uri,
+            search_query,
+            variables={"ids": [exp_a]},
+            operation="SearchRuns",
+        )
+        assert resp.status_code == 200
+        runs_payload = resp.json()
+        assert not _graphql_error_messages(runs_payload)
+        run_ids = {
+            entry["info"]["runId"] for entry in runs_payload["data"]["mlflowSearchRuns"]["runs"]
+        }
+        assert run_a.info.run_id in run_ids
+
+    with WorkspaceContext(team_b):
+        error_resp = _graphql_post(
+            client.tracking_uri,
+            experiment_query,
+            variables={"id": exp_a},
+            operation="GetExperiment",
+        )
+        assert error_resp.status_code == 200
+        error_body = error_resp.json()
+        messages = _graphql_error_messages(error_body)
+        assert messages
+        assert any(f"No Experiment with id={exp_a} exists" in msg for msg in messages)
+
+        runs_resp = _graphql_post(
+            client.tracking_uri,
+            search_query,
+            variables={"ids": [exp_a]},
+            operation="SearchRuns",
+        )
+        assert runs_resp.status_code == 200
+        runs_body = runs_resp.json()
+        assert not _graphql_error_messages(runs_body)
+        assert runs_body["data"]["mlflowSearchRuns"]["runs"] == []
+
+
+def test_workspace_graphql_model_versions_respect_context(workspace_mlflow_client):
+    client = workspace_mlflow_client
+    team_a = f"team-reg-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"team-reg-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    model_a = f"graphql-model-a-{uuid.uuid4().hex[:6]}"
+    model_b = f"graphql-model-b-{uuid.uuid4().hex[:6]}"
+
+    with WorkspaceContext(team_a):
+        client.create_registered_model(model_a)
+        version_a = client.create_model_version(
+            name=model_a,
+            source="s3://workspace-a/model",
+            run_id=uuid.uuid4().hex,
+        )
+
+    with WorkspaceContext(team_b):
+        client.create_registered_model(model_b)
+        version_b = client.create_model_version(
+            name=model_b,
+            source="s3://workspace-b/model",
+            run_id=uuid.uuid4().hex,
+        )
+
+    search_query = """
+        query SearchModelVersions($filter: String) {
+            mlflowSearchModelVersions(input: {filter: $filter}) {
+                modelVersions { name version }
+                apiError { message }
+            }
+        }
+    """
+
+    def _versions(resp_json):
+        payload = resp_json["data"]["mlflowSearchModelVersions"]
+        assert payload["apiError"] is None
+        return [(entry["name"], entry["version"]) for entry in payload["modelVersions"]]
+
+    with WorkspaceContext(team_a):
+        resp = _graphql_post(
+            client.tracking_uri,
+            search_query,
+            variables={"filter": f"name = '{model_a}'"},
+            operation="SearchModelVersions",
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert not _graphql_error_messages(body)
+        assert _versions(body) == [(model_a, str(version_a.version))]
+
+    with WorkspaceContext(team_b):
+        resp = _graphql_post(
+            client.tracking_uri,
+            search_query,
+            variables={"filter": f"name = '{model_a}'"},
+            operation="SearchModelVersions",
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert not _graphql_error_messages(body)
+        assert _versions(body) == []
+
+        resp = _graphql_post(
+            client.tracking_uri,
+            search_query,
+            variables={"filter": f"name = '{model_b}'"},
+            operation="SearchModelVersions",
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert not _graphql_error_messages(body)
+        assert _versions(body) == [(model_b, str(version_b.version))]
+
+
+def test_workspace_permission_resource_type_detection(monkeypatch: pytest.MonkeyPatch):
+    from mlflow.server import auth as auth_module
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    recorded_calls: list[tuple[str, str]] = []
+
+    class DummyTrackingStore:
+        def get_experiment(self, experiment_id: str):
+            assert experiment_id == "exp-123"
+
+            class _Experiment:
+                workspace = "team-experiments"
+
+            return _Experiment()
+
+    class DummyRegistryStore:
+        def get_registered_model(self, model_name: str):
+            assert model_name == "model-xyz"
+
+            class _RegisteredModel:
+                workspace = "team-models"
+
+            return _RegisteredModel()
+
+    monkeypatch.setattr(auth_module, "_get_workspace_store_optional", lambda: None)
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: DummyTrackingStore())
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: DummyRegistryStore())
+
+    def _record_permission(
+        auth: Authorization,
+        resource_type: str,
+        workspace_name: str,
+        grant_default_access: bool = True,
+    ):
+        recorded_calls.append((resource_type, workspace_name))
+        return READ
+
+    monkeypatch.setattr(auth_module, "_workspace_permission", _record_permission)
+
+    auth = Authorization("basic", {"username": "alice", "password": "secret"})
+
+    recorded_calls.clear()
+    perm = auth_module._workspace_permission_for_experiment(auth, "exp-123")
+    assert perm == READ
+    assert recorded_calls == [("experiments", "team-experiments")]
+
+    recorded_calls.clear()
+    perm = auth_module._workspace_permission_for_registered_model(auth, "model-xyz")
+    assert perm == READ
+    assert recorded_calls == [("registered_models", "team-models")]
+
+
+def test_workspace_graphql_get_run_respects_context(workspace_mlflow_client):
+    client = workspace_mlflow_client
+    team_a = f"team-run-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"team-run-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    with WorkspaceContext(team_a):
+        exp_a = client.create_experiment("graphql-run-exp-a")
+        run_a = client.create_run(exp_a)
+        run_a_id = run_a.info.run_id
+
+    get_run_query = """
+        query GetRun($id: String!) {
+            mlflowGetRun(input: {runId: $id}) {
+                run { info { runId experimentId } }
+                apiError { message }
+            }
+        }
+    """
+
+    with WorkspaceContext(team_a):
+        resp = _graphql_post(
+            client.tracking_uri,
+            get_run_query,
+            variables={"id": run_a_id},
+            operation="GetRun",
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert not _graphql_error_messages(payload)
+        run_payload = payload["data"]["mlflowGetRun"]["run"]
+        assert run_payload["info"]["runId"] == run_a_id
+        assert run_payload["info"]["experimentId"] == str(exp_a)
+
+    with WorkspaceContext(team_b):
+        resp = _graphql_post(
+            client.tracking_uri,
+            get_run_query,
+            variables={"id": run_a_id},
+            operation="GetRun",
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        messages = _graphql_error_messages(payload)
+        assert messages
+        assert any(f"Run with id={run_a_id} not found" in msg for msg in messages)
+        assert payload["data"]["mlflowGetRun"] is None
+
+
+def test_workspace_graphql_list_artifacts_respects_context(workspace_mlflow_client, tmp_path: Path):
+    client = workspace_mlflow_client
+    team_a = f"team-artifacts-a-{uuid.uuid4().hex[:6]}"
+    team_b = f"team-artifacts-b-{uuid.uuid4().hex[:6]}"
+
+    client.create_workspace(team_a)
+    client.create_workspace(team_b)
+
+    artifact_file = tmp_path / "graphql-artifact.txt"
+    artifact_file.write_text("hello graphql")
+
+    with WorkspaceContext(team_a):
+        exp_a = client.create_experiment("graphql-artifact-exp-a")
+        run_a = client.create_run(exp_a)
+        run_a_id = run_a.info.run_id
+        client.log_artifact(run_a_id, str(artifact_file))
+
+    list_artifacts_query = """
+        query ListArtifacts($runId: String!) {
+            mlflowListArtifacts(input: {runId: $runId}) {
+                files { path isDir }
+                apiError { message }
+            }
+        }
+    """
+
+    with WorkspaceContext(team_a):
+        resp = _graphql_post(
+            client.tracking_uri,
+            list_artifacts_query,
+            variables={"runId": run_a_id},
+            operation="ListArtifacts",
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert not _graphql_error_messages(payload)
+        files = payload["data"]["mlflowListArtifacts"]["files"]
+        assert any(entry["path"] == "graphql-artifact.txt" for entry in files)
+
+    with WorkspaceContext(team_b):
+        resp = _graphql_post(
+            client.tracking_uri,
+            list_artifacts_query,
+            variables={"runId": run_a_id},
+            operation="ListArtifacts",
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        messages = _graphql_error_messages(payload)
+        assert messages
+        assert any(f"Run with id={run_a_id} not found" in msg for msg in messages)
+        assert payload["data"]["mlflowListArtifacts"] is None
+
+
+def test_graphql_defaults_to_default_workspace(workspace_mlflow_client):
+    client = workspace_mlflow_client
+
+    exp_default = client.create_experiment("graphql-default-workspace-exp")
+    run_default = client.create_run(exp_default)
+
+    experiment_query = """
+        query GetExperiment($id: String!) {
+            mlflowGetExperiment(input: {experimentId: $id}) {
+                experiment { name }
+            }
+        }
+    """
+    search_query = """
+        query SearchRuns($ids: [String!]!) {
+            mlflowSearchRuns(input: {experimentIds: $ids}) {
+                runs { info { runId } }
+            }
+        }
+    """
+
+    resp = _graphql_post(
+        client.tracking_uri,
+        experiment_query,
+        variables={"id": exp_default},
+        operation="GetExperiment",
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert not _graphql_error_messages(payload)
+    assert (
+        payload["data"]["mlflowGetExperiment"]["experiment"]["name"]
+        == "graphql-default-workspace-exp"
+    )
+
+    runs_resp = _graphql_post(
+        client.tracking_uri,
+        search_query,
+        variables={"ids": [exp_default]},
+        operation="SearchRuns",
+    )
+    assert runs_resp.status_code == 200
+    runs_payload = runs_resp.json()
+    assert not _graphql_error_messages(runs_payload)
+    run_ids = {entry["info"]["runId"] for entry in runs_payload["data"]["mlflowSearchRuns"]["runs"]}
+    assert run_default.info.run_id in run_ids
+
+    other_workspace = f"team-graphql-{uuid.uuid4().hex[:6]}"
+    client.create_workspace(other_workspace)
+
+    with WorkspaceContext(other_workspace):
+        error_resp = _graphql_post(
+            client.tracking_uri,
+            experiment_query,
+            variables={"id": exp_default},
+            operation="GetExperiment",
+        )
+        assert error_resp.status_code == 200
+        error_body = error_resp.json()
+        messages = _graphql_error_messages(error_body)
+        if messages:
+            assert any(f"No Experiment with id={exp_default} exists" in msg for msg in messages)
+        else:
+            experiment_payload = (
+                error_body.get("data", {}).get("mlflowGetExperiment", {}).get("experiment")
+            )
+            assert experiment_payload is None
+
+        runs_resp = _graphql_post(
+            client.tracking_uri,
+            search_query,
+            variables={"ids": [exp_default]},
+            operation="SearchRuns",
+        )
+        assert runs_resp.status_code == 200
+        runs_body = runs_resp.json()
+        assert not _graphql_error_messages(runs_body)
+        assert runs_body["data"]["mlflowSearchRuns"]["runs"] == []
+
+    runs_resp = _graphql_post(
+        client.tracking_uri,
+        search_query,
+        variables={"ids": [exp_default]},
+        operation="SearchRuns",
+    )
+    assert runs_resp.status_code == 200
+    runs_payload = runs_resp.json()
+    assert not _graphql_error_messages(runs_payload)
+    run_ids = {entry["info"]["runId"] for entry in runs_payload["data"]["mlflowSearchRuns"]["runs"]}
+    assert run_default.info.run_id in run_ids

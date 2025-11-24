@@ -18,6 +18,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_USERNAME,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.server import ARTIFACT_ROOT_ENV_VAR
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.file_store import FileStore
@@ -35,6 +36,7 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
 
+from tests.helpers.db_mocks import mock_get_managed_session_maker
 from tests.tracing.helper import get_tracer_tracking_uri
 
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
@@ -188,6 +190,10 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
+            "mlflow.store.db.utils._get_managed_session_maker",
+            new=mock_get_managed_session_maker,
+        ),
+        mock.patch(
             # In sqlalchemy 1.4.0, `SqlAlchemyStore.search_experiments`, which is called when
             # fetching the store, results in an error when called with a mocked sqlalchemy engine.
             # Accordingly, we mock `SqlAlchemyStore.search_experiments`
@@ -223,6 +229,10 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
+            "mlflow.store.db.utils._get_managed_session_maker",
+            new=mock_get_managed_session_maker,
+        ),
+        mock.patch(
             "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
             return_value=[],
         ),
@@ -238,6 +248,22 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
             )
 
     mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
+
+
+def test_get_sqlalchemy_store_uses_server_artifact_root(tmp_path, monkeypatch):
+    store_uri = f"sqlite:///{tmp_path.joinpath('backend_store.db')}"
+    artifact_path = tmp_path / "server-artifacts"
+    artifact_uri = path_to_local_file_uri(artifact_path)
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, artifact_uri)
+
+    with mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore") as mock_store:
+        mlflow.tracking._tracking_service.utils._get_sqlalchemy_store(
+            store_uri=store_uri, artifact_uri=None
+        )
+
+    mock_store.assert_called_once()
+    assert mock_store.call_args.args[1] == artifact_uri
+    monkeypatch.delenv(ARTIFACT_ROOT_ENV_VAR, raising=False)
 
 
 def test_get_store_databricks(monkeypatch):

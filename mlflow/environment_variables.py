@@ -106,6 +106,19 @@ MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
 #: (default: ``None``)
 MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 
+#: Specifies the workspace provider URI. Falls back to the tracking URI when unset.
+#: (default: ``None``)
+MLFLOW_WORKSPACE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_URI", str, None)
+
+#: Enables workspace-aware (multi-tenant) behavior for MLflow servers and clients.
+#: When set, requests can include a workspace. Some workspace providers support default workspaces.
+#: (default: ``False``)
+MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
+
+#: Specifies the active workspace for client operations.
+#: (default: ``None``)
+MLFLOW_WORKSPACE = _EnvironmentVariable("MLFLOW_WORKSPACE", str, None)
+
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
 #: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model

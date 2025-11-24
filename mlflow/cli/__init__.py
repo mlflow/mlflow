@@ -20,7 +20,12 @@ import mlflow.store.artifact.cli
 from mlflow import ai_commands, projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_WORKSPACE_URI,
+)
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -458,10 +463,28 @@ def _validate_static_prefix(ctx, param, value):
         "Unsupported on Windows."
     ),
 )
+@click.option(
+    "--workspace-store-uri",
+    envvar=MLFLOW_WORKSPACE_URI.name,
+    metavar="URI",
+    default=None,
+    help=(
+        "Workspace provider backend URI used for workspace CRUD APIs and request routing. "
+        "When unspecified, defaults to the backend store URI."
+    ),
+)
+@click.option(
+    "--enable-workspaces/--no-enable-workspaces",
+    envvar=MLFLOW_ENABLE_WORKSPACES.name,
+    default=False,
+    show_default=True,
+    help="Enable backwards compatible workspace-aware multi-tenancy mode.",
+)
 def server(
     ctx,
     backend_store_uri,
     registry_store_uri,
+    workspace_store_uri,
     default_artifact_root,
     serve_artifacts,
     artifacts_only,
@@ -480,6 +503,7 @@ def server(
     app_name,
     dev,
     uvicorn_opts,
+    enable_workspaces,
 ):
     """
     Run the MLflow tracking server with built-in security middleware.
@@ -525,6 +549,17 @@ def server(
         disable_security_middleware=disable_security_middleware,
     )
 
+    if enable_workspaces:
+        os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true"
+        if workspace_store_uri:
+            os.environ[MLFLOW_WORKSPACE_URI.name] = workspace_store_uri
+    elif workspace_store_uri:
+        warning_msg = (
+            "--workspace-store-uri was provided but workspaces are not enabled. "
+            "Workspace APIs will remain disabled unless you pass --enable-workspaces."
+        )
+        _logger.warning(warning_msg)
+
     if disable_security_middleware:
         os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"
     else:
@@ -548,6 +583,7 @@ def server(
         if x_frame_options:
             os.environ["MLFLOW_SERVER_X_FRAME_OPTIONS"] = x_frame_options
 
+    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
         backend_store_uri = _get_default_tracking_uri()
         click.echo(f"Backend store URI not provided. Using {backend_store_uri}")
@@ -559,10 +595,15 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
-    artifacts_only_config_validation(artifacts_only, backend_store_uri)
+    artifacts_only_config_validation(artifacts_only, backend_store_uri, enable_workspaces)
 
     try:
-        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
+        initialize_backend_stores(
+            backend_store_uri,
+            registry_store_uri,
+            default_artifact_root,
+            workspace_store_uri=workspace_store_uri,
+        )
     except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)

@@ -9,6 +9,7 @@ Usage
 
 import functools
 import importlib
+import json
 import logging
 import re
 from typing import Any, Callable
@@ -30,9 +31,14 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import (
+    _MLFLOW_SGI_NAME,
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+)
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
+    FEATURE_DISABLED,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
@@ -101,7 +107,14 @@ from mlflow.protos.service_pb2 import (
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
 from mlflow.server.auth.logo import MLFLOW_LOGO
-from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
+from mlflow.server.auth.permissions import (
+    EDIT,
+    MANAGE,
+    NO_PERMISSIONS,
+    READ,
+    Permission,
+    get_permission,
+)
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_PROMPTLAB_RUN,
@@ -124,6 +137,8 @@ from mlflow.server.auth.routes import (
     GET_TRACE_ARTIFACT,
     GET_USER,
     HOME,
+    LIST_USER_WORKSPACE_PERMISSIONS,
+    LIST_WORKSPACE_PERMISSIONS,
     SEARCH_DATASETS,
     SIGNUP,
     UPDATE_EXPERIMENT_PERMISSION,
@@ -136,16 +151,21 @@ from mlflow.server.auth.routes import (
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
+    _add_static_prefix,
     _get_model_registry_store,
     _get_request_message,
     _get_tracking_store,
     catch_mlflow_exception,
     get_endpoints,
 )
+from mlflow.server.workspace_helpers import _get_workspace_store
 from mlflow.store.entities import PagedList
+from mlflow.store.workspace.utils import get_default_workspace_optional
+from mlflow.tracking._workspace import context as workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 try:
     from flask_wtf.csrf import CSRFProtect
@@ -208,7 +228,11 @@ def _get_request_param(param: str) -> str:
     return args[param]
 
 
-def _get_permission_from_store_or_default(store_permission_func: Callable[[], str]) -> Permission:
+def _get_permission_from_store_or_default(
+    store_permission_func: Callable[[], str],
+    *,
+    workspace_fallback: Callable[[], Permission | None] | None = None,
+) -> Permission:
     """
     Attempts to get permission from store,
     and returns default permission if no record is found.
@@ -217,17 +241,257 @@ def _get_permission_from_store_or_default(store_permission_func: Callable[[], st
         perm = store_permission_func()
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            if workspace_fallback is not None:
+                fallback_permission = workspace_fallback()
+                # fallback_permission is only None when workspaces are not enabled.
+                # fallback_permissions defaults to NO_PERMISSIONS. In effect, this means that
+                # auth_config.default_permission is not supported when workspaces are enabled
+                # to keep workspace isolation.
+                if fallback_permission is not None:
+                    return fallback_permission
             perm = auth_config.default_permission
         else:
             raise
     return get_permission(perm)
 
 
+def _get_workspace_store_optional():
+    """
+    Attempt to get the workspace store, returning None if unavailable.
+
+    This function is used in authorization checks where workspace permissions
+    should be checked if available.
+    """
+    try:
+        return _get_workspace_store()
+    except MlflowException as e:
+        if e.error_code in (
+            ErrorCode.Name(FEATURE_DISABLED),
+            ErrorCode.Name(INVALID_PARAMETER_VALUE),
+        ):
+            # Workspaces disabled or workspace store misconfigured; treat as unavailable.
+            _logger.debug("Workspace store unavailable: %s", e)
+            return None
+        raise
+
+
+def _resolve_default_workspace_name() -> str | None:
+    workspace_store = _get_workspace_store_optional()
+    if workspace_store is None:
+        return DEFAULT_WORKSPACE_NAME
+
+    workspace, _ = get_default_workspace_optional(workspace_store, logger=_logger)
+    if workspace is None:
+        return None
+    return workspace.name
+
+
+def _workspace_permission(
+    auth: Authorization,
+    resource_type: str,
+    workspace_name: str,
+) -> Permission | None:
+    """
+    Check workspace-level permission for a user.
+
+    Returns:
+        - `Permission` result from the auth store when workspace capabilities are supported.
+        - `MANAGE` when the workspace is the default and `grant_default_workspace_access`
+          enables implicit access.
+        - `None` when workspace permissions are unsupported.
+        - `NO_PERMISSIONS` when checks fail and no implicit access applies.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return None
+
+    if not hasattr(store, "supports_workspaces") or not store.supports_workspaces():
+        return None
+
+    if not workspace_name:
+        raise ValueError("workspace_name must be provided when checking workspace permissions")
+
+    username = getattr(auth, "username", None)
+
+    if username is None:
+        return NO_PERMISSIONS
+
+    try:
+        permission = store.get_workspace_permission(
+            workspace_name,
+            username,
+            resource_type,
+        )
+        if permission is not None:
+            if permission.can_manage:
+                return MANAGE
+            if permission.can_update:
+                return EDIT
+            if permission.can_read:
+                return READ
+
+        if auth_config.grant_default_workspace_access and auth_config.default_permission:
+            if workspace_name == _resolve_default_workspace_name():
+                return get_permission(auth_config.default_permission)
+
+        return NO_PERMISSIONS
+    except NotImplementedError:
+        _logger.debug(
+            "Authentication store does not support workspace permission checks for workspaces.",
+        )
+        return None
+    except MlflowException as e:
+        _logger.warning(
+            "Error checking workspace permissions for user '%s' in workspace '%s': %s. "
+            "Denying access for security.",
+            username,
+            workspace_name,
+            e,
+        )
+        return NO_PERMISSIONS
+
+
+def _workspace_permission_for_resource(
+    auth: Authorization,
+    resource_id: str,
+    resource_type: str,
+    fetcher: Callable[[str], Any],
+    resource_label: str,
+) -> Permission | None:
+    """
+    Generic workspace permission checker for any resource type.
+
+    Args:
+        auth: Authorization context
+        resource_id: ID of the resource to check
+        resource_type: Type for permission lookup ("experiments", "registered_models", etc.)
+        fetcher: Function to fetch the resource (e.g., store.get_experiment)
+        resource_label: Human-readable label for error messages
+
+    Returns:
+        Permission object if workspace permissions apply, None if workspace permissions
+        are not supported. Returns NO_PERMISSIONS if the resource lookup fails
+        (security: deny on error).
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return None
+
+    try:
+        resource = fetcher(resource_id)
+    except MlflowException as e:
+        _logger.warning(
+            "Failed to determine workspace for %s '%s': %s. Denying access for security.",
+            resource_label,
+            resource_id,
+            e,
+        )
+        return NO_PERMISSIONS
+
+    workspace_name = getattr(resource, "workspace", None)
+    if workspace_name is None:
+        return NO_PERMISSIONS
+
+    return _workspace_permission(auth, resource_type, workspace_name)
+
+
+def _workspace_permission_for_experiment(
+    auth: Authorization, experiment_id: str
+) -> Permission | None:
+    """
+    Get workspace-level permission for accessing an experiment.
+
+    Returns:
+        Permission object if workspace permissions apply, None if workspace permissions
+        are not supported. Returns NO_PERMISSIONS if the experiment lookup fails
+        (security: deny on error).
+    """
+    return _workspace_permission_for_resource(
+        auth,
+        experiment_id,
+        "experiments",
+        _get_tracking_store().get_experiment,
+        "experiment",
+    )
+
+
+def _workspace_permission_for_registered_model(
+    auth: Authorization, model_name: str
+) -> Permission | None:
+    """
+    Get workspace-level permission for accessing a registered model (including prompts).
+
+    Returns:
+        Permission object if workspace permissions apply, None to fall back to resource permissions.
+        Returns NO_PERMISSIONS if the model lookup fails (security: deny on error).
+    """
+    return _workspace_permission_for_resource(
+        auth,
+        model_name,
+        "registered_models",
+        _get_model_registry_store().get_registered_model,
+        "registered model",
+    )
+
+
+def _has_resource_read_access(
+    resource_id: str,
+    auth: Authorization,
+    workspace_permission_getter: Callable[[Authorization, str], Permission | None],
+    explicit_can_read: dict[str, bool],
+    default_can_read: bool,
+) -> bool:
+    if resource_id in explicit_can_read:
+        return explicit_can_read[resource_id]
+
+    # If workspaces are enabled, the default is NO_PERMISSIONS.
+    perm = workspace_permission_getter(auth, resource_id)
+    if perm:
+        return perm.can_read
+
+    # Fallback to default when there is no explicit or workspace-derived permission.
+    # A None result from the workspace permission getter only happens when workspaces (or
+    # workspace-aware stores) are disabled, and the server refuses to start in workspace-aware
+    # mode unless all resources belong to the default workspace. So this fallback is safe, not
+    # an implicit allow when workspaces are enabled.
+    return default_can_read
+
+
+def _has_experiment_read_access(
+    auth: Authorization,
+    experiment_id: str,
+    explicit_can_read: dict[str, bool],
+    default_can_read: bool,
+) -> bool:
+    return _has_resource_read_access(
+        experiment_id,
+        auth,
+        _workspace_permission_for_experiment,
+        explicit_can_read,
+        default_can_read,
+    )
+
+
+def _has_registered_model_read_access(
+    auth: Authorization,
+    model_name: str,
+    explicit_can_read: dict[str, bool],
+    default_can_read: bool,
+) -> bool:
+    return _has_resource_read_access(
+        model_name,
+        auth,
+        _workspace_permission_for_registered_model,
+        explicit_can_read,
+        default_can_read,
+    )
+
+
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_experiment(auth, experiment_id),
     )
 
 
@@ -242,11 +506,23 @@ def _get_experiment_id_from_view_args():
 
 
 def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
+
     if experiment_id := _get_experiment_id_from_view_args():
-        username = authenticate_request().username
         return _get_permission_from_store_or_default(
-            lambda: store.get_experiment_permission(experiment_id, username).permission
+            lambda: store.get_experiment_permission(experiment_id, username).permission,
+            workspace_fallback=lambda: _workspace_permission_for_experiment(auth, experiment_id),
         )
+
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        workspace_name = workspace_context.get_current_workspace()
+        if workspace_name:
+            permission = _workspace_permission(auth, "experiments", workspace_name)
+            if permission is not None:
+                return permission
+        return NO_PERMISSIONS
+
     return get_permission(auth_config.default_permission)
 
 
@@ -258,9 +534,14 @@ def _get_permission_from_experiment_name() -> Permission:
             f"Could not find experiment with name {experiment_name}",
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
+
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(store_exp.experiment_id, username).permission
+        lambda: store.get_experiment_permission(store_exp.experiment_id, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_experiment(
+            auth, store_exp.experiment_id
+        ),
     )
 
 
@@ -270,9 +551,11 @@ def _get_permission_from_run_id() -> Permission:
     run_id = _get_request_param("run_id")
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_experiment(auth, experiment_id),
     )
 
 
@@ -281,35 +564,43 @@ def _get_permission_from_model_id() -> Permission:
     model_id = _get_request_param("model_id")
     model = _get_tracking_store().get_logged_model(model_id)
     experiment_id = model.experiment_id
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_experiment(auth, experiment_id),
     )
 
 
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(name, username).permission
+        lambda: store.get_registered_model_permission(name, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_registered_model(auth, name),
     )
 
 
 def _get_permission_from_scorer_name() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     return _get_permission_from_store_or_default(
-        lambda: store.get_scorer_permission(experiment_id, name, username).permission
+        lambda: store.get_scorer_permission(experiment_id, name, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_experiment(auth, experiment_id),
     )
 
 
 def _get_permission_from_scorer_permission_request() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     scorer_name = _get_request_param("scorer_name")
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     return _get_permission_from_store_or_default(
-        lambda: store.get_scorer_permission(experiment_id, scorer_name, username).permission
+        lambda: store.get_scorer_permission(experiment_id, scorer_name, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_experiment(auth, experiment_id),
     )
 
 
@@ -396,6 +687,70 @@ def validate_can_manage_registered_model():
     return _get_permission_from_registered_model_name().can_manage
 
 
+def validate_can_create_experiment() -> bool:
+    # Historically, experiment creation has always been allowed when workspaces are
+    # disabled (single-tenant mode). We keep returning True here to preserve that
+    # behavior even if auth_config.default_permission is READ/NO_PERMISSIONS.
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return True
+
+    auth = authenticate_request()
+
+    workspace_name = workspace_context.get_current_workspace()
+    if workspace_name is None:
+        return False
+
+    perm = _workspace_permission(auth, "experiments", workspace_name)
+    return perm is not None and perm.can_manage
+
+
+def validate_can_create_registered_model() -> bool:
+    # Registered model creation has followed the same single-tenant behavior as experiments:
+    # with workspaces disabled, the endpoint has always been open to authenticated users.
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return True
+
+    auth = authenticate_request()
+
+    workspace_name = workspace_context.get_current_workspace()
+    if workspace_name is None:
+        return False
+
+    perm = _workspace_permission(auth, "registered_models", workspace_name)
+    return perm is not None and perm.can_manage
+
+
+def validate_can_view_workspace() -> bool:
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return True
+
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
+
+    workspace_name = request.view_args.get("workspace_name") if request.view_args else None
+    if workspace_name is None:
+        return False
+
+    if not hasattr(store, "supports_workspaces") or not store.supports_workspaces():
+        _logger.warning(
+            "Workspaces are enabled but the authentication store does not support workspace "
+            "permissions; denying access."
+        )
+        return False
+
+    if username is None:
+        return False
+
+    if auth_config.grant_default_workspace_access:
+        default_workspace_name = _resolve_default_workspace_name()
+        if workspace_name == default_workspace_name:
+            return True
+
+    names = set(store.list_accessible_workspace_names(username))
+
+    return workspace_name in names
+
+
 # Scorers
 def validate_can_read_scorer():
     return _get_permission_from_scorer_name().can_read
@@ -440,12 +795,16 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
         if sender_is_admin():
             return experiment_ids
 
-        username = authenticate_request().username
+        auth = authenticate_request()
+        username = auth.username
         perms = store.list_experiment_permissions(username)
         can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
         default_can_read = get_permission(auth_config.default_permission).can_read
-
-        return [exp_id for exp_id in experiment_ids if can_read.get(exp_id, default_can_read)]
+        return [
+            exp_id
+            for exp_id in experiment_ids
+            if _has_experiment_read_access(auth, exp_id, can_read, default_can_read)
+        ]
     except (RuntimeError, AttributeError):
         # Auth system not fully initialized, skip filtering
         return experiment_ids
@@ -493,9 +852,11 @@ def _get_permission_from_run_id_or_uuid() -> Permission:
         )
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_experiment(auth, experiment_id),
     )
 
 
@@ -520,9 +881,11 @@ def _get_permission_from_model_version() -> Permission:
             "Request must specify name parameter",
             INVALID_PARAMETER_VALUE,
         )
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(name, username).permission
+        lambda: store.get_registered_model_permission(name, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_registered_model(auth, name),
     )
 
 
@@ -545,9 +908,11 @@ def _get_permission_from_trace_request_id() -> Permission:
     # Get the trace to find its experiment
     trace = _get_tracking_store().get_trace_info(request_id)
     experiment_id = trace.experiment_id
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_experiment(auth, experiment_id),
     )
 
 
@@ -565,7 +930,8 @@ def validate_can_read_metric_history_bulk():
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     tracking_store = _get_tracking_store()
 
     # Check permission for each run
@@ -573,7 +939,10 @@ def validate_can_read_metric_history_bulk():
         run = tracking_store.get_run(run_id)
         experiment_id = run.info.experiment_id
         permission = _get_permission_from_store_or_default(
-            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission,
+            workspace_fallback=lambda eid=experiment_id: _workspace_permission_for_experiment(
+                auth, eid
+            ),
         )
         if not permission.can_read:
             return False
@@ -600,12 +969,16 @@ def validate_can_search_datasets():
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
 
     # Check permission for each experiment
     for experiment_id in experiment_ids:
         permission = _get_permission_from_store_or_default(
-            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission,
+            workspace_fallback=lambda eid=experiment_id: _workspace_permission_for_experiment(
+                auth, eid
+            ),
         )
         if not permission.can_read:
             return False
@@ -623,9 +996,11 @@ def validate_can_create_promptlab_run():
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     permission = _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_fallback=lambda: _workspace_permission_for_experiment(auth, experiment_id),
     )
     return permission.can_update
 
@@ -640,6 +1015,7 @@ def validate_gateway_proxy():
 
 BEFORE_REQUEST_HANDLERS = {
     # Routes for experiments
+    CreateExperiment: validate_can_create_experiment,
     GetExperiment: validate_can_read_experiment,
     GetExperimentByName: validate_can_read_experiment_by_name,
     DeleteExperiment: validate_can_delete_experiment,
@@ -662,6 +1038,7 @@ BEFORE_REQUEST_HANDLERS = {
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
     # Routes for model registry
+    CreateRegisteredModel: validate_can_create_registered_model,
     GetRegisteredModel: validate_can_read_registered_model,
     DeleteRegisteredModel: validate_can_delete_registered_model,
     UpdateRegisteredModel: validate_can_update_registered_model,
@@ -693,6 +1070,7 @@ def get_before_request_handler(request_class):
     return BEFORE_REQUEST_HANDLERS.get(request_class)
 
 
+@functools.lru_cache(maxsize=None)
 def _re_compile_path(path: str) -> re.Pattern:
     """
     Convert a path with angle brackets to a regex pattern. For example,
@@ -703,7 +1081,10 @@ def _re_compile_path(path: str) -> re.Pattern:
 
 BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
-    for http_path, handler, methods in get_endpoints(get_before_request_handler)
+    for http_path, handler, methods in get_endpoints(
+        get_before_request_handler,
+        include_workspace_endpoints=False,
+    )
     for method in methods
 }
 
@@ -731,21 +1112,49 @@ BEFORE_REQUEST_VALIDATORS.update(
     }
 )
 
-# Flask routes (no proto mapping)
-BEFORE_REQUEST_VALIDATORS.update(
-    {
-        (GET_ARTIFACT, "GET"): validate_can_read_run_artifact,
-        (UPLOAD_ARTIFACT, "POST"): validate_can_update_run_artifact,
-        (GET_MODEL_VERSION_ARTIFACT, "GET"): validate_can_read_model_version_artifact,
-        (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
-        (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
-        (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
-        (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
-        (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
-        (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
-        (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-    }
+
+def _register_workspace_validator(
+    path: str, method: str, validator: Callable[[], bool] | None
+) -> None:
+    BEFORE_REQUEST_VALIDATORS[(path, method)] = validator
+    prefixed_path = _add_static_prefix(path)
+    if prefixed_path != path:
+        BEFORE_REQUEST_VALIDATORS[(prefixed_path, method)] = validator
+
+
+for workspace_path, workspace_method, workspace_validator in [
+    ("/api/2.0/mlflow/workspaces", "GET", None),
+    ("/api/2.0/mlflow/workspaces", "POST", sender_is_admin),
+    ("/ajax-api/2.0/mlflow/workspaces", "GET", None),
+    ("/ajax-api/2.0/mlflow/workspaces", "POST", sender_is_admin),
+    ("/api/2.0/mlflow/workspaces/<workspace_name>", "GET", validate_can_view_workspace),
+    ("/api/2.0/mlflow/workspaces/<workspace_name>", "PATCH", sender_is_admin),
+    ("/api/2.0/mlflow/workspaces/<workspace_name>", "DELETE", sender_is_admin),
+    ("/ajax-api/2.0/mlflow/workspaces/<workspace_name>", "GET", validate_can_view_workspace),
+    ("/ajax-api/2.0/mlflow/workspaces/<workspace_name>", "PATCH", sender_is_admin),
+    ("/ajax-api/2.0/mlflow/workspaces/<workspace_name>", "DELETE", sender_is_admin),
+    (LIST_WORKSPACE_PERMISSIONS, "GET", sender_is_admin),
+    (LIST_WORKSPACE_PERMISSIONS, "POST", sender_is_admin),
+    (LIST_WORKSPACE_PERMISSIONS, "DELETE", sender_is_admin),
+    (LIST_USER_WORKSPACE_PERMISSIONS, "GET", sender_is_admin),
+]:
+    _register_workspace_validator(workspace_path, workspace_method, workspace_validator)
+
+_FLASK_ROUTE_VALIDATORS = (
+    (GET_ARTIFACT, "GET", validate_can_read_run_artifact),
+    (UPLOAD_ARTIFACT, "POST", validate_can_update_run_artifact),
+    (GET_MODEL_VERSION_ARTIFACT, "GET", validate_can_read_model_version_artifact),
+    (GET_TRACE_ARTIFACT, "GET", validate_can_read_trace_artifact),
+    (GET_METRIC_HISTORY_BULK, "GET", validate_can_read_metric_history_bulk),
+    (GET_METRIC_HISTORY_BULK_INTERVAL, "GET", validate_can_read_metric_history_bulk_interval),
+    (SEARCH_DATASETS, "POST", validate_can_search_datasets),
+    (CREATE_PROMPTLAB_RUN, "POST", validate_can_create_promptlab_run),
+    (GATEWAY_PROXY, "GET", validate_gateway_proxy),
+    (GATEWAY_PROXY, "POST", validate_gateway_proxy),
 )
+
+for path, method, validator in _FLASK_ROUTE_VALIDATORS:
+    BEFORE_REQUEST_VALIDATORS[(path, method)] = validator
 
 
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
@@ -766,13 +1175,23 @@ def get_logged_model_before_request_handler(request_class):
 LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
     # Paths for logged models contains path parameters (e.g. /mlflow/logged-models/<model_id>)
     (_re_compile_path(http_path), method): handler
-    for http_path, handler, methods in get_endpoints(get_logged_model_before_request_handler)
+    for http_path, handler, methods in get_endpoints(
+        get_logged_model_before_request_handler,
+        include_workspace_endpoints=False,
+    )
     for method in methods
 }
 
 
+_AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
+
+
 def _is_proxy_artifact_path(path: str) -> bool:
-    return path.startswith(f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/")
+    prefixes = [
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+    ]
+    return any(path.startswith(prefix) for prefix in prefixes)
 
 
 def _get_proxy_artifact_validator(
@@ -836,8 +1255,19 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-    else:
-        return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
+
+    validator = BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
+    if validator is not None:
+        return validator
+
+    # Fallback to regex matching for paths with workspaces.
+    for (path, method), candidate in BEFORE_REQUEST_VALIDATORS.items():
+        if candidate is None or method != req.method or "<" not in path:
+            continue
+        if _re_compile_path(path).fullmatch(req.path):
+            return candidate
+
+    return None
 
 
 @catch_mlflow_exception
@@ -900,6 +1330,141 @@ def delete_can_manage_registered_model_permission(resp: Response):
     store.delete_registered_model_permission(name, username)
 
 
+def _ensure_workspace_permissions_supported():
+    if not hasattr(store, "supports_workspaces") or not store.supports_workspaces():
+        raise MlflowException(
+            "Workspace permissions are not supported by the active authentication store",
+            FEATURE_DISABLED,
+        )
+
+
+def _validate_workspace_permission_payload(payload: dict[str, Any]) -> tuple[str, str, str]:
+    missing = {"username", "resource_type", "permission"} - payload.keys()
+    if missing:
+        raise MlflowException.invalid_parameter_value(
+            "Workspace permission payload missing keys: " + ", ".join(sorted(missing))
+        )
+    return payload["username"], payload["resource_type"], payload["permission"]
+
+
+@catch_mlflow_exception
+def list_workspace_permissions(workspace_name: str):
+    _ensure_workspace_permissions_supported()
+    permissions = store.list_workspace_permissions(workspace_name)
+    return jsonify({"permissions": [perm.to_json() for perm in permissions]})
+
+
+@catch_mlflow_exception
+def set_workspace_permission(workspace_name: str):
+    _ensure_workspace_permissions_supported()
+    payload = request.get_json(force=True, silent=True) or {}
+    username, resource_type, permission = _validate_workspace_permission_payload(payload)
+    workspace_store = _get_workspace_store()
+    workspace_store.get_workspace(workspace_name)
+    perm = store.set_workspace_permission(workspace_name, username, resource_type, permission)
+    return jsonify({"permission": perm.to_json()})
+
+
+@catch_mlflow_exception
+def delete_workspace_permission(workspace_name: str):
+    _ensure_workspace_permissions_supported()
+    username = _get_request_param("username")
+    resource_type = _get_request_param("resource_type")
+    store.delete_workspace_permission(workspace_name, username, resource_type)
+    return Response(status=204)
+
+
+@catch_mlflow_exception
+def list_user_workspace_permissions():
+    _ensure_workspace_permissions_supported()
+    username = _get_request_param("username")
+    permissions = store.list_user_workspace_permissions(username)
+    return jsonify({"permissions": [perm.to_json() for perm in permissions]})
+
+
+def filter_list_workspaces(resp: Response) -> None:
+    if sender_is_admin():
+        return
+
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
+
+    try:
+        payload = json.loads(resp.get_data(as_text=True) or "{}")
+    except json.JSONDecodeError:
+        _logger.warning(
+            ("Failed to decode workspace list response; returning no workspaces for user '%s'."),
+            username,
+        )
+        resp.set_data(json.dumps({"workspaces": []}))
+        return
+
+    workspaces = payload.get("workspaces")
+    if not isinstance(workspaces, list):
+        _logger.warning(
+            (
+                "Workspace list response malformed (workspaces=%r); returning no "
+                "workspaces for user '%s'."
+            ),
+            workspaces,
+            username,
+        )
+        resp.set_data(json.dumps({"workspaces": []}))
+        return
+
+    filtered = []
+
+    if hasattr(store, "supports_workspaces") and store.supports_workspaces():
+        allowed: set[str] | None = None
+        if username is not None:
+            allowed = set(store.list_accessible_workspace_names(username))
+            if auth_config.grant_default_workspace_access:
+                if default_workspace_name := _resolve_default_workspace_name():
+                    allowed.add(default_workspace_name)
+        else:
+            allowed = set()
+
+        if allowed is not None:
+            filtered = [
+                ws for ws in workspaces if isinstance(ws, dict) and ws.get("name") in allowed
+            ]
+    else:
+        _logger.warning(
+            "Workspaces are enabled but auth store lacks workspace permissions; "
+            "returning no workspaces."
+        )
+        filtered = []
+
+    payload["workspaces"] = filtered
+    resp.set_data(json.dumps(payload))
+
+
+def _cleanup_workspace_permissions(resp: Response) -> None:
+    # This handler runs only on successful DELETE responses. Cleanup failures are logged
+    # instead of raised because the workspace deletion has already succeeded at this point.
+    workspace_name = request.view_args.get("workspace_name") if request.view_args else None
+    if not workspace_name:
+        return
+
+    if not hasattr(store, "delete_workspace_permissions_for_workspace"):
+        return
+
+    try:
+        store.delete_workspace_permissions_for_workspace(workspace_name)
+    except NotImplementedError:
+        _logger.debug(
+            "Authentication store does not support deleting workspace permissions for "
+            + "workspace '%s'.",
+            workspace_name,
+        )
+    except MlflowException as e:
+        _logger.warning(
+            "Failed to delete workspace permissions for workspace '%s': %s",
+            workspace_name,
+            e,
+        )
+
+
 def filter_search_experiments(resp: Response):
     if sender_is_admin():
         return
@@ -908,14 +1473,14 @@ def filter_search_experiments(resp: Response):
     parse_dict(resp.json, response_message)
 
     # fetch permissions
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     perms = store.list_experiment_permissions(username)
     can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
-
     # filter out unreadable
     for e in list(response_message.experiments):
-        if not can_read.get(e.experiment_id, default_can_read):
+        if not _has_experiment_read_access(auth, e.experiment_id, can_read, default_can_read):
             response_message.experiments.remove(e)
 
     # re-fetch to fill max results
@@ -937,7 +1502,9 @@ def filter_search_experiments(resp: Response):
             break
 
         refetched_readable_proto = [
-            e.to_proto() for e in refetched if can_read.get(e.experiment_id, default_can_read)
+            e.to_proto()
+            for e in refetched
+            if _has_experiment_read_access(auth, e.experiment_id, can_read, default_can_read)
         ]
         response_message.experiments.extend(refetched_readable_proto)
 
@@ -964,14 +1531,14 @@ def filter_search_logged_models(resp: Response) -> None:
     parse_dict(resp.json, response_proto)
 
     # fetch permissions
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     perms = store.list_experiment_permissions(username)
     can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
-
     # Remove unreadable models
     for m in list(response_proto.models):
-        if not can_read.get(m.info.experiment_id, default_can_read):
+        if not _has_experiment_read_access(auth, m.info.experiment_id, can_read, default_can_read):
             response_proto.models.remove(m)
 
     request_proto = _get_request_message(SearchLoggedModels())
@@ -1004,7 +1571,9 @@ def filter_search_logged_models(resp: Response) -> None:
         offset = Token.decode(next_page_token).offset if next_page_token else 0
         last_index = len(batch) - 1
         for index, model in enumerate(batch):
-            if not can_read.get(model.experiment_id, default_can_read):
+            if not _has_experiment_read_access(
+                auth, model.experiment_id, can_read, default_can_read
+            ):
                 continue
             response_proto.models.append(model.to_proto())
             if len(response_proto.models) >= max_results:
@@ -1033,14 +1602,14 @@ def filter_search_registered_models(resp: Response):
     parse_dict(resp.json, response_message)
 
     # fetch permissions
-    username = authenticate_request().username
+    auth = authenticate_request()
+    username = getattr(auth, "username", None)
     perms = store.list_registered_model_permissions(username)
     can_read = {p.name: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
-
     # filter out unreadable
     for rm in list(response_message.registered_models):
-        if not can_read.get(rm.name, default_can_read):
+        if not _has_registered_model_read_access(auth, rm.name, can_read, default_can_read):
             response_message.registered_models.remove(rm)
 
     # re-fetch to fill max results
@@ -1065,7 +1634,9 @@ def filter_search_registered_models(resp: Response):
             break
 
         refetched_readable_proto = [
-            rm.to_proto() for rm in refetched if can_read.get(rm.name, default_can_read)
+            rm.to_proto()
+            for rm in refetched
+            if _has_registered_model_read_access(auth, rm.name, can_read, default_can_read)
         ]
         response_message.registered_models.extend(refetched_readable_proto)
 
@@ -1126,10 +1697,32 @@ def get_after_request_handler(request_class):
 
 AFTER_REQUEST_HANDLERS = {
     (http_path, method): handler
-    for http_path, handler, methods in get_endpoints(get_after_request_handler)
+    for http_path, handler, methods in get_endpoints(
+        get_after_request_handler,
+        include_workspace_endpoints=False,
+    )
     for method in methods
     if handler is not None and "/graphql" not in http_path
 }
+
+_WORKSPACE_AFTER_REQUEST_ENTRIES = [
+    ("/api/2.0/mlflow/workspaces", "GET", filter_list_workspaces),
+    ("/ajax-api/2.0/mlflow/workspaces", "GET", filter_list_workspaces),
+    (
+        "/api/2.0/mlflow/workspaces/<workspace_name>",
+        "DELETE",
+        _cleanup_workspace_permissions,
+    ),
+    (
+        "/ajax-api/2.0/mlflow/workspaces/<workspace_name>",
+        "DELETE",
+        _cleanup_workspace_permissions,
+    ),
+]
+
+for path, method, handler in _WORKSPACE_AFTER_REQUEST_ENTRIES:
+    for candidate in {path, _add_static_prefix(path)}:
+        AFTER_REQUEST_HANDLERS[(candidate, method)] = handler
 
 
 @catch_mlflow_exception
@@ -1137,7 +1730,17 @@ def _after_request(resp: Response):
     if 400 <= resp.status_code < 600:
         return resp
 
-    if handler := AFTER_REQUEST_HANDLERS.get((request.path, request.method)):
+    handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
+    if handler is None:
+        # Fallback to regex matching for paths with workspaces.
+        for (path, method), candidate in AFTER_REQUEST_HANDLERS.items():
+            if candidate is None or method != request.method or "<" not in path:
+                continue
+            if _re_compile_path(path).fullmatch(request.path):
+                handler = candidate
+                break
+
+    if handler is not None:
         handler(resp)
     return resp
 
@@ -1565,6 +2168,26 @@ def create_app(app: Flask = app):
         rule=DELETE_SCORER_PERMISSION,
         view_func=delete_scorer_permission,
         methods=["DELETE"],
+    )
+    app.add_url_rule(
+        rule=LIST_WORKSPACE_PERMISSIONS,
+        view_func=list_workspace_permissions,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=LIST_WORKSPACE_PERMISSIONS,
+        view_func=set_workspace_permission,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=LIST_WORKSPACE_PERMISSIONS,
+        view_func=delete_workspace_permission,
+        methods=["DELETE"],
+    )
+    app.add_url_rule(
+        rule=LIST_USER_WORKSPACE_PERMISSIONS,
+        view_func=list_user_workspace_permissions,
+        methods=["GET"],
     )
 
     app.before_request(_before_request)

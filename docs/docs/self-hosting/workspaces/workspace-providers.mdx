@@ -1,0 +1,134 @@
+# Workspace Providers
+
+Workspace providers (also referred to as workspace stores) are pluggable backends that manage workspace metadata and determine which workspaces are visible to users. This architecture allows MLflow to integrate with external tenancy systems while providing a default SQL-backed implementation.
+
+## Provider Architecture
+
+Workspace providers implement `mlflow.store.workspace.abstract_store.AbstractStore`. The tracking server instantiates a single provider per process and uses it for both request routing and CRUD APIs.
+
+### Interface
+
+```python
+from abc import ABC, abstractmethod
+from typing import Iterable
+
+from mlflow.entities import Workspace
+
+
+class AbstractStore(ABC):
+    @abstractmethod
+    def list_workspaces(self) -> Iterable[Workspace]:
+        ...
+
+    @abstractmethod
+    def get_workspace(self, workspace_name: str) -> Workspace:
+        ...
+
+    def create_workspace(self, workspace: Workspace) -> Workspace:
+        raise NotImplementedError
+
+    def update_workspace(self, workspace: Workspace) -> Workspace:
+        raise NotImplementedError
+
+    def delete_workspace(self, workspace_name: str) -> None:
+        raise NotImplementedError
+
+    def get_default_workspace(self) -> Workspace:
+        raise NotImplementedError
+
+    def resolve_artifact_root(
+        self, default_artifact_root: str, workspace_name: str | None = None
+    ) -> tuple[str, bool]:
+        return default_artifact_root, True
+```
+
+Concrete providers may implement the optional methods to support provisioning, updates, or custom artifact routing. Use `WorkspaceNameValidator.validate(workspace.name)` from the same module to enforce DNS-safe workspace names.
+
+### Provider Discovery and Configuration
+
+- Configure the provider URI with `--workspace-store-uri`, `MLFLOW_WORKSPACE_URI`, or leave it unset to reuse the backend store URI.
+- MLflow resolves providers based on the URI scheme (for example `postgresql://`, `mysql://`, `sqlite:///...`, `http(s)://`).
+- Custom providers are discovered via the `mlflow.workspace_provider` entry point. Register a builder that returns an `AbstractStore` subclass and expose it through your package's `entry_points` configuration.
+- The Python `WorkspaceProviderClient` and the tracking server share the same resolution logic, so SDK and REST calls interact with the same provider.
+
+## Default SQL Provider
+
+The default provider is `mlflow.store.workspace.sqlalchemy_store.SqlAlchemyStore`. It persists workspace metadata in the MLflow tracking database and is automatically used when workspaces are enabled without specifying a custom provider.
+
+### Features
+
+- CRUD operations for workspaces via REST API or the Python SDK
+- Workspace metadata stored in the `workspaces` table alongside the tracking backend
+- Admin-only workspace management when authentication is enabled
+- `get_default_workspace()` returns the reserved `default` workspace
+- `resolve_artifact_root()` keeps the server's configured artifact root and enables automatic `/workspaces/<workspace>/<experiment>` prefixing
+
+### Usage
+
+```bash
+mlflow server \
+  --backend-store-uri postgresql://localhost/mlflow \
+  --enable-workspaces
+# Uses default SQL provider (SqlAlchemyStore)
+```
+
+To point at a different backend (for example a dedicated catalog database), provide `--workspace-store-uri` or `MLFLOW_WORKSPACE_URI`.
+
+## Advanced: Workspace-Aware Artifact Repositories
+
+For deployments requiring dynamic workspace-specific artifact resolution beyond URI prefixing, artifact repositories can optionally implement the `for_workspace()` hook exposed by `mlflow.store.artifact.artifact_repo.ArtifactRepository`:
+
+```python
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+
+
+class WorkspaceAwareS3ArtifactRepository(ArtifactRepository):
+    def for_workspace(self, workspace_name: str | None) -> "ArtifactRepository":
+        """
+        Return a workspace-scoped repository instance.
+        """
+        if workspace_name == "team-sensitive":
+            # Use dedicated bucket with specific credentials
+            return S3ArtifactRepository(
+                artifact_uri="s3://team-sensitive-bucket",
+                access_key_id=get_team_credentials(workspace_name),
+            )
+
+        # Default behavior
+        return self
+```
+
+Most deployments use the default URI prefixing approach (`/workspaces/<workspace>/<experiment>`), which works with all existing artifact repository implementations. Providers can additionally override `resolve_artifact_root()` to change the base artifact URI per workspace.
+
+## Workspace Context
+
+Workspace middleware seeds the global workspace context (`mlflow.tracking._workspace.context`). Providers and authentication plugins can call `workspace_context.get_current_workspace()` to retrieve the active workspace name (or `None` when workspaces are disabled).
+
+Providers can use these for custom authorization logic:
+
+```python
+from flask import g
+
+from mlflow.entities import Workspace
+from mlflow.exceptions import MlflowException
+from mlflow.protos import databricks_pb2
+from mlflow.store.workspace.abstract_store import AbstractStore
+
+
+class CustomWorkspaceProvider(AbstractStore):
+    def get_workspace(self, workspace_name: str) -> Workspace:
+        workspace = self._fetch_workspace(workspace_name)
+
+        username = g.get("username")
+        if not self._user_can_access(username, workspace):
+            raise MlflowException("Access denied", databricks_pb2.PERMISSION_DENIED)
+
+        return workspace
+```
+
+## Next Steps
+
+- [Permissions](/self-hosting/workspaces/permissions) - Configure workspace-scoped permissions
+- [Getting Started](/self-hosting/workspaces/getting-started) - Set up your first workspace
+- [Configuration](/self-hosting/workspaces/configuration) - Server configuration options

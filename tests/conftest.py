@@ -21,7 +21,13 @@ from opentelemetry import trace as trace_api
 
 import mlflow
 import mlflow.telemetry.utils
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_WORKSPACE,
+    MLFLOW_WORKSPACE_URI,
+)
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
@@ -35,8 +41,17 @@ from tests.autologging.fixtures import enable_test_mode
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import purge_traces
 
+workspace_context = None
+workspace_utils = None
+
 if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+    from mlflow.tracking._workspace import context as workspace_context
+
+    try:
+        from mlflow.tracking._workspace import utils as workspace_utils
+    except ImportError:  # pragma: no cover - optional in minimal distributions
+        workspace_utils = None
     from mlflow.tracking.fluent import (
         _last_active_run_id,
         _reset_last_logged_model_id,
@@ -544,6 +559,35 @@ def tracking_uri_mock(tmp_path, request):
             yield tracking_uri
     else:
         yield None
+
+
+@pytest.fixture(autouse=True)
+def disable_workspace_mode_by_default(monkeypatch):
+    """
+    Ensure tests default to single-tenant mode regardless of the outer environment.
+    Individual tests can still opt in by setting ``MLFLOW_ENABLE_WORKSPACES`` explicitly.
+    """
+
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_URI,
+    ):
+        monkeypatch.delenv(env_var.name, raising=False)
+
+    if workspace_context is not None:
+        workspace_context.clear_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_uri(None)
+
+    yield
+
+    if workspace_context is not None:
+        workspace_context.clear_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_uri(None)
 
 
 @pytest.fixture(autouse=True)

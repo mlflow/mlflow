@@ -158,6 +158,37 @@ def test_search_registered_models_params(
     )
 
 
+def test_model_registry_rest_store_errors_when_workspace_not_supported(store):
+    store._workspace_support = False
+
+    with mock.patch(
+        "mlflow.store.model_registry.base_rest_store.rest_utils._resolve_active_workspace",
+        return_value="team-a",
+    ):
+        with pytest.raises(
+            MlflowException,
+            match=(
+                "Active workspace 'team-a' cannot be used because the remote model registry server"
+            ),
+        ):
+            store.search_registered_models()
+
+
+def test_model_registry_rest_store_ignores_whitespace_workspace(store, creds):
+    store._workspace_support = False
+
+    with (
+        mock.patch(
+            "mlflow.store.model_registry.base_rest_store.rest_utils._resolve_active_workspace",
+            return_value="   ",
+        ),
+        mock_http_request_200() as mock_http,
+    ):
+        store.search_registered_models()
+
+    _verify_requests(mock_http, creds, "registered-models/search", "GET", SearchRegisteredModels())
+
+
 def test_get_registered_model(store, creds):
     name = "model_1"
     with mock_http_request_200() as mock_http:
