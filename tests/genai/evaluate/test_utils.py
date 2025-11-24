@@ -16,11 +16,11 @@ from mlflow.genai import scorer
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.utils import (
-    _classify_scorers,
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
-    _get_first_trace_in_session,
-    _group_traces_by_session,
+    classify_scorers,
+    get_first_trace_in_session,
+    group_traces_by_session,
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -594,7 +594,7 @@ def test_classify_scorers_all_single_turn():
         return 2.0
 
     scorers_list = [custom_scorer1, custom_scorer2]
-    single_turn, multi_turn = _classify_scorers(scorers_list)
+    single_turn, multi_turn = classify_scorers(scorers_list)
 
     assert len(single_turn) == 2
     assert len(multi_turn) == 0
@@ -610,7 +610,7 @@ def test_classify_scorers_all_multi_turn():
     multi_turn_scorer2 = _MultiTurnTestScorer(name="multi_turn_scorer2")
 
     scorers_list = [multi_turn_scorer1, multi_turn_scorer2]
-    single_turn, multi_turn = _classify_scorers(scorers_list)
+    single_turn, multi_turn = classify_scorers(scorers_list)
 
     assert len(single_turn) == 0
     assert len(multi_turn) == 2
@@ -630,7 +630,7 @@ def test_classify_scorers_mixed():
     multi_turn_scorer = _MultiTurnTestScorer(name="multi_turn_scorer")
 
     scorers_list = [single_turn_scorer, multi_turn_scorer]
-    single_turn, multi_turn = _classify_scorers(scorers_list)
+    single_turn, multi_turn = classify_scorers(scorers_list)
 
     assert len(single_turn) == 1
     assert len(multi_turn) == 1
@@ -643,7 +643,7 @@ def test_classify_scorers_mixed():
 
 def test_classify_scorers_empty_list():
     """Test classification of an empty list of scorers."""
-    single_turn, multi_turn = _classify_scorers([])
+    single_turn, multi_turn = classify_scorers([])
 
     assert len(single_turn) == 0
     assert len(multi_turn) == 0
@@ -689,7 +689,7 @@ def test_group_traces_by_session_single_session():
     eval_item3 = _create_mock_eval_item(trace3)
 
     eval_items = [eval_item1, eval_item2, eval_item3]
-    session_groups = _group_traces_by_session(eval_items)
+    session_groups = group_traces_by_session(eval_items)
 
     assert len(session_groups) == 1
     assert "session-1" in session_groups
@@ -716,7 +716,7 @@ def test_group_traces_by_session_multiple_sessions():
         _create_mock_eval_item(trace4),
     ]
 
-    session_groups = _group_traces_by_session(eval_items)
+    session_groups = group_traces_by_session(eval_items)
 
     assert len(session_groups) == 2
     assert "session-1" in session_groups
@@ -737,7 +737,7 @@ def test_group_traces_by_session_excludes_no_session_id():
         _create_mock_eval_item(trace3),
     ]
 
-    session_groups = _group_traces_by_session(eval_items)
+    session_groups = group_traces_by_session(eval_items)
 
     assert len(session_groups) == 1
     assert "session-1" in session_groups
@@ -758,7 +758,7 @@ def test_group_traces_by_session_excludes_none_traces():
     eval_item2.trace = None  # No trace
 
     eval_items = [eval_item1, eval_item2]
-    session_groups = _group_traces_by_session(eval_items)
+    session_groups = group_traces_by_session(eval_items)
 
     assert len(session_groups) == 1
     assert "session-1" in session_groups
@@ -767,7 +767,7 @@ def test_group_traces_by_session_excludes_none_traces():
 
 def test_group_traces_by_session_empty_list():
     """Test grouping an empty list of eval items."""
-    session_groups = _group_traces_by_session([])
+    session_groups = group_traces_by_session([])
 
     assert len(session_groups) == 0
     assert session_groups == {}
@@ -785,7 +785,7 @@ def test_get_first_trace_in_session_chronological_order():
 
     session_items = [eval_item1, eval_item2, eval_item3]
 
-    first_item = _get_first_trace_in_session(session_items)
+    first_item = get_first_trace_in_session(session_items)
 
     assert first_item.trace == trace2
     assert first_item == eval_item2
@@ -798,7 +798,7 @@ def test_get_first_trace_in_session_single_trace():
 
     session_items = [eval_item1]
 
-    first_item = _get_first_trace_in_session(session_items)
+    first_item = get_first_trace_in_session(session_items)
 
     assert first_item.trace == trace1
     assert first_item == eval_item1
@@ -817,7 +817,7 @@ def test_get_first_trace_in_session_same_timestamp():
 
     session_items = [eval_item1, eval_item2, eval_item3]
 
-    first_item = _get_first_trace_in_session(session_items)
+    first_item = get_first_trace_in_session(session_items)
 
     # Should return one of the traces with timestamp 1000 (likely the first one)
     assert first_item.trace.info.request_time == 1000
@@ -826,9 +826,9 @@ def test_get_first_trace_in_session_same_timestamp():
 # ==================== Tests for Multi-Turn Validation ====================
 
 
-def test_validate_multi_turn_input_no_multi_turn_scorers():
-    """Test that validation passes when there are no multi-turn scorers."""
-    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+def test_validate_session_level_input_no_session_level_scorers():
+    """Test that validation passes when there are no session-level scorers."""
+    from mlflow.genai.evaluation.utils import _validate_session_level_input
 
     @scorer
     def single_turn_scorer(outputs):
@@ -837,19 +837,18 @@ def test_validate_multi_turn_input_no_multi_turn_scorers():
     scorers_list = [single_turn_scorer]
 
     # Should not raise any exceptions
-    _validate_multi_turn_input(
-        data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+    _validate_session_level_input(
         scorers=scorers_list,
         predict_fn=None,
     )
 
 
-def test_validate_multi_turn_input_feature_flag_disabled():
+def test_validate_session_level_input_feature_flag_disabled():
     """Test that validation raises error when feature flag is disabled."""
     import os
 
     from mlflow.exceptions import MlflowException
-    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+    from mlflow.genai.evaluation.utils import _validate_session_level_input
 
     # Make sure feature flag is disabled
     os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
@@ -859,21 +858,20 @@ def test_validate_multi_turn_input_feature_flag_disabled():
 
     with pytest.raises(
         MlflowException,
-        match="Multi-turn evaluation is currently an experimental feature",
+        match="Multi-turn evaluation is not enabled",
     ):
-        _validate_multi_turn_input(
-            data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+        _validate_session_level_input(
             scorers=scorers_list,
             predict_fn=None,
         )
 
 
-def test_validate_multi_turn_input_with_predict_fn():
-    """Test that validation raises error when predict_fn is provided with multi-turn scorers."""
+def test_validate_session_level_input_with_predict_fn():
+    """Test that validation raises error when predict_fn is provided with session-level scorers."""
     import os
 
     from mlflow.exceptions import MlflowException
-    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+    from mlflow.genai.evaluation.utils import _validate_session_level_input
 
     # Enable feature flag
     os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
@@ -887,10 +885,9 @@ def test_validate_multi_turn_input_with_predict_fn():
 
         with pytest.raises(
             MlflowException,
-            match="Multi-turn scorers are not supported with predict_fn",
+            match="Multi-turn scorers are not yet supported with predict_fn",
         ):
-            _validate_multi_turn_input(
-                data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+            _validate_session_level_input(
                 scorers=scorers_list,
                 predict_fn=dummy_predict_fn,
             )
@@ -898,38 +895,11 @@ def test_validate_multi_turn_input_with_predict_fn():
         os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
 
 
-def test_validate_multi_turn_input_with_non_dataframe():
-    """Test that validation raises error when data is not a DataFrame."""
+def test_validate_session_level_input_valid():
+    """Test that validation passes with valid session-level input."""
     import os
 
-    from mlflow.exceptions import MlflowException
-    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
-
-    # Enable feature flag
-    os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
-
-    try:
-        multi_turn_scorer = _MultiTurnTestScorer()
-        scorers_list = [multi_turn_scorer]
-
-        with pytest.raises(
-            MlflowException,
-            match="Multi-turn scorers require DataFrame input with traces",
-        ):
-            _validate_multi_turn_input(
-                data=[{"inputs": {}, "outputs": "test"}],  # List, not DataFrame
-                scorers=scorers_list,
-                predict_fn=None,
-            )
-    finally:
-        os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
-
-
-def test_validate_multi_turn_input_valid():
-    """Test that validation passes with valid multi-turn input."""
-    import os
-
-    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+    from mlflow.genai.evaluation.utils import _validate_session_level_input
 
     # Enable feature flag
     os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
@@ -939,8 +909,7 @@ def test_validate_multi_turn_input_valid():
         scorers_list = [multi_turn_scorer]
 
         # Should not raise any exceptions
-        _validate_multi_turn_input(
-            data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+        _validate_session_level_input(
             scorers=scorers_list,
             predict_fn=None,
         )
@@ -948,11 +917,11 @@ def test_validate_multi_turn_input_valid():
         os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
 
 
-def test_validate_multi_turn_input_mixed_scorers():
-    """Test validation with mixed single-turn and multi-turn scorers."""
+def test_validate_session_level_input_mixed_scorers():
+    """Test validation with mixed single-turn and session-level scorers."""
     import os
 
-    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+    from mlflow.genai.evaluation.utils import _validate_session_level_input
 
     # Enable feature flag
     os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
@@ -966,8 +935,7 @@ def test_validate_multi_turn_input_mixed_scorers():
         scorers_list = [single_turn_scorer, multi_turn_scorer]
 
         # Should not raise any exceptions
-        _validate_multi_turn_input(
-            data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+        _validate_session_level_input(
             scorers=scorers_list,
             predict_fn=None,
         )

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Collection
 from mlflow.entities import Assessment, Trace, TraceData
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.environment_variables import MLFLOW_ENABLE_MULTI_TURN_EVALUATION
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
@@ -391,7 +392,7 @@ def validate_tags(tags: Any) -> None:
         raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
 
 
-def _classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]]:
+def classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]]:
     """
     Separate scorers into single-turn and multi-turn categories.
 
@@ -413,7 +414,7 @@ def _classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]
     return single_turn_scorers, multi_turn_scorers
 
 
-def _group_traces_by_session(eval_items: list["EvalItem"]) -> dict[str, list["EvalItem"]]:
+def group_traces_by_session(eval_items: list["EvalItem"]) -> dict[str, list["EvalItem"]]:
     """
     Group evaluation items containing traces by session_id.
 
@@ -424,30 +425,21 @@ def _group_traces_by_session(eval_items: list["EvalItem"]) -> dict[str, list["Ev
         dict: {session_id: [eval_item, ...]} where eval items are grouped by session.
               Only items with traces that have a session_id are included in the output.
     """
-    import logging
-
-    _logger = logging.getLogger(__name__)
     session_groups = defaultdict(list)
 
-    _logger.debug(f"Grouping {len(eval_items)} eval items by session")
     for idx, item in enumerate(eval_items):
         if not hasattr(item, "trace") or item.trace is None:
-            _logger.debug(f"  Item {idx}: No trace")
             continue
 
         trace_metadata = item.trace.info.trace_metadata
-        _logger.debug(f"  Item {idx}: trace_id={item.trace.info.trace_id}, metadata_keys={list(trace_metadata.keys())}")
 
         if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
-            _logger.debug(f"    -> Found session_id: {session_id}")
             session_groups[session_id].append(item)
-        else:
-            _logger.debug(f"    -> No session_id found")
 
     return dict(session_groups)
 
 
-def _get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
+def get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
     """
     Find the chronologically first trace in a session based on request_time.
 
@@ -460,44 +452,33 @@ def _get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
     return min(session_items, key=lambda x: x.trace.info.request_time)
 
 
-def _validate_multi_turn_input(data: Any, scorers: list[Scorer], predict_fn: Any) -> None:
+def _validate_session_level_input(scorers: list[Scorer], predict_fn: Any) -> None:
     """
-    Validate input parameters when multi-turn scorers are present.
+    Validate input parameters when session-level scorers are present.
 
     Args:
-        data: Input dataset
         scorers: List of scorer instances
         predict_fn: Prediction function (if provided)
 
     Raises:
         MlflowException: If feature flag is not enabled or invalid configuration is detected
     """
-    from mlflow.environment_variables import MLFLOW_ENABLE_MULTI_TURN_EVALUATION
-
-    has_multi_turn = any(
+    has_session_level = any(
         getattr(scorer, "is_session_level_scorer", False) for scorer in scorers
     )
 
-    if has_multi_turn:
+    if has_session_level:
         # Check if feature is enabled
         if not MLFLOW_ENABLE_MULTI_TURN_EVALUATION.get():
             raise MlflowException(
-                "Multi-turn evaluation is currently an experimental feature and must be "
-                "explicitly enabled. Set the environment variable "
-                "MLFLOW_ENABLE_MULTI_TURN_EVALUATION=true to use multi-turn scorers.",
+                "Multi-turn evaluation is not enabled.",
                 error_code=FEATURE_DISABLED,
             )
 
         if predict_fn is not None:
             raise MlflowException.invalid_parameter_value(
-                "Multi-turn scorers are not supported with predict_fn. "
-                "Please use answer sheet mode (DataFrame input with traces)."
-            )
-
-        # Check if data is a DataFrame-like object (has 'columns' attribute)
-        if not hasattr(data, "columns"):
-            raise MlflowException.invalid_parameter_value(
-                "Multi-turn scorers require DataFrame input with traces."
+                "Multi-turn scorers are not yet supported with predict_fn. "
+                "Please pass traces instead."
             )
 
 

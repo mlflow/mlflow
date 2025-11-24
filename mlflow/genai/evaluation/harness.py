@@ -24,10 +24,10 @@ from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
 from mlflow.genai.evaluation.utils import (
-    _classify_scorers,
-    _get_first_trace_in_session,
-    _group_traces_by_session,
+    classify_scorers,
     complete_eval_futures_with_progress_base,
+    get_first_trace_in_session,
+    group_traces_by_session,
     is_none_or_nan,
     make_code_type_assessment_source,
     standardize_scorer_value,
@@ -43,7 +43,7 @@ from mlflow.genai.utils.trace_utils import (
     create_minimal_trace,
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -80,11 +80,7 @@ def run(
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
 
     # Classify scorers into single-turn and multi-turn
-    single_turn_scorers, multi_turn_scorers = _classify_scorers(scorers)
-    _logger.debug(
-        f"Classified scorers: {len(single_turn_scorers)} single-turn, "
-        f"{len(multi_turn_scorers)} multi-turn"
-    )
+    single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
 
     # Run single-turn evaluation
     with ThreadPoolExecutor(
@@ -106,10 +102,8 @@ def run(
     # Evaluate multi-turn scorers if present
     multi_turn_assessments = {}
     if multi_turn_scorers:
-        _logger.debug(f"Evaluating {len(multi_turn_scorers)} multi-turn scorers")
         # Group eval items by session
-        session_groups = _group_traces_by_session(eval_items)
-        _logger.debug(f"Found {len(session_groups)} session groups")
+        session_groups = group_traces_by_session(eval_items)
 
         if session_groups:
             # Evaluate multi-turn scorers on session groups
@@ -119,20 +113,29 @@ def run(
 
             # Log multi-turn assessments to the first trace of each session
             for trace_id, assessments_dict in multi_turn_assessments.items():
-                trace = mlflow.get_trace(trace_id)
                 assessments_list = list(assessments_dict.values())
+
+                # Find the eval_result containing this trace so we can update it
+                matching_eval_result = next(
+                    (er for er in eval_results if er.eval_item.trace.info.trace_id == trace_id),
+                    None,
+                )
+
+                if matching_eval_result is None:
+                    _logger.warning(
+                        f"Could not find eval_result for trace {trace_id} to log multi-turn assessments"
+                    )
+                    continue
+
                 try:
                     logged_trace = _log_assessments(
                         run_id=run_id,
-                        trace=trace,
+                        trace=matching_eval_result.eval_item.trace,
                         assessments=assessments_list,
                     )
-                    # Update the trace in the corresponding eval_result
-                    for eval_result in eval_results:
-                        if eval_result.eval_item.trace.info.trace_id == trace_id:
-                            eval_result.eval_item.trace = logged_trace
-                            eval_result.assessments.extend(assessments_list)
-                            break
+                    # Update the trace in the eval_result
+                    matching_eval_result.eval_item.trace = logged_trace
+                    matching_eval_result.assessments.extend(assessments_list)
                 except Exception as e:
                     _logger.warning(
                         f"Failed to log multi-turn assessments for trace {trace_id}: {e}"
@@ -141,7 +144,7 @@ def run(
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
 
-    # Aggregate metrics and log to MLflow run (include all scorers for aggregation)
+    # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
     mlflow.log_metrics(aggregated_metrics)
 
@@ -365,7 +368,7 @@ def _evaluate_multi_turn_scorers(
 
     for session_id, session_items in session_groups.items():
         # Get the first trace to store assessments
-        first_item = _get_first_trace_in_session(session_items)
+        first_item = get_first_trace_in_session(session_items)
         first_trace_id = first_item.trace.info.trace_id
 
         # Extract just the traces for scorer evaluation
@@ -382,7 +385,7 @@ def _evaluate_multi_turn_scorers(
                 for feedback in feedbacks:
                     if feedback.metadata is None:
                         feedback.metadata = {}
-                    feedback.metadata["session_id"] = session_id
+                    feedback.metadata[TraceMetadataKey.TRACE_SESSION] = session_id
 
                 # Store assessments for first trace
                 if first_trace_id not in multi_turn_assessments:
