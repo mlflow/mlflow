@@ -10,7 +10,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'html',
-      value: '<h4><b>Getting Started</b></h4>',
+      value: '<h5><b>Getting Started</b></h5>',
       defaultStyle: true,
     },
     {
@@ -33,7 +33,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'html',
-      value: '<h4><b>Core Components</b></h4>',
+      value: '<h5><b>Core Components</b></h5>',
       defaultStyle: true,
     },
     {
@@ -580,7 +580,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'html',
-      value: '<h4><b>Features</b></h4>',
+      value: '<h5><b>Features</b></h5>',
       defaultStyle: true,
     },
     {
@@ -848,7 +848,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'html',
-      value: '<h4><b>References</b></h4>',
+      value: '<h5><b>References</b></h5>',
       defaultStyle: true,
     },
     {
