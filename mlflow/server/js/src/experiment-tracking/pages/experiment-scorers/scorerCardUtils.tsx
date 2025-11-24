@@ -82,6 +82,7 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     instructions: scorer.type === 'llm' ? (scorer as LLMScorer).instructions || '' : '',
     filterString: scorer.filterString || '',
     model: scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '',
+    disableMonitoring: scorer.disableMonitoring,
   };
 };
 

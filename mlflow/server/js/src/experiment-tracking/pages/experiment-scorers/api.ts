@@ -39,7 +39,7 @@ export interface ListScorersResponse {
 /**
  * Get scheduled scorers for an experiment
  */
-export async function listScheduledScorers(experimentId: string) {
+export async function listScheduledScorers(experimentId: string): Promise<ListScorersResponse> {
   const params = new URLSearchParams();
   params.append('experiment_id', experimentId);
   return fetchOrFail(`/ajax-api/3.0/mlflow/scorers/list?${params.toString()}`)
@@ -92,7 +92,7 @@ export async function createScheduledScorers(
 /**
  * Register a single scorer for an experiment
  */
-export async function registerScorer(experimentId: string, scorer: ScorerConfig) {
+export async function registerScorer(experimentId: string, scorer: ScorerConfig): Promise<RegisterScorerResponse> {
   return fetchOrFail(`/ajax-api/3.0/mlflow/scorers/register`, {
     method: 'POST',
     headers: {

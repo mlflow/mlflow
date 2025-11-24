@@ -13,7 +13,7 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { shouldEnableChatSessionsTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnableChatSessionsTab, enableScorersUI } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
@@ -44,16 +44,6 @@ const ExperimentPageSideNavGenAIConfig = {
     },
   ],
   evaluation: [
-    {
-      label: (
-        <FormattedMessage
-          defaultMessage="Judges"
-          description="Label for the judges tab in the MLflow experiment navbar"
-        />
-      ),
-      icon: <GavelIcon />,
-      tabName: ExperimentPageTabName.Scorers,
-    },
     {
       label: (
         <FormattedMessage
@@ -198,6 +188,22 @@ export const useExperimentPageSideNavConfig = ({
           ),
           icon: <SpeechBubbleIcon />,
           tabName: ExperimentPageTabName.ChatSessions,
+        },
+      ];
+    }
+
+    if (enableScorersUI()) {
+      baseConfig.evaluation = [
+        ...baseConfig.evaluation,
+        {
+          label: (
+            <FormattedMessage
+              defaultMessage="Judges"
+              description="Label for the judges tab in the MLflow experiment navbar"
+            />
+          ),
+          icon: <GavelIcon />,
+          tabName: ExperimentPageTabName.Judges,
         },
       ];
     }

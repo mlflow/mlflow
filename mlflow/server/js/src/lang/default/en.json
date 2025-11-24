@@ -303,6 +303,10 @@
     "defaultMessage": "None",
     "description": "Label for experiments with no experiment kind"
   },
+  "0z3Ko0": {
+    "defaultMessage": "{sampleRatePercent}%",
+    "description": "Sample rate value for scorer"
+  },
   "1/M8+x": {
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in scatter plot comparison in MLflow"
@@ -1802,10 +1806,6 @@
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
   },
-  "FUJc7D": {
-    "defaultMessage": "Register your judge and start it with a sampling configuration. The judge will then be available for use and will show up in this UI.",
-    "description": "Step 3 description for registering and starting judge"
-  },
   "FWEOg2": {
     "defaultMessage": "Relevance to Query",
     "description": "LLM template option"
@@ -2209,6 +2209,10 @@
   "Jdr//R": {
     "defaultMessage": "STRING",
     "description": "Header label for string assessment type"
+  },
+  "JfFfzy": {
+    "defaultMessage": "Sample rate:",
+    "description": "Sample rate label for scorer"
   },
   "Jj2kRy": {
     "defaultMessage": "No details for assessment",
@@ -3204,6 +3208,10 @@
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in contour plot comparison in MLflow"
   },
+  "ULljUX": {
+    "defaultMessage": "Filter: {filterString}",
+    "description": "Filter display for scorer"
+  },
   "UQhorr": {
     "defaultMessage": "Edit",
     "description": "Edit assessment menu item"
@@ -3448,6 +3456,10 @@
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guidelines assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
   },
+  "WncPgl": {
+    "defaultMessage": "Register your judge. The judge will then show up in this UI.",
+    "description": "Step 3 description for registering and starting judge"
+  },
   "WpD2MA": {
     "defaultMessage": "View All",
     "description": "View all traces button"
@@ -3586,10 +3598,6 @@
   "YCYIaY": {
     "defaultMessage": "Create custom LLM template",
     "description": "LLM template option"
-  },
-  "YDDSCM": {
-    "defaultMessage": "Step 3: Register and start the judge",
-    "description": "Step 3 title for custom judge creation"
   },
   "YECxws": {
     "defaultMessage": "Compare",
@@ -4338,6 +4346,10 @@
   "eUUNCv": {
     "defaultMessage": "Error during metric page load: invalid URL",
     "description": "Error message when loading metric page fails"
+  },
+  "eVpwlz": {
+    "defaultMessage": "Step 3: Register the judge",
+    "description": "Step 3 title for custom judge creation"
   },
   "eYt1wE": {
     "defaultMessage": "Add a judge to your experiment to measure your GenAI app quality",
@@ -5527,6 +5539,10 @@
     "defaultMessage": "Run example code:",
     "description": "Instruction for running example GenAI code in order to log MLflow 3 models"
   },
+  "pDz/Mf": {
+    "defaultMessage": "Add a set of instructions for the scorer. Enter one guideline per line. {learnMore}",
+    "description": "Hint text for Guidelines section with documentation link"
+  },
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
@@ -6079,6 +6095,10 @@
     "defaultMessage": "using Notebook",
     "description": "String for creating a new run from a notebook"
   },
+  "vPaah9": {
+    "defaultMessage": "The response must be in English",
+    "description": "Placeholder text for guidelines textarea"
+  },
   "vPnoNk": {
     "defaultMessage": "Save changes",
     "description": "Confirm button label within a modal when editing a runs comparison chart"
@@ -6466,6 +6486,10 @@
   "zC/uKl": {
     "defaultMessage": "Auto-refresh",
     "description": "Run page > Charts tab > Auto-refresh toggle button"
+  },
+  "zE5aGj": {
+    "defaultMessage": "Guidelines",
+    "description": "Section header for scorer guidelines"
   },
   "zEXwQL": {
     "defaultMessage": "Error",

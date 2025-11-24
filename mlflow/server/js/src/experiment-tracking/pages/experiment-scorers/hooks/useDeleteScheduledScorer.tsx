@@ -10,7 +10,6 @@ export type DeleteScheduledScorersResponse = {
   scheduled_scorers?: {
     scorers: ScorerConfig[];
   };
-  scorerNames?: string[];
 };
 
 export const useDeleteScheduledScorerMutation = () => {

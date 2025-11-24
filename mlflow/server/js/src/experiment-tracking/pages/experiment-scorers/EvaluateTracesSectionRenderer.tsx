@@ -26,6 +26,10 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     control,
     name: 'sampleRate',
   });
+  const disableMonitoring = useWatch({
+    control,
+    name: 'disableMonitoring',
+  });
 
   const isAutomaticEvaluationEnabled = sampleRate > 0;
 
@@ -37,6 +41,10 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     display: 'flex' as const,
     flexDirection: 'column' as const,
   };
+
+  if (disableMonitoring) {
+    return null;
+  }
 
   return (
     <>

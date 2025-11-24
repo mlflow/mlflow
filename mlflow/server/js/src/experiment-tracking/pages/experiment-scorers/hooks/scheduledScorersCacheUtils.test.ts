@@ -78,6 +78,7 @@ describe('scheduledScorersCacheUtils', () => {
             llmTemplate: 'Guidelines',
             guidelines: ['Be helpful', 'Be accurate'],
             version: 1,
+            disableMonitoring: true,
           },
           {
             name: 'custom_scorer',
@@ -85,6 +86,8 @@ describe('scheduledScorersCacheUtils', () => {
             type: 'custom-code',
             code: 'return True',
             version: 1,
+            disableMonitoring: true,
+            originalFuncName: undefined,
           },
         ],
       });
@@ -129,6 +132,7 @@ describe('scheduledScorersCacheUtils', () => {
             type: 'llm',
             llmTemplate: 'Correctness',
             version: 1,
+            disableMonitoring: true,
           },
         ],
       });

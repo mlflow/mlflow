@@ -4,6 +4,9 @@ interface ScheduledScorerBase {
   filterString?: string;
   type: 'llm' | 'custom-code';
   version?: number;
+  // Whether the UI disables enabling monitoring for this scorer. If disabled, the UI
+  // will not show the form fields for monitoring (sample rate, filter string, etc.)
+  disableMonitoring?: boolean;
 }
 
 // LLM Template Constants

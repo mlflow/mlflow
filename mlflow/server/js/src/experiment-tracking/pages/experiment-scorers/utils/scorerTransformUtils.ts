@@ -29,11 +29,12 @@ export class ScorerTransformationError extends PredefinedError {
  * Transform backend ScorerConfig to frontend ScheduledScorer
  */
 export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
-  const baseFields: any = {
+  const baseFields: Partial<ScheduledScorer> = {
     name: config.name,
     // Convert from backend float (0-1) to frontend percentage (0-100)
     sampleRate: config.sample_rate !== undefined ? config.sample_rate * 100 : undefined,
     version: config.scorer_version,
+    disableMonitoring: true,
   };
 
   // Only add filterString if it has a value

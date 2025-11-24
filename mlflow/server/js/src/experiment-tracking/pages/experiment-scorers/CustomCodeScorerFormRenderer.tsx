@@ -93,8 +93,7 @@ def my_custom_scorer(
     # TODO: Implement your custom scoring logic
     return 1.0`;
 
-    const step3Code = `custom_scorer = my_custom_scorer.register(name="my_custom_scorer")
-custom_scorer = custom_scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))`;
+    const step3Code = `custom_scorer = my_custom_scorer.register(name="my_custom_scorer")`;
 
     return (
       <div css={{ display: 'flex', flexDirection: 'column' }}>
@@ -173,13 +172,13 @@ custom_scorer = custom_scorer.start(sampling_config=ScorerSamplingConfig(sample_
         <div>
           <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
             <FormattedMessage
-              defaultMessage="Step 3: Register and start the judge"
+              defaultMessage="Step 3: Register the judge"
               description="Step 3 title for custom judge creation"
             />
           </Typography.Title>
           <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.md, maxWidth: 800 }}>
             <FormattedMessage
-              defaultMessage="Register your judge and start it with a sampling configuration. The judge will then be available for use and will show up in this UI."
+              defaultMessage="Register your judge. The judge will then show up in this UI."
               description="Step 3 description for registering and starting judge"
             />
           </Typography.Text>

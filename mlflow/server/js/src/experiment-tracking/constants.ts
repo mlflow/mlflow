@@ -142,7 +142,7 @@ export enum ExperimentPageTabName {
   Traces = 'traces',
   Models = 'models',
   EvaluationMonitoring = 'evaluation-monitoring',
-  Scorers = 'judges',
+  Judges = 'judges',
   EvaluationRuns = 'evaluation-runs',
   Datasets = 'datasets',
   LabelingSessions = 'labeling-sessions',

@@ -37,6 +37,7 @@ describe('transformScorerConfig', () => {
         llmTemplate: 'Custom',
         instructions: 'Evaluate the response quality',
         model: 'databricks:/databricks-gpt-5',
+        disableMonitoring: true,
       });
     });
 
@@ -59,6 +60,7 @@ describe('transformScorerConfig', () => {
         llmTemplate: 'Custom',
         instructions: 'Evaluate the response quality',
         model: undefined,
+        disableMonitoring: true,
       });
     });
   });
@@ -87,6 +89,7 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Guideline 1', 'Guideline 2'],
+        disableMonitoring: true,
       });
     });
 
@@ -109,6 +112,7 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Single guideline'],
+        disableMonitoring: true,
       });
     });
 
@@ -129,6 +133,7 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: [],
+        disableMonitoring: true,
       });
     });
   });
@@ -151,6 +156,7 @@ describe('transformScorerConfig', () => {
         sampleRate: 50,
         type: 'llm',
         llmTemplate: 'Safety',
+        disableMonitoring: true,
       });
     });
   });
@@ -179,6 +185,7 @@ describe('transformScorerConfig', () => {
         code: 'def my_scorer(inputs, outputs, metadata):\n    return len(inputs["text"]) > 10',
         callSignature: '(inputs, outputs, metadata)',
         originalFuncName: 'my_scorer',
+        disableMonitoring: true,
       });
     });
 
@@ -197,6 +204,8 @@ describe('transformScorerConfig', () => {
         name: 'Test Custom Scorer',
         type: 'custom-code',
         code: 'def evaluate(inputs, outputs):\n    return True',
+        disableMonitoring: true,
+        originalFuncName: undefined,
       });
     });
 
@@ -213,6 +222,8 @@ describe('transformScorerConfig', () => {
         name: 'Test Custom Scorer',
         type: 'custom-code',
         code: '',
+        disableMonitoring: true,
+        originalFuncName: undefined,
       });
     });
   });

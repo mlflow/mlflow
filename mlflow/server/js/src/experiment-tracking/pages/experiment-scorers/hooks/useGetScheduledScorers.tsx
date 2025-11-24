@@ -6,7 +6,10 @@ import { listScheduledScorers, ListScorersResponse } from '../api';
 
 // Define response types
 export type GetScheduledScorersResponse = {
-  scorers?: ScorerConfig[];
+  experiment_id: string;
+  scheduled_scorers?: {
+    scorers: ScorerConfig[];
+  };
 };
 
 export interface ScheduledScorersResponse {

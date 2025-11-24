@@ -123,18 +123,63 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
               {getTypeDisplayName(scorer, intl)}
             </Tag>
           </div>
-          {/* Version - only show when collapsed */}
-          {!isExpanded && !isNil(scorer.version) ? (
-            <Typography.Hint>
-              <FormattedMessage
-                defaultMessage="Version {version}"
-                description="Version display for judge"
-                values={{ version: scorer.version }}
-              />
-            </Typography.Hint>
+          {/* Metadata such as sample rate, filter string and version - only show when collapsed */}
+          {!isExpanded && (!isNil(scorer.sampleRate) || scorer.filterString || !isNil(scorer.version)) ? (
+            <div
+              css={{
+                display: 'flex',
+                gap: theme.spacing.sm,
+                alignItems: 'center',
+              }}
+            >
+              {!scorer.disableMonitoring && !isNil(scorer.sampleRate) && (
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <Typography.Hint>
+                    <FormattedMessage defaultMessage="Sample rate:" description="Sample rate label for scorer" />
+                  </Typography.Hint>
+                  <Typography.Hint>
+                    <FormattedMessage
+                      defaultMessage="{sampleRatePercent}%"
+                      description="Sample rate value for scorer"
+                      values={{ sampleRatePercent: scorer.sampleRate }}
+                    />
+                  </Typography.Hint>
+                </div>
+              )}
+              {!scorer.disableMonitoring && !isNil(scorer.sampleRate) && scorer.filterString && (
+                <CircleIcon css={{ color: theme.colors.textSecondary, fontSize: '6px' }} />
+              )}
+              {!scorer.disableMonitoring && scorer.filterString && (
+                <Typography.Hint>
+                  <FormattedMessage
+                    defaultMessage="Filter: {filterString}"
+                    description="Filter display for scorer"
+                    values={{ filterString: scorer.filterString }}
+                  />
+                </Typography.Hint>
+              )}
+              {!isNil(scorer.version) && (
+                <Typography.Hint>
+                  <FormattedMessage
+                    defaultMessage="Version {version}"
+                    description="Version display for judge"
+                    values={{ version: scorer.version }}
+                  />
+                </Typography.Hint>
+              )}
+            </div>
           ) : null}
         </div>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          {!scorer.disableMonitoring && (
+            <Tag
+              componentId={`${COMPONENT_ID_PREFIX}.scorer-status-tag`}
+              color={getStatusTag(scorer, intl).color}
+              icon={getStatusTag(scorer, intl).icon}
+            >
+              {getStatusTag(scorer, intl).text}
+            </Tag>
+          )}
           <Button
             componentId={`${COMPONENT_ID_PREFIX}.edit-button`}
             size="small"

@@ -9,7 +9,6 @@ import {
   PlusMinusSquareIcon,
   UserIcon,
   TextBoxIcon,
-  SparkleIcon,
 } from '@databricks/design-system';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
@@ -67,7 +66,7 @@ const ScorersTabConfig = {
     <FormattedMessage defaultMessage="Judges" description="Label for the judges tab in the MLflow experiment navbar" />
   ),
   icon: <GavelIcon />,
-  getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Scorers),
+  getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Judges),
 };
 
 export type GenAIExperimentTabConfigMapProps = {
@@ -81,7 +80,7 @@ export const getGenAIExperimentTabConfigMap = ({
   [ExperimentPageTabName.Traces]: TracesTabConfig,
   [ExperimentPageTabName.EvaluationRuns]: EvaluationsTabConfig,
   [ExperimentPageTabName.Models]: ModelsTabConfig,
-  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
+  ...(enableScorersUI() && { [ExperimentPageTabName.Judges]: ScorersTabConfig }),
 });
 
 export const getGenAIExperimentWithPromptsTabConfigMap = ({
@@ -90,7 +89,7 @@ export const getGenAIExperimentWithPromptsTabConfigMap = ({
   ...(includeRunsTab && { [ExperimentPageTabName.Runs]: RunsTabConfig }),
   [ExperimentPageTabName.Traces]: TracesTabConfig,
   [ExperimentPageTabName.Models]: ModelsTabConfig,
-  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
+  ...(enableScorersUI() && { [ExperimentPageTabName.Judges]: ScorersTabConfig }),
 });
 
 export const GenAIExperimentWithPromptsTabConfigMap = getGenAIExperimentTabConfigMap();
@@ -106,7 +105,7 @@ export const CustomExperimentTabConfigMap: TabConfigMap = {
       />
     ),
   },
-  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
+  ...(enableScorersUI() && { [ExperimentPageTabName.Judges]: ScorersTabConfig }),
 };
 
 export const DefaultTabConfigMap: TabConfigMap = {
