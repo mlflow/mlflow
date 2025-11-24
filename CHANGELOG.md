@@ -2409,7 +2409,7 @@ Bug fixes:
 - [Model Registry] Fix handling of deleted model versions in FileStore (#7716, @harupy)
 - [Model Registry] Correctly initialize Model Registry SQL tables independently of MLflow Tracking (#7704, @harupy)
 - [Models] Correctly move PyTorch model outputs from GPUs to CPUs during inference with pyfunc (#7885, @ankit-db)
-- [Build] Fix compatiblility issues with Python installations compiled using `PYTHONOPTIMIZE=2` (#7791, @dbczumar)
+- [Build] Fix compatibility issues with Python installations compiled using `PYTHONOPTIMIZE=2` (#7791, @dbczumar)
 - [Build] Fix compatibility issues with the upcoming pandas 2.0 release (#7899, @harupy; #7910, @dbczumar)
 
 Documentation updates:

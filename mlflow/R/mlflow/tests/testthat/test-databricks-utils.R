@@ -131,7 +131,7 @@ test_that("mlflow can read .databrickscfg files", {
   )
 })
 
-test_that("mlflow can read databricks env congfig", {
+test_that("mlflow can read databricks env config", {
   env <- list(
     DATABRICKS_HOST = "envhost",
     DATABRICKS_USERNAME = "envusername",

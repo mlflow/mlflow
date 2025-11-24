@@ -50,7 +50,7 @@ export enum LIFECYCLE_FILTER {
 
 export enum MODEL_VERSION_FILTER {
   WITH_MODEL_VERSIONS = 'With Model Versions',
-  WTIHOUT_MODEL_VERSIONS = 'Without Model Versions',
+  WITHOUT_MODEL_VERSIONS = 'Without Model Versions',
   ALL_RUNS = 'All Runs',
 }
 

@@ -6,9 +6,9 @@ import static org.mlflow.api.proto.Service.*;
 
 import org.mlflow.tracking.utils.MlflowTagConstants;
 import org.mockito.ArgumentCaptor;
-import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.Test;
+import org.testing.Assert;
+import org.testing.annotations.AfterMethod;
+import org.testing.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;

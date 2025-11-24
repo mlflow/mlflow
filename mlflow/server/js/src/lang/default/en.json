@@ -135,7 +135,7 @@
     "defaultMessage": "Step 1: Install MLflow",
     "description": "Step 1 title for custom scorer creation"
   },
-  "/IyEFR": {
+  "/ItEFR": {
     "defaultMessage": "Trace",
     "description": "Label for trace variable option"
   },
@@ -283,7 +283,7 @@
     "defaultMessage": "Name",
     "description": "Default text for name placeholder in editable tags table form in MLflow"
   },
-  "0gIYIc": {
+  "0gITIc": {
     "defaultMessage": "Make the line between points \"smoother\" based on Exponential Moving Average. Smoothing can be useful for displaying the overall trend when the logging frequency is high.",
     "description": "Helpful tooltip message to help with line smoothness for the metrics plot"
   },
@@ -1034,7 +1034,7 @@
     "defaultMessage": "Create prompt",
     "description": "Label for the create prompt button on the registered prompts page"
   },
-  "7zNDHj": {
+  "7zANDHj": {
     "defaultMessage": "Parameters:",
     "description": "Label text for parameters in parallel coordinates plot in MLflow"
   },
@@ -1194,7 +1194,7 @@
     "defaultMessage": "Tags",
     "description": "Row group title for tags of runs on the experiment compare runs page"
   },
-  "9TOU1G": {
+  "9YOU1G": {
     "defaultMessage": "No charts in this section",
     "description": "Runs compare page > Charts tab > No charts placeholder title"
   },
@@ -1250,7 +1250,7 @@
     "defaultMessage": "No metrics recorded",
     "description": "Run page > Overview > Metrics table > No metrics recorded"
   },
-  "9vwPnB": {
+  "9vwOnB": {
     "defaultMessage": "Add chart",
     "description": "Experiment tracking > runs charts > add chart menu"
   },
@@ -1366,7 +1366,7 @@
     "defaultMessage": "Automatically log traces for Anthropic API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the Anthropic package using MLflow autologging. This message is followed by a code example."
   },
-  "AzdZPn": {
+  "AzdZOn": {
     "defaultMessage": "Are you sure you want to delete this logged model?",
     "description": "A content of the delete logged model confirmation modal"
   },
@@ -1810,7 +1810,7 @@
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
   },
-  "FWEOg2": {
+  "FEWOg2": {
     "defaultMessage": "Relevance to Query",
     "description": "LLM template option"
   },
@@ -2210,7 +2210,7 @@
     "defaultMessage": "No details for assessment",
     "description": "Evaluation review > assessments > no history"
   },
-  "JmNdE4": {
+  "JmAndE4": {
     "defaultMessage": "required",
     "description": "Text displayed next to a function parameter to indicate that it is required"
   },
@@ -3144,7 +3144,7 @@
     "defaultMessage": "Documents",
     "description": "Model trace explorer > retriever span > documents header"
   },
-  "ThrXMh": {
+  "TheXMh": {
     "defaultMessage": "Inputs",
     "description": "Table section name for schema inputs in the model comparison page"
   },
@@ -3210,7 +3210,7 @@
   },
   "UD4Z+e": {
     "defaultMessage": "An error occurred while attempting to fetch trace data (ID: {traceId}). Please ensure that the MLflow tracking server is running, and that the trace data exists. Error details:",
-    "description": "An error message explaining that an error occured while fetching trace data"
+    "description": "An error message explaining that an error occurred while fetching trace data"
   },
   "UEDu0c": {
     "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
@@ -3318,7 +3318,7 @@
   },
   "VP+qFF": {
     "defaultMessage": "Show diff only",
-    "description": "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
+    "description": "Label next to the switch that controls displaying only differing values in comparison tables on the compare runs page"
   },
   "VPU43C": {
     "defaultMessage": "Compare parameter importance",
@@ -3336,7 +3336,7 @@
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
     "description": "Experiment page > artifact compare view > table select dropdown tooltip"
   },
-  "VcNdOq": {
+  "VcAndOq": {
     "defaultMessage": "No description",
     "description": "Run page > Overview > Description section > Empty value placeholder"
   },
@@ -3843,7 +3843,7 @@
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
   },
-  "a02Pn6": {
+  "a02On6": {
     "defaultMessage": "Step",
     "description": "Run page > Charts tab > Chart tooltip > Step label"
   },
@@ -4215,7 +4215,7 @@
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
   },
-  "dPn3az": {
+  "dOn3az": {
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
   },
@@ -4519,7 +4519,7 @@
     "defaultMessage": "Name",
     "description": "Column title for model name in the registered model page"
   },
-  "g2tInh": {
+  "g2tIn": {
     "defaultMessage": "Source type: {typeLabel}",
     "description": "Experiment dataset drawer > source type > label"
   },
@@ -5103,7 +5103,7 @@
     "defaultMessage": "No parameters to display.",
     "description": "Text shown when there are no parameters to display"
   },
-  "lPNTq7": {
+  "lONTq7": {
     "defaultMessage": "Metrics ({length})",
     "description": "Header for the metrics table on the logged model details page. (Length) is the number of metrics currently displayed."
   },
@@ -5235,7 +5235,7 @@
     "defaultMessage": "We encountered an issue loading the scorers interface. Please refresh the page or contact support if the problem persists.",
     "description": "Error description for experiment scorers page loading failure"
   },
-  "mmiHAX": {
+  "mmiHEX": {
     "defaultMessage": "Parameters",
     "description": "Header title for the parameters section of the logged model list table"
   },
@@ -5479,7 +5479,7 @@
     "defaultMessage": "Compact view",
     "description": "Run page > artifact view > logged table view > compact view toggle button"
   },
-  "ofr72S": {
+  "for72S": {
     "defaultMessage": "Version",
     "description": "Column label for logged model"
   },
@@ -5915,7 +5915,7 @@
     "defaultMessage": "{subMessage}, go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
   },
-  "sxlGRc": {
+  "xslGRc": {
     "defaultMessage": "Inputs ({numInputs})",
     "description": "Input section header for schema table in model version page"
   },
@@ -6003,7 +6003,7 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
-  "uIY1qq": {
+  "uIT1qq": {
     "defaultMessage": "Learn More",
     "description": "Link to MLflow documentation for more information on MLflow tracing"
   },
@@ -6067,7 +6067,7 @@
     "defaultMessage": "Last trace",
     "description": "Option for last trace"
   },
-  "urvfNd": {
+  "urvfAnd": {
     "defaultMessage": "Cancel",
     "description": "Add new key-value tag modal > Cancel button text"
   },
@@ -6568,7 +6568,7 @@
     "description": "Label for the group by runs option in the logged model list page"
   },
   "zhzZUu": {
-    "defaultMessage": "An error occured while attempting to delete traces. Please refresh the page and try again.",
+    "defaultMessage": "An error occurred while attempting to delete traces. Please refresh the page and try again.",
     "description": "Experiment page > traces view controls > Delete traces modal > Error message"
   },
   "ziIhFQ": {

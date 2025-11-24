@@ -5,8 +5,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
+import org.testing.Assert;
+import org.testing.annotations.Test;
 
 public class DatabricksDynamicHostCredsProviderTest {
   private static Map<String, String> baseMap = new HashMap<>();

@@ -11480,7 +11480,7 @@ public final class MlflowArtifacts {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\026mlflow_artifacts.proto\022\020mlflow.artifac" +
+      "\n\026mlflow_artifacts.proto\022\020mlflow.artifact" +
       "ts\032\020databricks.proto\032\025scalapb/scalapb.pr" +
       "oto\"\036\n\020DownloadArtifact\032\n\n\010Response\"\034\n\016U" +
       "ploadArtifact\032\n\n\010Response\"T\n\rListArtifac" +

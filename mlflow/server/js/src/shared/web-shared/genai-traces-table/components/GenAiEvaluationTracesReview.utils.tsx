@@ -51,7 +51,7 @@ export const DEFAULT_ASSESSMENTS_SORT_ORDER: string[] = [
   KnownEvaluationResultAssessmentName.SAFETY,
 ];
 
-export const getJudgeMetricsLink = (asessmentDocLink?: AssessmentLearnMoreLink) => {
+export const getJudgeMetricsLink = (assessmentDocLink?: AssessmentLearnMoreLink) => {
   // return OSS docs link
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/';
 };

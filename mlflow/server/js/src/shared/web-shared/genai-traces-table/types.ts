@@ -32,7 +32,7 @@ export interface AssessmentInfo {
   missingTooltip: string;
   description: string;
 
-  // True if if the assesment contains at least one error
+  // True if if the assessment contains at least one error
   containsErrors?: boolean;
 }
 

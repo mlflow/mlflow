@@ -2,9 +2,9 @@ package org.mlflow.tracking.utils;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.testing.Assert;
+import org.testing.annotations.BeforeMethod;
+import org.testing.annotations.Test;
 
 import java.util.*;
 

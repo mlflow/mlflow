@@ -77,7 +77,7 @@ export const useReorderRunsChartsFn = () => {
             newSourceChart,
           );
         } else {
-          // The indexTarget is not neccessarily the target now, but it will work as the insert index
+          // The indexTarget is not necessarily the target now, but it will work as the insert index
           newChartsOrder.splice(indexTarget, 0, newSourceChart);
         }
 

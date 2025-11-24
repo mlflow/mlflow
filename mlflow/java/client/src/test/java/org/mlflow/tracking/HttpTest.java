@@ -1,6 +1,6 @@
 package org.mlflow.tracking;
 
-import org.testng.annotations.*;
+import org.testing.annotations.*;
 
 import java.io.IOException;
 

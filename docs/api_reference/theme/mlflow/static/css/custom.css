@@ -662,7 +662,7 @@ table > colgroup:first-child {
   }
 }
 
-/* Overridding theme */
+/* Overriding theme */
 @media screen and (max-width: 768px) {
   .wy-nav-content-wrap.shift {
     overflow: scroll;

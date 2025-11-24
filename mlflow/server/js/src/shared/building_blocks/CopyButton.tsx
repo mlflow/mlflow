@@ -37,7 +37,7 @@ export const CopyButton = ({ copyText, showLabel = true, componentId, ...buttonP
         onClick={handleClick}
         onMouseLeave={handleMouseLeave}
         css={{ 'z-index': 1 }}
-        // Define children as a explicit prop so it can be easily overrideable
+        // Define children as a explicit prop so it can be easily overridable
         children={
           showLabel ? <FormattedMessage defaultMessage="Copy" description="Button text for copy button" /> : undefined
         }

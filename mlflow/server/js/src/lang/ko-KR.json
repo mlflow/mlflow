@@ -207,7 +207,7 @@
     "defaultMessage" : "1단계: MLflow 설치",
     "description" : "Step 1 title for custom scorer creation"
   },
-  "/IyEFR" : {
+  "/ItEFR" : {
     "defaultMessage" : "추적",
     "description" : "Label for trace variable option"
   },
@@ -273,7 +273,7 @@
   },
   "/cOxmV" : {
     "defaultMessage" : "모든 실행이 완료되었으며 아래 테이블에 추가되었습니다.",
-    "description" : "Message displayed to the user when they've completed an AutoML and not registed the result or model to UC"
+    "description" : "Message displayed to the user when they've completed an AutoML and not registered the result or model to UC"
   },
   "/epu/H" : {
     "defaultMessage" : "저장",
@@ -407,7 +407,7 @@
     "defaultMessage" : "이름",
     "description" : "Default text for name placeholder in editable tags table form in MLflow"
   },
-  "0gIYIc" : {
+  "0gITIc" : {
     "defaultMessage" : "지수 이동 평균을 기반으로 점 사이의 선을 \"매끄럽게\" 만듭니다. 스무딩은 log하는 빈도가 높을 때 전체 추세를 표시하는 데 유용할 수 있습니다.",
     "description" : "Helpful tooltip message to help with line smoothness for the metrics plot"
   },
@@ -1224,7 +1224,7 @@
     "defaultMessage" : "그런 다음 셀 출력에서 '모든 행 다운로드'를 선택합니다",
     "description" : "Here is a description of how to download the csv file from the cell output"
   },
-  "5FuPTD" : {
+  "5FuPDF" : {
     "defaultMessage" : "준비",
     "description" : "Ready state text for served model in served models table"
   },
@@ -1768,7 +1768,7 @@
     "defaultMessage" : "프롬프트 만들기",
     "description" : "Label for the create prompt button on the registered prompts page"
   },
-  "7zNDHj" : {
+  "7zANDHj" : {
     "defaultMessage" : "매개변수:",
     "description" : "Label text for parameters in parallel coordinates plot in MLflow"
   },
@@ -1842,7 +1842,7 @@
   },
   "8IF82V" : {
     "defaultMessage" : "평가된 추적 테이블 [사용되지 않음]",
-    "description" : "Evaluated Traces Table title, specifing the header for the evaluated traces table"
+    "description" : "Evaluated Traces Table title, specifying the header for the evaluated traces table"
   },
   "8MHS+U" : {
     "defaultMessage" : "관심 기록됨",
@@ -2004,7 +2004,7 @@
     "defaultMessage" : "API 키 시크릿",
     "description" : "Label for API key secret reference input for external models"
   },
-  "9TOU1G" : {
+  "9YOU1G" : {
     "defaultMessage" : "이 섹션에는 차트가 없음",
     "description" : "Runs compare page > Charts tab > No charts placeholder title"
   },
@@ -2092,7 +2092,7 @@
     "defaultMessage" : "기록된 지표 없음",
     "description" : "Run page > Overview > Metrics table > No metrics recorded"
   },
-  "9vwPnB" : {
+  "9vwOnB" : {
     "defaultMessage" : "차트 추가",
     "description" : "Experiment tracking > runs charts > add chart menu"
   },
@@ -2272,7 +2272,7 @@
     "defaultMessage" : "{code} 함수를 호출하여 Anthropic API 호출 추적을 자동으로 log합니다. 예:",
     "description" : "Description of how to log traces for the Anthropic package using MLflow autologging. This message is followed by a code example."
   },
-  "AzdZPn" : {
+  "AzdZOn" : {
     "defaultMessage" : "이 Log된 모델을 삭제하시겠습니까?",
     "description" : "A content of the delete logged model confirmation modal"
   },
@@ -2384,7 +2384,7 @@
     "defaultMessage" : "마지막 수정자",
     "description" : "Title text for the feature table last modified by metadata field."
   },
-  "BnU6Nd" : {
+  "BnU6And" : {
     "defaultMessage" : "1단계: 액세스 토큰 생성",
     "description" : "Description for how to generate an access token"
   },
@@ -2992,7 +2992,7 @@
     "defaultMessage" : "내 모델 - 모델 레지스트리",
     "description" : "Select source for the entity in the entity selector when Unity Catalog is enabled; this source is models in the model registry, which eventually will be deprecated, but not anytime soon"
   },
-  "FWEOg2" : {
+  "FEWOg2" : {
     "defaultMessage" : "query와의 관련성",
     "description" : "LLM template option"
   },
@@ -3214,7 +3214,7 @@
   },
   "Gh7kIN" : {
     "defaultMessage" : "설정",
-    "description" : "Settings title, specifing the header for the settings modal"
+    "description" : "Settings title, specifying the header for the settings modal"
   },
   "GjbOyj" : {
     "defaultMessage" : "자세한 내용은 <link>AutoML 작업 실행</link>을 참조하세요.",
@@ -3240,7 +3240,7 @@
     "defaultMessage" : "활성화됨",
     "description" : "\"Enabled\" state for route optimization on this endpoint"
   },
-  "GwsMuc" : {
+  "GwsMuch" : {
     "defaultMessage" : "찾아보기",
     "description" : "Button text for browsing tables on the configure inference form"
   },
@@ -3250,7 +3250,7 @@
   },
   "H+eJ1S" : {
     "defaultMessage" : "태그는 서비스 Endpoint의 청구 로그에 자동으로 전파됩니다.",
-    "description" : "Informational tooltip to advertise that tags on serving endpoints are automatically propogated to that endpoint's billing logs"
+    "description" : "Informational tooltip to advertise that tags on serving endpoints are automatically propagated to that endpoint's billing logs"
   },
   "H/rbzt" : {
     "defaultMessage" : "만든 사람",
@@ -3727,7 +3727,7 @@
     "defaultMessage" : "온도",
     "description" : "Experiment page > prompt lab > temperature parameter label"
   },
-  "JsPNNv" : {
+  "JsONNv" : {
     "defaultMessage" : "데이터 집합이 비어 있음",
     "description" : "AutoML warning shown when the input dataset is empty"
   },
@@ -3856,7 +3856,7 @@
     "description" : "Delete labeling sessions modal button text"
   },
   "KkkVnN" : {
-    "defaultMessage" : "AutoML은 데이터에서 양의(positivie) 레이블을 유추했습니다. 유추된 레이블에 대해 영향을 받는 데이터를 참조하세요. 다른 양의 레이블을 사용하려면 <code>{posLabel}</code> 매개 변수를 사용하세요.",
+    "defaultMessage" : "AutoML은 데이터에서 양의(positive) 레이블을 유추했습니다. 유추된 레이블에 대해 영향을 받는 데이터를 참조하세요. 다른 양의 레이블을 사용하려면 <code>{posLabel}</code> 매개 변수를 사용하세요.",
     "description" : "Action that AutoML took for binary classification"
   },
   "Kkr/RI" : {
@@ -4443,7 +4443,7 @@
     "defaultMessage" : "외부 모델 이름",
     "description" : "Endpoint details page > active configuration table > Column headers > External model name"
   },
-  "O7jPN+" : {
+  "O7jON+" : {
     "defaultMessage" : "만든 사람",
     "description" : "Label for the 'Created by' value on Endpoint details page sidebar"
   },
@@ -4483,7 +4483,7 @@
     "defaultMessage" : "처음 20개 표시",
     "description" : "Menu option for showing only 10 first runs in the experiment view runs compare mode"
   },
-  "ONN0dE" : {
+  "ON0dE" : {
     "defaultMessage" : "대시보드 생성 실패",
     "description" : "Error notification title shown when AI/BI dashboard creation fails"
   },
@@ -4511,7 +4511,7 @@
     "defaultMessage" : "추적에 대한 기대치 추가됨",
     "description" : "Description for expectations variable"
   },
-  "Of20iy" : {
+  "Of20it" : {
     "defaultMessage" : "Endpoint를 찾을 수 없음",
     "description" : "Empty state text for endpoints unified table"
   },
@@ -4650,7 +4650,7 @@
     "defaultMessage" : "2단계. 모델 선택",
     "description" : "How to select your models"
   },
-  "PN5AOP" : {
+  "ON5AOP" : {
     "defaultMessage" : "관리자가 이 워크스페이스에서 모델 서비스를 비활성화했습니다.",
     "description" : "Error message when model serving is not available in workspace in\n              enable serving button popover."
   },
@@ -5221,7 +5221,7 @@
     "defaultMessage" : "선 다듬기",
     "description" : "Label for the smoothness slider for the graph plot for metrics"
   },
-  "T5TBve" : {
+  "T5TBe" : {
     "defaultMessage" : "쿼리",
     "description" : "Query button for endpoints, clicking will open a modal in which users can query the endpoint"
   },
@@ -5243,7 +5243,7 @@
   },
   "TB3nMW" : {
     "defaultMessage" : "데이터 집합에 긴 시계열이 포함됨",
-    "description" : "AutoML warning shown when AutoML truncate the dateset for forecasting"
+    "description" : "AutoML warning shown when AutoML truncate the dataset for forecasting"
   },
   "TBX+Gs" : {
     "defaultMessage" : "태그 추가/편집",
@@ -5340,7 +5340,7 @@
     "defaultMessage" : "그룹 숨기기",
     "description" : "A tooltip for the visibility icon button in the runs table next to the visible run group"
   },
-  "ThrXMh" : {
+  "TheXMh" : {
     "defaultMessage" : "입력",
     "description" : "Table section name for schema inputs in the model comparison page"
   },
@@ -5685,7 +5685,7 @@
   },
   "VP+qFF" : {
     "defaultMessage" : "차이점만 표시",
-    "description" : "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
+    "description" : "Label next to the switch that controls displaying only differing values in comparison tables on the compare runs page"
   },
   "VPU43C" : {
     "defaultMessage" : "parameter 중요도 비교",
@@ -5715,7 +5715,7 @@
     "defaultMessage" : "삭제",
     "description" : "Text on the feature table deletion modal to confirm deletion of the feature table."
   },
-  "VcNdOq" : {
+  "VcAndOq" : {
     "defaultMessage" : "설명 없음",
     "description" : "Run page > Overview > Description section > Empty value placeholder"
   },
@@ -5761,7 +5761,7 @@
   },
   "VrKhen" : {
     "defaultMessage" : "모니터 업데이트",
-    "description" : "Done button text, specifing the button to close the monitor settings modal"
+    "description" : "Done button text, specifying the button to close the monitor settings modal"
   },
   "Vrm3OM" : {
     "defaultMessage" : "온라인 스토어를 찾을 수 없습니다.",
@@ -5839,7 +5839,7 @@
     "defaultMessage" : "공급자 구성에 대한 자세한 정보는 <link>설명서</link>를 참조하세요.",
     "description" : "Hint text for provider configuration"
   },
-  "WFndS2" : {
+  "WFindS2" : {
     "defaultMessage" : "시계열의 누락된 값이 채워졌습니다.",
     "description" : "Action that AutoML took when there are missing time steps in a forecasting problem."
   },
@@ -6230,7 +6230,7 @@
     "defaultMessage" : "코드 복사",
     "description" : "Tooltip for copy code button"
   },
-  "YOH2W5" : {
+  "YOU2W5" : {
     "defaultMessage" : "모델 레지스트리 페이지에서 이 모델에 대한 기존 실시간 유추 Endpoint를 봅니다.",
     "description" : "Text for form description on viewing real-time inference"
   },
@@ -6582,7 +6582,7 @@
     "defaultMessage" : "새 버전 만들기",
     "description" : "A text for the create new version button in the experiment prompt actions"
   },
-  "a02Pn6" : {
+  "a02On6" : {
     "defaultMessage" : "단계",
     "description" : "Run page > Charts tab > Chart tooltip > Step label"
   },
@@ -7042,7 +7042,7 @@
   },
   "cKQdGT" : {
     "defaultMessage" : "설정",
-    "description" : "Settings button text, specifing the button to open the charts settings modal"
+    "description" : "Settings button text, specifying the button to open the charts settings modal"
   },
   "cMa3hp" : {
     "defaultMessage" : "평가 실행",
@@ -7400,7 +7400,7 @@
     "defaultMessage" : "완료된 실행 숨기기",
     "description" : "Menu option for hiding all finished runs in the experiment view runs compare mode"
   },
-  "egeLDM" : {
+  "edgeLDM" : {
     "defaultMessage" : "제공된 엔터티 추가",
     "description" : "Add entity button text in endpoints form"
   },
@@ -7496,7 +7496,7 @@
     "defaultMessage" : "PII 마스킹",
     "description" : "Endpoint details page > External model details > AI Gateway details > indicator for PII detection feature being enabled"
   },
-  "fTyoVx" : {
+  "fToVx" : {
     "defaultMessage" : "이 시간 범위의 데이터를 찾을 수 없습니다.",
     "description" : "Description for when there is no data to show."
   },
@@ -7624,7 +7624,7 @@
     "defaultMessage" : "이름",
     "description" : "Column title for model name in the registered model page"
   },
-  "g2tInh" : {
+  "g2tIn" : {
     "defaultMessage" : "소스 유형: {typeLabel}",
     "description" : "Experiment dataset drawer > source type > label"
   },
@@ -7944,7 +7944,7 @@
     "defaultMessage" : "분할 열 값을 검토하고 유효하지 않은 항목이 있으면 수정하세요",
     "description" : "User action recommendation when invalid values are found in the split column"
   },
-  "hf6Iy8" : {
+  "hf6It8" : {
     "defaultMessage" : "인기도",
     "description" : "Search page: label for option to sort by popularity"
   },
@@ -8200,7 +8200,7 @@
     "defaultMessage" : "모델 지표",
     "description" : "Run details page > tab selector > Model metrics tab"
   },
-  "j2KIyP" : {
+  "j2KItP" : {
     "defaultMessage" : "출력 가드레일",
     "description" : "External model serving configuration form > form summary > AI gateway summary > output guardrails enabled indicator"
   },
@@ -8236,7 +8236,7 @@
     "defaultMessage" : "이 URL을 검토자와 공유하여 레이블 지정을 시작할 수 있도록 합니다.",
     "description" : "Description for sharing URL with reviewers"
   },
-  "jDZMke" : {
+  "jDZMake" : {
     "defaultMessage" : "Foundation Model API 모델은 라이선스 요구 사항 및/또는 사용 정책이 적용될 수 있습니다.",
     "description" : "Legal disclaimer for Foundation Model API Models before querying the endpoint."
   },
@@ -8394,7 +8394,7 @@
   },
   "k3XTHr" : {
     "defaultMessage" : "서빙 Endpoint",
-    "description" : "Serving Endpoint title, specifing the header for the model serving endpoint link"
+    "description" : "Serving Endpoint title, specifying the header for the model serving endpoint link"
   },
   "k7btUr" : {
     "defaultMessage" : "활성 구성",
@@ -8628,7 +8628,7 @@
     "defaultMessage" : "학습 노트북이 범주형 변환을 기반으로 기능을 인코딩했습니다.",
     "description" : "Action that AutoML took for columns that have categorical semantic type"
   },
-  "lPNTq7" : {
+  "lONTq7" : {
     "defaultMessage" : "지표({length})",
     "description" : "Header for the metrics table on the logged model details page. (Length) is the number of metrics currently displayed."
   },
@@ -8852,7 +8852,7 @@
     "defaultMessage" : "스코어러 인터페이스 로드 중 문제가 발생했습니다. 페이지를 refresh하거나 문제가 지속되면 지원팀에 문의하세요.",
     "description" : "Error description for experiment scorers page loading failure"
   },
-  "mmiHAX" : {
+  "mmiHEX" : {
     "defaultMessage" : "매개 변수",
     "description" : "Header title for the parameters section of the logged model list table"
   },
@@ -9028,7 +9028,7 @@
     "defaultMessage" : "취소",
     "description" : "Cancel button text for editing endpoint tags modal"
   },
-  "ndDHG3" : {
+  "andDHG3" : {
     "defaultMessage" : "모니터링 활성화 중 오류 발생",
     "description" : "Error message when enabling monitoring in trace archival config"
   },
@@ -9644,7 +9644,7 @@
     "defaultMessage" : "<modelServingDocLink>Model Serving endpoint</modelServingDocLink>를 생성하여 REST API 인터페이스 뒤에서 모델을 제공하세요. <button>이 링크</button>를 클릭하여 <legacyLink>레거시 MLflow 모델 서빙[사용되지 않음]</legacyLink>을 활성화하세요.",
     "description" : "Link to allow enabling of serving V1 when endpoints UI is available"
   },
-  "rPP0Nd" : {
+  "rPP0And" : {
     "defaultMessage" : "취소",
     "description" : "Experiments > metric charts > download full CSV data modal > cancel button > label"
   },
@@ -9660,7 +9660,7 @@
     "defaultMessage" : "컨텍스트 길이",
     "description" : "Run Page > FinetuneParamsTable > Context Length"
   },
-  "rQNdSA" : {
+  "rQAndSA" : {
     "defaultMessage" : "지표 기록은 14일 후에 삭제됩니다",
     "description" : "Warning message when user choose start time for more than 14 days old"
   },
@@ -9690,7 +9690,7 @@
   },
   "rYb6mr" : {
     "defaultMessage" : "유효하지 않은 프롬프트",
-    "description" : "Ivalid prompt error message"
+    "description" : "Invalid prompt error message"
   },
   "rYyjVP" : {
     "defaultMessage" : "현재 experiment에 대한 serverless 예산 정책을 선택합니다.",
@@ -9752,7 +9752,7 @@
     "defaultMessage" : "태그",
     "description" : "Run page > Overview > Run tags section label"
   },
-  "rt2DBE" : {
+  "rt2BE" : {
     "defaultMessage" : "Serverless 예산 정책",
     "description" : "Header for budget policy section of Endpoint details page"
   },
@@ -9926,7 +9926,7 @@
   },
   "sgu4qN" : {
     "defaultMessage" : "Batch 유추 노트북",
-    "description" : "Text for button that allows the user to view the batch inference notebook assosiated with the best model of a completed forecasting experiment"
+    "description" : "Text for button that allows the user to view the batch inference notebook associated with the best model of a completed forecasting experiment"
   },
   "sguNEF" : {
     "defaultMessage" : "Log된 평가 테이블 없음",
@@ -9960,7 +9960,7 @@
     "defaultMessage" : "입력 테이블",
     "description" : "Input table label on the configure inference form"
   },
-  "sxlGRc" : {
+  "xslGRc" : {
     "defaultMessage" : "입력({numInputs})",
     "description" : "Input section header for schema table in model version page"
   },
@@ -10235,7 +10235,7 @@
     "defaultMessage" : "일반",
     "description" : "Long form section title, this would be the \"general\" section, which really just contains the name of the endpoint"
   },
-  "urvfNd" : {
+  "urvfAnd" : {
     "defaultMessage" : "취소",
     "description" : "Add new key-value tag modal > Cancel button text"
   },
@@ -10475,7 +10475,7 @@
     "defaultMessage" : "감지된 빈도가 지정된 <code>{frequency}</code>와(과) 일치하지 않음",
     "description" : "AutoML warning shown when the time series frequency is different from the specified one."
   },
-  "w3g0Nd" : {
+  "w3g0And" : {
     "defaultMessage" : "시계열에서 누락된 시간 단계",
     "description" : "AutoML warning shown when there are missing time steps in a forecasting problem."
   },

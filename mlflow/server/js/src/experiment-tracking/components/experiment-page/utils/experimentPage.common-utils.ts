@@ -53,7 +53,7 @@ export const isExperimentTypeNotebook = (experiment: ExperimentEntity) =>
  * modification. TODO: fix typo in the const name.
  */
 export const canModifyExperiment = (experiment: ExperimentEntity) =>
-  (experiment.allowedActions || []).includes('MODIFIY_PERMISSION');
+  (experiment.allowedActions || []).includes('MODIFY_PERMISSION');
 
 /**
  * Function that gets the experiment source ID for a given experiment object

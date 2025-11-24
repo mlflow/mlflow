@@ -6,8 +6,8 @@ import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import org.testng.Assert;
-import org.testng.annotations.Test;
+import org.testing.Assert;
+import org.testing.annotations.Test;
 
 import org.mlflow.api.proto.Service;
 

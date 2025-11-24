@@ -177,7 +177,7 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
     },
   ];
 
-  // @ts-expect-error TS(4111): Property 'editingKey' comes from an index signatur... Remove this comment to see the full error message
+  // @ts-expect-error TS(4111): Property 'editingKey' comes from an index signature... Remove this comment to see the full error message
   isEditing = (record: any) => record.key === this.state.editingKey;
 
   cancel = () => {

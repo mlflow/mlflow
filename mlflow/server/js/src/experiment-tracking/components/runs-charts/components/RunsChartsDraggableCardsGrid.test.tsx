@@ -40,7 +40,7 @@ jest.mock('../hooks/useIsInViewport', () => ({
 }));
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
-jest.setTimeout(60000); // Larger timeout for integration testing (drag and drop simlation)
+jest.setTimeout(60000); // Larger timeout for integration testing (drag and drop simulation)
 
 describe('RunsChartsDraggableCardsGrid', () => {
   const renderTestComponent = (element: React.ReactElement) => {

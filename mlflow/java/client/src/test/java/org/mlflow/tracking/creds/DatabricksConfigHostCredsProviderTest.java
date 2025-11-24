@@ -7,10 +7,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.apache.commons.io.FileUtils;
-import org.testng.Assert;
-import org.testng.annotations.AfterSuite;
-import org.testng.annotations.BeforeSuite;
-import org.testng.annotations.Test;
+import org.testing.Assert;
+import org.testing.annotations.AfterSuite;
+import org.testing.annotations.BeforeSuite;
+import org.testing.annotations.Test;
 
 public class DatabricksConfigHostCredsProviderTest {
   private String previousUserHome = null;

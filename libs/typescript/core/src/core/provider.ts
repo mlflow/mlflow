@@ -33,7 +33,7 @@ export function initializeSDK(): void {
     const exporter = new MlflowSpanExporter(client);
     processor = new MlflowSpanProcessor(exporter);
     // Attempt to load optional integrations (e.g. mlflow-vercel) if installed.
-    // This is required for triggering hook registeration
+    // This is required for triggering hook registration
     void tryEnableOptionalIntegrations();
 
     sdk = new NodeSDK({ spanProcessors: [processor] });

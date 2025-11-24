@@ -79,7 +79,7 @@ public interface ArtifactRepository {
 
   /**
    * Lists the artifacts immediately under the given artifactPath within the run's root artifact
-   * irectory. This does not recursively list; instead, it will return FileInfos with isDir=true
+   * directory. This does not recursively list; instead, it will return FileInfos with isDir=true
    * where further listing may be done.
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.

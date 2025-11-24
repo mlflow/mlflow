@@ -171,7 +171,7 @@ export const LineSmoothSlider = ({
         }}
         onChange={({ target, nativeEvent }) => {
           // If the input event is an input event, we want to set the temporary value
-          // to be commited on blur instead of directly setting the value
+          // to be committed on blur instead of directly setting the value
           if (nativeEvent instanceof InputEvent) {
             setTemporaryValue(Number(target.value));
             return;

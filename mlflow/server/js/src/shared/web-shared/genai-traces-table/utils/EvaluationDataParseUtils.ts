@@ -170,7 +170,7 @@ export function mergeMetricsAndAssessmentsWithEvaluations(
         timestamp: null,
       });
     }
-    // TODO(nsthorat): perRetrievalChunkAsessments should be treated differently than other methods, and removed from the overall metrics.
+    // TODO(nsthorat): perRetrievalChunkAssessments should be treated differently than other methods, and removed from the overall metrics.
     const perRetrievalChunkAssessments = allAssessmentsSorted.filter(isEvaluationResultPerRetrievalChunkAssessment);
 
     // All assessments that are not overall or per retrieval chunk are response assessments

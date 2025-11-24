@@ -517,7 +517,7 @@ transformers:
         ]
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
-      # that version of setfit requires tranformers>=4.41
+      # that version of setfit requires transformers>=4.41
       # datasets > 2.4.0 is incompatible with huggingface_hub<0.24.0
       # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
       # pyarrow >= 21.0.0 is incompatible with datasets<=2.4.0

@@ -11,7 +11,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-// displays a single JSON-strigified assessment value as a tag
+// displays a single JSON-stringified assessment value as a tag
 export const AssessmentDisplayValue = ({
   jsonValue,
   className,
@@ -88,10 +88,10 @@ export const AssessmentDisplayValue = ({
   }
 
   return (
-    <Tooltip componentId="shared.model-trace-explorer.assesment-value-tooltip" content={children}>
+    <Tooltip componentId="shared.model-trace-explorer.assessment-value-tooltip" content={children}>
       <Tag
         css={{ display: 'inline-flex', maxWidth: '100%', minWidth: theme.spacing.md, marginRight: 0 }}
-        componentId="shared.model-trace-explorer.assesment-value-tag"
+        componentId="shared.model-trace-explorer.assessment-value-tag"
         color={overrideColor ?? color}
         className={className}
       >

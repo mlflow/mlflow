@@ -2093,7 +2093,7 @@ public final class Assessments {
 
     /**
      * <pre>
-     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+     * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
      * ``serialized_value`` or ``value`` may be defined.
      * </pre>
      *
@@ -2103,7 +2103,7 @@ public final class Assessments {
     boolean hasSerializedValue();
     /**
      * <pre>
-     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+     * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
      * ``serialized_value`` or ``value`` may be defined.
      * </pre>
      *
@@ -2113,7 +2113,7 @@ public final class Assessments {
     org.mlflow.api.proto.Assessments.Expectation.SerializedValue getSerializedValue();
     /**
      * <pre>
-     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+     * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
      * ``serialized_value`` or ``value`` may be defined.
      * </pre>
      *
@@ -3199,7 +3199,7 @@ public final class Assessments {
     private org.mlflow.api.proto.Assessments.Expectation.SerializedValue serializedValue_;
     /**
      * <pre>
-     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+     * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
      * ``serialized_value`` or ``value`` may be defined.
      * </pre>
      *
@@ -3212,7 +3212,7 @@ public final class Assessments {
     }
     /**
      * <pre>
-     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+     * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
      * ``serialized_value`` or ``value`` may be defined.
      * </pre>
      *
@@ -3225,7 +3225,7 @@ public final class Assessments {
     }
     /**
      * <pre>
-     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+     * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
      * ``serialized_value`` or ``value`` may be defined.
      * </pre>
      *
@@ -3849,7 +3849,7 @@ public final class Assessments {
           org.mlflow.api.proto.Assessments.Expectation.SerializedValue, org.mlflow.api.proto.Assessments.Expectation.SerializedValue.Builder, org.mlflow.api.proto.Assessments.Expectation.SerializedValueOrBuilder> serializedValueBuilder_;
       /**
        * <pre>
-       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+       * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
        * ``serialized_value`` or ``value`` may be defined.
        * </pre>
        *
@@ -3861,7 +3861,7 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+       * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
        * ``serialized_value`` or ``value`` may be defined.
        * </pre>
        *
@@ -3877,7 +3877,7 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+       * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
        * ``serialized_value`` or ``value`` may be defined.
        * </pre>
        *
@@ -3898,7 +3898,7 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+       * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
        * ``serialized_value`` or ``value`` may be defined.
        * </pre>
        *
@@ -3917,7 +3917,7 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+       * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
        * ``serialized_value`` or ``value`` may be defined.
        * </pre>
        *
@@ -3942,7 +3942,7 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+       * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
        * ``serialized_value`` or ``value`` may be defined.
        * </pre>
        *
@@ -3960,7 +3960,7 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+       * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
        * ``serialized_value`` or ``value`` may be defined.
        * </pre>
        *
@@ -3973,7 +3973,7 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+       * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
        * ``serialized_value`` or ``value`` may be defined.
        * </pre>
        *
@@ -3989,7 +3989,7 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
+       * The value of the expectation-based assessment serialized as a string in a specified format. Only one of either
        * ``serialized_value`` or ``value`` may be defined.
        * </pre>
        *
@@ -9334,7 +9334,7 @@ public final class Assessments {
       "ow.assessments.ExpectationH\000\022\021\n\trational" +
       "e\030\013 \001(\t\0226\n\005error\030\014 \001(\0132#.mlflow.assessme" +
       "nts.AssessmentErrorB\002\030\001\022>\n\010metadata\030\r \003(" +
-      "\0132,.mlflow.assessments.Assessment.Metada" +
+      "\0132,.mlflow.assessments.Assessment.Metadata" +
       "taEntry\022\021\n\toverrides\030\016 \001(\t\022\023\n\005valid\030\017 \001(" +
       "\010:\004true\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n" +
       "\005value\030\002 \001(\t:\0028\001B\007\n\005valueB\031\n\024org.mlflow." +

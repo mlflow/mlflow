@@ -190,7 +190,7 @@ export const useEvaluationArtifactTableData = (
           outputMetadataByCellsValueMap[key] = {};
         }
 
-        // code pointer for where the metadat is stored
+        // code pointer for where the metadata is stored
         outputMetadataByCellsValueMap[key][runUuid] = metadata;
 
         // Assign output column cell values

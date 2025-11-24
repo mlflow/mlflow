@@ -208,7 +208,7 @@ public final class Databricks {
      * <pre>
      * The request is invalid. Prefer more specific error code whenever possible.
      * Also see similar recommendation for the google.rpc.Code.FAILED_PRECONDITION.
-     * Prefer this error code over MALFORMED_REQUEST, INVALID_STATE, UNPARSEABLE_HTTP_ERROR.
+     * Prefer this error code over MALFORMED_REQUEST, INVALID_STATE, UNPARSABLE_HTTP_ERROR.
      * Maps to:
      * - google.rpc.Code: FAILED_PRECONDITION = 9;
      * - HTTP code: 400 Bad Request
@@ -439,9 +439,9 @@ public final class Databricks {
      * This currently is only used in DUST test clients, and not by any real service code.
      * </pre>
      *
-     * <code>UNPARSEABLE_HTTP_ERROR = 1009;</code>
+     * <code>UNPARSABLE_HTTP_ERROR = 1009;</code>
      */
-    UNPARSEABLE_HTTP_ERROR(1009),
+    UNPARSABLE_HTTP_ERROR(1009),
     /**
      * <pre>
      * The operation is not implemented or is not supported/enabled in this service.
@@ -754,7 +754,7 @@ public final class Databricks {
      * <pre>
      * The request is invalid. Prefer more specific error code whenever possible.
      * Also see similar recommendation for the google.rpc.Code.FAILED_PRECONDITION.
-     * Prefer this error code over MALFORMED_REQUEST, INVALID_STATE, UNPARSEABLE_HTTP_ERROR.
+     * Prefer this error code over MALFORMED_REQUEST, INVALID_STATE, UNPARSABLE_HTTP_ERROR.
      * Maps to:
      * - google.rpc.Code: FAILED_PRECONDITION = 9;
      * - HTTP code: 400 Bad Request
@@ -985,9 +985,9 @@ public final class Databricks {
      * This currently is only used in DUST test clients, and not by any real service code.
      * </pre>
      *
-     * <code>UNPARSEABLE_HTTP_ERROR = 1009;</code>
+     * <code>UNPARSABLE_HTTP_ERROR = 1009;</code>
      */
-    public static final int UNPARSEABLE_HTTP_ERROR_VALUE = 1009;
+    public static final int UNPARSABLE_HTTP_ERROR_VALUE = 1009;
     /**
      * <pre>
      * The operation is not implemented or is not supported/enabled in this service.
@@ -1301,7 +1301,7 @@ public final class Databricks {
         case 1006: return CUSTOMER_UNAUTHORIZED;
         case 1007: return REQUEST_LIMIT_EXCEEDED;
         case 1008: return RESOURCE_CONFLICT;
-        case 1009: return UNPARSEABLE_HTTP_ERROR;
+        case 1009: return UNPARSABLE_HTTP_ERROR;
         case 1010: return NOT_IMPLEMENTED;
         case 1011: return DATA_LOSS;
         case 2001: return INVALID_STATE_TRANSITION;
@@ -7648,7 +7648,7 @@ public final class Databricks {
    * This annotation indicates that certain fields must be supplied for the request to be carried
    * out successfully.
    * A request field may go from being required to optional over time, but a field may not
-   * go from being optional to required, for backwards compatiblity reasons.
+   * go from being optional to required, for backwards compatibility reasons.
    * Request RPCs are validated automatically prior to processing for required fields, but
    * returned values are not validated in any way.
    * </pre>
@@ -7983,7 +7983,7 @@ public final class Databricks {
       "l\022\036.google.protobuf.MethodOptions\030\307\221\003 \001(" +
       "\0132 .mlflow.DatabricksGraphqlOptions:U\n\013m" +
       "essage_doc\022\037.google.protobuf.MessageOpti" +
-      "ons\030\362\220\003 \003(\0132\035.mlflow.DocumentationMetada" +
+      "ons\030\362\220\003 \003(\0132\035.mlflow.DocumentationMetadata" +
       "ta:U\n\013service_doc\022\037.google.protobuf.Serv" +
       "iceOptions\030\362\220\003 \003(\0132\035.mlflow.Documentatio" +
       "nMetadata:O\n\010enum_doc\022\034.google.protobuf." +

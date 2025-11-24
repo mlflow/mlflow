@@ -181,7 +181,7 @@ describe('useExperimentRuns', () => {
     const {
       result: { current: result },
     } = mountComponentWithExperimentRuns(['123456789'], {
-      modelVersionFilter: MODEL_VERSION_FILTER.WTIHOUT_MODEL_VERSIONS,
+      modelVersionFilter: MODEL_VERSION_FILTER.WITHOUT_MODEL_VERSIONS,
     });
 
     expect(Object.keys(result.runInfos).length).toEqual(3);

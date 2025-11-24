@@ -83,7 +83,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
   const getAssessmentTitle = useCallback((assessmentName: string) => assessmentName, []);
   const {
     data: traces,
-    isLoading: isLoadingTraceDatas,
+    isLoading: isLoadingTraceData,
     invalidateSingleTraceQuery,
   } = useGetTraces(getTrace, sortedTraceInfos);
 
@@ -98,7 +98,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
         viewState="single-chat-session"
         sessionId={sessionId}
       />
-      {isLoadingTraceDatas || isLoadingTraceInfos ? (
+      {isLoadingTraceData || isLoadingTraceInfos ? (
         <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <ExperimentSingleChatSessionSidebarSkeleton />
           <ExperimentSingleChatConversationSkeleton />

@@ -190,7 +190,7 @@ describe('ArtifactPage', () => {
         throw Error('err');
       }),
     };
-    // Create our wrapper with the intial props
+    // Create our wrapper with the initial props
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>

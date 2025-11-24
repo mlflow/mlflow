@@ -58,7 +58,7 @@ dependencies:
   - libllvm8=8.0.1=hc9558a2_0
   - libnvstrings=0.14.0=cuda10.2_0
   - libopenblas=0.3.9=h5ec1e0e_0
-  - libpng=1.6.37=hed695b0_1
+  - libpng=1.6.37=head695b0_1
   - libprotobuf=3.8.0=h8b12597_0
   - librmm=0.14.0=cuda10.2_0
   - libstdcxx-ng=9.1.0=hdf63c60_0

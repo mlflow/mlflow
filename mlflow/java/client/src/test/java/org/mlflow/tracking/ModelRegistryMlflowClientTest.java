@@ -21,10 +21,10 @@ import org.mlflow.api.proto.Service.RunInfo;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.Assert;
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
+import org.testing.Assert;
+import org.testing.annotations.AfterTest;
+import org.testing.annotations.BeforeTest;
+import org.testing.annotations.Test;
 
 public class ModelRegistryMlflowClientTest {
     private static final Logger logger = LoggerFactory.getLogger(ModelRegistryMlflowClientTest.class);

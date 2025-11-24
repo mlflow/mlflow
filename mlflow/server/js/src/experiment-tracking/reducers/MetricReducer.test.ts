@@ -182,11 +182,11 @@ const mockMetric = (key: any, value: any, timestamp = 1234567890000, step = 1, r
 describe('test metricsByKey', () => {
   // All tests for GET_METRIC_HISTORY_API are valid for GET_METRIC_HISTORY_API_BULK
   // due to the same treatment inside metricsByKey()
-  test('intial state (1)', () => {
+  test('initial state (1)', () => {
     expect(metricsByKey({}, {}, undefined)).toEqual({});
   });
 
-  test('intial state (2)', () => {
+  test('initial state (2)', () => {
     expect(metricsByKey({ 1: '1' }, {}, undefined)).toEqual({ 1: '1' });
   });
 

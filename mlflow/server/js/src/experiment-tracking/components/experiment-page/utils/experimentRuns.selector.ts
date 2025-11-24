@@ -121,7 +121,7 @@ const extractRunInfos = (
           return true;
         } else if (modelVersionFilter === MODEL_VERSION_FILTER.WITH_MODEL_VERSIONS) {
           return rInfo.runUuid in modelVersionsByRunUuid;
-        } else if (modelVersionFilter === MODEL_VERSION_FILTER.WTIHOUT_MODEL_VERSIONS) {
+        } else if (modelVersionFilter === MODEL_VERSION_FILTER.WITHOUT_MODEL_VERSIONS) {
           return !(rInfo.runUuid in modelVersionsByRunUuid);
         } else {
           // eslint-disable-next-line no-console -- TODO(FEINF-3587)
