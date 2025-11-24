@@ -449,10 +449,6 @@ html[data-genai-theme='true'] {
   padding-left: 0.5rem;
 }
 
-.menu__list-item > h5 {
-  margin-bottom: 0;
-}
-
 .sidebar-top-level-category > .menu__link,
 .sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
   font-size: var(--font-size-body-s);
