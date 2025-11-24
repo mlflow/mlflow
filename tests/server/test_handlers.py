@@ -2317,7 +2317,8 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     assert response is not None
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
-=======
+
+
 def test_delete_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
     """Test v2 delete_trace_tag handler with request_id parameter.
 
@@ -2366,39 +2367,6 @@ def test_delete_trace_tag_v3_handler(mock_get_request_message, mock_tracking_sto
 
     assert response is not None
     assert response.status_code == 200
-
-
-def test_delete_trace_tag_handlers_routing(mlflow_app_client, mock_tracking_store):
-    """Test Flask routes different paths to different handlers.
-
-    This test ensures:
-    1. DELETE /api/2.0/mlflow/traces/{request_id}/tags routes to v2 handler
-    2. DELETE /api/3.0/mlflow/traces/{trace_id}/tags routes to v3 handler
-
-    Both handlers call store.delete_trace_tag() but route parameter naming differs.
-    """
-    request_id_v2 = "tr-v2-789"
-    trace_id_v3 = "tr-v3-012"
-    tag_key = "test_key"
-
-    # Mock the store to verify it's called
-    mock_tracking_store.delete_trace_tag = mock.MagicMock(return_value=None)
-
-    # Test v2 endpoint with request_id
-    response_v2 = mlflow_app_client.delete(
-        f"/api/2.0/mlflow/traces/{request_id_v2}/tags",
-        data=json.dumps({"key": tag_key}),
-        content_type="application/json",
-    )
-    assert response_v2.status_code == 200
-
-    # Test v3 endpoint with trace_id
-    response_v3 = mlflow_app_client.delete(
-        f"/api/3.0/mlflow/traces/{trace_id_v3}/tags",
-        data=json.dumps({"key": tag_key}),
-        content_type="application/json",
-    )
-    assert response_v3.status_code == 200
 
 
 def test_set_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
@@ -2451,38 +2419,3 @@ def test_set_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store)
     # Verify response was created (200 status)
     assert response is not None
     assert response.status_code == 200
-
-
-def test_set_trace_tag_handlers_routing(mlflow_app_client, mock_tracking_store):
-    """Test Flask routes different paths to different handlers.
-
-    This test ensures:
-    1. PATCH /api/2.0/mlflow/traces/{request_id}/tags routes to v2 handler
-    2. PATCH /api/3.0/mlflow/traces/{trace_id}/tags routes to v3 handler
-
-    Both handlers call store.set_trace_tag() but route parameter naming differs.
-    """
-    request_id_v2 = "tr-v2-789"
-    trace_id_v3 = "tr-v3-012"
-    tag_key = "test_key"
-    tag_value = "test_value"
-
-    # Mock the store to verify it's called
-    mock_tracking_store.set_trace_tag = mock.MagicMock(return_value=None)
-
-    # Test v2 endpoint with request_id
-    response_v2 = mlflow_app_client.patch(
-        f"/api/2.0/mlflow/traces/{request_id_v2}/tags",
-        data=json.dumps({"key": tag_key, "value": tag_value}),
-        content_type="application/json",
-    )
-    assert response_v2.status_code == 200
-
-    # Test v3 endpoint with trace_id
-    response_v3 = mlflow_app_client.patch(
-        f"/api/3.0/mlflow/traces/{trace_id_v3}/tags",
-        data=json.dumps({"key": tag_key, "value": tag_value}),
-        content_type="application/json",
-    )
-    assert response_v3.status_code == 200
->>>>>>> aabfcc8b8 (Add missing _delete_trace_tag_v3 api)
