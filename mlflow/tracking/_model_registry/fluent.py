@@ -704,8 +704,10 @@ def load_prompt(
                        there is an active model.
         model_id: The ID of the model to which to link the prompt, if `link_to_model` is True.
         cache_ttl_seconds: Time-to-live in seconds for the cached prompt. If not specified,
-            uses the value from MLFLOW_PROMPT_CACHE_TTL_SECONDS environment variable (default 60).
-            Set to 0 to bypass the cache and always fetch from the server.
+            uses the value from `MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS` environment variable for
+            alias-based prompts (default 60), and the value from
+            `MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS` environment variable for version-based prompts
+            (default None, no TTL). Set to 0 to bypass the cache and always fetch from the server.
 
     Example:
 

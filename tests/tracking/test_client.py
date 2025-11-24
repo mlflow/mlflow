@@ -673,12 +673,16 @@ def test_client_delete_traces(mock_store):
 
 @pytest.fixture
 def disable_prompt_cache():
-    from mlflow.environment_variables import MLFLOW_PROMPT_CACHE_TTL_SECONDS
+    from mlflow.environment_variables import (
+        MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS,
+        MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS,
+    )
 
-    default_ttl = MLFLOW_PROMPT_CACHE_TTL_SECONDS.get()
-    MLFLOW_PROMPT_CACHE_TTL_SECONDS.set(0)
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.set(0)
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.set(0)
     yield
-    MLFLOW_PROMPT_CACHE_TTL_SECONDS.set(default_ttl)
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.unset()
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.unset()
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])

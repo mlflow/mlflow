@@ -55,8 +55,9 @@ from mlflow.entities.webhook import (
     WebhookTestResult,
 )
 from mlflow.environment_variables import (
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS,
     MLFLOW_ENABLE_ASYNC_LOGGING,
-    MLFLOW_PROMPT_CACHE_TTL_SECONDS,
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
@@ -771,19 +772,21 @@ class MlflowClient:
         """
         prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
 
-        # Determine TTL for caching
-        ttl = (
-            cache_ttl_seconds
-            if cache_ttl_seconds is not None
-            else MLFLOW_PROMPT_CACHE_TTL_SECONDS.get()
-        )
+        if cache_ttl_seconds is None:
+            # Default to MLFLOW_PROMPT_CACHE_TTL_SECONDS environment variable if not specified
+            # for the alias format, and None (no TTL) for the version format.
+            cache_ttl_seconds = (
+                MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.get()
+                if "@" in prompt_uri
+                else MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.get()
+            )
 
-        # Check cache if TTL > 0
-        if ttl > 0:
+        # Check cache if cache_ttl_seconds != 0
+        if cache_ttl_seconds != 0:
             cache = PromptCache.get_instance()
             cache_key = PromptCache.generate_cache_key_from_uri(prompt_uri)
             cached_prompt = cache.get(cache_key)
-            if cached_prompt is not None:
+            if cached_prompt:
                 return cached_prompt
 
         # Fetch from server
@@ -795,9 +798,9 @@ class MlflowClient:
             else:
                 prompt = registry_client.get_prompt_version(name, version_or_alias)
 
-            # Cache the result if TTL > 0
-            if ttl > 0 and prompt is not None:
-                cache.set(cache_key, prompt, ttl_seconds=ttl)
+            # Cache the result if cache_ttl_seconds != 0
+            if prompt and cache_ttl_seconds != 0:
+                cache.set(cache_key, prompt, ttl_seconds=cache_ttl_seconds)
 
             return prompt
         except MlflowException as exc:
