@@ -346,7 +346,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     elif msg_type == "mcp_approval_request":
         return [
             {
-                "role": "tool",
+                "role": "assistant",
                 "content": "mcp approval request",  # empty content is not supported by claude models
                 "tool_calls": [
                     {
