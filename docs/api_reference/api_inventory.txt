@@ -1107,6 +1107,8 @@ mlflow.pyfunc.ResponsesAgent
 mlflow.pyfunc.ResponsesAgent.create_annotation_added
 mlflow.pyfunc.ResponsesAgent.create_function_call_item
 mlflow.pyfunc.ResponsesAgent.create_function_call_output_item
+mlflow.pyfunc.ResponsesAgent.create_mcp_approval_request_item
+mlflow.pyfunc.ResponsesAgent.create_mcp_approval_response_item
 mlflow.pyfunc.ResponsesAgent.create_reasoning_item
 mlflow.pyfunc.ResponsesAgent.create_text_delta
 mlflow.pyfunc.ResponsesAgent.create_text_output_item
