@@ -518,7 +518,7 @@ def validate_path_is_safe(path):
     return path
 
 
-def validate_path_within_directory(base_dir, constructed_path):
+def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
     """
     Validates that the constructed path (after resolving symlinks) is within the base directory.
     This is a security measure to prevent symlink-based path traversal attacks.
@@ -530,18 +530,16 @@ def validate_path_within_directory(base_dir, constructed_path):
     Returns:
         The constructed_path if validation passes.
     """
-    real_base_dir = os.path.realpath(base_dir)
-    real_constructed_path = os.path.realpath(constructed_path)
+    real_base_dir = pathlib.Path(base_dir).resolve()
+    real_constructed_path = pathlib.Path(constructed_path).resolve()
 
-    if not real_base_dir.endswith(os.sep):
-        real_base_dir += os.sep
-
-    if not real_constructed_path.startswith(real_base_dir):
-        if real_constructed_path != real_base_dir.rstrip(os.sep):
-            raise MlflowException(
-                "Invalid path: resolved path is outside the artifact directory",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+    try:
+        real_constructed_path.relative_to(real_base_dir)
+    except ValueError:
+        raise MlflowException(
+            "Invalid path: resolved path is outside the artifact directory",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     return constructed_path
 

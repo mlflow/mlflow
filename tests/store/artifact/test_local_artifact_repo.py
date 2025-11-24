@@ -2,7 +2,6 @@ import json
 import os
 import pathlib
 import posixpath
-import shutil
 
 import pytest
 
@@ -251,10 +250,8 @@ def external_secret_dir(tmp_path):
     secret_dir = tmp_path.parent / "secrets_outside"
     secret_dir.mkdir(exist_ok=True)
     secret_file = secret_dir / "secret.txt"
-    secret_file.write_text("SECRET_CONTENT")
-    yield secret_dir
-    if secret_dir.exists():
-        shutil.rmtree(str(secret_dir))
+    secret_file.touch()
+    return secret_dir
 
 
 def _execute_operation(local_artifact_repo, operation, access_path, tmp_path):
