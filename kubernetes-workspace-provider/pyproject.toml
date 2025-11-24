@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlflow-kubernetes-workspace-provider"
+version = "0.1.0"
+description = "Kubernetes-backed WorkspaceProvider implementation and Kubernetes authorization plugin for MLflow workspaces."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "MLflow Contributors" }]
+dependencies = ["mlflow>=3.6.0,<4.0.0", "kubernetes>=29.0.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "pytest-mock>=3.10", "httpx>=0.27.0"]
+
+[project.entry-points."mlflow.workspace_provider"]
+kubernetes = "kubernetes_workspace_provider.provider:create_kubernetes_workspace_store"
+
+[project.entry-points."mlflow.app"]
+kubernetes-auth = "kubernetes_workspace_provider.auth:create_app"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

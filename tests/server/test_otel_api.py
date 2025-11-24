@@ -37,7 +37,7 @@ def test_workspace_scoped_otlp_endpoint_sets_workspace(monkeypatch):
             self.calls = []
 
         def log_spans(self, experiment_id, spans):
-            self.calls.append((workspace_context.get_current_workspace(), experiment_id, spans))
+            self.calls.append((workspace_context.get_request_workspace(), experiment_id, spans))
 
     tracking_store = DummyTrackingStore()
     captured = {}
@@ -70,7 +70,7 @@ def test_workspace_scoped_otlp_endpoint_sets_workspace(monkeypatch):
     assert captured["requested"].strip() == "team-a"
     assert tracking_store.calls[0][0] == "team-a"
     # Workspace context should be cleared after the request
-    assert workspace_context.get_current_workspace() is None
+    assert workspace_context.get_request_workspace() is None
 
 
 def test_default_otlp_endpoint_uses_default_workspace(monkeypatch):
@@ -81,7 +81,7 @@ def test_default_otlp_endpoint_uses_default_workspace(monkeypatch):
             self.calls = []
 
         def log_spans(self, experiment_id, spans):
-            self.calls.append((workspace_context.get_current_workspace(), experiment_id, spans))
+            self.calls.append((workspace_context.get_request_workspace(), experiment_id, spans))
 
     tracking_store = DummyTrackingStore()
     captured = {}
@@ -112,7 +112,7 @@ def test_default_otlp_endpoint_uses_default_workspace(monkeypatch):
     assert response.status_code == 200
     assert captured["requested"] is None
     assert tracking_store.calls[0][0] == "default"
-    assert workspace_context.get_current_workspace() is None
+    assert workspace_context.get_request_workspace() is None
 
 
 def test_otlp_endpoint_without_default_workspace_raises_error(monkeypatch):

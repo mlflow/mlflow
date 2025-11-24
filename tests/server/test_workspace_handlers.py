@@ -43,14 +43,14 @@ def test_create_workspace_handler_creates_default_experiment(monkeypatch):
             self._experiments: dict[tuple[str | None, str], SimpleNamespace] = {}
 
         def get_experiment_by_name(self, name: str):
-            key = (workspace_context.get_current_workspace(), name)
+            key = (workspace_context.get_request_workspace(), name)
             return self._experiments.get(key)
 
         def create_experiment(self, name: str):
-            key = (workspace_context.get_current_workspace(), name)
+            key = (workspace_context.get_request_workspace(), name)
             self.created_names.append(key)
             self._experiments[key] = SimpleNamespace(
-                name=name, workspace=workspace_context.get_current_workspace()
+                name=name, workspace=workspace_context.get_request_workspace()
             )
 
         def search_experiments(self, **_):
@@ -125,7 +125,7 @@ def test_delete_workspace_handler_rejects_non_empty_workspace(
         def search_experiments(self, view_type=None, max_results=None, **__):
             if not self._has_experiments:
                 return []
-            workspace = workspace_context.get_current_workspace()
+            workspace = workspace_context.get_request_workspace()
             return [
                 SimpleNamespace(name="exp-1", workspace=workspace, experiment_id="1"),
             ]
@@ -191,7 +191,7 @@ def test_delete_workspace_handler_rejects_default_experiment_with_runs(monkeypat
 
     class DummyTrackingStore:
         def get_experiment_by_name(self, name: str):
-            workspace = workspace_context.get_current_workspace()
+            workspace = workspace_context.get_request_workspace()
             if name == Experiment.DEFAULT_EXPERIMENT_NAME:
                 return SimpleNamespace(
                     name=name,
@@ -203,7 +203,7 @@ def test_delete_workspace_handler_rejects_default_experiment_with_runs(monkeypat
         def search_experiments(self, filter_string=None, **_):
             if filter_string and "name !=" in filter_string:
                 return []
-            workspace = workspace_context.get_current_workspace()
+            workspace = workspace_context.get_request_workspace()
             return [
                 SimpleNamespace(
                     name=Experiment.DEFAULT_EXPERIMENT_NAME, workspace=workspace, experiment_id="0"
@@ -251,7 +251,7 @@ def test_delete_workspace_handler_succeeds_for_empty_workspace(monkeypatch):
 
     class DummyTrackingStore:
         def get_experiment_by_name(self, name: str):
-            workspace = workspace_context.get_current_workspace()
+            workspace = workspace_context.get_request_workspace()
             if name == Experiment.DEFAULT_EXPERIMENT_NAME:
                 return SimpleNamespace(
                     name=name,
@@ -263,7 +263,7 @@ def test_delete_workspace_handler_succeeds_for_empty_workspace(monkeypatch):
         def search_experiments(self, filter_string=None, **_):
             if filter_string and "name !=" in filter_string:
                 return []
-            workspace = workspace_context.get_current_workspace()
+            workspace = workspace_context.get_request_workspace()
             return [
                 SimpleNamespace(
                     name=Experiment.DEFAULT_EXPERIMENT_NAME, workspace=workspace, experiment_id="0"
