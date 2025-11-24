@@ -414,6 +414,9 @@ yhat = "yhat"                      # ŷ
 iternal = "internal"               # typo of "internal"
 instumentation = "instrumentation" # typo of "instrumentation"
 selectin = "selectin"              # SQLAlchemy lazy loading strategy
+tpe = "tpe"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
+TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
+indx = "indx"                      # intentional shorthand for index
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
@@ -453,6 +456,8 @@ extend-ignore-re = [
   # Azure Kubernetes Service
   "\\(AKS\\)",
   "AKS",
+  # Song lyrics - "Don't Stop Believin'" by Journey
+  "livin'",
 ]
 
 [tool.pytest.ini_options]
