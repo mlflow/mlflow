@@ -839,11 +839,11 @@ def test_llm_extraction_returns_empty_dict_on_exception():
     trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[span]))
 
     with mock.patch(
-        "mlflow.genai.utils.trace_utils._try_extract_retrieval_context_with_llm"
+        "mlflow.genai.judges.utils.get_chat_completions_with_structured_output"
     ) as mock_llm:
         mock_llm.side_effect = Exception("LLM extraction failed")
 
         result = extract_retrieval_context_from_trace(trace)
 
         assert result == {}
-        mock_llm.assert_called_once_with(trace, None)
+        mock_llm.assert_called_once()
