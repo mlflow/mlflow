@@ -1,12 +1,14 @@
 import json
 import logging
 import math
+import traceback
 from collections import defaultdict
 from concurrent.futures import Future, as_completed
 from typing import TYPE_CHECKING, Any, Collection
 
 from mlflow.entities import Assessment, Trace, TraceData
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_ENABLE_MULTI_TURN_EVALUATION
 from mlflow.exceptions import MlflowException
@@ -450,6 +452,70 @@ def get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
         EvalItem: The eval item with the earliest trace in chronological order.
     """
     return min(session_items, key=lambda x: x.trace.info.request_time)
+
+
+def evaluate_multi_turn_scorers(
+    multi_turn_scorers: list[Scorer],
+    session_groups: dict[str, list["EvalItem"]],
+) -> dict[str, dict[str, Feedback]]:
+    """
+    Evaluate multi-turn scorers on grouped sessions.
+
+    Args:
+        multi_turn_scorers: List of multi-turn scorer instances
+        session_groups: Dict of {session_id: [eval_item, ...]}
+
+    Returns:
+        dict: {first_trace_id: {scorer_name: feedback, ...}}
+    """
+    multi_turn_assessments = {}
+
+    for session_id, session_items in session_groups.items():
+        # Get the first trace to store assessments
+        first_item = get_first_trace_in_session(session_items)
+        first_trace_id = first_item.trace.info.trace_id
+
+        # Extract just the traces for scorer evaluation
+        traces = [item.trace for item in session_items]
+
+        # Evaluate each multi-turn scorer
+        for scorer in multi_turn_scorers:
+            try:
+                # Call scorer with session parameter
+                value = scorer.run(session=traces)
+                feedbacks = standardize_scorer_value(scorer.name, value)
+
+                # Add session_id to metadata for each feedback
+                for feedback in feedbacks:
+                    if feedback.metadata is None:
+                        feedback.metadata = {}
+                    feedback.metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+
+                # Store assessments for first trace
+                if first_trace_id not in multi_turn_assessments:
+                    multi_turn_assessments[first_trace_id] = {}
+
+                # Store all feedbacks from this scorer
+                for feedback in feedbacks:
+                    multi_turn_assessments[first_trace_id][feedback.name] = feedback
+
+            except Exception as e:
+                # Use existing error handling mechanism
+                error_feedback = Feedback(
+                    name=scorer.name,
+                    source=make_code_type_assessment_source(scorer.name),
+                    error=AssessmentError(
+                        error_code="SCORER_ERROR",
+                        error_message=str(e),
+                        stack_trace=traceback.format_exc(),
+                    ),
+                )
+
+                if first_trace_id not in multi_turn_assessments:
+                    multi_turn_assessments[first_trace_id] = {}
+                multi_turn_assessments[first_trace_id][scorer.name] = error_feedback
+
+    return multi_turn_assessments
 
 
 def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: Any) -> None:
