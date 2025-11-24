@@ -23,12 +23,14 @@ from mlflow.environment_variables import (
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
-from mlflow.genai.evaluation.utils import (
+from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
-    complete_eval_futures_with_progress_base,
     evaluate_multi_turn_scorers,
     get_first_trace_in_session,
     group_traces_by_session,
+)
+from mlflow.genai.evaluation.utils import (
+    complete_eval_futures_with_progress_base,
     is_none_or_nan,
     make_code_type_assessment_source,
     standardize_scorer_value,

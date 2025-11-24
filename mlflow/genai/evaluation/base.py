@@ -13,10 +13,8 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
-from mlflow.genai.evaluation.utils import (
-    _convert_to_eval_set,
-    validate_session_level_evaluation_inputs,
-)
+from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
+from mlflow.genai.evaluation.utils import _convert_to_eval_set
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
