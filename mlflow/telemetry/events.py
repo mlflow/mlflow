@@ -77,10 +77,21 @@ class GenAIEvaluateEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.genai.evaluation.utils import get_evaluation_data_size_and_type
         from mlflow.genai.scorers.base import Scorer
         from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 
         record_params = {}
+
+        # Track data size and type
+        data = arguments.get("data")
+        if data is not None:
+            try:
+                data_info = get_evaluation_data_size_and_type(data)
+                record_params["eval_data_type"] = data_info["eval_data_type"]
+                record_params["eval_data_size"] = data_info["eval_data_size"]
+            except Exception:
+                pass
 
         # Track if predict_fn is provided
         record_params["predict_fn_provided"] = arguments.get("predict_fn") is not None

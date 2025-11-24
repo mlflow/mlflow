@@ -55,6 +55,77 @@ PGBAR_FORMAT = (
 )
 
 
+def get_evaluation_data_size_and_type(data: "EvaluationDatasetTypes") -> dict[str, Any]:
+    """
+    Get the size and type of evaluation data for telemetry tracking.
+
+    Args:
+        data: The data object to analyze. Must be one of the types in EvaluationDatasetTypes:
+            - pd.DataFrame
+            - pyspark.sql.dataframe.DataFrame
+            - list[dict]
+            - list[Trace]
+            - genai.EvaluationDataset
+            - entities.EvaluationDataset
+
+    Returns:
+        Dictionary with 'eval_data_size' (number of rows) and 'eval_data_type' (string type name)
+    """
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+
+    eval_data_type = None
+    eval_data_size = None
+
+    try:
+        if isinstance(data, ManagedEvaluationDataset):
+            eval_data_type = "genai.EvaluationDataset"
+            # Check if records are loaded to avoid triggering expensive load
+            if data.has_records():
+                df = data.to_df()
+                eval_data_size = len(df)
+            else:
+                # Records not loaded, don't trigger load for telemetry
+                eval_data_size = None
+        elif isinstance(data, EntityEvaluationDataset):
+            eval_data_type = "entities.EvaluationDataset"
+            # Check if records are loaded to avoid triggering expensive load
+            if data.has_records():
+                df = data.to_df()
+                eval_data_size = len(df)
+            else:
+                # Records not loaded, don't trigger load for telemetry
+                eval_data_size = None
+        elif isinstance(data, list):
+            # list[dict] or list[Trace]
+            eval_data_size = len(data)
+            if data and isinstance(data[0], Trace):
+                eval_data_type = "list[Trace]"
+            elif data and isinstance(data[0], dict):
+                eval_data_type = "list[dict]"
+            else:
+                eval_data_type = "list"
+        else:
+            # pandas DataFrame or PySpark DataFrame
+            type_name = type(data).__name__
+            if "DataFrame" in type_name:
+                if "pyspark" in type(data).__module__:
+                    eval_data_type = "pyspark.DataFrame"
+                else:
+                    eval_data_type = "pandas.DataFrame"
+                eval_data_size = len(data) if hasattr(data, "__len__") else data.count()
+            else:
+                # Unexpected type - shouldn't happen with EvaluationDatasetTypes
+                eval_data_type = type_name
+                eval_data_size = None
+    except Exception:
+        # Don't let telemetry tracking cause failures
+        eval_data_type = "unknown"
+        eval_data_size = None
+
+    return {"eval_data_type": eval_data_type, "eval_data_size": eval_data_size}
+
+
 def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
     Takes in a dataset in the format that `mlflow.genai.evaluate()` expects and

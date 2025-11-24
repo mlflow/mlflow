@@ -238,7 +238,6 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     scorers = validate_scorers(scorers)
 
@@ -259,10 +258,6 @@ def evaluate(
             "For example: {'query': 'What is MLflow?'}"
         )
 
-    # If the input dataset is a managed dataset, we pass the original dataset
-    # to the evaluate function to preserve metadata like dataset name.
-    data = data if is_managed_dataset else df
-
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
@@ -272,6 +267,11 @@ def evaluate(
 @record_usage_event(GenAIEvaluateEvent)
 def _run_harness(data, scorers, predict_fn, model_id):
     from mlflow.genai.evaluation import harness
+
+    # If the input dataset is a managed dataset, we pass the original dataset
+    # to the evaluate function to preserve metadata like dataset name.
+    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
+    data = data if is_managed_dataset else _convert_to_eval_set(data)
 
     # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
     # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old

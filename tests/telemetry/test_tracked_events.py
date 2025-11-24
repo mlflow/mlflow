@@ -371,6 +371,8 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         )
         expected_params = {
             "builtin_scorers": ["RelevanceToQuery"],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
             "predict_fn_provided": True,
             "scorer_kind_count": {"decorator": 1, "builtin": 1},
         }
@@ -385,6 +387,8 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         )
         expected_params = {
             "builtin_scorers": [],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
             "predict_fn_provided": False,
             "scorer_kind_count": {"decorator": 1},
         }
@@ -446,6 +450,8 @@ def test_genai_evaluate_scorer_kind_count(mock_requests, mock_telemetry_client: 
 
         expected_params = {
             "builtin_scorers": ["Guidelines", "RelevanceToQuery"],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
             "predict_fn_provided": False,
             "scorer_kind_count": {
                 "builtin": 2,

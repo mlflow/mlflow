@@ -16,6 +16,7 @@ from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
+    get_evaluation_data_size_and_type,
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -554,3 +555,130 @@ def test_validate_tags_valid(tags):
 def test_validate_tags_invalid(tags, expected_error):
     with pytest.raises(MlflowException, match=expected_error):
         validate_tags(tags)
+
+
+@pytest.mark.parametrize(
+    ("data_fixture", "expected_type", "expected_size"),
+    [
+        ("sample_pd_data", "pandas.DataFrame", 3),
+        ("sample_spark_data", "pyspark.DataFrame", 3),
+        ("sample_dict_data_multiple", "list[dict]", 3),
+    ],
+)
+def test_get_evaluation_data_size_and_type_basic(
+    data_fixture, expected_type, expected_size, request
+):
+    """Test get_evaluation_data_size_and_type with various basic data types."""
+    sample_data = request.getfixturevalue(data_fixture)
+    result = get_evaluation_data_size_and_type(sample_data)
+
+    assert result["eval_data_type"] == expected_type
+    assert result["eval_data_size"] == expected_size
+
+
+@pytest.mark.parametrize(
+    ("num_traces", "wrap_in_dict", "expected_type"),
+    [
+        (2, True, "list[dict]"),
+        (1, False, "list[Trace]"),
+    ],
+)
+def test_get_evaluation_data_size_and_type_with_traces(num_traces, wrap_in_dict, expected_type):
+    """Test get_evaluation_data_size_and_type with traces in different formats."""
+    model = TestModel()
+
+    # Create the specified number of traces
+    questions = ["What is MLflow?", "What is Spark?"]
+    for i in range(num_traces):
+        model.predict(questions[i])
+
+    traces = mlflow.search_traces(return_type="list", order_by=["timestamp_ms ASC"])
+
+    # Wrap in dict if needed (simulating how traces are passed in some scenarios)
+    trace_data = [{"trace": trace} for trace in traces] if wrap_in_dict else traces
+
+    result = get_evaluation_data_size_and_type(trace_data)
+
+    assert result["eval_data_type"] == expected_type
+    assert result["eval_data_size"] == num_traces
+
+
+def test_get_evaluation_data_size_and_type_with_genai_evaluation_dataset():
+    """Test get_evaluation_data_size_and_type with genai.EvaluationDataset."""
+    dataset = create_dataset("test_dataset_genai")
+    records = [
+        {
+            "inputs": {"question": "What is Spark?"},
+            "outputs": "Spark is a distributed computing framework",
+        },
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is an ML lifecycle platform",
+        },
+    ]
+    dataset.merge_records(records)
+
+    # Load the records by calling to_df() before checking size
+    # (merge_records stores to backend but doesn't load _records in memory)
+    dataset.to_df()
+
+    result = get_evaluation_data_size_and_type(dataset)
+
+    assert result["eval_data_type"] == "genai.EvaluationDataset"
+    assert result["eval_data_size"] == 2
+
+
+@pytest.mark.parametrize(
+    ("has_records", "expected_size"),
+    [
+        (True, 4),
+        (False, None),
+    ],
+)
+def test_get_evaluation_data_size_and_type_with_entities_evaluation_dataset(
+    has_records, expected_size
+):
+    """Test get_evaluation_data_size_and_type with entities.EvaluationDataset."""
+    from mlflow.entities.dataset_record import DatasetRecord
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+
+    dataset = EntityEvaluationDataset(
+        dataset_id="test_id",
+        name="test_dataset",
+        digest="test_digest",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    if has_records:
+        # Directly set records instead of mocking
+        dataset._records = [
+            DatasetRecord(
+                dataset_record_id=f"rec{i}",
+                dataset_id="test_id",
+                inputs={"question": f"Question {i}"},
+                created_time=123456789,
+                last_update_time=123456789,
+            )
+            for i in range(4)
+        ]
+
+    result = get_evaluation_data_size_and_type(dataset)
+
+    assert result["eval_data_type"] == "entities.EvaluationDataset"
+    assert result["eval_data_size"] == expected_size
+
+
+@pytest.mark.parametrize(
+    ("data", "expected_type", "expected_size"),
+    [
+        ([], "list", 0),
+        ([{"inputs": {"question": "What is Spark?"}, "outputs": "Answer"}], "list[dict]", 1),
+    ],
+)
+def test_get_evaluation_data_size_and_type_with_list_edge_cases(data, expected_type, expected_size):
+    """Test get_evaluation_data_size_and_type with various list edge cases."""
+    result = get_evaluation_data_size_and_type(data)
+
+    assert result["eval_data_type"] == expected_type
+    assert result["eval_data_size"] == expected_size
