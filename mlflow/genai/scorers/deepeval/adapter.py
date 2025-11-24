@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from pydantic import PrivateAttr
+
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
@@ -18,7 +20,7 @@ _logger = logging.getLogger(__name__)
 
 
 class DeepEvalAdapter(Scorer):
-    """Adapter that wraps any DeepEval metric to work with MLflow's judge interface."""
+    _metric: Any = PrivateAttr()
 
     def __init__(
         self,
@@ -40,17 +42,12 @@ class DeepEvalAdapter(Scorer):
             strict_mode: Whether to use strict mode (forces threshold to 1.0)
             metric_kwargs: Additional metric-specific parameters
         """
-        self.metric_name = metric_name
-        self.threshold = threshold
-        self.model_uri = model
-        self.include_reason = include_reason
-        self.strict_mode = strict_mode
-        self.metric_kwargs = metric_kwargs
+        super().__init__(name=metric_name)
 
         metric_class = get_metric_class(metric_name)
         deepeval_model = create_deepeval_model(model)
 
-        self.metric = metric_class(
+        self._metric = metric_class(
             threshold=threshold,
             model=deepeval_model,
             include_reason=include_reason,
@@ -81,30 +78,30 @@ class DeepEvalAdapter(Scorer):
             Feedback object with pass/fail value, rationale, and score in metadata
         """
         test_case = map_mlflow_to_test_case(
-            metric_name=self.metric_name,
+            metric_name=self.name,
             inputs=inputs,
             outputs=outputs,
             expectations=expectations,
             trace=trace,
         )
 
-        self.metric.measure(test_case)
+        self._metric.measure(test_case)
 
-        score = self.metric.score
-        reason = self.metric.reason if self.include_reason else None
-        success = self.metric.is_successful()
+        score = self._metric.score
+        reason = self._metric.reason
+        success = self._metric.is_successful()
 
         return Feedback(
-            name=self.metric_name,
+            name=self.name,
             value=CategoricalRating.YES if success else CategoricalRating.NO,
             rationale=reason,
             source=AssessmentSource(
                 source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id=f"deepeval/{self.metric_name}",
+                source_id=f"deepeval/{self.name}",
             ),
             metadata={
                 "score": score,
-                "threshold": self.threshold,
+                "threshold": self._metric.threshold,
             },
         )
 

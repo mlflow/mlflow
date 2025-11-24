@@ -18,15 +18,15 @@ class DatabricksDeepEvalLLM(DeepEvalBaseLLM):
     def __init__(self):
         super().__init__(model=_DATABRICKS_DEFAULT_JUDGE_MODEL)
 
-    def load_model(self):
+    def load_model(self, **kwargs):
         return self
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, schema=None) -> str:
         result = call_chat_completions(user_prompt=prompt, system_prompt="")
         return result.output
 
-    async def a_generate(self, prompt: str) -> str:
-        return self.generate(prompt)
+    async def a_generate(self, prompt: str, schema=None) -> str:
+        return self.generate(prompt, schema=schema)
 
     def get_model_name(self) -> str:
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
