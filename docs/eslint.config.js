@@ -10,7 +10,7 @@ const reactPlugin = require('eslint-plugin-react');
 if (process.argv.includes('--fix') && !process.env.MLFLOW_DOCS_ALLOW_ESLINT_FIX) {
   throw new Error(
     'ESLint autofix is disabled because it can corrupt file contents ' +
-      '(e.g., removing heading markers when removing unused imports). ' +
+      '(e.g., https://github.com/sweepline/eslint-plugin-unused-imports/issues/115). ' +
       'If you want to use auto-fix anyway, run this command and ' +
       'carefully review ALL changes before committing:\n\n' +
       'MLFLOW_DOCS_ALLOW_ESLINT_FIX=1 npm run eslint -- --fix',
