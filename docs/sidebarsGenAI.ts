@@ -22,7 +22,7 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'link',
       href: '/genai/tracing/quickstart/python-openai',
-      label: 'Tracing GenAI Apps',
+      label: 'Tracing Quickstart',
       className: 'sidebar-top-level-category',
     },
     {
@@ -580,7 +580,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'html',
-      value: '<h5><b>Features</b></h5>',
+      value: '<h5><b>More Features</b></h5>',
       defaultStyle: true,
     },
     {
