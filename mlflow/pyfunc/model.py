@@ -833,6 +833,8 @@ from mlflow.types.responses import (
     create_annotation_added,
     create_function_call_item,
     create_function_call_output_item,
+    create_mcp_approval_request_item,
+    create_mcp_approval_response_item,
     create_reasoning_item,
     create_text_delta,
     create_text_output_item,
@@ -990,6 +992,34 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
             output (str): The output of the function call.
         """
         return create_function_call_output_item(call_id, output)
+    
+    @staticmethod
+    def create_mcp_approval_request_item(id: str, arguments: str, name: str, server_label: str) -> dict[str, Any]:
+        """Helper method to create a dictionary conforming to the MCP approval request item schema.
+
+        Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
+
+        Args:
+            id (str): The unique id of the approval request.
+            arguments (str): A JSON string of arguments for the tool.
+            name (str): The name of the tool to run.
+            server_label (str): The label of the MCP server making the request.
+        """
+        return create_mcp_approval_request_item(id, arguments, name, server_label)
+    
+    @staticmethod
+    def create_mcp_approval_response_item(id: str, approval_request_id: str, approve: bool, reason: str | None = None) -> dict[str, Any]:
+        """Helper method to create a dictionary conforming to the MCP approval response item schema.
+
+        Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
+
+        Args:
+            id (str): The unique id of the approval response.
+            approval_request_id (str): The id of the approval request being answered.
+            approve (bool): Whether the request was approved.
+            reason (Optional[str]): The reason for the approval.
+        """
+        return create_mcp_approval_response_item(id, approval_request_id, approve, reason)
 
     @staticmethod
     def _responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
