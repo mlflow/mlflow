@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useGetDatasetRecords } from '../hooks/useGetDatasetRecords';
 import type { ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel } from '@tanstack/react-table';
@@ -43,7 +43,8 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
   const intl = useIntl();
   const datasetId = dataset.dataset_id;
 
-  const [rowSize, setRowSize] = useState<'sm' | 'md' | 'lg'>('sm');
+  const [rowSize, setRowSize] = useState<'sm' | 'md' | 'lg'>('md');
+  const [searchFilter, setSearchFilter] = useState('');
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
     [INPUTS_COLUMN_ID]: true,
     [OUTPUTS_COLUMN_ID]: false,
@@ -68,15 +69,35 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
     fetchNextPage,
   });
 
+  // Filter records based on search term
+  const filteredRecords = useMemo(() => {
+    if (!searchFilter.trim()) {
+      return datasetRecords ?? [];
+    }
+
+    const searchTerm = searchFilter.toLowerCase();
+    return (datasetRecords ?? []).filter((record) => {
+      // Search in inputs
+      const inputsString = JSON.stringify(record.inputs || {}).toLowerCase();
+      if (inputsString.includes(searchTerm)) return true;
+
+      // Search in expectations
+      const expectationsString = JSON.stringify(record.expectations || {}).toLowerCase();
+      if (expectationsString.includes(searchTerm)) return true;
+
+      return false;
+    });
+  }, [datasetRecords, searchFilter]);
+
   const table = useReactTable(
     'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExperimentEvaluationDatasetRecordsTable.tsx',
     {
       columns,
-      data: datasetRecords ?? [],
+      data: filteredRecords,
       getCoreRowModel: getCoreRowModel(),
       getRowId: (row) => row.dataset_record_id,
       enableColumnResizing: false,
-      meta: { rowSize },
+      meta: { rowSize, searchFilter },
       state: {
         columnVisibility,
       },
@@ -102,6 +123,8 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
         setColumnVisibility={setColumnVisibility}
         rowSize={rowSize}
         setRowSize={setRowSize}
+        searchFilter={searchFilter}
+        setSearchFilter={setSearchFilter}
       />
       <Table
         css={{ flex: 1 }}

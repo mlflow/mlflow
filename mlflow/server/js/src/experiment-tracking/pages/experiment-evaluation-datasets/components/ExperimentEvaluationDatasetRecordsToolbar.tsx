@@ -2,7 +2,9 @@ import {
   Button,
   ColumnsIcon,
   DropdownMenu,
+  Input,
   RowsIcon,
+  SearchIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -28,6 +30,8 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
   setColumnVisibility,
   rowSize,
   setRowSize,
+  searchFilter,
+  setSearchFilter,
 }: {
   dataset: EvaluationDataset;
   datasetRecords: EvaluationDatasetRecord[];
@@ -36,6 +40,8 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
   setColumnVisibility: (columnVisibility: Record<string, boolean>) => void;
   rowSize: 'sm' | 'md' | 'lg';
   setRowSize: (rowSize: 'sm' | 'md' | 'lg') => void;
+  searchFilter: string;
+  setSearchFilter: (searchFilter: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const datasetName = dataset?.name;
@@ -47,32 +53,39 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
     <div
       css={{
         display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
+        flexDirection: 'column',
+        gap: theme.spacing.sm,
         marginBottom: theme.spacing.sm,
       }}
     >
       <div
         css={{
           display: 'flex',
-          flexDirection: 'column',
-          paddingLeft: theme.spacing.sm,
-          paddingRight: theme.spacing.sm,
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
         }}
       >
-        <Typography.Title level={3} withoutMargins>
-          {datasetName}
-        </Typography.Title>
-        <Typography.Text color="secondary" size="sm">
-          <FormattedMessage
-            defaultMessage="Displaying {loadedRecordsCount} of {totalRecordsCount, plural, =1 {1 record} other {# records}}"
-            description="Label for the number of records displayed"
-            values={{ loadedRecordsCount: loadedRecordsCount ?? 0, totalRecordsCount: totalRecordsCount ?? 0 }}
-          />
-        </Typography.Text>
-      </div>
-      <div css={{ display: 'flex', alignItems: 'flex-start' }}>
-        <DropdownMenu.Root>
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            paddingLeft: theme.spacing.sm,
+            paddingRight: theme.spacing.sm,
+          }}
+        >
+          <Typography.Title level={3} withoutMargins>
+            {datasetName}
+          </Typography.Title>
+          <Typography.Text color="secondary" size="sm">
+            <FormattedMessage
+              defaultMessage="Displaying {loadedRecordsCount} of {totalRecordsCount, plural, =1 {1 record} other {# records}}"
+              description="Label for the number of records displayed"
+              values={{ loadedRecordsCount: loadedRecordsCount ?? 0, totalRecordsCount: totalRecordsCount ?? 0 }}
+            />
+          </Typography.Text>
+        </div>
+        <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.xs }}>
+          <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <Button componentId="mlflow.eval-datasets.records-toolbar.row-size-toggle" icon={<RowsIcon />} />
           </DropdownMenu.Trigger>
@@ -131,6 +144,22 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
             ))}
           </DropdownMenu.Content>
         </DropdownMenu.Root>
+        </div>
+      </div>
+      <div
+        css={{
+          paddingLeft: theme.spacing.sm,
+          paddingRight: theme.spacing.sm,
+        }}
+      >
+        <Input
+          componentId="mlflow.eval-datasets.records-toolbar.search-input"
+          prefix={<SearchIcon />}
+          placeholder="Search dataset records"
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.target.value)}
+          css={{ width: '400px' }}
+        />
       </div>
     </div>
   );
