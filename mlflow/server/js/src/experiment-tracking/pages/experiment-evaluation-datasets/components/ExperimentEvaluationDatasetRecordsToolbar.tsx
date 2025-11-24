@@ -155,7 +155,7 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
         <Input
           componentId="mlflow.eval-datasets.records-toolbar.search-input"
           prefix={<SearchIcon />}
-          placeholder="Search dataset records"
+          placeholder="Search inputs and expectations"
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
           css={{ maxWidth: '540px', flex: 1 }}
