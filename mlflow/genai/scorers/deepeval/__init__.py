@@ -22,7 +22,7 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.scorers.deepeval.registry import get_metric_class
+from mlflow.genai.scorers.deepeval.registry import get_metric_class, is_deterministic_metric
 from mlflow.genai.scorers.deepeval.utils import (
     create_deepeval_model,
     map_mlflow_to_test_case,
@@ -51,14 +51,18 @@ class DeepEvalScorer(Scorer):
         super().__init__(name=metric_name)
 
         metric_class = get_metric_class(metric_name)
-        deepeval_model = create_deepeval_model(model)
 
-        self._metric = metric_class(
-            model=deepeval_model,
-            verbose_mode=False,
-            async_mode=False,
-            **metric_kwargs,
-        )
+        if is_deterministic_metric(metric_name):
+            # Deterministic metrics don't need a model
+            self._metric = metric_class(**metric_kwargs)
+        else:
+            deepeval_model = create_deepeval_model(model)
+            self._metric = metric_class(
+                model=deepeval_model,
+                verbose_mode=False,
+                async_mode=False,
+                **metric_kwargs,
+            )
 
     def __call__(
         self,

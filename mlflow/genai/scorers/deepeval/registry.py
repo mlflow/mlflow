@@ -74,3 +74,7 @@ def get_metric_class(metric_name: str):
             DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE,
             error_code=BAD_REQUEST,
         ) from e
+
+
+def is_deterministic_metric(metric_name: str):
+    return metric_name in ("ExactMatch", "PatternMatch")
