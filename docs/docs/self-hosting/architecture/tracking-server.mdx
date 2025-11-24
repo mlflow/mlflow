@@ -192,7 +192,7 @@ mlflow server --no-serve-artifacts --default-artifact-root s3://my-bucket
 
 With this setting, the MLflow client still makes minimum HTTP requests to the tracking server for fetching proper remote storage URI,
 but can directly upload artifacts to / download artifacts from the remote storage. While this might not be a good practice for access and
-secury governance, it could be useful when you want to avoid the overhead of proxying artifacts through the tracking server.
+security governance, it could be useful when you want to avoid the overhead of proxying artifacts through the tracking server.
 
 :::note
 If the MLflow server is _not configured_ with the `--serve-artifacts` option, the client directly pushes artifacts

@@ -79,8 +79,10 @@ class GenAIEvaluateEvent(Event):
         from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 
         scorers = arguments.get("scorers") or []
-        builtin_scorers = {scorer.name for scorer in scorers if isinstance(scorer, BuiltInScorer)}
-        return {"builtin_scorers": list(builtin_scorers)}
+        builtin_scorers = {
+            type(scorer).__name__ for scorer in scorers if isinstance(scorer, BuiltInScorer)
+        }
+        return {"builtin_scorers": list[str](builtin_scorers)}
 
 
 class CreateLoggedModelEvent(Event):

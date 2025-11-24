@@ -241,7 +241,7 @@ def _mlflow_conda_env(
         else []
     )
     pip_deps = mlflow_deps + additional_pip_deps
-    conda_deps = additional_conda_deps if additional_conda_deps else []
+    conda_deps = additional_conda_deps or []
     if pip_deps:
         pip_version = _get_package_version("pip")
         if pip_version is not None:

@@ -107,7 +107,12 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           />
         )}
         {sessionId && experimentId && (
-          <ModelTraceHeaderSessionIdTag handleCopy={handleCopy} experimentId={experimentId} sessionId={sessionId} />
+          <ModelTraceHeaderSessionIdTag
+            handleCopy={handleCopy}
+            experimentId={experimentId}
+            sessionId={sessionId}
+            traceId={modelTraceId}
+          />
         )}
         {userId && (
           <ModelTraceHeaderMetricSection

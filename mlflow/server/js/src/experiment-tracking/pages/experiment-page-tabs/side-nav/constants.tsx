@@ -13,7 +13,6 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { shouldEnableChatSessionsTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
@@ -163,7 +162,7 @@ export const useExperimentPageSideNavConfig = ({
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
-    const baseConfig = {
+    return {
       ...(hasTrainingRuns
         ? {
             // append training runs to top-level if they exist
@@ -184,11 +183,8 @@ export const useExperimentPageSideNavConfig = ({
             'top-level': [],
           }),
       ...ExperimentPageSideNavGenAIConfig,
-    };
-
-    if (shouldEnableChatSessionsTab()) {
-      baseConfig.observability = [
-        ...baseConfig.observability,
+      observability: [
+        ...ExperimentPageSideNavGenAIConfig.observability,
         {
           label: (
             <FormattedMessage
@@ -199,10 +195,8 @@ export const useExperimentPageSideNavConfig = ({
           icon: <SpeechBubbleIcon />,
           tabName: ExperimentPageTabName.ChatSessions,
         },
-      ];
-    }
-
-    return baseConfig;
+      ],
+    };
   }
 
   return ExperimentPageSideNavCustomModelConfig;

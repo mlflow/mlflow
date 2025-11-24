@@ -71,7 +71,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             else {}
         )
         self._region_name = self._get_region_name()
-        self._s3_upload_extra_args = s3_upload_extra_args if s3_upload_extra_args else {}
+        self._s3_upload_extra_args = s3_upload_extra_args or {}
 
     def _refresh_credentials(self):
         if not self._credential_refresh_def:
