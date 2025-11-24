@@ -47,8 +47,8 @@ export const JsonCell = ({
   const lineCount = useMemo(() => value.split('\n').length, [value]);
   const rows = useMemo(() => Math.min(Math.max(lineCount + 1, 3), 20), [lineCount]);
 
-  // Max height depends on row size: 'md' shows 20 lines, 'lg' shows 30 lines
-  const maxHeightInLines = rowSize === 'md' ? 20 : 30;
+  // Max height depends on row size: 'md' shows 10 lines, 'lg' shows 20 lines
+  const maxHeightInLines = rowSize === 'md' ? 10 : 20;
   const maxHeight = theme.typography.fontSizeLg * maxHeightInLines;
 
   return (
