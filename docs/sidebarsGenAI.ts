@@ -20,8 +20,8 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'link',
-      href: '/genai/tracing/quickstart/python-openai',
+      type: 'doc',
+      id: 'tracing/quickstart/python-openai',
       label: 'Tracing Quickstart',
       className: 'sidebar-top-level-category',
     },
