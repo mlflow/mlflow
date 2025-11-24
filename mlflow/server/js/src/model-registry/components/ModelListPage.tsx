@@ -71,13 +71,13 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
     // eslint-disable-next-line react/no-did-mount-set-state
     this.setState(
       {
-        // @ts-expect-error TS(4111): Property 'orderByKey' comes from an index signature... Remove this comment to see the full error message
+        // @ts-expect-error TS(4111): Property 'orderByKey' comes from an index signatur... Remove this comment to see the full error message
         orderByKey: urlState.orderByKey === undefined ? this.state.orderByKey : urlState.orderByKey,
         orderByAsc:
-          // @ts-expect-error TS(4111): Property 'orderByAsc' comes from an index signature... Remove this comment to see the full error message
+          // @ts-expect-error TS(4111): Property 'orderByAsc' comes from an index signatur... Remove this comment to see the full error message
           urlState.orderByAsc === undefined
             ? this.state.orderByAsc
-            : // @ts-expect-error TS(4111): Property 'orderByAsc' comes from an index signature... Remove this comment to see the full error message
+            : // @ts-expect-error TS(4111): Property 'orderByAsc' comes from an index signatur... Remove this comment to see the full error message
               urlState.orderByAsc === 'true',
         currentPage:
           // @ts-expect-error TS(4111): Property 'page' comes from an index signature, so ... Remove this comment to see the full error message

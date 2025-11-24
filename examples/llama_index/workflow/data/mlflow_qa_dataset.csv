@@ -3,7 +3,7 @@ How to use Amazon S3 for tracking model artifacts with MLflow?,"MLflow by defaul
 ```
 mlflow.server --artifacts-destination s3://bucket --serve-artifacts
 ```
-Also, please do not forget setting up the necessary credentials in the following environment variables.
+Also, please do not forget setting up the necessary credentials in the following environment varaibles.
 ```
 export AWS_ACCESS_KEY_ID=""""
 export AWS_SECRET_ACCESS_KEY=""""
@@ -20,7 +20,7 @@ Then you can register your MLflow Model using MLflow API. Replace the URI and mo
 ```
 mlflow.register_model(model_uri, ""catalog.schema.model_name"")
 ```
-Alternatively, you can specify the registered model name when logging the model, so MLflow automatically do registration when logging.
+Alternatively, you can specify the registered model name when logging the model, so MLflow automatically do registeration when logging.
 ```
 mlflow.sklearn.log_model(model, ""model"", registered_model_name=""catalog.schema.model_name"")
 ```"
@@ -90,7 +90,7 @@ aws_config:
     aws_role_arn: xxx
     session_length_seconds: 900 (optional)
 ```"
-What parameters are supported by the chat endpoint in MLflow Deployment Server?,"For chat endpoints (endpoint_type being llm/v1/chat), MLflow defines the following standard parameters:
+What parameters are supported by the chat endpoint in MLflow Deployment Server?,"For chat endpoints (endpoint_type being llm/v1/chat), MLflow defines the following standard paramters:
 - messages (required): A list of messages in a conversation. Each message should contain `role` and `content` as keys.
  - n: The integer number of chat completions to generate.
 - temperature: The sampling temperature to use, between 0 to 1. Higher value will make the output more random.
@@ -108,7 +108,7 @@ results.table[""eval_results_table""]
 ```
 2. Alternatively, navigate to the MLflow UI and your experiment. Select the list of evaluation runs and select ""Chart"" tab. It will display the graphs for evaluation metrics. In order to assess the result for each sample data, open ""Evaluation"" tab with the same runs selected."
 How to define custom LLM-as-a-judge metrics for evaluating my RAG models?,"To define custom LLM-as-a-judge metrics, use `mlflow.metrics.genai.make_genai_metric()` function. You can pass the prompt and LLM model to score the output, as well as additional reference input (e.g. documentation), parameters, aggregation configurations."
-What kind of evaluator models we can use for LLM-as-a-judge metrics in MLflow?,The `mlflow.metrics.genai.make_genai_metric` accepts either of two types of models as a judge (1) OpenAI model specified with an URI with `openai` schema e.g. `openai:/gpt-3.5-turbo` (2) MLflow Deployments Server endpoint e.g. `endpoints:/my-chat-endpoint`.
+What kind of evaluator models we can use for LLM-as-a-judge metrics in MLflow?,The `mlflow.metrics.genai.make_genai_metric` accepts either of two types of models as a judge (1) OpenAI model specified with an URI with `openai` schema e.g. `openai:/gpt-3.5-turbo` (2) MLflow Deployments Server endpoint e.g. `endopints:/my-chat-endpoint`.
 What kind models can I evaluate with MLflow Evaluation?,"MLflow supports evaluating various types of models as follows:
 1. MLflow models (with Python Model interface). Either an model instance itself or an URI pointing to the logged or registered model can be used.
 2. A Python function that takes in string inputs and outputs a single string The callable interface must match the signature of mlflow.pyfunc.PythonModel.predict(). Briefly it should has `data` as the only argument, which can be one of pandas DataFrame, numpy array, python list, dictionary, or scipy matrix, and returns one of a list, pandas DataFrame, Series, or numpy Array.
@@ -130,6 +130,6 @@ How to set an alias to the model in MLflow Model Registry?,"You can use either M
 2. MLflow Client - Use `set_registered_model_alias()` API of MLflow client, specifying the model name and version."
 Does MLflow support authentication for accessing models?,"MLflow supports basic HTTP authentication for access control over experiments and registered models. Permissions can be granted on individual resources (e.g. run, experiment, model) for each user, with four different access levels (1) NO_PERMISSIONS (2) READ (3) EDIT (4) MANAGE.  MLflow also allows for custom authentication, including third-party plugins or custom plugins for more advanced authentication logic."
 Does MLflow support authentication method that is more advanced then username and password?,"No, MLflow does not natively support other authentication method than using username and password. However, you can utilize advanced authentication logic, such as token-based authentication, through third-party plugins or custom plugins."
-How to search Runs based on tag?,"To search for runs by filtering on tags in MLflow, you can use the search box in the MLflow UI, or Python search API `mlflow.search_runs()`.  The search query  is similar to SQL with a few exceptions. To performs a search with tags, you can use the following query string like `tags.model = gpt-4`."
+How to search Runs based on tag?,"To search for runs by filtering on tags in MLflow, you can use the search box in the MLflow UI, or Python search API `mlflow.search_runs()`.  The search query  is similar to SQL with a few exceptions. To performa a search with tags, you can use the following query string like `tags.model = gpt-4`."
 I got a syntax error when running a search with query `tags.my-tag = foo`. How to solve this problem?,"The search query syntax of MLflow is similar to SQL, therefore, fields include some special characters such as hyphen cannot be used as they are. To workaround this, you can wrap the tag name with backticks like `tags.`my-tag` = foo`.
 "

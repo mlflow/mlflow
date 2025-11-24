@@ -14,7 +14,7 @@ const mockExperiments = [
     experimentId: '123456789',
     name: '/Users/john.doe@databricks.com/test-experiment',
     tags: [],
-    allowedActions: ['MODIFY_PERMISSION', 'DELETE', 'RENAME'],
+    allowedActions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
     artifactLocation: 'dbfs://foo/bar/xyz',
   },
 ] as any;

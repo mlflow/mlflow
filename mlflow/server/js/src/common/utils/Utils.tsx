@@ -353,7 +353,7 @@ class Utils {
   /**
    * Makes sure that the URL begins with correct scheme according
    * to RFC3986 [https://datatracker.ietf.org/doc/html/rfc3986#section-3.1]
-   * It does not support slash-less schemes (e.g. news:abc, urn:and).
+   * It does not support slash-less schemes (e.g. news:abc, urn:anc).
    * @param url URL string like "my-mlflow-server.com/#/experiments/9" or
    *        "https://my-mlflow-server.com/#/experiments/9"
    * @param defaultScheme scheme to add if missing in the provided URL, defaults to "https"

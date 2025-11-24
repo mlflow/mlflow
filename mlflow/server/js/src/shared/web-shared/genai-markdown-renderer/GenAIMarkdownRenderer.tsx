@@ -38,7 +38,7 @@ const CodeMarkdownComponent = ({
   codeInline,
   node,
   ...codeProps
-}: Required<ExtendedCodeRenderers> & ReactMarkdownProps<'code'>) => {
+}: Required<ExtededCodeRenderers> & ReactMarkdownProps<'code'>) => {
   const language = React.useMemo(() => {
     const match = /language-(\w+)/.exec(codeProps.className ?? '');
     return match && match[1] ? match[1] : undefined;
@@ -91,12 +91,12 @@ const RemarkPlugins: Options['remarkPlugins'] = [remarkGfm];
 // react-markdown handles both inline and block code rendering in the same component
 // however, we want to render them differently so we need to split them into two components.
 // This also allows callees to override the default renderers separately
-type ExtendedCodeRenderers = {
+type ExtededCodeRenderers = {
   codeInline?: ReactMarkdownComponent<'code'>;
   codeBlock?: ComponentType<React.PropsWithChildren<Omit<ReactMarkdownProps<'code'>, 'ref'> & { language?: string }>>;
 };
 
-type ExtendedComponents = Omit<ReactMarkdownComponents, 'code'> & ExtendedCodeRenderers;
+type ExtendedComponents = Omit<ReactMarkdownComponents, 'code'> & ExtededCodeRenderers;
 
 export const getMarkdownComponents = (props: { extensions?: ExtendedComponents }) =>
   ({

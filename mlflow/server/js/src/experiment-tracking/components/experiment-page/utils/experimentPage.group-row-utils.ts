@@ -772,9 +772,9 @@ export const getGroupedRowRenderMetadata = ({
     for (const parent of parentList) {
       sortedResultList.push(parent);
       if (childrenMap.has(parent.groupId)) {
-        // no need to sort childrenList because `result` is already sorted
-        const childrenList = childrenMap.get(parent.groupId) ?? [];
-        sortedResultList.push(...childrenList);
+        // no need to sort childenList because `result` is already sorted
+        const childenList = childrenMap.get(parent.groupId) ?? [];
+        sortedResultList.push(...childenList);
       }
     }
     return sortedResultList;

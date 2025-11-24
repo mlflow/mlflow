@@ -57,7 +57,7 @@
     <git-commit.version>2.2.4</git-commit.version>
     <protobuf.version>3.19.6</protobuf.version>
     <scalapb.version>0.6.7</scalapb.version>
-    <testing.version>6.14.3</testing.version>
+    <testng.version>6.14.3</testng.version>
     <slf4j.version>1.7.25</slf4j.version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
@@ -145,9 +145,9 @@
         <version>${git-commit.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.testing</groupId>
-        <artifactId>testing</artifactId>
-        <version>${testing.version}</version>
+        <groupId>org.testng</groupId>
+        <artifactId>testng</artifactId>
+        <version>${testng.version}</version>
         <scope>test</scope>
       </dependency>
       <dependency>

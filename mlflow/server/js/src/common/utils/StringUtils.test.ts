@@ -95,7 +95,7 @@ describe('btoaUtf8 and atobUtf8', () => {
     const testObject = {
       number: 123,
       中文: '123',
-      ʎɐɹɹɐ: [1, 3, { some: '👀object', nested: ['ᴀʀʀᴀʏ'] }],
+      ʎɐɹɹɐ: [1, 3, { some: '👀bject', nested: ['ᴀʀʀᴀʏ'] }],
     };
     const stringifiedJson = JSON.stringify(testObject);
     expect(atobUtf8(btoaUtf8(stringifiedJson))).toEqual(stringifiedJson);

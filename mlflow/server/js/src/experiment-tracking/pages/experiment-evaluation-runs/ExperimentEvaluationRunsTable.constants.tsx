@@ -7,7 +7,7 @@ import {
   ModelVersionCell,
   RunNameCell,
   SortableHeaderCell,
-  VisibilityCell,
+  VisiblityCell,
 } from './ExperimentEvaluationRunsTableCellRenderers';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Theme, Interpolation } from '@emotion/react';
@@ -124,7 +124,7 @@ export const getExperimentEvalRunsDefaultColumns = (
   if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
     unselectableColumns.push({
       id: EvalRunsTableColumnId.visibility,
-      cell: VisibilityCell,
+      cell: VisiblityCell,
       enableResizing: true,
       size: 32,
       meta: { styles: { minWidth: 32, maxWidth: 32 } },

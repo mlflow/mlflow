@@ -73,7 +73,7 @@ const ExperimentChatSessionsPageImpl = () => {
     deleteTracesAction,
   };
 
-  // the tab will not be added to the navbar if this is disabled, but just
+  // the tab will not be added to the navbar if this is disbled, but just
   // in case users navigate to it directly, we return an empty div to
   // avoid displaying any in-progress work.
   if (!shouldEnableChatSessionsTab()) {

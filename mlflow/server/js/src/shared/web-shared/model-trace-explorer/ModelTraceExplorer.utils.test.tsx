@@ -8,7 +8,7 @@ import {
   MOCK_OPENAI_CHAT_INPUT,
   MOCK_OPENAI_CHAT_OUTPUT,
   MOCK_OTEL_TRACE,
-  MOCK_OVERRIDING_ASSESSMENT,
+  MOCK_OVERRIDDING_ASSESSMENT,
   MOCK_ROOT_ASSESSMENT,
   MOCK_SPAN_ASSESSMENT,
   MOCK_TRACE,
@@ -440,7 +440,7 @@ describe('normalizeNewSpanData', () => {
       ...MOCK_TRACE_INFO_V3,
       assessments: [
         MOCK_ROOT_ASSESSMENT,
-        MOCK_OVERRIDING_ASSESSMENT,
+        MOCK_OVERRIDDING_ASSESSMENT,
         { ...MOCK_SPAN_ASSESSMENT, span_id: decodeSpanId(childSpan.span_id, true) },
       ],
     };
@@ -449,7 +449,7 @@ describe('normalizeNewSpanData', () => {
     const rootNormalized = normalizeNewSpanData(rootSpan, 0, 0, [], assessmentMap, traceInfo.trace_id);
     expect(rootNormalized.assessments).toHaveLength(2);
     expect(rootNormalized.assessments[0]).toEqual(MOCK_ROOT_ASSESSMENT);
-    expect(rootNormalized.assessments[1].assessment_id).toEqual(MOCK_OVERRIDING_ASSESSMENT.assessment_id);
+    expect(rootNormalized.assessments[1].assessment_id).toEqual(MOCK_OVERRIDDING_ASSESSMENT.assessment_id);
     expect(rootNormalized.assessments[1].overriddenAssessment).toEqual(MOCK_ROOT_ASSESSMENT);
 
     const childNormalized = normalizeNewSpanData(childSpan, 0, 0, [], assessmentMap, traceInfo.trace_id);

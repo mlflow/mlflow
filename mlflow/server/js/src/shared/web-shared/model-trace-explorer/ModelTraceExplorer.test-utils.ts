@@ -537,7 +537,7 @@ export const MOCK_ROOT_ASSESSMENT: Assessment = {
   valid: false,
 };
 
-export const MOCK_OVERRIDING_ASSESSMENT: Assessment = {
+export const MOCK_OVERRIDDING_ASSESSMENT: Assessment = {
   ...MOCK_ROOT_ASSESSMENT,
   assessment_id: 'a-test-2',
   overrides: MOCK_ROOT_ASSESSMENT.assessment_id,

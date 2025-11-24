@@ -73,7 +73,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
           { key: 'mlflow.ownerEmail', value: 'john.doe@databricks.com' },
           { key: 'mlflow.experimentType', value: 'NOTEBOOK' },
         ],
-        allowedActions: ['MODIFY_PERMISSION', 'DELETE', 'RENAME'],
+        allowedActions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
       },
       '654321': {
         experimentId: '654321',
@@ -83,7 +83,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         lastUpdateTime: 1654502190603,
         creationTime: 1654502190603,
         tags: [],
-        allowedActions: ['MODIFY_PERMISSION', 'DELETE', 'RENAME'],
+        allowedActions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
       },
       '789': {
         experimentId: '789',
@@ -93,7 +93,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         lastUpdateTime: 1000502190603,
         creationTime: 1000502190603,
         tags: [],
-        allowedActions: ['MODIFY_PERMISSION', 'DELETE', 'RENAME'],
+        allowedActions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
       },
       '3210': {
         experimentId: '3210',
@@ -103,7 +103,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         lastUpdateTime: 1000502190604,
         creationTime: 1000502190604,
         tags: [],
-        allowedActions: ['MODIFY_PERMISSION', 'DELETE', 'RENAME'],
+        allowedActions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
       },
     },
     runInfosByUuid: {

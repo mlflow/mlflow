@@ -3,8 +3,8 @@ package org.mlflow.tracking;
 import com.google.common.collect.ImmutableMap;
 import org.mlflow.api.proto.Service.*;
 import org.mockito.ArgumentCaptor;
-import org.testing.annotations.Test;
-import org.testing.collections.Lists;
+import org.testng.annotations.Test;
+import org.testng.collections.Lists;
 
 import java.io.File;
 import java.nio.file.Paths;
@@ -13,7 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.testing.Assert.*;
+import static org.testng.Assert.*;
 import static org.mockito.Mockito.*;
 
 public class ActiveRunTest {

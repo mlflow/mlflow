@@ -7,7 +7,7 @@ import { TimelineTreeGanttNode } from './TimelineTreeGanttNode';
 import type { ModelTraceSpanNode } from '../../ModelTrace.types';
 import { spanTimeFormatter, TimelineTreeZIndex } from '../TimelineTree.utils';
 
-// the amount of space required to accommodate the collapse buttons
+// the amount of space required to accomodate the collapse buttons
 const TIMELINE_BAR_LEFT_OFFSET = 32;
 
 // this function generates an array of "nice" x-ticks (e.g. nearest 0.1, 0.2, 0.5 to the value)

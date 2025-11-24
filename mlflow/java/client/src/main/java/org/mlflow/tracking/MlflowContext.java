@@ -195,7 +195,7 @@ public class MlflowContext {
   }
 
   /**
-   * Like {@link #withActiveRun(Consumer)} with an explicitly run name.
+   * Like {@link #withActiveRun(Consumer)} with an explicity run name.
    *
    * @param runName The name of this run. For display purposes only and is stored in the
    *                mlflow.runName tag.

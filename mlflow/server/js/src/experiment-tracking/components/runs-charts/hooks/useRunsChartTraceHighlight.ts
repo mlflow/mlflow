@@ -26,8 +26,8 @@ const highlightChartTracesFn =
   (traceSelector: string, parentSelector: string) =>
   /**
    * @param parent a HTML element containing the chart
-   * @param hoverIndex index of a trace that should be hover-highlighted, set -1 to remove highlight
-   * @param selectIndex index of a trace that should be select-highlighted, set -1 to remove highlight
+   * @param hoverIndex index of a trace that should be hover-higlighted, set -1 to remove highlight
+   * @param selectIndex index of a trace that should be select-higlighted, set -1 to remove highlight
    */
   (parent: HTMLElement, hoverIndex: number, selectIndex: number, numberOfBands = 0) => {
     const deselected = hoverIndex === -1 && selectIndex === -1;
@@ -81,7 +81,7 @@ export const highlightScatterTraces = highlightChartTracesFn('svg .scatterlayer 
  *
  * @param containerDiv HTML element containing the chart
  * @param selectedRunUuid currently selected run UUID (set to -1 if none)
- * @param runsData array containing run information, should be the same order as provided to the chart
+ * @param runsData array containing run informations, should be the same order as provided to the chart
  * @param highlightFn a styling function that will be called when the trace should be (un)highlighted, please refer to `highlightCallbackFn()`
  */
 export const useRenderRunsChartTraceHighlight = (

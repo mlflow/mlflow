@@ -9,7 +9,7 @@ export type GeminiChatInput = {
 
 export type GeminiChatOutput = {
   candidates: GeminiCandidate[];
-  // promptFeedback: GeminiPromptFeedback;
+  // propmtFeedback: GeminiPropmptFeedback;
   // usageMetadata: GeminiUsageMetadata;
   modelVersion: string;
   responseId: string;

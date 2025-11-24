@@ -41,7 +41,7 @@ export interface RunsContourPlotProps extends RunsPlotsCommonProps {
 
   /**
    * Sets the color scale in [[0.35, 'rgb(40,60,190)'],[0.5, 'rgb(70,100,245)'],...] format.
-   * Leave unset to use the default scale.
+   * Leave unset to use the defualt scale.
    */
   colorScale?: [number, string][];
 

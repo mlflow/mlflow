@@ -2,7 +2,7 @@ package org.mlflow.tracking;
 
 import java.util.*;
 
-import org.testing.Assert;
+import org.testng.Assert;
 
 import org.mlflow.api.proto.Service.*;
 

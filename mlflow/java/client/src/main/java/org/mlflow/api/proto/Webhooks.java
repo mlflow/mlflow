@@ -16098,12 +16098,12 @@ public final class Webhooks {
       "okStatus\022\032\n\022creation_timestamp\030\007 \001(\003\022\036\n\026" +
       "last_updated_timestamp\030\010 \001(\003\"k\n\021WebhookT" +
       "estResult\022\017\n\007success\030\001 \001(\010\022\027\n\017response_s" +
-      "status\030\002 \001(\005\022\025\n\rresponse_body\030\003 \001(\t\022\025\n\rer" +
+      "tatus\030\002 \001(\005\022\025\n\rresponse_body\030\003 \001(\t\022\025\n\rer" +
       "ror_message\030\004 \001(\t\"\211\002\n\rCreateWebhook\022\022\n\004n" +
       "ame\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030\002 \001(\t\022\021\n\003" +
       "url\030\003 \001(\tB\004\370\206\031\001\022*\n\006events\030\004 \003(\0132\024.mlflow" +
       ".WebhookEventB\004\370\206\031\001\022\016\n\006secret\030\005 \001(\t\022%\n\006s" +
-      "status\030\006 \001(\0162\025.mlflow.WebhookStatus\032,\n\010Re" +
+      "tatus\030\006 \001(\0162\025.mlflow.WebhookStatus\032,\n\010Re" +
       "sponse\022 \n\007webhook\030\001 \001(\0132\017.mlflow.Webhook" +
       ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
       "onse]\"\261\001\n\014ListWebhooks\022\030\n\013max_results\030\001 " +

@@ -51,8 +51,8 @@
 
     <!-- Test dependencies -->
     <dependency>
-      <groupId>org.testing</groupId>
-      <artifactId>testing</artifactId>
+      <groupId>org.testng</groupId>
+      <artifactId>testng</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

@@ -58,6 +58,6 @@ export class SectionErrorBoundary extends React.Component<Props, State> {
 
 const classNames = {
   wrapper: {
-    marginLeft: -2, // to align the failure icon with the collapsible section caret toggle
+    marginLeft: -2, // to align the failure icon with the collapsable section caret toggle
   },
 };

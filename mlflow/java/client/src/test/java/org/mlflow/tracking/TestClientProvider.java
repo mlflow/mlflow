@@ -31,7 +31,7 @@ public class TestClientProvider {
   private MlflowClient client;
 
   /**
-   * Initializes an MLflow client and, if necessary, a local MLflow server process as well.
+   * Intializes an MLflow client and, if necessary, a local MLflow server process as well.
    * Callers should always call {@link #cleanupClientAndServer()}.
    */
   public MlflowClient initializeClientAndServer() throws IOException {

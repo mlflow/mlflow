@@ -39,7 +39,7 @@ export const TracesViewDeleteTraceModal = ({
     } catch (e: any) {
       setErrorMessage(
         intl.formatMessage({
-          defaultMessage: 'An error occurred while attempting to delete traces. Please refresh the page and try again.',
+          defaultMessage: 'An error occured while attempting to delete traces. Please refresh the page and try again.',
           description: 'Experiment page > traces view controls > Delete traces modal > Error message',
         }),
       );

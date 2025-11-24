@@ -106,9 +106,9 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     const minColWidth = 200;
     let colWidth = minColWidth;
 
-    // @ts-expect-error TS(4111): Property 'tableWidth' comes from an index signature... Remove this comment to see the full error message
+    // @ts-expect-error TS(4111): Property 'tableWidth' comes from an index signatur... Remove this comment to see the full error message
     if (this.state.tableWidth !== null) {
-      // @ts-expect-error TS(4111): Property 'tableWidth' comes from an index signature... Remove this comment to see the full error message
+      // @ts-expect-error TS(4111): Property 'tableWidth' comes from an index signatur... Remove this comment to see the full error message
       colWidth = Math.round(this.state.tableWidth / (this.props.runInfos.length + 1));
       if (colWidth < minColWidth) {
         colWidth = minColWidth;
@@ -437,7 +437,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       defaultMessage: 'Show diff only',
       description:
         // eslint-disable-next-line max-len
-        'Label next to the switch that controls displaying only differing values in comparison tables on the compare runs page',
+        'Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page',
     });
 
     return (

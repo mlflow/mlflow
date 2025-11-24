@@ -131,7 +131,7 @@ export const RunsChartsTooltipWrapper = <
   const mutableTooltipDisplayParams = useRef(tooltipDisplayParams);
   const mutableAdditionalAxisData = useRef(additionalAxisData);
 
-  // Get the highlighting function from the context
+  // Get the higlighting function from the context
   const { highlightDataTrace } = useRunsChartTraceHighlight();
 
   // This method applies the tooltip position basing on the mouse position

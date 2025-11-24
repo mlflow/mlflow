@@ -6,7 +6,7 @@ import { MLFLOW_LINKED_PROMPTS_TAG } from '../../constants';
 export const REGISTERED_PROMPT_CONTENT_TAG_KEY = 'mlflow.prompt.text';
 // Tag key used to store the run ID associated with a single prompt version
 export const REGISTERED_PROMPT_SOURCE_RUN_ID = 'mlflow.prompt.run_id';
-// Take key used to store comma-separated run IDs associated with a prompt
+// Tak key used to store comma-separated run IDs associated with a prompt
 export const REGISTERED_PROMPT_SOURCE_RUN_IDS = 'mlflow.prompt.run_ids';
 export const IS_PROMPT_TAG_NAME = 'mlflow.prompt.is_prompt';
 export const IS_PROMPT_TAG_VALUE = 'true';

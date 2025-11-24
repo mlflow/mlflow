@@ -52720,9 +52720,9 @@ public final class ModelRegistry {
       "mestamp\030\002 \001(\003\022\036\n\026last_updated_timestamp\030" +
       "\003 \001(\003\022\017\n\007user_id\030\004 \001(\t\022\023\n\013description\030\005 " +
       "\001(\t\022-\n\017latest_versions\030\006 \003(\0132\024.mlflow.Mo" +
-      "delVersion\022(\n\004tags\030\007 \003(\0132\032.mlflow.Register" +
+      "delVersion\022(\n\004tags\030\007 \003(\0132\032.mlflow.Regist" +
       "eredModelTag\022-\n\007aliases\030\010 \003(\0132\034.mlflow.R" +
-      "registeredModelAlias\022\031\n\021deployment_job_id" +
+      "egisteredModelAlias\022\031\n\021deployment_job_id" +
       "\030\t \001(\t\022C\n\024deployment_job_state\030\n \001(\0162%.m" +
       "lflow.DeploymentJobConnection.State\"\202\004\n\014" +
       "ModelVersion\022\014\n\004name\030\001 \001(\t\022\017\n\007version\030\002 " +
@@ -52739,7 +52739,7 @@ public final class ModelRegistry {
       "ic\022D\n\024deployment_job_state\030\023 \001(\0132&.mlflo" +
       "w.ModelVersionDeploymentJobState\"\243\001\n\027Dep" +
       "loymentJobConnection\"\207\001\n\005State\022/\n+DEPLOY" +
-      "MEANT_JOB_CONNECTION_STATE_UNSPECIFIED\020\000\022" +
+      "MENT_JOB_CONNECTION_STATE_UNSPECIFIED\020\000\022" +
       "\016\n\nNOT_SET_UP\020\001\022\r\n\tCONNECTED\020\002\022\r\n\tNOT_FO" +
       "UND\020\003\022\037\n\033REQUIRED_PARAMETERS_CHANGED\020\004\"\220" +
       "\003\n\036ModelVersionDeploymentJobState\022\016\n\006job" +
@@ -52755,7 +52755,7 @@ public final class ModelRegistry {
       "\006\"\361\001\n\025CreateRegisteredModel\022\022\n\004name\030\001 \001(" +
       "\tB\004\370\206\031\001\022(\n\004tags\030\002 \003(\0132\032.mlflow.Registere" +
       "dModelTag\022\023\n\013description\030\003 \001(\t\022\031\n\021deploy" +
-      "meant_job_id\030\004 \001(\t\032=\n\010Response\0221\n\020registe" +
+      "ment_job_id\030\004 \001(\t\032=\n\010Response\0221\n\020registe" +
       "red_model\030\001 \001(\0132\027.mlflow.RegisteredModel" +
       ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
       "onse]\"\251\001\n\025RenameRegisteredModel\022\022\n\004name\030" +
@@ -52766,7 +52766,7 @@ public final class ModelRegistry {
       "del\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030\002" +
       " \001(\t\022\031\n\021deployment_job_id\030\003 \001(\t\032=\n\010Respo" +
       "nse\0221\n\020registered_model\030\001 \001(\0132\027.mlflow.R" +
-      "registeredModel:+\342?(\n&com.databricks.rpc." +
+      "egisteredModel:+\342?(\n&com.databricks.rpc." +
       "RPC[$this.Response]\"d\n\025DeleteRegisteredM" +
       "odel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?" +
       "(\n&com.databricks.rpc.RPC[$this.Response" +
@@ -52841,7 +52841,7 @@ public final class ModelRegistry {
       "name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022" +
       "\021\n\003key\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com" +
       ".databricks.rpc.RPC[$this.Response]\"6\n\024R" +
-      "registeredModelAlias\022\r\n\005alias\030\001 \001(\t\022\017\n\007ve" +
+      "egisteredModelAlias\022\r\n\005alias\030\001 \001(\t\022\017\n\007ve" +
       "rsion\030\002 \001(\t\"\222\001\n\027SetRegisteredModelAlias\022" +
       "\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\005alias\030\002 \001(\tB\004\370\206\031\001" +
       "\022\025\n\007version\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(" +
@@ -52866,7 +52866,7 @@ public final class ModelRegistry {
       "e\"N\362\206\031J\n.\n\004POST\022 /mlflow/registered-mode" +
       "ls/rename\032\004\010\002\020\000\020\001*\026Rename RegisteredMode" +
       "l\022\257\001\n\025updateRegisteredModel\022\035.mlflow.Upd" +
-      "ateRegisteredModel\032&.mlflow.UpdateRegister" +
+      "ateRegisteredModel\032&.mlflow.UpdateRegist" +
       "eredModel.Response\"O\362\206\031K\n/\n\005PATCH\022 /mlfl" +
       "ow/registered-models/update\032\004\010\002\020\000\020\001*\026Upd" +
       "ate RegisteredModel\022\260\001\n\025deleteRegistered" +
@@ -52874,12 +52874,12 @@ public final class ModelRegistry {
       "lflow.DeleteRegisteredModel.Response\"P\362\206" +
       "\031L\n0\n\006DELETE\022 /mlflow/registered-models/" +
       "delete\032\004\010\002\020\000\020\001*\026Delete RegisteredModel\022\236" +
-      "\001\n\022getRegisteredModel\022\032.mlflow.GetRegister" +
+      "\001\n\022getRegisteredModel\022\032.mlflow.GetRegist" +
       "eredModel\032#.mlflow.GetRegisteredModel.Re" +
       "sponse\"G\362\206\031C\n*\n\003GET\022\035/mlflow/registered-" +
       "models/get\032\004\010\002\020\000\020\001*\023Get RegisteredModel\022" +
       "\261\001\n\026searchRegisteredModels\022\036.mlflow.Sear" +
-      "chRegisteredModels\032\'.mlflow.SearchRegister" +
+      "chRegisteredModels\032\'.mlflow.SearchRegist" +
       "eredModels.Response\"N\362\206\031J\n-\n\003GET\022 /mlflo" +
       "w/registered-models/search\032\004\010\002\020\000\020\001*\027Sear" +
       "ch RegisteredModels\022\357\001\n\021getLatestVersion" +
@@ -52924,7 +52924,7 @@ public final class ModelRegistry {
       "SetRegisteredModelTag.Response\"Q\362\206\031M\n/\n\004" +
       "POST\022!/mlflow/registered-models/set-tag\032" +
       "\004\010\002\020\000\020\001*\030Set Registered Model Tag\022\242\001\n\022se" +
-      "tModelVersionTag\022\032.mlflow.SetModelVersion" +
+      "tModelVersionTag\022\032.mlflow.SetModelVersio" +
       "nTag\032#.mlflow.SetModelVersionTag.Respons" +
       "e\"K\362\206\031G\n,\n\004POST\022\036/mlflow/model-versions/" +
       "set-tag\032\004\010\002\020\000\020\001*\025Set Model Version Tag\022\302" +

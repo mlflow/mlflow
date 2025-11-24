@@ -70,7 +70,7 @@ export const ModelTraceExplorerOSSNotebookRenderer = () => {
     );
   }
 
-  // some error occurred
+  // some error occured
   if (!traceData) {
     return (
       <div css={{ paddingTop: theme.spacing.md, width: 'calc(100% - 2px)' }}>
@@ -81,7 +81,7 @@ export const ModelTraceExplorerOSSNotebookRenderer = () => {
               <Typography.Paragraph>
                 <FormattedMessage
                   defaultMessage="An error occurred while attempting to fetch trace data (ID: {traceId}). Please ensure that the MLflow tracking server is running, and that the trace data exists. Error details:"
-                  description="An error message explaining that an error occurred while fetching trace data"
+                  description="An error message explaining that an error occured while fetching trace data"
                   values={{ traceId: traceIds[activeTraceIndex] }}
                 />
               </Typography.Paragraph>

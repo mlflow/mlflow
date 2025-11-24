@@ -45,7 +45,7 @@ export interface DatasetsCellRendererProps {
   setSelectedDatasetWithRun: (datasetWithRun: DatasetWithRunType) => void;
 }
 
-const DRAWER_WIDTH = '800px';
+const DRAWER_WITDH = '800px';
 const MAX_PROFILE_LENGTH = 80;
 
 const areDatasetsEqual = (datasetA: RunDatasetWithTags, datasetB: RunDatasetWithTags) => {
@@ -96,7 +96,7 @@ const ExperimentViewDatasetDrawerImpl = ({
             </Link>
           </div>
         }
-        width={DRAWER_WIDTH}
+        width={DRAWER_WITDH}
         footer={<Spacer size="xs" />}
       >
         <div

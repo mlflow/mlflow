@@ -6951,7 +6951,7 @@ public final class Datasets {
       "ime\030\n \001(\003\022\022\n\ncreated_by\030\013 \001(\t\022\027\n\017last_up" +
       "dated_by\030\014 \001(\t\022\017\n\007outputs\030\r \001(\t\"\311\001\n\023Data" +
       "setRecordSource\022D\n\013source_type\030\001 \001(\0162/.m" +
-      "lflow.datasets.DatasetRecordSource.Source" +
+      "lflow.datasets.DatasetRecordSource.Sourc" +
       "eType\022\023\n\013source_data\030\002 \001(\t\"W\n\nSourceType" +
       "\022\033\n\027SOURCE_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001" +
       "\022\t\n\005HUMAN\020\002\022\014\n\010DOCUMENT\020\003\022\010\n\004CODE\020\004B\031\n\024o" +

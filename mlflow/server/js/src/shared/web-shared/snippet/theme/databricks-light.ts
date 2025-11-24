@@ -2,7 +2,7 @@
  * Adapted from `material-light`
  * Ref: https://github.com/react-syntax-highlighter/react-syntax-highlighter/blob/b2457268891948f7005ccf539a70c000f0695bde/src/styles/prism/material-light.js#L1
  *
- * This theme overwrites colors to be similar to the `@databricks/editor` theme.
+ * This theme overwrites colors to be similiar to the `@databricks/editor` theme.
  */
 
 const databricksLightTheme = {

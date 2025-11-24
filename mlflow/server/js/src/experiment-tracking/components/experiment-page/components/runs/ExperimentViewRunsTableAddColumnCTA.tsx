@@ -174,7 +174,7 @@ export const ExperimentViewRunsTableAddColumnCTA = ({
         targetElement.style.transform = `translate3d(${calculatedLeft}px, ${calculatedTop}px, 0)`;
 
         /**
-         * Set target height and add 1px to accommodate the border.
+         * Set target height and add 1px to accomodate the border.
          */
         targetElement.style.height = `${calculatedHeight + 1}px`;
       });

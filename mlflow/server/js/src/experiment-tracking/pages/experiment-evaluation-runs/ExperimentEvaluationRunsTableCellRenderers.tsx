@@ -289,7 +289,7 @@ export const CreatedAtCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) 
   return <TimeAgo date={new Date(Number(createdAt))} />;
 };
 
-export const VisibilityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, table }) => {
+export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, table }) => {
   const { isRowHidden, toggleRowVisibility } = useExperimentEvaluationRunsRowVisibility();
   // TODO: allow toggling visibility for a whole run group
   if ('subRuns' in row.original) {

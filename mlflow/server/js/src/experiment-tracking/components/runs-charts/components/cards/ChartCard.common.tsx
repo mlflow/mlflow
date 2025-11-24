@@ -147,7 +147,7 @@ const RunsChartCardWrapperRaw = ({
         backgroundColor: theme.colors.backgroundPrimary,
         padding: 12,
         // have a slightly smaller padding when the enableDeepLearningUI
-        // flag is on to accommodate the legend in the charts
+        // flag is on to accomodate the legend in the charts
         paddingBottom: theme.spacing.sm,
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.general.borderRadiusBase,

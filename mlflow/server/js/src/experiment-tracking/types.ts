@@ -304,7 +304,7 @@ export enum LIFECYCLE_FILTER {
 
 export enum MODEL_VERSION_FILTER {
   WITH_MODEL_VERSIONS = 'With Model Versions',
-  WITHOUT_MODEL_VERSIONS = 'Without Model Versions',
+  WTIHOUT_MODEL_VERSIONS = 'Without Model Versions',
   ALL_RUNS = 'All Runs',
 }
 
@@ -354,7 +354,7 @@ export interface PendingEvaluationArtifactTableEntry {
 }
 
 /**
- * Describes a single text evaluation artifact with a set of entries and its name
+ * Descibes a single text evaluation artifact with a set of entries and its name
  */
 export interface EvaluationArtifactTable {
   path: string;

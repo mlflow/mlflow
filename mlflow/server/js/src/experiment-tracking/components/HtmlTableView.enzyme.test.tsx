@@ -73,8 +73,8 @@ describe('HtmlTableView', () => {
     };
 
     wrapper = shallow(<HtmlTableView {...props} />);
-    const tableStyle = wrapper.find(LegacyTable).get(0).props.style;
-    expect(tableStyle).toHaveProperty('width', 'auto');
-    expect(tableStyle).toHaveProperty('minWidth', '400px');
+    const tableStlye = wrapper.find(LegacyTable).get(0).props.style;
+    expect(tableStlye).toHaveProperty('width', 'auto');
+    expect(tableStlye).toHaveProperty('minWidth', '400px');
   });
 });

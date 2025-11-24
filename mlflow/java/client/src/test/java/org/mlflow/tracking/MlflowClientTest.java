@@ -21,10 +21,10 @@ import com.google.common.collect.Lists;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testing.Assert;
-import org.testing.annotations.AfterSuite;
-import org.testing.annotations.BeforeSuite;
-import org.testing.annotations.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterSuite;
+import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.Test;
 
 import org.mlflow.api.proto.Service.CreateRun;
 import org.mlflow.api.proto.Service.CreateExperiment;

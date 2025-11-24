@@ -959,7 +959,7 @@ describe('test artifactsByRunUuid', () => {
       isRoot: false,
     });
     // @ts-expect-error TS(2554): Expected 3 arguments, but got 0.
-    const initial_root = Object.assign(new ArtifactNode(), {
+    const inital_root = Object.assign(new ArtifactNode(), {
       children: {
         dir1: dir1,
       },
@@ -969,7 +969,7 @@ describe('test artifactsByRunUuid', () => {
     });
 
     const initial_state = deepFreeze({
-      run01: initial_root,
+      run01: inital_root,
     });
     const action0 = {
       type: fulfilled(LIST_ARTIFACTS_API),

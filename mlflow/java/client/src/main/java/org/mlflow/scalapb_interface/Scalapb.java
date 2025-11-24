@@ -2517,7 +2517,7 @@ public final class Scalapb {
       "ge\030\002 \001(\010\022\016\n\006import\030\003 \003(\t\"!\n\016MessageOptio" +
       "ns\022\017\n\007extends\030\001 \003(\t\"\034\n\014FieldOptions\022\014\n\004t" +
       "ype\030\001 \001(\t:G\n\007options\022\034.google.protobuf.F" +
-      "ileOptions\030\374\007 \001(\0132\027.scalapb.ScalaPbOption" +
+      "ileOptions\030\374\007 \001(\0132\027.scalapb.ScalaPbOptio" +
       "ns:J\n\007message\022\037.google.protobuf.MessageO" +
       "ptions\030\374\007 \001(\0132\027.scalapb.MessageOptions:D" +
       "\n\005field\022\035.google.protobuf.FieldOptions\030\374" +

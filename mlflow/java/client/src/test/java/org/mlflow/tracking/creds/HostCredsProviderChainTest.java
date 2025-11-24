@@ -1,8 +1,8 @@
 package org.mlflow.tracking.creds;
 
-import org.testing.Assert;
-import org.testing.annotations.BeforeMethod;
-import org.testing.annotations.Test;
+import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import org.mlflow.tracking.MlflowClientException;
 

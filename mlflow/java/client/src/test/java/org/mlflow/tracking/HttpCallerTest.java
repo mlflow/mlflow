@@ -9,8 +9,8 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.mlflow.tracking.creds.BasicMlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCredsProvider;
-import org.testing.Assert;
-import org.testing.annotations.*;
+import org.testng.Assert;
+import org.testng.annotations.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
