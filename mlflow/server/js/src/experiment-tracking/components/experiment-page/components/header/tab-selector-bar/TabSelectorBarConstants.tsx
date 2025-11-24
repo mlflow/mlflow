@@ -13,6 +13,7 @@ import {
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
 import type { ExperimentViewRunsCompareMode } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { enableScorersUI } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export type TabConfig = {
   label: React.ReactNode;
@@ -60,6 +61,16 @@ const ModelsTabConfig = {
   icon: <ModelsIcon />,
   getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models),
 };
+const ScorersTabConfig = {
+  label: (
+    <FormattedMessage
+      defaultMessage="Scorers"
+      description="Label for the scorers tab in the MLflow experiment navbar"
+    />
+  ),
+  icon: <SparkleIcon />,
+  getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Scorers),
+};
 
 export type GenAIExperimentTabConfigMapProps = {
   includeRunsTab?: boolean;
@@ -72,6 +83,7 @@ export const getGenAIExperimentTabConfigMap = ({
   [ExperimentPageTabName.Traces]: TracesTabConfig,
   [ExperimentPageTabName.EvaluationRuns]: EvaluationsTabConfig,
   [ExperimentPageTabName.Models]: ModelsTabConfig,
+  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
 });
 
 export const getGenAIExperimentWithPromptsTabConfigMap = ({
@@ -80,6 +92,7 @@ export const getGenAIExperimentWithPromptsTabConfigMap = ({
   ...(includeRunsTab && { [ExperimentPageTabName.Runs]: RunsTabConfig }),
   [ExperimentPageTabName.Traces]: TracesTabConfig,
   [ExperimentPageTabName.Models]: ModelsTabConfig,
+  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
 });
 
 export const GenAIExperimentWithPromptsTabConfigMap = getGenAIExperimentTabConfigMap();
@@ -100,4 +113,5 @@ export const CustomExperimentTabConfigMap: TabConfigMap = {
 
 export const DefaultTabConfigMap: TabConfigMap = {
   ...CustomExperimentTabConfigMap,
+  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
 };

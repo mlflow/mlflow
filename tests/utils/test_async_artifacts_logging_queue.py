@@ -22,9 +22,7 @@ class RunArtifacts:
         self.received_filenames = []
         self.received_artifact_paths = []
         self.artifact_count = 0
-        self.throw_exception_on_artifact_number = (
-            throw_exception_on_artifact_number if throw_exception_on_artifact_number else []
-        )
+        self.throw_exception_on_artifact_number = throw_exception_on_artifact_number or []
 
     def consume_queue_data(self, filename, artifact_path, artifact):
         self.artifact_count += 1
