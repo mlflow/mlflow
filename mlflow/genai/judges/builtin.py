@@ -247,7 +247,13 @@ def is_correct(
             )
             print(feedback.value)  # "no"
     """
+    from mlflow.exceptions import MlflowException
     from mlflow.genai.judges.prompts.correctness import CORRECTNESS_FEEDBACK_NAME, get_prompt
+
+    if expected_response is not None and expected_facts is not None:
+        raise MlflowException(
+            "Only one of expected_response or expected_facts should be provided, not both."
+        )
 
     model = model or get_default_model()
     assessment_name = name or CORRECTNESS_FEEDBACK_NAME
