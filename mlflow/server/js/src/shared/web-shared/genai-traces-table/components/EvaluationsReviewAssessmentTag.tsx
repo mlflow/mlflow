@@ -38,7 +38,6 @@ import {
   getEvaluationResultTextColor,
 } from '../utils/Colors';
 import { displayFloat } from '../utils/DisplayUtils';
-import { ASSESSMENT_RATIONAL_HOVER_DETAILS_VIEW } from '../utils/EvaluationLogging';
 import { useMarkdownConverter } from '../utils/MarkdownUtils';
 
 export const isAssessmentPassing = (

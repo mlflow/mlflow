@@ -94,9 +94,9 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
 def make_judge(
     name: str,
     instructions: str,
-    feedback_value_type: Any,
     model: str | None = None,
     description: str | None = None,
+    feedback_value_type: Any = None,
 ) -> Judge:
     """
 
@@ -110,10 +110,16 @@ def make_judge(
         name: The name of the judge
         instructions: Natural language instructions for evaluation. Must contain at least one
                       template variable: {{ inputs }}, {{ outputs }}, {{ expectations }},
-                      or {{ trace }} to reference evaluation data. Custom variables are not
-                      supported.
+                      {{ conversation }}, or {{ trace }} to reference evaluation data. Custom
+                      variables are not supported.
+                      Note: {{ conversation }} can only coexist with {{ expectations }}.
+                      It cannot be used together with {{ inputs }}, {{ outputs }}, or {{ trace }}.
+        model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
+        description: A description of what the judge evaluates
         feedback_value_type: Type specification for the 'value' field in the Feedback
                         object. The judge will use structured outputs to enforce this type.
+                        If unspecified, the feedback value type is determined by the judge.
+                        It is recommended to explicitly specify the type.
 
                         Supported types (matching FeedbackValueType):
 
@@ -127,8 +133,6 @@ def make_judge(
                         - list[int | float | str | bool]: List of int, float, str, or bool values
 
                         Note: Pydantic BaseModel types are not supported.
-        model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
-        description: A description of what the judge evaluates
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -166,6 +170,7 @@ def make_judge(
                     "Rate how well they match on a scale of 1-5."
                 ),
                 model="openai:/gpt-4",
+                feedback_value_type=int,
             )
 
             # Evaluate with expectations (must be dictionaries)
@@ -180,6 +185,7 @@ def make_judge(
                 name="trace_quality",
                 instructions="Evaluate the overall quality of the {{ trace }} execution.",
                 model="openai:/gpt-4",
+                feedback_value_type=Literal["good", "needs_improvement"],
             )
 
             # Use with search_traces() - evaluate each trace
@@ -188,6 +194,26 @@ def make_judge(
                 feedback = trace_judge(trace=trace)
                 print(f"Trace {trace.info.trace_id}: {feedback.value} - {feedback.rationale}")
 
+            # Create a multi-turn judge that detects user frustration
+            frustration_judge = make_judge(
+                name="user_frustration",
+                instructions=(
+                    "Analyze the {{ conversation }} to detect signs of user frustration. "
+                    "Look for indicators such as repeated questions, negative language, "
+                    "or expressions of dissatisfaction."
+                ),
+                model="openai:/gpt-4",
+                feedback_value_type=Literal["frustrated", "not frustrated"],
+            )
+
+            # Evaluate a multi-turn conversation using session traces
+            session = mlflow.search_traces(
+                experiment_ids=["1"],
+                filter_string="metadata.`mlflow.trace.session` = 'session_123'",
+                return_type="list",
+            )
+            result = frustration_judge(session=session)
+
             # Align a judge with human feedback
             aligned_judge = quality_judge.align(traces)
 
@@ -195,6 +221,11 @@ def make_judge(
             # import logging
             # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
     """
+    # Default feedback_value_type to str if not specified (consistent with MLflow <= 3.5.x)
+    # TODO: Implement logic to allow the LLM to choose the appropriate value type if not specified
+    if feedback_value_type is None:
+        feedback_value_type = str
+
     _validate_feedback_value_type(feedback_value_type)
 
     return InstructionsJudge(

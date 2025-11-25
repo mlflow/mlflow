@@ -1,5 +1,4 @@
 import FeatureHighlights from '@site/src/components/FeatureHighlights';
-import ImageBox from '@site/src/components/ImageBox';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import { CircleCheck, CircleArrowRight, CircleArrowLeft } from "lucide-react";
 
@@ -15,7 +14,7 @@ import { CircleCheck, CircleArrowRight, CircleArrowLeft } from "lucide-react";
   {
     icon: CircleArrowRight,
     title: "Ingest OpenTelemetry Traces into MLflow",
-    description: "MLflow Server exposes an OTLP endpoint at /v1/trace. This endpoint allows you to collect traces from applications written in any language that supports the OpenTelemetry protocol, such as Java, Go, Rust, etc."
+    description: "MLflow Server exposes an OTLP endpoint at /v1/traces. This endpoint allows you to collect traces from applications written in any language that supports the OpenTelemetry protocol, such as Java, Go, Rust, etc."
   },
   {
     icon: CircleArrowLeft,
@@ -47,7 +46,7 @@ The MLflow Tracing SDK also works seamlessly with applications already instrumen
 
 ## Ingest OpenTelemetry Traces into MLflow
 
-MLflow Server exposes an OTLP endpoint at `/v1/trace` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)). This endpoint allows you to collect traces from applications written in any language that supports the OpenTelemetry protocol, such as Java, Go, Rust, etc.
+MLflow Server exposes an OTLP endpoint at `/v1/traces` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)). This endpoint allows you to collect traces from applications written in any language that supports the OpenTelemetry protocol, such as Java, Go, Rust, etc.
 
 See [Collect OpenTelemetry Traces into MLflow](/genai/tracing/opentelemetry/ingest) for more details on how to collect traces into MLflow Server.
 

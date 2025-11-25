@@ -1,4 +1,5 @@
 import sys
+from enum import Enum
 from typing import Any
 
 from mlflow.telemetry.constant import GENAI_MODULES, MODULES_TO_CHECK_IMPORT
@@ -78,8 +79,10 @@ class GenAIEvaluateEvent(Event):
         from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 
         scorers = arguments.get("scorers") or []
-        builtin_scorers = {scorer.name for scorer in scorers if isinstance(scorer, BuiltInScorer)}
-        return {"builtin_scorers": list(builtin_scorers)}
+        builtin_scorers = {
+            type(scorer).__name__ for scorer in scorers if isinstance(scorer, BuiltInScorer)
+        }
+        return {"builtin_scorers": list[str](builtin_scorers)}
 
 
 class CreateLoggedModelEvent(Event):
@@ -262,6 +265,10 @@ class McpRunEvent(Event):
     name: str = "mcp_run"
 
 
+class AiCommandRunEvent(Event):
+    name: str = "ai_command_run"
+
+
 class GitModelVersioningEvent(Event):
     name: str = "git_model_versioning"
 
@@ -316,3 +323,14 @@ class AlignJudgeEvent(Event):
 
 class AutologgingEvent(Event):
     name: str = "autologging"
+
+
+class TraceSource(str, Enum):
+    """Source of a trace received by the MLflow server."""
+
+    MLFLOW_PYTHON_CLIENT = "MLFLOW_PYTHON_CLIENT"
+    UNKNOWN = "UNKNOWN"
+
+
+class TracesReceivedByServerEvent(Event):
+    name: str = "traces_received_by_server"

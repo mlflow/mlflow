@@ -1,4 +1,3 @@
-import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 
 # Artifact Stores
@@ -71,6 +70,24 @@ export MLFLOW_S3_UPLOAD_EXTRA_ARGS='{"ServerSideEncryption": "aws:kms", "SSEKMSK
 ```
 
 For a list of available extra args see [Boto3 ExtraArgs Documentation](https://github.com/boto/boto3/blob/develop/docs/source/guide/s3-uploading-files.rst#the-extraargs-parameter).
+
+#### Bucket Ownership Verification
+
+To protect against bucket takeover attacks where a deleted bucket is recreated by a different AWS account, you can set `MLFLOW_S3_EXPECTED_BUCKET_OWNER` to the expected AWS account ID that owns your S3 bucket:
+
+```bash
+export MLFLOW_S3_EXPECTED_BUCKET_OWNER=123456789012
+```
+
+When set, MLflow will include the `ExpectedBucketOwner` parameter in all S3 API calls. If the bucket is owned by a different account, S3 will reject the operation with an access denied error, preventing unauthorized access to artifacts.
+
+This is particularly important for scenarios where:
+
+- S3 bucket names are globally unique across all AWS accounts
+- A bucket could be deleted and recreated by an attacker with the same name
+- MLflow would unknowingly send artifacts to the attacker's bucket
+
+For more information, see the [AWS S3 Bucket Owner Condition documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucket-owner-condition.html).
 
 #### Setting Custom S3 Endpoints
 

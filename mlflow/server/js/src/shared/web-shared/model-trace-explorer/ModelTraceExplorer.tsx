@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
@@ -15,18 +15,18 @@ import {
   ModelTraceExplorerViewStateProvider,
   useModelTraceExplorerViewState,
 } from './ModelTraceExplorerViewStateContext';
-import { useGetModelTraceInfoV3 } from './hooks/useGetModelTraceInfoV3';
 import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
+import { useGetModelTraceInfo } from './hooks/useGetModelTraceInfo';
+import { useTraceCachedActions } from './hooks/useTraceCachedActions';
 import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
-import { ModelTraceExplorerComparisonLayout } from './ModelTraceExplorerComparisonLayout';
 
-export const ModelTraceExplorerContent = ({
-  modelTrace,
+const ModelTraceExplorerContent = ({
+  modelTraceInfo,
   className,
   selectedSpanId,
   onSelectSpan,
 }: {
-  modelTrace: ModelTrace;
+  modelTraceInfo: ModelTrace['info'];
   className?: string;
   selectedSpanId?: string;
   onSelectSpan?: (selectedSpanId?: string) => void;
@@ -34,11 +34,21 @@ export const ModelTraceExplorerContent = ({
   const { theme } = useDesignSystemTheme();
   const { activeView, setActiveView } = useModelTraceExplorerViewState();
 
+  const handleValueChange = useCallback(
+    (value: string) => {
+      setActiveView(value as 'summary' | 'detail');
+    },
+    [
+      // prettier-ignore
+      setActiveView,
+    ],
+  );
+
   return (
     <Tabs.Root
-      componentId="model-trace-explorer"
+      componentId="shared.model-trace-explorer.view-mode-toggle"
       value={activeView}
-      onValueChange={(value) => setActiveView(value as 'summary' | 'detail')}
+      onValueChange={handleValueChange}
       css={{
         '& > div:nth-of-type(2)': {
           marginBottom: 0,
@@ -50,49 +60,50 @@ export const ModelTraceExplorerContent = ({
         overflow: 'hidden',
       }}
     >
-      <ModelTraceExplorerComparisonLayout header={<ModelTraceHeaderDetails modelTrace={modelTrace} />}>
-        <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
-          <Tabs.Trigger value="summary">
-            <FormattedMessage
-              defaultMessage="Summary"
-              description="Label for the summary view tab in the model trace explorer"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="detail">
-            <FormattedMessage
-              defaultMessage="Details & Timeline"
-              description="Label for the details & timeline view tab in the model trace explorer"
-            />
-          </Tabs.Trigger>
-        </Tabs.List>
-        <Tabs.Content
-          value="summary"
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
-          }}
-        >
-          <ModelTraceExplorerSummaryView modelTrace={modelTrace} />
-        </Tabs.Content>
-        <Tabs.Content
-          value="detail"
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
-          }}
-        >
-          <ModelTraceExplorerDetailView
-            modelTrace={modelTrace}
-            className={className}
-            selectedSpanId={selectedSpanId}
-            onSelectSpan={onSelectSpan}
+      <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
+        <ModelTraceHeaderDetails modelTraceInfo={modelTraceInfo} />
+      </div>
+      <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
+        <Tabs.Trigger value="summary">
+          <FormattedMessage
+            defaultMessage="Summary"
+            description="Label for the summary view tab in the model trace explorer"
           />
-        </Tabs.Content>
-      </ModelTraceExplorerComparisonLayout>
+        </Tabs.Trigger>
+        <Tabs.Trigger value="detail">
+          <FormattedMessage
+            defaultMessage="Details & Timeline"
+            description="Label for the details & timeline view tab in the model trace explorer"
+          />
+        </Tabs.Trigger>
+      </Tabs.List>
+      <Tabs.Content
+        value="summary"
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        <ModelTraceExplorerSummaryView />
+      </Tabs.Content>
+      <Tabs.Content
+        value="detail"
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        <ModelTraceExplorerDetailView
+          modelTraceInfo={modelTraceInfo}
+          className={className}
+          selectedSpanId={selectedSpanId}
+          onSelectSpan={onSelectSpan}
+        />
+      </Tabs.Content>
     </Tabs.Root>
   );
 };
@@ -107,13 +118,19 @@ export const ModelTraceExplorerImpl = ({
   initialActiveView,
   selectedSpanId,
   onSelectSpan,
-  isInComparisonView = false,
+  collapseAssessmentPane,
+  isInComparisonView,
 }: {
   modelTrace: ModelTrace;
   className?: string;
   initialActiveView?: 'summary' | 'detail';
   selectedSpanId?: string;
   onSelectSpan?: (selectedSpanId?: string) => void;
+  /**
+   * If set to `false`, the assessments pane will be expanded if there are any assessments.
+   * If set to `'force-open'`, the assessments pane will be expanded regardless of whether there are any assessments.
+   */
+  collapseAssessmentPane?: boolean | 'force-open';
   isInComparisonView?: boolean;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
@@ -124,19 +141,36 @@ export const ModelTraceExplorerImpl = ({
   // always displayable if the feature flag is disabled
   const isDisplayable = shouldBlockLargeTraceDisplay() ? size < getLargeTraceDisplaySizeThreshold() : true;
   const [assessmentsPaneEnabled, setAssessmentsPaneEnabled] = useState(traceId.startsWith('tr-'));
+  const [isMountingTrace, setIsMountingTrace] = useState(true);
 
-  useGetModelTraceInfoV3({
+  const { isFetching } = useGetModelTraceInfo({
     traceId,
     setModelTrace,
     setAssessmentsPaneEnabled,
-    enabled: isDisplayable && traceId.startsWith('tr-'),
+    enabled: isDisplayable,
   });
+
+  const isTraceInitialLoading = isMountingTrace && isFetching;
 
   useEffect(() => {
     setModelTrace(initialModelTrace);
+    setIsMountingTrace(true);
     // reset the model trace when the traceId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [traceId]);
+
+  useEffect(() => {
+    if (isMountingTrace && !isFetching) {
+      setIsMountingTrace(false);
+    }
+  }, [isMountingTrace, isFetching]);
+
+  const resetActionCache = useTraceCachedActions((state) => state.resetCache);
+
+  // Reset the cache each time a trace explorer is mounted
+  useEffect(() => {
+    resetActionCache();
+  }, [resetActionCache]);
 
   if (!isDisplayable && !forceDisplay) {
     return <ModelTraceExplorerTraceTooLargeView traceId={traceId} setForceDisplay={setForceDisplay} />;
@@ -150,9 +184,11 @@ export const ModelTraceExplorerImpl = ({
         selectedSpanIdOnRender={selectedSpanId}
         assessmentsPaneEnabled={assessmentsPaneEnabled}
         isInComparisonView={isInComparisonView}
+        initialAssessmentsPaneCollapsed={collapseAssessmentPane}
+        isTraceInitialLoading={isTraceInitialLoading}
       >
         <ModelTraceExplorerContent
-          modelTrace={modelTrace}
+          modelTraceInfo={modelTrace.info}
           className={className}
           selectedSpanId={selectedSpanId}
           onSelectSpan={onSelectSpan}

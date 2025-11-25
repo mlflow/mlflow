@@ -49,5 +49,4 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
             tags=self._get_basic_trace_tags(root_span),
         )
         self._trace_manager.register_trace(root_span.context.trace_id, trace_info)
-
         return trace_info

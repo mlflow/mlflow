@@ -1,4 +1,5 @@
 _DATABRICKS_DEFAULT_JUDGE_MODEL = "databricks"
+_DATABRICKS_AGENTIC_JUDGE_MODEL = "gpt-oss-120b"
 
 # Common affirmative values that should map to YES
 _AFFIRMATIVE_VALUES = frozenset(

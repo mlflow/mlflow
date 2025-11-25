@@ -3,12 +3,15 @@
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
+from mlflow import __version__ as VERSION
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    call_chat_completions,
+)
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.genai.utils.trace_utils import (
     extract_expectations_from_trace,
     extract_request_from_trace,
@@ -60,7 +63,11 @@ def _process_chat_completions(
     user_prompt: str, system_prompt: str | None = None
 ) -> AttrDict[str, Any]:
     """Call managed RAG client and return formatted response."""
-    response = call_chat_completions(user_prompt=user_prompt, system_prompt=system_prompt)
+    response = call_chat_completions(
+        user_prompt=user_prompt,
+        system_prompt=system_prompt,
+        session_name=f"mlflow-judge-optimizer-v{VERSION}",
+    )
 
     if response.output is not None:
         result_dict = {
@@ -290,7 +297,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             example_inputs.append("expectations")
         example = dspy.Example(
             result=str(expected_result.feedback.value).lower(),
-            rationale=expected_result.rationale if expected_result.rationale else "",
+            rationale=expected_result.rationale or "",
             **example_kwargs,
         )
 

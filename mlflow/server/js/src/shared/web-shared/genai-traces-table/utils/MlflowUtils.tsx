@@ -1,6 +1,9 @@
 /**
- * This file is a subset of functions from mlflow/web/js/src/common/Utils.tsx
+ * This file is a subset of functions from mlflow/server/js/src/common/Utils.tsx
  */
+import moment from 'moment';
+
+import type { IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
@@ -268,6 +271,9 @@ class MlflowUtils {
           title={sourceName || MlflowUtils.getDefaultNotebookRevisionName(notebookId, revisionId)}
           href={url}
           target="_top"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
         >
           {name}
         </a>
@@ -329,7 +335,14 @@ class MlflowUtils {
     if (jobId) {
       const url = MlflowUtils.getJobSourceUrl(queryParams, jobId, jobRunId, workspaceUrl);
       return (
-        <a title={reformatJobName} href={url} target="_top">
+        <a
+          title={reformatJobName}
+          href={url}
+          target="_top"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
           {name}
         </a>
       );
@@ -350,7 +363,13 @@ class MlflowUtils {
     const gitRepoUrlOrNull = MlflowUtils.getGitRepoUrl(sourceName, branchName);
     if (gitRepoUrlOrNull) {
       res = (
-        <a target="_top" href={gitRepoUrlOrNull}>
+        <a
+          target="_top"
+          href={gitRepoUrlOrNull}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
           {res}
         </a>
       );
@@ -432,7 +451,14 @@ class MlflowUtils {
       }
 
       res = (
-        <a target="_blank" rel="noopener noreferrer" href={url}>
+        <a
+          target="_blank"
+          rel="noopener noreferrer"
+          href={url}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
           {res}
         </a>
       );
@@ -476,6 +502,37 @@ class MlflowUtils {
     }
 
     return res;
+  }
+
+  static formatDuration(duration: any) {
+    if (duration < 500) {
+      return duration + 'ms';
+    } else if (duration < 1000 * 60) {
+      return (duration / 1000).toFixed(1) + 's';
+    } else if (duration < 1000 * 60 * 60) {
+      return (duration / 1000 / 60).toFixed(1) + 'min';
+    } else if (duration < 1000 * 60 * 60 * 24) {
+      return (duration / 1000 / 60 / 60).toFixed(1) + 'h';
+    } else {
+      return (duration / 1000 / 60 / 60 / 24).toFixed(1) + 'd';
+    }
+  }
+
+  static formatTimestamp(timestamp: any, intl?: IntlShape) {
+    const d = new Date(0);
+    d.setUTCMilliseconds(timestamp);
+
+    if (intl) {
+      return intl.formatDate(d, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    }
+    return moment(d).format('YYYY-MM-DD HH:mm:ss');
   }
 }
 

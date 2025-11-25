@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -12,7 +13,7 @@ import pandas as pd
 
 import mlflow
 from mlflow.entities import SpanType
-from mlflow.entities.assessment import Assessment, Feedback
+from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
@@ -34,6 +35,8 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     batch_link_traces_to_run,
+    clean_up_extra_traces,
+    construct_eval_result_df,
     create_minimal_trace,
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
@@ -67,6 +70,7 @@ def run(
     3. Compute the aggregated metrics from the assessments.
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
+    eval_start_time = int(time.time() * 1000)
 
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
 
@@ -98,10 +102,16 @@ def run(
     except Exception as e:
         _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
 
-    eval_results_df = pd.DataFrame([result.to_pd_series() for result in eval_results])
+    # Search for all traces in the run. We need to fetch the traces from backend here to include
+    # all traces in the result.
+    traces = mlflow.search_traces(run_id=run_id, include_spans=False, return_type="list")
+
+    # Clean up noisy traces generated during evaluation
+    clean_up_extra_traces(traces, eval_start_time)
+
     return EvaluationResult(
         run_id=run_id,
-        result_df=eval_results_df,
+        result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
     )
 
@@ -120,8 +130,6 @@ def _run_single(
         ctx = context.get_context()
         ctx.set_mlflow_run_id(run_id)
 
-    # TODO: Support another pattern that are currently supported in the DBX agent harness,
-    # which is when traces are given as dataset
     if predict_fn:
         # NB: Setting prediction context let us retrieve the trace by a custom ID. Setting
         # is_evaluate=True disables async trace logging to make sure the trace is available.
@@ -152,7 +160,7 @@ def _run_single(
 
     # Execute the scorers
     assessments = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
-    assessments.extend(eval_item.get_expectation_assessments())
+    assessments.extend(_get_new_expectations(eval_item))
     eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
 
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
@@ -193,8 +201,9 @@ def _compute_eval_scores(
             scorer_func = scorer.run
 
             if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
-                # TODO: Replace SpanType.CHAIN with SpanType.EVALUATOR once PR 18532 is merged
-                scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.CHAIN)(scorer_func)
+                scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
+                    scorer_func
+                )
 
             value = scorer_func(
                 inputs=eval_item.inputs,
@@ -218,7 +227,9 @@ def _compute_eval_scores(
             ]
 
         # Record the trace ID for the scorer function call.
-        if trace_id := mlflow.get_last_active_trace_id(thread_local=True):
+        if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get() and (
+            trace_id := mlflow.get_last_active_trace_id(thread_local=True)
+        ):
             for feedback in feedbacks:
                 feedback.metadata = {
                     **(feedback.metadata or {}),
@@ -248,6 +259,17 @@ def _compute_eval_scores(
 
     # Flatten list[list[Assessment]] into a single list[Assessment]
     return [assessment for sublist in results for assessment in sublist]
+
+
+def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
+    existing_expectations = {
+        a.name for a in eval_item.trace.info.assessments if a.expectation is not None
+    }
+    return [
+        exp
+        for exp in eval_item.get_expectation_assessments()
+        if exp.name not in existing_expectations
+    ]
 
 
 def _log_assessments(

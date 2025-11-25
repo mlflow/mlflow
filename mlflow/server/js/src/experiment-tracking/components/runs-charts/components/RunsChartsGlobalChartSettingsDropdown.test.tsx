@@ -1,3 +1,4 @@
+import { jest, describe, beforeAll, test, expect } from '@jest/globals';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { RunsChartsLineCardConfig } from '../runs-charts.types';
 import { RunsChartType } from '../runs-charts.types';
@@ -140,6 +141,7 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
   };
 
   beforeAll(() => {
+    // @ts-expect-error Property '$$typeof' is missing in type
     jest.mocked(RunsMetricsLinePlot).mockImplementation(({ selectedMetricKeys, lineSmoothness, xAxisKey }) => {
       const updateUIState = useUpdateExperimentViewUIState();
       const setUseGlobalSettings = (value: boolean) =>

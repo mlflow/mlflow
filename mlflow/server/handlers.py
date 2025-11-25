@@ -10,6 +10,7 @@ import tempfile
 import time
 import urllib
 from functools import partial, wraps
+from typing import Any
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -131,6 +132,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetScorer,
+    GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
@@ -662,7 +664,14 @@ def _get_request_message(request_message, flask_request=request, schema=None):
             if is_repeated:
                 request_json[field.name] = flask_request.args.getlist(field.name)
             else:
-                request_json[field.name] = flask_request.args.get(field.name)
+                value = flask_request.args.get(field.name)
+                if field.type == descriptor.FieldDescriptor.TYPE_BOOL and isinstance(value, str):
+                    if value.lower() not in ["true", "false"]:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid boolean value: {value}, must be 'true' or 'false'.",
+                        )
+                    value = value.lower() == "true"
+                request_json[field.name] = value
     else:
         request_json = _get_request_json(flask_request)
 
@@ -2949,6 +2958,26 @@ def _batch_get_traces() -> Response:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _get_trace() -> Response:
+    """
+    A request handler for `GET /mlflow/traces/get` to get a trace with spans for given trace id.
+    """
+    request_message = _get_request_message(
+        GetTrace(),
+        schema={
+            "trace_id": [_assert_string, _assert_required],
+            "allow_partial": [_assert_bool],
+        },
+    )
+    trace_id = request_message.trace_id
+    allow_partial = request_message.allow_partial
+    trace = _get_tracking_store().get_trace(trace_id, allow_partial=allow_partial)
+    response_message = GetTrace.Response(trace=trace.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _search_traces_v3():
     """
     A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
@@ -3123,9 +3152,38 @@ def _link_traces_to_run():
     return _wrap_response(LinkTracesToRun.Response())
 
 
+def _fetch_trace_data_from_store(
+    store: AbstractTrackingStore, request_id: str
+) -> dict[str, Any] | None:
+    try:
+        # allow partial so the frontend can render in-progress traces
+        trace = store.get_trace(request_id, allow_partial=True)
+        return trace.data.to_dict()
+    except MlflowTracingException:
+        return None
+    except MlflowNotImplementedException:
+        # fallback to batch_get_traces if get_trace is not implemented
+        pass
+
+    try:
+        traces = store.batch_get_traces([request_id], None)
+        match traces:
+            case [trace]:
+                return trace.data.to_dict()
+            case _:
+                raise MlflowException(
+                    f"Trace with id={request_id} not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+    # For stores that don't support batch get traces, or if trace data is not in the store,
+    # return None to signal fallback to artifact repository
+    except (MlflowTracingException, MlflowNotImplementedException):
+        return None
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def get_trace_artifact_handler():
+def get_trace_artifact_handler() -> Response:
     request_id = request.args.get("request_id")
 
     if not request_id:
@@ -3134,17 +3192,10 @@ def get_trace_artifact_handler():
             error_code=BAD_REQUEST,
         )
 
-    try:
-        traces = _get_tracking_store().batch_get_traces([request_id], None)
-        if len(traces) != 1:
-            raise MlflowException(
-                "Failed to get trace data from tracking store. Please check the request_id."
-            )
-        trace_data = traces[0].data.to_dict()
-    # For stores that don't support batch get traces, or if the trace data is not stored in the
-    # tracking store, we need to get the trace data from the artifact repository.
-    except (MlflowTracingException, MlflowNotImplementedException):
-        trace_info = _get_tracking_store().get_trace_info(request_id)
+    store = _get_tracking_store()
+    trace_data = _fetch_trace_data_from_store(store, request_id)
+    if trace_data is None:
+        trace_info = store.get_trace_info(request_id)
         trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
@@ -3454,7 +3505,8 @@ def _log_logged_model_params(model_id: str):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_logged_model(model_id: str):
-    model = _get_tracking_store().get_logged_model(model_id)
+    allow_deleted = request.args.get("allow_deleted", "false").lower() == "true"
+    model = _get_tracking_store().get_logged_model(model_id, allow_deleted=allow_deleted)
     response_message = GetLoggedModel.Response(model=model.to_proto())
     return _wrap_response(response_message)
 
@@ -3851,10 +3903,10 @@ def _search_evaluation_datasets_handler():
         experiment_ids=list(request_message.experiment_ids)
         if request_message.experiment_ids
         else None,
-        filter_string=request_message.filter_string if request_message.filter_string else None,
-        max_results=request_message.max_results if request_message.max_results else None,
+        filter_string=request_message.filter_string or None,
+        max_results=request_message.max_results or None,
         order_by=list(request_message.order_by) if request_message.order_by else None,
-        page_token=request_message.page_token if request_message.page_token else None,
+        page_token=request_message.page_token or None,
     )
 
     response_message = SearchEvaluationDatasets.Response()
@@ -3936,44 +3988,42 @@ def _get_dataset_experiment_ids_handler(dataset_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _add_dataset_to_experiments_handler():
+def _add_dataset_to_experiments_handler(dataset_id):
     request_message = _get_request_message(
         AddDatasetToExperiments(),
         schema={
-            "dataset_id": [_assert_string],
             "experiment_ids": [_assert_array],
         },
     )
 
     dataset = _get_tracking_store().add_dataset_to_experiments(
-        dataset_id=request_message.dataset_id,
+        dataset_id=dataset_id,
         experiment_ids=request_message.experiment_ids,
     )
 
     response_message = AddDatasetToExperiments.Response()
     response_message.dataset.CopyFrom(dataset.to_proto())
-    return response_message
+    return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _remove_dataset_from_experiments_handler():
+def _remove_dataset_from_experiments_handler(dataset_id):
     request_message = _get_request_message(
         RemoveDatasetFromExperiments(),
         schema={
-            "dataset_id": [_assert_string],
             "experiment_ids": [_assert_array],
         },
     )
 
     dataset = _get_tracking_store().remove_dataset_from_experiments(
-        dataset_id=request_message.dataset_id,
+        dataset_id=dataset_id,
         experiment_ids=request_message.experiment_ids,
     )
 
     response_message = RemoveDatasetFromExperiments.Response()
     response_message.dataset.CopyFrom(dataset.to_proto())
-    return response_message
+    return _wrap_response(response_message)
 
 
 def _get_dataset_records_handler(dataset_id):
@@ -3985,8 +4035,8 @@ def _get_dataset_records_handler(dataset_id):
         },
     )
 
-    max_results = request_message.max_results if request_message.max_results else 1000
-    page_token = request_message.page_token if request_message.page_token else None
+    max_results = request_message.max_results or 1000
+    page_token = request_message.page_token or None
 
     # Use the pagination-aware method
     records, next_page_token = _get_tracking_store()._load_dataset_records(
@@ -4091,6 +4141,7 @@ HANDLERS = {
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
     BatchGetTraces: _batch_get_traces,
+    GetTrace: _get_trace,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

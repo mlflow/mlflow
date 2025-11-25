@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import { useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
@@ -15,7 +16,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import type { ColumnDef, ColumnDefTemplate, CellContext } from '@tanstack/react-table';
-import { useReactTable, getCoreRowModel, getFilteredRowModel, flexRender } from '@tanstack/react-table';
+import { getCoreRowModel, getFilteredRowModel, flexRender } from '@tanstack/react-table';
 
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
@@ -83,20 +84,23 @@ export const ExperimentLinkedPromptsTable = ({ data }: Props) => {
     [intl],
   );
 
-  const table = useReactTable({
-    data,
-    getRowId: (row) => row.name,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    columns,
-    state: {
-      globalFilter,
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/components/experiment-prompts/ExperimentLinkedPromptsTable.tsx',
+    {
+      data,
+      getRowId: (row) => row.name,
+      getCoreRowModel: getCoreRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      columns,
+      state: {
+        globalFilter,
+      },
+      onGlobalFilterChange: setGlobalFilter,
+      globalFilterFn: 'includesString',
     },
-    onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: 'includesString',
-  });
+  );
 
   const renderTableContent = () => {
     return (

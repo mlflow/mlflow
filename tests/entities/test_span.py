@@ -356,6 +356,8 @@ def sample_otel_span_for_conversion():
         {"bool_key": True, "false_key": False},
         # Bytes attributes
         {"bytes_key": b"binary_data"},
+        # Empty list and dict attributes
+        {"empty_list": [], "empty_dict": {}},
         # List attributes
         {"list_str": ["a", "b", "c"], "list_int": [1, 2, 3], "list_float": [1.1, 2.2]},
         # Dict attributes

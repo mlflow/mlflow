@@ -23,6 +23,7 @@ import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
 from mlflow import MlflowClient, clear_active_model, set_active_model
 from mlflow.data.http_dataset_source import HTTPDatasetSource
+from mlflow.data.meta_dataset import MetaDataset
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     LifecycleStage,
@@ -842,7 +843,7 @@ def test_start_run_existing_run_from_environment_with_set_environment(
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         set_experiment("test-run")
         with pytest.raises(
-            MlflowException, match="active run ID does not match environment run ID"
+            MlflowException, match="active experiment ID does not match environment run ID"
         ):
             start_run()
 
@@ -2384,3 +2385,35 @@ def test_log_metrics_with_active_model_log_model_once():
             mlflow.log_metrics({"metric": 2})
             mock_client_get_run.assert_not_called()
             mock_client_log_inputs.assert_called_once()
+
+
+def test_log_metric_with_dataset_entity():
+    """Test that log_metric works with both mlflow.entities.Dataset and mlflow.data.dataset.Dataset.
+
+    Regression test for issue https://github.com/mlflow/mlflow/issues/18573.
+    """
+    # Test with mlflow.entities.Dataset (retrieved from run.inputs)
+    with mlflow.start_run() as run:
+        dataset_source = HTTPDatasetSource(url="some_uri")
+        dataset = MetaDataset(source=dataset_source, name="my_dataset", digest="12345678")
+        mlflow.log_input(dataset, context="eval")
+
+        run_data = mlflow.get_run(run.info.run_id)
+        dataset_entity = run_data.inputs.dataset_inputs[0].dataset
+
+        mlflow.log_metric("accuracy", 0.95, dataset=dataset_entity)
+
+        run_data = mlflow.get_run(run.info.run_id)
+        assert "accuracy" in run_data.data.metrics
+        assert run_data.data.metrics["accuracy"] == 0.95
+
+    # Test with mlflow.data.dataset.Dataset (backward compatibility)
+    with mlflow.start_run() as run:
+        dataset_source = HTTPDatasetSource(url="another_uri")
+        dataset = MetaDataset(source=dataset_source, name="my_dataset2", digest="87654321")
+
+        mlflow.log_metric("precision", 0.92, dataset=dataset)
+
+        run_data = mlflow.get_run(run.info.run_id)
+        assert "precision" in run_data.data.metrics
+        assert run_data.data.metrics["precision"] == 0.92

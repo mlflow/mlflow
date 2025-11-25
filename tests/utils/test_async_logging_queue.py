@@ -31,9 +31,7 @@ class RunData:
         self.received_tags = []
         self.received_params = []
         self.batch_count = 0
-        self.throw_exception_on_batch_number = (
-            throw_exception_on_batch_number if throw_exception_on_batch_number else []
-        )
+        self.throw_exception_on_batch_number = throw_exception_on_batch_number or []
 
     def consume_queue_data(self, run_id, metrics, tags, params):
         self.batch_count += 1

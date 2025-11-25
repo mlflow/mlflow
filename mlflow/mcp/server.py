@@ -41,7 +41,12 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
         schema = {
             "type": param_type_to_json_schema_type(p.type),
         }
-        if p.default is not None:
+        if p.default is not None and (
+            # In click >= 8.3.0, the default value is set to `Sentinel.UNSET` when no default is
+            # provided. Skip setting the default in this case.
+            # See https://github.com/pallets/click/pull/3030 for more details.
+            not isinstance(p.default, str) and repr(p.default) != "Sentinel.UNSET"
+        ):
             schema["default"] = p.default
         if isinstance(p, click.Option):
             schema["description"] = (p.help or "").strip()
@@ -88,6 +93,9 @@ def cmd_to_function_tool(cmd: click.Command) -> "FunctionTool":
 
 def register_prompts(mcp: "FastMCP") -> None:
     """Register AI commands as MCP prompts."""
+    from mlflow.telemetry.events import AiCommandRunEvent
+    from mlflow.telemetry.track import _record_event
+
     for command in list_commands():
         # Convert slash-separated keys to underscores for MCP names
         mcp_name = command["key"].replace("/", "_")
@@ -97,6 +105,7 @@ def register_prompts(mcp: "FastMCP") -> None:
             @mcp.prompt(name=mcp_name, description=command["description"])
             def ai_command_prompt() -> str:
                 """Execute an MLflow AI command prompt."""
+                _record_event(AiCommandRunEvent, {"command_key": cmd_key, "context": "mcp"})
                 return get_command_body(cmd_key)
 
             return ai_command_prompt

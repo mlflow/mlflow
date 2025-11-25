@@ -1,8 +1,4 @@
-import {
-  CUSTOM_METADATA_COLUMN_ID,
-  FilterOperator,
-  HiddenFilterOperator,
-} from '@databricks/web-shared/genai-traces-table';
+import { CUSTOM_METADATA_COLUMN_ID, FilterOperator } from '@databricks/web-shared/genai-traces-table';
 import { SESSION_ID_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 
 export const getChatSessionsFilter = ({
@@ -14,8 +10,8 @@ export const getChatSessionsFilter = ({
   return [
     {
       column: `${CUSTOM_METADATA_COLUMN_ID}:${SESSION_ID_METADATA_KEY}`,
-      operator: sessionId ? FilterOperator.EQUALS : HiddenFilterOperator.ILIKE,
-      value: sessionId ?? '%',
+      operator: sessionId ? FilterOperator.EQUALS : FilterOperator.CONTAINS,
+      value: sessionId ?? '',
     },
   ];
 };

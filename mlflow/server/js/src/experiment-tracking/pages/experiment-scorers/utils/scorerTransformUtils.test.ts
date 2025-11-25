@@ -1,0 +1,606 @@
+import { describe, it, expect } from '@jest/globals';
+import {
+  ScorerTransformationError,
+  transformScorerConfig,
+  transformScheduledScorer,
+  convertFormDataToScheduledScorer,
+} from './scorerTransformUtils';
+import type { ScorerConfig, LLMScorer, CustomCodeScorer } from '../types';
+import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
+import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
+
+describe('transformScorerConfig', () => {
+  describe('Guidelines LLM scorer', () => {
+    it('should transform Guidelines scorer with array guidelines', () => {
+      const config: ScorerConfig = {
+        name: 'Test Guidelines Scorer',
+        sample_rate: 0.75,
+        filter_string: 'status="completed"',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'Guidelines',
+          builtin_scorer_pydantic_data: {
+            guidelines: ['Guideline 1', 'Guideline 2'],
+          },
+        }),
+        builtin: { name: 'Test Guidelines Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Guidelines Scorer',
+        sampleRate: 75,
+        filterString: 'status="completed"',
+        type: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: ['Guideline 1', 'Guideline 2'],
+      });
+    });
+
+    it('should transform Guidelines scorer with string guideline to array', () => {
+      const config: ScorerConfig = {
+        name: 'Test Guidelines Scorer',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'Guidelines',
+          builtin_scorer_pydantic_data: {
+            guidelines: 'Single guideline',
+          },
+        }),
+        builtin: { name: 'Test Guidelines Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Guidelines Scorer',
+        type: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: ['Single guideline'],
+      });
+    });
+
+    it('should handle missing guidelines', () => {
+      const config: ScorerConfig = {
+        name: 'Test Guidelines Scorer',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'Guidelines',
+          builtin_scorer_pydantic_data: {},
+        }),
+        builtin: { name: 'Test Guidelines Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Guidelines Scorer',
+        type: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: [],
+      });
+    });
+  });
+
+  describe('Built-in LLM scorers', () => {
+    it('should transform built-in LLM scorer', () => {
+      const config: ScorerConfig = {
+        name: 'Test Builtin Scorer',
+        sample_rate: 0.5,
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'Safety',
+        }),
+        builtin: { name: 'Test Builtin Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Builtin Scorer',
+        sampleRate: 50,
+        type: 'llm',
+        llmTemplate: 'Safety',
+      });
+    });
+  });
+
+  describe('Custom code scorers', () => {
+    it('should transform custom scorer with function definition', () => {
+      const config: ScorerConfig = {
+        name: 'Test Custom Scorer',
+        sample_rate: 1.0,
+        filter_string: 'experiment_id="123"',
+        serialized_scorer: JSON.stringify({
+          call_source: 'return len(inputs["text"]) > 10',
+          original_func_name: 'my_scorer',
+          call_signature: '(inputs, outputs, metadata)',
+        }),
+        custom: {},
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Custom Scorer',
+        sampleRate: 100,
+        filterString: 'experiment_id="123"',
+        type: 'custom-code',
+        code: 'def my_scorer(inputs, outputs, metadata):\n    return len(inputs["text"]) > 10',
+        callSignature: '(inputs, outputs, metadata)',
+        originalFuncName: 'my_scorer',
+      });
+    });
+
+    it('should transform custom scorer without function definition', () => {
+      const config: ScorerConfig = {
+        name: 'Test Custom Scorer',
+        serialized_scorer: JSON.stringify({
+          call_source: 'def evaluate(inputs, outputs):\n    return True',
+        }),
+        custom: {},
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Custom Scorer',
+        type: 'custom-code',
+        code: 'def evaluate(inputs, outputs):\n    return True',
+      });
+    });
+
+    it('should handle missing call_source', () => {
+      const config: ScorerConfig = {
+        name: 'Test Custom Scorer',
+        serialized_scorer: JSON.stringify({}),
+        custom: {},
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Custom Scorer',
+        type: 'custom-code',
+        code: '',
+      });
+    });
+  });
+
+  describe('Edge cases and error handling', () => {
+    it('should handle undefined sample_rate', () => {
+      const config: ScorerConfig = {
+        name: 'Test Scorer',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'Safety',
+        }),
+        builtin: { name: 'Test Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result.sampleRate).toBeUndefined();
+    });
+
+    it('should handle falsy filter_string values', () => {
+      const configWithUndefined: ScorerConfig = {
+        name: 'Test Scorer',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'Safety',
+        }),
+        builtin: { name: 'Test Scorer' },
+      };
+
+      const configWithEmpty: ScorerConfig = {
+        name: 'Test Scorer',
+        filter_string: '',
+        serialized_scorer: JSON.stringify({
+          builtin_scorer_class: 'Safety',
+        }),
+        builtin: { name: 'Test Scorer' },
+      };
+
+      expect(transformScorerConfig(configWithUndefined)).not.toHaveProperty('filterString');
+      expect(transformScorerConfig(configWithEmpty)).not.toHaveProperty('filterString');
+    });
+
+    it('should throw ScorerTransformationError for invalid JSON', () => {
+      const config: ScorerConfig = {
+        name: 'Invalid Scorer',
+        serialized_scorer: 'invalid json',
+      };
+
+      expect(() => transformScorerConfig(config)).toThrow(ScorerTransformationError);
+      expect(() => transformScorerConfig(config)).toThrow('Failed to parse scorer configuration:');
+    });
+  });
+});
+
+describe('transformScheduledScorer', () => {
+  describe('LLM scorers', () => {
+    it('should transform Guidelines LLM scorer', () => {
+      const scorer: LLMScorer = {
+        name: 'Test Guidelines Scorer',
+        sampleRate: 75,
+        filterString: 'status="completed"',
+        type: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: ['Guideline 1', 'Guideline 2'],
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      expect(result).toEqual({
+        name: 'Test Guidelines Scorer',
+        sample_rate: 0.75,
+        filter_string: 'status="completed"',
+        serialized_scorer: JSON.stringify({
+          mlflow_version: '3.3.2+ui',
+          serialization_version: 1,
+          name: 'Test Guidelines Scorer',
+          builtin_scorer_class: 'Guidelines',
+          builtin_scorer_pydantic_data: {
+            name: 'Test Guidelines Scorer',
+            required_columns: ['outputs', 'inputs'],
+            guidelines: ['Guideline 1', 'Guideline 2'],
+          },
+        }),
+        builtin: {
+          name: 'Test Guidelines Scorer',
+        },
+      });
+    });
+
+    it('should transform built-in LLM scorer without guidelines', () => {
+      const scorer: LLMScorer = {
+        name: 'Test Toxicity Scorer',
+        sampleRate: 50,
+        type: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      expect(result).toEqual({
+        name: 'Test Toxicity Scorer',
+        sample_rate: 0.5,
+        serialized_scorer: JSON.stringify({
+          mlflow_version: '3.3.2+ui',
+          serialization_version: 1,
+          name: 'Test Toxicity Scorer',
+          builtin_scorer_class: 'Safety',
+          builtin_scorer_pydantic_data: {
+            name: 'Test Toxicity Scorer',
+            required_columns: ['outputs', 'inputs'],
+          },
+        }),
+        builtin: {
+          name: 'Test Toxicity Scorer',
+        },
+      });
+    });
+
+    it('should handle LLM scorer with undefined sampleRate', () => {
+      const scorer: LLMScorer = {
+        name: 'Test Scorer',
+        type: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      expect(result).not.toHaveProperty('sample_rate');
+    });
+
+    it('should handle LLM scorer with empty filterString', () => {
+      const scorer: LLMScorer = {
+        name: 'Test Scorer',
+        filterString: '',
+        type: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      expect(result).not.toHaveProperty('filter_string');
+    });
+
+    it('should handle LLM scorer without llmTemplate', () => {
+      const scorer = {
+        name: 'Test Scorer',
+        type: 'llm' as const,
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      expect(result.serialized_scorer).toBe('');
+      expect(result).not.toHaveProperty('builtin');
+    });
+  });
+
+  describe('Custom code scorers', () => {
+    it('should transform custom code scorer', () => {
+      const scorer: CustomCodeScorer = {
+        name: 'Test Custom Scorer',
+        sampleRate: 100,
+        filterString: 'experiment_id="123"',
+        type: 'custom-code',
+        code: 'def my_scorer(inputs, outputs):\n    return True',
+        callSignature: '',
+        originalFuncName: '',
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      expect(result).toEqual({
+        name: 'Test Custom Scorer',
+        sample_rate: 1.0,
+        filter_string: 'experiment_id="123"',
+        serialized_scorer: JSON.stringify({
+          mlflow_version: '3.3.2+ui',
+          serialization_version: 1,
+          name: 'Test Custom Scorer',
+          call_source: 'def my_scorer(inputs, outputs):\n    return True',
+          call_signature: '',
+          original_func_name: '',
+        }),
+        custom: {},
+      });
+    });
+
+    it('should handle custom code scorer with undefined sampleRate', () => {
+      const scorer: CustomCodeScorer = {
+        name: 'Test Custom Scorer',
+        type: 'custom-code',
+        code: 'return True',
+        callSignature: '',
+        originalFuncName: '',
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      expect(result).not.toHaveProperty('sample_rate');
+    });
+  });
+});
+
+describe('convertFormDataToScheduledScorer', () => {
+  describe('Creating new scorers', () => {
+    it('should create new LLM scorer from form data', () => {
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New LLM Scorer',
+        sampleRate: 80,
+        filterString: 'status="success"',
+        scorerType: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const result = convertFormDataToScheduledScorer(formData);
+
+      expect(result).toEqual({
+        name: 'New LLM Scorer',
+        sampleRate: 80,
+        filterString: 'status="success"',
+        type: 'llm',
+        llmTemplate: 'Safety',
+        guidelines: undefined,
+      });
+    });
+
+    it('should create new Guidelines scorer with parsed guidelines', () => {
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New Guidelines Scorer',
+        sampleRate: 60,
+        filterString: '',
+        scorerType: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: '  Line 1  \n\n  Line 2  \n  \n  Line 3  ',
+      };
+
+      const result = convertFormDataToScheduledScorer(formData);
+
+      expect(result).toEqual({
+        name: 'New Guidelines Scorer',
+        sampleRate: 60,
+        filterString: '',
+        type: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: ['Line 1', 'Line 2', 'Line 3'],
+      });
+    });
+
+    it('should handle falsy guidelines values', () => {
+      const formDataWithEmpty: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New Guidelines Scorer',
+        sampleRate: 50,
+        scorerType: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: '',
+      };
+
+      const formDataWithUndefined: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New Guidelines Scorer',
+        sampleRate: 50,
+        scorerType: 'llm',
+        llmTemplate: 'Guidelines',
+        // guidelines intentionally undefined
+      };
+
+      expect((convertFormDataToScheduledScorer(formDataWithEmpty) as LLMScorer).guidelines).toEqual([]);
+      expect((convertFormDataToScheduledScorer(formDataWithUndefined) as LLMScorer).guidelines).toEqual([]);
+    });
+
+    it('should handle falsy filterString values', () => {
+      const formDataWithEmpty: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New LLM Scorer',
+        sampleRate: 50,
+        filterString: '',
+        scorerType: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const formDataWithUndefined: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New LLM Scorer',
+        sampleRate: 50,
+        scorerType: 'llm',
+        llmTemplate: 'Safety',
+        // filterString intentionally undefined
+      };
+
+      expect(convertFormDataToScheduledScorer(formDataWithEmpty).filterString).toBe('');
+      expect(convertFormDataToScheduledScorer(formDataWithUndefined).filterString).toBe('');
+    });
+  });
+
+  describe('Updating existing scorers', () => {
+    it('should update custom code scorer with only allowed fields', () => {
+      const baseScorer: CustomCodeScorer = {
+        name: 'Original Custom Scorer',
+        sampleRate: 25,
+        filterString: 'old_filter',
+        type: 'custom-code',
+        code: 'def original_scorer():\n    return False',
+        callSignature: '',
+        originalFuncName: '',
+      };
+
+      const formData: CustomCodeScorerFormData & { scorerType: 'custom-code' } = {
+        name: 'Updated Name', // This should be ignored for custom scorers
+        sampleRate: 75,
+        filterString: 'new_filter',
+        scorerType: 'custom-code',
+        code: 'def original_scorer():\n    return False',
+      };
+
+      const result = convertFormDataToScheduledScorer(formData, baseScorer);
+
+      expect(result).toEqual({
+        name: 'Original Custom Scorer', // Name unchanged
+        sampleRate: 75, // Updated
+        filterString: 'new_filter', // Updated
+        type: 'custom-code',
+        code: 'def original_scorer():\n    return False', // Code unchanged
+        callSignature: '',
+        originalFuncName: '',
+      });
+    });
+
+    it('should update LLM scorer with all form fields', () => {
+      const baseScorer: LLMScorer = {
+        name: 'Original LLM Scorer',
+        sampleRate: 30,
+        filterString: 'old_filter',
+        type: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'Updated LLM Scorer',
+        sampleRate: 70,
+        filterString: 'new_filter',
+        scorerType: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: 'New guideline 1\nNew guideline 2',
+      };
+
+      const result = convertFormDataToScheduledScorer(formData, baseScorer);
+
+      expect(result).toEqual({
+        name: 'Updated LLM Scorer',
+        sampleRate: 70,
+        filterString: 'new_filter',
+        type: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: ['New guideline 1', 'New guideline 2'],
+      });
+    });
+
+    it('should update LLM scorer to non-Guidelines template', () => {
+      const baseScorer: LLMScorer = {
+        name: 'Original Guidelines Scorer',
+        sampleRate: 40,
+        type: 'llm',
+        llmTemplate: 'Guidelines',
+        guidelines: ['Old guideline 1', 'Old guideline 2'],
+      };
+
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'Updated to Toxicity',
+        sampleRate: 80,
+        scorerType: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const result = convertFormDataToScheduledScorer(formData, baseScorer);
+
+      expect(result).toEqual({
+        name: 'Updated to Toxicity',
+        sampleRate: 80,
+        filterString: '',
+        type: 'llm',
+        llmTemplate: 'Safety',
+        guidelines: ['Old guideline 1', 'Old guideline 2'], // Guidelines preserved from base
+      });
+    });
+
+    it('should throw error when updating without baseScorer', () => {
+      const formData: CustomCodeScorerFormData & { scorerType: 'custom-code' } = {
+        name: 'Test Scorer',
+        sampleRate: 50,
+        scorerType: 'custom-code',
+        code: 'def original_scorer():\n    return False',
+      };
+
+      expect(() => convertFormDataToScheduledScorer(formData)).toThrow(ScorerTransformationError);
+      expect(() => convertFormDataToScheduledScorer(formData)).toThrow('Base scorer is required for updates');
+    });
+
+    it('should handle empty filterString in form data', () => {
+      const baseScorer: LLMScorer = {
+        name: 'Test Scorer',
+        sampleRate: 50,
+        filterString: 'old_filter',
+        type: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'Updated Scorer',
+        sampleRate: 60,
+        filterString: '',
+        scorerType: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const result = convertFormDataToScheduledScorer(formData, baseScorer);
+
+      expect(result.filterString).toBe('');
+    });
+  });
+
+  describe('Edge cases', () => {
+    it('should preserve base scorer properties not in form data', () => {
+      const baseScorer: LLMScorer = {
+        name: 'Test Scorer',
+        sampleRate: 50,
+        filterString: 'original_filter',
+        type: 'llm',
+        llmTemplate: 'Safety',
+      };
+
+      const formData: Partial<LLMScorerFormData> & { scorerType: 'llm' } = {
+        name: 'Updated Name',
+        scorerType: 'llm',
+        llmTemplate: 'Safety',
+        // sampleRate and filterString intentionally missing
+      };
+
+      const result = convertFormDataToScheduledScorer(formData as any, baseScorer);
+
+      expect(result).toEqual({
+        name: 'Updated Name',
+        sampleRate: undefined,
+        filterString: '',
+        type: 'llm',
+        llmTemplate: 'Safety',
+      });
+    });
+  });
+});

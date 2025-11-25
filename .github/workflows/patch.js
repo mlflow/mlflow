@@ -51,8 +51,8 @@ module.exports = async ({ context, github, core }) => {
   });
   const { body } = pr.data;
 
-  // Skip running this check if PR is filed by a bot
-  if (pr.data.user?.type?.toLowerCase() === "bot") {
+  // Skip running this check if PR is filed by a bot (except GitHub Copilot)
+  if (pr.data.user?.type?.toLowerCase() === "bot" && pr.data.user?.login !== "Copilot") {
     core.info(
       `Skipping processing because the PR is filed by a bot: ${pr.data.user?.login || "unknown"}`
     );

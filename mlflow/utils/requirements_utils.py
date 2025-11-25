@@ -600,7 +600,7 @@ class _MismatchedPackageInfo(NamedTuple):
     requirement: str
 
     def __str__(self):
-        current_status = self.installed_version if self.installed_version else "uninstalled"
+        current_status = self.installed_version or "uninstalled"
         return f"{self.package_name} (current: {current_status}, required: {self.requirement})"
 
 

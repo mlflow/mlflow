@@ -6,8 +6,10 @@ import type {
   IsFullWidthRowParams,
   SuppressKeyboardEventParams,
 } from '@ag-grid-community/core';
-import { Spinner, SpinnerProps, useDesignSystemTheme } from '@databricks/design-system';
-import React, { useEffect, useMemo, useRef } from 'react';
+import type { SpinnerProps } from '@databricks/design-system';
+import { Spinner, useDesignSystemTheme } from '@databricks/design-system';
+import type React from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { isEqual } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, ATTRIBUTE_COLUMN_SORT_KEY, COLUMN_TYPES } from '../../../constants';
@@ -26,7 +28,7 @@ import {
   getQualifiedEntityName,
   makeCanonicalSortKey,
 } from './experimentPage.common-utils';
-import { RunRowType } from './experimentPage.row-types';
+import type { RunRowType } from './experimentPage.row-types';
 import {
   RowActionsCellRenderer,
   RowActionsCellRendererSuppressKeyboardEvents,
@@ -38,7 +40,7 @@ import {
   DatasetsCellRenderer,
   DatasetsCellRendererSuppressKeyboardEvents,
 } from '../components/runs/cells/DatasetsCellRenderer';
-import { RunDatasetWithTags } from '../../../types';
+import type { RunDatasetWithTags } from '../../../types';
 import { AggregateMetricValueCell } from '../components/runs/cells/AggregateMetricValueCell';
 import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
@@ -74,7 +76,7 @@ export const createParamFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_
 const createMetricFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_METRIC}-${key}`;
 const createTagFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_TAG}-${key}`;
 
-const UntrackedSpinner: React.FC<SpinnerProps> = ({ loading, ...props }) => {
+const UntrackedSpinner: React.FC<React.PropsWithChildren<SpinnerProps>> = ({ loading, ...props }) => {
   return Spinner({ loading: false, ...props });
 };
 
