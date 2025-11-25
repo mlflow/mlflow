@@ -147,7 +147,8 @@ def main() -> int:
         error_details = "\n".join(f"  - {error}" for error in all_errors)
         reason = f"Lint errors found:\n{error_details}"
         sys.stdout.write(json.dumps({"decision": "block", "reason": reason}))
-        # See  https://code.claude.com/docs/en/hooks#simple:-exit-code for exit code
+        # See https://code.claude.com/docs/en/hooks#simple:-exit-code for how hooks communicate
+        # status through exit codes
         return 0
 
     return 0
