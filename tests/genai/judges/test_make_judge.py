@@ -3346,3 +3346,52 @@ def test_conversation_no_warning_when_used(mock_invoke_judge_model):
                     # Should not contain both "conversation" and "not used" together
                     if "conversation" in warning_msg.lower():
                         assert "not used" not in warning_msg.lower()
+
+
+def test_instructions_judge_generate_rationale_first():
+    """Test that generate_rationale_first flag properly orders fields in response format."""
+    # Test with generate_rationale_first=False (default)
+    judge_default = InstructionsJudge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=str,
+        generate_rationale_first=False,
+    )
+
+    # Check output fields order (default: result first, then rationale)
+    output_fields_default = judge_default.get_output_fields()
+    assert len(output_fields_default) == 2
+    assert output_fields_default[0].name == "result"
+    assert output_fields_default[1].name == "rationale"
+
+    # Check response format field order (default: result first)
+    response_format_default = judge_default._create_response_format_model()
+    field_names_default = list(response_format_default.model_fields.keys())
+    assert field_names_default == ["result", "rationale"]
+
+    # Test with generate_rationale_first=True
+    judge_rationale_first = InstructionsJudge(
+        name="test_judge_rationale_first",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=Literal["good", "bad"],
+        generate_rationale_first=True,
+    )
+
+    # Check output fields order (rationale first, then result)
+    output_fields_rationale_first = judge_rationale_first.get_output_fields()
+    assert len(output_fields_rationale_first) == 2
+    assert output_fields_rationale_first[0].name == "rationale"
+    assert output_fields_rationale_first[1].name == "result"
+
+    # Check response format field order (rationale first)
+    response_format_rationale_first = judge_rationale_first._create_response_format_model()
+    field_names_rationale_first = list(response_format_rationale_first.model_fields.keys())
+    assert field_names_rationale_first == ["rationale", "result"]
+
+    # Verify field descriptions are correct regardless of order
+    assert output_fields_default[0].value_type == str
+    assert output_fields_default[1].value_type == str
+    assert output_fields_rationale_first[0].value_type == str  # rationale
+    assert output_fields_rationale_first[1].value_type == Literal["good", "bad"]  # result

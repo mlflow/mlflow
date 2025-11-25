@@ -1683,8 +1683,8 @@ class ConversationCompleteness(BuiltInScorer):
     and high-level intentions throughout a conversation session.
 
     This scorer analyzes a complete conversation (represented as a list of traces) to determine
-    if the AI successfully satisfied the user's needs, answered all questions, and fulfilled
-    their high-level intent. It returns "complete" or "incomplete".
+    if the AI successfully addressed all the user's requests in a conversation. It returns
+    "complete" or "incomplete".
 
     You can invoke the scorer directly with a session for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
@@ -1742,6 +1742,7 @@ class ConversationCompleteness(BuiltInScorer):
                 model=self.model,
                 description=self.description,
                 feedback_value_type=Literal["complete", "incomplete"],
+                generate_rationale_first=True,
             )
         return self._judge
 
@@ -1778,8 +1779,8 @@ class ConversationCompleteness(BuiltInScorer):
         Evaluate conversation completeness based on a list of traces from the same session.
 
         This scorer analyzes a conversation to determine if the AI assistant fully addressed
-        all user questions and satisfied their high-level intentions. It evaluates whether
-        the conversation reached a successful conclusion where the user's needs were met.
+        all user requests at the end of the conversation.
+
 
         Args:
             session: A list of Trace objects belonging to the same conversation session.
