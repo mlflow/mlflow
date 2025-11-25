@@ -11,6 +11,8 @@ to MLflow spans, which requires more complex conversion logic.
 """
 
 from collections import defaultdict
+import gzip
+import zlib
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from google.protobuf.message import DecodeError
@@ -65,7 +67,42 @@ async def export_traces(
             detail=f"Invalid Content-Type: {content_type}. Expected: application/x-protobuf",
         )
 
-    body = await request.body()
+    # Read & decompress request body
+    raw_body = await request.body()
+    content_encoding = request.headers.get("Content-Encoding", "identity").lower()
+
+    if content_encoding == "identity":
+        body = raw_body
+
+    elif content_encoding == "gzip":
+        try:
+            body = gzip.decompress(raw_body)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to decompress gzip payload",
+            )
+
+    elif content_encoding == "deflate":
+        try:
+            body = zlib.decompress(raw_body)
+        except Exception:
+            # Some clients send raw deflate streams
+            try:
+                body = zlib.decompress(raw_body, -zlib.MAX_WBITS)
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Failed to decompress deflate payload",
+                )
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported Content-Encoding: {content_encoding}",
+        )
+
+    # Parse protobuf payload
     parsed_request = ExportTraceServiceRequest()
 
     try:
