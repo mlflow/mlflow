@@ -102,7 +102,7 @@ export const ExperimentEvaluationDatasetRecordsTable = ({
       getCoreRowModel: getCoreRowModel(),
       getRowId: (row) => row.dataset_record_id,
       enableColumnResizing: false,
-      meta: { rowSize, onOpenTraceModal },
+      meta: { rowSize, onOpenTraceModal, datasetId },
       state: {
         columnVisibility,
       },
