@@ -32,7 +32,6 @@ export const ModelTraceExplorerSummarySpans = ({
   const exceptions = getSpanExceptionEvents(rootNode);
   const hasIntermediateNodes = intermediateNodes.length > 0;
   const hasExceptions = exceptions.length > 0;
-  const { isInComparisonView } = useModelTraceExplorerViewState();
 
   const inputList = createListFromObject(rootInputs).filter(({ value }) => value !== 'null');
   const outputList = createListFromObject(rootOutputs).filter(({ value }) => value !== 'null');
@@ -75,7 +74,7 @@ export const ModelTraceExplorerSummarySpans = ({
                 />
               </SegmentedControlButton>
             </SegmentedControlGroup>
-            {!isInComparisonView && <AssessmentPaneToggle />}
+            <AssessmentPaneToggle />
           </div>
         </div>
       )}

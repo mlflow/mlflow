@@ -62,17 +62,15 @@ function ModelTraceExplorerRightPaneTabsImpl({
       value={activeTab}
       onValueChange={(tab: string) => setActiveTab(tab as ModelTraceExplorerTab)}
     >
-      {!isInComparisonView && (
-        <div
-          css={{
-            position: 'absolute',
-            right: assessmentsPaneExpanded ? theme.spacing.xs : theme.spacing.md,
-            top: theme.spacing.xs,
-          }}
-        >
-          <AssessmentPaneToggle />
-        </div>
-      )}
+      <div
+        css={{
+          position: 'absolute',
+          right: assessmentsPaneExpanded ? theme.spacing.xs : theme.spacing.md,
+          top: theme.spacing.xs,
+        }}
+      >
+        <AssessmentPaneToggle />
+      </div>
       <Tabs.List
         css={{
           padding: 0,
