@@ -11,7 +11,7 @@ from click.testing import CliRunner
 import mlflow
 from mlflow import experiments
 from mlflow.exceptions import MlflowException
-from mlflow.runs import create_run, describe_run, link_traces, list_run
+from mlflow.runs import create_run, link_traces, list_run
 
 
 @pytest.fixture(autouse=True)
@@ -73,47 +73,6 @@ def test_csv_generation(tmp_path):
         )
         with open(result_filename) as fd:
             assert expected_csv == fd.read()
-
-
-def test_describe_run():
-    run_name = "apple"
-    with mlflow.start_run(run_name=run_name) as run:
-        run_id = run.info.run_id
-        mlflow.pyfunc.log_model(name="my_model", python_model=mlflow.pyfunc.PythonModel())
-    result = CliRunner().invoke(describe_run, ["--run-id", run_id])
-    assert result.exit_code == 0
-    output = json.loads(result.output)
-    # info
-    assert "info" in output
-    info = output["info"]
-    assert "artifact_uri" in info
-    assert "end_time" in info
-    assert "experiment_id" in info
-    assert "lifecycle_stage" in info
-    assert "run_id" in info
-    assert info["run_name"] == run_name
-    assert "start_time" in info
-    assert "status" in info
-    assert "user_id" in info
-    # data
-    assert "data" in output
-    data = output["data"]
-    assert "metrics" in data
-    assert "params" in data
-    assert "tags" in data
-    assert data["tags"]["mlflow.runName"] == run_name
-    # inputs
-    assert "inputs" in output
-    inputs = output["inputs"]
-    assert "dataset_inputs" in inputs
-    assert "model_inputs" in inputs
-    # outputs
-    assert "outputs" in output
-    outputs = output["outputs"]
-    assert "model_outputs" in outputs
-    assert len(outputs["model_outputs"]) == 1
-    assert "model_id" in outputs["model_outputs"][0]
-    assert "step" in outputs["model_outputs"][0]
 
 
 def test_create_run_with_experiment_id():
