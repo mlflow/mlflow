@@ -1431,10 +1431,9 @@ def test_conversation_completeness_with_session(name, model, expected_name):
     ],
 )
 def test_completeness_with_inputs_outputs(name, model, expected_name, rationale):
-    """Test Completeness scorer with direct inputs and outputs."""
     with patch(
         "mlflow.genai.judges.instructions_judge.invoke_judge_model",
-        return_value=Feedback(name=expected_name, value="complete", rationale=rationale),
+        return_value=Feedback(name=expected_name, value="yes", rationale=rationale),
     ) as mock_invoke_judge:
         kwargs = {}
         if name:
@@ -1448,22 +1447,21 @@ def test_completeness_with_inputs_outputs(name, model, expected_name, rationale)
         )
 
         assert result.name == expected_name
-        assert result.value == "complete"
+        assert result.value == "yes"
         assert result.rationale == rationale
         mock_invoke_judge.assert_called_once()
 
 
 def test_completeness_with_trace():
-    """Test Completeness scorer with trace."""
     with patch(
         "mlflow.genai.judges.instructions_judge.invoke_judge_model",
-        return_value=Feedback(name="completeness", value="complete", rationale="Fully addressed"),
+        return_value=Feedback(name="completeness", value="yes", rationale="Fully addressed"),
     ) as mock_invoke_judge:
         trace = create_simple_trace()
         scorer = Completeness()
         result = scorer(trace=trace)
 
         assert result.name == "completeness"
-        assert result.value == "complete"
+        assert result.value == "yes"
         assert result.rationale == "Fully addressed"
         mock_invoke_judge.assert_called_once()

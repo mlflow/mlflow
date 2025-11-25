@@ -1796,7 +1796,7 @@ class Completeness(BuiltInScorer):
 
     This scorer analyzes a single turn of interaction (user input and AI response) to determine
     if the AI successfully answered all questions and provided all requested information.
-    It returns "complete" or "incomplete".
+    It returns "yes" or "no".
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
@@ -1816,7 +1816,7 @@ class Completeness(BuiltInScorer):
             inputs={"question": "What is MLflow and what are its main features?"},
             outputs="MLflow is an open-source platform for managing the ML lifecycle.",
         )
-        print(assessment)  # Feedback with value "complete" or "incomplete"
+        print(assessment)  # Feedback with value "yes" or "no"
 
     Example (with evaluate):
 
@@ -1838,34 +1838,26 @@ class Completeness(BuiltInScorer):
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
     description: str = (
-        "Evaluate whether the AI fully addresses all user questions in a single turn."
+        "Evaluate whether the assistant fully addresses all user questions in a single turn."
     )
     _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
 
     def _get_judge(self) -> InstructionsJudge:
-        """Return an InstructionsJudge with the completeness prompt."""
         if self._judge is None:
             self._judge = InstructionsJudge(
                 name=self.name,
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["complete", "incomplete"],
+                feedback_value_type=Literal["yes", "no"],
             )
         return self._judge
 
     @property
     def instructions(self) -> str:
-        """Get the instructions of what this scorer evaluates."""
         return COMPLETENESS_PROMPT
 
     def get_input_fields(self) -> list[JudgeField]:
-        """
-        Get the input fields for the Completeness judge.
-
-        Returns:
-            List of JudgeField objects defining the input fields based on the __call__ method.
-        """
         return [
             JudgeField(
                 name="inputs",
@@ -1890,24 +1882,6 @@ class Completeness(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        """
-        Evaluate completeness of a single turn interaction.
-
-        This scorer analyzes whether the AI assistant fully addressed all user questions
-        for a single user prompt. It evaluates whether all questions were answered and all requested
-        information was provided.
-
-        Args:
-            inputs: A dictionary of input data, e.g. {"question": "What is MLflow?"}.
-                Optional when trace is provided.
-            outputs: The response from the model, e.g. "MLflow is a platform for ML."
-                Optional when trace is provided.
-            trace: MLflow trace object containing the execution to evaluate. When provided,
-                inputs and outputs will be automatically extracted from the trace.
-
-        Returns:
-            A Feedback object with 'complete'/'incomplete'.
-        """
         return self._get_judge()(
             inputs=inputs,
             outputs=outputs,
