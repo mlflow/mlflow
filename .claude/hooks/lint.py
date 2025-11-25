@@ -57,7 +57,9 @@ def parse_diff_ranges(diff_output: str) -> dict[Path, list[DiffRange]]:
 
 
 def get_diff_ranges() -> dict[Path, list[DiffRange]]:
-    output = subprocess.check_output(["git", "diff", "-U0", "HEAD", "--", "*.py"], text=True)
+    output = subprocess.check_output(
+        ["git", "--no-pager", "diff", "-U0", "HEAD", "--", "*.py"], text=True
+    )
     return parse_diff_ranges(output)
 
 
