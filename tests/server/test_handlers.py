@@ -392,8 +392,8 @@ def test_log_batch_api_req(mock_get_request_json):
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert (
-            f"Batched logging API requests must be at most {MAX_BATCH_LOG_REQUEST_SIZE} bytes"
-            in json_response["message"]
+        f"Batched logging API requests must be at most {MAX_BATCH_LOG_REQUEST_SIZE} bytes"
+        in json_response["message"]
     )
 
 
@@ -969,7 +969,7 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
         response = _create_experiment()
         json_response = json.loads(response.get_data())
         assert (
-                json_response["message"] == "'artifact_location' URL can't include fragments or params."
+            json_response["message"] == "'artifact_location' URL can't include fragments or params."
         )
 
     # Test if source is a local filesystem path, `_validate_source` validates that the run
@@ -981,12 +981,12 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
         ).info.artifact_uri = f"http://host/{run_id}/artifacts/abc"
 
         with pytest.raises(
-                MlflowException,
-                match=(
-                        "the run_id request parameter has to be specified and the local "
-                        "path has to be contained within the artifact directory of the "
-                        "run specified by the run_id"
-                ),
+            MlflowException,
+            match=(
+                "the run_id request parameter has to be specified and the local "
+                "path has to be contained within the artifact directory of the "
+                "run specified by the run_id"
+            ),
         ):
             _validate_source_run("/local/path/xyz", run_id)
 
@@ -997,15 +997,15 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
         ("file:///0/traces/123", LocalArtifactRepository, "file:///0/traces/123"),
         ("s3://bucket/0/traces/123", S3ArtifactRepository, "s3://bucket/0/traces/123"),
         (
-                "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
-                AzureBlobArtifactRepository,
-                "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
+            "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
+            AzureBlobArtifactRepository,
+            "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
         ),
         # Proxy URI must be resolved to the actual storage URI
         (
-                "https://127.0.0.1/api/2.0/mlflow-artifacts/artifacts/2/traces/123",
-                S3ArtifactRepository,
-                "s3://bucket/2/traces/123",
+            "https://127.0.0.1/api/2.0/mlflow-artifacts/artifacts/2/traces/123",
+            S3ArtifactRepository,
+            "s3://bucket/2/traces/123",
         ),
         ("mlflow-artifacts:/1/traces/123", S3ArtifactRepository, "s3://bucket/1/traces/123"),
     ],
@@ -1071,12 +1071,12 @@ def test_create_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset)
     mock_tracking_store.create_dataset.return_value = mock_evaluation_dataset
 
     with app.test_request_context(
-            method="POST",
-            json={
-                "name": "test_dataset",
-                "experiment_ids": ["0", "1"],
-                "tags": json.dumps({"env": "test"}),
-            },
+        method="POST",
+        json={
+            "name": "test_dataset",
+            "experiment_ids": ["0", "1"],
+            "tags": json.dumps({"env": "test"}),
+        },
     ):
         _create_dataset_handler()
 
@@ -1122,14 +1122,14 @@ def test_search_datasets(mock_tracking_store):
     mock_tracking_store.search_datasets.return_value = paged_list
 
     with app.test_request_context(
-            method="POST",
-            json={
-                "experiment_ids": ["0", "1"],
-                "filter_string": "name = 'dataset_1'",
-                "max_results": 10,
-                "order_by": ["name DESC"],
-                "page_token": "token123",
-            },
+        method="POST",
+        json={
+            "experiment_ids": ["0", "1"],
+            "filter_string": "name = 'dataset_1'",
+            "max_results": 10,
+            "order_by": ["name DESC"],
+            "page_token": "token123",
+        },
     ):
         _search_evaluation_datasets_handler()
 
@@ -1145,10 +1145,10 @@ def test_search_datasets(mock_tracking_store):
 def test_set_dataset_tags(mock_tracking_store):
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     with app.test_request_context(
-            method="POST",
-            json={
-                "tags": json.dumps({"env": "production", "version": "2.0"}),
-            },
+        method="POST",
+        json={
+            "tags": json.dumps({"env": "production", "version": "2.0"}),
+        },
     ):
         _set_dataset_tags_handler(dataset_id)
 
@@ -1183,10 +1183,10 @@ def test_upsert_dataset_records(mock_tracking_store):
     ]
 
     with app.test_request_context(
-            method="POST",
-            json={
-                "records": json.dumps(records),
-            },
+        method="POST",
+        json={
+            "records": json.dumps(records),
+        },
     ):
         resp = _upsert_dataset_records_handler(dataset_id)
 
@@ -1257,11 +1257,11 @@ def test_get_dataset_records(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (records[:2], "token_page2")
 
     with app.test_request_context(
-            method="GET",
-            json={
-                "max_results": 2,
-                "page_token": None,
-            },
+        method="GET",
+        json={
+            "max_results": 2,
+            "page_token": None,
+        },
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1277,11 +1277,11 @@ def test_get_dataset_records(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (records[2:], None)
 
     with app.test_request_context(
-            method="GET",
-            json={
-                "max_results": 2,
-                "page_token": "token_page2",
-            },
+        method="GET",
+        json={
+            "max_results": 2,
+            "page_token": "token_page2",
+        },
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1333,8 +1333,8 @@ def test_get_dataset_records_pagination(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (all_records[:20], "token_20")
 
     with app.test_request_context(
-            method="GET",
-            json={"max_results": 20},
+        method="GET",
+        json={"max_results": 20},
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1351,8 +1351,8 @@ def test_get_dataset_records_pagination(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (all_records[20:40], "token_40")
 
     with app.test_request_context(
-            method="GET",
-            json={"max_results": 20, "page_token": "token_20"},
+        method="GET",
+        json={"max_results": 20, "page_token": "token_20"},
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1368,8 +1368,8 @@ def test_get_dataset_records_pagination(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (all_records[40:], None)
 
     with app.test_request_context(
-            method="GET",
-            json={"max_results": 20, "page_token": "token_40"},
+        method="GET",
+        json={"max_results": 20, "page_token": "token_40"},
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1648,7 +1648,7 @@ def test_calculate_trace_filter_correlation(mock_get_request_message, mock_track
 
 
 def test_calculate_trace_filter_correlation_without_base_filter(
-        mock_get_request_message, mock_tracking_store
+    mock_get_request_message, mock_tracking_store
 ):
     experiment_ids = ["123"]
     filter_string1 = "span.type = 'LLM'"
@@ -1690,7 +1690,7 @@ def test_calculate_trace_filter_correlation_without_base_filter(
 
 
 def test_calculate_trace_filter_correlation_with_nan_npmi(
-        mock_get_request_message, mock_tracking_store
+    mock_get_request_message, mock_tracking_store
 ):
     experiment_ids = ["123"]
     filter_string1 = "span.type = 'LLM'"
@@ -1799,7 +1799,7 @@ def test_search_experiments_empty_page_token(mock_get_request_message, mock_trac
 
 
 def test_search_registered_models_empty_page_token(
-        mock_get_request_message, mock_model_registry_store
+    mock_get_request_message, mock_model_registry_store
 ):
     """Test that _search_registered_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
@@ -1822,7 +1822,7 @@ def test_search_registered_models_empty_page_token(
 
 
 def test_search_model_versions_empty_page_token(
-        mock_get_request_message, mock_model_registry_store
+    mock_get_request_message, mock_model_registry_store
 ):
     """Test that _search_model_versions converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
@@ -1870,7 +1870,7 @@ def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracki
 
 
 def test_deprecated_search_traces_v2_empty_page_token(
-        mock_get_request_message, mock_tracking_store
+    mock_get_request_message, mock_tracking_store
 ):
     """Test that _deprecated_search_traces_v2 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
