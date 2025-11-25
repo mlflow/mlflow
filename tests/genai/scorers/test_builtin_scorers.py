@@ -21,7 +21,7 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
 )
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.builtin_scorers import (
     ExtractedFields,
     _construct_field_extraction_config,
@@ -692,6 +692,21 @@ def test_guidelines_with_trace():
         assert result.name == "guidelines"
         assert result.value is True
         mock_meets_guidelines.assert_called_once()
+
+
+def test_builtin_scorers_kind_property():
+    # Test scorers returned by get_all_scorers() - they should all be BUILTIN
+    for scorer in get_all_scorers():
+        assert scorer.kind == ScorerKind.BUILTIN, (
+            f"{scorer.__class__.__name__} should have kind BUILTIN, got {scorer.kind}"
+        )
+
+    # Test Guidelines explicitly - it has its own kind (not included in get_all_scorers)
+    guidelines_scorer = Guidelines(
+        name="test_guidelines",
+        guidelines=["Be polite", "Be helpful"],
+    )
+    assert guidelines_scorer.kind == ScorerKind.GUIDELINES
 
 
 def test_relevance_to_query_with_trace():

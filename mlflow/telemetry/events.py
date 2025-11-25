@@ -1,4 +1,5 @@
 import sys
+from collections import Counter
 from enum import Enum
 from typing import Any
 
@@ -76,6 +77,7 @@ class GenAIEvaluateEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.genai.scorers.base import Scorer
         from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 
         record_params = {}
@@ -89,6 +91,12 @@ class GenAIEvaluateEvent(Event):
             type(scorer).__name__ for scorer in scorers if isinstance(scorer, BuiltInScorer)
         }
         record_params["builtin_scorers"] = sorted(builtin_scorers)
+
+        # Track scorer kind counts
+        scorer_kind_count = Counter[str](
+            scorer.kind.value for scorer in scorers if isinstance(scorer, Scorer)
+        )
+        record_params["scorer_kind_count"] = dict[str, int](sorted(scorer_kind_count.items()))
 
         return record_params
 
