@@ -86,64 +86,64 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
         </div>
         <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.xs }}>
           <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <Button componentId="mlflow.eval-datasets.records-toolbar.row-size-toggle" icon={<RowsIcon />} />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end">
-            <DropdownMenu.RadioGroup
-              componentId="mlflow.eval-datasets.records-toolbar.row-size-radio"
-              value={rowSize}
-              onValueChange={(value) => setRowSize(value as 'sm' | 'md' | 'lg')}
-            >
-              <DropdownMenu.Label>
-                <Typography.Text color="secondary">
-                  <FormattedMessage defaultMessage="Row height" description="Label for the row height radio group" />
-                </Typography.Text>
-              </DropdownMenu.Label>
-              <DropdownMenu.RadioItem key="sm" value="sm">
-                <DropdownMenu.ItemIndicator />
-                <Typography.Text>
-                  <FormattedMessage defaultMessage="Small" description="Small row size" />
-                </Typography.Text>
-              </DropdownMenu.RadioItem>
-              <DropdownMenu.RadioItem key="md" value="md">
-                <DropdownMenu.ItemIndicator />
-                <Typography.Text>
-                  <FormattedMessage defaultMessage="Medium" description="Medium row size" />
-                </Typography.Text>
-              </DropdownMenu.RadioItem>
-              <DropdownMenu.RadioItem key="lg" value="lg">
-                <DropdownMenu.ItemIndicator />
-                <Typography.Text>
-                  <FormattedMessage defaultMessage="Large" description="Large row size" />
-                </Typography.Text>
-              </DropdownMenu.RadioItem>
-            </DropdownMenu.RadioGroup>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <Button componentId="mlflow.eval-datasets.records-toolbar.columns-toggle" icon={<ColumnsIcon />} />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            {columns.map((column) => (
-              <DropdownMenu.CheckboxItem
-                componentId="mlflow.eval-datasets.records-toolbar.column-checkbox"
-                key={column.id}
-                checked={columnVisibility[column.id ?? ''] ?? false}
-                onCheckedChange={(checked) =>
-                  setColumnVisibility({
-                    ...columnVisibility,
-                    [column.id ?? '']: checked,
-                  })
-                }
+            <DropdownMenu.Trigger asChild>
+              <Button componentId="mlflow.eval-datasets.records-toolbar.row-size-toggle" icon={<RowsIcon />} />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.RadioGroup
+                componentId="mlflow.eval-datasets.records-toolbar.row-size-radio"
+                value={rowSize}
+                onValueChange={(value) => setRowSize(value as 'sm' | 'md' | 'lg')}
               >
-                <DropdownMenu.ItemIndicator />
-                <Typography.Text>{column.header}</Typography.Text>
-              </DropdownMenu.CheckboxItem>
-            ))}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+                <DropdownMenu.Label>
+                  <Typography.Text color="secondary">
+                    <FormattedMessage defaultMessage="Row height" description="Label for the row height radio group" />
+                  </Typography.Text>
+                </DropdownMenu.Label>
+                <DropdownMenu.RadioItem key="sm" value="sm">
+                  <DropdownMenu.ItemIndicator />
+                  <Typography.Text>
+                    <FormattedMessage defaultMessage="Small" description="Small row size" />
+                  </Typography.Text>
+                </DropdownMenu.RadioItem>
+                <DropdownMenu.RadioItem key="md" value="md">
+                  <DropdownMenu.ItemIndicator />
+                  <Typography.Text>
+                    <FormattedMessage defaultMessage="Medium" description="Medium row size" />
+                  </Typography.Text>
+                </DropdownMenu.RadioItem>
+                <DropdownMenu.RadioItem key="lg" value="lg">
+                  <DropdownMenu.ItemIndicator />
+                  <Typography.Text>
+                    <FormattedMessage defaultMessage="Large" description="Large row size" />
+                  </Typography.Text>
+                </DropdownMenu.RadioItem>
+              </DropdownMenu.RadioGroup>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <Button componentId="mlflow.eval-datasets.records-toolbar.columns-toggle" icon={<ColumnsIcon />} />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content>
+              {columns.map((column) => (
+                <DropdownMenu.CheckboxItem
+                  componentId="mlflow.eval-datasets.records-toolbar.column-checkbox"
+                  key={column.id}
+                  checked={columnVisibility[column.id ?? ''] ?? false}
+                  onCheckedChange={(checked) =>
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      [column.id ?? '']: checked,
+                    })
+                  }
+                >
+                  <DropdownMenu.ItemIndicator />
+                  <Typography.Text>{column.header}</Typography.Text>
+                </DropdownMenu.CheckboxItem>
+              ))}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         </div>
       </div>
       <div
