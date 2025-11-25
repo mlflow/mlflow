@@ -3,7 +3,6 @@ Lightweight hook for validating code written by Claude Code.
 """
 
 import ast
-import json
 import re
 import subprocess
 import sys
@@ -151,10 +150,10 @@ def main() -> int:
     if all_errors:
         error_details = "\n".join(f"  - {error}" for error in all_errors)
         reason = f"Lint errors found:\n{error_details}"
-        sys.stdout.write(json.dumps({"decision": "block", "reason": reason}))
-        # See https://code.claude.com/docs/en/hooks#simple:-exit-code for how hooks communicate
-        # status through exit codes
-        return 0
+        # Exit code 2 = blocking error. stderr is fed back to Claude.
+        # See: https://code.claude.com/docs/en/hooks#hook-output
+        sys.stderr.write(reason + "\n")
+        return 2
 
     return 0
 
