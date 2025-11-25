@@ -86,13 +86,11 @@ def _log_multi_turn_assessments_to_traces(
             continue
 
         try:
-            logged_trace = _log_assessments(
+            _log_assessments(
                 run_id=run_id,
                 trace=matching_eval_result.eval_item.trace,
                 assessments=assessments_list,
             )
-            # Update the trace in the eval_result
-            matching_eval_result.eval_item.trace = logged_trace
             matching_eval_result.assessments.extend(assessments_list)
         except Exception as e:
             _logger.warning(
@@ -167,6 +165,10 @@ def run(
                 eval_results=eval_results,
                 run_id=run_id,
             )
+
+    # Refresh traces on eval_results to include all logged assessments.
+    # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
+    _refresh_eval_result_traces(eval_results)
 
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
@@ -262,12 +264,11 @@ def _run_single(
             _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
 
     try:
-        logged_trace = _log_assessments(
+        _log_assessments(
             run_id=run_id,
             trace=eval_item.trace,
             assessments=eval_result.assessments,
         )
-        eval_result.eval_item.trace = logged_trace
     except Exception as e:
         # Failures in logging to MLflow should not fail the entire harness run
         _logger.warning(f"Failed to log trace and assessments to MLflow: {e}")
@@ -364,7 +365,10 @@ def _log_assessments(
     run_id: str | None,
     trace: Trace,
     assessments: list[Assessment],
-) -> Trace:
+) -> None:
+    """
+    Log assessments to a trace.
+    """
     for assessment in assessments:
         # Ensure that if we created a new trace, that the updated trace_id is reflected in
         # the assessments.
@@ -383,8 +387,21 @@ def _log_assessments(
 
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 
-    # Get the trace to fetch newly created assessments.
-    return mlflow.get_trace(trace.info.trace_id)
+
+def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:
+    """
+    Refresh traces on eval_results to include logged assessments.
+
+    This function fetches the updated traces from the backend after all assessments
+    (both single-turn and multi-turn) have been logged. 
+    """
+    for eval_result in eval_results:
+        if eval_result.eval_item.trace is not None:
+            trace_id = eval_result.eval_item.trace.info.trace_id
+            try:
+                eval_result.eval_item.trace = mlflow.get_trace(trace_id)
+            except Exception as e:
+                _logger.warning(f"Failed to refresh trace {trace_id}: {e}")
 
 
 def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
