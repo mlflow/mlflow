@@ -160,6 +160,10 @@ def get_source_and_diff_ranges(hook_input: HookInput) -> tuple[str, list[DiffRan
 
 
 def main() -> int:
+    # Kill switch: disable hook if environment variable is set
+    if os.environ.get("CLAUDE_LINT_HOOK_DISABLED"):
+        return 0
+
     hook_input = HookInput.parse()
     if not hook_input:
         return 0
@@ -175,7 +179,10 @@ def main() -> int:
     source, diff_ranges = get_source_and_diff_ranges(hook_input)
     if errors := lint(hook_input.file_path, source, diff_ranges):
         error_details = "\n".join(f"  - {error}" for error in errors)
-        reason = f"Lint errors found:\n{error_details}"
+        reason = (
+            f"Lint errors found:\n{error_details}\n\n"
+            "To disable this hook, set CLAUDE_LINT_HOOK_DISABLED=1"
+        )
         # Exit code 2 = blocking error. stderr is fed back to Claude.
         # See: https://code.claude.com/docs/en/hooks#hook-output
         sys.stderr.write(reason + "\n")
