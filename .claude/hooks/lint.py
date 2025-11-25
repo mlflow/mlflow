@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypeAlias
 
-DefNode: TypeAlias = ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+FuncNode: TypeAlias = ast.FunctionDef | ast.AsyncFunctionDef
 
 
 @dataclass
@@ -51,14 +51,14 @@ def overlaps_with_diff(node: ast.Constant, ranges: list[DiffRange]) -> bool:
     return any(r.overlaps(node.lineno, node.end_lineno or node.lineno) for r in ranges)
 
 
-def get_docstring_node(node: DefNode) -> ast.Constant | None:
+def get_docstring_node(node: FuncNode) -> ast.Constant | None:
     match node.body:
         case [ast.Expr(value=ast.Constant(value=str()) as const), *_]:
             return const
     return None
 
 
-def is_redundant_docstring(node: DefNode) -> bool:
+def is_redundant_docstring(node: FuncNode) -> bool:
     docstring = ast.get_docstring(node)
     if not docstring:
         return False
@@ -71,7 +71,7 @@ class Visitor(ast.NodeVisitor):
         self.diff_ranges = diff_ranges
         self.errors: list[LintError] = []
 
-    def _check_docstring(self, node: DefNode) -> None:
+    def _check_docstring(self, node: FuncNode) -> None:
         if not node.name.startswith("test_"):
             return
         docstring_node = get_docstring_node(node)
@@ -93,10 +93,6 @@ class Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        self._check_docstring(node)
-        self.generic_visit(node)
-
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._check_docstring(node)
         self.generic_visit(node)
 
