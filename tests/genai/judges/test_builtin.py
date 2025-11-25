@@ -10,6 +10,7 @@ from mlflow.entities.assessment import (
     AssessmentSourceType,
     Feedback,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 from mlflow.genai.judges.utils import CategoricalRating
@@ -304,6 +305,19 @@ def test_is_correct_oss():
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
     assert "Paris" in prompt
+
+
+def test_is_correct_rejects_both_expected_response_and_expected_facts():
+    with pytest.raises(
+        MlflowException,
+        match="Only one of expected_response or expected_facts should be provided, not both",
+    ):
+        judges.is_correct(
+            request="What is the capital of France?",
+            response="Paris is the capital of France.",
+            expected_response="Paris",
+            expected_facts=["Paris is the capital of France"],
+        )
 
 
 def test_is_context_sufficient_oss():

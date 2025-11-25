@@ -3,11 +3,12 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Globe, Search, TrendingUp } from "lucide-react";
+import { Search, TrendingUp } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Track Users & Sessions
 
-![Traces with session IDs](/images/llms/tracing/chat-sessions-demo.gif)
+<video src={useBaseUrl("/images/llms/tracing/chat-sessions-demo.mp4")} controls loop autoPlay muted aria-label="Traces with session IDs" />
 
 Many real-world AI applications use session to maintain multi-turn user interactions. MLflow Tracing provides built-in support for associating traces with users and grouping them into sessions. Tracking users and sessions in your GenAI application provides essential context for understanding user behavior, analyzing conversation flows, and improving personalization.
 

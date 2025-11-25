@@ -318,7 +318,7 @@ export const ModelVersionTable = ({
   };
 
   const table = useReactTable<ModelVersionInfoEntity>(
-    'mlflow/web/js/src/model-registry/components/ModelVersionTable.tsx',
+    'mlflow/server/js/src/model-registry/components/ModelVersionTable.tsx',
     {
       data: versions || [],
       columns: tableColumns,

@@ -374,7 +374,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         template = event.template
         template_args = {
             **template.kwargs,
-            **(event.template_args if event.template_args else {}),
+            **(event.template_args or {}),
         }
         span.set_attributes(
             {

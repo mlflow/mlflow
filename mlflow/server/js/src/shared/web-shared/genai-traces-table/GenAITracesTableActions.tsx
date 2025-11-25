@@ -101,7 +101,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
 
   const handleExportToDatasets = useCallback(() => {
-    traceActions?.exportToEvals?.setShowExportTracesToDatasetsModal(true);
+    traceActions?.exportToEvals?.setShowExportTracesToDatasetsModal?.(true);
   }, [traceActions?.exportToEvals]);
   const showDatasetModal = traceActions?.exportToEvals?.showExportTracesToDatasetsModal;
 
@@ -215,10 +215,13 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
 
       {traceActions?.editTags?.EditTagsModal}
 
-      {showDatasetModal &&
-        traceActions?.exportToEvals?.renderExportTracesToDatasetsModal({
+      {
+        // prettier-ignore
+        showDatasetModal &&
+        traceActions?.exportToEvals?.renderExportTracesToDatasetsModal?.({
           selectedTraceInfos: compact(selectedTraces.map((trace) => trace.traceInfo)),
-        })}
+        })
+      }
 
       {showDeleteModal && traceActions?.deleteTracesAction && (
         <GenAiDeleteTraceModal

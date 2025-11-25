@@ -402,7 +402,7 @@ def _copy_project(src_path, dst_path=""):
         patterns = []
         if os.path.exists(docker_ignore):
             with open(docker_ignore) as f:
-                patterns = [x.strip() for x in f.readlines()]
+                patterns = [x.strip() for x in f]
 
         def ignore(_, names):
             res = set()
@@ -940,7 +940,7 @@ def get_total_file_size(path: str | pathlib.Path) -> int | None:
         total_size = 0
         for cur_path, dirs, files in os.walk(path):
             full_paths = [os.path.join(cur_path, file) for file in files]
-            total_size += sum([os.path.getsize(file) for file in full_paths])
+            total_size += sum(map(os.path.getsize, full_paths))
         return total_size
     except Exception as e:
         _logger.info(f"Failed to get the total size of {path} because of error :{e}")

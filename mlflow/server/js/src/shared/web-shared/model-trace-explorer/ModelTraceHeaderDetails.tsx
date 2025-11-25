@@ -70,7 +70,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   };
 
   const getTruncatedLabel = (label: string) => truncateToFirstLineWithMaxLength(label, 40);
-  const getTruncatedSessionLabel = (label: string) => (label.length > 10 ? `${label.slice(0, 10)}...` : label);
 
   const handleCopy = useCallback(() => {
     setShowNotification(true);
@@ -108,7 +107,12 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           />
         )}
         {sessionId && experimentId && (
-          <ModelTraceHeaderSessionIdTag handleCopy={handleCopy} experimentId={experimentId} sessionId={sessionId} />
+          <ModelTraceHeaderSessionIdTag
+            handleCopy={handleCopy}
+            experimentId={experimentId}
+            sessionId={sessionId}
+            traceId={modelTraceId}
+          />
         )}
         {userId && (
           <ModelTraceHeaderMetricSection

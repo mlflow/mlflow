@@ -2,6 +2,7 @@ from functools import wraps
 from typing import Any
 
 from mlflow.entities.assessment import Feedback
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.utils.annotations import deprecated
@@ -340,6 +341,11 @@ def _is_grounded_impl(
     model: str | None = None,
 ) -> Feedback:
     from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_FEEDBACK_NAME, get_prompt
+
+    if expected_response is not None and expected_facts is not None:
+        raise MlflowException(
+            "Only one of expected_response or expected_facts should be provided, not both."
+        )
 
     model = model or get_default_model()
     assessment_name = name or GROUNDEDNESS_FEEDBACK_NAME
