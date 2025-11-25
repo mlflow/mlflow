@@ -351,7 +351,9 @@ def test_create_webhook(mock_requests, mock_telemetry_client: TelemetryClient):
     )
 
 
-def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
+def test_genai_evaluate_with_predict_fn_and_builtin_scorer(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
     @mlflow.genai.scorer
     def sample_scorer():
         return 1.0
@@ -374,13 +376,30 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
             "eval_data_type": "list[dict]",
             "eval_data_size": 1,
             "predict_fn_provided": True,
+            "eval_data_provided_fields": ["inputs", "outputs"],
             "scorer_kind_count": {"decorator": 1, "builtin": 1},
         }
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
         )
 
-        # Test without predict_fn
+
+def test_genai_evaluate_without_predict_fn(mock_requests, mock_telemetry_client: TelemetryClient):
+    @mlflow.genai.scorer
+    def sample_scorer():
+        return 1.0
+
+    data = [
+        {
+            "inputs": {"model_input": ["What is the capital of France?"]},
+            "outputs": "The capital of France is Paris.",
+        },
+        {
+            "inputs": {"model_input": ["What is the capital of Spain?"]},
+            "outputs": "The capital of Spain is Madrid.",
+        },
+    ]
+    with mock.patch("mlflow.genai.judges.is_context_relevant"):
         mlflow.genai.evaluate(
             data=data,
             scorers=[sample_scorer],
@@ -388,13 +407,159 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         expected_params = {
             "builtin_scorers": [],
             "eval_data_type": "list[dict]",
-            "eval_data_size": 1,
+            "eval_data_size": 2,
             "predict_fn_provided": False,
+            "eval_data_provided_fields": ["inputs", "outputs"],
             "scorer_kind_count": {"decorator": 1},
         }
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
         )
+
+
+def test_genai_evaluate_with_expectations(mock_requests, mock_telemetry_client: TelemetryClient):
+    @mlflow.genai.scorer
+    def sample_scorer():
+        return 1.0
+
+    data_with_expectations = [
+        {
+            "inputs": {"model_input": ["What is the capital of France?"]},
+            "outputs": "The capital of France is Paris.",
+            "expectations": {"expected_response": "Paris"},
+        },
+    ]
+    with mock.patch("mlflow.genai.judges.is_context_relevant"):
+        mlflow.genai.evaluate(
+            data=data_with_expectations,
+            scorers=[sample_scorer],
+        )
+        expected_params = {
+            "builtin_scorers": [],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
+            "predict_fn_provided": False,
+            "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
+            "scorer_kind_count": {"decorator": 1},
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+
+def test_genai_evaluate_with_list_of_traces(mock_requests, mock_telemetry_client: TelemetryClient):
+    @mlflow.genai.scorer
+    def sample_scorer():
+        return 1.0
+
+    # Create traces by running traced functions
+    @mlflow.trace
+    def dummy_function_1():
+        return "output1"
+
+    @mlflow.trace
+    def dummy_function_2():
+        return "output2"
+
+    dummy_function_1()
+    trace_id_1 = mlflow.get_last_active_trace_id()
+    trace1 = mlflow.get_trace(trace_id_1)
+
+    dummy_function_2()
+    trace_id_2 = mlflow.get_last_active_trace_id()
+    trace2 = mlflow.get_trace(trace_id_2)
+
+    trace_list = [trace1, trace2]
+    with mock.patch("mlflow.genai.judges.is_context_relevant"):
+        mlflow.genai.evaluate(
+            data=trace_list,
+            scorers=[sample_scorer],
+        )
+        expected_params = {
+            "builtin_scorers": [],
+            "eval_data_type": "list[Trace]",
+            "eval_data_size": 2,
+            "predict_fn_provided": False,
+            "eval_data_provided_fields": ["trace"],
+            "scorer_kind_count": {"decorator": 1},
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+
+def test_genai_evaluate_with_pandas_dataframe(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
+    @mlflow.genai.scorer
+    def sample_scorer():
+        return 1.0
+
+    df_data = pd.DataFrame(
+        [
+            {
+                "inputs": {"model_input": ["What is the capital of France?"]},
+                "outputs": "The capital of France is Paris.",
+                "expectations": {"expected_response": "Paris"},
+            }
+        ]
+    )
+    with mock.patch("mlflow.genai.judges.is_context_relevant"):
+        mlflow.genai.evaluate(
+            data=df_data,
+            scorers=[sample_scorer],
+        )
+        expected_params = {
+            "builtin_scorers": [],
+            "eval_data_type": "pandas.DataFrame",
+            "eval_data_size": 1,
+            "predict_fn_provided": False,
+            "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
+            "scorer_kind_count": {"decorator": 1},
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+
+def test_genai_evaluate_with_pyspark_dataframe(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
+    import pyspark.sql
+
+    @mlflow.genai.scorer
+    def sample_scorer():
+        return 1.0
+
+    spark = pyspark.sql.SparkSession.builder.master("local[*]").getOrCreate()
+    try:
+        spark_data = spark.createDataFrame(
+            [
+                {
+                    "inputs": {"question": "What is MLflow?"},
+                    "outputs": "MLflow is an ML platform",
+                    "expectations": {"expected_response": "MLflow"},
+                }
+            ]
+        )
+        with mock.patch("mlflow.genai.judges.is_context_relevant"):
+            mlflow.genai.evaluate(
+                data=spark_data,
+                scorers=[sample_scorer],
+            )
+            expected_params = {
+                "builtin_scorers": [],
+                "eval_data_type": "pyspark.DataFrame",
+                "eval_data_size": 1,
+                "predict_fn_provided": False,
+                "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
+                "scorer_kind_count": {"decorator": 1},
+            }
+            validate_telemetry_record(
+                mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+            )
+    finally:
+        spark.stop()
 
 
 def test_genai_evaluate_scorer_kind_count(mock_requests, mock_telemetry_client: TelemetryClient):
@@ -453,6 +618,7 @@ def test_genai_evaluate_scorer_kind_count(mock_requests, mock_telemetry_client: 
             "eval_data_type": "list[dict]",
             "eval_data_size": 1,
             "predict_fn_provided": False,
+            "eval_data_provided_fields": ["inputs", "outputs"],
             "scorer_kind_count": {
                 "builtin": 2,
                 "decorator": 2,

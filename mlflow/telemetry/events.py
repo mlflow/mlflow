@@ -77,7 +77,10 @@ class GenAIEvaluateEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        from mlflow.genai.evaluation.utils import get_evaluation_data_size_and_type
+        from mlflow.genai.evaluation.utils import (
+            get_eval_data_provided_fields,
+            get_evaluation_data_size_and_type,
+        )
         from mlflow.genai.scorers.base import Scorer
         from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 
@@ -90,6 +93,13 @@ class GenAIEvaluateEvent(Event):
                 data_info = get_evaluation_data_size_and_type(data)
                 record_params["eval_data_type"] = data_info["eval_data_type"]
                 record_params["eval_data_size"] = data_info["eval_data_size"]
+            except Exception:
+                pass
+
+            # Track which data fields are provided
+            try:
+                provided_fields = get_eval_data_provided_fields(data)
+                record_params["eval_data_provided_fields"] = sorted(provided_fields)
             except Exception:
                 pass
 

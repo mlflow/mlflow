@@ -126,6 +126,82 @@ def get_evaluation_data_size_and_type(data: "EvaluationDatasetTypes") -> dict[st
     return {"eval_data_type": eval_data_type, "eval_data_size": eval_data_size}
 
 
+def get_eval_data_provided_fields(data: "EvaluationDatasetTypes") -> set[str]:
+    """
+    Extract which fields (inputs, outputs, expectations, trace) are provided in the evaluation data.
+
+    Args:
+        data: Evaluation dataset in various formats (DataFrame, list of dicts, list of Traces, etc.)
+
+    Returns:
+        Set of field names that are present in the data.
+    """
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+
+    provided_fields = set()
+    target_fields = {"inputs", "outputs", "expectations", "trace"}
+
+    # If data is an EvaluationDataset, convert it to DataFrame first
+    if isinstance(data, (ManagedEvaluationDataset, EntityEvaluationDataset)):
+        try:
+            if data.has_records():
+                data = data.to_df()
+            else:
+                # Records not loaded, return empty set to avoid triggering expensive load
+                return provided_fields
+        except Exception:
+            return provided_fields
+
+    # Check pandas DataFrame
+    try:
+        import pandas as pd
+
+        if isinstance(data, pd.DataFrame):
+            # Check which columns are present in the DataFrame
+            for field in target_fields:
+                if field in data.columns:
+                    # Check if the column has any non-null values
+                    try:
+                        if not data[field].isna().all():
+                            provided_fields.add(field)
+                    except Exception:
+                        # If we can't check for null values, just add it
+                        provided_fields.add(field)
+            return provided_fields
+    except ImportError:
+        pass
+
+    # Check list data
+    if isinstance(data, list):
+        if not data:
+            return provided_fields
+        # List of Trace objects
+        if hasattr(data[0], "__class__") and data[0].__class__.__name__ == "Trace":
+            return {"trace"}
+        # List of dicts
+        if isinstance(data[0], dict):
+            # Check the first item to see which fields are present
+            for field in target_fields:
+                if field in data[0]:
+                    provided_fields.add(field)
+            return provided_fields
+        return provided_fields
+
+    # Check PySpark DataFrame
+    try:
+        # Check if it's a PySpark DataFrame by checking the module
+        if hasattr(data, "__module__") and "pyspark" in data.__module__:
+            if hasattr(data, "columns"):
+                for field in target_fields:
+                    if field in data.columns:
+                        provided_fields.add(field)
+    except Exception:
+        pass
+
+    return provided_fields
+
+
 def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
     Takes in a dataset in the format that `mlflow.genai.evaluate()` expects and

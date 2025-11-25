@@ -16,6 +16,7 @@ from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
+    get_eval_data_provided_fields,
     get_evaluation_data_size_and_type,
     validate_tags,
 )
@@ -682,3 +683,105 @@ def test_get_evaluation_data_size_and_type_with_list_edge_cases(data, expected_t
 
     assert result["eval_data_type"] == expected_type
     assert result["eval_data_size"] == expected_size
+
+
+@pytest.mark.parametrize(
+    ("data", "expected_fields"),
+    [
+        # Pandas DataFrame with all fields (null trace excluded)
+        (
+            pd.DataFrame(
+                [
+                    {
+                        "inputs": {"question": "What is MLflow?"},
+                        "outputs": "MLflow is an ML platform",
+                        "expectations": {"expected_response": "MLflow"},
+                        "trace": None,
+                    }
+                ]
+            ),
+            {"inputs", "outputs", "expectations"},
+        ),
+        # List of dicts with all fields
+        (
+            [
+                {
+                    "inputs": {"question": "What is MLflow?"},
+                    "outputs": "MLflow is an ML platform",
+                    "expectations": {"expected_response": "MLflow"},
+                }
+            ],
+            {"inputs", "outputs", "expectations"},
+        ),
+        # Empty list
+        ([], set()),
+    ],
+)
+def test_get_eval_data_provided_fields_basic(data, expected_fields):
+    """Test get_eval_data_provided_fields with various basic data formats."""
+    result = get_eval_data_provided_fields(data)
+    assert result == expected_fields
+
+
+def test_get_eval_data_provided_fields_with_traces():
+    model = TestModel()
+    model.predict("What is MLflow?")
+    trace_id = mlflow.get_last_active_trace_id()
+    trace = mlflow.get_trace(trace_id)
+
+    # Single trace
+    result = get_eval_data_provided_fields([trace])
+    assert result == {"trace"}
+
+    # Trace wrapped in dict
+    result = get_eval_data_provided_fields([{"trace": trace}])
+    assert result == {"trace"}
+
+
+def test_get_eval_data_provided_fields_with_pyspark_dataframe(spark):
+    spark_df = spark.createDataFrame(
+        [
+            {
+                "inputs": {"question": "What is MLflow?"},
+                "outputs": "MLflow is an ML platform",
+                "expectations": {"expected_response": "MLflow"},
+            }
+        ]
+    )
+    result = get_eval_data_provided_fields(spark_df)
+    assert result == {"inputs", "outputs", "expectations"}
+
+
+@pytest.mark.parametrize("has_records", [True, False])
+def test_get_eval_data_provided_fields_with_evaluation_dataset(has_records):
+    from mlflow.entities.dataset_record import DatasetRecord
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+
+    dataset = EntityEvaluationDataset(
+        dataset_id="test_id",
+        name="test_dataset",
+        digest="test_digest",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    if has_records:
+        # Set records
+        dataset._records = [
+            DatasetRecord(
+                dataset_record_id="rec1",
+                dataset_id="test_id",
+                inputs={"question": "Question 1"},
+                outputs="Answer 1",
+                expectations={"expected_response": "Answer 1"},
+                created_time=123456789,
+                last_update_time=123456789,
+            )
+        ]
+        expected_fields = {"inputs", "outputs", "expectations"}
+    else:
+        # No records loaded - should return empty set without triggering load
+        expected_fields = set()
+
+    result = get_eval_data_provided_fields(dataset)
+    assert result == expected_fields
