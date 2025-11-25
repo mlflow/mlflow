@@ -363,7 +363,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     elif msg_type == "mcp_approval_response":
         return [
             {
-                "role": "user",
+                "role": "tool",
                 "content": str(message["approve"]),
                 "tool_call_id": message["approval_request_id"],
             }

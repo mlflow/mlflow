@@ -1191,7 +1191,7 @@ def test_create_function_call_output_item():
                     ],
                 },
                 {
-                    "role": "user",
+                    "role": "tool",
                     "content": "True",
                     "tool_call_id": "mcp_approval_request_123",
                 },
