@@ -300,7 +300,6 @@ def _get_sgc_mlflow_run_id_for_resumption(
     Returns:
         str or None: The MLflow run ID to resume, if found; otherwise None.
     """
-    # Determine the experiment ID to search in
     search_exp_id = experiment_id or _get_experiment_id()
 
     try:
@@ -444,7 +443,6 @@ def start_run(
             ).format(active_run_stack[0].info.run_id)
         )
     client = MlflowClient()
-
     if run_id:
         existing_run_id = run_id
     elif run_id := MLFLOW_RUN_ID.get():
