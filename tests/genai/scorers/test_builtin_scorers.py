@@ -1379,8 +1379,6 @@ def test_user_frustration_with_custom_name_and_model(monkeypatch: pytest.MonkeyP
     ],
 )
 def test_conversation_completeness_with_session(name, model, expected_name):
-    """Test ConversationCompleteness scorer with a list of traces from the same session."""
-    # Create multiple traces representing a conversation session
     session_id = "test_session_789"
     traces = []
     for i in range(3):
@@ -1392,9 +1390,7 @@ def test_conversation_completeness_with_session(name, model, expected_name):
 
     with patch(
         "mlflow.genai.judges.instructions_judge.invoke_judge_model",
-        return_value=Feedback(
-            name=expected_name, value="complete", rationale="All needs addressed"
-        ),
+        return_value=Feedback(name=expected_name, value="yes", rationale="All needs addressed"),
     ) as mock_invoke_judge:
         kwargs = {}
         if name:
@@ -1405,6 +1401,6 @@ def test_conversation_completeness_with_session(name, model, expected_name):
         result = scorer(session=traces)
 
         assert result.name == expected_name
-        assert result.value == "complete"
+        assert result.value == "yes"
         assert result.rationale == "All needs addressed"
         mock_invoke_judge.assert_called_once()

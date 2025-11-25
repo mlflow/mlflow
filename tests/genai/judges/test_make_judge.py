@@ -3349,7 +3349,6 @@ def test_conversation_no_warning_when_used(mock_invoke_judge_model):
 
 
 def test_instructions_judge_generate_rationale_first():
-    """Test that generate_rationale_first flag properly orders fields in response format."""
     # Test with generate_rationale_first=False (default)
     judge_default = InstructionsJudge(
         name="test_judge",
