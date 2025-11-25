@@ -82,6 +82,11 @@ def test_trace_passed_to_builtin_scorers_correctly(
     # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
     monkeypatch.setenv("AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED", "false")
 
+    # Remove expected_facts from trace to avoid validation error (can only have one)
+    sample_rag_trace.info.assessments = [
+        a for a in sample_rag_trace.info.assessments if a.name != "expected_facts"
+    ]
+
     with (
         patch(
             "databricks.agents.evals.judges.correctness",
@@ -112,7 +117,7 @@ def test_trace_passed_to_builtin_scorers_correctly(
     mock_correctness.assert_called_once_with(
         request="{'question': 'query'}",
         response="answer",
-        expected_facts=["fact1", "fact2"],
+        expected_facts=None,
         expected_response="expected answer",
         assessment_name="correctness",
     )
