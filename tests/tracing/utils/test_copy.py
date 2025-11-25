@@ -3,12 +3,9 @@ import time
 import pytest
 
 import mlflow
-from mlflow.entities import Span
-from mlflow.exceptions import MlflowException
-from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 
-from tests.tracing.helper import V2_TRACE_DICT, purge_traces
+from tests.tracing.helper import purge_traces
 
 
 def _create_test_span_dict(request_id="test-trace", parent_id=None):

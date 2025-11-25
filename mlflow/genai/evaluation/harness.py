@@ -22,13 +22,12 @@ from mlflow.environment_variables import (
 )
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
-from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
     evaluate_multi_turn_scorers,
-    get_first_trace_in_session,
     group_traces_by_session,
 )
+from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
 from mlflow.genai.evaluation.utils import (
     complete_eval_futures_with_progress_base,
     is_none_or_nan,
@@ -46,7 +45,7 @@ from mlflow.genai.utils.trace_utils import (
     create_minimal_trace,
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -110,9 +109,7 @@ def run(
 
         if session_groups:
             # Evaluate multi-turn scorers on session groups
-            multi_turn_assessments = evaluate_multi_turn_scorers(
-                multi_turn_scorers, session_groups
-            )
+            multi_turn_assessments = evaluate_multi_turn_scorers(multi_turn_scorers, session_groups)
 
             # Log multi-turn assessments to the first trace of each session
             for trace_id, assessments_dict in multi_turn_assessments.items():
@@ -126,7 +123,8 @@ def run(
 
                 if matching_eval_result is None:
                     _logger.warning(
-                        f"Could not find eval_result for trace {trace_id} to log multi-turn assessments"
+                        f"Could not find eval_result for trace {trace_id} "
+                        "to log multi-turn assessments"
                     )
                     continue
 

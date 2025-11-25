@@ -24,7 +24,7 @@ except ImportError:
 if TYPE_CHECKING:
     from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
-    from mlflow.genai.evaluation.entities import EvalItem, EvalResult
+    from mlflow.genai.evaluation.entities import EvalResult
 
     try:
         import pyspark.sql.dataframe

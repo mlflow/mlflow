@@ -7,21 +7,18 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities import TraceData, TraceInfo, TraceLocation, TraceState
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
-from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
-from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
 from tests.genai.conftest import databricks_only

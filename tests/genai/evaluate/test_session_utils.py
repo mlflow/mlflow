@@ -323,71 +323,62 @@ def test_validate_session_level_evaluation_inputs_feature_flag_disabled():
         )
 
 
-def test_validate_session_level_evaluation_inputs_with_predict_fn():
+def test_validate_session_level_evaluation_inputs_with_predict_fn(monkeypatch):
     """Test that validation raises error when predict_fn is provided with session-level scorers."""
 
     # Enable feature flag
-    os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
+    monkeypatch.setenv("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", "true")
 
-    try:
-        multi_turn_scorer = _MultiTurnTestScorer()
-        scorers_list = [multi_turn_scorer]
+    multi_turn_scorer = _MultiTurnTestScorer()
+    scorers_list = [multi_turn_scorer]
 
-        def dummy_predict_fn():
-            return "output"
+    def dummy_predict_fn():
+        return "output"
 
-        with pytest.raises(
-            MlflowException,
-            match="Multi-turn scorers are not yet supported with predict_fn",
-        ):
-            validate_session_level_evaluation_inputs(
-                scorers=scorers_list,
-                predict_fn=dummy_predict_fn,
-            )
-    finally:
-        os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
+    with pytest.raises(
+        MlflowException,
+        match="Multi-turn scorers are not yet supported with predict_fn",
+    ):
+        validate_session_level_evaluation_inputs(
+            scorers=scorers_list,
+            predict_fn=dummy_predict_fn,
+        )
 
 
-def test_validate_session_level_evaluation_inputs_valid():
+def test_validate_session_level_evaluation_inputs_valid(monkeypatch):
     """Test that validation passes with valid session-level input."""
 
     # Enable feature flag
-    os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
+    monkeypatch.setenv("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", "true")
 
-    try:
-        multi_turn_scorer = _MultiTurnTestScorer()
-        scorers_list = [multi_turn_scorer]
+    multi_turn_scorer = _MultiTurnTestScorer()
+    scorers_list = [multi_turn_scorer]
 
-        # Should not raise any exceptions
-        validate_session_level_evaluation_inputs(
-            scorers=scorers_list,
-            predict_fn=None,
-        )
-    finally:
-        os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
+    # Should not raise any exceptions
+    validate_session_level_evaluation_inputs(
+        scorers=scorers_list,
+        predict_fn=None,
+    )
 
 
-def test_validate_session_level_evaluation_inputs_mixed_scorers():
+def test_validate_session_level_evaluation_inputs_mixed_scorers(monkeypatch):
     """Test validation with mixed single-turn and session-level scorers."""
 
     # Enable feature flag
-    os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
+    monkeypatch.setenv("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", "true")
 
-    try:
-        @scorer
-        def single_turn_scorer(outputs):
-            return 1.0
+    @scorer
+    def single_turn_scorer(outputs):
+        return 1.0
 
-        multi_turn_scorer = _MultiTurnTestScorer()
-        scorers_list = [single_turn_scorer, multi_turn_scorer]
+    multi_turn_scorer = _MultiTurnTestScorer()
+    scorers_list = [single_turn_scorer, multi_turn_scorer]
 
-        # Should not raise any exceptions
-        validate_session_level_evaluation_inputs(
-            scorers=scorers_list,
-            predict_fn=None,
-        )
-    finally:
-        os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
+    # Should not raise any exceptions
+    validate_session_level_evaluation_inputs(
+        scorers=scorers_list,
+        predict_fn=None,
+    )
 
 
 # ==================== Tests for evaluate_multi_turn_scorers ====================
@@ -462,7 +453,6 @@ def test_evaluate_multi_turn_scorers_basic():
 
 
 def test_evaluate_multi_turn_scorers_multiple_sessions():
-    """Test evaluation across multiple sessions"""
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "session_scorer"
     mock_scorer.run.return_value = 1.0
@@ -549,7 +539,6 @@ def test_evaluate_multi_turn_scorers_handles_scorer_error():
 
 
 def test_evaluate_multi_turn_scorers_multiple_feedbacks_per_scorer():
-    """Test scorer returning multiple feedbacks"""
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "multi_feedback_scorer"
     mock_scorer.run.return_value = {"metric1": 0.7, "metric2": 0.9}
@@ -647,7 +636,10 @@ def test_evaluate_multi_turn_scorers_multiple_scorers():
                 )
             ]
 
-        mock_standardize.side_effect = [create_feedback("scorer1", 0.6), create_feedback("scorer2", 0.8)]
+        mock_standardize.side_effect = [
+            create_feedback("scorer1", 0.6),
+            create_feedback("scorer2", 0.8),
+        ]
 
         result = evaluate_multi_turn_scorers([mock_scorer1, mock_scorer2], session_groups)
 
@@ -660,7 +652,6 @@ def test_evaluate_multi_turn_scorers_multiple_scorers():
 
 
 def test_evaluate_multi_turn_scorers_empty_session_groups():
-    """Test evaluation with empty session groups"""
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "test_scorer"
 

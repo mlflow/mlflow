@@ -91,7 +91,10 @@ def evaluate_multi_turn_scorers(
         dict: {first_trace_id: {scorer_name: feedback, ...}}
     """
     # Import here to avoid circular dependency
-    from mlflow.genai.evaluation.utils import make_code_type_assessment_source, standardize_scorer_value
+    from mlflow.genai.evaluation.utils import (
+        make_code_type_assessment_source,
+        standardize_scorer_value,
+    )
 
     multi_turn_assessments = {}
 
@@ -154,9 +157,7 @@ def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: 
     Raises:
         MlflowException: If feature flag is not enabled or invalid configuration is detected
     """
-    has_session_level = any(
-        getattr(scorer, "is_session_level_scorer", False) for scorer in scorers
-    )
+    has_session_level = any(getattr(scorer, "is_session_level_scorer", False) for scorer in scorers)
 
     if has_session_level:
         # Check if feature is enabled
