@@ -54,7 +54,7 @@ _logger = logging.getLogger(__name__)
 
 
 def _log_multi_turn_assessments_to_traces(
-    multi_turn_assessments: dict[str, list],
+    multi_turn_assessments: dict[str, list[Feedback]],
     eval_results: list[EvalResult],
     run_id: str,
 ) -> None:
@@ -393,7 +393,7 @@ def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:
     Refresh traces on eval_results to include logged assessments.
 
     This function fetches the updated traces from the backend after all assessments
-    (both single-turn and multi-turn) have been logged. 
+    (both single-turn and multi-turn) have been logged.
     """
     for eval_result in eval_results:
         if eval_result.eval_item.trace is not None:
