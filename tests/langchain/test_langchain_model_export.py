@@ -256,16 +256,16 @@ def test_langchain_agent_model_predict(monkeypatch):
     assert response[0]["messages"][-1]["content"] == expected_output
 
 
-def assert_equal_retrievers(retriever, expected_retreiver):
+def assert_equal_retrievers(retriever, expected_retriever):
     from langchain.schema.retriever import BaseRetriever
 
     assert isinstance(retriever, BaseRetriever)
-    assert isinstance(retriever, type(expected_retreiver))
-    assert isinstance(retriever.vectorstore, type(expected_retreiver.vectorstore))
-    assert retriever.tags == expected_retreiver.tags
-    assert retriever.metadata == expected_retreiver.metadata
-    assert retriever.search_type == expected_retreiver.search_type
-    assert retriever.search_kwargs == expected_retreiver.search_kwargs
+    assert isinstance(retriever, type(expected_retriever))
+    assert isinstance(retriever.vectorstore, type(expected_retriever.vectorstore))
+    assert retriever.tags == expected_retriever.tags
+    assert retriever.metadata == expected_retriever.metadata
+    assert retriever.search_type == expected_retriever.search_type
+    assert retriever.search_kwargs == expected_retriever.search_kwargs
 
 
 @skip_if_v1

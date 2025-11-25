@@ -6,36 +6,35 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'doc',
       id: 'index',
       className: 'sidebar-top-level-category',
+      label: 'Overview',
     },
     {
-      type: 'category',
-      label: 'Getting Started',
+      type: 'html',
+      value: '<b>Getting Started</b>',
+      defaultStyle: true,
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/connect-environment',
+      label: 'Set Up MLflow',
       className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'getting-started/connect-environment',
-          label: 'Set Up MLflow',
-        },
-        {
-          type: 'link',
-          href: '/genai/tracing/quickstart/python-openai',
-          label: 'Tracing GenAI Apps',
-        },
-        {
-          type: 'doc',
-          id: 'eval-monitor/quickstart',
-          label: 'Evaluate LLMs and Agents',
-        },
-        {
-          type: 'doc',
-          id: 'getting-started/databricks-trial/index',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'getting-started/index',
-      },
+    },
+    {
+      type: 'link',
+      href: '/genai/tracing/quickstart/python-openai',
+      label: 'Tracing Quickstart',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'doc',
+      id: 'eval-monitor/quickstart',
+      label: 'Evaluate LLMs and Agents',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'html',
+      value: '<b>Core Components</b>',
+      defaultStyle: true,
     },
     {
       type: 'category',
@@ -580,6 +579,11 @@ const sidebarsGenAI: SidebarsConfig = {
       },
     },
     {
+      type: 'html',
+      value: '<b>More Features</b>',
+      defaultStyle: true,
+    },
+    {
       type: 'category',
       label: 'Version Tracking',
       className: 'sidebar-top-level-category',
@@ -590,188 +594,183 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Quickstart',
         },
         {
-          type: 'category',
-          label: 'Guides',
-          items: [
-            {
-              type: 'doc',
-              id: 'version-tracking/track-application-versions-with-mlflow',
-            },
-            {
-              type: 'doc',
-              id: 'version-tracking/compare-app-versions',
-            },
-            {
-              type: 'category',
-              label: 'App Packaging & Deployment',
-              items: [
-                {
-                  type: 'category',
-                  label: 'OpenAI',
-                  items: [
-                    {
-                      type: 'doc',
-                      id: 'flavors/openai/guide/index',
-                      label: 'Guide',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/openai/autologging/index',
-                      label: 'Autologging Support',
-                    },
-                    {
-                      type: 'category',
-                      label: 'Tutorials',
-                      items: [
-                        {
-                          type: 'doc',
-                          id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
-                          label: 'OpenAI Quickstart',
-                        },
-                        {
-                          type: 'doc',
-                          id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
-                          label: 'Chat Completions with OpenAI',
-                        },
-                        {
-                          type: 'doc',
-                          id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
-                          label: 'Building a Code Assistant with OpenAI & MLflow',
-                        },
-                        {
-                          type: 'doc',
-                          id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
-                          label: 'Embeddings Support with OpenAI in MLflow',
-                        },
-                      ],
-                      link: {
-                        type: 'doc',
-                        id: 'flavors/openai/notebooks/index',
-                      },
-                    },
-                  ],
-                  link: {
-                    type: 'doc',
-                    id: 'flavors/openai/index',
-                  },
-                },
-                {
-                  type: 'category',
-                  label: 'DSPy',
-                  items: [
-                    {
-                      type: 'doc',
-                      id: 'flavors/dspy/notebooks/dspy_quickstart-ipynb',
-                      label: 'DSPy Quickstart',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/dspy/optimizer',
-                      label: 'Using DSPy Optimizers',
-                    },
-                  ],
-                  link: {
-                    type: 'doc',
-                    id: 'flavors/dspy/index',
-                  },
-                },
-                {
-                  type: 'category',
-                  label: 'LangChain',
-                  items: [
-                    {
-                      type: 'doc',
-                      id: 'flavors/langchain/guide/index',
-                      label: 'Guide to using LangChain with MLflow',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/langchain/notebooks/langchain-quickstart-ipynb',
-                      label: 'LangChain Quickstart',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/langchain/notebooks/langchain-retriever-ipynb',
-                      label: 'Retrievers with LangChain',
-                    },
-                  ],
-                  link: {
-                    type: 'doc',
-                    id: 'flavors/langchain/index',
-                  },
-                },
-                {
-                  type: 'category',
-                  label: 'LlamaIndex',
-                  items: [
-                    {
-                      type: 'doc',
-                      id: 'flavors/llama-index/notebooks/llama_index_quickstart-ipynb',
-                      label: 'LlamaIndex Quickstart',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/llama-index/notebooks/llama_index_workflow_tutorial-ipynb',
-                      label: 'Agents with LlamaIndex',
-                    },
-                  ],
-                  link: {
-                    type: 'doc',
-                    id: 'flavors/llama-index/index',
-                  },
-                },
-                {
-                  type: 'category',
-                  label: 'Custom Applications',
-                  items: [
-                    {
-                      type: 'doc',
-                      id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
-                      label: 'Custom App Development Guide',
-                    },
-                  ],
-                  link: {
-                    type: 'doc',
-                    id: 'flavors/custom-pyfunc-for-llms/index',
-                  },
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/chat-model-intro/index',
-                  label: 'Intro to ChatModel',
-                },
-                {
-                  type: 'category',
-                  label: 'Building with ChatModel',
-                  items: [
-                    {
-                      type: 'doc',
-                      id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
-                      label: 'ChatModel Tool Calling Example',
-                    },
-                  ],
-                  link: {
-                    type: 'doc',
-                    id: 'flavors/chat-model-guide/index',
-                  },
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/responses-agent-intro',
-                  label: 'Building with ResponsesAgent',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/index',
-              },
-            },
-          ],
+          type: 'doc',
+          id: 'version-tracking/track-application-versions-with-mlflow',
+        },
+        {
+          type: 'doc',
+          id: 'version-tracking/compare-app-versions',
         },
       ],
       link: {
         type: 'doc',
         id: 'version-tracking/index',
+      },
+    },
+    {
+      type: 'category',
+      label: 'Packaging & Deployment',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'category',
+          label: 'OpenAI',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/openai/guide/index',
+              label: 'Guide',
+            },
+            {
+              type: 'doc',
+              id: 'flavors/openai/autologging/index',
+              label: 'Autologging Support',
+            },
+            {
+              type: 'category',
+              label: 'Tutorials',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
+                  label: 'OpenAI Quickstart',
+                },
+                {
+                  type: 'doc',
+                  id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
+                  label: 'Chat Completions with OpenAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
+                  label: 'Building a Code Assistant with OpenAI & MLflow',
+                },
+                {
+                  type: 'doc',
+                  id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
+                  label: 'Embeddings Support with OpenAI in MLflow',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'flavors/openai/notebooks/index',
+              },
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/openai/index',
+          },
+        },
+        {
+          type: 'category',
+          label: 'DSPy',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/dspy/notebooks/dspy_quickstart-ipynb',
+              label: 'DSPy Quickstart',
+            },
+            {
+              type: 'doc',
+              id: 'flavors/dspy/optimizer',
+              label: 'Using DSPy Optimizers',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/dspy/index',
+          },
+        },
+        {
+          type: 'category',
+          label: 'LangChain',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/langchain/guide/index',
+              label: 'Guide to using LangChain with MLflow',
+            },
+            {
+              type: 'doc',
+              id: 'flavors/langchain/notebooks/langchain-quickstart-ipynb',
+              label: 'LangChain Quickstart',
+            },
+            {
+              type: 'doc',
+              id: 'flavors/langchain/notebooks/langchain-retriever-ipynb',
+              label: 'Retrievers with LangChain',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/langchain/index',
+          },
+        },
+        {
+          type: 'category',
+          label: 'LlamaIndex',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/llama-index/notebooks/llama_index_quickstart-ipynb',
+              label: 'LlamaIndex Quickstart',
+            },
+            {
+              type: 'doc',
+              id: 'flavors/llama-index/notebooks/llama_index_workflow_tutorial-ipynb',
+              label: 'Agents with LlamaIndex',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/llama-index/index',
+          },
+        },
+        {
+          type: 'category',
+          label: 'Custom Applications',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
+              label: 'Custom App Development Guide',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/custom-pyfunc-for-llms/index',
+          },
+        },
+        {
+          type: 'doc',
+          id: 'flavors/chat-model-intro/index',
+          label: 'Intro to ChatModel',
+        },
+        {
+          type: 'category',
+          label: 'Building with ChatModel',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
+              label: 'ChatModel Tool Calling Example',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/chat-model-guide/index',
+          },
+        },
+        {
+          type: 'doc',
+          id: 'flavors/responses-agent-intro',
+          label: 'Building with ResponsesAgent',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'flavors/index',
       },
     },
     {
@@ -813,58 +812,28 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Governance',
+      label: 'AI Gateway',
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
-          label: 'AI Gateway',
-          items: [
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/setup',
-              label: 'Setup',
-            },
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/configuration',
-              label: 'Configuration',
-            },
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/usage',
-              label: 'Usage',
-            },
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/integration',
-              label: 'Integration',
-            },
-            {
-              type: 'category',
-              label: 'Guides',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'governance/ai-gateway/guides/step1-create-deployments/index',
-                  label: 'Setup the AI Gateway',
-                },
-                {
-                  type: 'doc',
-                  id: 'governance/ai-gateway/guides/step2-query-deployments/index',
-                  label: 'Use the AI Gateway',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'governance/ai-gateway/guides/index',
-              },
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'governance/ai-gateway/index',
-          },
+          type: 'doc',
+          id: 'governance/ai-gateway/setup',
+          label: 'Setup',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/configuration',
+          label: 'Configuration',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/usage',
+          label: 'Usage',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/integration',
+          label: 'Integration',
         },
         {
           type: 'doc',
@@ -876,6 +845,11 @@ const sidebarsGenAI: SidebarsConfig = {
         type: 'doc',
         id: 'governance/ai-gateway/index',
       },
+    },
+    {
+      type: 'html',
+      value: '<b>References</b>',
+      defaultStyle: true,
     },
     {
       type: 'category',
@@ -913,6 +887,12 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluation Datasets',
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/databricks-trial/index',
+      className: 'sidebar-top-level-category',
+      label: 'Managed MLflow',
     },
   ],
 };

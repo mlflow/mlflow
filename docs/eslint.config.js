@@ -21,8 +21,6 @@ module.exports = defineConfig([
     rules: {
       '@docusaurus/no-html-links': 'error',
       'mlflow-docs/valid-notebook-url': 'error',
-      '@docusaurus/no-html-links': 'error',
-      'mlflow-docs/valid-notebook-url': 'error',
       'mlflow-docs/use-base-url-for-images': 'error',
       'mlflow-docs/prefer-apilink-component': 'error',
     },
