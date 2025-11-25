@@ -60,10 +60,7 @@ class Faithfulness(DeepEvalScorer):
     Examples:
         >>> from mlflow.genai.scorers.deepeval.rag_metrics import Faithfulness
         >>> scorer = Faithfulness(threshold=0.8, model="databricks")
-        >>> feedback = scorer(
-        ...     outputs="Paris is the capital of France and has a population of 2 million.",
-        ...     trace=trace,  # trace contains retrieval_context
-        ... )
+        >>> feedback = scorer(trace=trace)  # trace contains outputs and retrieval_context
     """
 
     def __init__(
@@ -98,10 +95,7 @@ class ContextualRecall(DeepEvalScorer):
     Examples:
         >>> from mlflow.genai.scorers.deepeval.rag_metrics import ContextualRecall
         >>> scorer = ContextualRecall(model="databricks")
-        >>> feedback = scorer(
-        ...     expectations={"expected_output": "Paris is the capital of France"},
-        ...     trace=trace,  # trace contains retrieval_context
-        ... )
+        >>> feedback = scorer(trace=trace)  # trace contains expected_output and retrieval_context
     """
 
     def __init__(
@@ -138,10 +132,8 @@ class ContextualPrecision(DeepEvalScorer):
         >>> from mlflow.genai.scorers.deepeval.rag_metrics import ContextualPrecision
         >>> scorer = ContextualPrecision(threshold=0.7)
         >>> feedback = scorer(
-        ...     inputs="What is the capital of France?",
-        ...     expectations={"expected_output": "Paris"},
-        ...     trace=trace,  # trace contains retrieval_context
-        ... )
+        ...     trace=trace
+        ... )  # trace contains input, expected_output, and retrieval_context
     """
 
     def __init__(
@@ -176,10 +168,7 @@ class ContextualRelevancy(DeepEvalScorer):
     Examples:
         >>> from mlflow.genai.scorers.deepeval.rag_metrics import ContextualRelevancy
         >>> scorer = ContextualRelevancy(threshold=0.6)
-        >>> feedback = scorer(
-        ...     inputs="What is the capital of France?",
-        ...     trace=trace,  # trace contains retrieval_context
-        ... )
+        >>> feedback = scorer(trace=trace)  # trace contains input and retrieval_context
     """
 
     def __init__(

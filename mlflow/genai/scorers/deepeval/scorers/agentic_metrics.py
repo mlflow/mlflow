@@ -20,11 +20,7 @@ class TaskCompletion(DeepEvalScorer):
     Examples:
         >>> from mlflow.genai.scorers.deepeval.agentic_metrics import TaskCompletion
         >>> scorer = TaskCompletion(threshold=0.7)
-        >>> feedback = scorer(
-        ...     inputs="Book a flight from NYC to SF for tomorrow",
-        ...     outputs="Flight booked: UA123, departs 9am tomorrow",
-        ...     trace=trace,
-        ... )
+        >>> feedback = scorer(trace=trace)  # trace contains inputs, outputs, and tool calls
     """
 
     def __init__(
@@ -60,10 +56,8 @@ class ToolCorrectness(DeepEvalScorer):
         >>> from mlflow.genai.scorers.deepeval.agentic_metrics import ToolCorrectness
         >>> scorer = ToolCorrectness(threshold=0.8)
         >>> feedback = scorer(
-        ...     inputs="Search for Python tutorials",
-        ...     trace=trace,  # trace contains tool calls
-        ...     expectations={"expected_tool_calls": [{"name": "web_search", ...}]},
-        ... )
+        ...     trace=trace
+        ... )  # trace contains inputs, tool calls, and expected tool calls
     """
 
     def __init__(
@@ -97,10 +91,7 @@ class ArgumentCorrectness(DeepEvalScorer):
     Examples:
         >>> from mlflow.genai.scorers.deepeval.agentic_metrics import ArgumentCorrectness
         >>> scorer = ArgumentCorrectness(threshold=0.7)
-        >>> feedback = scorer(
-        ...     inputs="Calculate 15% tip on $50",
-        ...     trace=trace,  # trace contains tool calls with arguments
-        ... )
+        >>> feedback = scorer(trace=trace)  # trace contains inputs and tool calls with arguments
     """
 
     def __init__(
@@ -135,10 +126,7 @@ class StepEfficiency(DeepEvalScorer):
     Examples:
         >>> from mlflow.genai.scorers.deepeval.agentic_metrics import StepEfficiency
         >>> scorer = StepEfficiency(threshold=0.6)
-        >>> feedback = scorer(
-        ...     inputs="Get weather in San Francisco",
-        ...     trace=trace,  # trace contains sequence of tool calls
-        ... )
+        >>> feedback = scorer(trace=trace)  # trace contains inputs and sequence of tool calls
     """
 
     def __init__(
@@ -173,11 +161,7 @@ class PlanAdherence(DeepEvalScorer):
     Examples:
         >>> from mlflow.genai.scorers.deepeval.agentic_metrics import PlanAdherence
         >>> scorer = PlanAdherence(threshold=0.7)
-        >>> feedback = scorer(
-        ...     inputs="Research and book a hotel",
-        ...     outputs="Followed plan: 1) searched hotels 2) compared prices 3) booked",
-        ...     trace=trace,
-        ... )
+        >>> feedback = scorer(trace=trace)  # trace contains inputs, outputs, and tool calls
     """
 
     def __init__(
