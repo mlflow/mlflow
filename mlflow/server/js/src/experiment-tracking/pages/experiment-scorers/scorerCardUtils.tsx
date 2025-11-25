@@ -7,6 +7,7 @@ import { isNil } from 'lodash';
 import type { ScheduledScorer, LLMScorer, CustomCodeScorer } from './types';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
+import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
 
 export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): string => {
   if (scorer.type === 'custom-code') {
@@ -72,6 +73,15 @@ export const getStatusTag = (
  * @returns Form values object suitable for react-hook-form
  */
 export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormData | CustomCodeScorerFormData => {
+  // For LLM scorers, get instructions from the scorer or fall back to template defaults
+  let instructions = '';
+  if (scorer.type === 'llm') {
+    const llmScorer = scorer as LLMScorer;
+    // Use stored instructions if available, otherwise look up from template map
+    const templateInstructions = llmScorer.llmTemplate ? TEMPLATE_INSTRUCTIONS_MAP[llmScorer.llmTemplate] : '';
+    instructions = llmScorer.instructions || templateInstructions || '';
+  }
+
   return {
     llmTemplate: scorer.type === 'llm' ? (scorer as LLMScorer).llmTemplate || '' : '',
     name: scorer.name || '',
@@ -79,10 +89,11 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     code: scorer.type === 'custom-code' ? (scorer as CustomCodeScorer).code || '' : '',
     scorerType: scorer.type,
     guidelines: scorer.type === 'llm' ? (scorer as LLMScorer).guidelines?.join('\n') || '' : '',
-    instructions: scorer.type === 'llm' ? (scorer as LLMScorer).instructions || '' : '',
+    instructions,
     filterString: scorer.filterString || '',
     model: scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '',
     disableMonitoring: scorer.disableMonitoring,
+    isInstructionsJudge: scorer.type === 'llm' ? (scorer as LLMScorer).is_instructions_judge : undefined,
   };
 };
 

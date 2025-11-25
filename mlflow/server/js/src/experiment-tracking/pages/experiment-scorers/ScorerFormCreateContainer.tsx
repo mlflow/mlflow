@@ -31,6 +31,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ e
       llmTemplate: 'Custom',
       model: '',
       disableMonitoring: true,
+      isInstructionsJudge: true, // Custom template is an instructions judge
     },
   });
 

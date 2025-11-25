@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { Control, UseFormSetValue, UseFormGetValues } from 'react-hook-form';
-import { Controller } from 'react-hook-form';
+import { Controller, useWatch } from 'react-hook-form';
 import {
   useDesignSystemTheme,
   Typography,
@@ -19,13 +19,14 @@ import {
   SparkleDoubleIcon,
   DialogComboboxTrigger,
   PlusIcon,
+  Tooltip,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
 import type { SCORER_TYPE } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE } from './types';
-import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
+import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 
 // Form data type that matches LLMScorer structure
@@ -39,6 +40,7 @@ export interface LLMScorerFormData {
   instructions?: string;
   model?: string;
   disableMonitoring?: boolean;
+  isInstructionsJudge?: boolean;
 }
 
 interface LLMScorerFormRendererProps {
@@ -52,9 +54,10 @@ interface LLMTemplateSectionProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData>;
+  currentTemplate: string;
 }
 
-const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, setValue }) => {
+const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, setValue, currentTemplate }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { templateOptions, displayMap } = useTemplateOptions();
@@ -65,24 +68,31 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
 
   const handleTemplateChange = (newTemplate: string) => {
     const instructions = TEMPLATE_INSTRUCTIONS_MAP[newTemplate] || '';
-    setValue('instructions', instructions, { shouldValidate: true });
+    const isInstructionsJudge = EDITABLE_TEMPLATES.has(newTemplate);
+    setValue('isInstructionsJudge', isInstructionsJudge);
+    setValue('instructions', instructions, { shouldValidate: isInstructionsJudge });
   };
 
-  if (mode !== SCORER_FORM_MODE.CREATE) {
+  const isReadOnly = mode !== SCORER_FORM_MODE.CREATE;
+
+  // Don't show template selector for custom LLM judges in non-create mode
+  if (isReadOnly && currentTemplate === LLM_TEMPLATE.CUSTOM) {
     return null;
   }
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
-      <FormUI.Label aria-required htmlFor="mlflow-experiment-scorers-built-in-scorer">
+      <FormUI.Label aria-required={!isReadOnly} htmlFor="mlflow-experiment-scorers-built-in-scorer">
         <FormattedMessage defaultMessage="LLM template" description="Section header for LLM template selection" />
       </FormUI.Label>
-      <FormUI.Hint>
-        <FormattedMessage
-          defaultMessage="Start with a built-in LLM judge template or create your own."
-          description="Hint text for LLM template selection with documentation link"
-        />
-      </FormUI.Hint>
+      {!isReadOnly && (
+        <FormUI.Hint>
+          <FormattedMessage
+            defaultMessage="Start with a built-in LLM judge template or create your own."
+            description="Hint text for LLM template selection with documentation link"
+          />
+        </FormUI.Hint>
+      )}
       <Controller
         name="llmTemplate"
         control={control}
@@ -96,7 +106,7 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
               <DialogComboboxTrigger
                 withInlineLabel={false}
                 allowClear={false}
-                disabled={mode !== SCORER_FORM_MODE.CREATE}
+                disabled={isReadOnly}
                 placeholder={intl.formatMessage({
                   defaultMessage: 'Select an LLM template',
                   description: 'Placeholder for LLM template selection',
@@ -108,37 +118,39 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
                   </div>
                 )}
               />
-              <DialogComboboxContent maxHeight={350}>
-                <DialogComboboxOptionList>
-                  {templateOptions
-                    .filter((option) => option.value !== LLM_TEMPLATE.CUSTOM)
-                    .map((option) => (
-                      <DialogComboboxOptionListSelectItem
-                        key={option.value}
-                        value={option.value}
-                        onChange={() => {
-                          field.onChange(option.value);
-                          handleTemplateChange(option.value);
-                        }}
-                        checked={field.value === option.value}
-                        icon={<SparkleDoubleIcon />}
-                      >
-                        {option.label}
-                        <DialogComboboxHintRow>{option.hint}</DialogComboboxHintRow>
-                      </DialogComboboxOptionListSelectItem>
-                    ))}
-                </DialogComboboxOptionList>
-                <DialogComboboxFooter>
-                  <DialogComboboxAddButton
-                    onClick={() => {
-                      field.onChange(LLM_TEMPLATE.CUSTOM);
-                      handleTemplateChange(LLM_TEMPLATE.CUSTOM);
-                    }}
-                  >
-                    {templateOptions.find((option) => option.value === LLM_TEMPLATE.CUSTOM)?.label}
-                  </DialogComboboxAddButton>
-                </DialogComboboxFooter>
-              </DialogComboboxContent>
+              {!isReadOnly && (
+                <DialogComboboxContent maxHeight={350}>
+                  <DialogComboboxOptionList>
+                    {templateOptions
+                      .filter((option) => option.value !== LLM_TEMPLATE.CUSTOM)
+                      .map((option) => (
+                        <DialogComboboxOptionListSelectItem
+                          key={option.value}
+                          value={option.value}
+                          onChange={() => {
+                            field.onChange(option.value);
+                            handleTemplateChange(option.value);
+                          }}
+                          checked={field.value === option.value}
+                          icon={<SparkleDoubleIcon />}
+                        >
+                          {option.label}
+                          <DialogComboboxHintRow>{option.hint}</DialogComboboxHintRow>
+                        </DialogComboboxOptionListSelectItem>
+                      ))}
+                  </DialogComboboxOptionList>
+                  <DialogComboboxFooter>
+                    <DialogComboboxAddButton
+                      onClick={() => {
+                        field.onChange(LLM_TEMPLATE.CUSTOM);
+                        handleTemplateChange(LLM_TEMPLATE.CUSTOM);
+                      }}
+                    >
+                      {templateOptions.find((option) => option.value === LLM_TEMPLATE.CUSTOM)?.label}
+                    </DialogComboboxAddButton>
+                  </DialogComboboxFooter>
+                </DialogComboboxContent>
+              )}
             </DialogCombobox>
           </div>
         )}
@@ -210,11 +222,14 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
     setValue('instructions', currentValue + variable, { shouldValidate: true });
   };
 
+  const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
+  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge;
+
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <FormUI.Label htmlFor="mlflow-experiment-scorers-instructions" aria-required>
+          <FormUI.Label htmlFor="mlflow-experiment-scorers-instructions" aria-required={isInstructionsJudge}>
             <FormattedMessage defaultMessage="Instructions" description="Section header for judge instructions" />
           </FormUI.Label>
           <DropdownMenu.Root>
@@ -223,7 +238,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 componentId={`${COMPONENT_ID_PREFIX}.add-variable-button`}
                 size="small"
                 endIcon={<ChevronDownIcon />}
-                disabled={mode === SCORER_FORM_MODE.DISPLAY}
+                disabled={mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge}
                 onClick={stopPropagationClick}
               >
                 <FormattedMessage defaultMessage="Add variable" description="Button text for adding variables" />
@@ -314,27 +329,47 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           name="instructions"
           control={control}
           rules={{
-            validate: validateInstructions,
+            validate: (value) => (isInstructionsJudge ? validateInstructions(value) : true),
           }}
-          render={({ field, fieldState }) => (
-            <>
+          render={({ field, fieldState }) => {
+            const textArea = (
               <Input.TextArea
                 {...field}
                 componentId={`${COMPONENT_ID_PREFIX}.instructions-text-area`}
                 id="mlflow-experiment-scorers-instructions"
-                readOnly={mode === SCORER_FORM_MODE.DISPLAY}
-                rows={3}
+                readOnly={isReadOnly}
+                rows={7}
                 placeholder={intl.formatMessage({
                   defaultMessage:
                     "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
                   description: 'Example placeholder text for instructions textarea',
                 })}
-                css={{ resize: 'vertical', cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
+                css={{ resize: 'vertical', cursor: isReadOnly ? 'auto' : 'text' }}
                 onClick={stopPropagationClick}
               />
-              {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
-            </>
-          )}
+            );
+
+            const showTooltip = !isInstructionsJudge && mode !== SCORER_FORM_MODE.DISPLAY;
+
+            return (
+              <>
+                {showTooltip ? (
+                  <Tooltip
+                    componentId={`${COMPONENT_ID_PREFIX}.instructions-readonly-tooltip`}
+                    content={intl.formatMessage({
+                      defaultMessage: 'Modifying instructions is not supported for this built-in judge.',
+                      description: 'Tooltip explaining why instructions are read-only for non-editable templates',
+                    })}
+                  >
+                    <div>{textArea}</div>
+                  </Tooltip>
+                ) : (
+                  textArea
+                )}
+                {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+              </>
+            );
+          }}
         />
       </div>
     </div>
@@ -427,7 +462,7 @@ const ModelSection: React.FC<ModelSectionProps> = ({ mode, control }) => {
       </FormUI.Label>
       <FormUI.Hint>
         <FormattedMessage
-          defaultMessage="Specify the model for LLM evaluation. {learnMore}"
+          defaultMessage="Specify the model for LLM evaluation. Defaults to openai:/gpt-4o-mini if not set. {learnMore}"
           description="Hint text for model input with documentation link"
           values={{
             learnMore: (
@@ -463,7 +498,14 @@ const ModelSection: React.FC<ModelSectionProps> = ({ mode, control }) => {
 
 const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, control, setValue, getValues }) => {
   const { theme } = useDesignSystemTheme();
-  const selectedTemplate = getValues('llmTemplate');
+  const selectedTemplate = useWatch({ control, name: 'llmTemplate' });
+
+  // Update name when template changes
+  useEffect(() => {
+    if (mode === SCORER_FORM_MODE.CREATE && selectedTemplate) {
+      setValue('name', selectedTemplate);
+    }
+  }, [selectedTemplate, setValue, mode]);
 
   return (
     <div
@@ -474,7 +516,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
         paddingLeft: mode === SCORER_FORM_MODE.DISPLAY ? theme.spacing.lg : 0,
       }}
     >
-      <LLMTemplateSection mode={mode} control={control} setValue={setValue} />
+      <LLMTemplateSection mode={mode} control={control} setValue={setValue} currentTemplate={selectedTemplate} />
       <NameSection mode={mode} control={control} />
       <GuidelinesSection mode={mode} control={control} selectedTemplate={selectedTemplate} />
       <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />

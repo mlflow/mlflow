@@ -4,7 +4,7 @@ interface ScheduledScorerBase {
   filterString?: string;
   type: 'llm' | 'custom-code';
   version?: number;
-  // Whether the UI disables enabling monitoring for this scorer. If disabled, the UI
+  // Whether the UI disables monitoring for this scorer. If disabled, the UI
   // will not show the form fields for monitoring (sample rate, filter string, etc.)
   disableMonitoring?: boolean;
 }
@@ -37,6 +37,9 @@ export interface LLMScorer extends ScheduledScorerBase {
   guidelines?: string[];
   instructions?: string;
   model?: string;
+  // True if the scorer is an instructions-based LLM scorer that uses instructions_judge_pydantic_data
+  // rather than builtin_scorer_pydantic_data.
+  is_instructions_judge?: boolean;
 }
 
 export interface CustomCodeScorer extends ScheduledScorerBase {

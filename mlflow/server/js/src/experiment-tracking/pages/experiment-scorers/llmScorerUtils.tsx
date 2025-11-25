@@ -13,11 +13,43 @@ export const useTemplateOptions = () => {
   const templateOptions = useMemo(
     () => [
       {
+        value: LLM_TEMPLATE.CORRECTNESS,
+        label: intl.formatMessage({ defaultMessage: 'Correctness', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: "Is app's response correct compared to ground-truth?",
+          description: 'Hint for Correctness template',
+        }),
+      },
+      {
         value: LLM_TEMPLATE.RELEVANCE_TO_QUERY,
         label: intl.formatMessage({ defaultMessage: 'Relevance to Query', description: 'LLM template option' }),
         hint: intl.formatMessage({
           defaultMessage: "Does app's response directly address the user's input?",
           description: 'Hint for RelevanceToQuery template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.RETRIEVAL_GROUNDEDNESS,
+        label: intl.formatMessage({ defaultMessage: 'Retrieval Groundedness', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: "Is the app's response grounded in retrieved information?",
+          description: 'Hint for RetrievalGroundedness template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.RETRIEVAL_RELEVANCE,
+        label: intl.formatMessage({ defaultMessage: 'Retrieval Relevance', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: "Are retrieved documents relevant to the user's request?",
+          description: 'Hint for RetrievalRelevance template',
+        }),
+      },
+      {
+        value: LLM_TEMPLATE.RETRIEVAL_SUFFICIENCY,
+        label: intl.formatMessage({ defaultMessage: 'Retrieval Sufficiency', description: 'LLM template option' }),
+        hint: intl.formatMessage({
+          defaultMessage: 'Do retrieved documents contain all necessary information?',
+          description: 'Hint for RetrievalSufficiency template',
         }),
       },
       {

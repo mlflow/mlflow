@@ -79,6 +79,8 @@ describe('scheduledScorersCacheUtils', () => {
             guidelines: ['Be helpful', 'Be accurate'],
             version: 1,
             disableMonitoring: true,
+            is_instructions_judge: false,
+            model: undefined,
           },
           {
             name: 'custom_scorer',
@@ -88,6 +90,7 @@ describe('scheduledScorersCacheUtils', () => {
             version: 1,
             disableMonitoring: true,
             originalFuncName: undefined,
+            callSignature: undefined,
           },
         ],
       });
@@ -133,6 +136,8 @@ describe('scheduledScorersCacheUtils', () => {
             llmTemplate: 'Correctness',
             version: 1,
             disableMonitoring: true,
+            is_instructions_judge: false,
+            model: undefined,
           },
         ],
       });

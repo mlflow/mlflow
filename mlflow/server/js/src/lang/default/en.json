@@ -135,6 +135,10 @@
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
   },
+  "/GImw4": {
+    "defaultMessage": "Is app's response correct compared to ground-truth?",
+    "description": "Hint for Correctness template"
+  },
   "/IyEFR": {
     "defaultMessage": "Trace",
     "description": "Label for trace variable option"
@@ -621,6 +625,10 @@
   "4Itm9y": {
     "defaultMessage": "Large trace",
     "description": "Modal title for when a trace is very large. The modal warns the user that the trace may cause UI slowness, but allows them to attempt to display it anyway by clicking a button."
+  },
+  "4JLrnY": {
+    "defaultMessage": "Modifying instructions is not supported for this built-in judge.",
+    "description": "Tooltip explaining why instructions are read-only for non-editable templates"
   },
   "4Jyn2b": {
     "defaultMessage": "Add/Edit alias for model version {version}",
@@ -1230,6 +1238,10 @@
     "defaultMessage": "Show change from baseline",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show change from baseline toggle"
   },
+  "9kTEoo": {
+    "defaultMessage": "Is the app's response grounded in retrieved information?",
+    "description": "Hint for RetrievalGroundedness template"
+  },
   "9mAGv0": {
     "defaultMessage": "Model name",
     "description": "Text for form title on creating model in the model registry"
@@ -1493,6 +1505,10 @@
   "BwgPX0": {
     "defaultMessage": "Delete",
     "description": "Label for the delete prompt action on the registered prompt details page"
+  },
+  "By4hRe": {
+    "defaultMessage": "Are retrieved documents relevant to the user's request?",
+    "description": "Hint for RetrievalRelevance template"
   },
   "C+nay+": {
     "defaultMessage": "Evaluation",
@@ -2374,6 +2390,10 @@
     "defaultMessage": "Tags",
     "description": "Experiment page > group by runs control > tags section label"
   },
+  "LIgbTd": {
+    "defaultMessage": "Retrieval Relevance",
+    "description": "LLM template option"
+  },
   "LKAZ2n": {
     "defaultMessage": "Disable grouped runs to compare",
     "description": "Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"
@@ -2932,6 +2952,10 @@
   "RaGnOQ": {
     "defaultMessage": "Compare",
     "description": "String for the compare button to compare experiment runs to find an ideal model"
+  },
+  "ReQ01f": {
+    "defaultMessage": "Do retrieved documents contain all necessary information?",
+    "description": "Hint for RetrievalSufficiency template"
   },
   "RgVN+O": {
     "defaultMessage": "View all",
@@ -3539,6 +3563,10 @@
   "XaD7FM": {
     "defaultMessage": "Select parameters/metrics to plot.",
     "description": "Text to show when x or y axis is not selected on box plot"
+  },
+  "XcWJxW": {
+    "defaultMessage": "Retrieval Sufficiency",
+    "description": "LLM template option"
   },
   "XkpMf+": {
     "defaultMessage": "baseline run"
@@ -4759,10 +4787,6 @@
     "defaultMessage": "Evaluation settings",
     "description": "Section header for evaluation settings"
   },
-  "i3gRqS": {
-    "defaultMessage": "Specify the model for LLM evaluation. {learnMore}",
-    "description": "Hint text for model input with documentation link"
-  },
   "i49wE6": {
     "defaultMessage": "We couldn't load your experiments.",
     "description": "Home page experiments error message"
@@ -4982,6 +5006,10 @@
   "kBXHTA": {
     "defaultMessage": "Edit chart",
     "description": "Title of the modal when editing a runs comparison chart"
+  },
+  "kCsAho": {
+    "defaultMessage": "Correctness",
+    "description": "LLM template option"
   },
   "kHN/4I": {
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
@@ -6231,6 +6259,10 @@
     "defaultMessage": "Columns",
     "description": "Evaluation review > evaluations list > filter dropdown button"
   },
+  "wo+kF7": {
+    "defaultMessage": "Specify the model for LLM evaluation. Defaults to openai:/gpt-4o-mini if not set. {learnMore}",
+    "description": "Hint text for model input with documentation link"
+  },
   "womPSY": {
     "defaultMessage": "Session",
     "description": "Column label for session"
@@ -6370,6 +6402,10 @@
   "y56Vz9": {
     "defaultMessage": "In progress",
     "description": "Experiment page > traces table > status label > in progress"
+  },
+  "y8O4PM": {
+    "defaultMessage": "Retrieval Groundedness",
+    "description": "LLM template option"
   },
   "yAuDRt": {
     "defaultMessage": "Evaluation is not possible because values for the following inputs cannot be determined: {missingParamList}. Add input columns to the \"group by\" settings or use \"Add row\" button to define new parameter set.",

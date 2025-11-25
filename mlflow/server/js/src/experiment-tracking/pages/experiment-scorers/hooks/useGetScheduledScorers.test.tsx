@@ -104,6 +104,8 @@ describe('useGetScheduledScorers', () => {
             sampleRate: undefined, // Not included in MLflowScorer
             version: 1,
             disableMonitoring: true,
+            is_instructions_judge: false,
+            model: undefined,
           },
           {
             name: 'custom-code-scorer',

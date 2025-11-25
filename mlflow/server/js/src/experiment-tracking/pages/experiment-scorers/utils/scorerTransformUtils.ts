@@ -56,23 +56,30 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
         llmTemplate: LLM_TEMPLATE.CUSTOM,
         instructions,
         model,
+        is_instructions_judge: true,
       } as LLMScorer;
       return result;
     } else if (serializedData.builtin_scorer_class === LLM_TEMPLATE.GUIDELINES) {
       const rawGuidelines = serializedData.builtin_scorer_pydantic_data?.guidelines || [];
       // Ensure guidelines is always an array - if it's a string, put it in an array
       const guidelines = Array.isArray(rawGuidelines) ? rawGuidelines : [rawGuidelines].filter(Boolean);
+      const model = serializedData.builtin_scorer_pydantic_data?.model;
       return {
         ...baseFields,
         type: 'llm',
         llmTemplate: LLM_TEMPLATE.GUIDELINES,
         guidelines,
+        model,
+        is_instructions_judge: false,
       } as LLMScorer;
     } else if (serializedData.builtin_scorer_class && config.builtin) {
+      const model = serializedData.builtin_scorer_pydantic_data?.model;
       return {
         ...baseFields,
         type: 'llm',
         llmTemplate: serializedData.builtin_scorer_class,
+        model,
+        is_instructions_judge: false,
       } as LLMScorer;
     } else {
       // Custom scorer - extract code from call_source
@@ -132,8 +139,10 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
   if (scorer.type === 'llm') {
     const llmScorer = scorer as LLMScorer;
 
-    if (llmScorer.llmTemplate === LLM_TEMPLATE.CUSTOM) {
-      // Instructions-based LLM scorer (Custom template)
+    if (llmScorer.is_instructions_judge) {
+      if (!llmScorer.instructions) {
+        throw new ScorerTransformationError('Instructions are required for instructions-based LLM scorers');
+      }
       config.serialized_scorer = JSON.stringify({
         ...baseSerializedScorer,
         name: llmScorer.name,
@@ -159,6 +168,11 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
       // Add guidelines if this is a Guidelines scorer
       if (llmScorer.llmTemplate === LLM_TEMPLATE.GUIDELINES && llmScorer.guidelines) {
         pydanticData.guidelines = llmScorer.guidelines;
+      }
+
+      // Add model if specified
+      if (llmScorer.model) {
+        pydanticData.model = llmScorer.model;
       }
 
       config.serialized_scorer = JSON.stringify({
@@ -195,11 +209,23 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
  * Maps the response fields from the /api/3.0/mlflow/scorers/register endpoint to the ScorerConfig type.
  */
 export function convertRegisterScorerResponseToConfig(response: RegisterScorerResponse): ScorerConfig {
-  return {
+  const config: ScorerConfig = {
     name: response.name,
     serialized_scorer: response.serialized_scorer,
     scorer_version: response.version,
   };
+
+  // Check if this is a built-in scorer by parsing serialized_scorer
+  try {
+    const serializedData = JSON.parse(response.serialized_scorer);
+    if (serializedData.builtin_scorer_class) {
+      config.builtin = { name: response.name };
+    }
+  } catch {
+    // If parsing fails, treat as non-builtin scorer
+  }
+
+  return config;
 }
 
 /**
@@ -207,11 +233,23 @@ export function convertRegisterScorerResponseToConfig(response: RegisterScorerRe
  * Maps the response fields from the /api/3.0/mlflow/scorers/list endpoint to the ScorerConfig type.
  */
 export function convertMLflowScorerToConfig(scorer: MLflowScorer): ScorerConfig {
-  return {
+  const config: ScorerConfig = {
     name: scorer.scorer_name,
     serialized_scorer: scorer.serialized_scorer,
     scorer_version: scorer.scorer_version,
   };
+
+  // Check if this is a built-in scorer by parsing serialized_scorer
+  try {
+    const serializedData = JSON.parse(scorer.serialized_scorer);
+    if (serializedData.builtin_scorer_class) {
+      config.builtin = { name: scorer.scorer_name };
+    }
+  } catch {
+    // If parsing fails, treat as non-builtin scorer
+  }
+
+  return config;
 }
 
 /**
@@ -245,10 +283,11 @@ export function convertFormDataToScheduledScorer(
                 .map((line) => line.trim())
                 .filter(Boolean)
             : undefined,
-        // Add instructions if this is a Custom scorer
-        instructions: llmFormData.llmTemplate === LLM_TEMPLATE.CUSTOM ? llmFormData.instructions : undefined,
-        // Add model only for Custom (instructions-based) scorers
-        model: llmFormData.llmTemplate === LLM_TEMPLATE.CUSTOM ? llmFormData.model : undefined,
+        // Add instructions for instructions judges (Custom, Safety, RelevanceToQuery)
+        instructions: llmFormData.isInstructionsJudge ? llmFormData.instructions : undefined,
+        // Add model for all LLM scorers
+        model: llmFormData.model || undefined,
+        is_instructions_judge: llmFormData.isInstructionsJudge,
       };
       return result;
     }
@@ -291,12 +330,14 @@ export function convertFormDataToScheduledScorer(
         .filter(Boolean);
     }
 
-    // Add instructions if this is a Custom scorer
-    if (llmFormData.llmTemplate === LLM_TEMPLATE.CUSTOM) {
+    // Add instructions for instructions judges (Custom, Safety, RelevanceToQuery)
+    if (llmFormData.isInstructionsJudge) {
       (updatedScorer as LLMScorer).instructions = llmFormData.instructions;
-      // Add model only for Custom (instructions-based) scorers
-      (updatedScorer as LLMScorer).model = llmFormData.model;
     }
+    (updatedScorer as LLMScorer).is_instructions_judge = llmFormData.isInstructionsJudge;
+
+    // Add model for all LLM scorers
+    (updatedScorer as LLMScorer).model = llmFormData.model || undefined;
   }
 
   return updatedScorer;
