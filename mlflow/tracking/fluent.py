@@ -53,7 +53,6 @@ from mlflow.telemetry.track import _record_event
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -89,6 +88,7 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 if not IS_TRACING_SDK_ONLY:
     from mlflow.data.dataset import Dataset
     from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
+    from mlflow.tracking.client import MlflowClient
     from mlflow.tracking.context import registry as context_registry
     from mlflow.tracking.default_experiment import registry as default_experiment_registry
 
@@ -281,7 +281,7 @@ def _get_sgc_job_run_id_tag_key() -> str | None:
 
 
 def _get_sgc_mlflow_run_id_for_resumption(
-    client: MlflowClient, experiment_id: str | None, sgc_job_run_id_tag_key: str | None
+    client, experiment_id: str | None, sgc_job_run_id_tag_key: str | None
 ) -> str | None:
     """
     Retrieves the MLflow run ID associated with a specific SGC job run ID tag key
