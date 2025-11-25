@@ -1049,16 +1049,18 @@ def check_databricks_secret_scope_access(scope_name):
 
 
 def get_sgc_job_run_id() -> str | None:
-    dbutils = _get_dbutils()
-    if dbutils:
-        try:
-            return dbutils.jobs.taskValues.get(
-                "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", debugValue=None
-            )
-        except Exception as e:
-            _logger.debug(f"Failed to retrieve SGC job run ID from task values: {e}", exc_info=True)
-            return None
-    return None
+    try:
+        dbutils = _get_dbutils()
+    except _NoDbutilsError:
+        return None
+
+    try:
+        return dbutils.jobs.taskValues.get(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", debugValue=None
+        )
+    except Exception as e:
+        _logger.debug(f"Failed to retrieve SGC job run ID from task values: {e}", exc_info=True)
+        return None
 
 
 def _construct_databricks_run_url(

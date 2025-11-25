@@ -1129,6 +1129,6 @@ MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS"
 #: When enabled, MLflow will check for the SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID job
 #: parameter and automatically resume MLflow runs associated with that Databricks job run ID.
 #: (default: ``True``)
-MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS", False
+_MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS = _BooleanEnvironmentVariable(
+    "_MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS", True
 )

@@ -34,9 +34,9 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
+    _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
-    MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
@@ -264,8 +264,24 @@ class ActiveRun(Run):
         return exc_type is None
 
 
+def _get_sgc_job_run_id_tag_key() -> str | None:
+    """
+    Get the SGC job run ID tag key for run resumption if enabled and available.
+
+    Returns:
+        str or None: The experiment tag key for SGC resumption, or None if not applicable.
+    """
+    if not _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.get():
+        return None
+
+    if sgc_job_run_id := get_sgc_job_run_id():
+        return f"databricks_mlflow_sgc_resume_run_job_run_id_{sgc_job_run_id}"
+
+    return None
+
+
 def _get_sgc_mlflow_run_id_for_resumption(
-    client: "MlflowClient", experiment_id: str | None, sgc_job_run_id_tag_key: str | None
+    client: MlflowClient, experiment_id: str | None, sgc_job_run_id_tag_key: str | None
 ) -> str | None:
     """
     Retrieves the MLflow run ID associated with a specific SGC job run ID tag key
@@ -290,8 +306,7 @@ def _get_sgc_mlflow_run_id_for_resumption(
     try:
         exp = client.get_experiment(search_exp_id)
         # Check if experiment has the tag for resumption
-        if exp and exp.tags and sgc_job_run_id_tag_key in exp.tags:
-            prev_mlflow_run_id = exp.tags[sgc_job_run_id_tag_key]
+        if prev_mlflow_run_id := exp.tags.get(sgc_job_run_id_tag_key):
             _logger.info(
                 f"Resuming MLflow run: {prev_mlflow_run_id} "
                 f"using SGC tag key: {sgc_job_run_id_tag_key}"
@@ -430,12 +445,8 @@ def start_run(
         )
     client = MlflowClient()
 
-    # If SGC run resumption is enabled, get the SGC job run ID tag key
-    sgc_job_run_id_tag_key = None
-    if MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.get():
-        sgc_job_run_id = get_sgc_job_run_id()
-        if sgc_job_run_id:
-            sgc_job_run_id_tag_key = f"databricks_mlflow_sgc_resume_run_job_run_id_{sgc_job_run_id}"
+    # Get SGC job run ID tag key for run resumption if applicable
+    sgc_job_run_id_tag_key = _get_sgc_job_run_id_tag_key()
 
     if run_id:
         existing_run_id = run_id
