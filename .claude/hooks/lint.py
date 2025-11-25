@@ -125,14 +125,14 @@ class HookInput:
         data = json.loads(sys.stdin.read())
         tool_name = data.get("tool_name")
         tool_input = data.get("tool_input")
-        if tool_name not in ("Edit", "Write") or not tool_input:
+        if tool_name not in ("Edit", "Write"):
             return None
         file_path_str = tool_input.get("file_path")
         if not file_path_str:
             return None
         file_path = Path(file_path_str)
         if project_dir := os.environ.get("CLAUDE_PROJECT_DIR"):
-            file_path = file_path.relative_to(Path(project_dir))
+            file_path = file_path.relative_to(project_dir)
         return cls(
             tool_name=tool_name,
             file_path=file_path,
