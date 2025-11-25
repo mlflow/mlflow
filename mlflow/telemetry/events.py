@@ -78,11 +78,19 @@ class GenAIEvaluateEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 
+        record_params = {}
+
+        # Track if predict_fn is provided
+        record_params["predict_fn_provided"] = arguments.get("predict_fn") is not None
+
+        # Track builtin scorers
         scorers = arguments.get("scorers") or []
         builtin_scorers = {
             type(scorer).__name__ for scorer in scorers if isinstance(scorer, BuiltInScorer)
         }
-        return {"builtin_scorers": list[str](builtin_scorers)}
+        record_params["builtin_scorers"] = sorted(builtin_scorers)
+
+        return record_params
 
 
 class CreateLoggedModelEvent(Event):

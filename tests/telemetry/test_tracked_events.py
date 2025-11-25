@@ -369,7 +369,23 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
             scorers=[sample_scorer, RelevanceToQuery(name="my_judge")],
             predict_fn=model.predict,
         )
-        expected_params = {"builtin_scorers": ["RelevanceToQuery"]}
+        expected_params = {
+            "builtin_scorers": ["RelevanceToQuery"],
+            "predict_fn_provided": True,
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+        # Test without predict_fn
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[sample_scorer],
+        )
+        expected_params = {
+            "builtin_scorers": [],
+            "predict_fn_provided": False,
+        }
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
         )
