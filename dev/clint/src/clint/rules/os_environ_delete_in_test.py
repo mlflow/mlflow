@@ -9,11 +9,17 @@ class OsEnvironDeleteInTest(Rule):
         return "Do not delete `os.environ` in test directly. Use `monkeypatch.delenv` (https://docs.pytest.org/en/stable/reference/reference.html#pytest.MonkeyPatch.delenv)."
 
     @staticmethod
-    def check(node: ast.Delete, resolver: Resolver) -> bool:
+    def check(node: ast.Delete | ast.Call, resolver: Resolver) -> bool:
         """
-        Returns True if the deletion is from os.environ[...].
+        Returns True if the deletion is from os.environ[...] or if it's a call to os.environ.pop().
         """
-        if len(node.targets) == 1 and isinstance(node.targets[0], ast.Subscript):
-            resolved = resolver.resolve(node.targets[0].value)
-            return resolved == ["os", "environ"]
+        if isinstance(node, ast.Delete):
+            # Handle: del os.environ["KEY"]
+            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Subscript):
+                resolved = resolver.resolve(node.targets[0].value)
+                return resolved == ["os", "environ"]
+        elif isinstance(node, ast.Call):
+            # Handle: os.environ.pop("KEY")
+            resolved = resolver.resolve(node)
+            return resolved == ["os", "environ", "pop"]
         return False
