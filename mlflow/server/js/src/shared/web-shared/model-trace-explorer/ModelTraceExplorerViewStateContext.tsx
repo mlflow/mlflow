@@ -55,8 +55,8 @@ export const ModelTraceExplorerViewStateProvider = ({
   assessmentsPaneEnabled,
   initialAssessmentsPaneCollapsed,
   isTraceInitialLoading = false,
-  children,
   isInComparisonView = false,
+  children,
 }: {
   modelTrace: ModelTrace;
   initialActiveView?: 'summary' | 'detail';
@@ -65,7 +65,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   assessmentsPaneEnabled: boolean;
   initialAssessmentsPaneCollapsed?: boolean | 'force-open';
   isTraceInitialLoading?: boolean;
-  isInComparisonView: boolean;
+  isInComparisonView?: boolean;
 }) => {
   const rootNode = useMemo(() => parseModelTraceToTree(modelTrace), [modelTrace]);
   const nodeMap = useMemo(() => (rootNode ? getTimelineTreeNodesMap([rootNode]) : {}), [rootNode]);
