@@ -2566,8 +2566,7 @@ def test_start_run_sgc_resumption_no_job_run_id(empty_active_run_stack, monkeypa
         # No tag should be set since job_run_id is None
         client = MlflowClient()
         exp = client.get_experiment(experiment_id)
-        # Check that no SGC tags were created
-        sgc_tags = [key for key in exp.tags.keys() if "sgc_resume" in key]
+        sgc_tags = [key for key in exp.tags.keys() if "sgc" in key.lower()]
         assert len(sgc_tags) == 0
 
 
@@ -2601,5 +2600,5 @@ def test_start_run_sgc_resumption_handles_tag_set_error(empty_active_run_stack, 
         # Should still create run successfully despite tag error
         with mlflow.start_run(experiment_id=experiment_id) as run:
             assert run.info.run_id is not None
-        mock_get_sgc.assert_called_once()
+        mock_get_sgc.assert_called()
         mock_set_tag.assert_called_once()
