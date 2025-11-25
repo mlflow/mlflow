@@ -2430,7 +2430,7 @@ def test_get_sgc_mlflow_run_id_for_resumption_with_tag(empty_active_run_stack):
     run = client.create_run(experiment_id)
     run_id = run.info.run_id
 
-    sgc_tag_key = "databricks_mlflow_sgc_resume_run_job_run_id_12345"
+    sgc_tag_key = f"{mlflow_tags.MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.12345"
     client.set_experiment_tag(experiment_id, sgc_tag_key, run_id)
 
     # Test retrieval
@@ -2442,7 +2442,7 @@ def test_get_sgc_mlflow_run_id_for_resumption_without_tag(empty_active_run_stack
     experiment_id = mlflow.create_experiment("test_sgc_no_tag")
     client = MlflowClient()
 
-    sgc_tag_key = "databricks_mlflow_sgc_resume_run_job_run_id_nonexistent"
+    sgc_tag_key = f"{mlflow_tags.MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.nonexistent"
 
     # Test retrieval when tag doesn't exist
     retrieved_run_id = _get_sgc_mlflow_run_id_for_resumption(client, experiment_id, sgc_tag_key)
@@ -2458,7 +2458,7 @@ def test_get_sgc_mlflow_run_id_for_resumption_with_default_experiment(empty_acti
     run = client.create_run(default_exp_id)
     run_id = run.info.run_id
 
-    sgc_tag_key = "databricks_mlflow_sgc_resume_run_job_run_id_default"
+    sgc_tag_key = f"{mlflow_tags.MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.default"
     client.set_experiment_tag(default_exp_id, sgc_tag_key, run_id)
 
     # Test retrieval with None experiment_id
@@ -2470,7 +2470,7 @@ def test_get_sgc_mlflow_run_id_for_resumption_handles_exception():
     client = MlflowClient()
 
     # Test with non-existent experiment ID
-    sgc_tag_key = "databricks_mlflow_sgc_resume_run_job_run_id_error"
+    sgc_tag_key = f"{mlflow_tags.MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.error"
     retrieved_run_id = _get_sgc_mlflow_run_id_for_resumption(
         client, "nonexistent_exp_id", sgc_tag_key
     )
@@ -2493,7 +2493,7 @@ def test_start_run_sgc_resumption_creates_tag(empty_active_run_stack, monkeypatc
         # Check that the experiment tag was set
         client = MlflowClient()
         exp = client.get_experiment(experiment_id)
-        expected_tag_key = f"databricks_mlflow_sgc_resume_run_job_run_id_{sgc_job_run_id}"
+        expected_tag_key = f"{mlflow_tags.MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.{sgc_job_run_id}"
         assert expected_tag_key in exp.tags
         assert exp.tags[expected_tag_key] == run_id
 

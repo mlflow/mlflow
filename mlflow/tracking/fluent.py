@@ -72,6 +72,7 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
@@ -275,7 +276,7 @@ def _get_sgc_job_run_id_tag_key() -> str | None:
         return None
 
     if sgc_job_run_id := get_sgc_job_run_id():
-        return f"databricks_mlflow_sgc_resume_run_job_run_id_{sgc_job_run_id}"
+        return f"{MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.{sgc_job_run_id}"
 
     return None
 
