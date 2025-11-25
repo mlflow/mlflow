@@ -29,6 +29,9 @@ class DiffRange:
     start: int
     end: int
 
+    def overlaps(self, start: int, end: int) -> bool:
+        return start <= self.end and self.start <= end
+
 
 def parse_diff_ranges(diff_output: str) -> dict[Path, list[DiffRange]]:
     """
@@ -58,8 +61,8 @@ def get_diff_ranges() -> dict[Path, list[DiffRange]]:
     return parse_diff_ranges(output)
 
 
-def is_line_in_diff(line: int, ranges: list[DiffRange]) -> bool:
-    return any(r.start <= line < r.end for r in ranges)
+def overlaps_with_diff(node: ast.Constant, ranges: list[DiffRange]) -> bool:
+    return any(r.overlaps(node.lineno, node.end_lineno or node.lineno) for r in ranges)
 
 
 def get_docstring_node(node: DefNode) -> ast.Constant | None:
@@ -86,7 +89,7 @@ class Visitor(ast.NodeVisitor):
         docstring_node = get_docstring_node(node)
         if not docstring_node:
             return
-        if not is_line_in_diff(node.lineno, self.diff_ranges):
+        if not overlaps_with_diff(docstring_node, self.diff_ranges):
             return
         if is_redundant_docstring(node):
             self.errors.append(
