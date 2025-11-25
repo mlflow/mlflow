@@ -14,6 +14,8 @@ from typing import Literal, TypeAlias
 
 FuncNode: TypeAlias = ast.FunctionDef | ast.AsyncFunctionDef
 
+KILL_SWITCH_ENV_VAR = "CLAUDE_LINT_HOOK_DISABLED"
+
 
 @dataclass
 class LintError:
@@ -161,7 +163,7 @@ def get_source_and_diff_ranges(hook_input: HookInput) -> tuple[str, list[DiffRan
 
 def main() -> int:
     # Kill switch: disable hook if environment variable is set
-    if os.environ.get("CLAUDE_LINT_HOOK_DISABLED"):
+    if os.environ.get(KILL_SWITCH_ENV_VAR):
         return 0
 
     hook_input = HookInput.parse()
@@ -181,7 +183,7 @@ def main() -> int:
         error_details = "\n".join(f"  - {error}" for error in errors)
         reason = (
             f"Lint errors found:\n{error_details}\n\n"
-            "To disable this hook, set CLAUDE_LINT_HOOK_DISABLED=1"
+            f"To disable this hook, set {KILL_SWITCH_ENV_VAR}=1"
         )
         # Exit code 2 = blocking error. stderr is fed back to Claude.
         # See: https://code.claude.com/docs/en/hooks#hook-output
