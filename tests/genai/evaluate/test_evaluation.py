@@ -1209,3 +1209,47 @@ def test_evaluate_with_evaluation_dataset_and_session_level_scorers(monkeypatch)
     # Verify conversation lengths: session_1 has 2 traces, session_2 has 1 trace
     conv_lengths = result_df["conversation_length/value"].dropna().sort_values().tolist()
     assert conv_lengths == [1.0, 2.0]
+
+
+def test_evaluate_dataset_mixed_traces_with_and_without_sessions():
+    class SessionScorer(mlflow.genai.Scorer):
+        def __init__(self):
+            super().__init__(name="session_length")
+
+        @property
+        def is_session_level_scorer(self):
+            return True
+
+        def __call__(self, session=None, **kwargs):
+            return len(session or [])
+
+    # Create mixed traces
+    @mlflow.trace(span_type=mlflow.entities.SpanType.CHAT_MODEL)
+    def model_with_session(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return "answer"
+
+    @mlflow.trace(span_type=mlflow.entities.SpanType.CHAT_MODEL)
+    def model_without_session(question):
+        return "answer"
+
+    model_with_session("Q1", "session_1")
+    trace_1 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model_without_session("Q2")
+    trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model_with_session("Q3", "session_1")
+    trace_3 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    # Create dataset and evaluate
+    dataset = create_dataset(name="mixed_dataset")
+    dataset.merge_records([trace_1, trace_2, trace_3])
+
+    result = mlflow.genai.evaluate(data=dataset, scorers=[SessionScorer()])
+    result_df = result.result_df
+
+    # Should have 1 session-level score (for session_1 with 2 traces)
+    # The trace without session should not be scored by session-level scorer
+    assert result_df["session_length/value"].notna().sum() == 1
+    assert result_df["session_length/value"].dropna().iloc[0] == 2.0

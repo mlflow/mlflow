@@ -339,6 +339,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     "tags",
                     "source_type",
                     "source_id",
+                    "source",
                     "created_time",
                     "dataset_record_id",
                 ]
