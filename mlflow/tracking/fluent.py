@@ -444,6 +444,7 @@ def start_run(
             ).format(active_run_stack[0].info.run_id)
         )
     client = MlflowClient()
+    sgc_job_run_id_tag_key: str | None = None
     if run_id:
         existing_run_id = run_id
     elif run_id := MLFLOW_RUN_ID.get():
