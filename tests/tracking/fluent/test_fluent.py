@@ -2493,7 +2493,9 @@ def test_start_run_sgc_resumption_creates_tag(empty_active_run_stack, monkeypatc
         # Check that the experiment tag was set
         client = MlflowClient()
         exp = client.get_experiment(experiment_id)
-        expected_tag_key = f"{mlflow_tags.MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.{sgc_job_run_id}"
+        expected_tag_key = (
+            f"{mlflow_tags.MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.{sgc_job_run_id}"
+        )
         assert expected_tag_key in exp.tags
         assert exp.tags[expected_tag_key] == run_id
 
