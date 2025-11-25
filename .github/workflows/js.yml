@@ -78,7 +78,14 @@ jobs:
       - name: Run type-check
         run: |
           yarn type-check
-      - name: Run tests
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        env:
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: |
+          yarn test --silent --maxWorkers=2 --workerIdleMemoryLimit=512MB ${{ matrix.option }} src/experiment-tracking/components
+      - name: Run tests (non-Windows)
+        if: runner.os != 'Windows'
         run: |
           yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
       - name: Run build
