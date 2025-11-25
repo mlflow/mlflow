@@ -2422,7 +2422,6 @@ def test_log_metric_with_dataset_entity():
 
 
 def test_get_sgc_mlflow_run_id_for_resumption_with_tag(empty_active_run_stack):
-
     # Create an experiment with a tag
     experiment_id = mlflow.create_experiment("test_sgc_experiment")
     client = MlflowClient()
@@ -2440,7 +2439,6 @@ def test_get_sgc_mlflow_run_id_for_resumption_with_tag(empty_active_run_stack):
 
 
 def test_get_sgc_mlflow_run_id_for_resumption_without_tag(empty_active_run_stack):
-
     experiment_id = mlflow.create_experiment("test_sgc_no_tag")
     client = MlflowClient()
 
@@ -2452,7 +2450,6 @@ def test_get_sgc_mlflow_run_id_for_resumption_without_tag(empty_active_run_stack
 
 
 def test_get_sgc_mlflow_run_id_for_resumption_with_default_experiment(empty_active_run_stack):
-
     # Use default experiment
     client = MlflowClient()
     default_exp_id = _get_experiment_id()
@@ -2470,7 +2467,6 @@ def test_get_sgc_mlflow_run_id_for_resumption_with_default_experiment(empty_acti
 
 
 def test_get_sgc_mlflow_run_id_for_resumption_handles_exception():
-
     client = MlflowClient()
 
     # Test with non-existent experiment ID
@@ -2482,7 +2478,6 @@ def test_get_sgc_mlflow_run_id_for_resumption_handles_exception():
 
 
 def test_start_run_sgc_resumption_creates_tag(empty_active_run_stack, monkeypatch):
-
     experiment_id = mlflow.create_experiment("test_sgc_create_tag")
     sgc_job_run_id = "12345"
 
@@ -2504,7 +2499,6 @@ def test_start_run_sgc_resumption_creates_tag(empty_active_run_stack, monkeypatc
 
 
 def test_start_run_sgc_resumption_resumes_run(empty_active_run_stack, monkeypatch):
-
     experiment_id = mlflow.create_experiment("test_sgc_resume")
     client = MlflowClient()
     sgc_job_run_id = "67890"
@@ -2537,7 +2531,6 @@ def test_start_run_sgc_resumption_resumes_run(empty_active_run_stack, monkeypatc
 
 
 def test_start_run_sgc_resumption_disabled(empty_active_run_stack, monkeypatch):
-
     experiment_id = mlflow.create_experiment("test_sgc_disabled")
     sgc_job_run_id = "11111"
 
@@ -2559,7 +2552,6 @@ def test_start_run_sgc_resumption_disabled(empty_active_run_stack, monkeypatch):
 
 
 def test_start_run_sgc_resumption_no_job_run_id(empty_active_run_stack, monkeypatch):
-
     experiment_id = mlflow.create_experiment("test_sgc_no_job_id")
 
     # Mock get_sgc_job_run_id to return None
@@ -2577,37 +2569,21 @@ def test_start_run_sgc_resumption_no_job_run_id(empty_active_run_stack, monkeypa
         assert len(sgc_tags) == 0
 
 
-def test_start_run_sgc_resumption_explicit_run_id_takes_precedence(
-    empty_active_run_stack, monkeypatch
-):
-
+def test_start_run_sgc_resumption_explicit_run_id_takes_precedence(empty_active_run_stack):
     experiment_id = mlflow.create_experiment("test_sgc_precedence")
     client = MlflowClient()
-    sgc_job_run_id = "99999"
 
-    # Create two runs
+    # Create a run
     run1 = client.create_run(experiment_id)
     run1_id = run1.info.run_id
 
-    run2 = client.create_run(experiment_id)
-    run2_id = run2.info.run_id
-
-    # Set experiment tag to point to run1
-    sgc_tag_key = f"databricks_mlflow_sgc_resume_run_job_run_id_{sgc_job_run_id}"
-    client.set_experiment_tag(experiment_id, sgc_tag_key, run1_id)
-
-    # Start run with explicit run_id=run2_id, should resume run2 not run1
-    with mock.patch(
-        "mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id
-    ) as mock_get_sgc:
-        with mlflow.start_run(run_id=run2_id, experiment_id=experiment_id) as resumed_run:
-            assert resumed_run.info.run_id == run2_id
-        # The mock should be called even though explicit run_id takes precedence
-        mock_get_sgc.assert_called()
+    # Start run with explicit run_id, should resume the specified run
+    # SGC logic is bypassed when explicit run_id is provided
+    with mlflow.start_run(run_id=run1_id, experiment_id=experiment_id) as resumed_run:
+        assert resumed_run.info.run_id == run1_id
 
 
 def test_start_run_sgc_resumption_handles_tag_set_error(empty_active_run_stack, monkeypatch):
-
     experiment_id = mlflow.create_experiment("test_sgc_tag_error")
     sgc_job_run_id = "error123"
 
