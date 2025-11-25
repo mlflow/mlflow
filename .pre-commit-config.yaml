@@ -175,9 +175,9 @@ repos:
         require_serial: true
         pass_filenames: false
 
-      - id: forbid-gif-in-docs
-        name: Forbid GIFs in docs
+      - id: forbid-gif
+        name: forbid-gif
         language: fail
-        entry: "Please use MP4 instead of GIF for docs animations (docs/**/*.gif)."
+        entry: "Please use MP4 instead of GIF for docs animations"
         files: ^docs/.*\.gif$
         stages: [pre-commit]
