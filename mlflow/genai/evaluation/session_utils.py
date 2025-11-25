@@ -6,10 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
-from mlflow.environment_variables import MLFLOW_ENABLE_MULTI_TURN_EVALUATION
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
-from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
 from mlflow.tracing.constant import TraceMetadataKey
 
 if TYPE_CHECKING:
@@ -38,7 +36,9 @@ def classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]]
     return single_turn_scorers, multi_turn_scorers
 
 
-def group_traces_by_session(eval_items: list["EvalItem"]) -> dict[str, list["EvalItem"]]:
+def group_traces_by_session(
+    eval_items: list["EvalItem"],
+) -> dict[str, list["EvalItem"]]:
     """
     Group evaluation items containing traces by session_id.
 
@@ -51,8 +51,8 @@ def group_traces_by_session(eval_items: list["EvalItem"]) -> dict[str, list["Eva
     """
     session_groups = defaultdict(list)
 
-    for idx, item in enumerate(eval_items):
-        if not hasattr(item, "trace") or item.trace is None:
+    for item in eval_items:
+        if not getattr(item, "trace", None):
             continue
 
         trace_metadata = item.trace.info.trace_metadata
@@ -88,7 +88,8 @@ def evaluate_multi_turn_scorers(
         session_groups: Dict of {session_id: [eval_item, ...]}
 
     Returns:
-        dict: {first_trace_id: {scorer_name: feedback, ...}}
+        dict: Dictionary mapping first trace ID of each session to its assessments.
+              Structure: {first_trace_id: {feedback_name: feedback, ...}, ...}
     """
     # Import here to avoid circular dependency
     from mlflow.genai.evaluation.utils import (
@@ -96,7 +97,7 @@ def evaluate_multi_turn_scorers(
         standardize_scorer_value,
     )
 
-    multi_turn_assessments = {}
+    multi_turn_assessments = defaultdict(dict)
 
     for session_id, session_items in session_groups.items():
         # Get the first trace to store assessments
@@ -104,13 +105,13 @@ def evaluate_multi_turn_scorers(
         first_trace_id = first_item.trace.info.trace_id
 
         # Extract just the traces for scorer evaluation
-        traces = [item.trace for item in session_items]
+        session_traces = [item.trace for item in session_items]
 
         # Evaluate each multi-turn scorer
         for scorer in multi_turn_scorers:
             try:
-                # Call scorer with session parameter
-                value = scorer.run(session=traces)
+                # Call scorer with session_traces parameter
+                value = scorer.run(session=session_traces)
                 feedbacks = standardize_scorer_value(scorer.name, value)
 
                 # Add session_id to metadata for each feedback
@@ -118,10 +119,6 @@ def evaluate_multi_turn_scorers(
                     if feedback.metadata is None:
                         feedback.metadata = {}
                     feedback.metadata[TraceMetadataKey.TRACE_SESSION] = session_id
-
-                # Store assessments for first trace
-                if first_trace_id not in multi_turn_assessments:
-                    multi_turn_assessments[first_trace_id] = {}
 
                 # Store all feedbacks from this scorer
                 for feedback in feedbacks:
@@ -134,19 +131,19 @@ def evaluate_multi_turn_scorers(
                     source=make_code_type_assessment_source(scorer.name),
                     error=AssessmentError(
                         error_code="SCORER_ERROR",
-                        error_message=str(e),
+                        error_message=e,
                         stack_trace=traceback.format_exc(),
                     ),
                 )
 
-                if first_trace_id not in multi_turn_assessments:
-                    multi_turn_assessments[first_trace_id] = {}
                 multi_turn_assessments[first_trace_id][scorer.name] = error_feedback
 
     return multi_turn_assessments
 
 
-def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: Any) -> None:
+def validate_session_level_evaluation_inputs(
+    scorers: list[Scorer], predict_fn: Any
+) -> None:
     """
     Validate input parameters when session-level scorers are present.
 
@@ -155,20 +152,17 @@ def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: 
         predict_fn: Prediction function (if provided)
 
     Raises:
-        MlflowException: If feature flag is not enabled or invalid configuration is detected
+        MlflowException: If invalid configuration is detected
     """
-    has_session_level = any(getattr(scorer, "is_session_level_scorer", False) for scorer in scorers)
+    session_level_scorers = [
+        scorer for scorer in scorers if scorer.is_session_level_scorer
+    ]
 
-    if has_session_level:
-        # Check if feature is enabled
-        if not MLFLOW_ENABLE_MULTI_TURN_EVALUATION.get():
-            raise MlflowException(
-                "Multi-turn evaluation is not enabled.",
-                error_code=FEATURE_DISABLED,
-            )
-
+    if session_level_scorers:
         if predict_fn is not None:
+            scorer_names = [scorer.name for scorer in session_level_scorers]
             raise MlflowException.invalid_parameter_value(
-                "Multi-turn scorers are not yet supported with predict_fn. "
-                "Please pass traces instead."
+                f"Multi-turn scorers are not yet supported with predict_fn. "
+                f"The following scorers require session-level evaluation: {scorer_names}. "
+                f"Please pass traces instead."
             )
