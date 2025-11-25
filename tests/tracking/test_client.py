@@ -3513,10 +3513,10 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
 
         assert isinstance(client._tracking_client.store, SqlAlchemyTrackingStore)
 
-        with mlflow.start_span():
+        with mlflow.start_span() as span:
             pass
 
-        trace_id = mlflow.get_last_active_trace_id()
+        trace_id = span.trace_id
         sql_alchemy_store_module = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
         with (
             mock.patch(f"{sql_alchemy_store_module}.get_trace") as mock_get_trace,
@@ -3529,9 +3529,10 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
             mock.patch(
                 f"{sql_alchemy_store_module}.get_trace",
                 side_effect=MlflowNotImplementedException,
-            ),
+            ) as mock_get_trace,
             mock.patch(f"{sql_alchemy_store_module}.batch_get_traces") as mock_batch_get_traces,
         ):
             mlflow.get_trace(trace_id)
 
+        mock_get_trace.assert_called_once_with(trace_id)
         mock_batch_get_traces.assert_called_once_with([trace_id])
