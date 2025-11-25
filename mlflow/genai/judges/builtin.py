@@ -2,6 +2,7 @@ from functools import wraps
 from typing import Any
 
 from mlflow.entities.assessment import Feedback
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.utils.docstring_utils import format_docstring
@@ -247,7 +248,6 @@ def is_correct(
             )
             print(feedback.value)  # "no"
     """
-    from mlflow.exceptions import MlflowException
     from mlflow.genai.judges.prompts.correctness import CORRECTNESS_FEEDBACK_NAME, get_prompt
 
     if expected_response is not None and expected_facts is not None:
