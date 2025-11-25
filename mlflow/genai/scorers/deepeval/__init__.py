@@ -6,7 +6,7 @@ with MLflow's judge interface.
 
 Example usage:
     >>> from mlflow.genai.scorers.deepeval import get_judge
-    >>> judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
+    >>> judge = get_judge("AnswerRelevancy", threshold=0.7)  # Uses databricks model by default
     >>> feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
 """
 
@@ -35,7 +35,7 @@ class DeepEvalScorer(Scorer):
     def __init__(
         self,
         metric_name: str,
-        model: str = "databricks",
+        model: str | None = None,
         **metric_kwargs,
     ):
         """
@@ -54,8 +54,12 @@ class DeepEvalScorer(Scorer):
             # Deterministic metrics don't need a model
             self._metric = metric_class(**metric_kwargs)
         else:
-            # TODO: Support databricks model serving models (e.g., databricks:/model_name)
+            # Use databricks as default if no model specified
+            if model is None:
+                model = "databricks"
+
             deepeval_model = create_deepeval_model(model)
+
             self._metric = metric_class(
                 model=deepeval_model,
                 verbose_mode=False,
@@ -123,7 +127,7 @@ class DeepEvalScorer(Scorer):
 
 def get_judge(
     metric_name: str,
-    model: str = "databricks",
+    model: str | None = None,
     **metric_kwargs,
 ) -> DeepEvalScorer:
     """
@@ -131,7 +135,7 @@ def get_judge(
 
     Args:
         metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy", "Faithfulness")
-        model: Model URI in MLflow format (default: "databricks")
+        model: Model URI in MLflow format (default: uses "databricks")
         metric_kwargs: Additional metric-specific parameters (e.g., threshold, include_reason)
 
     Returns:
@@ -141,7 +145,7 @@ def get_judge(
         >>> judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
         >>> feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
 
-        >>> judge = get_judge("Faithfulness", model="openai:/gpt-4")
+        >>> judge = get_judge("Faithfulness")  # Uses databricks as default model
         >>> feedback = judge(trace=trace)
     """
     return DeepEvalScorer(
@@ -151,7 +155,78 @@ def get_judge(
     )
 
 
+# Import namespaced metric classes from scorers subdirectory
+from mlflow.genai.scorers.deepeval.scorers import (
+    AnswerRelevancy,
+    ArgumentCorrectness,
+    Bias,
+    ContextualPrecision,
+    ContextualRecall,
+    ContextualRelevancy,
+    ConversationCompleteness,
+    ExactMatch,
+    Faithfulness,
+    GoalAccuracy,
+    Hallucination,
+    JsonCorrectness,
+    KnowledgeRetention,
+    Misuse,
+    NonAdvice,
+    PatternMatch,
+    PIILeakage,
+    PlanAdherence,
+    PlanQuality,
+    PromptAlignment,
+    RoleAdherence,
+    RoleViolation,
+    StepEfficiency,
+    Summarization,
+    TaskCompletion,
+    ToolCorrectness,
+    ToolUse,
+    TopicAdherence,
+    Toxicity,
+    TurnRelevancy,
+)
+
 __all__ = [
+    # Core classes
     "DeepEvalScorer",
     "get_judge",
+    # RAG metrics
+    "AnswerRelevancy",
+    "Faithfulness",
+    "ContextualRecall",
+    "ContextualPrecision",
+    "ContextualRelevancy",
+    # Agentic metrics
+    "TaskCompletion",
+    "ToolCorrectness",
+    "ArgumentCorrectness",
+    "StepEfficiency",
+    "PlanAdherence",
+    "PlanQuality",
+    # Conversational metrics
+    "TurnRelevancy",
+    "RoleAdherence",
+    "KnowledgeRetention",
+    "ConversationCompleteness",
+    "GoalAccuracy",
+    "ToolUse",
+    "TopicAdherence",
+    # Safety metrics
+    "Bias",
+    "Toxicity",
+    "NonAdvice",
+    "Misuse",
+    "PIILeakage",
+    "RoleViolation",
+    # General metrics
+    "Hallucination",
+    "Summarization",
+    "JsonCorrectness",
+    "PromptAlignment",
+    # Deterministic metrics
+    "ExactMatch",
+    "PatternMatch",
 ]
