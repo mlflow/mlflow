@@ -3,7 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -43,7 +43,7 @@ class EvalItem:
     error_message: str | None = None
 
     """Source information for the eval item (e.g., from which trace it was created)."""
-    source: Optional[DatasetRecordSource] = None
+    source: DatasetRecordSource | None = None
 
     @classmethod
     def from_dataset_row(cls, row: dict[str, Any]) -> "EvalItem":

@@ -1162,7 +1162,7 @@ def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
     assert all(length > 0 for length in response_lengths), "All response lengths should be positive"
 
 
-def test_evaluate_with_evaluation_dataset_and_session_level_scorers(monkeypatch):
+def test_evaluate_with_evaluation_dataset_and_session_level_scorers():
     """Test that session-level scorers work with EvaluationDataset created from traces."""
 
     # Define a session-level scorer
