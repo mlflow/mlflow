@@ -1077,15 +1077,13 @@ def test_eval_with_traces_log_spans_correctly(diff_experiment_id):
     assert child_span.inputs == "test"
 
 
-def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config, monkeypatch):
+def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
     """Test evaluation with a combination of single-turn and multi-turn scorers.
 
     Validates that:
     - Single-turn scorers are applied to all traces
     - Multi-turn scorers are only applied to the first trace of each session
     """
-    # Enable multi-turn evaluation feature
-    monkeypatch.setenv("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", "true")
 
     # Define a multi-turn scorer that counts conversation turns
     class ConversationLengthScorer(mlflow.genai.Scorer):
