@@ -19,13 +19,14 @@ _METRIC_REGISTRY = {
     "PlanAdherence": "deepeval.metrics.PlanAdherenceMetric",
     "PlanQuality": "deepeval.metrics.PlanQualityMetric",
     # Conversational Metrics
-    "TurnRelevancy": "deepeval.metrics.TurnRelevancyMetric",
-    "RoleAdherence": "deepeval.metrics.RoleAdherenceMetric",
-    "KnowledgeRetention": "deepeval.metrics.KnowledgeRetentionMetric",
-    "ConversationCompleteness": "deepeval.metrics.ConversationCompletenessMetric",
-    "GoalAccuracy": "deepeval.metrics.GoalAccuracyMetric",
-    "ToolUse": "deepeval.metrics.ToolUseMetric",
-    "TopicAdherence": "deepeval.metrics.TopicAdherenceMetric",
+    # TODO: Add support for conversational metrics with ConversationalTestCase
+    # "TurnRelevancy": "deepeval.metrics.TurnRelevancyMetric",
+    # "RoleAdherence": "deepeval.metrics.RoleAdherenceMetric",
+    # "KnowledgeRetention": "deepeval.metrics.KnowledgeRetentionMetric",
+    # "ConversationCompleteness": "deepeval.metrics.ConversationCompletenessMetric",
+    # "GoalAccuracy": "deepeval.metrics.GoalAccuracyMetric",
+    # "ToolUse": "deepeval.metrics.ToolUseMetric",
+    # "TopicAdherence": "deepeval.metrics.TopicAdherenceMetric",
     # Safety Metrics
     "Bias": "deepeval.metrics.BiasMetric",
     "Toxicity": "deepeval.metrics.ToxicityMetric",
