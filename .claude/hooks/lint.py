@@ -19,10 +19,11 @@ FuncNode: TypeAlias = ast.FunctionDef | ast.AsyncFunctionDef
 class LintError:
     file: Path
     line: int
+    column: int
     message: str
 
     def __str__(self) -> str:
-        return f"{self.file}:{self.line}: {self.message}"
+        return f"{self.file}:{self.line}:{self.column}: {self.message}"
 
 
 @dataclass
@@ -84,6 +85,7 @@ class Visitor(ast.NodeVisitor):
                 LintError(
                     file=self.file_path,
                     line=docstring_node.lineno,
+                    column=docstring_node.col_offset + 1,
                     message=f"Redundant docstring in '{node.name}'",
                 )
             )
@@ -101,7 +103,7 @@ def lint(file_path: Path, source: str, diff_ranges: list[DiffRange]) -> list[Lin
     try:
         tree = ast.parse(source, filename=str(file_path))
     except SyntaxError as e:
-        return [LintError(file=file_path, line=0, message=f"Failed to parse: {e}")]
+        return [LintError(file=file_path, line=0, column=0, message=f"Failed to parse: {e}")]
 
     visitor = Visitor(file_path=file_path, diff_ranges=diff_ranges)
     visitor.visit(tree)
