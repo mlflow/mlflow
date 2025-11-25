@@ -41,6 +41,9 @@ class EvalItem:
     """Error message if the model invocation fails."""
     error_message: str | None = None
 
+    """Source information for the eval item (e.g., from which trace it was created)."""
+    source: "DatasetRecordSource | None" = None
+
     @classmethod
     def from_dataset_row(cls, row: dict[str, Any]) -> "EvalItem":
         """
@@ -63,6 +66,11 @@ class EvalItem:
         # Extract tags column from the dataset.
         tags = row.get(InputDatasetColumn.TAGS, {})
 
+        # Extract source column from the dataset.
+        source = row.get(InputDatasetColumn.SOURCE)
+        if is_none_or_nan(source):
+            source = None
+
         # Get the request ID from the row, or generate a new unique ID if not present.
         request_id = row.get(InputDatasetColumn.REQUEST_ID)
         if is_none_or_nan(request_id):
@@ -83,6 +91,7 @@ class EvalItem:
             expectations=expectations,
             tags=tags,
             trace=trace,
+            source=source,
         )
 
     @classmethod
