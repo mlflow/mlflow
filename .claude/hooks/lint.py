@@ -56,10 +56,22 @@ def parse_diff_ranges(diff_output: str) -> dict[Path, list[DiffRange]]:
 
 
 def get_diff_ranges() -> dict[Path, list[DiffRange]]:
-    output = subprocess.check_output(
+    # Get modified tracked files
+    diff_output = subprocess.check_output(
         ["git", "--no-pager", "diff", "-U0", "HEAD", "--", "*.py"], text=True
     )
-    return parse_diff_ranges(output)
+    file_ranges = parse_diff_ranges(diff_output)
+
+    # Get untracked files (all lines are considered changed)
+    status_output = subprocess.check_output(
+        ["git", "status", "--porcelain", "--", "*.py"], text=True
+    )
+    for line in status_output.splitlines():
+        if line.startswith("?? "):
+            path = Path(line[3:])
+            file_ranges[path] = [DiffRange(start=1, end=999999)]
+
+    return file_ranges
 
 
 def overlaps_with_diff(node: ast.Constant, ranges: list[DiffRange]) -> bool:
