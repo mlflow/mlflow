@@ -536,7 +536,6 @@ def test_call_chat_completions_client_error(mock_databricks_rag_eval):
 
 
 def test_call_chat_completions_with_use_case_supported():
-    """Test that use_case is passed when the method signature supports it."""
     call_args = None
 
     # Create a mock client with the real method (not a MagicMock) so inspect.signature works
@@ -565,9 +564,6 @@ def test_call_chat_completions_with_use_case_supported():
             "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
         ),
         mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_module}),
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.VERSION", "1.0.0"
-        ),
     ):
         result = call_chat_completions("test prompt", "system prompt", use_case="judge_alignment")
 
@@ -582,15 +578,11 @@ def test_call_chat_completions_with_use_case_supported():
 
 
 def test_call_chat_completions_with_use_case_not_supported(mock_databricks_rag_eval):
-    """Test that use_case is not passed when the method signature doesn't support it."""
     with (
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
         ),
         mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.VERSION", "1.0.0"
-        ),
     ):
         # Even though we pass use_case, it won't be forwarded since the mock doesn't support it
         result = call_chat_completions("test prompt", "system prompt", use_case="judge_alignment")
