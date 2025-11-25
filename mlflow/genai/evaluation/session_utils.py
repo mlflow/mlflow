@@ -76,10 +76,10 @@ def get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
     return min(session_items, key=lambda x: x.trace.info.request_time)
 
 
-def evaluate_multi_turn_scorers(
+def evaluate_session_level_scorers(
     multi_turn_scorers: list[Scorer],
     session_groups: dict[str, list["EvalItem"]],
-) -> dict[str, dict[str, Feedback]]:
+) -> dict[str, list[Feedback]]:
     """
     Evaluate multi-turn scorers on grouped sessions.
 
@@ -88,8 +88,8 @@ def evaluate_multi_turn_scorers(
         session_groups: Dict of {session_id: [eval_item, ...]}
 
     Returns:
-        dict: Dictionary mapping first trace ID of each session to its assessments.
-              Structure: {first_trace_id: {feedback_name: feedback, ...}, ...}
+        dict: Dictionary mapping first trace ID of each session to its assessments list.
+              Structure: {first_trace_id: [feedback1, feedback2, ...], ...}
     """
     # Import here to avoid circular dependency
     from mlflow.genai.evaluation.utils import (
@@ -97,7 +97,7 @@ def evaluate_multi_turn_scorers(
         standardize_scorer_value,
     )
 
-    multi_turn_assessments = defaultdict(dict)
+    multi_turn_assessments = defaultdict(list)
 
     for session_id, session_items in session_groups.items():
         # Get the first trace to store assessments
@@ -120,9 +120,8 @@ def evaluate_multi_turn_scorers(
                         feedback.metadata = {}
                     feedback.metadata[TraceMetadataKey.TRACE_SESSION] = session_id
 
-                # Store all feedbacks from this scorer
-                for feedback in feedbacks:
-                    multi_turn_assessments[first_trace_id][feedback.name] = feedback
+                # Extend the list with all feedbacks from this scorer
+                multi_turn_assessments[first_trace_id].extend(feedbacks)
 
             except Exception as e:
                 # Use existing error handling mechanism
@@ -136,7 +135,7 @@ def evaluate_multi_turn_scorers(
                     ),
                 )
 
-                multi_turn_assessments[first_trace_id][scorer.name] = error_feedback
+                multi_turn_assessments[first_trace_id].append(error_feedback)
 
     return multi_turn_assessments
 

@@ -12,7 +12,7 @@ from mlflow.genai import scorer
 from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
-    evaluate_multi_turn_scorers,
+    evaluate_session_level_scorers,
     get_first_trace_in_session,
     group_traces_by_session,
     validate_session_level_evaluation_inputs,
@@ -319,7 +319,7 @@ def test_validate_session_level_evaluation_inputs_mixed_scorers():
     )
 
 
-# ==================== Tests for evaluate_multi_turn_scorers ====================
+# ==================== Tests for evaluate_session_level_scorers ====================
 
 
 def _create_test_trace(trace_id: str, request_time: int = 0) -> Trace:
@@ -350,7 +350,7 @@ def _create_eval_item(trace_id: str, request_time: int = 0) -> EvalItem:
     )
 
 
-def test_evaluate_multi_turn_scorers_success():
+def test_evaluate_session_level_scorers_success():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "test_scorer"
     mock_scorer.run.return_value = 0.8
@@ -379,7 +379,7 @@ def test_evaluate_multi_turn_scorers_success():
 
         mock_standardize.side_effect = create_feedback
 
-        result = evaluate_multi_turn_scorers([mock_scorer], session_groups)
+        result = evaluate_session_level_scorers([mock_scorer], session_groups)
 
         # Verify scorer was called for each session
         assert mock_scorer.run.call_count == 2
@@ -393,22 +393,26 @@ def test_evaluate_multi_turn_scorers_success():
         # Verify results for both sessions (assessments on first trace of each)
         assert "trace1" in result  # First trace of session1
         assert "trace3" in result  # First trace of session2
-        assert result["trace1"]["test_scorer"].value == 0.8
-        assert result["trace3"]["test_scorer"].value == 0.8
+        assert len(result["trace1"]) == 1
+        assert len(result["trace3"]) == 1
+        assert result["trace1"][0].name == "test_scorer"
+        assert result["trace1"][0].value == 0.8
+        assert result["trace3"][0].name == "test_scorer"
+        assert result["trace3"][0].value == 0.8
 
         # Verify session_id was added to metadata
-        assert result["trace1"]["test_scorer"].metadata is not None
+        assert result["trace1"][0].metadata is not None
         assert (
-            result["trace1"]["test_scorer"].metadata[TraceMetadataKey.TRACE_SESSION]
+            result["trace1"][0].metadata[TraceMetadataKey.TRACE_SESSION]
             == "session1"
         )
         assert (
-            result["trace3"]["test_scorer"].metadata[TraceMetadataKey.TRACE_SESSION]
+            result["trace3"][0].metadata[TraceMetadataKey.TRACE_SESSION]
             == "session2"
         )
 
 
-def test_evaluate_multi_turn_scorers_handles_scorer_error():
+def test_evaluate_session_level_scorers_handles_scorer_error():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "failing_scorer"
     mock_scorer.run.side_effect = ValueError("Scorer failed!")
@@ -417,19 +421,20 @@ def test_evaluate_multi_turn_scorers_handles_scorer_error():
         "session1": [_create_eval_item("trace1", 100)],
     }
 
-    result = evaluate_multi_turn_scorers([mock_scorer], session_groups)
+    result = evaluate_session_level_scorers([mock_scorer], session_groups)
 
     # Verify error feedback was created
     assert "trace1" in result
-    assert "failing_scorer" in result["trace1"]
-    feedback = result["trace1"]["failing_scorer"]
+    assert len(result["trace1"]) == 1
+    feedback = result["trace1"][0]
+    assert feedback.name == "failing_scorer"
     assert feedback.error is not None
     assert feedback.error.error_code == "SCORER_ERROR"
     assert "Scorer failed!" in str(feedback.error.error_message)
     assert feedback.error.stack_trace is not None
 
 
-def test_evaluate_multi_turn_scorers_multiple_feedbacks_per_scorer():
+def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "multi_feedback_scorer"
     mock_scorer.run.return_value = {"metric1": 0.7, "metric2": 0.9}
@@ -453,17 +458,20 @@ def test_evaluate_multi_turn_scorers_multiple_feedbacks_per_scorer():
         ]
         mock_standardize.return_value = feedbacks
 
-        result = evaluate_multi_turn_scorers([mock_scorer], session_groups)
+        result = evaluate_session_level_scorers([mock_scorer], session_groups)
 
         # Verify both feedbacks are stored
         assert "trace1" in result
-        assert "multi_feedback_scorer/metric1" in result["trace1"]
-        assert "multi_feedback_scorer/metric2" in result["trace1"]
-        assert result["trace1"]["multi_feedback_scorer/metric1"].value == 0.7
-        assert result["trace1"]["multi_feedback_scorer/metric2"].value == 0.9
+        assert len(result["trace1"]) == 2
+        # Find feedbacks by name
+        feedback_by_name = {f.name: f for f in result["trace1"]}
+        assert "multi_feedback_scorer/metric1" in feedback_by_name
+        assert "multi_feedback_scorer/metric2" in feedback_by_name
+        assert feedback_by_name["multi_feedback_scorer/metric1"].value == 0.7
+        assert feedback_by_name["multi_feedback_scorer/metric2"].value == 0.9
 
 
-def test_evaluate_multi_turn_scorers_first_trace_selection():
+def test_evaluate_session_level_scorers_first_trace_selection():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "first_trace_scorer"
     mock_scorer.run.return_value = 1.0
@@ -485,16 +493,18 @@ def test_evaluate_multi_turn_scorers_first_trace_selection():
         )
         mock_standardize.return_value = [feedback]
 
-        result = evaluate_multi_turn_scorers([mock_scorer], session_groups)
+        result = evaluate_session_level_scorers([mock_scorer], session_groups)
 
         # Verify assessment is stored on trace1 (earliest request_time)
         assert "trace1" in result
         assert "trace2" not in result
         assert "trace3" not in result
-        assert result["trace1"]["first_trace_scorer"].value == 1.0
+        assert len(result["trace1"]) == 1
+        assert result["trace1"][0].name == "first_trace_scorer"
+        assert result["trace1"][0].value == 1.0
 
 
-def test_evaluate_multi_turn_scorers_multiple_scorers():
+def test_evaluate_session_level_scorers_multiple_scorers():
     mock_scorer1 = Mock(spec=mlflow.genai.Scorer)
     mock_scorer1.name = "scorer1"
     mock_scorer1.run.return_value = 0.6
@@ -524,21 +534,24 @@ def test_evaluate_multi_turn_scorers_multiple_scorers():
             create_feedback("scorer2", 0.8),
         ]
 
-        result = evaluate_multi_turn_scorers([mock_scorer1, mock_scorer2], session_groups)
+        result = evaluate_session_level_scorers([mock_scorer1, mock_scorer2], session_groups)
 
         # Verify both scorers were evaluated
         assert "trace1" in result
-        assert "scorer1" in result["trace1"]
-        assert "scorer2" in result["trace1"]
-        assert result["trace1"]["scorer1"].value == 0.6
-        assert result["trace1"]["scorer2"].value == 0.8
+        assert len(result["trace1"]) == 2
+        # Find feedbacks by name
+        feedback_by_name = {f.name: f for f in result["trace1"]}
+        assert "scorer1" in feedback_by_name
+        assert "scorer2" in feedback_by_name
+        assert feedback_by_name["scorer1"].value == 0.6
+        assert feedback_by_name["scorer2"].value == 0.8
 
 
-def test_evaluate_multi_turn_scorers_empty_session_groups():
+def test_evaluate_session_level_scorers_empty_session_groups():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "test_scorer"
 
-    result = evaluate_multi_turn_scorers([mock_scorer], {})
+    result = evaluate_session_level_scorers([mock_scorer], {})
 
     # Should return empty result
     assert result == {}

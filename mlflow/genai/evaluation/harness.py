@@ -24,7 +24,7 @@ from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
-    evaluate_multi_turn_scorers,
+    evaluate_session_level_scorers,
     group_traces_by_session,
 )
 from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
@@ -54,7 +54,7 @@ _logger = logging.getLogger(__name__)
 
 
 def _log_multi_turn_assessments_to_traces(
-    multi_turn_assessments: dict[str, dict],
+    multi_turn_assessments: dict[str, list],
     eval_results: list[EvalResult],
     run_id: str,
 ) -> None:
@@ -62,12 +62,11 @@ def _log_multi_turn_assessments_to_traces(
     Log multi-turn assessments to the first trace of each session.
 
     Args:
-        multi_turn_assessments: Dictionary mapping trace_id to assessment dictionaries
+        multi_turn_assessments: Dictionary mapping trace_id to list of assessments
         eval_results: List of EvalResult objects to update with multi-turn assessments
         run_id: MLflow run ID for logging
     """
-    for trace_id, assessments_dict in multi_turn_assessments.items():
-        assessments_list = list(assessments_dict.values())
+    for trace_id, assessments_list in multi_turn_assessments.items():
 
         # Find the eval_result containing this trace so we can update it
         matching_eval_result = next(
@@ -158,7 +157,7 @@ def run(
 
         if session_groups:
             # Evaluate multi-turn scorers on session groups
-            multi_turn_assessments = evaluate_multi_turn_scorers(
+            multi_turn_assessments = evaluate_session_level_scorers(
                 multi_turn_scorers, session_groups
             )
 
