@@ -72,6 +72,8 @@ class Visitor(ast.NodeVisitor):
         self.errors: list[LintError] = []
 
     def _check_docstring(self, node: DefNode) -> None:
+        if not node.name.startswith("test_"):
+            return
         docstring_node = get_docstring_node(node)
         if not docstring_node:
             return
@@ -164,8 +166,12 @@ def main() -> int:
     if not hook_input:
         return 0
 
-    # Only lint test files
-    if hook_input.file_path.suffix != ".py" or not is_test_file(hook_input.file_path):
+    # Ignore non-Python files
+    if hook_input.file_path.suffix != ".py":
+        return 0
+
+    # Ignore non-test files
+    if not is_test_file(hook_input.file_path):
         return 0
 
     source, diff_ranges = get_source_and_diff_ranges(hook_input)
