@@ -17,7 +17,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey, TraceMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracing.utils.search import traces_to_df

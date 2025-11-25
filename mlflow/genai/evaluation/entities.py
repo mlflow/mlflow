@@ -3,12 +3,13 @@
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 
 from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
@@ -42,7 +43,7 @@ class EvalItem:
     error_message: str | None = None
 
     """Source information for the eval item (e.g., from which trace it was created)."""
-    source: "DatasetRecordSource | None" = None
+    source: Optional[DatasetRecordSource] = None
 
     @classmethod
     def from_dataset_row(cls, row: dict[str, Any]) -> "EvalItem":

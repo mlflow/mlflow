@@ -1,6 +1,3 @@
-"""Unit tests for mlflow.genai.evaluation.entities module."""
-
-
 def test_eval_item_from_dataset_row_extracts_source():
     from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
     from mlflow.genai.evaluation.entities import EvalItem
