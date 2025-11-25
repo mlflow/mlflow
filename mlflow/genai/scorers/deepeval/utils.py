@@ -39,13 +39,21 @@ def create_deepeval_model(model_uri: str):
         from mlflow.genai.scorers.deepeval.models import DatabricksDeepEvalLLM
 
         return DatabricksDeepEvalLLM()
+    elif model_uri.startswith("databricks:/"):
+        from mlflow.genai.scorers.deepeval.models import DatabricksServingEndpointDeepEvalLLM
+
+        endpoint_name = model_uri.split(":", 1)[1].lstrip("/")
+        return DatabricksServingEndpointDeepEvalLLM(endpoint_name)
     elif ":" in model_uri:
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.lstrip("/")
         return LiteLLMModel(model=f"{provider}/{model_name}")
 
     raise MlflowException(
-        f"Invalid model URI: '{model_uri}'. Expected format: 'databricks' or a LiteLLM model URI",
+        (
+            f"Invalid model URI: '{model_uri}'. Expected format: 'databricks', "
+            "'databricks:/<endpoint_name>', or a LiteLLM model URI."
+        ),
         error_code=BAD_REQUEST,
     )
 
