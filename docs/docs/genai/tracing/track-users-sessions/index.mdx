@@ -93,7 +93,7 @@ To record user and session information in your application, use the <APILink fn=
     app = FastAPI()
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    mlflow.set_tracking_uri("databricks")
+    mlflow.set_tracking_uri("http://localhost:5000")
     mlflow.set_experiment(experiment_id="3044868363145534")
     mlflow.openai.autolog()
 
@@ -151,22 +151,6 @@ To record user and session information in your application, use the <APILink fn=
         -H "X-Session-ID: session-123" \
         -H "X-User-ID: user-456" \
         -d '{"message": "Hello, how are you?"}'
-    ```
-
-  </TabItem>
-  <TabItem value="typescript" label="Typescript (Node.js)">
-
-    ```python
-
-    ```
-
-    **Example request:**
-    ```bash
-    curl -X POST "http://127.0.0.1:8000/chat" \
-         -H "Content-Type: application/json" \
-         -H "X-Session-ID: session-def-456" \
-         -H "X-User-ID: user-jane-doe-12345" \
-         -d '{"message": "What is my account balance?"}'
     ```
 
   </TabItem>
