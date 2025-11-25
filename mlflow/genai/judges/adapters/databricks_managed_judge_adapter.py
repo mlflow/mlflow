@@ -12,6 +12,11 @@ if TYPE_CHECKING:
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.adapters.base_adapter import (
+    AdapterInvocationInput,
+    AdapterInvocationOutput,
+    BaseJudgeAdapter,
+)
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.prompt_utils import _split_messages_for_databricks
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
@@ -162,3 +167,23 @@ def _invoke_databricks_default_judge(
                 source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL,
             ),
         )
+
+
+class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
+    """Adapter for Databricks managed judge using databricks.agents.evals library."""
+
+    @classmethod
+    def is_applicable(
+        cls,
+        model_uri: str,
+        prompt: str | list["ChatMessage"],
+    ) -> bool:
+        return model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL
+
+    def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        """Invoke the Databricks managed judge."""
+        feedback = _invoke_databricks_default_judge(
+            prompt=input_params.prompt,
+            assessment_name=input_params.assessment_name,
+        )
+        return AdapterInvocationOutput(feedback=feedback)

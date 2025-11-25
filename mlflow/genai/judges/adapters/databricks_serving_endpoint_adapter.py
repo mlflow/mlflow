@@ -6,14 +6,22 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pydantic
 import requests
 
+if TYPE_CHECKING:
+    from mlflow.types.llm import ChatMessage
+
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.adapters.base_adapter import (
+    AdapterInvocationInput,
+    AdapterInvocationOutput,
+    BaseJudgeAdapter,
+)
 from mlflow.genai.judges.utils.parsing_utils import _sanitize_justification
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -297,3 +305,44 @@ def _invoke_databricks_serving_endpoint_judge(
         num_prompt_tokens=output.num_prompt_tokens,
         num_completion_tokens=output.num_completion_tokens,
     )
+
+
+class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
+    """Adapter for Databricks serving endpoints using direct REST API invocations."""
+
+    @classmethod
+    def is_applicable(
+        cls,
+        model_uri: str,
+        prompt: str | list["ChatMessage"],
+    ) -> bool:
+        from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+
+        # Don't handle the default judge (that's handled by DatabricksManagedJudgeAdapter)
+        if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+            return False
+
+        model_provider, _ = cls._parse_model_uri(model_uri)
+        return model_provider in {"databricks", "endpoints"} and isinstance(prompt, str)
+
+    def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        """Invoke a Databricks serving endpoint."""
+        if not isinstance(input_params.prompt, str):
+            raise MlflowException(
+                "DatabricksServingEndpointAdapter requires prompt to be a string",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        output = _invoke_databricks_serving_endpoint_judge(
+            model_name=input_params.model_name,
+            prompt=input_params.prompt,
+            assessment_name=input_params.assessment_name,
+            num_retries=input_params.num_retries,
+            response_format=input_params.response_format,
+        )
+        return AdapterInvocationOutput(
+            feedback=output.feedback,
+            request_id=output.request_id,
+            num_prompt_tokens=output.num_prompt_tokens,
+            num_completion_tokens=output.num_completion_tokens,
+        )
