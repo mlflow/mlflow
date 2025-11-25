@@ -88,7 +88,7 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         """
         super().__init__(model=model, **kwargs)
         self._batch_size = batch_size
-        self._seed = seed if seed is not None else self.DEFAULT_SEED
+        self._seed = seed or self.DEFAULT_SEED
         self._simba_kwargs = simba_kwargs or {}
 
     def _get_batch_size(self) -> int:

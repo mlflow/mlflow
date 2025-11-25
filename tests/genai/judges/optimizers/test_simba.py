@@ -47,31 +47,7 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     assert result.instructions == expected_instructions
 
 
-def test_custom_batch_size(mock_judge, sample_traces_with_assessments):
-    """Test that custom batch_size parameter is passed to SIMBA."""
-    mock_simba = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
-    mock_compiled_program.signature.instructions = (
-        "Optimized instructions with {{inputs}} and {{outputs}}"
-    )
-    mock_simba.compile.return_value = mock_compiled_program
-
-    custom_batch_size = 15
-    with patch("dspy.SIMBA") as mock_simba_class, patch("dspy.LM", MagicMock()):
-        mock_simba_class.return_value = mock_simba
-        optimizer = SIMBAAlignmentOptimizer(batch_size=custom_batch_size)
-        with patch.object(SIMBAAlignmentOptimizer, "get_min_traces_required", return_value=5):
-            optimizer.align(mock_judge, sample_traces_with_assessments)
-
-        # Verify SIMBA was initialized with custom batch_size
-        mock_simba_class.assert_called_once()
-        call_kwargs = mock_simba_class.call_args.kwargs
-        assert call_kwargs["bsize"] == custom_batch_size
-
-
 def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
-    """Test that custom SIMBA parameters including metric are passed through via simba_kwargs."""
     mock_simba = MagicMock()
     mock_compiled_program = MagicMock()
     mock_compiled_program.signature = MagicMock()
@@ -83,9 +59,11 @@ def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
     def custom_metric(example, pred, trace=None):
         return True
 
+    custom_batch_size = 15
     with patch("dspy.SIMBA") as mock_simba_class, patch("dspy.LM", MagicMock()):
         mock_simba_class.return_value = mock_simba
         optimizer = SIMBAAlignmentOptimizer(
+            batch_size=custom_batch_size,
             seed=123,
             simba_kwargs={
                 "metric": custom_metric,
@@ -100,6 +78,7 @@ def test_custom_simba_parameters(mock_judge, sample_traces_with_assessments):
         # Verify SIMBA was initialized with custom parameters
         mock_simba_class.assert_called_once()
         call_kwargs = mock_simba_class.call_args.kwargs
+        assert call_kwargs["bsize"] == custom_batch_size
         assert call_kwargs["metric"] == custom_metric
         assert call_kwargs["max_demos"] == 5
         assert call_kwargs["num_threads"] == 2
