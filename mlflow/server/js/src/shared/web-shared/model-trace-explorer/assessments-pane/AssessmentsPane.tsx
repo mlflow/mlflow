@@ -104,19 +104,11 @@ export const AssessmentsPane = ({
       }}
     >
       <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          {isInComparisonView && (
-            <Button
-              size="small"
-              componentId="shared.model-trace-explorer.toggle-assessments-pane"
-              icon={assessmentsPaneExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-              onClick={() => setAssessmentsPaneExpanded(!assessmentsPaneExpanded)}
-            />
-          )}
+        {!isInComparisonView && (
           <Typography.Text bold>
             <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
           </Typography.Text>
-        </div>
+        )}
         {!isInComparisonView && setAssessmentsPaneExpanded && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"

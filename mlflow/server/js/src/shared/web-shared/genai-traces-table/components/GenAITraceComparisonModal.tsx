@@ -26,11 +26,17 @@ export const GenAITraceComparisonModal = ({ traceIds, onClose }: { traceIds: str
       footer={null}
       dangerouslySetAntdProps={{ width: '95%' }}
     >
-      <div css={{ height: '100%', overflow: 'auto' }}>
+      <div
+        css={{
+          height: '100%',
+          overflow: 'auto',
+          marginLeft: -theme.spacing.lg,
+          marginRight: -theme.spacing.lg,
+        }}
+      >
         <div
           css={{
             display: 'flex',
-            gap: theme.spacing.lg,
             minHeight: '100%',
             flexWrap: 'nowrap',
           }}
@@ -47,6 +53,7 @@ export const GenAITraceComparisonModal = ({ traceIds, onClose }: { traceIds: str
                   flex: '1 1 0',
                   minHeight: '100%',
                   minWidth: 0,
+                  borderRight: index < modelTraces.length - 1 ? `1px solid ${theme.colors.border}` : 'none',
                 }}
               >
                 <ModelTraceExplorer modelTrace={modelTrace} initialActiveView="summary" isInComparisonView />
