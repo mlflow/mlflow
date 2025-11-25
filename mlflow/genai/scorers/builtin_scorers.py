@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import pydantic
 
-from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
-
 if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
@@ -18,7 +16,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
-from mlflow.genai.judges.base import Judge, JudgeField
+from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
@@ -1572,6 +1570,7 @@ class Equivalence(BuiltInScorer):
 
 
 @experimental(version="3.7.0")
+@format_docstring(_MODEL_API_DOC)
 class UserFrustration(BuiltInScorer):
     """
     UserFrustration evaluates the user's frustration state throughout the conversation
@@ -1580,6 +1579,7 @@ class UserFrustration(BuiltInScorer):
     This scorer analyzes a session of conversation (represented as a list of traces) to
     determine if the user shows explicit or implicit frustration directed at the AI.
     It evaluates the entire conversation and returns one of three values:
+
     - "no_frustration": user not frustrated at any point in the conversation
     - "frustration_resolved": user is frustrated at some point in the conversation,
       but leaves the conversation satisfied
@@ -1600,7 +1600,7 @@ class UserFrustration(BuiltInScorer):
         from mlflow.genai.scorers import UserFrustration
 
         # Retrieve a list of traces with the same session ID
-        session = traces_from_my_session = mlflow.search_traces(
+        session = mlflow.search_traces(
             experiment_ids=[experiment_id],
             filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
             return_type="list",
@@ -1618,7 +1618,7 @@ class UserFrustration(BuiltInScorer):
         import mlflow
         from mlflow.genai.scorers import UserFrustration
 
-        session = traces_from_my_session = mlflow.search_traces(
+        session = mlflow.search_traces(
             experiment_ids=[experiment_id],
             filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
             return_type="list",
@@ -1633,7 +1633,6 @@ class UserFrustration(BuiltInScorer):
     _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
 
     def _get_judge(self) -> InstructionsJudge:
-        """Return a session-level InstructionsJudge with the user frustration prompt."""
         if self._judge is None:
             self._judge = InstructionsJudge(
                 name=self.name,
@@ -1648,21 +1647,13 @@ class UserFrustration(BuiltInScorer):
 
     @property
     def is_session_level_scorer(self) -> bool:
-        """Return True as UserFrustration requires a session of traces for evaluation."""
         return True
 
     @property
     def instructions(self) -> str:
-        """Get the instructions of what this scorer evaluates."""
         return USER_FRUSTRATION_PROMPT
 
     def get_input_fields(self) -> list[JudgeField]:
-        """
-        Get the input fields for the UserFrustration judge.
-
-        Returns:
-            List of JudgeField objects defining the input fields based on the __call__ method.
-        """
         return [
             JudgeField(
                 name="session",
@@ -1675,26 +1666,10 @@ class UserFrustration(BuiltInScorer):
         *,
         session: list[Trace] | None = None,
     ) -> Feedback:
-        """
-        Evaluate user frustration based on a list of traces from the same session.
-
-        This scorer analyzes a conversation to determine the user's frustration state
-        throughout the conversation with the AI assistant. It evaluates explicit frustration
-        (complaints, hostile tone) and implicit frustration (repeated corrections,
-        restating requests) directed at the AI, and determines if the frustration was resolved.
-
-        Args:
-            session: A list of Trace objects belonging to the same conversation session.
-                The traces should represent the full conversation history to evaluate.
-
-        Returns:
-            A Feedback object with one of three values:
-            - "no_frustration": user not frustrated at any point in the conversation
-            - "frustration_resolved": user is frustrated at some point but leaves satisfied
-            - "frustration_not_resolved": user is still frustrated at the end of the conversation
-            The feedback also includes a rationale explaining the assessment.
-        """
         return self._get_judge()(session=session)
+
+    def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
+        raise NotImplementedError("Alignment is not supported for session-level scorers.")
 
 
 def get_all_scorers() -> list[BuiltInScorer]:

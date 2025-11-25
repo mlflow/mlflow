@@ -1321,7 +1321,6 @@ def test_validate_required_fields_all_present():
 
 
 def test_user_frustration_with_session():
-    """Test UserFrustration scorer with a list of traces from the same session."""
     session_id = "test_session_123"
     traces = []
     for i in range(3):
