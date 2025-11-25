@@ -4,6 +4,7 @@ Lightweight hook for validating code written by Claude Code.
 
 import ast
 import json
+import os
 import re
 import subprocess
 import sys
@@ -113,17 +114,14 @@ def is_test_file(path: Path) -> bool:
     return path.parts[0] == "tests" and path.name.startswith("test_")
 
 
-ToolName: TypeAlias = Literal["Edit", "Write"]
-
-
 @dataclass
 class HookInput:
-    tool_name: ToolName
+    tool_name: Literal["Edit", "Write"]
     file_path: Path
-    content: str | None
 
     @classmethod
     def parse(cls) -> "HookInput | None":
+        # https://code.claude.com/docs/en/hooks#posttooluse-input
         data = json.loads(sys.stdin.read())
         tool_name = data.get("tool_name")
         tool_input = data.get("tool_input")
@@ -132,28 +130,32 @@ class HookInput:
         file_path_str = tool_input.get("file_path")
         if not file_path_str:
             return None
+        file_path = Path(file_path_str)
+        if project_dir := os.environ.get("CLAUDE_PROJECT_DIR"):
+            file_path = file_path.relative_to(Path(project_dir))
         return cls(
             tool_name=tool_name,
-            file_path=Path(file_path_str),
-            content=tool_input.get("content"),
+            file_path=file_path,
         )
 
 
-def get_source_and_diff_ranges(hook_input: HookInput) -> tuple[str, list[DiffRange]] | None:
-    if hook_input.tool_name == "Edit":
-        # For Edit, use git diff to get only changed lines
+def is_tracked(file_path: Path) -> bool:
+    result = subprocess.run(["git", "ls-files", "--error-unmatch", file_path], capture_output=True)
+    return result.returncode == 0
+
+
+def get_source_and_diff_ranges(hook_input: HookInput) -> tuple[str, list[DiffRange]]:
+    if hook_input.tool_name == "Edit" and is_tracked(hook_input.file_path):
+        # For Edit on tracked files, use git diff to get only changed lines
         diff_output = subprocess.check_output(
             ["git", "--no-pager", "diff", "-U0", "HEAD", "--", hook_input.file_path],
             text=True,
         )
         diff_ranges = parse_diff_ranges(diff_output)
-        if not diff_ranges:
-            return None
-        source = hook_input.file_path.read_text()
     else:
-        # For Write, lint all lines using the provided content
-        source = hook_input.content or ""
+        # For Write or Edit on untracked files, lint the whole file
         diff_ranges = [DiffRange(start=1, end=999999)]
+    source = hook_input.file_path.read_text()
     return source, diff_ranges
 
 
@@ -166,14 +168,8 @@ def main() -> int:
     if hook_input.file_path.suffix != ".py" or not is_test_file(hook_input.file_path):
         return 0
 
-    result = get_source_and_diff_ranges(hook_input)
-    if not result:
-        return 0
-
-    source, diff_ranges = result
-    errors = lint(hook_input.file_path, source, diff_ranges)
-
-    if errors:
+    source, diff_ranges = get_source_and_diff_ranges(hook_input)
+    if errors := lint(hook_input.file_path, source, diff_ranges):
         error_details = "\n".join(f"  - {error}" for error in errors)
         reason = f"Lint errors found:\n{error_details}"
         # Exit code 2 = blocking error. stderr is fed back to Claude.
