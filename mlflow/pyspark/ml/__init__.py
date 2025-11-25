@@ -491,7 +491,7 @@ def _get_param_search_metrics_and_best_index(param_search_estimator, param_searc
     """
     Return a tuple of `(metrics_dict, best_index)`
     `metrics_dict` is a dict of metric_name --> metric_values for each param map
-    - For CrossValidatorModel, the result dict contains metrics of avg_metris and std_metrics
+    - For CrossValidatorModel, the result dict contains metrics of avg_metrics and std_metrics
       for each param map.
     - For TrainValidationSplitModel, the result dict contains metrics for each param map.
 
