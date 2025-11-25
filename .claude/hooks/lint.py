@@ -154,7 +154,7 @@ def get_source_and_diff_ranges(hook_input: HookInput) -> tuple[str, list[DiffRan
         diff_ranges = parse_diff_ranges(diff_output)
     else:
         # For Write or Edit on untracked files, lint the whole file
-        diff_ranges = [DiffRange(start=1, end=999999)]
+        diff_ranges = [DiffRange(start=1, end=sys.maxsize)]
     source = hook_input.file_path.read_text()
     return source, diff_ranges
 
