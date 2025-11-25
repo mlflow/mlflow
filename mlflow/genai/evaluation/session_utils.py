@@ -140,9 +140,7 @@ def evaluate_session_level_scorers(
     return multi_turn_assessments
 
 
-def validate_session_level_evaluation_inputs(
-    scorers: list[Scorer], predict_fn: Any
-) -> None:
+def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: Any) -> None:
     """
     Validate input parameters when session-level scorers are present.
 
@@ -153,9 +151,7 @@ def validate_session_level_evaluation_inputs(
     Raises:
         MlflowException: If invalid configuration is detected
     """
-    session_level_scorers = [
-        scorer for scorer in scorers if scorer.is_session_level_scorer
-    ]
+    session_level_scorers = [scorer for scorer in scorers if scorer.is_session_level_scorer]
 
     if session_level_scorers:
         if predict_fn is not None:

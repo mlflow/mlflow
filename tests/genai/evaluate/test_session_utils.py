@@ -402,14 +402,8 @@ def test_evaluate_session_level_scorers_success():
 
         # Verify session_id was added to metadata
         assert result["trace1"][0].metadata is not None
-        assert (
-            result["trace1"][0].metadata[TraceMetadataKey.TRACE_SESSION]
-            == "session1"
-        )
-        assert (
-            result["trace3"][0].metadata[TraceMetadataKey.TRACE_SESSION]
-            == "session2"
-        )
+        assert result["trace1"][0].metadata[TraceMetadataKey.TRACE_SESSION] == "session1"
+        assert result["trace3"][0].metadata[TraceMetadataKey.TRACE_SESSION] == "session2"
 
 
 def test_evaluate_session_level_scorers_handles_scorer_error():
@@ -518,6 +512,7 @@ def test_evaluate_session_level_scorers_multiple_scorers():
     }
 
     with patch("mlflow.genai.evaluation.utils.standardize_scorer_value") as mock_standardize:
+
         def create_feedback(name, value):
             return [
                 Feedback(

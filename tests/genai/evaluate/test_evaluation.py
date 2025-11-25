@@ -1125,14 +1125,12 @@ def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config, m
 
         # Get traces for evaluation
         traces = mlflow.search_traces(
-            locations=[run.info.experiment_id],
-            filter_string=f'run_id = "{run.info.run_id}"'
+            locations=[run.info.experiment_id], filter_string=f'run_id = "{run.info.run_id}"'
         )
 
         # Evaluate with both single-turn and multi-turn scorers
         result = mlflow.genai.evaluate(
-            data=traces,
-            scorers=[response_length, ConversationLengthScorer()]
+            data=traces, scorers=[response_length, ConversationLengthScorer()]
         )
 
     # Validate results
@@ -1163,6 +1161,4 @@ def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config, m
     # Validate that all single-turn scores are the same (based on our dummy response)
     response_lengths = result_df["response_length/value"].dropna()
     # All responses should be "Answer to: Qx" format, so lengths should be consistent
-    assert all(length > 0 for length in response_lengths), (
-        "All response lengths should be positive"
-    )
+    assert all(length > 0 for length in response_lengths), "All response lengths should be positive"

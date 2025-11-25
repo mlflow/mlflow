@@ -67,7 +67,6 @@ def _log_multi_turn_assessments_to_traces(
         run_id: MLflow run ID for logging
     """
     for trace_id, assessments_list in multi_turn_assessments.items():
-
         # Find the eval_result containing this trace so we can update it
         matching_eval_result = next(
             (
@@ -93,9 +92,7 @@ def _log_multi_turn_assessments_to_traces(
             )
             matching_eval_result.assessments.extend(assessments_list)
         except Exception as e:
-            _logger.warning(
-                f"Failed to log multi-turn assessments for trace {trace_id}: {e}"
-            )
+            _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
 
 
 @context.eval_context
@@ -121,9 +118,7 @@ def run(
     4. If multi-turn scorers exist, evaluate them on session groups
     5. Compute the aggregated metrics from the assessments.
     """
-    eval_items = [
-        EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")
-    ]
+    eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)
 
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
@@ -184,9 +179,7 @@ def run(
 
     # Search for all traces in the run. We need to fetch the traces from backend here to include
     # all traces in the result.
-    traces = mlflow.search_traces(
-        run_id=run_id, include_spans=False, return_type="list"
-    )
+    traces = mlflow.search_traces(run_id=run_id, include_spans=False, return_type="list")
 
     # Clean up noisy traces generated during evaluation
     clean_up_extra_traces(traces, eval_start_time)
@@ -216,9 +209,7 @@ def _run_single(
         # NB: Setting prediction context let us retrieve the trace by a custom ID. Setting
         # is_evaluate=True disables async trace logging to make sure the trace is available.
         eval_request_id = str(uuid.uuid4())
-        with set_prediction_context(
-            Context(request_id=eval_request_id, is_evaluate=True)
-        ):
+        with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
             try:
                 eval_item.outputs = predict_fn(eval_item.inputs)
             except Exception as e:
@@ -233,13 +224,9 @@ def _run_single(
                 trace_id = copy_trace_to_experiment(eval_item.trace.to_dict())
                 eval_item.trace = mlflow.get_trace(trace_id)
             except Exception as e:
-                eval_item.error_message = (
-                    f"Failed to clone trace to the current experiment: {e}"
-                )
+                eval_item.error_message = f"Failed to clone trace to the current experiment: {e}"
         else:
-            MlflowClient().link_traces_to_run(
-                [eval_item.trace.info.trace_id], run_id=run_id
-            )
+            MlflowClient().link_traces_to_run([eval_item.trace.info.trace_id], run_id=run_id)
     else:
         # When static dataset (a pair of inputs and outputs) is given, we create a minimal
         # trace with root span only, to log the assessments on it.
@@ -256,9 +243,7 @@ def _run_single(
 
     for key in tags.keys() - IMMUTABLE_TAGS:
         try:
-            mlflow.set_trace_tag(
-                trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key]
-            )
+            mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key])
         except Exception as e:
             # Failures in logging to MLflow should not fail the entire harness run
             _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
@@ -290,9 +275,9 @@ def _compute_eval_scores(
             scorer_func = scorer.run
 
             if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
-                scorer_func = mlflow.trace(
-                    name=scorer.name, span_type=SpanType.EVALUATOR
-                )(scorer_func)
+                scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
+                    scorer_func
+                )
 
             value = scorer_func(
                 inputs=eval_item.inputs,
@@ -417,10 +402,7 @@ def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
     # Check if the trace is from the same experiment. If it isn't, we need to clone the trace
     trace_experiment = trace.info.trace_location.mlflow_experiment
     current_experiment = _get_experiment_id()
-    if (
-        trace_experiment is not None
-        and trace_experiment.experiment_id != current_experiment
-    ):
+    if trace_experiment is not None and trace_experiment.experiment_id != current_experiment:
         return True
 
     # If the backend doesn't support trace<->run linking, need to clone the trace to the new run.
