@@ -129,11 +129,10 @@ export const AssessmentsPane = ({
           </Tooltip>
         )}
       </div>
-      {assessmentsPaneExpanded &&
-        groupedFeedbacks.map(([name, valuesMap]) => (
-          <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
-        ))}
-      {assessmentsPaneExpanded && sortedExpectations.length > 0 && (
+      {groupedFeedbacks.map(([name, valuesMap]) => (
+        <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
+      ))}
+      {sortedExpectations.length > 0 && (
         <>
           <Typography.Text color="secondary" css={{ marginBottom: theme.spacing.sm }}>
             <FormattedMessage
@@ -150,18 +149,16 @@ export const AssessmentsPane = ({
           </div>
         </>
       )}
-      {assessmentsPaneExpanded && (
-        <AssessmentCreateButton
-          title={
-            <FormattedMessage
-              defaultMessage="Add new assessment"
-              description="Label for the button to add a new assessment"
-            />
-          }
-          spanId={activeSpanId}
-          traceId={traceId}
-        />
-      )}
+      <AssessmentCreateButton
+        title={
+          <FormattedMessage
+            defaultMessage="Add new assessment"
+            description="Label for the button to add a new assessment"
+          />
+        }
+        spanId={activeSpanId}
+        traceId={traceId}
+      />
     </div>
   );
 };

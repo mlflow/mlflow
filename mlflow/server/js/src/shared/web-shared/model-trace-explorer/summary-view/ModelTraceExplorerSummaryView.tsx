@@ -37,11 +37,7 @@ export const ModelTraceExplorerSummaryView = () => {
     <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
   );
 
-  if (isInComparisonView) {
-    return <ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />;
-  }
-
-  return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+  return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={0.75}
       paneWidth={paneWidth}

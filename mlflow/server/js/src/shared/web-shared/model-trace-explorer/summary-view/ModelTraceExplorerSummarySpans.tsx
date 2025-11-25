@@ -46,7 +46,7 @@ export const ModelTraceExplorerSummarySpans = ({
         minHeight: 0,
         padding: theme.spacing.md,
         paddingTop: theme.spacing.sm,
-        overflow: isInComparisonView ? 'visible' : 'auto',
+        overflow: 'auto',
         minWidth: SUMMARY_SPANS_MIN_WIDTH,
       }}
     >
