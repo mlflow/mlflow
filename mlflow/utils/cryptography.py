@@ -12,6 +12,16 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
+# KEK (Key Encryption Key) environment variables for envelope encryption
+# These are defined here to avoid importing mlflow.server.constants (which triggers Flask import)
+# and to keep the cryptography module self-contained for the skinny client.
+#
+# SECURITY: Server-admin-only credentials. NEVER pass via CLI (visible in ps/logs).
+# Set via environment variable or .env file. Users do NOT need this - only server admins.
+# Must be high-entropy (32+ characters) from a secrets manager.
+CRYPTO_KEK_PASSPHRASE_ENV_VAR = "MLFLOW_CRYPTO_KEK_PASSPHRASE"
+CRYPTO_KEK_VERSION_ENV_VAR = "MLFLOW_CRYPTO_KEK_VERSION"
+
 _logger = logging.getLogger(__name__)
 
 
@@ -149,10 +159,10 @@ class KEKManager:
         _check_cryptography_available()
 
         if passphrase is None:
-            passphrase = os.getenv("MLFLOW_CRYPTO_KEK_PASSPHRASE")
+            passphrase = os.getenv(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
 
         if kek_version is None:
-            kek_version = int(os.getenv("MLFLOW_CRYPTO_KEK_VERSION", "1"))
+            kek_version = int(os.getenv(CRYPTO_KEK_VERSION_ENV_VAR, "1"))
 
         if not passphrase:
             raise MlflowException(

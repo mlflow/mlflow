@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 import random
 import threading
 import time
@@ -83,6 +84,13 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
+from mlflow.store.tracking._secret_cache import (
+    DEFAULT_CACHE_MAX_SIZE,
+    DEFAULT_CACHE_TTL,
+    SECRETS_CACHE_MAX_SIZE_ENV_VAR,
+    SECRETS_CACHE_TTL_ENV_VAR,
+    SecretCache,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
@@ -286,6 +294,11 @@ class SqlAlchemyStore(AbstractStore):
             # Default experiment doesn't exist, create it
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
+
+        # Initialize server-side secret cache (reading from env vars)
+        ttl = int(os.getenv(SECRETS_CACHE_TTL_ENV_VAR, str(DEFAULT_CACHE_TTL)))
+        max_size = int(os.getenv(SECRETS_CACHE_MAX_SIZE_ENV_VAR, str(DEFAULT_CACHE_MAX_SIZE)))
+        self._secret_cache = SecretCache(ttl_seconds=ttl, max_size=max_size)
 
     def _get_dialect(self):
         return self.engine.dialect.name
@@ -4864,6 +4877,8 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
             session.refresh(sql_secret)
 
+            self._secret_cache.clear()
+
             return sql_secret.to_mlflow_entity()
 
     def delete_secret(self, secret_id: str) -> None:
@@ -4883,6 +4898,8 @@ class SqlAlchemyStore(AbstractStore):
 
             session.delete(sql_secret)
             session.commit()
+
+            self._secret_cache.clear()
 
     def list_secrets(self, provider: str | None = None) -> list[GatewaySecret]:
         """
@@ -5484,6 +5501,8 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
             session.refresh(sql_binding)
 
+            self._secret_cache.clear()
+
             return sql_binding.to_mlflow_entity()
 
     def delete_endpoint_binding(
@@ -5514,6 +5533,8 @@ class SqlAlchemyStore(AbstractStore):
 
             session.delete(sql_binding)
             session.commit()
+
+            self._secret_cache.clear()
 
     def list_endpoint_bindings(
         self,
@@ -5602,23 +5623,31 @@ class SqlAlchemyStore(AbstractStore):
                     session, SqlSecret, {"secret_id": sql_model_def.secret_id}, "Secret"
                 )
 
-                decrypted_value = decrypt_secret(
-                    encrypted_value=sql_secret.encrypted_value,
-                    wrapped_dek=sql_secret.wrapped_dek,
-                    kek_manager=kek_manager,
-                    secret_id=sql_secret.secret_id,
-                    secret_name=sql_secret.secret_name,
-                )
+                cache_key = f"SECRET:{sql_secret.secret_id}"
+                decrypted_value = self._secret_cache.get(cache_key)
+                if decrypted_value is None:
+                    decrypted_value = decrypt_secret(
+                        encrypted_value=sql_secret.encrypted_value,
+                        wrapped_dek=sql_secret.wrapped_dek,
+                        kek_manager=kek_manager,
+                        secret_id=sql_secret.secret_id,
+                        secret_name=sql_secret.secret_name,
+                    )
+                    self._secret_cache.set(cache_key, decrypted_value)
 
                 decrypted_auth = None
                 if sql_secret.encrypted_auth_config:
-                    decrypted_auth = decrypt_secret(
-                        encrypted_value=sql_secret.encrypted_auth_config,
-                        wrapped_dek=sql_secret.wrapped_auth_config_dek,
-                        kek_manager=kek_manager,
-                        secret_id=sql_secret.secret_id,
-                        secret_name=f"{sql_secret.secret_name}_auth_config",
-                    )
+                    auth_cache_key = f"AUTH:{sql_secret.secret_id}"
+                    decrypted_auth = self._secret_cache.get(auth_cache_key)
+                    if decrypted_auth is None:
+                        decrypted_auth = decrypt_secret(
+                            encrypted_value=sql_secret.encrypted_auth_config,
+                            wrapped_dek=sql_secret.wrapped_auth_config_dek,
+                            kek_manager=kek_manager,
+                            secret_id=sql_secret.secret_id,
+                            secret_name=f"{sql_secret.secret_name}_auth_config",
+                        )
+                        self._secret_cache.set(auth_cache_key, decrypted_auth)
 
                 model_configs.append(
                     GatewayModelConfig(
