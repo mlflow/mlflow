@@ -105,6 +105,7 @@ export const CustomExperimentTabConfigMap: TabConfigMap = {
       />
     ),
   },
+  [ExperimentPageTabName.Traces]: TracesTabConfig,
   ...(enableScorersUI() && { [ExperimentPageTabName.Judges]: ScorersTabConfig }),
 };
 
