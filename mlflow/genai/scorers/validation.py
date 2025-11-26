@@ -20,7 +20,10 @@ except ImportError:
 _logger = logging.getLogger(__name__)
 
 
-IS_DBX_AGENTS_INSTALLED = importlib.util.find_spec("databricks.agents") is not None
+try:
+    IS_DBX_AGENTS_INSTALLED = importlib.util.find_spec("databricks.agents") is not None
+except (ModuleNotFoundError, ValueError, AttributeError):
+    IS_DBX_AGENTS_INSTALLED = False
 
 
 def validate_scorers(scorers: list[Any]) -> list[Scorer]:
