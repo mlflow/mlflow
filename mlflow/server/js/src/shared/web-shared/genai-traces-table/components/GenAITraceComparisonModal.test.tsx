@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, afterEach } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { IntlProvider } from '@databricks/i18n';
@@ -14,10 +15,14 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-da
   useFetchTraces: jest.fn(),
 }));
 
-const getModelTraceExplorerMock = () => jest.requireMock('../../model-trace-explorer').ModelTraceExplorer as jest.Mock;
+const getModelTraceExplorerMock = () =>
+  (jest.requireMock('../../model-trace-explorer') as any).ModelTraceExplorer as jest.Mock;
 const getUseFetchTracesMock = () =>
-  jest.requireMock('@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useFetchTraces')
-    .useFetchTraces as jest.Mock;
+  (
+    jest.requireMock(
+      '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useFetchTraces',
+    ) as any
+  ).useFetchTraces as jest.Mock;
 
 const renderWithProviders = (ui: React.ReactNode) =>
   render(
