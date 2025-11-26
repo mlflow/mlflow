@@ -414,7 +414,7 @@ class RetrievalRelevance(BuiltInScorer):
             chunks.
         """
         request = extract_request_from_trace(trace)
-        span_id_to_context = extract_retrieval_context_from_trace(trace)
+        span_id_to_context = extract_retrieval_context_from_trace(trace, model=self.model)
 
         feedbacks = []
         for span_id, context in span_id_to_context.items():
@@ -558,7 +558,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 with `expected_facts` or `expected_response` label(s) and omit this argument.
         """
         request = extract_request_from_trace(trace)
-        span_id_to_context = extract_retrieval_context_from_trace(trace)
+        span_id_to_context = extract_retrieval_context_from_trace(trace, model=self.model)
 
         expectations = expectations or {}
         expected_facts = expectations.get("expected_facts")
@@ -666,7 +666,7 @@ class RetrievalGroundedness(BuiltInScorer):
         """
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
-        span_id_to_context = extract_retrieval_context_from_trace(trace)
+        span_id_to_context = extract_retrieval_context_from_trace(trace, model=self.model)
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedback = judges.is_grounded(

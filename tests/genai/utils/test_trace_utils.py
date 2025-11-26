@@ -17,6 +17,9 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
+    RetrievedChunk,
+    RetrievedChunksForSpan,
+    RetrievedChunksForTrace,
     _does_store_support_trace_linking,
     convert_predict_fn,
     extract_expectations_from_trace,
@@ -695,3 +698,152 @@ def test_does_store_support_trace_linking():
                 run_id="run-123",
             )
         mock_client.link_traces_to_run.assert_called_once()
+
+
+def test_llm_extraction_called_when_no_retrieval_contexts_found_programmatically():
+    span = create_span(
+        span_id=1,
+        parent_id=None,
+        inputs="question",
+        outputs={"answer": "response"},
+        span_type=SpanType.LLM,
+    )
+    trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[span]))
+
+    with mock.patch(
+        "mlflow.genai.utils.trace_utils._try_extract_retrieval_context_with_llm"
+    ) as mock_llm:
+        mock_llm.return_value = {
+            span.span_id: [{"content": "LLM extracted doc", "doc_uri": "https://example.com/doc1"}]
+        }
+
+        result = extract_retrieval_context_from_trace(trace, model="gpt-4o-mini")
+
+        mock_llm.assert_called_once_with(trace, "gpt-4o-mini")
+        assert result == {
+            span.span_id: [{"content": "LLM extracted doc", "doc_uri": "https://example.com/doc1"}]
+        }
+
+
+def test_llm_extraction_not_called_when_retrieval_contexts_found_programmatically():
+    span = create_span(
+        span_id=1,
+        parent_id=None,
+        inputs="question",
+        outputs=[],
+        span_type=SpanType.RETRIEVER,
+    )
+    trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[span]))
+
+    with mock.patch(
+        "mlflow.genai.utils.trace_utils._try_extract_retrieval_context_with_llm"
+    ) as mock_llm:
+        result = extract_retrieval_context_from_trace(trace)
+
+        mock_llm.assert_not_called()
+        assert result == {span.span_id: []}
+
+
+def test_llm_extraction_filters_nested_retrieval_spans():
+    span1 = create_span(
+        span_id=1,
+        parent_id=None,
+        inputs="question",
+        outputs={"answer": "response"},
+        span_type=SpanType.LLM,
+    )
+    span2 = create_span(
+        span_id=2,
+        parent_id=1,
+        inputs="search query",
+        outputs={},
+        span_type=SpanType.UNKNOWN,
+    )
+    span3 = create_span(
+        span_id=3,
+        parent_id=2,
+        inputs="nested search",
+        outputs={},
+        span_type=SpanType.UNKNOWN,
+    )
+    span4 = create_span(
+        span_id=4,
+        parent_id=1,
+        inputs="search query 2",
+        outputs={},
+        span_type=SpanType.UNKNOWN,
+    )
+    trace = Trace(
+        info=create_test_trace_info(trace_id="tr-123"),
+        data=TraceData(spans=[span1, span2, span3, span4]),
+    )
+
+    with mock.patch(
+        "mlflow.genai.judges.utils.get_chat_completions_with_structured_output"
+    ) as mock_llm:
+        mock_llm.return_value = RetrievedChunksForTrace(
+            retrieval_contexts=[
+                RetrievedChunksForSpan(
+                    span_id=span2.span_id,
+                    chunks=[RetrievedChunk(content="doc from span 2")],
+                ),
+                RetrievedChunksForSpan(
+                    span_id=span3.span_id,
+                    chunks=[RetrievedChunk(content="doc from span 3")],
+                ),
+                RetrievedChunksForSpan(
+                    span_id=span4.span_id,
+                    chunks=[RetrievedChunk(content="doc from span 4")],
+                ),
+            ]
+        )
+
+        result = extract_retrieval_context_from_trace(trace, model="gpt-4o-mini")
+
+        assert span2.span_id in result
+        assert span3.span_id not in result
+        assert span4.span_id in result
+        assert result[span2.span_id] == [{"content": "doc from span 2", "doc_uri": None}]
+        assert result[span4.span_id] == [{"content": "doc from span 4", "doc_uri": None}]
+
+
+def test_llm_extraction_skipped_for_databricks_model():
+    from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+
+    span = create_span(
+        span_id=1,
+        parent_id=None,
+        inputs="question",
+        outputs={"answer": "response"},
+        span_type=SpanType.LLM,
+    )
+    trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[span]))
+
+    with mock.patch("mlflow.genai.judges.utils.get_default_model") as mock_get_default:
+        mock_get_default.return_value = _DATABRICKS_DEFAULT_JUDGE_MODEL
+
+        result = extract_retrieval_context_from_trace(trace)
+
+        assert result == {}
+        mock_get_default.assert_called()
+
+
+def test_llm_extraction_returns_empty_dict_on_exception():
+    span = create_span(
+        span_id=1,
+        parent_id=None,
+        inputs="question",
+        outputs={"answer": "response"},
+        span_type=SpanType.LLM,
+    )
+    trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[span]))
+
+    with mock.patch(
+        "mlflow.genai.judges.utils.get_chat_completions_with_structured_output"
+    ) as mock_llm:
+        mock_llm.side_effect = Exception("LLM extraction failed")
+
+        result = extract_retrieval_context_from_trace(trace)
+
+        assert result == {}
+        mock_llm.assert_called_once()

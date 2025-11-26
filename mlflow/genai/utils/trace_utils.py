@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from cachetools.func import cached
 from opentelemetry.trace import NoOpTracer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -394,32 +394,200 @@ def _to_dict(obj: Any) -> dict[str, Any]:
     return json.loads(json_str)
 
 
-def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[Any]]:
+def extract_retrieval_context_from_trace(
+    trace: Trace | None, model: str | None = None
+) -> dict[str, list[Any]]:
     """
     Extract the retrieval context from the trace.
-    Extracts all top-level retrieval spans from the trace if there are multiple retrieval spans.
-    If the trace does not have a retrieval span, return an empty dictionary.
-    ⚠️ Warning: Please make sure to not throw exception. If fails, return an empty dictionary.
+
+    First attempts programmatic extraction from spans with type RETRIEVER.
+    If no retrieval contexts are found, falls back to LLM-based extraction using
+    tool calling to examine trace spans.
+
+    Args:
+        trace: MLflow trace object to extract retrieval context from.
+        model: Optional model URI to use for LLM-based extraction fallback.
+               If None, uses the default model.
+
+    Returns:
+        Dictionary mapping span IDs to lists of retrieved chunks.
+        Each chunk is a dict with 'content' (str) and optional 'doc_uri' (str).
+        Returns empty dict if extraction fails or no retrieval contexts found.
+
+    Note:
+        This function does not raise exceptions. If extraction fails, returns empty dict.
     """
     if trace is None or trace.data is None:
         return {}
 
     top_level_retrieval_spans = _get_top_level_retrieval_spans(trace)
-    if len(top_level_retrieval_spans) == 0:
+    if len(top_level_retrieval_spans) > 0:
+        retrieved = {}
+        for retrieval_span in top_level_retrieval_spans:
+            try:
+                contexts = [_parse_chunk(chunk) for chunk in retrieval_span.outputs or []]
+                retrieved[retrieval_span.span_id] = [c for c in contexts if c is not None]
+            except Exception as e:
+                _logger.debug(
+                    f"Fail to get retrieval context from span: {retrieval_span}. Error: {e!r}"
+                )
+
+        if retrieved:
+            return retrieved
+
+    return _try_extract_retrieval_context_with_llm(trace, model)
+
+
+def _try_extract_retrieval_context_with_llm(
+    trace: Trace,
+    model: str | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """
+    Use LLM with tools to extract retrieval context from trace.
+
+    This is a fallback when programmatic extraction fails. The LLM uses tool calling
+    to examine trace spans and locate retrieval contexts.
+
+    Args:
+        trace: The MLflow trace object to analyze.
+        model: Optional model URI to use for extraction. If None, uses default model.
+
+    Returns:
+        Dictionary mapping span IDs to lists of retrieved chunks, in the same format
+        as extract_retrieval_context_from_trace.
+    """
+    from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+    from mlflow.genai.judges.utils import (
+        get_chat_completions_with_structured_output,
+        get_default_model,
+    )
+    from mlflow.types.llm import ChatMessage
+
+    output_example = json.dumps(
+        RetrievedChunksForTrace(
+            retrieval_contexts=[
+                RetrievedChunksForSpan(
+                    span_id="span ID where data was retrieved",
+                    chunks=[
+                        RetrievedChunk(
+                            content="text content as string (required)",
+                            doc_uri="source URI if available, otherwise null",
+                        )
+                    ],
+                )
+            ]
+        ).model_dump(),
+        indent=2,
+    )
+
+    model_uri = model or get_default_model()
+
+    # Skip LLM extraction if using Databricks default model
+    #
+    # TODO: Implement client logic for calling Databricks default model
+    # with tools and structured output for information extraction
+    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        _logger.debug(
+            f"Skipping LLM-based retrieval extraction: model '{model_uri}' "
+            "does not support tool calling for trace analysis"
+        )
         return {}
 
-    retrieved = {}
+    try:
+        messages = [
+            ChatMessage(
+                role="system",
+                content=(
+                    "You are a trace analysis expert. Your job is to examine agent execution"
+                    " traces, identify spans (operations) where the agent retrieved information"
+                    " (e.g. by querying a knowledge base, searching documents, or calling an API), "
+                    " and extract the retrieved information from those spans."
+                ),
+            ),
+            ChatMessage(
+                role="user",
+                content=(
+                    "Find spans that retrieved information by calling the available tools. "
+                    "The trace is already loaded - just call your available tools to "
+                    "analyze it.\n\n"
+                    "Look for spans whose outputs contain substantive data such as:\n"
+                    "- Documents, text chunks, or passages\n"
+                    "- Search results or query responses\n"
+                    "- Database records with meaningful text content\n"
+                    "- API responses containing information\n"
+                    "- Any data that provides context for generating a response\n\n"
+                    "Focus on span OUTPUTS, not their names or types.\n\n"
+                    "For each span with retrieval data:\n"
+                    "1. Extract the substantive text content as string(s)\n"
+                    "2. If the output is structured (JSON/dict), extract text fields that "
+                    "provide information\n"
+                    "3. Common field names: 'content', 'text', 'page_content', 'results', 'data'\n"
+                    "4. Convert structured data to strings when necessary\n\n"
+                    f"Return your findings in this format:\n{output_example}"
+                ),
+            ),
+        ]
 
-    for retrieval_span in top_level_retrieval_spans:
-        try:
-            contexts = [_parse_chunk(chunk) for chunk in retrieval_span.outputs or []]
-            retrieved[retrieval_span.span_id] = [c for c in contexts if c is not None]
-        except Exception as e:
-            _logger.debug(
-                f"Fail to get retrieval context from span: {retrieval_span}. Error: {e!r}"
-            )
+        result = get_chat_completions_with_structured_output(
+            model_uri=model_uri,
+            messages=messages,
+            output_schema=RetrievedChunksForTrace,
+            trace=trace,
+        )
 
-    return retrieved
+        extracted = {}
+        for ctx in result.retrieval_contexts:
+            extracted[ctx.span_id] = [
+                {"content": chunk.content, "doc_uri": chunk.doc_uri} for chunk in ctx.chunks
+            ]
+
+        # Filter to keep only top-level retrieval spans (not nested under other retrieval spans),
+        # which is consistent with the programmatic approach (_get_top_level_retrieval_spans)
+        parent_map = {span.span_id: span.parent_id for span in trace.data.spans}
+
+        def has_retrieval_ancestor(span_id: str) -> bool:
+            """Check if span has any retrieval span as an ancestor."""
+            parent_id = parent_map.get(span_id)
+            while parent_id:
+                if parent_id in extracted:  # Parent is also a retrieval span
+                    return True
+                parent_id = parent_map.get(parent_id)
+            return False
+
+        return {
+            span_id: chunks
+            for span_id, chunks in extracted.items()
+            if not has_retrieval_ancestor(span_id)
+        }
+
+    except Exception as e:
+        _logger.warning(
+            "Failed to extract retrieval context from trace using LLM: %s",
+            e,
+        )
+        return {}
+
+
+class RetrievedChunk(BaseModel):
+    """A single retrieved document chunk."""
+
+    content: str = Field(description="The text content of the retrieved chunk")
+    doc_uri: str | None = Field(default=None, description="Optional source/URI of the document")
+
+
+class RetrievedChunksForSpan(BaseModel):
+    """Retrieved chunks from a single span."""
+
+    span_id: str = Field(description="The ID of the span where retrieval occurred")
+    chunks: list[RetrievedChunk] = Field(description="List of retrieved document chunks")
+
+
+class RetrievedChunksForTrace(BaseModel):
+    """All retrieved chunks from a trace."""
+
+    retrieval_contexts: list[RetrievedChunksForSpan] = Field(
+        description="Retrieval contexts from all spans in the trace"
+    )
 
 
 def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
