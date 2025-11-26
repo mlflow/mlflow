@@ -88,7 +88,7 @@ class Visitor(ast.NodeVisitor):
                     file=self.file_path,
                     line=docstring_node.lineno,
                     column=docstring_node.col_offset + 1,
-                    message=f"Redundant docstring in '{node.name}'",
+                    message=f"Redundant docstring in '{node.name}'. Consider removing it.",
                 )
             )
 
