@@ -17,7 +17,7 @@ _CHOICE_PATTERN = re.compile(r"\[\[([\w ]+)\]\]")
 
 
 @format_docstring(_MODEL_API_DOC)
-@deprecated(since="3.4.0", alternative="mlflow.genai.make_judge")
+@deprecated(alternative="mlflow.genai.judges.make_judge", since="3.5.0")
 @experimental(version="3.0.0")
 def custom_prompt_judge(
     *,
