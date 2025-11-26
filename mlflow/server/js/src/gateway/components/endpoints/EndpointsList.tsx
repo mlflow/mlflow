@@ -65,6 +65,24 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     );
   }
 
+  if (!endpoints?.length) {
+    return (
+      <Empty
+        image={<ChainIcon />}
+        title={formatMessage({
+          defaultMessage: 'No endpoints created yet',
+          description: 'Empty state title for endpoints list',
+        })}
+        description={
+          <FormattedMessage
+            defaultMessage="Create an endpoint with models and API keys to securely connect MLflow features to your preferred GenAI providers."
+            description="Empty state message for endpoints list explaining the feature"
+          />
+        }
+      />
+    );
+  }
+
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
@@ -82,17 +100,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
         />
       </div>
 
-      {!endpoints?.length ? (
-        <Empty
-          image={<ChainIcon />}
-          description={
-            <FormattedMessage
-              defaultMessage="No endpoints created yet"
-              description="Empty state message for endpoints list"
-            />
-          }
-        />
-      ) : filteredEndpoints.length === 0 ? (
+      {filteredEndpoints.length === 0 ? (
         <Empty
           image={<SearchIcon />}
           description={

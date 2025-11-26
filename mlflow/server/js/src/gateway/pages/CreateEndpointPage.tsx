@@ -1,5 +1,4 @@
 import { useNavigate, Link } from '../../common/utils/RoutingUtils';
-import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import {
   Alert,
   Breadcrumb,
@@ -271,7 +270,7 @@ const CreateEndpointPage = () => {
   };
 
   return (
-    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
       <FormProvider {...form}>
         <div css={{ padding: theme.spacing.md }}>
           <Breadcrumb includeTrailingCaret>
@@ -646,7 +645,7 @@ const CreateEndpointPage = () => {
           </Tooltip>
         </div>
       </FormProvider>
-    </ScrollablePageWrapper>
+    </div>
   );
 };
 
