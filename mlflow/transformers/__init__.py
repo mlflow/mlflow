@@ -51,6 +51,15 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
+from mlflow.transformers.autolog import (
+    MLflowTransformersCallback as MLflowTransformersCallback,
+)
+from mlflow.transformers.autolog import (
+    _patch_trainer_init,
+    _patch_trainer_train,
+    _unpatch_trainer_init,
+    _unpatch_trainer_train,
+)
 from mlflow.transformers.flavor_config import (
     FlavorKey,
     build_flavor_config,
@@ -213,7 +222,9 @@ def get_default_pip_requirements(model) -> list[str]:
         )
 
     if "torch" in packages:
-        packages.append("torchvision")
+        # Only add torchvision if it's actually installed - it's not required for all transformers models
+        if importlib.util.find_spec("torchvision"):
+            packages.append("torchvision")
         if importlib.util.find_spec("accelerate"):
             packages.append("accelerate")
 
@@ -2905,19 +2916,105 @@ class _TransformersWrapper:
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
-    log_model_signatures=False,
-    log_models=False,
+    log_model_signatures=True,
+    log_models=True,
     log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
     extra_tags=None,
 ):
     """
-    This autologging integration is solely used for disabling spurious autologging of irrelevant
-    sub-models that are created during the training and evaluation of transformers-based models.
-    Autologging functionality is not implemented fully for the transformers flavor.
+    Enables (or disables) and configures autologging for HuggingFace Transformers.
+
+    **When is autologging performed?**
+        Autologging is performed when you call ``trainer.train()`` on a HuggingFace
+        Transformers ``Trainer`` instance.
+
+    **Logged information**
+        **Parameters**
+            All training arguments and model configuration are logged, following the same
+            approach as HuggingFace's native ``MLflowCallback`` and ``mlflow.sklearn.autolog()``.
+            This includes:
+
+            - All ``TrainingArguments`` (via ``args.to_dict()``): ``learning_rate``,
+              ``num_train_epochs``, ``per_device_train_batch_size``, ``weight_decay``,
+              ``warmup_steps``, ``max_steps``, ``optimizer``, ``lr_scheduler_type``,
+              ``gradient_checkpointing``, ``logging_steps``, and many more (~100+ parameters)
+            - All model configuration (via ``model.config.to_dict()``): ``model_type``,
+              ``num_labels``, ``hidden_size``, ``num_hidden_layers``, ``num_attention_heads``,
+              ``vocab_size``, ``max_position_embeddings``, and more (~100+ parameters)
+
+            Parameters with values longer than 250 characters are automatically dropped.
+            
+        **Environment Variables**
+            - ``MLFLOW_FLATTEN_PARAMS``: If set to ``TRUE``, flatten nested parameter dicts
+            - ``MLFLOW_MAX_LOG_PARAMS``: Limit the maximum number of parameters to log
+
+        **Metrics**
+            - Training metrics: ``loss``, ``learning_rate``, ``epoch``, ``global_step``
+            - Evaluation metrics: ``eval_loss``, ``eval_accuracy``, and other evaluation metrics
+
+        **Artifacts**
+            - Trained model (logged using ``mlflow.transformers.log_model()``)
+
+    Args:
+        log_input_examples: If ``True``, input examples from training datasets are collected and
+            logged along with transformers model artifacts during training. If ``False``,
+            input examples are not logged. Default: ``False``.
+        log_model_signatures: If ``True``, model signatures describing model inputs and outputs
+            are collected and logged along with transformers model artifacts. Default: ``True``.
+        log_models: If ``True``, trained models are logged as MLflow model artifacts.
+            If ``False``, trained models are not logged. Default: ``True``.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+            If ``False``, dataset information is not logged. Default: ``False``.
+        disable: If ``True``, disables the Transformers autologging integration.
+            If ``False``, enables the Transformers autologging integration. Default: ``False``.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created. Default: ``False``.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            transformers that have not been tested against this version of the MLflow
+            client or are incompatible. Default: ``False``.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during Transformers
+            autologging. If ``False``, show all events and warnings. Default: ``False``.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist. Default: ``None``.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from transformers import Trainer, TrainingArguments, AutoModelForSequenceClassification
+
+        # Enable autologging for Transformers
+        mlflow.transformers.autolog()
+
+        # Prepare model and training arguments
+        model = AutoModelForSequenceClassification.from_pretrained(
+            "bert-base-uncased", num_labels=2
+        )
+        training_args = TrainingArguments(
+            output_dir="./results",
+            num_train_epochs=3,
+            per_device_train_batch_size=16,
+            learning_rate=2e-5,
+        )
+
+        # Create trainer and train - logging happens automatically
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+        )
+
+        with mlflow.start_run():
+            trainer.train()
+            # Parameters, metrics, and model are automatically logged
     """
     # A list of other flavors whose base autologging config would be automatically logged due to
     # training a model that would otherwise create a run and be logged internally within the
@@ -2928,6 +3025,18 @@ def autolog(
         with disable_discrete_autologging(DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING):
             return original(*args, **kwargs)
 
+    # Handle disable case - unpatch Trainer methods
+    if disable:
+        _unpatch_trainer_init()
+        _unpatch_trainer_train()
+    else:
+        # Patch Trainer.__init__ to inject MLflow callback on Trainer construction
+        _patch_trainer_init()
+        # Patch Trainer.train() to inject MLflow callback at training time
+        # This handles the case where Trainer was created before autolog was enabled
+        _patch_trainer_train()
+
+    # Also patch train methods to disable ancillary autologging
     with contextlib.suppress(ImportError):
         import setfit
 
