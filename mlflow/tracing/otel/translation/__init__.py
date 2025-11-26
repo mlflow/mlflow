@@ -19,6 +19,7 @@ from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
+from mlflow.tracing.otel.translation.voltagent import VoltAgentTranslator
 from mlflow.tracing.utils import dump_span_attribute_value
 
 _logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     TraceloopTranslator(),
     GoogleADKTranslator(),
     VercelAITranslator(),
+    VoltAgentTranslator(),
 ]
 
 
@@ -39,6 +41,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     Supported translations:
     - Token usage attributes from various OTEL schemas
     - Inputs and outputs attributes from various OTEL schemas
+    - Message format for chat UI rendering
 
     These attributes translation need to happen when storing spans because we need
     to update TraceInfo accordingly.
@@ -66,6 +69,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
         token_usage := _get_token_usage(attributes)
     ):
         attributes[SpanAttributeKey.CHAT_USAGE] = dump_span_attribute_value(token_usage)
+
+    # Set message format for chat UI rendering
+    if SpanAttributeKey.MESSAGE_FORMAT not in attributes and (
+        message_format := _get_message_format(attributes)
+    ):
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = dump_span_attribute_value(message_format)
 
     span_dict["attributes"] = attributes
     return span_dict
@@ -120,6 +129,26 @@ def _get_output_value(attributes: dict[str, Any]) -> Any:
     for translator in _TRANSLATORS:
         if value := translator.get_output_value(attributes):
             return value
+
+
+def _get_message_format(attributes: dict[str, Any]) -> str | None:
+    """
+    Get message format from span attributes for chat UI rendering.
+
+    Args:
+        attributes: Dictionary of span attributes
+
+    Returns:
+        Message format string or None if not found
+    """
+    for translator in _TRANSLATORS:
+        if hasattr(translator, "MESSAGE_FORMAT") and translator.MESSAGE_FORMAT:
+            # Check if this translator has detection keys defined
+            if hasattr(translator, "DETECTION_KEYS"):
+                for key in translator.DETECTION_KEYS:
+                    if key in attributes:
+                        return translator.MESSAGE_FORMAT
+    return None
 
 
 def translate_span_type_from_otel(attributes: dict[str, Any]) -> str | None:
