@@ -1,7 +1,8 @@
-def test_eval_item_from_dataset_row_extracts_source():
-    from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
-    from mlflow.genai.evaluation.entities import EvalItem
+from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
+from mlflow.genai.evaluation.entities import EvalItem
 
+
+def test_eval_item_from_dataset_row_extracts_source():
     source = DatasetRecordSource(
         source_type=DatasetRecordSourceType.TRACE,
         source_data={"trace_id": "tr-123", "session_id": "session_1"},
@@ -23,8 +24,6 @@ def test_eval_item_from_dataset_row_extracts_source():
 
 
 def test_eval_item_from_dataset_row_handles_missing_source():
-    from mlflow.genai.evaluation.entities import EvalItem
-
     row = {
         "inputs": {"question": "test"},
         "outputs": "answer",
