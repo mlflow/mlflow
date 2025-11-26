@@ -1016,7 +1016,7 @@ class MlflowClient:
 
         # Invalidate cache for this alias since it now points to a different version
         try:
-            PromptCache.get_instance().delete(name, label=alias)
+            PromptCache.get_instance().delete(name, alias=alias)
         except KeyError:
             # It's safe to ignore if the cache entry does not exist
             pass
