@@ -11,8 +11,6 @@ to MLflow spans, which requires more complex conversion logic.
 """
 
 from collections import defaultdict
-import gzip
-import zlib
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from google.protobuf.message import DecodeError
