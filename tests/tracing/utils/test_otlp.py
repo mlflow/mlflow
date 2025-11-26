@@ -1,5 +1,7 @@
 import gzip
 import time
+import zlib
+from collections.abc import Callable
 
 import pytest
 from fastapi import HTTPException
@@ -245,21 +247,33 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     )
 
 
-def test_decompress_otlp_body_identity():
-    body = b"hello"
-    assert decompress_otlp_body(body, "identity") == body
+@pytest.mark.parametrize(
+    ("encoding", "compress_fn", "data"),
+    [
+        ("identity", lambda d: d, b"hello"),
+        ("gzip", gzip.compress, b"otlp-data-test"),
+        ("deflate", zlib.compress, b"otlp-deflate-data"),
+        ("deflate", lambda d: zlib.compress(d)[2:-4], b"raw-deflate-data"),  # Raw deflate
+    ],
+    ids=["identity", "gzip", "deflate-rfc", "deflate-raw"],
+)
+def test_decompress_otlp_body_valid(
+    encoding: str, compress_fn: Callable[[bytes], bytes], data: bytes
+):
+    compressed = compress_fn(data)
+    output = decompress_otlp_body(compressed, encoding)
+    assert output == data
 
 
-def test_decompress_otlp_body_gzip():
-    original = b"otlp-data-test"
-    compressed = gzip.compress(original)
-
-    output = decompress_otlp_body(compressed, "gzip")
-    assert output == original
-
-
-def test_decompress_otlp_body_unknown():
-    with pytest.raises(HTTPException, match="Unsupported Content-Encoding") as exc_info:
-        decompress_otlp_body(b"xxx", "unknown-encoding")
-    exc = exc_info.value
-    assert exc.status_code == 400
+@pytest.mark.parametrize(
+    ("encoding", "invalid_data", "expected_error"),
+    [
+        ("gzip", b"not-gzip-data", r"Failed to decompress gzip payload"),
+        ("deflate", b"not-deflate-data", r"Failed to decompress deflate payload"),
+        ("unknown-encoding", b"xxx", r"Unsupported Content-Encoding"),
+    ],
+    ids=["gzip-invalid", "deflate-invalid", "unknown-encoding"],
+)
+def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expected_error: str):
+    with pytest.raises(HTTPException, match=expected_error, check=lambda e: e.status_code == 400):
+        decompress_otlp_body(invalid_data, encoding)
