@@ -12,7 +12,11 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
-from mlflow.genai.judges.constants import _RATIONALE_FIELD_DESCRIPTION, _RESULT_FIELD_DESCRIPTION
+from mlflow.genai.judges.constants import (
+    _RATIONALE_FIELD_DESCRIPTION,
+    _RESULT_FIELD_DESCRIPTION,
+    USE_CASE_AGENTIC_JUDGE,
+)
 from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
@@ -538,6 +542,7 @@ class InstructionsJudge(Judge):
             assessment_name=self.name,
             trace=trace if is_trace_based else None,
             response_format=response_format,
+            use_case=USE_CASE_AGENTIC_JUDGE,
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
