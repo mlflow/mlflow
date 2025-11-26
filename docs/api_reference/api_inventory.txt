@@ -842,6 +842,10 @@ mlflow.genai.scorers.Safety
 mlflow.genai.scorers.Safety.get_input_fields
 mlflow.genai.scorers.Safety.model_post_init
 mlflow.genai.scorers.ScorerSamplingConfig
+mlflow.genai.scorers.UserFrustration
+mlflow.genai.scorers.UserFrustration.align
+mlflow.genai.scorers.UserFrustration.get_input_fields
+mlflow.genai.scorers.UserFrustration.model_post_init
 mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Correctness
@@ -853,6 +857,7 @@ mlflow.genai.scorers.builtin_scorers.RetrievalGroundedness
 mlflow.genai.scorers.builtin_scorers.RetrievalRelevance
 mlflow.genai.scorers.builtin_scorers.RetrievalSufficiency
 mlflow.genai.scorers.builtin_scorers.Safety
+mlflow.genai.scorers.builtin_scorers.UserFrustration
 mlflow.genai.scorers.delete_scorer
 mlflow.genai.scorers.get_all_scorers
 mlflow.genai.scorers.get_scorer

@@ -844,7 +844,7 @@ def test_kind_property():
         model="openai:/gpt-4",
     )
 
-    assert judge.kind == ScorerKind.BUILTIN
+    assert judge.kind == ScorerKind.INSTRUCTIONS
 
 
 @pytest.mark.parametrize(
