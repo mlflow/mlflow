@@ -2,15 +2,15 @@ import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { renderHook, waitFor } from '@testing-library/react';
-import { InternalServerError, NotFoundError } from '@databricks/web-shared/errors';
+import { InternalServerError } from '@databricks/web-shared/errors';
 import { useUpdateScheduledScorerMutation } from './useUpdateScheduledScorer';
-import { listScheduledScorers, updateScheduledScorers } from '../api';
+import { registerScorer, type RegisterScorerResponse } from '../api';
+import { transformScheduledScorer } from '../utils/scorerTransformUtils';
 
 // Mock external dependencies
 jest.mock('../api');
 
-const mockListScheduledScorers = jest.mocked(listScheduledScorers);
-const mockUpdateScheduledScorers = jest.mocked(updateScheduledScorers);
+const mockRegisterScorer = jest.mocked(registerScorer);
 
 describe('useUpdateScheduledScorerMutation', () => {
   let queryClient: QueryClient;
@@ -18,7 +18,7 @@ describe('useUpdateScheduledScorerMutation', () => {
   const mockExperimentId = 'experiment-123';
 
   const mockUpdatedLLMScorer = {
-    name: 'original-scorer', // Same name as existing scorer to test update in place
+    name: 'original-scorer',
     type: 'llm' as const,
     llmTemplate: 'Guidelines' as const,
     guidelines: ['Updated guideline 1', 'Updated guideline 2'],
@@ -36,43 +36,13 @@ describe('useUpdateScheduledScorerMutation', () => {
     originalFuncName: '',
   };
 
-  const mockOriginalScorerConfig = {
+  const mockRegisterResponse: RegisterScorerResponse = {
+    version: 2,
+    scorer_id: 'scorer-id-123',
+    experiment_id: mockExperimentId,
     name: 'original-scorer',
-    serialized_scorer: '{"name": "original"}',
-    sample_rate: 0.5,
-    filter_string: 'original_filter = "value"',
-  };
-
-  const mockUpdatedScorerConfig = {
-    name: 'original-scorer', // Updated config with same name
-    serialized_scorer: JSON.stringify({
-      mlflow_version: '3.3.2+ui',
-      serialization_version: 1,
-      name: 'original-scorer',
-      builtin_scorer_class: 'Guidelines',
-      builtin_scorer_pydantic_data: {
-        name: 'original-scorer',
-        required_columns: ['outputs', 'inputs'],
-        guidelines: ['Updated guideline 1', 'Updated guideline 2'],
-      },
-    }),
-    builtin: { name: 'original-scorer' },
-    sample_rate: 0.75,
-    filter_string: 'updated_column = "value"',
-  };
-
-  const mockExistingScorersResponse = {
-    experiment_id: mockExperimentId,
-    scheduled_scorers: {
-      scorers: [mockOriginalScorerConfig],
-    },
-  };
-
-  const mockUpdateResponse = {
-    experiment_id: mockExperimentId,
-    scheduled_scorers: {
-      scorers: [mockUpdatedScorerConfig],
-    },
+    serialized_scorer: '{"type": "llm", "guidelines": ["Updated guideline 1", "Updated guideline 2"]}',
+    creation_time: 1234567890,
   };
 
   beforeEach(() => {
@@ -88,13 +58,12 @@ describe('useUpdateScheduledScorerMutation', () => {
   });
 
   describe('Golden Path - Successful Updates', () => {
-    it('should successfully update existing scorer in place', async () => {
+    it('should successfully update a single scorer', async () => {
       // Arrange
       const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
       expect(initialCache).toBeUndefined();
 
-      mockListScheduledScorers.mockResolvedValue(mockExistingScorersResponse);
-      mockUpdateScheduledScorers.mockResolvedValue(mockUpdateResponse);
+      mockRegisterScorer.mockResolvedValue(mockRegisterResponse);
 
       const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
         wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
@@ -112,95 +81,67 @@ describe('useUpdateScheduledScorerMutation', () => {
       });
 
       const response = await mutationPromise;
-      expect(response).toEqual(mockUpdateResponse);
 
-      // Verify API calls
-      expect(mockListScheduledScorers).toHaveBeenCalledWith(mockExperimentId);
-      expect(mockUpdateScheduledScorers).toHaveBeenCalledWith(mockExperimentId, {
-        scorers: [mockUpdatedScorerConfig],
+      // Verify the response structure
+      expect(response).toMatchObject({
+        experiment_id: mockExperimentId,
+        scheduled_scorers: {
+          scorers: [
+            {
+              scorer_version: 2,
+              serialized_scorer: '{"type": "llm", "guidelines": ["Updated guideline 1", "Updated guideline 2"]}',
+            },
+          ],
+        },
       });
 
-      // Verify cache was updated with the transformed data
+      // Verify registerScorer was called with transformed config
+      const expectedTransformedConfig = transformScheduledScorer(mockUpdatedLLMScorer);
+      expect(mockRegisterScorer).toHaveBeenCalledWith(mockExperimentId, expectedTransformedConfig);
+      expect(mockRegisterScorer).toHaveBeenCalledTimes(1);
+
+      // Verify cache was updated
       const updatedCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
       expect(updatedCache).toEqual({
         experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
+        scheduledScorers: expect.arrayContaining([
+          expect.objectContaining({
             name: 'original-scorer',
-            sampleRate: 75,
-            filterString: 'updated_column = "value"',
-            type: 'llm',
-            llmTemplate: 'Guidelines',
-            guidelines: ['Updated guideline 1', 'Updated guideline 2'],
-          },
-        ],
+            version: 2,
+          }),
+        ]),
       });
     });
 
-    it('should successfully update multiple scorers', async () => {
+    it('should successfully update multiple scorers in parallel', async () => {
       // Arrange
-      const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(initialCache).toBeUndefined();
+      const scorer1 = { ...mockUpdatedLLMScorer, name: 'scorer-1' };
+      const scorer2 = { ...mockUpdatedCustomCodeScorer, name: 'scorer-2' };
 
-      const existingScorer1 = {
-        name: 'scorer-1',
-        serialized_scorer: '{"name": "scorer-1"}',
-        sample_rate: 0.3,
-      };
-      const existingScorer2 = {
-        name: 'scorer-2',
-        serialized_scorer: '{"name": "scorer-2"}',
-        sample_rate: 0.4,
-      };
-
-      const multipleScorersResponse = {
+      const response1: RegisterScorerResponse = {
+        version: 2,
+        scorer_id: 'scorer-id-1',
         experiment_id: mockExperimentId,
-        scheduled_scorers: {
-          scorers: [existingScorer1, existingScorer2],
-        },
-      };
-
-      const updatedScorer1 = { ...mockUpdatedLLMScorer, name: 'scorer-1' };
-      const updatedScorer2 = { ...mockUpdatedCustomCodeScorer, name: 'scorer-2' };
-
-      const transformedScorer1 = {
         name: 'scorer-1',
-        serialized_scorer: JSON.stringify({
-          mlflow_version: '3.3.2+ui',
-          serialization_version: 1,
-          name: 'scorer-1',
-          builtin_scorer_class: 'Guidelines',
-          builtin_scorer_pydantic_data: {
-            name: 'scorer-1',
-            required_columns: ['outputs', 'inputs'],
-            guidelines: ['Updated guideline 1', 'Updated guideline 2'],
-          },
-        }),
-        builtin: { name: 'scorer-1' },
-        sample_rate: 0.75,
-        filter_string: 'updated_column = "value"',
-      };
-      const transformedScorer2 = {
-        name: 'scorer-2',
-        serialized_scorer: JSON.stringify({
-          mlflow_version: '3.3.2+ui',
-          serialization_version: 1,
-          name: 'scorer-2',
-          call_source: 'def updated_scorer(inputs, outputs):\n    return {"score": 0.8}',
-          call_signature: '',
-          original_func_name: '',
-        }),
-        custom: {},
-        sample_rate: 0.6,
-        filter_string: 'status = "success"',
+        serialized_scorer: '{"type": "llm"}',
+        creation_time: 1234567890,
       };
 
-      mockListScheduledScorers.mockResolvedValue(multipleScorersResponse);
-      mockUpdateScheduledScorers.mockResolvedValue({
+      const response2: RegisterScorerResponse = {
+        version: 3,
+        scorer_id: 'scorer-id-2',
         experiment_id: mockExperimentId,
-        scheduled_scorers: {
-          scorers: [transformedScorer1, transformedScorer2],
-        },
+        name: 'scorer-2',
+        serialized_scorer: '{"type": "custom-code"}',
+        creation_time: 1234567891,
+      };
+
+      // Mock registerScorer to return different responses based on the scorer name
+      mockRegisterScorer.mockImplementation(async (experimentId, scorerConfig) => {
+        if (scorerConfig.name === 'scorer-1') {
+          return response1;
+        }
+        return response2;
       });
 
       const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
@@ -210,7 +151,7 @@ describe('useUpdateScheduledScorerMutation', () => {
       // Act
       const mutationPromise = result.current.mutateAsync({
         experimentId: mockExperimentId,
-        scheduledScorers: [updatedScorer1, updatedScorer2],
+        scheduledScorers: [scorer1, scorer2],
       });
 
       // Assert
@@ -218,178 +159,99 @@ describe('useUpdateScheduledScorerMutation', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      await mutationPromise;
-      expect(mockUpdateScheduledScorers).toHaveBeenCalledWith(mockExperimentId, {
-        scorers: [transformedScorer1, transformedScorer2],
+      const response = await mutationPromise;
+
+      // Verify both scorers were updated
+      expect(response.scheduled_scorers?.scorers).toHaveLength(2);
+      expect(response.scheduled_scorers?.scorers[0]).toMatchObject({
+        scorer_version: 2,
+      });
+      expect(response.scheduled_scorers?.scorers[1]).toMatchObject({
+        scorer_version: 3,
       });
 
-      // Verify cache was updated with the transformed data
-      const updatedCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(updatedCache).toEqual({
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'scorer-1',
-            sampleRate: 75,
-            filterString: 'updated_column = "value"',
-            type: 'llm',
-            llmTemplate: 'Guidelines',
-            guidelines: ['Updated guideline 1', 'Updated guideline 2'],
-          },
-          {
-            name: 'scorer-2',
-            sampleRate: 60,
-            filterString: 'status = "success"',
-            type: 'custom-code',
-            code: 'def updated_scorer(inputs, outputs):\n    return {"score": 0.8}',
-            callSignature: '',
-            originalFuncName: '',
-          },
-        ],
-      });
-    });
+      // Verify registerScorer was called twice
+      expect(mockRegisterScorer).toHaveBeenCalledTimes(2);
 
-    it('should handle scorer updates and additions correctly', async () => {
-      // Arrange - Set up multiple existing scorers
-      const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(initialCache).toBeUndefined();
+      const expectedTransformedConfig1 = transformScheduledScorer(scorer1);
+      const expectedTransformedConfig2 = transformScheduledScorer(scorer2);
+      expect(mockRegisterScorer).toHaveBeenCalledWith(mockExperimentId, expectedTransformedConfig1);
+      expect(mockRegisterScorer).toHaveBeenCalledWith(mockExperimentId, expectedTransformedConfig2);
 
-      const scorer1 = { name: 'scorer-1', serialized_scorer: '{}', sample_rate: 0.3 };
-      const scorer2 = { name: 'scorer-2', serialized_scorer: '{}', sample_rate: 0.4 };
-
-      const multipleExistingScorersResponse = {
-        experiment_id: mockExperimentId,
-        scheduled_scorers: {
-          scorers: [scorer1, scorer2],
-        },
-      };
-
-      // Create updated scorer-1 and new scorer-3
-      const updatedScorer1 = { ...mockUpdatedLLMScorer, name: 'scorer-1' };
-      const newScorer3 = { ...mockUpdatedCustomCodeScorer, name: 'scorer-3' };
-
-      const expectedScorerConfigs = [
-        {
-          name: 'scorer-1',
-          serialized_scorer: JSON.stringify({
-            mlflow_version: '3.3.2+ui',
-            serialization_version: 1,
-            name: 'scorer-1',
-            builtin_scorer_class: 'Guidelines',
-            builtin_scorer_pydantic_data: {
-              name: 'scorer-1',
-              required_columns: ['outputs', 'inputs'],
-              guidelines: ['Updated guideline 1', 'Updated guideline 2'],
-            },
-          }),
-          builtin: { name: 'scorer-1' },
-          sample_rate: 0.75,
-          filter_string: 'updated_column = "value"',
-        },
-        scorer2, // Preserved unchanged
-        {
-          name: 'scorer-3',
-          serialized_scorer: JSON.stringify({
-            mlflow_version: '3.3.2+ui',
-            serialization_version: 1,
-            name: 'scorer-3',
-            call_source: 'def updated_scorer(inputs, outputs):\n    return {"score": 0.8}',
-            call_signature: '',
-            original_func_name: '',
-          }),
-          custom: {},
-          sample_rate: 0.6,
-          filter_string: 'status = "success"',
-        },
-      ];
-
-      mockListScheduledScorers.mockResolvedValue(multipleExistingScorersResponse);
-      mockUpdateScheduledScorers.mockResolvedValue({
-        experiment_id: mockExperimentId,
-        scheduled_scorers: {
-          scorers: expectedScorerConfigs,
-        },
-      });
-
-      const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
-        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-      });
-
-      // Act - Update existing scorer-1 and add new scorer-3
-      const mutationPromise = result.current.mutateAsync({
-        experimentId: mockExperimentId,
-        scheduledScorers: [updatedScorer1, newScorer3],
-      });
-
-      // Assert
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      await mutationPromise;
-
-      // Verify that scorer-1 was updated, scorer-2 preserved, and scorer-3 added
-      expect(mockUpdateScheduledScorers).toHaveBeenCalledWith(mockExperimentId, {
-        scorers: expectedScorerConfigs,
-      });
-
-      // Verify cache reflects the changes with transformed data
+      // Verify cache was updated
       const updatedCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
       expect(updatedCache).toEqual({
         experimentId: mockExperimentId,
         scheduledScorers: expect.arrayContaining([
           expect.objectContaining({
             name: 'scorer-1',
-            type: 'llm',
-            llmTemplate: 'Guidelines',
-            sampleRate: 75,
+            version: 2,
           }),
           expect.objectContaining({
             name: 'scorer-2',
-            sampleRate: 40,
-          }),
-          expect.objectContaining({
-            name: 'scorer-3',
-            type: 'custom-code',
-            sampleRate: 60,
+            version: 3,
           }),
         ]),
       });
     });
-  });
 
-  describe('Edge Cases and Error Conditions', () => {
-    it('should handle listScheduledScorers API failure', async () => {
+    it('should handle custom code scorer updates', async () => {
       // Arrange
-      const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(initialCache).toBeUndefined();
+      const customCodeResponse: RegisterScorerResponse = {
+        version: 1,
+        scorer_id: 'scorer-id-custom',
+        experiment_id: mockExperimentId,
+        name: 'updated-custom-scorer',
+        serialized_scorer:
+          '{"type": "custom-code", "code": "def updated_scorer(inputs, outputs):\\n    return {\\"score\\": 0.8}"}',
+        creation_time: 1234567891,
+      };
 
-      const notFoundError = new NotFoundError({});
-      mockListScheduledScorers.mockRejectedValue(notFoundError);
+      mockRegisterScorer.mockResolvedValue(customCodeResponse);
 
       const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
         wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
       });
 
-      // Act & Assert
-      await expect(
-        result.current.mutateAsync({
-          experimentId: mockExperimentId,
-          scheduledScorers: [mockUpdatedLLMScorer],
-        }),
-      ).rejects.toThrow(NotFoundError);
+      // Act
+      const mutationPromise = result.current.mutateAsync({
+        experimentId: mockExperimentId,
+        scheduledScorers: [mockUpdatedCustomCodeScorer],
+      });
 
-      expect(mockUpdateScheduledScorers).not.toHaveBeenCalled();
+      // Assert
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      const response = await mutationPromise;
+
+      // Verify the response structure
+      expect(response).toMatchObject({
+        experiment_id: mockExperimentId,
+        scheduled_scorers: {
+          scorers: [
+            {
+              scorer_version: 1,
+            },
+          ],
+        },
+      });
+
+      // Verify registerScorer was called with transformed config
+      const expectedTransformedConfig = transformScheduledScorer(mockUpdatedCustomCodeScorer);
+      expect(mockRegisterScorer).toHaveBeenCalledWith(mockExperimentId, expectedTransformedConfig);
     });
+  });
 
-    it('should handle updateScheduledScorers API failure', async () => {
+  describe('Edge Cases and Error Conditions', () => {
+    it('should handle registerScorer API failure', async () => {
       // Arrange
       const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
       expect(initialCache).toBeUndefined();
 
       const serverError = new InternalServerError({});
-      mockListScheduledScorers.mockResolvedValue(mockExistingScorersResponse);
-      mockUpdateScheduledScorers.mockRejectedValue(serverError);
+      mockRegisterScorer.mockRejectedValue(serverError);
 
       const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
         wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
@@ -403,115 +265,146 @@ describe('useUpdateScheduledScorerMutation', () => {
         }),
       ).rejects.toThrow(InternalServerError);
 
-      expect(mockListScheduledScorers).toHaveBeenCalledWith(mockExperimentId);
+      expect(mockRegisterScorer).toHaveBeenCalled();
+
+      // Verify cache was not modified due to error
+      const cacheAfterError = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
+      expect(cacheAfterError).toBeUndefined();
     });
 
-    it('should handle missing existing scorers gracefully', async () => {
+    it('should handle partial failure when updating multiple scorers', async () => {
       // Arrange
-      const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(initialCache).toBeUndefined();
+      const scorer1 = { ...mockUpdatedLLMScorer, name: 'scorer-1' };
+      const scorer2 = { ...mockUpdatedCustomCodeScorer, name: 'scorer-2' };
 
-      const emptyScorersResponse = {
+      const serverError = new InternalServerError({});
+
+      // Mock first call succeeds, second call fails
+      mockRegisterScorer
+        .mockResolvedValueOnce({
+          version: 2,
+          scorer_id: 'scorer-id-1',
+          experiment_id: mockExperimentId,
+          name: 'scorer-1',
+          serialized_scorer: '{"type": "llm"}',
+          creation_time: 1234567890,
+        })
+        .mockRejectedValueOnce(serverError);
+
+      const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+      });
+
+      // Act & Assert
+      await expect(
+        result.current.mutateAsync({
+          experimentId: mockExperimentId,
+          scheduledScorers: [scorer1, scorer2],
+        }),
+      ).rejects.toThrow(InternalServerError);
+
+      // Verify both registerScorer calls were made (Promise.all doesn't short-circuit)
+      expect(mockRegisterScorer).toHaveBeenCalledTimes(2);
+
+      // Verify cache was not modified due to error
+      const cacheAfterError = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
+      expect(cacheAfterError).toBeUndefined();
+    });
+
+    it('should transform scorer config correctly before calling API', async () => {
+      // Arrange
+      mockRegisterScorer.mockResolvedValue(mockRegisterResponse);
+
+      const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+      });
+
+      // Act
+      await result.current.mutateAsync({
+        experimentId: mockExperimentId,
+        scheduledScorers: [mockUpdatedLLMScorer],
+      });
+
+      // Assert - verify the transformation was applied
+      const expectedTransformedConfig = transformScheduledScorer(mockUpdatedLLMScorer);
+      expect(mockRegisterScorer).toHaveBeenCalledWith(mockExperimentId, expectedTransformedConfig);
+      expect(mockRegisterScorer).toHaveBeenCalledTimes(1);
+    });
+
+    it('should convert responses correctly to ScorerConfig format', async () => {
+      // Arrange
+      const scorer1 = { ...mockUpdatedLLMScorer, name: 'scorer-1' };
+      const scorer2 = { ...mockUpdatedCustomCodeScorer, name: 'scorer-2' };
+
+      const response1: RegisterScorerResponse = {
+        version: 5,
+        scorer_id: 'unique-id-1',
+        experiment_id: '999',
+        name: 'scorer-1',
+        serialized_scorer: '{"custom": "data1"}',
+        creation_time: 9999999991,
+      };
+
+      const response2: RegisterScorerResponse = {
+        version: 6,
+        scorer_id: 'unique-id-2',
+        experiment_id: '999',
+        name: 'scorer-2',
+        serialized_scorer: '{"custom": "data2"}',
+        creation_time: 9999999992,
+      };
+
+      mockRegisterScorer.mockImplementation(async (experimentId, scorerConfig) => {
+        if (scorerConfig.name === 'scorer-1') {
+          return response1;
+        }
+        return response2;
+      });
+
+      const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+      });
+
+      // Act
+      const response = await result.current.mutateAsync({
+        experimentId: '999',
+        scheduledScorers: [scorer1, scorer2],
+      });
+
+      // Assert - verify the response conversion
+      expect(response.scheduled_scorers?.scorers[0]).toMatchObject({
+        scorer_version: 5,
+        serialized_scorer: '{"custom": "data1"}',
+      });
+
+      expect(response.scheduled_scorers?.scorers[1]).toMatchObject({
+        scorer_version: 6,
+        serialized_scorer: '{"custom": "data2"}',
+      });
+    });
+
+    it('should handle empty scheduledScorers array', async () => {
+      // Arrange
+      const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+      });
+
+      // Act
+      const response = await result.current.mutateAsync({
+        experimentId: mockExperimentId,
+        scheduledScorers: [],
+      });
+
+      // Assert
+      expect(response).toMatchObject({
         experiment_id: mockExperimentId,
         scheduled_scorers: {
           scorers: [],
         },
-      };
-
-      mockListScheduledScorers.mockResolvedValue(emptyScorersResponse);
-      mockUpdateScheduledScorers.mockResolvedValue({
-        experiment_id: mockExperimentId,
-        scheduled_scorers: {
-          scorers: [mockUpdatedScorerConfig],
-        },
       });
 
-      const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
-        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-      });
-
-      // Act
-      const mutationPromise = result.current.mutateAsync({
-        experimentId: mockExperimentId,
-        scheduledScorers: [mockUpdatedLLMScorer],
-      });
-
-      // Assert
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      await mutationPromise;
-      // Should add the new scorer to the empty list
-      expect(mockUpdateScheduledScorers).toHaveBeenCalledWith(mockExperimentId, {
-        scorers: [mockUpdatedScorerConfig],
-      });
-
-      // Verify cache was updated with the new scorer
-      const updatedCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(updatedCache).toEqual({
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'original-scorer',
-            sampleRate: 75,
-            filterString: 'updated_column = "value"',
-            type: 'llm',
-            llmTemplate: 'Guidelines',
-            guidelines: ['Updated guideline 1', 'Updated guideline 2'],
-          },
-        ],
-      });
-    });
-
-    it('should handle response with undefined scheduled_scorers', async () => {
-      // Arrange
-      const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(initialCache).toBeUndefined();
-
-      const responseWithUndefinedScorers = {
-        experiment_id: mockExperimentId,
-      };
-
-      mockListScheduledScorers.mockResolvedValue(responseWithUndefinedScorers);
-      mockUpdateScheduledScorers.mockResolvedValue(mockUpdateResponse);
-
-      const { result } = renderHook(() => useUpdateScheduledScorerMutation(), {
-        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-      });
-
-      // Act
-      const mutationPromise = result.current.mutateAsync({
-        experimentId: mockExperimentId,
-        scheduledScorers: [mockUpdatedLLMScorer],
-      });
-
-      // Assert
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      await mutationPromise;
-      // Should handle undefined scorers as empty array
-      expect(mockUpdateScheduledScorers).toHaveBeenCalledWith(mockExperimentId, {
-        scorers: [mockUpdatedScorerConfig],
-      });
-
-      // Verify cache was updated correctly despite undefined input
-      const updatedCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(updatedCache).toEqual({
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'original-scorer',
-            sampleRate: 75,
-            filterString: 'updated_column = "value"',
-            type: 'llm',
-            llmTemplate: 'Guidelines',
-            guidelines: ['Updated guideline 1', 'Updated guideline 2'],
-          },
-        ],
-      });
+      // Verify registerScorer was not called
+      expect(mockRegisterScorer).not.toHaveBeenCalled();
     });
   });
 });

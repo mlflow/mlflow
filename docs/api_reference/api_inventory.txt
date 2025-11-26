@@ -810,6 +810,12 @@ mlflow.genai.optimize_prompts
 mlflow.genai.register_prompt
 mlflow.genai.scheduled_scorers.ScorerScheduleConfig
 mlflow.genai.scorer
+mlflow.genai.scorers.Completeness
+mlflow.genai.scorers.Completeness.get_input_fields
+mlflow.genai.scorers.Completeness.model_post_init
+mlflow.genai.scorers.ConversationCompleteness
+mlflow.genai.scorers.ConversationCompleteness.get_input_fields
+mlflow.genai.scorers.ConversationCompleteness.model_post_init
 mlflow.genai.scorers.Correctness
 mlflow.genai.scorers.Correctness.get_input_fields
 mlflow.genai.scorers.Correctness.model_post_init
@@ -842,8 +848,13 @@ mlflow.genai.scorers.Safety
 mlflow.genai.scorers.Safety.get_input_fields
 mlflow.genai.scorers.Safety.model_post_init
 mlflow.genai.scorers.ScorerSamplingConfig
+mlflow.genai.scorers.UserFrustration
+mlflow.genai.scorers.UserFrustration.get_input_fields
+mlflow.genai.scorers.UserFrustration.model_post_init
 mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
+mlflow.genai.scorers.builtin_scorers.Completeness
+mlflow.genai.scorers.builtin_scorers.ConversationCompleteness
 mlflow.genai.scorers.builtin_scorers.Correctness
 mlflow.genai.scorers.builtin_scorers.Equivalence
 mlflow.genai.scorers.builtin_scorers.ExpectationsGuidelines
@@ -853,6 +864,7 @@ mlflow.genai.scorers.builtin_scorers.RetrievalGroundedness
 mlflow.genai.scorers.builtin_scorers.RetrievalRelevance
 mlflow.genai.scorers.builtin_scorers.RetrievalSufficiency
 mlflow.genai.scorers.builtin_scorers.Safety
+mlflow.genai.scorers.builtin_scorers.UserFrustration
 mlflow.genai.scorers.delete_scorer
 mlflow.genai.scorers.get_all_scorers
 mlflow.genai.scorers.get_scorer
@@ -1401,6 +1413,8 @@ mlflow.types.responses_helpers.FunctionCallOutput
 mlflow.types.responses_helpers.FunctionTool
 mlflow.types.responses_helpers.IncompleteDetails
 mlflow.types.responses_helpers.InputTokensDetails
+mlflow.types.responses_helpers.McpApprovalRequest
+mlflow.types.responses_helpers.McpApprovalResponse
 mlflow.types.responses_helpers.Message
 mlflow.types.responses_helpers.OutputItem
 mlflow.types.responses_helpers.OutputTokensDetails

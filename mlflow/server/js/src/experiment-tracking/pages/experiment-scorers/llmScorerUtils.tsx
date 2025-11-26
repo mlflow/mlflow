@@ -21,14 +21,6 @@ export const useTemplateOptions = () => {
         }),
       },
       {
-        value: LLM_TEMPLATE.GUIDELINES,
-        label: intl.formatMessage({ defaultMessage: 'Guidelines', description: 'LLM template option' }),
-        hint: intl.formatMessage({
-          defaultMessage: "Does the app's response meet specified criteria?",
-          description: 'Hint for Guidelines template',
-        }),
-      },
-      {
         value: LLM_TEMPLATE.RELEVANCE_TO_QUERY,
         label: intl.formatMessage({ defaultMessage: 'Relevance to Query', description: 'LLM template option' }),
         hint: intl.formatMessage({

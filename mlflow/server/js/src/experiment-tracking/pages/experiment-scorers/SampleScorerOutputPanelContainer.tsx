@@ -169,7 +169,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       // Custom judge mode
       if (!judgeInstructions) {
         return intl.formatMessage({
-          defaultMessage: 'Please enter instructions to run the scorer',
+          defaultMessage: 'Please enter instructions to run the judge',
           description: 'Tooltip message when instructions are missing',
         });
       }
@@ -181,7 +181,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       }
       if (hasTraceVariable) {
         return intl.formatMessage({
-          defaultMessage: 'The trace variable is not supported when running the scorer on a sample of traces',
+          defaultMessage: 'The trace variable is not supported when running the judge on a sample of traces',
           description: 'Tooltip message when instructions contain trace variable',
         });
       }
@@ -189,7 +189,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       // Built-in judge mode
       if (isRetrievalRelevance) {
         return intl.formatMessage({
-          defaultMessage: 'Retrieval Relevance is not yet supported for sample scorer output',
+          defaultMessage: 'Retrieval Relevance is not yet supported for sample judge output',
           description: 'Tooltip message when retrieval relevance template is selected',
         });
       }

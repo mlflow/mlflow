@@ -46,6 +46,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
@@ -3516,3 +3517,36 @@ def test_log_spans_and_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
         assert child_span.end_time_ns == 1_800_000_000
         assert child_span.attributes.get("operation.type") == "database_query"
         assert child_span.attributes.get("custom.attribute") == "child-value"
+
+
+def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+
+    with _use_tracking_uri(tracking_uri):
+        client = MlflowClient()
+
+        assert isinstance(client._tracking_client.store, SqlAlchemyTrackingStore)
+
+        with mlflow.start_span() as span:
+            pass
+
+        trace_id = span.trace_id
+        sql_alchemy_store_module = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
+        with (
+            mock.patch(f"{sql_alchemy_store_module}.get_trace") as mock_get_trace,
+        ):
+            mlflow.get_trace(trace_id)
+
+        mock_get_trace.assert_called_once_with(trace_id)
+
+        with (
+            mock.patch(
+                f"{sql_alchemy_store_module}.get_trace",
+                side_effect=MlflowNotImplementedException,
+            ) as mock_get_trace,
+            mock.patch(f"{sql_alchemy_store_module}.batch_get_traces") as mock_batch_get_traces,
+        ):
+            mlflow.get_trace(trace_id)
+
+        mock_get_trace.assert_called_once_with(trace_id)
+        mock_batch_get_traces.assert_called_once_with([trace_id])

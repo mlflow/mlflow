@@ -66,7 +66,7 @@ def mock_databricks_rag_eval(monkeypatch):
             self.expected_content = expected_content
             self.response_data = response_data
 
-        def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
+        def get_chat_completions_result(self, user_prompt, system_prompt, use_case=None, **kwargs):
             # Check that expected content is in either user or system prompt
             if self.expected_content:
                 combined = (system_prompt or "") + " " + user_prompt
@@ -114,7 +114,15 @@ def mock_invoke_judge_model(monkeypatch):
     calls = []
     captured_args = {}
 
-    def _mock(model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None):
+    def _mock(
+        model_uri,
+        prompt,
+        assessment_name,
+        trace=None,
+        num_retries=10,
+        response_format=None,
+        use_case=None,
+    ):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
 
@@ -127,6 +135,7 @@ def mock_invoke_judge_model(monkeypatch):
                 "trace": trace,
                 "num_retries": num_retries,
                 "response_format": response_format,
+                "use_case": use_case,
             }
         )
 
@@ -619,7 +628,13 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     captured_args = {}
 
     def mock_invoke(
-        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+        model_uri,
+        prompt,
+        assessment_name,
+        trace=None,
+        num_retries=10,
+        response_format=None,
+        use_case=None,
     ):
         captured_args.update(
             {
@@ -629,6 +644,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
                 "trace": trace,
                 "num_retries": num_retries,
                 "response_format": response_format,
+                "use_case": use_case,
             }
         )
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
@@ -844,7 +860,7 @@ def test_kind_property():
         model="openai:/gpt-4",
     )
 
-    assert judge.kind == ScorerKind.BUILTIN
+    assert judge.kind == ScorerKind.INSTRUCTIONS
 
 
 @pytest.mark.parametrize(
@@ -1427,7 +1443,13 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     captured_prompt = None
 
     def mock_invoke(
-        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+        model_uri,
+        prompt,
+        assessment_name,
+        trace=None,
+        num_retries=10,
+        response_format=None,
+        use_case=None,
     ):
         nonlocal captured_prompt
         captured_prompt = prompt
@@ -3346,3 +3368,51 @@ def test_conversation_no_warning_when_used(mock_invoke_judge_model):
                     # Should not contain both "conversation" and "not used" together
                     if "conversation" in warning_msg.lower():
                         assert "not used" not in warning_msg.lower()
+
+
+def test_instructions_judge_generate_rationale_first():
+    # Test with generate_rationale_first=False (default)
+    judge_default = InstructionsJudge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=str,
+        generate_rationale_first=False,
+    )
+
+    # Check output fields order (default: result first, then rationale)
+    output_fields_default = judge_default.get_output_fields()
+    assert len(output_fields_default) == 2
+    assert output_fields_default[0].name == "result"
+    assert output_fields_default[1].name == "rationale"
+
+    # Check response format field order (default: result first)
+    response_format_default = judge_default._create_response_format_model()
+    field_names_default = list(response_format_default.model_fields.keys())
+    assert field_names_default == ["result", "rationale"]
+
+    # Test with generate_rationale_first=True
+    judge_rationale_first = InstructionsJudge(
+        name="test_judge_rationale_first",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=Literal["good", "bad"],
+        generate_rationale_first=True,
+    )
+
+    # Check output fields order (rationale first, then result)
+    output_fields_rationale_first = judge_rationale_first.get_output_fields()
+    assert len(output_fields_rationale_first) == 2
+    assert output_fields_rationale_first[0].name == "rationale"
+    assert output_fields_rationale_first[1].name == "result"
+
+    # Check response format field order (rationale first)
+    response_format_rationale_first = judge_rationale_first._create_response_format_model()
+    field_names_rationale_first = list(response_format_rationale_first.model_fields.keys())
+    assert field_names_rationale_first == ["rationale", "result"]
+
+    # Verify field descriptions are correct regardless of order
+    assert output_fields_default[0].value_type == str
+    assert output_fields_default[1].value_type == str
+    assert output_fields_rationale_first[0].value_type == str  # rationale
+    assert output_fields_rationale_first[1].value_type == Literal["good", "bad"]  # result
