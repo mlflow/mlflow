@@ -37,6 +37,61 @@ export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
 export OTEL_EXPORTER_OTLP_TRACES_HEADERS="api_key=12345"
 ```
 
+## GenAI Semantic Conventions Export
+
+MLflow can export traces with span attributes converted to [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/). This enables compatibility with observability platforms that expect the standardized GenAI attribute naming scheme.
+
+To enable GenAI schema export, set the `OTEL_EXPORTER_OTLP_TRACES_SCHEMA` environment variable:
+
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://localhost:4317/v1/traces"
+export OTEL_EXPORTER_OTLP_TRACES_SCHEMA="genai"
+```
+
+### Schema Values
+
+| Value | Description |
+|-------|-------------|
+| `default` | Export attributes using MLflow's internal naming (e.g., `mlflow.spanInputs`). This is the default behavior. |
+| `genai` | Convert attributes to OpenTelemetry GenAI semantic conventions (e.g., `gen_ai.request.input`). |
+
+### Attribute Mappings
+
+When using the `genai` schema, MLflow attributes are converted as follows:
+
+| MLflow Attribute | GenAI Attribute |
+|------------------|-----------------|
+| `mlflow.spanInputs` | `gen_ai.request.input` |
+| `mlflow.spanOutputs` | `gen_ai.response.output` |
+| `mlflow.spanType` | `gen_ai.operation.name` |
+| `mlflow.chat.tokenUsage.input_tokens` | `gen_ai.usage.input_tokens` |
+| `mlflow.chat.tokenUsage.output_tokens` | `gen_ai.usage.output_tokens` |
+| `mlflow.model.name` | `gen_ai.request.model` |
+| `mlflow.model.provider` | `gen_ai.system` |
+
+Unmapped attributes are preserved with their original keys.
+
+### Example
+
+```python
+import mlflow
+import os
+
+# Enable GenAI schema export
+os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "http://localhost:4317/v1/traces"
+os.environ["OTEL_EXPORTER_OTLP_TRACES_SCHEMA"] = "genai"
+
+# Trace will be exported with GenAI semantic convention attributes
+with mlflow.start_span(name="chat") as span:
+    span.set_inputs({"messages": [{"role": "user", "content": "Hello!"}]})
+    span.set_outputs({"response": "Hi there!"})
+    # Exported as gen_ai.request.input and gen_ai.response.output
+```
+
+:::note
+The GenAI schema conversion only affects OTLP export. Internal MLflow operations, storage, and UI queries continue to use MLflow's internal attribute names.
+:::
+
 ## Integrated Observability Platforms
 
 Click on the following icons to learn more about how to set up OpenTelemetry exporter for your specific observability platform:
