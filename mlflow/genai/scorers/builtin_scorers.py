@@ -16,7 +16,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
-from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
+from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
@@ -1680,9 +1680,6 @@ class UserFrustration(BuiltInScorer):
     ) -> Feedback:
         return self._get_judge()(session=session)
 
-    def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
-        raise NotImplementedError("Alignment is not supported for session-level scorers.")
-
 
 @experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
@@ -1779,9 +1776,6 @@ class ConversationCompleteness(BuiltInScorer):
         session: list[Trace] | None = None,
     ) -> Feedback:
         return self._get_judge()(session=session)
-
-    def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
-        raise NotImplementedError("Alignment is not supported for session-level scorers.")
 
 
 @experimental(version="3.7.0")
