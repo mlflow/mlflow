@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
+    DatabricksServingEndpointAdapter,
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,
 )
@@ -80,7 +81,7 @@ def invoke_judge_model(
 
     in_databricks = _is_in_databricks()
 
-    # Get the appropriate adapter (it will parse model_uri if needed)
+    # Get the appropriate adapter
     adapter = get_adapter(model_uri=model_uri, prompt=prompt)
 
     # Create input parameters
@@ -93,20 +94,19 @@ def invoke_judge_model(
         response_format=response_format,
     )
 
-    # Parse model URI for telemetry and deprecation warning (only when needed)
-    model_provider, model_name = _parse_model_uri(model_uri)
+    # Check if this is a Databricks serving endpoint adapter that needs telemetry
+    if isinstance(adapter, DatabricksServingEndpointAdapter):
+        model_provider, model_name = _parse_model_uri(model_uri)
 
-    # Show deprecation warning for legacy 'endpoints' provider
-    if model_provider == "endpoints":
-        warnings.warn(
-            "The legacy provider 'endpoints' is deprecated and will be removed in a future "
-            "release. Please update your code to use the 'databricks' provider instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
+        # Show deprecation warning for legacy 'endpoints' provider
+        if model_provider == "endpoints":
+            warnings.warn(
+                "The legacy provider 'endpoints' is deprecated and will be removed in a future "
+                "release. Please update your code to use the 'databricks' provider instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
 
-    # Invoke the adapter with telemetry for Databricks endpoints
-    if model_provider in {"databricks", "endpoints"} and isinstance(prompt, str):
         try:
             output = adapter.invoke(input_params)
             feedback = output.feedback
@@ -151,7 +151,7 @@ def invoke_judge_model(
                     )
             raise
 
-    # For all other cases, invoke the adapter directly
+    # For all other adapters, invoke directly
     output = adapter.invoke(input_params)
     return output.feedback
 
