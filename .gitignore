@@ -134,3 +134,5 @@ gunicorn.conf.py
 # except commands and skills
 !.claude/commands/
 !.claude/skills/
+!.claude/hooks/
+!.claude/settings.json
