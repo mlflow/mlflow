@@ -48,9 +48,9 @@ const RunScorerButton: React.FC<{
     >
       <PlayCircleFillIcon css={{ marginRight: isRerun ? theme.spacing.xs : theme.spacing.sm }} />
       {isRerun ? (
-        <FormattedMessage defaultMessage="Re-Run scorer" description="Button text for re-running scorer" />
+        <FormattedMessage defaultMessage="Re-Run judge" description="Button text for re-running judge" />
       ) : (
-        <FormattedMessage defaultMessage="Run scorer" description="Button text for running scorer" />
+        <FormattedMessage defaultMessage="Run judge" description="Button text for running judge" />
       )}
     </Button>
   );
@@ -116,7 +116,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
         }}
       >
         <Typography.Text bold css={{ margin: 0, display: 'flex', alignItems: 'center' }}>
-          <FormattedMessage defaultMessage="Sample scorer output" description="Title for sample scorer output panel" />
+          <FormattedMessage defaultMessage="Sample judge output" description="Title for sample judge output panel" />
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           <SimpleSelect
@@ -253,15 +253,12 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               </div>
             )}
             <Typography.Text size="lg" color="secondary" bold css={{ margin: 0, marginBottom: theme.spacing.xs }}>
-              <FormattedMessage
-                defaultMessage="Run scorer on traces"
-                description="Title for running scorer on traces"
-              />
+              <FormattedMessage defaultMessage="Run judge on traces" description="Title for running judge on traces" />
             </Typography.Text>
             <Typography.Text color="secondary" css={{ margin: 0, marginBottom: theme.spacing.md }}>
               <FormattedMessage
-                defaultMessage="Run the scorer on the selected group of traces"
-                description="Description for running scorer on traces"
+                defaultMessage="Run the judge on the selected group of traces"
+                description="Description for running judge on traces"
               />
             </Typography.Text>
             <Tooltip

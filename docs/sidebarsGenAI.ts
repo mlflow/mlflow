@@ -579,6 +579,42 @@ const sidebarsGenAI: SidebarsConfig = {
       },
     },
     {
+      type: 'category',
+      label: 'AI Gateway',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/setup',
+          label: 'Setup',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/configuration',
+          label: 'Configuration',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/usage',
+          label: 'Usage',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/integration',
+          label: 'Integration',
+        },
+        {
+          type: 'doc',
+          id: 'governance/unity-catalog',
+          label: 'Unity Catalog',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'governance/ai-gateway/index',
+      },
+    },
+    {
       type: 'html',
       value: '<b>More Features</b>',
       defaultStyle: true,
@@ -808,42 +844,6 @@ const sidebarsGenAI: SidebarsConfig = {
       link: {
         type: 'doc',
         id: 'serving/index',
-      },
-    },
-    {
-      type: 'category',
-      label: 'AI Gateway',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/setup',
-          label: 'Setup',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/configuration',
-          label: 'Configuration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/usage',
-          label: 'Usage',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/integration',
-          label: 'Integration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/unity-catalog',
-          label: 'Unity Catalog',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'governance/ai-gateway/index',
       },
     },
     {

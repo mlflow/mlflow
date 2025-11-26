@@ -254,6 +254,7 @@ select = [
   "FURB110", # if-exp-instead-of-or-operator
   "FURB129", # readlines-in-for
   "FURB142", # for-loop-set-mutations
+  "FURB148", # unnecessary-enumerate
   "FURB167", # regex-flag-alias
   "FURB188", # slice-to-remove-prefix-or-suffix
   "FURB192", # sorted-min-max

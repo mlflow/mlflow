@@ -20,6 +20,7 @@ export type ModelTraceExplorerViewState = {
   setAssessmentsPaneExpanded: (expanded: boolean) => void;
   isTraceInitialLoading?: boolean;
   assessmentsPaneEnabled: boolean;
+  isInComparisonView: boolean;
 };
 
 export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplorerViewState>({
@@ -37,6 +38,7 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   setAssessmentsPaneExpanded: () => {},
   isTraceInitialLoading: false,
   assessmentsPaneEnabled: true,
+  isInComparisonView: false,
 });
 
 export const useModelTraceExplorerViewState = () => {
@@ -53,6 +55,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   assessmentsPaneEnabled,
   initialAssessmentsPaneCollapsed,
   isTraceInitialLoading = false,
+  isInComparisonView = false,
   children,
 }: {
   modelTrace: ModelTrace;
@@ -62,6 +65,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   assessmentsPaneEnabled: boolean;
   initialAssessmentsPaneCollapsed?: boolean | 'force-open';
   isTraceInitialLoading?: boolean;
+  isInComparisonView?: boolean;
 }) => {
   const rootNode = useMemo(() => parseModelTraceToTree(modelTrace), [modelTrace]);
   const nodeMap = useMemo(() => (rootNode ? getTimelineTreeNodesMap([rootNode]) : {}), [rootNode]);
@@ -102,6 +106,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
       isTraceInitialLoading,
+      isInComparisonView,
     }),
     [
       activeView,
@@ -115,6 +120,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
       isTraceInitialLoading,
+      isInComparisonView,
     ],
   );
 

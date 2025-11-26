@@ -3,6 +3,10 @@ interface ScheduledScorerBase {
   sampleRate?: number; // Percentage between 0 and 100
   filterString?: string;
   type: 'llm' | 'custom-code';
+  version?: number;
+  // Whether the UI disables monitoring for this scorer. If disabled, the UI
+  // will not show the form fields for monitoring (sample rate, filter string, etc.)
+  disableMonitoring?: boolean;
 }
 
 // LLM Template Constants
@@ -32,6 +36,10 @@ export interface LLMScorer extends ScheduledScorerBase {
   llmTemplate?: LLMTemplate;
   guidelines?: string[];
   instructions?: string;
+  model?: string;
+  // True if the scorer is an instructions-based LLM scorer that uses instructions_judge_pydantic_data
+  // rather than builtin_scorer_pydantic_data.
+  is_instructions_judge?: boolean;
 }
 
 export interface CustomCodeScorer extends ScheduledScorerBase {
@@ -52,4 +60,5 @@ export type ScorerConfig = {
   custom?: Record<string, unknown>;
   sample_rate?: number;
   filter_string?: string;
+  scorer_version?: number;
 };

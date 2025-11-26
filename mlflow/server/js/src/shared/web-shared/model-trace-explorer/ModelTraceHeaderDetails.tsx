@@ -77,8 +77,16 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   }, []);
 
   return (
-    <>
-      <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.md, flexWrap: 'wrap' }}>
+    <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'row',
+          gap: theme.spacing.md,
+          rowGap: theme.spacing.sm,
+          flexWrap: 'wrap',
+        }}
+      >
         {modelTraceId && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="ID" description="Label for the ID section" />}
@@ -181,6 +189,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           <Notification.Viewport />
         </Notification.Provider>
       )}
-    </>
+    </div>
   );
 };

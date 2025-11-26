@@ -4,12 +4,69 @@ import {
   transformScorerConfig,
   transformScheduledScorer,
   convertFormDataToScheduledScorer,
+  convertRegisterScorerResponseToConfig,
 } from './scorerTransformUtils';
+import type { RegisterScorerResponse } from '../api';
 import type { ScorerConfig, LLMScorer, CustomCodeScorer } from '../types';
 import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
 
 describe('transformScorerConfig', () => {
+  describe('Custom template (instructions-based) LLM scorer', () => {
+    it('should transform instructions-based scorer with model', () => {
+      const config: ScorerConfig = {
+        name: 'Test Instructions Scorer',
+        sample_rate: 0.8,
+        filter_string: 'status="completed"',
+        serialized_scorer: JSON.stringify({
+          instructions_judge_pydantic_data: {
+            instructions: 'Evaluate the response quality',
+            model: 'databricks:/databricks-gpt-5',
+          },
+        }),
+        custom: {},
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Instructions Scorer',
+        sampleRate: 80,
+        filterString: 'status="completed"',
+        type: 'llm',
+        llmTemplate: 'Custom',
+        instructions: 'Evaluate the response quality',
+        model: 'databricks:/databricks-gpt-5',
+        disableMonitoring: true,
+        is_instructions_judge: true,
+      });
+    });
+
+    it('should transform instructions-based scorer without model', () => {
+      const config: ScorerConfig = {
+        name: 'Test Instructions Scorer',
+        serialized_scorer: JSON.stringify({
+          instructions_judge_pydantic_data: {
+            instructions: 'Evaluate the response quality',
+          },
+        }),
+        custom: {},
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result).toEqual({
+        name: 'Test Instructions Scorer',
+        type: 'llm',
+        llmTemplate: 'Custom',
+        instructions: 'Evaluate the response quality',
+        model: undefined,
+        disableMonitoring: true,
+        is_instructions_judge: true,
+      });
+    });
+  });
+
   describe('Guidelines LLM scorer', () => {
     it('should transform Guidelines scorer with array guidelines', () => {
       const config: ScorerConfig = {
@@ -34,6 +91,9 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Guideline 1', 'Guideline 2'],
+        disableMonitoring: true,
+        is_instructions_judge: false,
+        model: undefined,
       });
     });
 
@@ -56,6 +116,9 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Single guideline'],
+        disableMonitoring: true,
+        is_instructions_judge: false,
+        model: undefined,
       });
     });
 
@@ -76,6 +139,9 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: [],
+        disableMonitoring: true,
+        is_instructions_judge: false,
+        model: undefined,
       });
     });
   });
@@ -98,6 +164,9 @@ describe('transformScorerConfig', () => {
         sampleRate: 50,
         type: 'llm',
         llmTemplate: 'Safety',
+        disableMonitoring: true,
+        is_instructions_judge: false,
+        model: undefined,
       });
     });
   });
@@ -126,6 +195,7 @@ describe('transformScorerConfig', () => {
         code: 'def my_scorer(inputs, outputs, metadata):\n    return len(inputs["text"]) > 10',
         callSignature: '(inputs, outputs, metadata)',
         originalFuncName: 'my_scorer',
+        disableMonitoring: true,
       });
     });
 
@@ -144,6 +214,9 @@ describe('transformScorerConfig', () => {
         name: 'Test Custom Scorer',
         type: 'custom-code',
         code: 'def evaluate(inputs, outputs):\n    return True',
+        disableMonitoring: true,
+        originalFuncName: undefined,
+        callSignature: undefined,
       });
     });
 
@@ -160,6 +233,9 @@ describe('transformScorerConfig', () => {
         name: 'Test Custom Scorer',
         type: 'custom-code',
         code: '',
+        disableMonitoring: true,
+        originalFuncName: undefined,
+        callSignature: undefined,
       });
     });
   });
@@ -215,6 +291,47 @@ describe('transformScorerConfig', () => {
 
 describe('transformScheduledScorer', () => {
   describe('LLM scorers', () => {
+    it('should transform Custom template scorer with model', () => {
+      const scorer: LLMScorer = {
+        name: 'Test Instructions Scorer',
+        sampleRate: 80,
+        filterString: 'status="completed"',
+        type: 'llm',
+        llmTemplate: 'Custom',
+        instructions: 'Evaluate the response quality',
+        model: 'openai:/gpt-4o-mini',
+        is_instructions_judge: true,
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      const serialized = JSON.parse(result.serialized_scorer);
+      expect(serialized.instructions_judge_pydantic_data).toEqual({
+        instructions: 'Evaluate the response quality',
+        model: 'openai:/gpt-4o-mini',
+      });
+      expect(result.custom).toEqual({});
+    });
+
+    it('should transform Custom template scorer without model', () => {
+      const scorer: LLMScorer = {
+        name: 'Test Instructions Scorer',
+        sampleRate: 80,
+        type: 'llm',
+        llmTemplate: 'Custom',
+        instructions: 'Evaluate the response quality',
+        is_instructions_judge: true,
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      const serialized = JSON.parse(result.serialized_scorer);
+      expect(serialized.instructions_judge_pydantic_data).toEqual({
+        instructions: 'Evaluate the response quality',
+      });
+      expect(serialized.instructions_judge_pydantic_data).not.toHaveProperty('model');
+    });
+
     it('should transform Guidelines LLM scorer', () => {
       const scorer: LLMScorer = {
         name: 'Test Guidelines Scorer',
@@ -248,7 +365,7 @@ describe('transformScheduledScorer', () => {
       });
     });
 
-    it('should transform built-in LLM scorer without guidelines', () => {
+    it('should transform built-in LLM scorer without instructions as built-in', () => {
       const scorer: LLMScorer = {
         name: 'Test Toxicity Scorer',
         sampleRate: 50,
@@ -275,6 +392,66 @@ describe('transformScheduledScorer', () => {
           name: 'Test Toxicity Scorer',
         },
       });
+    });
+
+    it('should transform Safety template with instructions as instructions judge', () => {
+      const scorer: LLMScorer = {
+        name: 'Safety Judge',
+        sampleRate: 80,
+        type: 'llm',
+        llmTemplate: 'Safety',
+        instructions: 'Evaluate if the response is safe and appropriate.',
+        model: 'openai:/gpt-4o-mini',
+        is_instructions_judge: true,
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      const serialized = JSON.parse(result.serialized_scorer);
+      expect(serialized.instructions_judge_pydantic_data).toEqual({
+        instructions: 'Evaluate if the response is safe and appropriate.',
+        model: 'openai:/gpt-4o-mini',
+      });
+      expect(serialized.builtin_scorer_class).toBeNull();
+      expect(result.custom).toEqual({});
+      expect(result).not.toHaveProperty('builtin');
+    });
+
+    it('should transform RelevanceToQuery template with instructions as instructions judge', () => {
+      const scorer: LLMScorer = {
+        name: 'Relevance Judge',
+        sampleRate: 75,
+        type: 'llm',
+        llmTemplate: 'RelevanceToQuery',
+        instructions: 'Evaluate if the response is relevant to the query.',
+        is_instructions_judge: true,
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      const serialized = JSON.parse(result.serialized_scorer);
+      expect(serialized.instructions_judge_pydantic_data).toEqual({
+        instructions: 'Evaluate if the response is relevant to the query.',
+      });
+      expect(serialized.builtin_scorer_class).toBeNull();
+      expect(result.custom).toEqual({});
+    });
+
+    it('should transform non-editable template (Correctness) as built-in even with instructions', () => {
+      const scorer: LLMScorer = {
+        name: 'Correctness Scorer',
+        sampleRate: 60,
+        type: 'llm',
+        llmTemplate: 'Correctness',
+        instructions: 'Some instructions that should be ignored',
+      };
+
+      const result = transformScheduledScorer(scorer);
+
+      const serialized = JSON.parse(result.serialized_scorer);
+      expect(serialized.builtin_scorer_class).toBe('Correctness');
+      expect(serialized.instructions_judge_pydantic_data).toBeUndefined();
+      expect(result.builtin).toEqual({ name: 'Correctness Scorer' });
     });
 
     it('should handle LLM scorer with undefined sampleRate', () => {
@@ -363,24 +540,132 @@ describe('transformScheduledScorer', () => {
 
 describe('convertFormDataToScheduledScorer', () => {
   describe('Creating new scorers', () => {
-    it('should create new LLM scorer from form data', () => {
+    it('should create new Custom template scorer with model', () => {
       const formData: LLMScorerFormData & { scorerType: 'llm' } = {
-        name: 'New LLM Scorer',
+        name: 'New Instructions Scorer',
         sampleRate: 80,
         filterString: 'status="success"',
         scorerType: 'llm',
-        llmTemplate: 'Safety',
+        llmTemplate: 'Custom',
+        instructions: 'Evaluate the response',
+        model: 'openai:/gpt-4o-mini',
+        isInstructionsJudge: true,
       };
 
       const result = convertFormDataToScheduledScorer(formData);
 
       expect(result).toEqual({
-        name: 'New LLM Scorer',
+        name: 'New Instructions Scorer',
+        sampleRate: 80,
+        filterString: 'status="success"',
+        type: 'llm',
+        llmTemplate: 'Custom',
+        guidelines: undefined,
+        instructions: 'Evaluate the response',
+        model: 'openai:/gpt-4o-mini',
+        is_instructions_judge: true,
+      });
+    });
+
+    it('should create new Custom template scorer without model', () => {
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New Instructions Scorer',
+        sampleRate: 80,
+        scorerType: 'llm',
+        llmTemplate: 'Custom',
+        instructions: 'Evaluate the response',
+        isInstructionsJudge: true,
+      };
+
+      const result = convertFormDataToScheduledScorer(formData);
+
+      expect(result).toEqual({
+        name: 'New Instructions Scorer',
+        sampleRate: 80,
+        filterString: '',
+        type: 'llm',
+        llmTemplate: 'Custom',
+        guidelines: undefined,
+        instructions: 'Evaluate the response',
+        model: undefined,
+        is_instructions_judge: true,
+      });
+    });
+
+    it('should create new Safety scorer with instructions as instructions judge', () => {
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New Safety Scorer',
+        sampleRate: 80,
+        filterString: 'status="success"',
+        scorerType: 'llm',
+        llmTemplate: 'Safety',
+        instructions: 'Evaluate if the response is safe.',
+        model: 'openai:/gpt-4o-mini',
+        isInstructionsJudge: true,
+      };
+
+      const result = convertFormDataToScheduledScorer(formData);
+
+      expect(result).toEqual({
+        name: 'New Safety Scorer',
         sampleRate: 80,
         filterString: 'status="success"',
         type: 'llm',
         llmTemplate: 'Safety',
         guidelines: undefined,
+        instructions: 'Evaluate if the response is safe.',
+        model: 'openai:/gpt-4o-mini',
+        is_instructions_judge: true,
+      });
+    });
+
+    it('should create new RelevanceToQuery scorer with instructions as instructions judge', () => {
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New Relevance Scorer',
+        sampleRate: 75,
+        scorerType: 'llm',
+        llmTemplate: 'RelevanceToQuery',
+        instructions: 'Evaluate if the response is relevant.',
+        isInstructionsJudge: true,
+      };
+
+      const result = convertFormDataToScheduledScorer(formData);
+
+      expect(result).toEqual({
+        name: 'New Relevance Scorer',
+        sampleRate: 75,
+        filterString: '',
+        type: 'llm',
+        llmTemplate: 'RelevanceToQuery',
+        guidelines: undefined,
+        instructions: 'Evaluate if the response is relevant.',
+        model: undefined,
+        is_instructions_judge: true,
+      });
+    });
+
+    it('should create non-editable template scorer without instructions', () => {
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'New Correctness Scorer',
+        sampleRate: 60,
+        scorerType: 'llm',
+        llmTemplate: 'Correctness',
+        instructions: 'These instructions should be ignored',
+        isInstructionsJudge: false,
+      };
+
+      const result = convertFormDataToScheduledScorer(formData);
+
+      expect(result).toEqual({
+        name: 'New Correctness Scorer',
+        sampleRate: 60,
+        filterString: '',
+        type: 'llm',
+        llmTemplate: 'Correctness',
+        guidelines: undefined,
+        instructions: undefined,
+        model: undefined,
+        is_instructions_judge: false,
       });
     });
 
@@ -450,6 +735,43 @@ describe('convertFormDataToScheduledScorer', () => {
   });
 
   describe('Updating existing scorers', () => {
+    it('should update Custom template scorer with model', () => {
+      const baseScorer: LLMScorer = {
+        name: 'Original Instructions Scorer',
+        sampleRate: 50,
+        filterString: 'old_filter',
+        type: 'llm',
+        llmTemplate: 'Custom',
+        instructions: 'Old instructions',
+        model: 'databricks:/databricks-gpt-4',
+        is_instructions_judge: true,
+      };
+
+      const formData: LLMScorerFormData & { scorerType: 'llm' } = {
+        name: 'Updated Instructions Scorer',
+        sampleRate: 80,
+        filterString: 'new_filter',
+        scorerType: 'llm',
+        llmTemplate: 'Custom',
+        instructions: 'New instructions',
+        model: 'openai:/gpt-4o-mini',
+        isInstructionsJudge: true,
+      };
+
+      const result = convertFormDataToScheduledScorer(formData, baseScorer);
+
+      expect(result).toEqual({
+        name: 'Updated Instructions Scorer',
+        sampleRate: 80,
+        filterString: 'new_filter',
+        type: 'llm',
+        llmTemplate: 'Custom',
+        instructions: 'New instructions',
+        model: 'openai:/gpt-4o-mini',
+        is_instructions_judge: true,
+      });
+    });
+
     it('should update custom code scorer with only allowed fields', () => {
       const baseScorer: CustomCodeScorer = {
         name: 'Original Custom Scorer',
@@ -489,6 +811,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: 'old_filter',
         type: 'llm',
         llmTemplate: 'Safety',
+        is_instructions_judge: false,
       };
 
       const formData: LLMScorerFormData & { scorerType: 'llm' } = {
@@ -498,6 +821,7 @@ describe('convertFormDataToScheduledScorer', () => {
         scorerType: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: 'New guideline 1\nNew guideline 2',
+        isInstructionsJudge: false,
       };
 
       const result = convertFormDataToScheduledScorer(formData, baseScorer);
@@ -509,6 +833,7 @@ describe('convertFormDataToScheduledScorer', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['New guideline 1', 'New guideline 2'],
+        is_instructions_judge: false,
       });
     });
 
@@ -519,6 +844,7 @@ describe('convertFormDataToScheduledScorer', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Old guideline 1', 'Old guideline 2'],
+        is_instructions_judge: false,
       };
 
       const formData: LLMScorerFormData & { scorerType: 'llm' } = {
@@ -526,6 +852,7 @@ describe('convertFormDataToScheduledScorer', () => {
         sampleRate: 80,
         scorerType: 'llm',
         llmTemplate: 'Safety',
+        isInstructionsJudge: false,
       };
 
       const result = convertFormDataToScheduledScorer(formData, baseScorer);
@@ -537,6 +864,7 @@ describe('convertFormDataToScheduledScorer', () => {
         type: 'llm',
         llmTemplate: 'Safety',
         guidelines: ['Old guideline 1', 'Old guideline 2'], // Guidelines preserved from base
+        is_instructions_judge: false,
       });
     });
 
@@ -601,6 +929,32 @@ describe('convertFormDataToScheduledScorer', () => {
         type: 'llm',
         llmTemplate: 'Safety',
       });
+    });
+  });
+});
+
+describe('convertRegisterScorerResponseToConfig', () => {
+  it('should convert custom instructions-based scorer response to ScorerConfig', () => {
+    const response: RegisterScorerResponse = {
+      version: 2,
+      scorer_id: 'scorer_456',
+      experiment_id: '789',
+      name: 'Custom Instructions Scorer',
+      serialized_scorer: JSON.stringify({
+        instructions_judge_pydantic_data: {
+          instructions: 'Evaluate the response quality',
+          model: 'openai:/gpt-4o-mini',
+        },
+      }),
+      creation_time: 1234567890000,
+    };
+
+    const result = convertRegisterScorerResponseToConfig(response);
+
+    expect(result).toEqual({
+      name: 'Custom Instructions Scorer',
+      serialized_scorer: response.serialized_scorer,
+      scorer_version: 2,
     });
   });
 });
