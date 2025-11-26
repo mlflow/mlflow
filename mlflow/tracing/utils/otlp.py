@@ -3,7 +3,6 @@ import os
 import zlib
 from typing import Any
 
-from fastapi import HTTPException, status
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue, ArrayValue, KeyValueList
 from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -197,6 +196,7 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
 
     Raises HTTPException if the payload cannot be decompressed.
     """
+    from fastapi import HTTPException, status
 
     match content_encoding:
         case "identity":
