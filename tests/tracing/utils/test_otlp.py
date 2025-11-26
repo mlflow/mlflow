@@ -246,13 +246,11 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
 
 
 def test_decompress_otlp_body_identity():
-    """identity encoding should return original body."""
     body = b"hello"
     assert decompress_otlp_body(body, "identity") == body
 
 
 def test_decompress_otlp_body_gzip():
-    """gzip encoding should be decompressed."""
     original = b"otlp-data-test"
     compressed = gzip.compress(original)
 
@@ -261,7 +259,6 @@ def test_decompress_otlp_body_gzip():
 
 
 def test_decompress_otlp_body_unknown():
-    """Unknown encoding should raise ValueError."""
     with pytest.raises(HTTPException) as exc_info:
         decompress_otlp_body(b"xxx", "unknown-encoding")
     exc = exc_info.value
