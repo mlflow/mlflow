@@ -382,7 +382,10 @@ def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:
             _logger.warning(f"Failed to refresh trace {trace_id}: {e}")
             return None
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(
+        max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+        thread_name_prefix="GenAIEvaluationTraceRefresh",
+    ) as executor:
         futures = [executor.submit(_fetch_trace, er) for er in eval_results]
         for future in as_completed(futures):
             result = future.result()
