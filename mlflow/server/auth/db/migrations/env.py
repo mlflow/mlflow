@@ -3,6 +3,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
 from mlflow.server.auth.db.models import Base
 
 # this is the Alembic Config object, which provides
@@ -11,7 +12,9 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-if config.config_file_name is not None:
+# Only configure logging if MLFLOW_CONFIGURE_LOGGING is not explicitly disabled
+# to respect user's logging configuration
+if config.config_file_name is not None and MLFLOW_CONFIGURE_LOGGING.get():
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # add your model's MetaData object here
