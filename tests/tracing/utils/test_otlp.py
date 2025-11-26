@@ -1,7 +1,7 @@
-import time
 import gzip
-import pytest
+import time
 
+import pytest
 from fastapi import HTTPException
 
 import mlflow
@@ -28,10 +28,10 @@ except ImportError:
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils.otlp import (
-        get_otlp_exporter,
-        should_use_otlp_exporter,
-        decompress_otlp_body
-    )
+    decompress_otlp_body,
+    get_otlp_exporter,
+    should_use_otlp_exporter,
+)
 
 _TEST_HTTP_OTLP_ENDPOINT = "http://127.0.0.1:4317/v1/traces"
 _TEST_HTTPS_OTLP_ENDPOINT = "https://127.0.0.1:4317/v1/traces"
@@ -259,8 +259,7 @@ def test_decompress_otlp_body_gzip():
 
 
 def test_decompress_otlp_body_unknown():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(HTTPException, match="Unsupported Content-Encoding") as exc_info:
         decompress_otlp_body(b"xxx", "unknown-encoding")
     exc = exc_info.value
     assert exc.status_code == 400
-    assert "Unsupported Content-Encoding" in exc.detail

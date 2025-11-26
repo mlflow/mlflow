@@ -1,10 +1,9 @@
-import os
 import gzip
+import os
 import zlib
 from typing import Any
 
 from fastapi import HTTPException, status
-
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue, ArrayValue, KeyValueList
 from opentelemetry.sdk.trace.export import SpanExporter
 

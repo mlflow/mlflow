@@ -5,9 +5,9 @@ This test suite verifies that the experiment ID header functionality works corre
 when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 """
 
+import gzip
 import shutil
 import time
-import gzip
 import zlib
 from pathlib import Path
 from typing import Iterator

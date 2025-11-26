@@ -26,7 +26,7 @@ from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
     OTLP_TRACES_PATH,
-    decompress_otlp_body
+    decompress_otlp_body,
 )
 from mlflow.tracking.request_header.default_request_header_provider import (
     _MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX,
