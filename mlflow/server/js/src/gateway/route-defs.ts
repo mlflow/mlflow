@@ -35,20 +35,5 @@ export const getGatewayRouteDefs = () => {
         },
       ],
     },
-    {
-      path: GatewayRoutePaths.createEndpointPage,
-      element: createLazyRouteElement(() => import('./pages/CreateEndpointPage')),
-      pageId: GatewayPageId.createEndpointPage,
-    },
-    {
-      path: GatewayRoutePaths.endpointDetailsPage,
-      element: createLazyRouteElement(() => import('./pages/EndpointDetailsPage')),
-      pageId: GatewayPageId.endpointDetailsPage,
-    },
-    {
-      path: GatewayRoutePaths.editEndpointPage,
-      element: createLazyRouteElement(() => import('./pages/EditEndpointPage')),
-      pageId: GatewayPageId.editEndpointPage,
-    },
   ];
 };
