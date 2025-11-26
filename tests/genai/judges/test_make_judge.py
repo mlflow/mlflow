@@ -114,7 +114,15 @@ def mock_invoke_judge_model(monkeypatch):
     calls = []
     captured_args = {}
 
-    def _mock(model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None):
+    def _mock(
+        model_uri,
+        prompt,
+        assessment_name,
+        trace=None,
+        num_retries=10,
+        response_format=None,
+        use_case=None,
+    ):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
 
@@ -127,6 +135,7 @@ def mock_invoke_judge_model(monkeypatch):
                 "trace": trace,
                 "num_retries": num_retries,
                 "response_format": response_format,
+                "use_case": use_case,
             }
         )
 
@@ -619,7 +628,13 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     captured_args = {}
 
     def mock_invoke(
-        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+        model_uri,
+        prompt,
+        assessment_name,
+        trace=None,
+        num_retries=10,
+        response_format=None,
+        use_case=None,
     ):
         captured_args.update(
             {
@@ -629,6 +644,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
                 "trace": trace,
                 "num_retries": num_retries,
                 "response_format": response_format,
+                "use_case": use_case,
             }
         )
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
@@ -1427,7 +1443,13 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     captured_prompt = None
 
     def mock_invoke(
-        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+        model_uri,
+        prompt,
+        assessment_name,
+        trace=None,
+        num_retries=10,
+        response_format=None,
+        use_case=None,
     ):
         nonlocal captured_prompt
         captured_prompt = prompt
