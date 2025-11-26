@@ -680,7 +680,9 @@ class SqlTraceInfo(Base):
     Trace ID: `String` (limit 50 characters). *Primary Key* for ``trace_info`` table.
     Named as "trace_id" in V3 format.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
@@ -1172,6 +1174,7 @@ class SqlLoggedModelMetric(Base):
         ForeignKeyConstraint(
             ["experiment_id"],
             ["experiments.experiment_id"],
+            ondelete="CASCADE",
             name="fk_logged_model_metrics_experiment_id",
         ),
         ForeignKeyConstraint(
@@ -1234,6 +1237,7 @@ class SqlLoggedModelParam(Base):
         ForeignKeyConstraint(
             ["experiment_id"],
             ["experiments.experiment_id"],
+            ondelete="CASCADE",
             name="fk_logged_model_params_experiment_id",
         ),
     )
@@ -1280,6 +1284,7 @@ class SqlLoggedModelTag(Base):
         ForeignKeyConstraint(
             ["experiment_id"],
             ["experiments.experiment_id"],
+            ondelete="CASCADE",
             name="fk_logged_model_tags_experiment_id",
         ),
     )
@@ -1691,7 +1696,9 @@ class SqlSpan(Base):
     Foreign key to trace_info table.
     """
 
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Experiment ID: `Integer`. Foreign key to experiments table.
     """
