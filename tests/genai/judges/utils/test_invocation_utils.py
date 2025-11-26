@@ -145,7 +145,7 @@ def test_invoke_judge_model_successful_with_native_provider():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ),
         mock.patch(
             "mlflow.metrics.genai.model_utils.score_model_on_payload", return_value=mock_response
@@ -173,9 +173,9 @@ def test_invoke_judge_model_successful_with_native_provider():
 
 
 def test_invoke_judge_model_with_unsupported_provider():
-    with pytest.raises(MlflowException, match=r"LiteLLM is required for using 'unsupported' LLM"):
+    with pytest.raises(MlflowException, match=r"No suitable adapter found"):
         with mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ):
             invoke_judge_model(
                 model_uri="unsupported:/model", prompt="Test prompt", assessment_name="test"
@@ -185,7 +185,7 @@ def test_invoke_judge_model_with_unsupported_provider():
 def test_invoke_judge_model_with_trace_requires_litellm(mock_trace):
     with pytest.raises(MlflowException, match=r"LiteLLM is required for using traces with judges"):
         with mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ):
             invoke_judge_model(
                 model_uri="openai:/gpt-4",
