@@ -9536,6 +9536,7 @@ def test_dataset_associations_and_lazy_loading(store):
             "tags",
             "source_type",
             "source_id",
+            "source",
             "created_time",
             "dataset_record_id",
         ]
