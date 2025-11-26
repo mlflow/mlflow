@@ -1,0 +1,202 @@
+import {
+  Button,
+  ChainIcon,
+  Empty,
+  Input,
+  SearchIcon,
+  Spinner,
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+  TrashIcon,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { Link } from '../../../common/utils/RoutingUtils';
+import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
+import { useDeleteEndpointMutation } from '../../hooks/useDeleteEndpointMutation';
+import { formatProviderName } from '../../utils/providerUtils';
+import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
+import GatewayRoutes from '../../routes';
+import type { Endpoint } from '../../types';
+import { useMemo, useState } from 'react';
+
+interface EndpointsListProps {
+  onEndpointDeleted?: () => void;
+}
+
+export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
+  const { theme } = useDesignSystemTheme();
+  const { formatMessage } = useIntl();
+  const { data: endpoints, isLoading, refetch } = useEndpointsQuery();
+  const { mutate: deleteEndpoint, isLoading: isDeleting } = useDeleteEndpointMutation();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchFilter, setSearchFilter] = useState('');
+
+  const filteredEndpoints = useMemo(() => {
+    if (!endpoints) return [];
+    if (!searchFilter.trim()) return endpoints;
+    const lowerFilter = searchFilter.toLowerCase();
+    return endpoints.filter((endpoint) => (endpoint.name ?? endpoint.endpoint_id).toLowerCase().includes(lowerFilter));
+  }, [endpoints, searchFilter]);
+
+  const handleDelete = (endpoint: Endpoint) => {
+    setDeletingId(endpoint.endpoint_id);
+    deleteEndpoint(endpoint.endpoint_id, {
+      onSuccess: () => {
+        setDeletingId(null);
+        refetch();
+        onEndpointDeleted?.();
+      },
+      onError: () => {
+        setDeletingId(null);
+      },
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, padding: theme.spacing.md }}>
+        <Spinner size="small" />
+        <FormattedMessage defaultMessage="Loading endpoints..." description="Loading message for endpoints list" />
+      </div>
+    );
+  }
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
+        <Input
+          componentId="mlflow.gateway.endpoints-list.search"
+          prefix={<SearchIcon />}
+          placeholder={formatMessage({
+            defaultMessage: 'Filter endpoints by name',
+            description: 'Placeholder for endpoint search filter',
+          })}
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.target.value)}
+          allowClear
+          css={{ maxWidth: 300 }}
+        />
+      </div>
+
+      {!endpoints?.length ? (
+        <Empty
+          image={<ChainIcon />}
+          description={
+            <FormattedMessage
+              defaultMessage="No endpoints created yet"
+              description="Empty state message for endpoints list"
+            />
+          }
+        />
+      ) : filteredEndpoints.length === 0 ? (
+        <Empty
+          image={<SearchIcon />}
+          description={
+            <FormattedMessage
+              defaultMessage="No endpoints match your filter"
+              description="Empty state message when filter returns no results"
+            />
+          }
+        />
+      ) : (
+        <Table
+          scrollable
+          css={{
+            border: `1px solid ${theme.colors.borderDecorative}`,
+            borderRadius: theme.general.borderRadiusBase,
+          }}
+        >
+          <TableRow isHeader>
+            <TableHeader componentId="mlflow.gateway.endpoints-list.name-header" css={{ flex: 2 }}>
+              <FormattedMessage defaultMessage="Name" description="Endpoint name column header" />
+            </TableHeader>
+            <TableHeader componentId="mlflow.gateway.endpoints-list.models-header" css={{ flex: 2 }}>
+              <FormattedMessage defaultMessage="Models" description="Models column header" />
+            </TableHeader>
+            <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header" css={{ flex: 1 }}>
+              <FormattedMessage defaultMessage="Last modified" description="Last modified column header" />
+            </TableHeader>
+            <TableHeader
+              componentId="mlflow.gateway.endpoints-list.actions-header"
+              css={{ flex: 0, minWidth: 48, maxWidth: 48 }}
+            />
+          </TableRow>
+          {filteredEndpoints.map((endpoint) => (
+            <TableRow key={endpoint.endpoint_id}>
+              <TableCell css={{ flex: 2 }}>
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                  <ChainIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
+                  <Link
+                    to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
+                    css={{
+                      color: theme.colors.actionPrimaryBackgroundDefault,
+                      textDecoration: 'none',
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                  >
+                    {endpoint.name ?? endpoint.endpoint_id}
+                  </Link>
+                </div>
+              </TableCell>
+              <TableCell css={{ flex: 2 }}>
+                <ModelsCell modelMappings={endpoint.model_mappings} />
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
+                <TimeAgo date={new Date(endpoint.last_updated_at)} />
+              </TableCell>
+              <TableCell css={{ flex: 0, minWidth: 48, maxWidth: 48 }}>
+                <Button
+                  componentId="mlflow.gateway.endpoints-list.delete-button"
+                  type="tertiary"
+                  icon={<TrashIcon />}
+                  aria-label={formatMessage({
+                    defaultMessage: 'Delete endpoint',
+                    description: 'Delete endpoint button aria label',
+                  })}
+                  onClick={() => handleDelete(endpoint)}
+                  loading={deletingId === endpoint.endpoint_id}
+                  disabled={isDeleting}
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </Table>
+      )}
+    </div>
+  );
+};
+
+const ModelsCell = ({ modelMappings }: { modelMappings: Endpoint['model_mappings'] }) => {
+  const { theme } = useDesignSystemTheme();
+
+  if (!modelMappings || modelMappings.length === 0) {
+    return <Typography.Text color="secondary">-</Typography.Text>;
+  }
+
+  const primaryMapping = modelMappings[0];
+  const primaryModelDef = primaryMapping.model_definition;
+  const additionalCount = modelMappings.length - 1;
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
+        {primaryModelDef?.model_name ?? '-'}
+        <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+          ({primaryModelDef ? formatProviderName(primaryModelDef.provider) : '-'})
+        </Typography.Text>
+      </Typography.Text>
+      {additionalCount > 0 && (
+        <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+          +{additionalCount} more
+        </Typography.Text>
+      )}
+    </div>
+  );
+};

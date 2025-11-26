@@ -6,6 +6,13 @@ export interface Model {
   model: string;
   provider: string;
   supports_function_calling: boolean;
+  supports_vision: boolean;
+  supports_reasoning: boolean;
+  supports_prompt_caching: boolean;
+  max_input_tokens: number | null;
+  max_output_tokens: number | null;
+  input_cost_per_token: number | null;
+  output_cost_per_token: number | null;
 }
 
 export interface AuthField {
@@ -42,6 +49,7 @@ export interface ModelsResponse {
 export interface Secret {
   secret_id: string;
   secret_name: string;
+  masked_value: string;
   provider?: string;
   credential_name?: string;
   auth_config?: Record<string, any>;
@@ -109,7 +117,7 @@ export interface EndpointModelMapping {
 
 export interface Endpoint {
   endpoint_id: string;
-  name: string;
+  name?: string;
   model_mappings: EndpointModelMapping[];
   created_at: number;
   last_updated_at: number;
