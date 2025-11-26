@@ -72,7 +72,7 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
       {mode === SCORER_FORM_MODE.CREATE && (
         <div>
           <FormUI.Label>
-            <FormattedMessage defaultMessage="Scorer type" description="Label for scorer type selection" />
+            <FormattedMessage defaultMessage="Judge type" description="Label for judge type selection" />
           </FormUI.Label>
           <Controller
             name="scorerType"
@@ -111,8 +111,8 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
                 </Radio>
                 <FormUI.Hint>
                   <FormattedMessage
-                    defaultMessage="Create your own scorer using a Python function. Useful if your requirements are not met by LLM-as-a-judge scorers."
-                    description="Hint text for custom code scorer type option"
+                    defaultMessage="Create your own judge using a Python function. Useful if your requirements are not met by LLM-as-a-judge judges."
+                    description="Hint text for custom code judge type option"
                   />
                 </FormUI.Hint>
               </Radio.Group>
@@ -297,9 +297,9 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
           disabled={isSubmitButtonDisabled()}
         >
           {mode === SCORER_FORM_MODE.EDIT ? (
-            <FormattedMessage defaultMessage="Save" description="Save scorer button text" />
+            <FormattedMessage defaultMessage="Save" description="Save judge button text" />
           ) : (
-            <FormattedMessage defaultMessage="Create scorer" description="Create scorer button text" />
+            <FormattedMessage defaultMessage="Create judge" description="Create judge button text" />
           )}
         </Button>
       </div>

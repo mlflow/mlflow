@@ -67,7 +67,7 @@ export class RoutePaths {
     return createMLflowRoutePath('/experiments/:experimentId/datasets');
   }
   static get experimentPageTabScorers() {
-    return createMLflowRoutePath('/experiments/:experimentId/scorers');
+    return createMLflowRoutePath('/experiments/:experimentId/judges');
   }
   // Child routes for experiment page - end
   static get experimentLoggedModelDetailsPageTab() {
