@@ -231,20 +231,23 @@ def _get_alembic_config(db_url, alembic_dir=None):
     return config
 
 
-def _check_sqlite_version(engine):
+def _check_sqlite_version(db_url: str) -> None:
     """
     Check if SQLite version supports required features.
 
     MLflow requires SQLite 3.31.0 or higher for computed columns support.
     Raises MlflowException if the version is too old.
     """
-    db_url = str(engine.url)
-    if not db_url.startswith("sqlite"):
+    if not db_url.startswith("sqlite:"):
         return
 
     version_str = sqlite3.sqlite_version
+    try:
+        sqlite_version = Version(version_str)
+    except Exception:
+        return
     min_version_str = "3.31.0"
-    if Version(version_str) < Version(min_version_str):
+    if sqlite_version < Version(min_version_str):
         raise MlflowException(
             f"MLflow requires SQLite version {min_version_str} or higher for SQL based "
             f"tracking server, but found version {version_str}. Please upgrade your SQLite "
@@ -263,13 +266,12 @@ def _upgrade_db(engine):
             https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls for a full list of
             valid database URLs.
     """
-    # Check SQLite version before running migrations
-    _check_sqlite_version(engine)
-
     # alembic adds significant import time, so we import it lazily
     from alembic import command
 
     db_url = str(engine.url)
+    # Check SQLite version before running migrations
+    _check_sqlite_version(db_url)
     _logger.info("Updating database tables")
     config = _get_alembic_config(db_url)
     # Initialize a shared connection to be used for the database upgrade, ensuring that

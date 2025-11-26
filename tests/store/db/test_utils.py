@@ -168,10 +168,6 @@ def test_non_mysql_no_ssl_params(monkeypatch):
 
 
 def test_check_sqlite_version_too_old():
-    mock_engine = mock.Mock()
-    mock_engine.url = mock.Mock()
-    mock_engine.url.__str__ = mock.Mock(return_value="sqlite:///test.db")
-
     with mock.patch("mlflow.store.db.utils.sqlite3.sqlite_version", "3.30.1"):
         with pytest.raises(MlflowException, match=r"MLflow requires SQLite version"):
-            utils._check_sqlite_version(mock_engine)
+            utils._check_sqlite_version("sqlite:///test.db")
