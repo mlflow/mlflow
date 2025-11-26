@@ -66,31 +66,22 @@ def _log_multi_turn_assessments_to_traces(
         eval_results: List of EvalResult objects to update with multi-turn assessments
         run_id: MLflow run ID for logging
     """
-    for trace_id, assessments_list in multi_turn_assessments.items():
-        # Find the eval_result containing this trace so we can update it
-        matching_eval_result = next(
-            (
-                er
-                for er in eval_results
-                if er.eval_item.trace and er.eval_item.trace.info.trace_id == trace_id
-            ),
-            None,
-        )
-
-        if matching_eval_result is None:
-            _logger.warning(
-                f"Failed to log multi-turn assessment due to an internal error. "
-                f"Could not find evaluation result for trace {trace_id}."
-            )
+    for eval_result in eval_results:
+        if eval_result.eval_item.trace is None:
             continue
 
+        trace_id = eval_result.eval_item.trace.info.trace_id
+        if trace_id not in multi_turn_assessments:
+            continue
+
+        assessments_list = multi_turn_assessments[trace_id]
         try:
             _log_assessments(
                 run_id=run_id,
-                trace=matching_eval_result.eval_item.trace,
+                trace=eval_result.eval_item.trace,
                 assessments=assessments_list,
             )
-            matching_eval_result.assessments.extend(assessments_list)
+            eval_result.assessments.extend(assessments_list)
         except Exception as e:
             _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
 
@@ -161,12 +152,12 @@ def run(
                 run_id=run_id,
             )
 
+    # Link traces to the run if the backend support it
+    batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
+
     # Refresh traces on eval_results to include all logged assessments.
     # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
     _refresh_eval_result_traces(eval_results)
-
-    # Link traces to the run if the backend support it
-    batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
@@ -380,13 +371,24 @@ def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:
     This function fetches the updated traces from the backend after all assessments
     (both single-turn and multi-turn) have been logged.
     """
-    for eval_result in eval_results:
-        if eval_result.eval_item.trace is not None:
-            trace_id = eval_result.eval_item.trace.info.trace_id
-            try:
-                eval_result.eval_item.trace = mlflow.get_trace(trace_id)
-            except Exception as e:
-                _logger.warning(f"Failed to refresh trace {trace_id}: {e}")
+
+    def _fetch_trace(eval_result: EvalResult):
+        if eval_result.eval_item.trace is None:
+            return None
+        trace_id = eval_result.eval_item.trace.info.trace_id
+        try:
+            return eval_result, mlflow.get_trace(trace_id)
+        except Exception as e:
+            _logger.warning(f"Failed to refresh trace {trace_id}: {e}")
+            return None
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(_fetch_trace, er) for er in eval_results]
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                eval_result, refreshed_trace = result
+                eval_result.eval_item.trace = refreshed_trace
 
 
 def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
