@@ -16,7 +16,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
-from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
+from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
@@ -1680,9 +1680,6 @@ class UserFrustration(BuiltInScorer):
     ) -> Feedback:
         return self._get_judge()(session=session)
 
-    def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
-        raise NotImplementedError("Alignment is not supported for session-level scorers.")
-
 
 @experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
@@ -1780,8 +1777,110 @@ class ConversationCompleteness(BuiltInScorer):
     ) -> Feedback:
         return self._get_judge()(session=session)
 
-    def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
-        raise NotImplementedError("Alignment is not supported for session-level scorers.")
+
+@experimental(version="3.7.0")
+@format_docstring(_MODEL_API_DOC)
+class Completeness(BuiltInScorer):
+    """
+    Completeness evaluates whether an AI assistant fully addresses all user questions
+    in a single user prompt.
+
+    For evaluating the completeness of a conversation, use the ConversationCompleteness scorer
+    instead.
+
+    This scorer analyzes a single turn of interaction (user input and AI response) to determine
+    if the AI successfully answered all questions and provided all requested information.
+    It returns "yes" or "no".
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "completeness".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Completeness
+
+        assessment = Completeness(name="my_completeness_check")(
+            inputs={"question": "What is MLflow and what are its main features?"},
+            outputs="MLflow is an open-source platform for managing the ML lifecycle.",
+        )
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Completeness
+
+        data = [
+            {
+                "inputs": {"question": "What is MLflow and what are its main features?"},
+                "outputs": "MLflow is an open-source platform.",
+            },
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[Completeness()])
+    """
+
+    name: str = COMPLETENESS_ASSESSMENT_NAME
+    model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate whether the assistant fully addresses all user questions in a single turn."
+    )
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    def _get_judge(self) -> InstructionsJudge:
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=Literal["yes", "no"],
+            )
+        return self._judge
+
+    @property
+    def instructions(self) -> str:
+        return COMPLETENESS_PROMPT
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data, e.g. "
+                    "{'question': 'What is MLflow and what are its main features?'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description=(
+                    "The response from the model, e.g. "
+                    "'MLflow is an open-source platform for managing the ML lifecycle.'"
+                ),
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        inputs: dict[str, Any] | None = None,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        return self._get_judge()(
+            inputs=inputs,
+            outputs=outputs,
+            trace=trace,
+        )
 
 
 @experimental(version="3.7.0")
