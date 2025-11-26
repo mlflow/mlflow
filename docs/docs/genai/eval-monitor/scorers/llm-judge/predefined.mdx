@@ -89,13 +89,14 @@ results = mlflow.genai.evaluate(
 
 Multi-turn scorers evaluate entire conversation sessions rather than individual turns. They require traces with session IDs and are experimental in MLflow 3.7.0.
 
-| Scorer                                                                                                | What does it evaluate?                                                | Requires Session? |
-| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------- |
-| <APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink> 🧪    | Does the AI address all user questions throughout the conversation?   | Yes               |
-| <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink> 🧪                      | Is the user frustrated? Was the frustration resolved?                 | Yes               |
+| Scorer                                                                                            | What does it evaluate?                                              | Requires Session? |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------- |
+| <APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink> 🧪 | Does the AI address all user questions throughout the conversation? | Yes               |
+| <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink> 🧪                   | Is the user frustrated? Was the frustration resolved?               | Yes               |
 
 :::info Multi-Turn Evaluation Requirements
 Multi-turn scorers require:
+
 1. **Session IDs**: Traces must have `mlflow.trace.session` metadata
 2. **List or DataFrame input**: Currently only supports pre-collected traces (no `predict_fn` support yet)
 
