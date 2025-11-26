@@ -23,6 +23,10 @@ from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.prompts.context_sufficiency import (
     CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS,
 )
+from mlflow.genai.judges.prompts.conversation_completeness import (
+    CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
+    CONVERSATION_COMPLETENESS_PROMPT,
+)
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
@@ -1676,6 +1680,104 @@ class UserFrustration(BuiltInScorer):
         raise NotImplementedError("Alignment is not supported for session-level scorers.")
 
 
+@experimental(version="3.7.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationCompleteness(BuiltInScorer):
+    """
+    ConversationCompleteness evaluates whether an AI assistant fully addresses all user requests
+    by the end of the conversation.
+
+    This scorer analyzes a complete conversation (represented as a list of traces) to determine
+    if the assistant successfully addressed all the user's requests in a conversation. It returns
+    "yes" or "no".
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversation_completeness".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationCompleteness
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = ConversationCompleteness(name="my_completion_check")(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationCompleteness
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationCompleteness()])
+    """
+
+    name: str = CONVERSATION_COMPLETENESS_ASSESSMENT_NAME
+    model: str | None = None
+    required_columns: set[str] = {"session"}
+    description: str = (
+        "Evaluate whether the assistant fully addresses all user requests by the end of "
+        "the conversation."
+    )
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    def _get_judge(self) -> InstructionsJudge:
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=Literal["yes", "no"],
+                generate_rationale_first=True,
+            )
+        return self._judge
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    @property
+    def instructions(self) -> str:
+        return CONVERSATION_COMPLETENESS_PROMPT
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="session",
+                description="A list of trace objects belonging to the same conversation session.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        session: list[Trace] | None = None,
+    ) -> Feedback:
+        return self._get_judge()(session=session)
+
+    def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
+        raise NotImplementedError("Alignment is not supported for session-level scorers.")
+
+
 def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.
@@ -1704,6 +1806,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
         RetrievalGroundedness(),
         Equivalence(),
         UserFrustration(),
+        ConversationCompleteness(),
     ]
     if is_databricks_uri(mlflow.get_tracking_uri()):
         scorers.extend([Safety(), RetrievalRelevance()])

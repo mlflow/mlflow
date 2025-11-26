@@ -68,6 +68,7 @@ class InstructionsJudge(Judge):
     _instructions_prompt: PromptVersion = PrivateAttr()
     _ordered_template_variables: list[str] = PrivateAttr()
     _feedback_value_type: Any = PrivateAttr()
+    _generate_rationale_first: bool = PrivateAttr(default=False)
 
     def __init__(
         self,
@@ -76,6 +77,7 @@ class InstructionsJudge(Judge):
         model: str | None = None,
         description: str | None = None,
         feedback_value_type: Any = str,
+        generate_rationale_first: bool = False,
         **kwargs,
     ):
         """
@@ -107,6 +109,7 @@ class InstructionsJudge(Judge):
         self._instructions = instructions
         self._model = model or get_default_model()
         self._feedback_value_type = feedback_value_type
+        self._generate_rationale_first = generate_rationale_first
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -344,18 +347,21 @@ class InstructionsJudge(Judge):
 
     def get_output_fields(self) -> list[JudgeField]:
         """Get the output fields for this judge."""
-        return [
-            JudgeField(
-                name="result",
-                description=self.description or _RESULT_FIELD_DESCRIPTION,
-                value_type=self._feedback_value_type,
-            ),
-            JudgeField(
-                name="rationale",
-                description=_RATIONALE_FIELD_DESCRIPTION,
-                value_type=str,
-            ),
-        ]
+        result_field = JudgeField(
+            name="result",
+            description=self.description or _RESULT_FIELD_DESCRIPTION,
+            value_type=self._feedback_value_type,
+        )
+        rationale_field = JudgeField(
+            name="rationale",
+            description=_RATIONALE_FIELD_DESCRIPTION,
+            value_type=str,
+        )
+        return (
+            [rationale_field, result_field]
+            if self._generate_rationale_first
+            else [result_field, rationale_field]
+        )
 
     def _format_type(self, value_type: Any) -> str:
         if value_type in (str, int, float, bool):
@@ -524,14 +530,7 @@ class InstructionsJudge(Judge):
             ChatMessage(role="user", content=user_content),
         ]
 
-        response_format = pydantic.create_model(
-            "ResponseFormat",
-            result=(
-                self._feedback_value_type or str,
-                pydantic.Field(description=self.description or _RESULT_FIELD_DESCRIPTION),
-            ),
-            rationale=(str, pydantic.Field(description=_RATIONALE_FIELD_DESCRIPTION)),
-        )
+        response_format = self._create_response_format_model()
 
         return invoke_judge_model(
             model_uri=self._model,
@@ -540,6 +539,21 @@ class InstructionsJudge(Judge):
             trace=trace if is_trace_based else None,
             response_format=response_format,
         )
+
+    def _create_response_format_model(self) -> type[pydantic.BaseModel]:
+        result_field = (
+            self._feedback_value_type or str,
+            pydantic.Field(description=self.description or _RESULT_FIELD_DESCRIPTION),
+        )
+        rationale_field = (str, pydantic.Field(description=_RATIONALE_FIELD_DESCRIPTION))
+
+        fields = (
+            {"rationale": rationale_field, "result": result_field}
+            if self._generate_rationale_first
+            else {"result": result_field, "rationale": rationale_field}
+        )
+
+        return pydantic.create_model("ResponseFormat", **fields)
 
     def _validate_model_format(self) -> None:
         """
