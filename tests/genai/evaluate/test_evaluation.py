@@ -1075,3 +1075,88 @@ def test_eval_with_traces_log_spans_correctly(diff_experiment_id):
     assert span.outputs == {"answer": "MLflow is a tool for ML"}
     child_span = traces[0].data.spans[1]
     assert child_span.inputs == "test"
+
+
+def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
+    """Test evaluation with a combination of single-turn and multi-turn scorers.
+
+    Validates that:
+    - Single-turn scorers are applied to all traces
+    - Multi-turn scorers are only applied to the first trace of each session
+    """
+
+    # Define a multi-turn scorer that counts conversation turns
+    class ConversationLengthScorer(mlflow.genai.Scorer):
+        def __init__(self):
+            super().__init__(name="conversation_length")
+
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return True
+
+        def __call__(self, session=None, **kwargs):
+            """Return the number of turns in the conversation."""
+            return len(session or [])
+
+    # Define a single-turn scorer
+    @scorer
+    def response_length(outputs) -> int:
+        """Return the length of the response."""
+        return len(outputs) if isinstance(outputs, str) else 0
+
+    # Create a traced model function
+    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to: {question}"
+
+    # Generate traces for 2 sessions (3 turns + 2 turns = 5 total traces)
+    mlflow.set_experiment("multi_turn_test")
+    with mlflow.start_run() as run:
+        # Session 1: 3 turns
+        for q in ["Q1", "Q2", "Q3"]:
+            model(q, session_id="session_1")
+
+        # Session 2: 2 turns
+        for q in ["Q4", "Q5"]:
+            model(q, session_id="session_2")
+
+        # Get traces for evaluation
+        traces = mlflow.search_traces(
+            locations=[run.info.experiment_id], filter_string=f'run_id = "{run.info.run_id}"'
+        )
+
+        # Evaluate with both single-turn and multi-turn scorers
+        result = mlflow.genai.evaluate(
+            data=traces, scorers=[response_length, ConversationLengthScorer()]
+        )
+
+    # Validate results
+    result_df = result.result_df
+
+    # Should have one row per trace
+    assert len(result_df) == 5, f"Expected 5 traces, got {len(result_df)}"
+
+    # Single-turn scorer should be applied to all traces
+    single_turn_scores = result_df["response_length/value"].notna().sum()
+    assert single_turn_scores == 5, (
+        f"Expected single-turn scores for all 5 traces, got {single_turn_scores}"
+    )
+
+    # Multi-turn scorer should only be applied to first trace of each session (2 total)
+    multi_turn_scores = result_df["conversation_length/value"].notna().sum()
+    assert multi_turn_scores == 2, (
+        f"Expected multi-turn scores for 2 sessions (first trace only), got {multi_turn_scores}"
+    )
+
+    # Validate the conversation length values
+    # Session 1 should have 3 turns, Session 2 should have 2 turns
+    conv_lengths = result_df["conversation_length/value"].dropna().sort_values().tolist()
+    assert conv_lengths == [2.0, 3.0], (
+        f"Expected conversation lengths [2.0, 3.0], got {conv_lengths}"
+    )
+
+    # Validate that all single-turn scores are the same (based on our dummy response)
+    response_lengths = result_df["response_length/value"].dropna()
+    # All responses should be "Answer to: Qx" format, so lengths should be consistent
+    assert all(length > 0 for length in response_lengths), "All response lengths should be positive"
