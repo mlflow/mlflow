@@ -810,6 +810,9 @@ mlflow.genai.optimize_prompts
 mlflow.genai.register_prompt
 mlflow.genai.scheduled_scorers.ScorerScheduleConfig
 mlflow.genai.scorer
+mlflow.genai.scorers.Completeness
+mlflow.genai.scorers.Completeness.get_input_fields
+mlflow.genai.scorers.Completeness.model_post_init
 mlflow.genai.scorers.ConversationCompleteness
 mlflow.genai.scorers.ConversationCompleteness.align
 mlflow.genai.scorers.ConversationCompleteness.get_input_fields
@@ -852,6 +855,7 @@ mlflow.genai.scorers.UserFrustration.get_input_fields
 mlflow.genai.scorers.UserFrustration.model_post_init
 mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
+mlflow.genai.scorers.builtin_scorers.Completeness
 mlflow.genai.scorers.builtin_scorers.ConversationCompleteness
 mlflow.genai.scorers.builtin_scorers.Correctness
 mlflow.genai.scorers.builtin_scorers.Equivalence
