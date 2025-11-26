@@ -38,7 +38,8 @@ const MlflowRootRoute = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const { theme } = useDesignSystemTheme();
   const { experimentId } = useParams();
-  const { isDarkTheme, setIsDarkTheme } = useDarkThemeContext();
+  const { setIsDarkTheme } = useDarkThemeContext();
+  const isDarkTheme = theme.isDarkMode;
 
   // Hide sidebar if we are in a single experiment page
   const isSingleExperimentPage = Boolean(experimentId);

@@ -46,7 +46,7 @@ export function MLFlowRoot() {
           <DesignSystemContainer isDarkTheme={isDarkTheme}>
             <ApplyGlobalStyles />
             <MlflowThemeGlobalStyles />
-            <DarkThemeProvider isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme}>
+            <DarkThemeProvider setIsDarkTheme={setIsDarkTheme}>
               <QueryClientProvider client={queryClient}>
                 <MlflowRouter />
               </QueryClientProvider>
