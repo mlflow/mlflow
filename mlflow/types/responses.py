@@ -265,7 +265,9 @@ def create_function_call_output_item(call_id: str, output: str) -> dict[str, Any
     }
 
 
-def create_mcp_approval_request_item(id: str, arguments: str, name: str, server_label: str) -> dict[str, Any]:
+def create_mcp_approval_request_item(
+    id: str, arguments: str, name: str, server_label: str
+) -> dict[str, Any]:
     """Helper method to create a dictionary conforming to the MCP approval request item schema.
 
     Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
@@ -283,6 +285,7 @@ def create_mcp_approval_request_item(id: str, arguments: str, name: str, server_
         "name": name,
         "server_label": server_label,
     }
+
 
 def create_mcp_approval_response_item(
     id: str,
@@ -347,7 +350,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
         return [
             {
                 "role": "assistant",
-                "content": "mcp approval request",  # empty content is not supported by claude models
+                "content": "mcp approval request",
                 "tool_calls": [
                     {
                         "id": message["id"],
@@ -357,7 +360,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
                             "name": message["name"],
                         },
                     }
-                ]
+                ],
             }
         ]
     elif msg_type == "mcp_approval_response":
