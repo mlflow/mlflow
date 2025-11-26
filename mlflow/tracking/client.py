@@ -668,7 +668,7 @@ class MlflowClient:
 
         # Invalidate "latest" cache entry since we just created a new version
         try:
-            PromptCache.get_instance().delete(name, label="latest")
+            PromptCache.get_instance().delete(name, alias="latest")
         except KeyError:
             pass
 
