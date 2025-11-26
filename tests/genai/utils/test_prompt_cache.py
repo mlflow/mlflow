@@ -59,16 +59,16 @@ def test_delete_prompt():
     assert cache.get(key3) == "value3"
 
 
-def test_delete_prompt_by_label():
+def test_delete_prompt_by_alias():
     cache = PromptCache.get_instance()
-    key1 = PromptCache.generate_cache_key("my-prompt", label="production")
-    key2 = PromptCache.generate_cache_key("my-prompt", label="staging")
+    key1 = PromptCache.generate_cache_key("my-prompt", alias="production")
+    key2 = PromptCache.generate_cache_key("my-prompt", alias="staging")
 
     cache.set(key1, "value1")
     cache.set(key2, "value2")
 
-    # Delete only the production label
-    cache.delete("my-prompt", label="production")
+    # Delete only the production alias
+    cache.delete("my-prompt", alias="production")
 
     assert cache.get(key1) is None
     assert cache.get(key2) == "value2"  # staging still cached
@@ -92,9 +92,9 @@ def test_generate_cache_key_with_version():
     assert key == "my-prompt-version:1"
 
 
-def test_generate_cache_key_with_label():
-    key = PromptCache.generate_cache_key("my-prompt", label="production")
-    assert key == "my-prompt-label:production"
+def test_generate_cache_key_with_alias():
+    key = PromptCache.generate_cache_key("my-prompt", alias="production")
+    assert key == "my-prompt-alias:production"
 
 
 def test_generate_cache_key_with_neither():
@@ -103,8 +103,8 @@ def test_generate_cache_key_with_neither():
 
 
 def test_generate_cache_key_with_both_raises_error():
-    with pytest.raises(ValueError, match="Cannot specify both version and label"):
-        PromptCache.generate_cache_key("my-prompt", version=1, label="production")
+    with pytest.raises(ValueError, match="Cannot specify both version and alias"):
+        PromptCache.generate_cache_key("my-prompt", version=1, alias="production")
 
 
 def test_generate_cache_key_version_zero():

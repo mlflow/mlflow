@@ -182,15 +182,6 @@ You can customize this behavior:
 - **Bypass cache**: `mlflow.genai.load_prompt("prompts:/summarization-prompt/1", cache_ttl_seconds=0)`
 - **Global config**: Set `MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS` environment variable to customize the TTL for alias-based prompts, and set `MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS` environment variable to customize the TTL for version-based prompts.
 
-To delete cached prompts programmatically, use the code below:
-
-```python
-from mlflow.prompt.registry_utils import PromptCache
-
-PromptCache.get_instance().delete("summarization-prompt/", version=1)
-PromptCache.get_instance().delete("summarization-prompt/", label="latest")
-```
-
 :::
 
 ```python

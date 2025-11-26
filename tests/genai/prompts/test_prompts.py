@@ -860,9 +860,6 @@ def test_load_prompt_caching_works():
 
 
 def test_load_prompt_caching_respects_ttl_env_var():
-    """Test that prompt caching respects the MLFLOW_PROMPT_CACHE_TTL_SECONDS env var."""
-    from mlflow.prompt.registry_utils import PromptCache
-
     # Reset cache
     PromptCache._reset_instance()
 
@@ -1304,7 +1301,7 @@ def test_register_prompt_invalidates_latest_cache():
 
     # Verify it's cached
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("latest_cache_test", label="latest")
+    key = PromptCache.generate_cache_key("latest_cache_test", alias="latest")
     assert cache.get(key) is not None
 
     # Register a new version - should invalidate @latest cache
@@ -1336,7 +1333,7 @@ def test_set_prompt_alias_invalidates_alias_cache():
 
     # Verify it's cached
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("alias_cache_test", label="production")
+    key = PromptCache.generate_cache_key("alias_cache_test", alias="production")
     assert cache.get(key) is not None
 
     # Update alias to point to version 2 - should invalidate cache
@@ -1465,7 +1462,7 @@ def test_prompt_cache_custom_ttl():
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="custom_ttl_prompt", template="Hello!")
 
-    # Load with custom TTL
+    # Load with custom TTL (integer)
     mlflow.genai.load_prompt("custom_ttl_prompt", version=1, cache_ttl_seconds=300)
 
     # Should be cached
@@ -1474,6 +1471,16 @@ def test_prompt_cache_custom_ttl():
     cached = cache.get(key)
     assert cached is not None
     assert cached.template == "Hello!"
+
+    # Load with custom TTL (float)
+    mlflow.genai.register_prompt(name="custom_ttl_prompt_float", template="Hello float!")
+    mlflow.genai.load_prompt("custom_ttl_prompt_float", version=1, cache_ttl_seconds=300.5)
+
+    # Should be cached
+    key_float = PromptCache.generate_cache_key("custom_ttl_prompt_float", version=1)
+    cached_float = cache.get(key_float)
+    assert cached_float is not None
+    assert cached_float.template == "Hello float!"
 
 
 def test_prompt_cache_invalidation():

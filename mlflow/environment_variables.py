@@ -648,14 +648,14 @@ MLFLOW_PROMPT_CACHE_MAX_SIZE = _EnvironmentVariable("MLFLOW_PROMPT_CACHE_MAX_SIZ
 #: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
 #: access. Set to 0 to disable caching entirely. (default: ``60``)
 MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
-    "MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS", int, 60
+    "MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS", float, 60
 )
 
 #: Time-to-live in seconds for cached version-based prompts, e.g., "prompts:/name/version", in the
 #: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
 #: access. Set to 0 to disable caching entirely. (default: ``None``, no TTL)
 MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
-    "MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS", int, None
+    "MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS", float, None
 )
 
 

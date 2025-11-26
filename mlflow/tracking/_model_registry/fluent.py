@@ -687,7 +687,7 @@ def load_prompt(
     allow_missing: bool = False,
     link_to_model: bool = True,
     model_id: str | None = None,
-    cache_ttl_seconds: int | None = None,
+    cache_ttl_seconds: float | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.

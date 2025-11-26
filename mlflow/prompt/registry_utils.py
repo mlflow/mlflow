@@ -301,10 +301,11 @@ class PromptCache:
             cls._instance = None
 
     def __init__(self):
-        self._cache: dict[str, tuple[Any, float]] = {}  # key -> (value, expiry_timestamp)
+        # key -> (value, expiry_timestamp)
+        self._cache: dict[str, tuple[PromptVersion, float | None]] = {}
         self._lock = threading.RLock()
 
-    def get(self, key: str) -> Any | None:
+    def get(self, key: str) -> PromptVersion | None:
         """
         Get a prompt from the cache.
 
@@ -317,15 +318,15 @@ class PromptCache:
                 return None
             value, expiry = item
             if expiry and time.time() > expiry:
-                del self._cache[key]
+                self._cache.pop(key, None)
                 return None
             return value
 
     def set(
         self,
         key: str,
-        value: Any,
-        ttl_seconds: int | None = None,
+        value: PromptVersion,
+        ttl_seconds: float | None = None,
     ) -> None:
         """
         Store a prompt in the cache.
@@ -342,10 +343,10 @@ class PromptCache:
         self,
         prompt_name: str,
         version: int | None = None,
-        label: str | None = None,
+        alias: str | None = None,
     ) -> None:
         """Delete a prompt from the cache."""
-        key = PromptCache.generate_cache_key(prompt_name, version, label)
+        key = PromptCache.generate_cache_key(prompt_name, version, alias)
         with self._lock:
             del self._cache[key]
 
@@ -358,29 +359,29 @@ class PromptCache:
     def generate_cache_key(
         name: str,
         version: int | None = None,
-        label: str | None = None,
+        alias: str | None = None,
     ) -> str:
         """
         Generate a cache key for a prompt.
 
         Args:
             name: Prompt name
-            version: Prompt version (mutually exclusive with label)
-            label: Prompt label (mutually exclusive with version)
+            version: Prompt version (mutually exclusive with alias)
+            alias: Prompt alias (mutually exclusive with version)
 
         Returns:
             A unique cache key string
 
         Raises:
-            ValueError: If both version and label are provided
+            ValueError: If both version and alias are provided
         """
-        if version is not None and label is not None:
-            raise ValueError("Cannot specify both version and label")
+        if version is not None and alias is not None:
+            raise ValueError("Cannot specify both version and alias")
 
         if version is not None:
             return f"{name}-version:{version}"
-        elif label is not None:
-            return f"{name}-label:{label}"
+        elif alias is not None:
+            return f"{name}-alias:{alias}"
         else:
             return f"{name}-latest"
 
@@ -390,7 +391,7 @@ class PromptCache:
         Generate cache key from a parsed prompt URI.
 
         Args:
-            prompt_uri: A prompt URI in format "prompts:/name/version" or "prompts:/name@label"
+            prompt_uri: A prompt URI in format "prompts:/name/version" or "prompts:/name@alias"
 
         Returns:
             A unique cache key string
@@ -398,9 +399,9 @@ class PromptCache:
         uri_path = prompt_uri.replace("prompts:/", "")
 
         if "@" in uri_path:
-            # Alias format: "name@label"
-            prompt_name, label = uri_path.split("@", 1)
-            return PromptCache.generate_cache_key(prompt_name, label=label)
+            # Alias format: "name@alias"
+            prompt_name, alias = uri_path.split("@", 1)
+            return PromptCache.generate_cache_key(prompt_name, alias=alias)
         else:
             # Version format: "name/version"
             parts = uri_path.split("/")
