@@ -124,7 +124,7 @@ def _extract_tool_calls_from_trace(trace: Trace):
         )
         tool_calls.append(tool_call)
 
-    return tool_calls if tool_calls else None
+    return tool_calls or None
 
 
 def _dict_to_kv_list(d: dict[str, Any]) -> list[str]:

@@ -38,5 +38,3 @@ polars>=1
 dspy
 # required for testing mlflow.genai.optimize.optimizers
 gepa
-# required for testing mlflow.genai.scorers.deepeval
-deepeval
