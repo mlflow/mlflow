@@ -25,7 +25,11 @@ from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
+from mlflow.tracing.utils.otlp import (
+    MLFLOW_EXPERIMENT_ID_HEADER,
+    OTLP_TRACES_PATH,
+    decompress_otlp_body
+)
 from mlflow.tracking.request_header.default_request_header_provider import (
     _MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX,
     _USER_AGENT,
@@ -70,37 +74,7 @@ async def export_traces(
     # Read & decompress request body
     raw_body = await request.body()
     content_encoding = request.headers.get("Content-Encoding", "identity").lower()
-
-    if content_encoding == "identity":
-        body = raw_body
-
-    elif content_encoding == "gzip":
-        try:
-            body = gzip.decompress(raw_body)
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to decompress gzip payload",
-            )
-
-    elif content_encoding == "deflate":
-        try:
-            body = zlib.decompress(raw_body)
-        except Exception:
-            # Some clients send raw deflate streams
-            try:
-                body = zlib.decompress(raw_body, -zlib.MAX_WBITS)
-            except Exception:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Failed to decompress deflate payload",
-                )
-
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported Content-Encoding: {content_encoding}",
-        )
+    body = decompress_otlp_body(raw_body, content_encoding)
 
     # Parse protobuf payload
     parsed_request = ExportTraceServiceRequest()

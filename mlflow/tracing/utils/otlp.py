@@ -1,5 +1,9 @@
 import os
+import gzip
+import zlib
 from typing import Any
+
+from fastapi import HTTPException, status
 
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue, ArrayValue, KeyValueList
 from opentelemetry.sdk.trace.export import SpanExporter
@@ -181,3 +185,48 @@ def _decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
     else:
         # For simple types, just get the attribute directly
         return getattr(pb_any_value, value_type)
+
+
+def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
+    """
+    Decompress OTLP request body according to Content-Encoding.
+
+    Supported encodings:
+    - identity (no compression)
+    - gzip
+    - deflate (RFC-compliant and raw deflate)
+
+    Raises HTTPException if the payload cannot be decompressed.
+    """
+
+    match content_encoding:
+        case "identity":
+            return raw_body
+
+        case "gzip":
+            try:
+                return gzip.decompress(raw_body)
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Failed to decompress gzip payload",
+                )
+
+        case "deflate":
+            try:
+                return zlib.decompress(raw_body)
+            except Exception:
+                # Try raw DEFLATE stream (some clients send this)
+                try:
+                    return zlib.decompress(raw_body, -zlib.MAX_WBITS)
+                except Exception:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Failed to decompress deflate payload",
+                    )
+
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported Content-Encoding: {content_encoding}",
+            )

@@ -1,6 +1,8 @@
 import time
-
+import gzip
 import pytest
+
+from fastapi import HTTPException
 
 import mlflow
 from mlflow.entities.span import SpanType
@@ -25,7 +27,11 @@ except ImportError:
     pytest.skip("OTLP exporters are not installed", allow_module_level=True)
 
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
+from mlflow.tracing.utils.otlp import (
+        get_otlp_exporter,
+        should_use_otlp_exporter,
+        decompress_otlp_body
+    )
 
 _TEST_HTTP_OTLP_ENDPOINT = "http://127.0.0.1:4317/v1/traces"
 _TEST_HTTPS_OTLP_ENDPOINT = "https://127.0.0.1:4317/v1/traces"
@@ -237,3 +243,27 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
         f"Expected spans not found in collector logs after 60 seconds. "
         f"Logs: {collector_logs[:2000]}"
     )
+
+
+def test_decompress_otlp_body_identity():
+    """identity encoding should return original body."""
+    body = b"hello"
+    assert decompress_otlp_body(body, "identity") == body
+
+
+def test_decompress_otlp_body_gzip():
+    """gzip encoding should be decompressed."""
+    original = b"otlp-data-test"
+    compressed = gzip.compress(original)
+
+    output = decompress_otlp_body(compressed, "gzip")
+    assert output == original
+
+
+def test_decompress_otlp_body_unknown():
+    """Unknown encoding should raise ValueError."""
+    with pytest.raises(HTTPException) as exc_info:
+        decompress_otlp_body(b"xxx", "unknown-encoding")
+    exc = exc_info.value
+    assert exc.status_code == 400
+    assert "Unsupported Content-Encoding" in exc.detail
