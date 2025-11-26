@@ -800,7 +800,7 @@ def test_response_is_protobuf_format(mlflow_server: str):
     response_message.ParseFromString(response.content)
 
 
-def _build_valid_otlp_request():
+def _build_valid_otlp_request() -> str:
     """Helper: Build a valid OTLP ExportTraceServiceRequest protobuf."""
 
     span = OTelProtoSpan()
