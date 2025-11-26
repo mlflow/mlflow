@@ -760,6 +760,10 @@ class Guidelines(BuiltInScorer):
     )
 
     @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.GUIDELINES
+
+    @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return GUIDELINES_PROMPT_INSTRUCTIONS

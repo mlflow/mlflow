@@ -30,9 +30,16 @@ class ScorerKind(Enum):
     CLASS = "class"
     BUILTIN = "builtin"
     DECORATOR = "decorator"
+    INSTRUCTIONS = "instructions"
+    GUIDELINES = "guidelines"
 
 
-_ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
+_ALLOWED_SCORERS_FOR_REGISTRATION = [
+    ScorerKind.BUILTIN,
+    ScorerKind.DECORATOR,
+    ScorerKind.INSTRUCTIONS,
+    ScorerKind.GUIDELINES,
+]
 
 
 class ScorerStatus(Enum):

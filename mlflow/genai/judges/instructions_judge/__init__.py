@@ -26,6 +26,7 @@ from mlflow.genai.judges.utils import (
 )
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
+    ScorerKind,
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
@@ -140,6 +141,10 @@ class InstructionsJudge(Judge):
 
         self._validate_model_format()
         self._validate_instructions_template()
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.INSTRUCTIONS
 
     @property
     def model(self) -> str:
