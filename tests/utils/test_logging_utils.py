@@ -181,38 +181,43 @@ assert logging.getLogger("mlflow").isEnabledFor({expected_level})
     )
 
 
-def test_alembic_does_not_override_user_logging_config():
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            """
-import logging, os, tempfile, shutil
+@pytest.mark.parametrize(
+    ("configure_logging", "expected_format"),
+    [
+        ("0", "CUSTOM: %(name)s - %(message)s"),
+        # this is default format in alembic.ini
+        ("1", "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"),
+    ],
+)
+def test_alembic_logging_respects_configure_flag(configure_logging: str, expected_format: str):
+    code = f"""
+import logging
+import os
+import tempfile
+import shutil
 
-logging.basicConfig(level=logging.DEBUG, format="CUSTOM: %(name)s - %(message)s")
-os.environ["MLFLOW_CONFIGURE_LOGGING"] = "0"
+# user-specified format, this should only take effect if configure_logging is 0
+logging.basicConfig(level=logging.INFO, format="CUSTOM: %(name)s - %(message)s")
+os.environ["MLFLOW_CONFIGURE_LOGGING"] = {configure_logging!r}
 
 temp_dir = tempfile.mkdtemp()
-os.environ["MLFLOW_TRACKING_URI"] = f"sqlite:///{temp_dir}/mlflow.db"
+os.environ["MLFLOW_TRACKING_URI"] = f"sqlite:///{{temp_dir}}/mlflow.db"
 
 import mlflow
-
-root_logger = logging.getLogger()
-before_level = root_logger.level
-before_format = root_logger.handlers[0].formatter._fmt
 
 with mlflow.start_run():
     pass
 
-after_level = root_logger.level
-after_format = root_logger.handlers[0].formatter._fmt
+root_logger = logging.getLogger()
+actual_format = root_logger.handlers[0].formatter._fmt
 
-assert before_level == after_level
-assert after_format == "CUSTOM: %(name)s - %(message)s"
+assert actual_format == {expected_format!r}
 
 shutil.rmtree(temp_dir)
-""",
-        ],
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-c", code],
         capture_output=True,
         text=True,
     )
