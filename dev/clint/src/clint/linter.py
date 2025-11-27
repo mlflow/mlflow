@@ -385,6 +385,7 @@ class Linter(ast.NodeVisitor):
         self.resolver = Resolver()
         self.index = index
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
+        self.prev_stmt: ast.stmt | None = None
 
     def _check(self, range: Range, rule: rules.Rule) -> None:
         # Skip rules that are not selected in the config
@@ -484,6 +485,11 @@ class Linter(ast.NodeVisitor):
     ) -> None:
         if rule := rules.RedundantTestDocstring.check(node, self.path.name):
             self._check(Range.from_node(node), rule)
+
+    def generic_visit(self, node: ast.AST) -> None:
+        super().generic_visit(node)
+        if isinstance(node, ast.stmt):
+            self.prev_stmt = node
 
     def visit_Module(self, node: ast.Module) -> None:
         if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
@@ -799,6 +805,11 @@ class Linter(ast.NodeVisitor):
     def visit_Compare(self, node: ast.Compare) -> None:
         if rules.MajorVersionCheck.check(node, self.resolver):
             self._check(Range.from_node(node), rules.MajorVersionCheck())
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        if self.prev_stmt and rules.AssignBeforeAppend.check(node, self.prev_stmt):
+            self._check(Range.from_node(node), rules.AssignBeforeAppend())
         self.generic_visit(node)
 
     def visit_type_annotation(self, node: ast.expr) -> None:
