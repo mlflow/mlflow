@@ -266,13 +266,13 @@ class MlflowAutologgingQueueingClient:
             operations may still be inflight. Operation completion can be synchronously waited
             on via `RunOperations.await_completion()`.
         """
-        logging_futures = []
-        for pending_operations in self._pending_ops_by_run_id.values():
-            future = _AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL.submit(
+        logging_futures = [
+            _AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL.submit(
                 self._flush_pending_operations,
                 pending_operations=pending_operations,
             )
-            logging_futures.append(future)
+            for pending_operations in self._pending_ops_by_run_id.values()
+        ]
         self._pending_ops_by_run_id = {}
 
         logging_operations = RunOperations(logging_futures)

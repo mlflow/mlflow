@@ -708,14 +708,12 @@ def test_dataset_with_dataframe_records(tracking_uri, experiments):
 
 
 def test_search_datasets(tracking_uri, experiments):
-    datasets = []
     for i in range(5):
-        dataset = create_dataset(
+        create_dataset(
             name=f"search_test_{i}",
             experiment_id=[experiments[i % len(experiments)]],
             tags={"type": "human" if i % 2 == 0 else "trace", "index": str(i)},
         )
-        datasets.append(dataset)
 
     all_results = search_datasets()
     assert len(all_results) == 5

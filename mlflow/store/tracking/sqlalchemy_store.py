@@ -4022,10 +4022,7 @@ class SqlAlchemyStore(AbstractStore):
                 sql_datasets = sql_datasets[:max_results]
                 next_page_token = SearchUtils.create_page_token(offset + max_results)
 
-            datasets = []
-            for sql_dataset in sql_datasets:
-                dataset = sql_dataset.to_mlflow_entity()
-                datasets.append(dataset)
+            datasets = [sql_dataset.to_mlflow_entity() for sql_dataset in sql_datasets]
 
             return PagedList(datasets, next_page_token)
 

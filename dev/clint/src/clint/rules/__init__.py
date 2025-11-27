@@ -1,3 +1,4 @@
+from clint.rules.assign_before_append import AssignBeforeAppend
 from clint.rules.base import Rule
 from clint.rules.do_not_disable import DoNotDisable
 from clint.rules.docstring_param_order import DocstringParamOrder
@@ -96,6 +97,7 @@ __all__ = [
     "MultiAssign",
     "UnnamedThread",
     "UnparameterizedGenericType",
+    "AssignBeforeAppend",
     "UseSysExecutable",
     "MajorVersionCheck",
 ]

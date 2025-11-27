@@ -259,10 +259,10 @@ def _gen_stage_hierarchy_recursively(stage, uid_to_indexed_name_map):
     stage_name = uid_to_indexed_name_map[stage.uid]
 
     if isinstance(stage, Pipeline):
-        sub_stages = []
-        for sub_stage in stage.getStages():
-            sub_hierarchy = _gen_stage_hierarchy_recursively(sub_stage, uid_to_indexed_name_map)
-            sub_stages.append(sub_hierarchy)
+        sub_stages = [
+            _gen_stage_hierarchy_recursively(sub_stage, uid_to_indexed_name_map)
+            for sub_stage in stage.getStages()
+        ]
         return {"name": stage_name, "stages": sub_stages}
     elif isinstance(stage, OneVsRest):
         classifier_hierarchy = _gen_stage_hierarchy_recursively(
