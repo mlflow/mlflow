@@ -390,10 +390,11 @@ class InstructionsJudge(Judge):
         ]
 
         # Build user message parts in order
-        user_message_parts = []
-        for var_name in field_vars:
-            if var_name in template_values:
-                user_message_parts.append(f"{var_name}: {template_values[var_name]}")
+        user_message_parts = [
+            f"{var_name}: {template_values[var_name]}"
+            for var_name in field_vars
+            if var_name in template_values
+        ]
 
         # Some model providers (like Anthropic) require a user message
         # (i.e. a single-message chat history with role 'system' is not supported),

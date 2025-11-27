@@ -1449,10 +1449,10 @@ def test_log_metric_async():
     run_operations = []
 
     with mlflow.start_run() as parent:
-        for num in range(100):
-            run_operations.append(
-                mlflow.log_metric("async single metric", step=num, value=num, synchronous=False)
-            )
+        run_operations.extend(
+            mlflow.log_metric("async single metric", step=num, value=num, synchronous=False)
+            for num in range(100)
+        )
         metrics = {f"async batch metric {num}": num for num in range(100)}
         run_operations.append(mlflow.log_metrics(metrics=metrics, step=1, synchronous=False))
 

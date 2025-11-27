@@ -198,10 +198,11 @@ def extract_text_content(content: str | list[dict[str, Any]] | Any) -> str:
         Extracted text content, empty string if none found
     """
     if isinstance(content, list):
-        text_parts = []
-        for part in content:
-            if isinstance(part, dict) and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TEXT:
-                text_parts.append(part.get(CONTENT_TYPE_TEXT, ""))
+        text_parts = [
+            part.get(CONTENT_TYPE_TEXT, "")
+            for part in content
+            if isinstance(part, dict) and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TEXT
+        ]
         return "\n".join(text_parts)
     if isinstance(content, str):
         return content
