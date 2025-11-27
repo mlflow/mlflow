@@ -837,7 +837,6 @@ anthropic:
     minimum: "0.40.0"
     maximum: "0.75.0"
     requirements:
-      "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
     # Our CI runs tests for every minor version of the library by default, which results in
     # many test tasks for anthropic. Reducing the number of testing only for every 5 version.
