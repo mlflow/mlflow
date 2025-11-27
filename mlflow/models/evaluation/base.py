@@ -345,6 +345,8 @@ def make_metric(
                     predictions: pandas.Series,
                     targets: pandas.Series,
                     metrics: Dict[str, MetricValue],
+                    trace: Optional[pandas.Series] = None,
+                    session: Optional[pandas.Series] = None,
                     **kwargs,
                 ) -> Union[float, MetricValue]:
                     """
@@ -358,10 +360,13 @@ def make_metric(
                             calculated by the system, make sure to specify the type hint for this
                             parameter as Dict[str, MetricValue].  Refer to the DefaultEvaluator
                             behavior section for what metrics will be returned based on the type of
-                            model (i.e. classifier or regressor).  kwargs: Includes a list of args
-                            that are used to compute the metric. These args could information coming
-                            from input data, model outputs or parameters specified in the
-                            `evaluator_config` argument of the `mlflow.evaluate` API.
+                            model (i.e. classifier or regressor).
+                        trace: (Optional) A pandas Series containing the trace objects corresponding
+                            to the predictions. This is only available if the input data contains
+                            trace information.
+                        session: (Optional) A pandas Series containing the session objects (list of
+                            traces) corresponding to the predictions. This is only available if the
+                            input data contains session information.
                         kwargs: Includes a list of args that are used to compute the metric. These
                             args could be information coming from input data, model outputs,
                             other metrics, or parameters specified in the `evaluator_config`
