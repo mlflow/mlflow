@@ -8,7 +8,6 @@ import { Table } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { JsonCell } from './ExperimentEvaluationDatasetJsonCell';
 import { SourceCell } from './ExperimentEvaluationDatasetSourceCell';
-import { TagsCell } from './ExperimentEvaluationDatasetTagsCell';
 import { ExperimentEvaluationDatasetRecordsToolbar } from './ExperimentEvaluationDatasetRecordsToolbar';
 import type { EvaluationDataset, EvaluationDatasetRecord } from '../types';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
@@ -17,7 +16,6 @@ const INPUTS_COLUMN_ID = 'inputs';
 const OUTPUTS_COLUMN_ID = 'outputs';
 const EXPECTATIONS_COLUMN_ID = 'expectations';
 const SOURCE_COLUMN_ID = 'source';
-const TAGS_COLUMN_ID = 'tags';
 
 const columns: ColumnDef<EvaluationDatasetRecord, string>[] = [
   {
@@ -48,13 +46,6 @@ const columns: ColumnDef<EvaluationDatasetRecord, string>[] = [
     enableResizing: false,
     cell: SourceCell,
   },
-  {
-    id: TAGS_COLUMN_ID,
-    accessorKey: 'tags',
-    header: 'Tags',
-    enableResizing: false,
-    cell: TagsCell,
-  },
 ];
 
 export const ExperimentEvaluationDatasetRecordsTable = ({
@@ -73,7 +64,6 @@ export const ExperimentEvaluationDatasetRecordsTable = ({
     [OUTPUTS_COLUMN_ID]: false,
     [EXPECTATIONS_COLUMN_ID]: true,
     [SOURCE_COLUMN_ID]: true,
-    [TAGS_COLUMN_ID]: true,
   });
 
   const {
