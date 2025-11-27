@@ -6,7 +6,6 @@ from clint.rules import AssignBeforeAppend
 
 
 def test_assign_before_append_basic(index_path: Path) -> None:
-    """Test basic case of unnecessary assignment before append."""
     code = """
 items = []
 for x in data:
@@ -21,7 +20,6 @@ for x in data:
 
 
 def test_assign_before_append_no_flag_different_variable(index_path: Path) -> None:
-    """Test that appending a different variable is not flagged."""
     code = """
 items = []
 for x in data:
@@ -34,7 +32,6 @@ for x in data:
 
 
 def test_assign_before_append_no_flag_no_empty_list_init(index_path: Path) -> None:
-    """Test that loops without empty list initialization are not flagged."""
     code = """
 for x in data:
     item = transform(x)
@@ -46,7 +43,6 @@ for x in data:
 
 
 def test_assign_before_append_no_flag_different_list(index_path: Path) -> None:
-    """Test that appending to a different list is not flagged."""
     code = """
 items = []
 for x in data:
@@ -59,7 +55,6 @@ for x in data:
 
 
 def test_assign_before_append_no_flag_three_statements(index_path: Path) -> None:
-    """Test that loops with more than 2 statements are not flagged."""
     code = """
 items = []
 for x in data:
@@ -73,7 +68,6 @@ for x in data:
 
 
 def test_assign_before_append_no_flag_one_statement(index_path: Path) -> None:
-    """Test that loops with only 1 statement are not flagged."""
     code = """
 items = []
 for x in data:
@@ -85,7 +79,6 @@ for x in data:
 
 
 def test_assign_before_append_no_flag_list_with_initial_values(index_path: Path) -> None:
-    """Test that lists initialized with values are not flagged."""
     code = """
 items = [1, 2, 3]
 for x in data:
@@ -118,7 +111,6 @@ for y in other_data:
 
 
 def test_assign_before_append_no_flag_complex_assignment(index_path: Path) -> None:
-    """Test that complex assignments (multiple targets) are not flagged."""
     code = """
 items = []
 for x in data:

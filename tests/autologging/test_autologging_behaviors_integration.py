@@ -283,9 +283,7 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
 
     executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
-        for _ in range(2):
-            e = executor.submit(train_model)
-            executions.append(e)
+        executions = [executor.submit(train_model) for _ in range(2)]
 
     assert all(e.result() is True for e in executions)
     assert not stream.getvalue()
@@ -301,9 +299,7 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
 
     executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
-        for _ in range(100):
-            e = executor.submit(train_model)
-            executions.append(e)
+        executions = [executor.submit(train_model) for _ in range(100)]
 
     assert all(e.result() is True for e in executions)
     assert stream.getvalue()

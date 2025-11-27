@@ -486,8 +486,8 @@ class Linter(ast.NodeVisitor):
         if rule := rules.RedundantTestDocstring.check(node, self.path.name):
             self._check(Range.from_node(node), rule)
 
-    def generic_visit(self, node: ast.AST) -> None:
-        super().generic_visit(node)
+    def visit(self, node: ast.AST) -> None:
+        super().visit(node)
         if isinstance(node, ast.stmt):
             self.prev_stmt = node
 

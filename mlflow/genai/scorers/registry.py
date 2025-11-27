@@ -202,12 +202,10 @@ class MlflowTrackingStore(AbstractScorerStore):
         scorer_versions = self._tracking_store.list_scorers(experiment_id)
 
         # Convert to Scorer objects
-        scorers = []
-        for scorer_version in scorer_versions:
-            scorer = Scorer.model_validate(scorer_version.serialized_scorer)
-            scorers.append(scorer)
-
-        return scorers
+        return [
+            Scorer.model_validate(scorer_version.serialized_scorer)
+            for scorer_version in scorer_versions
+        ]
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         from mlflow.genai.scorers import Scorer

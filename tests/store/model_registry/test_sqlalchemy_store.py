@@ -2120,14 +2120,14 @@ def test_list_webhooks(store):
 
 def test_list_webhooks_pagination(store):
     # Create more webhooks than max_results
-    created_webhooks = []
-    for i in range(5):
-        webhook = store.create_webhook(
+    [
+        store.create_webhook(
             name=f"webhook{i}",
             url=f"https://example.com/{i}",
             events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
         )
-        created_webhooks.append(webhook)
+        for i in range(5)
+    ]
 
     # Test pagination with max_results=2
     webhooks_page = store.list_webhooks(max_results=2)

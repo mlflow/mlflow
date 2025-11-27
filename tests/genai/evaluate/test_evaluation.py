@@ -846,15 +846,15 @@ def test_evaluate_with_managed_dataset_preserves_name():
 )
 def test_evaluate_with_tags(tags_data, expected_calls):
     """Test that tags from evaluation data are logged to MLflow runs."""
-    data = []
-    for i, tags in enumerate(tags_data):
-        item = {
+    data = [
+        {
             "inputs": {"question": f"What is question {i}?"},
             "outputs": f"Answer {i}",
             "expectations": {"expected_response": f"Answer {i}"},
             "tags": tags,
         }
-        data.append(item)
+        for i, tags in enumerate(tags_data)
+    ]
 
     with mock.patch("mlflow.set_trace_tag") as mock_set_trace_tag:
         mlflow.genai.evaluate(
