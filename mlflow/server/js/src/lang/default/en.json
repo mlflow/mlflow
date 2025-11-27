@@ -3575,6 +3575,10 @@
     "defaultMessage": "Select all",
     "description": "Description for button to select all rows in table"
   },
+  "bO2u5v": {
+    "defaultMessage": "3D Histogram",
+    "description": "Experiment tracking > runs charts > add chart menu > 3D histogram"
+  },
   "bOGBCO": {
     "defaultMessage": "Logged from",
     "description": "Header title for the 'Logged from' column in the logged model list table"

@@ -24,6 +24,7 @@ export enum RunsChartType {
   PARALLEL = 'PARALLEL',
   DIFFERENCE = 'DIFFERENCE',
   IMAGE = 'IMAGE',
+  HISTOGRAM = 'HISTOGRAM',
 }
 
 const MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON = 1;
@@ -90,6 +91,8 @@ export abstract class RunsChartsCardConfig {
       return new RunsChartsDifferenceCardConfig(isGenerated, uuid, metricSectionId);
     } else if (type === RunsChartType.IMAGE) {
       return new RunsChartsImageCardConfig(isGenerated, uuid, metricSectionId);
+    } else if (type === RunsChartType.HISTOGRAM) {
+      return new RunsChartsHistogramCardConfig(isGenerated, uuid, metricSectionId);
     } else {
       // Must be contour
       return new RunsChartsContourCardConfig(isGenerated, uuid, metricSectionId);
@@ -629,6 +632,17 @@ export class RunsChartsImageCardConfig extends RunsChartsCardConfig {
   // image keys to show
   imageKeys: string[] = [];
   step = 0;
+}
+
+/**
+ * Config for 3D histogram chart showing distribution evolution over time
+ */
+export class RunsChartsHistogramCardConfig extends RunsChartsCardConfig {
+  type: RunsChartType = RunsChartType.HISTOGRAM;
+  // histogram keys to show (e.g., "weights/layer1", "gradients/layer2")
+  histogramKeys: string[] = [];
+  // which runs to display histograms for
+  selectedRunUuids: string[] = [];
 }
 
 /**

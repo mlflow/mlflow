@@ -2995,6 +2995,110 @@ class MlflowClient:
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
 
+    def log_histogram(
+        self,
+        run_id: str,
+        histogram: "mlflow.utils.histogram_utils.HistogramData",
+    ) -> None:
+        """
+        Logs a histogram to artifact storage for the specified run.
+
+        Histograms are stored as JSON files in the artifacts/histograms directory,
+        with one file per histogram name containing data from all steps.
+
+        Args:
+            run_id: String ID of the run.
+            histogram: HistogramData instance containing histogram information.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            import numpy as np
+            from mlflow.utils.histogram_utils import HistogramData
+
+            with mlflow.start_run() as run:
+                # Create histogram data
+                values = np.random.randn(1000)
+                bin_edges = np.histogram_bin_edges(values, bins=30)
+                counts, _ = np.histogram(values, bins=bin_edges)
+
+                histogram = HistogramData(
+                    name="weights", step=0, timestamp=1000, bin_edges=bin_edges, counts=counts
+                )
+
+                # Log histogram
+                client = mlflow.MlflowClient()
+                client.log_histogram(run.info.run_id, histogram)
+        """
+        import shutil
+        import tempfile
+
+        from mlflow.utils.histogram_utils import append_histogram_to_json
+
+        # Sanitize histogram name for filename (replace / with _ to avoid path issues)
+        sanitized_name = re.sub(r"/", "_", histogram.name)
+        artifact_file = f"histograms/{sanitized_name}.json"
+
+        # Append histogram to JSON file using temporary file
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            # Check if file already exists and download it to append
+            artifact_dir = posixpath.dirname(artifact_file)
+            artifact_dir = None if artifact_dir == "" else artifact_dir
+            artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
+
+            if artifact_file in artifacts:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    downloaded_path = self.download_artifacts(
+                        run_id=run_id, path=artifact_file, dst_path=tmpdir
+                    )
+                    shutil.copy2(downloaded_path, tmp_path)
+
+            append_histogram_to_json(histogram, tmp_path)
+
+    def get_histogram(
+        self, run_id: str, key: str
+    ) -> list["mlflow.utils.histogram_utils.HistogramData"]:
+        """
+        Get histogram data for a given run and histogram name.
+
+        Args:
+            run_id: String ID of the run.
+            key: Histogram name/key.
+
+        Returns:
+            List of HistogramData instances containing histogram data for all steps.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            histograms = client.get_histogram(run_id="...", key="weights/layer1")
+
+            for hist in histograms:
+                print(f"Step {hist.step}: {len(hist.counts)} bins")
+        """
+        import tempfile
+
+        from mlflow.utils.histogram_utils import load_histograms_from_json
+
+        # Sanitize histogram name for filename (replace / with _ to match log_histogram)
+        sanitized_name = re.sub(r"/", "_", key)
+        artifact_file = f"histograms/{sanitized_name}.json"
+
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                downloaded_path = self.download_artifacts(
+                    run_id=run_id, path=artifact_file, dst_path=tmpdir
+                )
+                return load_histograms_from_json(downloaded_path)
+        except Exception as e:
+            _logger.warning(f"Failed to load histogram '{key}' for run {run_id}: {e}")
+            return []
+
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.
 

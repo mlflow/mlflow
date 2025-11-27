@@ -67,6 +67,10 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
 )
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.histogram_utils import (
+    HistogramData,
+    compute_histogram_from_values,
+)
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
@@ -1739,6 +1743,121 @@ def log_image(
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
+
+
+def log_histogram(
+    values: Union["numpy.ndarray", list] | None = None,
+    *,
+    bins: list[float] | None = None,
+    counts: list[float] | None = None,
+    key: str,
+    step: int | None = None,
+    timestamp: int | None = None,
+    num_bins: int = 30,
+) -> None:
+    """
+    Logs a histogram in MLflow for tracking distributions over time (e.g., weights,
+    gradients, activations during model training).
+
+    You can either:
+    1. Pass raw values and let MLflow compute the histogram
+    2. Pass pre-computed bins and counts (e.g., from TensorBoard)
+
+    Args:
+        values: Raw data values to compute histogram from. Either `values` OR
+            (`bins` AND `counts`) must be provided, but not both.
+        bins: Pre-computed bin edges (length n+1 for n bins). Must be provided with `counts`.
+        counts: Pre-computed counts per bin (length n). Must be provided with `bins`.
+        key: Histogram name. This string may only contain alphanumerics, underscores (_),
+            dashes (-), periods (.), spaces ( ), and slashes (/).
+        step: Integer training step (iteration) at which the histogram was recorded.
+            Defaults to 0.
+        timestamp: Time when this histogram was recorded. Defaults to the current system time.
+        num_bins: Number of bins to use when computing histogram from raw values.
+            Defaults to 30. Ignored if bins and counts are provided.
+
+    .. code-block:: python
+        :caption: Log histogram from raw values (e.g., model weights)
+
+        import mlflow
+        import numpy as np
+        import torch
+
+        model = torch.nn.Linear(10, 5)
+
+        with mlflow.start_run():
+            for epoch in range(10):
+                # ... training code ...
+
+                # Log weight distributions
+                weights = model.weight.detach().cpu().numpy().flatten()
+                mlflow.log_histogram(weights, key="weights/layer1", step=epoch)
+
+    .. code-block:: python
+        :caption: Log pre-computed histogram (e.g., from TensorBoard)
+
+        import mlflow
+        import numpy as np
+
+        # Pre-computed histogram data
+        bin_edges = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+        counts = [10, 25, 30, 20, 15]
+
+        with mlflow.start_run():
+            mlflow.log_histogram(
+                bins=bin_edges, counts=counts, key="activations/relu1", step=100
+            )
+    """
+    run_id = _get_or_start_run().info.run_id
+    step = step if step is not None else 0
+    timestamp = timestamp if timestamp is not None else get_current_time_millis()
+
+    # Validate inputs
+    if values is not None and (bins is not None or counts is not None):
+        raise ValueError(
+            "Cannot provide both 'values' and 'bins'/'counts'. "
+            "Either pass raw 'values' to compute histogram, or pass pre-computed 'bins' and"
+            "'counts'."
+        )
+
+    if values is None and (bins is None or counts is None):
+        raise ValueError(
+            "Must provide either 'values' to compute histogram, "
+            "or both 'bins' and 'counts' for pre-computed histogram."
+        )
+
+    # Compute or use provided histogram
+    if values is not None:
+        bin_edges, hist_counts, min_val, max_val = compute_histogram_from_values(values, num_bins)
+    else:
+        import numpy as np
+
+        bin_edges = np.asarray(bins, dtype=np.float64)
+        hist_counts = np.asarray(counts, dtype=np.float64)
+
+        if len(bin_edges) != len(hist_counts) + 1:
+            raise ValueError(
+                f"bins must have length n+1 where n is the number of counts. "
+                f"Got bins length {len(bin_edges)} and counts length {len(hist_counts)}"
+            )
+
+        # Compute min/max from bin edges
+        min_val = float(bin_edges[0])
+        max_val = float(bin_edges[-1])
+
+    # Create histogram data
+    histogram = HistogramData(
+        name=key,
+        step=step,
+        timestamp=timestamp,
+        bin_edges=bin_edges,
+        counts=hist_counts,
+        min_value=min_val,
+        max_value=max_val,
+    )
+
+    # Save as artifact using MlflowClient
+    MlflowClient().log_histogram(run_id, histogram)
 
 
 def log_table(

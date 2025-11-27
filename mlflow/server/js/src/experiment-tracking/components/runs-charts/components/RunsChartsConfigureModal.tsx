@@ -13,6 +13,7 @@ import type {
   RunsChartsParallelCardConfig,
   RunsChartsDifferenceCardConfig,
   RunsChartsImageCardConfig,
+  RunsChartsHistogramCardConfig,
 } from '../runs-charts.types';
 import { RunsChartsCardConfig, RunsChartType, type RunsChartsMetricByDatasetEntry } from '../runs-charts.types';
 
@@ -23,6 +24,7 @@ import { ReactComponent as ChartParallelIcon } from '../../../../common/static/c
 import { ReactComponent as ChartScatterIcon } from '../../../../common/static/chart-scatter.svg';
 import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
 import { ReactComponent as ChartImageIcon } from '../../../../common/static/chart-image.svg';
+import { ReactComponent as ChartHistogramIcon } from '../../../../common/static/chart-histogram.svg';
 import { RunsChartsConfigureBarChart } from './config/RunsChartsConfigureBarChart';
 import { RunsChartsConfigureParallelChart } from './config/RunsChartsConfigureParallelChart';
 import type { RunsChartsRunData } from './RunsCharts.common';
@@ -41,6 +43,8 @@ import { RunsChartsConfigureDifferenceChart } from './config/RunsChartsConfigure
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsConfigureImageChart } from './config/RunsChartsConfigureImageChart';
 import { RunsChartsConfigureImageChartPreview } from './config/RunsChartsConfigureImageChart.preview';
+import { RunsChartsConfigureHistogramChart } from './config/RunsChartsConfigureHistogramChart';
+import { RunsChartsConfigureHistogramChartPreview } from './config/RunsChartsConfigureHistogramChart.preview';
 import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
 import { isEmpty } from 'lodash';
 import { RunsChartsConfigureScatterChartWithDatasets } from './config/RunsChartsConfigureScatterChartWithDatasets';
@@ -69,6 +73,7 @@ const previewComponentsMap: Record<
   [RunsChartType.SCATTER]: RunsChartsConfigureScatterChartPreview,
   [RunsChartType.DIFFERENCE]: DifferenceViewPlot,
   [RunsChartType.IMAGE]: RunsChartsConfigureImageChartPreview,
+  [RunsChartType.HISTOGRAM]: RunsChartsConfigureHistogramChartPreview,
 };
 
 export const RunsChartsConfigureModal = ({
@@ -98,6 +103,49 @@ export const RunsChartsConfigureModal = ({
   const { theme } = useDesignSystemTheme();
   const borderStyle = `1px solid ${theme.colors.actionDefaultBorderDefault}`;
   const [currentFormState, setCurrentFormState] = useState<RunsChartsCardConfig>(config);
+  const [histogramKeys, setHistogramKeys] = useState<string[]>([]);
+
+  // Fetch available histogram keys from artifacts when modal opens
+  React.useEffect(() => {
+    const fetchHistogramKeys = async () => {
+      if (!chartRunData || chartRunData.length === 0) return;
+
+      // Use the first run to fetch histogram keys
+      const firstRun = chartRunData[0];
+      if (!firstRun?.runInfo?.runUuid) return;
+
+      try {
+        const response = await fetch(
+          `/ajax-api/2.0/mlflow/artifacts/list?run_id=${firstRun.runInfo.runUuid}&path=histograms`,
+        );
+
+        if (!response.ok) {
+          console.warn('Failed to fetch histogram list');
+          return;
+        }
+
+        const data = await response.json();
+        const files = data.files || [];
+
+        // Extract histogram keys from filenames
+        // Convert: weights_fc1.weight.json → weights/fc1.weight
+        const keys = files
+          .filter((f: any) => f.path && f.path.endsWith('.json'))
+          .map((f: any) => {
+            const filename = f.path.split('/').pop()?.replace('.json', '') || '';
+            // Convert underscore back to slash
+            return filename.replace(/_/g, '/');
+          })
+          .filter((key: string) => key.length > 0);
+
+        setHistogramKeys(keys);
+      } catch (error) {
+        console.error('Error fetching histogram keys:', error);
+      }
+    };
+
+    fetchHistogramKeys();
+  }, [chartRunData]);
 
   const isEditing = Boolean(currentFormState.uuid);
 
@@ -201,6 +249,16 @@ export const RunsChartsConfigureModal = ({
           imageKeyList={imageKeyList}
           state={currentFormState as RunsChartsImageCardConfig}
           onStateChange={setCurrentFormState}
+        />
+      );
+    }
+    if (type === RunsChartType.HISTOGRAM) {
+      // Histogram keys are fetched from artifacts in useEffect above
+      return (
+        <RunsChartsConfigureHistogramChart
+          state={currentFormState as RunsChartsHistogramCardConfig}
+          onStateChange={setCurrentFormState}
+          histogramKeys={histogramKeys}
         />
       );
     }
@@ -383,6 +441,17 @@ export const RunsChartsConfigureModal = ({
                       <FormattedMessage
                         defaultMessage="Image grid"
                         description="Experiment tracking > runs charts > add chart menu > image grid"
+                      />
+                    </div>
+                  </SimpleSelectOption>
+                )}
+                {isChartTypeSupported(RunsChartType.HISTOGRAM) && (
+                  <SimpleSelectOption value={RunsChartType.HISTOGRAM}>
+                    <div css={styles.chartTypeOption(theme)}>
+                      <ChartHistogramIcon />
+                      <FormattedMessage
+                        defaultMessage="3D Histogram"
+                        description="Experiment tracking > runs charts > add chart menu > 3D histogram"
                       />
                     </div>
                   </SimpleSelectOption>
