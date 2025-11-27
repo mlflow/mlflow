@@ -442,6 +442,53 @@ class BuiltInEvaluator(ModelEvaluator):
             if metric_name.split("/")[0] == column:
                 return metric_value
 
+    def _find_trace_column(self, df: pd.DataFrame) -> Optional[str]:
+        from mlflow.entities import Trace
+
+        for col in df.columns:
+            if not df[col].empty and isinstance(df[col].iloc[0], Trace):
+                return col
+        return None
+
+    def _construct_session_series(
+        self, eval_df: pd.DataFrame, input_df: pd.DataFrame
+    ) -> Optional[pd.Series]:
+        session_id_col = self.col_mapping.get("session_id", "session_id")
+
+        # Check if session_id is in eval_df or input_df
+        if session_id_col in eval_df.columns:
+            session_ids = eval_df[session_id_col]
+        elif session_id_col in input_df.columns:
+            session_ids = input_df[session_id_col]
+        else:
+            return None
+
+        # Find trace column
+        trace_col = self.col_mapping.get("trace", "trace")
+        traces = None
+        if trace_col in eval_df.columns:
+            traces = eval_df[trace_col]
+        elif trace_col in input_df.columns:
+            traces = input_df[trace_col]
+        else:
+            trace_col_name = self._find_trace_column(input_df)
+            if trace_col_name:
+                traces = input_df[trace_col_name]
+            else:
+                trace_col_name = self._find_trace_column(eval_df)
+                if trace_col_name:
+                    traces = eval_df[trace_col_name]
+
+        if traces is None:
+            return None
+
+        # Create a temporary dataframe to group
+        temp_df = pd.DataFrame({"session_id": session_ids, "trace": traces})
+        # Group by session_id and collect traces into a list
+        sessions = temp_df.groupby("session_id")["trace"].apply(list)
+        # Map session_ids to the list of traces
+        return session_ids.map(sessions)
+
     def _get_args_for_metrics(
         self,
         metric: MetricDefinition,
@@ -487,6 +534,32 @@ class BuiltInEvaluator(ModelEvaluator):
         else:
             for param_name, param in parameters.items():
                 column = self.col_mapping.get(param_name, param_name)
+
+                if (
+                    param_name == "trace"
+                    and column not in eval_df_copy
+                    and column not in input_df.columns
+                ):
+                    trace_col_name = self._find_trace_column(input_df)
+                    if not trace_col_name:
+                        trace_col_name = self._find_trace_column(eval_df_copy)
+
+                    if trace_col_name:
+                        if trace_col_name in input_df.columns:
+                            eval_fn_args.append(input_df[trace_col_name])
+                        else:
+                            eval_fn_args.append(eval_df_copy[trace_col_name])
+                        continue
+
+                if (
+                    param_name == "session"
+                    and column not in eval_df_copy
+                    and column not in input_df.columns
+                ):
+                    session_series = self._construct_session_series(eval_df_copy, input_df)
+                    if session_series is not None:
+                        eval_fn_args.append(session_series)
+                        continue
 
                 if column in ("predictions", self.predictions, self.dataset.predictions_name):
                     eval_fn_args.append(eval_df_copy["prediction"])
