@@ -480,32 +480,6 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
     return store.list_scorers(experiment_id)
 
 
-def list_builtin_scorers() -> list[Scorer]:
-    """
-    List all built-in scorers available in the current environment.
-
-    This function returns all built-in scorers, automatically filtering based on
-    the current environment (e.g., Databricks-specific scorers are only included
-    when running on Databricks).
-
-    Returns:
-        list[Scorer]: A list of built-in Scorer objects available in the current environment.
-
-    Example:
-        .. code-block:: python
-
-            from mlflow.genai.scorers import list_builtin_scorers
-
-            # List all builtin scorers
-            scorers = list_builtin_scorers()
-            for scorer in scorers:
-                print(f"{scorer.name}: {scorer.description}")
-    """
-    from mlflow.genai.scorers.builtin_scorers import get_all_scorers
-
-    return get_all_scorers()
-
-
 def list_scorer_versions(
     *, name: str, experiment_id: str | None = None
 ) -> list[tuple[Scorer, int | None]]:

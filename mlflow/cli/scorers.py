@@ -5,7 +5,7 @@ import click
 
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.genai.judges import make_judge
-from mlflow.genai.scorers import list_builtin_scorers
+from mlflow.genai.scorers import get_all_scorers
 from mlflow.genai.scorers import list_scorers as list_scorers_api
 from mlflow.utils.string_utils import _create_table
 
@@ -84,7 +84,7 @@ def list_scorers(
         )
 
     # Get scorers based on mode
-    scorers = list_builtin_scorers() if builtin else list_scorers_api(experiment_id=experiment_id)
+    scorers = get_all_scorers() if builtin else list_scorers_api(experiment_id=experiment_id)
 
     # Format scorer data for output
     scorer_data = [{"name": scorer.name, "description": scorer.description} for scorer in scorers]
