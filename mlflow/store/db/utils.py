@@ -68,6 +68,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.store.workspace.dbmodels.models import SqlWorkspace
 
 _logger = logging.getLogger(__name__)
 
@@ -107,6 +108,7 @@ def _all_tables_exist(engine):
         SqlScorer.__tablename__,
         SqlScorerVersion.__tablename__,
         SqlJob.__tablename__,
+        SqlWorkspace.__tablename__,
     }
     actual_tables = {
         t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")

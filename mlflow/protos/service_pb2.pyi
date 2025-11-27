@@ -2244,6 +2244,69 @@ class GetSecretsConfig(_message.Message):
         def __init__(self, secrets_available: bool = ...) -> None: ...
     def __init__(self) -> None: ...
 
+class Workspace(_message.Message):
+    __slots__ = ("name", "description")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    description: str
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+
+class ListWorkspaces(_message.Message):
+    __slots__ = ()
+    class Response(_message.Message):
+        __slots__ = ("workspaces",)
+        WORKSPACES_FIELD_NUMBER: _ClassVar[int]
+        workspaces: _containers.RepeatedCompositeFieldContainer[Workspace]
+        def __init__(self, workspaces: _Optional[_Iterable[_Union[Workspace, _Mapping]]] = ...) -> None: ...
+    def __init__(self) -> None: ...
+
+class CreateWorkspace(_message.Message):
+    __slots__ = ("name", "description")
+    class Response(_message.Message):
+        __slots__ = ("workspace",)
+        WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+        workspace: Workspace
+        def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    description: str
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+
+class GetWorkspace(_message.Message):
+    __slots__ = ("workspace_name",)
+    class Response(_message.Message):
+        __slots__ = ("workspace",)
+        WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+        workspace: Workspace
+        def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    workspace_name: str
+    def __init__(self, workspace_name: _Optional[str] = ...) -> None: ...
+
+class UpdateWorkspace(_message.Message):
+    __slots__ = ("workspace_name", "description")
+    class Response(_message.Message):
+        __slots__ = ("workspace",)
+        WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+        workspace: Workspace
+        def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    workspace_name: str
+    description: str
+    def __init__(self, workspace_name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+
+class DeleteWorkspace(_message.Message):
+    __slots__ = ("workspace_name",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    workspace_name: str
+    def __init__(self, workspace_name: _Optional[str] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...
