@@ -21,8 +21,9 @@ class ImplicitOptional(Rule):
             try:
                 parsed = ast.parse(node.annotation.value, mode="eval")
                 ann = parsed.body
-            except (SyntaxError, IndexError, AttributeError):
-                # If parsing fails, treat as a regular annotation (not Optional or | None)
+            except (SyntaxError, ValueError):
+                # If parsing fails, the annotation is invalid and we trigger the rule
+                # since we cannot verify it contains Optional or | None
                 return True
         else:
             ann = node.annotation
