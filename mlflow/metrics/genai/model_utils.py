@@ -1,8 +1,8 @@
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 from mlflow.exceptions import MlflowException
@@ -122,6 +122,7 @@ def score_model_on_payloads(
             results[i] = future.result()
 
     return results
+
 
 def _parse_model_uri(model_uri: str) -> tuple[str, str]:
     """Parse a model URI of the form "<provider>:/<model-name>"."""

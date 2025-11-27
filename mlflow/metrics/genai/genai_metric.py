@@ -2,7 +2,6 @@ import json
 import logging
 import re
 import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from tempfile import TemporaryDirectory
 from typing import Any
