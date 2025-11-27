@@ -22,11 +22,9 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import get_metric_class, is_deterministic_metric
-from mlflow.genai.scorers.deepeval.utils import (
-    create_deepeval_model,
-    map_mlflow_to_test_case,
-)
+from mlflow.genai.scorers.deepeval.utils import map_scorer_inputs_to_deepeval_test_case
 
 _logger = logging.getLogger(__name__)
 
@@ -91,7 +89,7 @@ class DeepEvalScorer(Scorer):
         )
 
         try:
-            test_case = map_mlflow_to_test_case(
+            test_case = map_scorer_inputs_to_deepeval_test_case(
                 metric_name=self.name,
                 inputs=inputs,
                 outputs=outputs,

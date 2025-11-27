@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING
 
-from mlflow.genai.scorers import deepeval
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, scorer
 from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorers
 

@@ -4,6 +4,7 @@ import json
 
 from deepeval.models.base_model import DeepEvalBaseLLM
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -11,6 +12,23 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+
+
+def _build_json_prompt_with_schema(prompt: str, schema) -> str:
+    return (
+        f"{prompt}\n\n"
+        f"IMPORTANT: Return your response as valid JSON matching this schema: "
+        f"{schema.model_json_schema()}\n"
+        f"Return ONLY the JSON object, no additional text or markdown formatting."
+    )
+
+
+def _parse_json_output_with_schema(output: str, schema):
+    try:
+        json_data = json.loads(output)
+        return schema(**json_data)
+    except (json.JSONDecodeError, Exception) as e:
+        raise ValueError(f"Failed to parse structured output: {e}\nOutput: {output}")
 
 
 class DatabricksDeepEvalLLM(DeepEvalBaseLLM):
@@ -29,20 +47,9 @@ class DatabricksDeepEvalLLM(DeepEvalBaseLLM):
     def generate(self, prompt: str, schema=None) -> str:
         if schema is not None:
             # TODO: Add support for structured outputs once the Databricks endpoint supports it
-            json_prompt = (
-                f"{prompt}\n\n"
-                f"IMPORTANT: Return your response as valid JSON matching this schema: "
-                f"{schema.model_json_schema()}\n"
-                f"Return ONLY the JSON object, no additional text or markdown formatting."
-            )
+            json_prompt = _build_json_prompt_with_schema(prompt, schema)
             result = call_chat_completions(user_prompt=json_prompt, system_prompt="")
-            output = result.output.strip()
-
-            try:
-                json_data = json.loads(output)
-                return schema(**json_data)
-            except (json.JSONDecodeError, Exception) as e:
-                raise ValueError(f"Failed to parse structured output: {e}\nOutput: {output}")
+            return _parse_json_output_with_schema(result.output.strip(), schema)
         else:
             result = call_chat_completions(user_prompt=prompt, system_prompt="")
             return result.output
@@ -52,9 +59,6 @@ class DatabricksDeepEvalLLM(DeepEvalBaseLLM):
 
     def get_model_name(self) -> str:
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
-
-    def should_use_azure_openai(self) -> bool:
-        return False
 
 
 class DatabricksServingEndpointDeepEvalLLM(DeepEvalBaseLLM):
@@ -74,26 +78,14 @@ class DatabricksServingEndpointDeepEvalLLM(DeepEvalBaseLLM):
     def generate(self, prompt: str, schema=None) -> str:
         if schema is not None:
             # TODO: Use response_format parameter once Databricks serving endpoints support it
-            json_prompt = (
-                f"{prompt}\n\n"
-                f"IMPORTANT: Return your response as valid JSON matching this schema: "
-                f"{schema.model_json_schema()}\n"
-                f"Return ONLY the JSON object, no additional text or markdown formatting."
-            )
+            json_prompt = _build_json_prompt_with_schema(prompt, schema)
             output = _invoke_databricks_serving_endpoint(
                 model_name=self._endpoint_name,
                 prompt=json_prompt,
                 num_retries=3,
                 response_format=None,
             )
-
-            try:
-                json_data = json.loads(output.response)
-                return schema(**json_data)
-            except (json.JSONDecodeError, Exception) as e:
-                raise ValueError(
-                    f"Failed to parse structured output: {e}\nOutput: {output.response}"
-                )
+            return _parse_json_output_with_schema(output.response, schema)
         else:
             output = _invoke_databricks_serving_endpoint(
                 model_name=self._endpoint_name,
@@ -109,5 +101,21 @@ class DatabricksServingEndpointDeepEvalLLM(DeepEvalBaseLLM):
     def get_model_name(self) -> str:
         return f"databricks:/{self._endpoint_name}"
 
-    def should_use_azure_openai(self) -> bool:
-        return False
+
+def create_deepeval_model(model_uri: str):
+    from deepeval.models import LiteLLMModel
+
+    if model_uri == "databricks":
+        return DatabricksDeepEvalLLM()
+    elif model_uri.startswith("databricks:/"):
+        endpoint_name = model_uri.split(":", 1)[1].lstrip("/")
+        return DatabricksServingEndpointDeepEvalLLM(endpoint_name)
+    elif ":" in model_uri:
+        provider, model_name = model_uri.split(":", 1)
+        model_name = model_name.lstrip("/")
+        return LiteLLMModel(model=f"{provider}/{model_name}")
+
+    raise MlflowException.invalid_parameter_value(
+        f"Invalid model URI: '{model_uri}'. Expected format: 'databricks', "
+        "'databricks:/<endpoint_name>', or a LiteLLM model URI."
+    )

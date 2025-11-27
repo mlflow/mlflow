@@ -14,7 +14,6 @@ from mlflow.genai.utils.trace_utils import (
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE = (
     "DeepEval metrics require the 'deepeval' package. Please install it with: pip install deepeval"
@@ -25,37 +24,7 @@ def _check_deepeval_installed():
     try:
         import deepeval  # noqa: F401
     except ImportError:
-        raise MlflowException(
-            DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE,
-            error_code=BAD_REQUEST,
-        )
-
-
-def create_deepeval_model(model_uri: str):
-    _check_deepeval_installed()
-    from deepeval.models import LiteLLMModel
-
-    if model_uri == "databricks":
-        from mlflow.genai.scorers.deepeval.models import DatabricksDeepEvalLLM
-
-        return DatabricksDeepEvalLLM()
-    elif model_uri.startswith("databricks:/"):
-        from mlflow.genai.scorers.deepeval.models import DatabricksServingEndpointDeepEvalLLM
-
-        endpoint_name = model_uri.split(":", 1)[1].lstrip("/")
-        return DatabricksServingEndpointDeepEvalLLM(endpoint_name)
-    elif ":" in model_uri:
-        provider, model_name = model_uri.split(":", 1)
-        model_name = model_name.lstrip("/")
-        return LiteLLMModel(model=f"{provider}/{model_name}")
-
-    raise MlflowException(
-        (
-            f"Invalid model URI: '{model_uri}'. Expected format: 'databricks', "
-            "'databricks:/<endpoint_name>', or a LiteLLM model URI."
-        ),
-        error_code=BAD_REQUEST,
-    )
+        raise MlflowException.invalid_parameter_value(DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE)
 
 
 def _convert_to_deepeval_tool_calls(tool_call_dicts: list[dict[str, Any]]):
@@ -68,13 +37,7 @@ def _convert_to_deepeval_tool_calls(tool_call_dicts: list[dict[str, Any]]):
     Returns:
         List of DeepEval ToolCall objects
     """
-    try:
-        from deepeval.test_case import ToolCall as DeepEvalToolCall
-    except ImportError as e:
-        raise MlflowException(
-            DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE,
-            error_code=BAD_REQUEST,
-        ) from e
+    from deepeval.test_case import ToolCall as DeepEvalToolCall
 
     tool_calls = []
     for tc_dict in tool_call_dicts:
@@ -103,13 +66,7 @@ def _extract_tool_calls_from_trace(trace: Trace):
     if not trace:
         return None
 
-    try:
-        from deepeval.test_case import ToolCall as DeepEvalToolCall
-    except ImportError as e:
-        raise MlflowException(
-            DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE,
-            error_code=BAD_REQUEST,
-        ) from e
+    from deepeval.test_case import ToolCall as DeepEvalToolCall
 
     tool_spans = trace.search_spans(span_type=SpanType.TOOL)
     if not tool_spans:
@@ -131,7 +88,7 @@ def _dict_to_kv_list(d: dict[str, Any]) -> list[str]:
     return [f"{k}: {v}" for k, v in d.items()]
 
 
-def map_mlflow_to_test_case(
+def map_scorer_inputs_to_deepeval_test_case(
     metric_name: str,
     inputs: Any = None,
     outputs: Any = None,

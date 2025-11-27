@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.deepeval.utils import DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 _METRIC_REGISTRY = {
     # RAG Metrics
@@ -60,9 +59,8 @@ def get_metric_class(metric_name: str):
     """
     if metric_name not in _METRIC_REGISTRY:
         available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
-        raise MlflowException(
-            f"Unknown metric: '{metric_name}'. Available metrics: {available_metrics}",
-            error_code=BAD_REQUEST,
+        raise MlflowException.invalid_parameter_value(
+            f"Unknown metric: '{metric_name}'. Available metrics: {available_metrics}"
         )
 
     module_path, class_name = _METRIC_REGISTRY[metric_name].rsplit(".", 1)
@@ -71,10 +69,7 @@ def get_metric_class(metric_name: str):
         module = __import__(module_path, fromlist=[class_name])
         return getattr(module, class_name)
     except ImportError as e:
-        raise MlflowException(
-            DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE,
-            error_code=BAD_REQUEST,
-        ) from e
+        raise MlflowException.invalid_parameter_value(DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE) from e
 
 
 def is_deterministic_metric(metric_name: str):

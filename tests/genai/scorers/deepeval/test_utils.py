@@ -4,11 +4,11 @@ import pytest
 
 from mlflow.entities.span import Span, SpanAttributeKey, SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.utils import (
     _convert_to_deepeval_tool_calls,
     _extract_tool_calls_from_trace,
-    create_deepeval_model,
-    map_mlflow_to_test_case,
+    map_scorer_inputs_to_deepeval_test_case,
 )
 
 
@@ -88,7 +88,7 @@ def test_extract_tool_calls_from_trace_returns_none_when_no_tools():
 
 
 def test_map_mlflow_to_test_case_basic():
-    test_case = map_mlflow_to_test_case(
+    test_case = map_scorer_inputs_to_deepeval_test_case(
         metric_name="AnswerRelevancy",
         inputs="What is MLflow?",
         outputs="MLflow is a platform",
@@ -106,7 +106,7 @@ def test_map_mlflow_to_test_case_with_expectations():
         "other_key": "other_value",
     }
 
-    test_case = map_mlflow_to_test_case(
+    test_case = map_scorer_inputs_to_deepeval_test_case(
         metric_name="AnswerRelevancy",
         inputs="What is MLflow?",
         outputs="MLflow is a platform",
@@ -124,7 +124,7 @@ def test_map_mlflow_to_test_case_with_expected_tool_calls():
         ]
     }
 
-    test_case = map_mlflow_to_test_case(
+    test_case = map_scorer_inputs_to_deepeval_test_case(
         metric_name="ToolCorrectness",
         inputs="Search for test",
         outputs="Found results",
