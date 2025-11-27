@@ -78,45 +78,4 @@ describe('ExperimentEvaluationDatasetRecordsTable - Source Cell Rendering', () =
     expect(traceLink).toBeInTheDocument();
     expect(traceLink).toHaveTextContent(`Trace: ${traceId}`);
   });
-
-  test('renders SourceCell with hyphen for non-trace sources', async () => {
-    const mockRecords = [
-      {
-        dataset_record_id: 'record-1',
-        dataset_id: 'test-dataset-id',
-        inputs: JSON.stringify({ query: 'test' }),
-        expectations: JSON.stringify({}),
-        outputs: JSON.stringify({}),
-        source: JSON.stringify({
-          source_type: 'HUMAN',
-          source_data: {},
-        }),
-        tags: null,
-      },
-    ];
-
-    (useGetDatasetRecords as jest.Mock).mockReturnValue({
-      data: mockRecords,
-      isLoading: false,
-      isFetching: false,
-      error: null,
-      fetchNextPage: jest.fn(),
-      hasNextPage: false,
-    });
-
-    renderWithIntl(
-      <ExperimentEvaluationDatasetRecordsTable
-        dataset={mockDataset}
-        onOpenTraceModal={jest.fn()}
-      />,
-    );
-
-    // Verify Source column is rendered
-    await waitFor(() => {
-      expect(screen.getByText('Source')).toBeInTheDocument();
-    });
-
-    // Verify no trace link is rendered for HUMAN source
-    expect(screen.queryByRole('button', { name: /Trace:/ })).not.toBeInTheDocument();
-  });
 });

@@ -12,7 +12,6 @@ export const SourceCell = ({
 }) => {
   const sourceString = cell.getValue();
   const onOpenTraceModal = (table.options.meta as any)?.onOpenTraceModal;
-
   const source = sourceString && (typeof sourceString === 'string' ? parseJSONSafe(sourceString) : sourceString);
 
   // Handle trace sources with clickable link
