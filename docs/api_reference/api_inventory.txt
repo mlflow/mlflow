@@ -385,6 +385,7 @@ mlflow.entities.LoggedModelInput.from_proto
 mlflow.entities.LoggedModelInput.to_proto
 mlflow.entities.LoggedModelOutput
 mlflow.entities.LoggedModelOutput.from_proto
+mlflow.entities.LoggedModelOutput.to_dictionary
 mlflow.entities.LoggedModelOutput.to_proto
 mlflow.entities.LoggedModelParameter
 mlflow.entities.LoggedModelParameter.from_proto
