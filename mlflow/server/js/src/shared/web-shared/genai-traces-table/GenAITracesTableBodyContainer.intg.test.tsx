@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, afterEach, expect, it } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 
@@ -10,8 +11,8 @@ import { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';
 // eslint-disable-next-line import/no-namespace
 import * as GenAiTracesTableUtils from './GenAiTracesTable.utils';
 import { createTestTraceInfoV3, createTestAssessmentInfo, createTestColumns } from './index';
-import type { TraceInfoV3 } from './types';
 import { TestRouter, testRoute } from './utils/RoutingTestUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
 // Mock the virtualizer to render all rows in tests
 jest.mock('@tanstack/react-virtual', () => {
@@ -74,8 +75,8 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
     });
 
   const renderTestComponent = (
-    currentTraceInfoV3: TraceInfoV3[],
-    compareToTraceInfoV3: TraceInfoV3[] = [],
+    currentTraceInfoV3: ModelTraceInfoV3[],
+    compareToTraceInfoV3: ModelTraceInfoV3[] = [],
     additionalProps: Partial<ComponentProps<typeof GenAITracesTableBodyContainer>> = {},
   ) => {
     const defaultAssessmentInfos = [
@@ -100,8 +101,12 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
       tableSort: undefined,
       filters: [],
       setFilters: jest.fn(),
-      getTrace: jest.fn().mockResolvedValue(undefined),
-      getRunColor: jest.fn().mockReturnValue('#000000'),
+      getTrace: jest
+        .fn<ComponentProps<typeof GenAITracesTableBodyContainer>['getTrace']>()
+        .mockResolvedValue(undefined),
+      getRunColor: jest
+        .fn<NonNullable<ComponentProps<typeof GenAITracesTableBodyContainer>['getRunColor']>>()
+        .mockReturnValue('#000000'),
       ...additionalProps,
     };
 

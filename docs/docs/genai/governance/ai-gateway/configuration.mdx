@@ -62,6 +62,20 @@ endpoints:
 ```
 
 </TabItem>
+<TabItem value="gemini" label="Gemini">
+
+```yaml
+endpoints:
+  - name: gemini-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: gemini
+      name: gemini-2.5-flash
+      config:
+        gemini_api_key: $GEMINI_API_KEY
+```
+
+</TabItem>
 <TabItem value="bedrock" label="AWS Bedrock">
 
 ```yaml
@@ -148,6 +162,10 @@ endpoints:
 </TabItem>
 </Tabs>
 </TabsWrapper>
+
+:::note
+MosaicML PaLM, and Cohere providers are deprecated, will be removed in a future MLflow version.
+:::
 
 ## Environment Variables
 
@@ -245,6 +263,41 @@ endpoints:
         openai_api_key: $OPENAI_API_KEY
 ```
 
+### Traffic route
+
+Add the `routes` configuration to split incoming traffic to multiple endpoints:
+
+```yaml
+endpoints:
+  - name: chat1
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-5
+      config:
+        openai_api_key: $OPENAI_API_KEY
+
+  - name: chat2
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-4.1
+      config:
+        openai_api_key: $OPENAI_API_KEY
+
+routes:
+  - name: chat-route
+    task_type: llm/v1/chat
+    destinations:
+      - name: chat1
+        traffic_percentage: 80
+      - name: chat2
+        traffic_percentage: 20
+    routing_strategy: TRAFFIC_SPLIT
+```
+
+Currently, MLflow only support the `TRAFFIC_SPLIT` strategy which randomly route incoming requests based on the configured percentage.
+
 ## Dynamic Configuration Updates
 
 The AI Gateway supports hot-reloading of configurations without server restart. Simply update your config.yaml file and changes are detected automatically.
@@ -305,7 +358,7 @@ Now that your providers are configured, learn how to use and integrate your gate
     icon={Book}
     title="Tutorial"
     description="Step-by-step walkthrough with examples"
-    href="/genai/governance/ai-gateway/guides"
+    href="/genai/governance/ai-gateway"
     linkText="Follow tutorial →"
   />
 </TilesGrid>

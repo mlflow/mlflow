@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.5.1.dev0"
+version = "3.6.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -37,10 +37,10 @@ dependencies = [
   "databricks-sdk<1,>=0.20.0",
   "docker<8,>=4.0.0",
   "fastapi<1",
-  "fastmcp<3,>=2.0.0",
   "gitpython<4,>=3.1.9",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
+  "huey<3,>=2.5.0",
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "matplotlib<4",
   "numpy<3",
@@ -50,8 +50,8 @@ dependencies = [
   "packaging<26",
   "pandas<3",
   "protobuf<7,>=3.12.0",
-  "pyarrow<22,>=4.0.0",
-  "pydantic<3,>=1.10.8",
+  "pyarrow<23,>=4.0.0",
+  "pydantic<3,>=2.0.0",
   "python-dotenv<2,>=0.19.0",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
@@ -112,12 +112,12 @@ genai = [
   "uvicorn[standard]<1",
   "watchfiles<2",
 ]
+mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.3.4,<=0.3.27"]
+langchain = ["langchain>=0.3.7,<=1.0.5"]
 auth = ["Flask-WTF<2"]
-jobs = ["huey<3,>=2.5.0"]
 
 [project.urls]
 homepage = "https://mlflow.org"
@@ -177,7 +177,7 @@ lint = [
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "mypy==1.17.1",
-  "pydantic==2.11.7",
+  "pydantic>=2.0",
   "clint",
   "pyyaml>=6.0.2",
   "packaging>=25.0",
@@ -189,11 +189,20 @@ test = [
   "pytest-cov",
   "pytest-timeout",
   "psutil",
+  "pyspark",
+  "opentelemetry-exporter-otlp-proto-grpc",
+  "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
 
 [tool.uv]
-required-version = "==0.8.18"
+required-version = "==0.9.8"
+constraint-dependencies = [
+  # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
+  # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
+  "xgboost<3.1.0",
+]
+exclude-dependencies = ["databricks-connect"]
 
 [tool.uv.pip]
 torch-backend = "cpu"
@@ -231,6 +240,7 @@ docstring-code-format = true
 docstring-code-line-length = 88
 
 [tool.ruff.lint]
+preview = true
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "B006",    # multiple-argument-default
@@ -241,6 +251,13 @@ select = [
   "DTZ003",  # call-datetime-utcnow
   "E",       # error
   "F",       # Pyflakes
+  "FURB110", # if-exp-instead-of-or-operator
+  "FURB129", # readlines-in-for
+  "FURB142", # for-loop-set-mutations
+  "FURB148", # unnecessary-enumerate
+  "FURB167", # regex-flag-alias
+  "FURB188", # slice-to-remove-prefix-or-suffix
+  "FURB192", # sorted-min-max
   "C4",      # flake8-comprehensions
   "I",       # isort
   "ISC001",  # single-line-implicit-string-concatenation
@@ -275,10 +292,13 @@ select = [
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF039",  # unraw-re-pattern
   "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
+  "S102",    # exec-builtin
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
+  "S506",    # unsafe-yaml-load
   "SIM101",  # duplicate-isinstance-call
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM114",  # if-with-same-arms
@@ -303,6 +323,8 @@ select = [
   "W",       # warning
 ]
 ignore = [
+  "E265", # no-space-after-block-comment
+  "E266", # multiple-leading-hashes-for-block-comment
   "E402", # module-import-not-at-top-of-file
   "E721", # type-comparison
   "E741", # ambiguous-variable-name
@@ -326,6 +348,10 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.isort]
 forced-separate = ["tests"]
+# https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc
+# The `docker` package is marked as third-party because a `docker` directory exists in the repository root,
+# which would otherwise cause ruff to incorrectly classify it as first-party.
+known-third-party = ["docker"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "Do not use pkg_resources. Use importlib.resources or importlib.metadata instead."
@@ -347,6 +373,7 @@ exclude = [
   "mlflow/genai/labeling/__init__.py",
   "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
+  "docs/docs/classic-ml/mlflow-3/index.mdx",
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
@@ -369,8 +396,8 @@ example-rules = [
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
 ]
-# This file intentionally shows problematic code as an example of what NOT to do
-"docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]
+# Multi-assign has better readability in this example.
+"docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]
@@ -388,6 +415,9 @@ yhat = "yhat"                      # ŷ
 iternal = "internal"               # typo of "internal"
 instumentation = "instrumentation" # typo of "instrumentation"
 selectin = "selectin"              # SQLAlchemy lazy loading strategy
+tpe = "tpe"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
+TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
+indx = "indx"                      # intentional shorthand for index
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
@@ -427,6 +457,8 @@ extend-ignore-re = [
   # Azure Kubernetes Service
   "\\(AKS\\)",
   "AKS",
+  # Song lyrics - "Don't Stop Believin'" by Journey
+  "livin'",
 ]
 
 [tool.pytest.ini_options]
@@ -441,6 +473,11 @@ filterwarnings = [
   "error:getName\\(\\) is deprecated, get the name attribute instead:DeprecationWarning",
   # Prevent deprecated non-integer arguments to randrange() from being used
   "error:non-integer arguments to randrange\\(\\) have been deprecated:DeprecationWarning",
+  # Prevent usage of deprecated Pydantic v2.0 features
+  "error::pydantic.PydanticDeprecatedSince20:mlflow",
+  "error::pydantic.PydanticDeprecatedSince20:tests",
+  # Silence filesystem backend deprecation warnings (https://github.com/mlflow/mlflow/issues/18534)
+  "ignore:The filesystem (tracking|model registry) backend.*will be deprecated:FutureWarning",
 ]
 timeout = 1200
 

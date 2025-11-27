@@ -1,10 +1,9 @@
 import Link from "@docusaurus/Link";
-import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
 
 # Authentication with Username and Password
 
-MLflow supports basic HTTP authentication to enable access control over experiments and registered models.
+MLflow supports basic HTTP authentication to enable access control over experiments, registered models, and scorers.
 Once enabled, any visitor will be required to login before they can view any resource from the Tracking Server.
 
 MLflow Authentication provides Python and REST API for managing users and permissions.
@@ -97,7 +96,7 @@ The available permissions are:
 The default permission for all users is `READ`. It can be changed in the [configuration](#configuration) file.
 
 Permissions can be granted on individual resources for each user.
-Supported resources include `Experiment` and `Registered Model`.
+Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
 To access an API endpoint, an user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
 
@@ -581,7 +580,52 @@ Required Permissions for accessing registered models:
   </tbody>
 </table>
 
-MLflow Authentication introduces several new API endpoints to manage users and permissions.
+Required Permissions for accessing scorers:
+
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Endpoint</th>
+      <th>Method</th>
+      <th>Required permission</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Register Scorer</td>
+      <td>`3.0/mlflow/scorers/register`</td>
+      <td>`POST`</td>
+      <td>can_update (on experiment)</td>
+    </tr>
+    <tr>
+      <td>List Scorers</td>
+      <td>`3.0/mlflow/scorers/list`</td>
+      <td>`GET`</td>
+      <td>can_read (on experiment)</td>
+    </tr>
+    <tr>
+      <td>Get Scorer</td>
+      <td>`3.0/mlflow/scorers/get`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>Delete Scorer</td>
+      <td>`3.0/mlflow/scorers/delete`</td>
+      <td>`POST`</td>
+      <td>can_delete</td>
+    </tr>
+    <tr>
+      <td>List Scorer Versions</td>
+      <td>`3.0/mlflow/scorers/list-versions`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+  </tbody>
+</table>
+
+MLflow Authentication provides API endpoints to manage users and permissions.
 
 <table>
   <thead>
@@ -847,7 +891,7 @@ The default admin user credentials are as follows:
   <tbody>
     <tr>
       <td>`admin`</td>
-      <td>`password`</td>
+      <td>`password1234`</td>
     </tr>
   </tbody>
 </table>
@@ -1078,3 +1122,11 @@ MLFLOW_AUTH_CONFIG_PATH=/path/to/my_auth_config.ini mlflow server --app-name bas
 
 The database must be created before starting the MLflow server. The database schema will be created automatically
 when the server starts.
+
+:::note
+Auth migrations use a separate version table (`alembic_version_auth`) from tracking migrations (`alembic_version`).
+This allows you to safely use the same database for both tracking data and auth data without migration conflicts.
+
+To use separate databases instead, configure `database_uri` to point to a different database than `--backend-store-uri`.
+By default, auth uses `basic_auth.db` (SQLite) while tracking uses the database specified by `--backend-store-uri`.
+:::

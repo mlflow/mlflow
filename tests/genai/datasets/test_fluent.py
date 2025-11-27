@@ -40,7 +40,7 @@ def mock_client():
 
 @pytest.fixture
 def mock_databricks_environment():
-    with mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
+    with mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True):
         yield
 
 
@@ -374,12 +374,159 @@ def test_search_datasets_databricks(mock_databricks_environment):
 
 def test_databricks_import_error():
     with (
-        mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True),
+        mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True),
         mock.patch.dict("sys.modules", {"databricks.agents.datasets": None}),
         mock.patch("builtins.__import__", side_effect=ImportError("No module")),
     ):
         with pytest.raises(ImportError, match="databricks-agents"):
             create_dataset(name="test", experiment_id="exp1")
+
+
+def test_databricks_profile_uri_support():
+    mock_dataset = mock.Mock()
+    with (
+        mock.patch(
+            "mlflow.genai.datasets.get_tracking_uri", return_value="databricks://profilename"
+        ),
+        mock.patch.dict(
+            "sys.modules",
+            {
+                "databricks.agents.datasets": mock.Mock(
+                    get_dataset=mock.Mock(return_value=mock_dataset),
+                    create_dataset=mock.Mock(return_value=mock_dataset),
+                    delete_dataset=mock.Mock(),
+                )
+            },
+        ),
+    ):
+        result = get_dataset(name="catalog.schema.table")
+        sys.modules["databricks.agents.datasets"].get_dataset.assert_called_once_with(
+            "catalog.schema.table"
+        )
+        assert isinstance(result, EvaluationDataset)
+
+        result2 = create_dataset(name="catalog.schema.table2", experiment_id=["exp1"])
+        sys.modules["databricks.agents.datasets"].create_dataset.assert_called_once_with(
+            "catalog.schema.table2", ["exp1"]
+        )
+        assert isinstance(result2, EvaluationDataset)
+
+        delete_dataset(name="catalog.schema.table3")
+        sys.modules["databricks.agents.datasets"].delete_dataset.assert_called_once_with(
+            "catalog.schema.table3"
+        )
+
+
+def test_databricks_profile_env_var_set_from_uri(monkeypatch):
+    mock_dataset = mock.Mock()
+    profile_values_during_calls = []
+
+    def mock_get_dataset(name):
+        profile_values_during_calls.append(
+            ("get_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+        return mock_dataset
+
+    def mock_create_dataset(name, experiment_ids):
+        profile_values_during_calls.append(
+            ("create_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+        return mock_dataset
+
+    def mock_delete_dataset(name):
+        profile_values_during_calls.append(
+            ("delete_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+
+    mock_agents_module = mock.Mock(
+        get_dataset=mock_get_dataset,
+        create_dataset=mock_create_dataset,
+        delete_dataset=mock_delete_dataset,
+    )
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    get_dataset(name="catalog.schema.table")
+    create_dataset(name="catalog.schema.table", experiment_id="exp1")
+    delete_dataset(name="catalog.schema.table")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    assert profile_values_during_calls == [
+        ("get_dataset", "myprofile"),
+        ("create_dataset", "myprofile"),
+        ("delete_dataset", "myprofile"),
+    ]
+
+
+def test_databricks_profile_env_var_overridden_and_restored(monkeypatch):
+    mock_dataset = mock.Mock()
+    profile_during_call = None
+
+    def mock_get_dataset(name):
+        nonlocal profile_during_call
+        profile_during_call = os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        return mock_dataset
+
+    mock_agents_module = mock.Mock(get_dataset=mock_get_dataset)
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "original_profile")
+
+    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") == "original_profile"
+
+    get_dataset(name="catalog.schema.table")
+
+    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") == "original_profile"
+    assert profile_during_call == "myprofile"
+
+
+def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
+    profile_during_merge = None
+    profile_during_to_df = None
+
+    mock_inner_dataset = mock.Mock()
+    mock_inner_dataset.digest = "test_digest"
+    mock_inner_dataset.name = "catalog.schema.table"
+    mock_inner_dataset.dataset_id = "dataset-123"
+
+    def mock_merge_records(records):
+        nonlocal profile_during_merge
+        profile_during_merge = os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        return mock_inner_dataset
+
+    def mock_to_df():
+        nonlocal profile_during_to_df
+        profile_during_to_df = os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        import pandas as pd
+
+        return pd.DataFrame({"test": [1, 2, 3]})
+
+    mock_inner_dataset.merge_records = mock_merge_records
+    mock_inner_dataset.to_df = mock_to_df
+
+    def mock_get_dataset(name):
+        return mock_inner_dataset
+
+    mock_agents_module = mock.Mock(get_dataset=mock_get_dataset)
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    dataset = get_dataset(name="catalog.schema.table")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    dataset.merge_records([{"inputs": {"q": "test"}}])
+    assert profile_during_merge == "myprofile"
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    dataset.to_df()
+    assert profile_during_to_df == "myprofile"
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
 
 def test_create_dataset_with_user_tag(tracking_uri, experiments):
@@ -1741,7 +1888,7 @@ def test_trace_source_type_detection():
     trace_sources = df[df["source_type"] == DatasetRecordSourceType.TRACE.value]
     assert len(trace_sources) == 3
 
-    for idx, trace_id in enumerate(trace_ids):
+    for trace_id in trace_ids:
         matching_records = df[df["source_id"] == trace_id]
         assert len(matching_records) == 1
 

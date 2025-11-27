@@ -1,0 +1,92 @@
+---
+sidebar_position: 3
+sidebar_label: Vercel AI SDK
+---
+
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
+# Tracing Vercel AI SDK
+
+<video src={useBaseUrl("/images/llms/tracing/vercel-ai-tracing.mp4")} controls loop autoPlay muted aria-label="Vercel AI SDK tracing via MLflow" />
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for applications built with the [Vercel AI SDK](https://ai-sdk.dev/) (the `ai` package), unlocking powerful observability capabilities for TypeScript and Javascript application developers.
+
+When the integration is enabled, MLflow traces automatically records the following information for Vercel AI SDK calls:
+
+- Prompts or messages and generated responses
+- Latencies
+- Call hierarchy
+- Token usage when the provider returns it
+- Any exception if raised
+
+## Quickstart (JS / TS)
+
+Install the Vercel AI SDK and MLflow integration packages.
+
+```bash
+npm install ai @ai-sdk/openai mlflow-tracing mlflow-vercel
+```
+
+Initialize MLflow in your app and call the AI SDK as usual. Set `experimental_telemetry.isEnabled` to `true` to allow the integration to capture inputs/outputs and usage.
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+// Connect to your MLflow Tracking Server
+mlflow.init({
+  trackingUri: 'http://localhost:5000',
+  experimentId: '<your-experiment-id>'
+});
+
+// Make an AI SDK call with telemetry enabled
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  prompt: 'What is MLflow?',
+  // IMPORTANT: enable telemetry is required for tracing
+  experimental_telemetry: { isEnabled: true }
+});
+
+console.log(result.text);
+```
+
+## Streaming
+
+Streaming is supported as well. Similarly to the `generateText` function, specify the `experimental_telemetry.isEnabled` option to `true` to enable tracing.
+
+```typescript
+import { streamText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+const stream = await streamText({
+  model: openai('gpt-4o-mini'),
+  prompt: 'Explain vector databases in one paragraph.',
+  experimental_telemetry: { isEnabled: true }
+});
+
+for await (const part of stream.textStream) {
+  process.stdout.write(part);
+}
+```
+
+## Token usage
+
+When the underlying provider supplies token usage (e.g., input and output tokens), MLflow aggregates it on the trace.
+You can retrieve it from the trace info using the TypeScript SDK:
+
+```typescript
+// Flush any pending spans then fetch the most recent trace
+await mlflow.flushTraces();
+const lastTraceId = mlflow.getLastActiveTraceId();
+
+if (lastTraceId) {
+  const client = new mlflow.MlflowClient({ trackingUri: 'http://localhost:5000' });
+  const trace = await client.getTrace(lastTraceId);
+  console.log('Token usage:', trace.info.tokenUsage);  // { input_tokens, output_tokens, total_tokens }
+}
+```
+
+## Disable auto-tracing
+
+Disable tracing for Vercel AI SDK, set `experimental_telemetry: { isEnabled: false }` on the AI SDK call

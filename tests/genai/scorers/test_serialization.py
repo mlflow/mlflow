@@ -8,6 +8,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import Guidelines
 
+
+@pytest.fixture(autouse=True)
+def mock_databricks_runtime():
+    with patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True):
+        yield
+
+
 # ============================================================================
 # FORMAT VALIDATION TESTS (Minimal - just check serialization structure)
 # ============================================================================
@@ -322,7 +329,7 @@ test_results = {
 
     # Execute in isolated namespace with only serialized_data available
     isolated_namespace = {"serialized_data": serialized_data}
-    exec(test_code, isolated_namespace)
+    exec(test_code, isolated_namespace)  # noqa: S102
 
     # Verify results from isolated execution
     results = isolated_namespace["test_results"]

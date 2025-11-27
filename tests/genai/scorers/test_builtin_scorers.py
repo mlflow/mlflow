@@ -11,6 +11,8 @@ from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
+    Completeness,
+    ConversationCompleteness,
     Correctness,
     Equivalence,
     ExpectationsGuidelines,
@@ -20,8 +22,9 @@ from mlflow.genai.scorers import (
     RetrievalRelevance,
     RetrievalSufficiency,
     Safety,
+    UserFrustration,
 )
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.builtin_scorers import (
     ExtractedFields,
     _construct_field_extraction_config,
@@ -29,6 +32,7 @@ from mlflow.genai.scorers.builtin_scorers import (
     get_all_scorers,
     resolve_scorer_fields,
 )
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.uri import is_databricks_uri
 
 from tests.genai.conftest import databricks_only
@@ -573,7 +577,8 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    assert len(scorers) == (8 if tracking_uri == "databricks" else 6)
+    # Now we have 9 scorers for OSS (added Completeness) and 11 for Databricks
+    assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
@@ -692,6 +697,21 @@ def test_guidelines_with_trace():
         assert result.name == "guidelines"
         assert result.value is True
         mock_meets_guidelines.assert_called_once()
+
+
+def test_builtin_scorers_kind_property():
+    # Test scorers returned by get_all_scorers() - they should all be BUILTIN
+    for scorer in get_all_scorers():
+        assert scorer.kind == ScorerKind.BUILTIN, (
+            f"{scorer.__class__.__name__} should have kind BUILTIN, got {scorer.kind}"
+        )
+
+    # Test Guidelines explicitly - it has its own kind (not included in get_all_scorers)
+    guidelines_scorer = Guidelines(
+        name="test_guidelines",
+        guidelines=["Be polite", "Be helpful"],
+    )
+    assert guidelines_scorer.kind == ScorerKind.GUIDELINES
 
 
 def test_relevance_to_query_with_trace():
@@ -1186,12 +1206,12 @@ def test_resolve_scorer_fields_partial_extraction(mock_judge_with_inputs_outputs
 @pytest.mark.parametrize(
     ("needs_inputs", "needs_outputs", "expected_in_content", "not_expected_in_content"),
     [
-        (True, False, ["inputs: The initial user request/question"], ["outputs"]),
-        (False, True, ["outputs: The final system response"], ["inputs"]),
+        (True, False, ['"inputs": The initial user request/question'], ["outputs"]),
+        (False, True, ['"outputs": The final system response'], ["inputs"]),
         (
             True,
             True,
-            ["inputs: The initial user request/question", "outputs: The final system response"],
+            ['"inputs": The initial user request/question', '"outputs": The final system response'],
             [],
         ),
     ],
@@ -1221,19 +1241,22 @@ def test_construct_field_extraction_config_messages(
             True,
             False,
             {"inputs": True, "outputs": False},
-            {"inputs": "The user's original request"},
+            {"inputs": 'The user\'s original request (field name must be exactly "inputs")'},
         ),
         (
             False,
             True,
             {"inputs": False, "outputs": True},
-            {"outputs": "The system's final response"},
+            {"outputs": 'The system\'s final response (field name must be exactly "outputs")'},
         ),
         (
             True,
             True,
             {"inputs": True, "outputs": True},
-            {"inputs": "The user's original request", "outputs": "The system's final response"},
+            {
+                "inputs": 'The user\'s original request (field name must be exactly "inputs")',
+                "outputs": 'The system\'s final response (field name must be exactly "outputs")',
+            },
         ),
     ],
 )
@@ -1261,8 +1284,14 @@ def test_construct_field_extraction_config_structure():
 
     assert config.messages[0].content.startswith("Extract the following fields from the trace.")
     assert "Use the provided tools to examine the trace's spans" in config.messages[0].content
-    assert "Return the result as JSON." in config.messages[0].content
-    expected_user_message = "Use the tools to find the required fields, then return them as JSON."
+    assert (
+        "IMPORTANT: Return the result as JSON with the EXACT field names"
+        in config.messages[0].content
+    )
+    expected_user_message = (
+        "Use the tools to find the required fields, then return them as JSON "
+        "with the exact field names specified."
+    )
     assert config.messages[1].content == expected_user_message
 
 
@@ -1307,3 +1336,132 @@ def test_validate_required_fields_all_present():
     fields = ExtractedFields(inputs="some input", outputs="some output")
 
     _validate_required_fields(fields, judge, "TestScorer")
+
+
+def test_user_frustration_with_session():
+    session_id = "test_session_123"
+    traces = []
+    for i in range(3):
+        with mlflow.start_span(name=f"conversation_turn_{i}") as span:
+            span.set_inputs({"question": f"User question {i}"})
+            span.set_outputs(f"AI response {i}")
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="user_frustration", value="no_frustration", rationale="User is satisfied"
+        ),
+    ) as mock_invoke_judge:
+        scorer = UserFrustration()
+        result = scorer(session=traces)
+
+        assert result.name == "user_frustration"
+        assert result.value == "no_frustration"
+        assert result.rationale == "User is satisfied"
+        mock_invoke_judge.assert_called_once()
+
+
+def test_user_frustration_with_custom_name_and_model(monkeypatch: pytest.MonkeyPatch):
+    session_id = "test_session_456"
+    traces = []
+    with mlflow.start_span(name="test_turn") as span:
+        span.set_inputs({"question": "Test question"})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="custom_frustration_check",
+            value="frustration_resolved",
+            rationale="User was initially frustrated but satisfied by the end",
+        ),
+    ) as mock_invoke_judge:
+        scorer = UserFrustration(name="custom_frustration_check", model="openai:/gpt-4")
+        result = scorer(session=traces)
+
+        assert result.name == "custom_frustration_check"
+        assert result.value == "frustration_resolved"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name"),
+    [
+        (None, None, "conversation_completeness"),
+        ("custom_completion_check", "openai:/gpt-4", "custom_completion_check"),
+    ],
+)
+def test_conversation_completeness_with_session(name, model, expected_name):
+    session_id = "test_session_789"
+    traces = []
+    for i in range(3):
+        with mlflow.start_span(name=f"conversation_turn_{i}") as span:
+            span.set_inputs({"question": f"User question {i}"})
+            span.set_outputs(f"AI response {i}")
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale="All needs addressed"),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = ConversationCompleteness(**kwargs)
+        result = scorer(session=traces)
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == "All needs addressed"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name", "rationale"),
+    [
+        (None, None, "completeness", "All questions answered"),
+        ("custom_completeness_check", "openai:/gpt-4", "custom_completeness_check", "All good"),
+    ],
+)
+def test_completeness_with_inputs_outputs(name, model, expected_name, rationale):
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale=rationale),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = Completeness(**kwargs)
+        result = scorer(
+            inputs={"question": "What is MLflow?"},
+            outputs="MLflow is an open-source platform for managing the ML lifecycle.",
+        )
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == rationale
+        mock_invoke_judge.assert_called_once()
+
+
+def test_completeness_with_trace():
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name="completeness", value="yes", rationale="Fully addressed"),
+    ) as mock_invoke_judge:
+        trace = create_simple_trace()
+        scorer = Completeness()
+        result = scorer(trace=trace)
+
+        assert result.name == "completeness"
+        assert result.value == "yes"
+        assert result.rationale == "Fully addressed"
+        mock_invoke_judge.assert_called_once()

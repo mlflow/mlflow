@@ -216,6 +216,7 @@ export abstract class RunsChartsCardConfig {
         resultChartSet.push({
           ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
           metricKey: metricsKey,
+          ...(metricsKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsBarCardConfig);
       });
 
@@ -384,6 +385,7 @@ export abstract class RunsChartsCardConfig {
         const newChartConfig = {
           ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
           metricKey: metricKey,
+          ...(metricKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsBarCardConfig;
 
         if (isSectionReordered) {
@@ -414,6 +416,7 @@ export abstract class RunsChartsCardConfig {
           ),
           metricKey: metricKey,
           deleted: prevChart.deleted,
+          ...(metricKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsLineCardConfig;
       }
     });

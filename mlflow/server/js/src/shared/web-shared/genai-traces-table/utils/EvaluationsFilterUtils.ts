@@ -69,11 +69,9 @@ export function filterEvaluationResults(
           return true;
         }
         const searchQueryLower = searchQuery.toLowerCase();
-        const currentInputsContainSearchQuery = Object.values(entry.currentRunValue?.inputs || {}).some(
-          (inputValue) => {
-            return JSON.stringify(inputValue).toLowerCase().includes(searchQueryLower);
-          },
-        );
+        const currentInputsContainSearchQuery = JSON.stringify(entry.currentRunValue?.inputs)
+          .toLowerCase()
+          .includes(searchQueryLower);
         const inputsIdEqualsToSearchQuery = entry.currentRunValue?.inputsId.toLowerCase() === searchQueryLower;
         return currentInputsContainSearchQuery || inputsIdEqualsToSearchQuery;
       })

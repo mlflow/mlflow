@@ -7,9 +7,8 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import { CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TabsWrapper from "@site/src/components/TabsWrapper";
-import FeatureHighlights from "@site/src/components/FeatureHighlights";
 
 # MLflow Typescript SDK for Tracing
 
@@ -44,7 +43,55 @@ Install the package from the [npm registry](https://www.npmjs.com/package/mlflow
 npm install mlflow-tracing
 ```
 
-After installation, connect your application to an MLflow server by following the [Connecting to an MLflow Server](/genai/tracing/app-instrumentation#2-connect-your-application-with-mlflow) guide.
+After installation, connect your application to an MLflow server by specifying the tracking URI and experiment ID.
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+mlflow.init({
+    trackingUri: "<your-tracking-server-uri>",
+    experimentId: "<your-experiment-id>",
+});
+```
+
+Alternatively, you can set the tracking URI and experiment ID as environment variables.
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=123456789
+```
+
+```typescript
+mlflow.init();
+```
+
+## Integrations
+
+MLflow currently supports automatic tracing for the following TypeScript/JavaScript libraries:
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/openai">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/vercelai">
+    <span>![Vercel AI SDK Logo](/images/logos/vercel-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/langchain">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/langgraph">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/anthropic">
+    <span>![Anthropic Logo](/images/logos/anthropic-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/gemini">
+    <span>![Gemini Logo](/images/logos/google-gemini-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/mastra">
+    <span>![Mastra Logo](/images/logos/mastra-logo.png)</span>
+  </SmallLogoCard>
+</CardGroup>
 
 ## Basic Usage
 
@@ -83,6 +130,8 @@ npm install mlflow-openai
 Then, wrap the OpenAI client with the `tracedOpenAI` function:
 
 ```typescript
+import { OpenAI } from "openai";
+import { tracedOpenAI } from "mlflow-openai";
 import * as mlflow from "mlflow-tracing";
 
 // Initialize the tracing SDK
@@ -90,27 +139,6 @@ mlflow.init({
     trackingUri: "<your-tracking-server-uri>",
     experimentId: "<your-experiment-id>",
 });
-
-```
-
-:::tip Configure with environment variables
-Set `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` before starting your
-application to let `mlflow.init()` pick them up automatically:
-
-```bash
-export MLFLOW_TRACKING_URI=http://localhost:5000
-export MLFLOW_EXPERIMENT_ID=123456789
-```
-
-```typescript
-mlflow.init();
-```
-
-:::
-
-```typescript
-import { OpenAI } from "openai";
-import { tracedOpenAI } from "mlflow-openai";
 
 // Wrap the OpenAI client with the tracedOpenAI function
 const client = tracedOpenAI(new OpenAI());
@@ -129,17 +157,9 @@ const response = await client.chat.completions.create({
 </Tabs>
 </TabsWrapper>
 
-## Automatic Tracing
-
-MLflow Tracing Typescript SDK currently supports automatic tracing for the following libraries:
-
-<CardGroup isSmall>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/openai">
-    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
-  </SmallLogoCard>
-</CardGroup>
-
 ## Manual Tracing
+
+To customize tracing further from the [automatic tracing](#integrations), you can use the manual tracing APIs.
 
 ### Tracing a function with the `trace` API
 

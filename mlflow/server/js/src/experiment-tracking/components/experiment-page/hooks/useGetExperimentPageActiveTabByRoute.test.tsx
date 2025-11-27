@@ -1,15 +1,12 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { useGetExperimentPageActiveTabByRoute } from './useGetExperimentPageActiveTabByRoute';
 import { ExperimentPageTabName } from '../../../constants';
-
-// Mock the modules
-jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  shouldEnableExperimentPageChildRoutes: jest.fn(),
-}));
+import { useLocation } from '../../../../common/utils/RoutingUtils';
 
 jest.mock('../../../../common/utils/RoutingUtils', () => ({
   useLocation: jest.fn(),
-  matchPath: jest.fn((routePath, pathname) => {
+  matchPath: jest.fn((routePath: string, pathname: string) => {
     // Simple implementation of matchPath for testing
     if (routePath.includes(':experimentId')) {
       const routePattern = routePath.replace(':experimentId', '\\d+');
@@ -21,17 +18,7 @@ jest.mock('../../../../common/utils/RoutingUtils', () => ({
   createMLflowRoutePath: jest.fn((path) => path),
 }));
 
-// Import the mocked modules
-import { shouldEnableExperimentPageChildRoutes } from '../../../../common/utils/FeatureUtils';
-import { useLocation } from '../../../../common/utils/RoutingUtils';
-
 describe('useGetExperimentPageActiveTabByRoute', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    // Enable the feature flag by default
-    jest.mocked(shouldEnableExperimentPageChildRoutes).mockReturnValue(true);
-  });
-
   const testCases = [
     {
       name: 'should return Runs tab when on runs route',
@@ -72,17 +59,5 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
 
     expect(result.current.tabName).toBe(expectedTabName);
     expect(result.current.topLevelTabName).toBe(expectedTopLevelTabName);
-  });
-
-  test('should return undefined when feature flag is disabled', () => {
-    jest.mocked(shouldEnableExperimentPageChildRoutes).mockReturnValue(false);
-    jest
-      .mocked(useLocation)
-      .mockReturnValue({ pathname: '/experiments/123/runs', state: undefined, search: '', hash: '', key: '' });
-
-    const { result } = renderHook(() => useGetExperimentPageActiveTabByRoute());
-
-    expect(result.current.tabName).toBeUndefined();
-    expect(result.current.topLevelTabName).toBeUndefined();
   });
 });

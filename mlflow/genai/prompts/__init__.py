@@ -32,7 +32,7 @@ def register_prompt(
     template: str | list[dict[str, Any]],
     commit_message: str | None = None,
     tags: dict[str, str] | None = None,
-    response_format: BaseModel | dict[str, Any] | None = None,
+    response_format: type[BaseModel] | dict[str, Any] | None = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -148,6 +148,8 @@ def load_prompt(
     name_or_uri: str,
     version: str | int | None = None,
     allow_missing: bool = False,
+    link_to_model: bool = True,
+    model_id: str | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -159,12 +161,17 @@ def load_prompt(
         version: The version of the prompt (required when using name, not allowed when using URI).
         allow_missing: If True, return None instead of raising Exception if the specified prompt
             is not found.
+        link_to_model: If True, link the prompt to the model.
+        model_id: The ID of the model to link the prompt to. Only used if link_to_model is True.
 
     Example:
 
     .. code-block:: python
 
         import mlflow
+
+        # Load the latest version of the prompt
+        prompt = mlflow.genai.load_prompt("my_prompt")
 
         # Load a specific version of the prompt
         prompt = mlflow.genai.load_prompt("my_prompt", version=1)
@@ -175,10 +182,16 @@ def load_prompt(
         # Load a prompt version with an alias "production"
         prompt = mlflow.genai.load_prompt("prompts:/my_prompt@production")
 
+        # Load the latest version of the prompt by URI
+        prompt = mlflow.genai.load_prompt("prompts:/my_prompt@latest")
     """
     with suppress_genai_migration_warning():
         return registry_api.load_prompt(
-            name_or_uri=name_or_uri, version=version, allow_missing=allow_missing
+            name_or_uri=name_or_uri,
+            version=version,
+            allow_missing=allow_missing,
+            link_to_model=link_to_model,
+            model_id=model_id,
         )
 
 

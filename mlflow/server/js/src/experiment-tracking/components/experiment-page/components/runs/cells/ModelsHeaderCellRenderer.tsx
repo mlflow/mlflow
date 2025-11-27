@@ -2,7 +2,7 @@ import React from 'react';
 import {
   SortAscendingIcon,
   SortDescendingIcon,
-  LegacyTooltip,
+  Tooltip,
   useDesignSystemTheme,
   InfoTooltip,
 } from '@databricks/design-system';
@@ -48,16 +48,17 @@ export const ModelsHeaderCellRenderer = React.memo(() => {
           />
         </>
       ) : (
-        <LegacyTooltip
-          title={
+        <Tooltip
+          componentId="mlflow.experiment-tracking.models-header.info"
+          content={
             <FormattedMessage
               defaultMessage="Click into an individual run to see all models associated with it"
               description='MLflow experiment detail page > runs table > tooltip on ML "Models" column header'
             />
           }
         >
-          {ATTRIBUTE_COLUMN_LABELS.MODELS}
-        </LegacyTooltip>
+          <span>{ATTRIBUTE_COLUMN_LABELS.MODELS}</span>
+        </Tooltip>
       )}
     </div>
   );

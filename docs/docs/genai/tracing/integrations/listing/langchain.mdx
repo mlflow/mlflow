@@ -1,22 +1,28 @@
 ---
 sidebar_position: 2
 sidebar_label: LangChain
+toc_max_heading_level: 2
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing LangChain🦜⛓️
 
-![LangChain Tracing via autolog](/images/llms/tracing/tracing-top.gif)
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
 
 [LangChain](https://www.langchain.com/) is an open-source framework for building LLM-powered applications.
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for LangChain. You can enable tracing
-for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of chains.
+for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of chains. In TypeScript, you can pass the MLflow LangChain callback to the `callbacks` option.
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 ```python
 import mlflow
@@ -24,13 +30,47 @@ import mlflow
 mlflow.langchain.autolog()
 ```
 
-:::tip
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
 
-MLflow LangChain integration is not only about tracing. MLflow offers full tracking experience for LangChain, including model tracking, prompt management, and evaluation. Please checkout the **[MLflow LangChain Flavor](/genai/flavors/langchain)** to learn more!
+LangChain.js tracing is supported via the OpenTelemetry ingestion. See the [Getting Started section](#getting-started) below for the full setup.
 
-:::
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
-### Example Usage
+## Getting Started
+
+MLflow support tracing for LangChain in both Python and TypeScript/JavaScript. Please select the appropriate tab below to get started.
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+
+### 1. Start MLflow
+
+Start the MLflow server following the [Self-Hosting Guide](/self-hosting), if you don't have one already.
+
+### 2. Install dependencies
+
+```bash
+pip install langchain langchain-openai mlflow
+```
+
+### 3. Enable tracing
+
+```python
+import mlflow
+
+# Calling autolog for LangChain will enable trace logging.
+mlflow.langchain.autolog()
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_experiment("LangChain")
+mlflow.set_tracking_uri("http://localhost:5000")
+```
+
+### 4. Define the chain and invoke it
 
 ```python
 import mlflow
@@ -40,13 +80,6 @@ from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 
-
-# Enabling autolog for LangChain will enable trace logging.
-mlflow.langchain.autolog()
-
-# Optional: Set a tracking URI and an experiment
-mlflow.set_experiment("LangChain")
-mlflow.set_tracking_uri("http://localhost:5000")
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=1000)
 
@@ -67,6 +100,153 @@ chain.invoke(
 )
 ```
 
+### 5. View the trace in the MLflow UI
+
+Visit `http://localhost:5000` (or your custom MLflow tracking server URL) to view the trace in the MLflow UI.
+
+  </TabItem>
+  <TabItem value="typescript-v1" label="JS / TS (v1)">
+
+### 1. Start MLflow
+
+Start the MLflow server following the [Self-Hosting Guide](/self-hosting), if you don't have one already.
+
+### 2. Install the required dependencies:
+
+```bash
+npm i langchain @langchain/core @langchain/openai @arizeai/openinference-instrumentation-langchain
+```
+
+### 3. Enable OpenTelemetry
+
+Enable OpenTelemetry instrumentation for LangChain in your application:
+
+```typescript
+import { NodeTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+import { LangChainInstrumentation } from "@arizeai/openinference-instrumentation-langchain";
+import * as CallbackManagerModule from "@langchain/core/callbacks/manager";
+
+// Set up the OpenTelemetry
+const provider = new NodeTracerProvider(
+  {
+    spanProcessors: [new SimpleSpanProcessor(new OTLPTraceExporter({
+      // Set MLflow tracking server URL with `/v1/traces` path. You can also use the OTEL_EXPORTER_OTLP_TRACES_ENDPOINT environment variable instead.
+      url: "http://localhost:5000/v1/traces",
+      // Set the experiment ID in the header. You can also use the OTEL_EXPORTER_OTLP_TRACES_HEADERS environment variable instead.
+      headers: {
+        "x-mlflow-experiment-id": "123",
+      },
+    }))],
+  }
+);
+provider.register();
+
+// Enable LangChain instrumentation
+const lcInstrumentation = new LangChainInstrumentation();
+lcInstrumentation.manuallyInstrument(CallbackManagerModule);
+```
+
+### 4. Define the LangChain agent and invoke it
+
+Note that the `createAgent` API is available in LangChain.js v1.0 and later. If you are on LangChain 0.x, see the v0 example instead.
+
+```typescript
+import { createAgent, tool } from "langchain";
+import * as z from "zod";
+
+const getWeather = tool(
+  (input) => `It's always sunny in ${input.city}!`,
+  {
+    name: "get_weather",
+    description: "Get the weather for a given city",
+    schema: z.object({
+      city: z.string().describe("The city to get the weather for"),
+    }),
+  }
+);
+
+const agent = createAgent({
+  model: "gpt-4o-mini",
+  tools: [getWeather],
+});
+
+await agent.invoke({
+    messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
+});
+```
+
+### 5. View the trace in the MLflow UI
+
+Visit `http://localhost:5000` (or your custom MLflow tracking server URL) to view the trace in the MLflow UI.
+
+  </TabItem>
+  <TabItem value="typescript-v0" label="JS / TS (v0)">
+
+### 1. Start MLflow
+
+Start the MLflow server following the [Self-Hosting Guide](https://mlflow.org/docs/latest/self-hosting/index.html), if you don't have one already.
+
+### 2. Install dependencies
+
+Install the required dependencies:
+
+```bash
+npm i langchain @langchain/core @langchain/openai @arizeai/openinference-instrumentation-langchain
+```
+
+### 3. Enable OpenTelemetry
+
+Enable OpenTelemetry instrumentation for LangChain in your application:
+
+```typescript
+import { NodeTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+import { LangChainInstrumentation } from "@arizeai/openinference-instrumentation-langchain";
+import * as CallbackManagerModule from "@langchain/core/callbacks/manager";
+
+// Set up the OpenTelemetry
+const provider = new NodeTracerProvider(
+  {
+    spanProcessors: [new SimpleSpanProcessor(new OTLPTraceExporter({
+      // Set MLflow tracking server URL. You can also use the OTEL_EXPORTER_OTLP_TRACES_ENDPOINT environment variable instead.
+      url: "http://localhost:5000/v1/traces",
+      // Set the experiment ID in the header. You can also use the OTEL_EXPORTER_OTLP_TRACES_HEADERS environment variable instead.
+      headers: {
+        "x-mlflow-experiment-id": "123",
+      },
+    }))],
+  }
+);
+provider.register();
+
+// Enable LangChain instrumentation
+const lcInstrumentation = new LangChainInstrumentation();
+lcInstrumentation.manuallyInstrument(CallbackManagerModule);
+```
+
+### 4. Define the LangChain chain and invoke it
+
+```typescript
+import { OpenAI } from "@langchain/openai";
+import { PromptTemplate } from "@langchain/core/prompts";
+
+const model = new OpenAI("gpt-4o-mini");
+const prompt = PromptTemplate.fromTemplate("What is a good name for a company that makes {product}?");
+const chain = prompt.pipe({ llm: model });
+
+const res = await chain.invoke({ product: "colorful socks" });
+console.log({ res });
+```
+
+### 5. View the trace in the MLflow UI
+
+Visit `http://localhost:5000` (or your custom MLflow tracking server URL) to view the trace in the MLflow UI.
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
 :::note
 This example above has been confirmed working with the following requirement versions:
 
@@ -76,7 +256,7 @@ pip install openai==1.30.5 langchain==0.2.1 langchain-openai==0.1.8 langchain-co
 
 :::
 
-### Supported APIs
+## Supported APIs
 
 The following APIs are supported by auto tracing for LangChain.
 
@@ -141,7 +321,7 @@ ChatOpenAI:
   Total tokens: 338
 ```
 
-### Customize Tracing Behavior
+## Customize Tracing Behavior
 
 Sometimes you may want to customize what information is logged in the traces. You can achieve this by creating a custom callback handler that inherits from <APILink fn="mlflow.langchai.langchain_tracer.MlflowLangchainTracer">`MlflowLangchainTracer`</APILink>. MlflowLangchainTracer is a callback handler that is injected into the langchain model inference process to log traces automatically. It starts a new span upon a set of actions of the chain such as on_chain_start, on_llm_start, and concludes it when the action is finished. Various metadata such as span type, action name, input, output, latency, are automatically recorded to the span.
 
@@ -184,6 +364,6 @@ class CustomLangchainTracer(MlflowLangchainTracer):
         )
 ```
 
-### Disable auto-tracing
+## Disable auto-tracing
 
 Auto tracing for LangChain can be disabled globally by calling `mlflow.langchain.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

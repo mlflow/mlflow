@@ -2,23 +2,12 @@ import functools
 import pathlib
 import pickle
 from typing import Generator
+from uuid import uuid4
 
 import pytest
 
-from mlflow.entities.span import SpanType
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-from tests.tracing.helper import get_traces, purge_traces
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    pytest.skip(
-        "ResponsesAgent and its pydantic classes are not supported in pydantic v1. Skipping test.",
-        allow_module_level=True,
-    )
-
-from uuid import uuid4
-
 import mlflow
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
@@ -33,6 +22,8 @@ from mlflow.types.responses import (
     ResponsesAgentStreamEvent,
     output_to_responses_items_stream,
 )
+
+from tests.tracing.helper import get_traces, purge_traces
 
 if _HAS_LANGCHAIN_BASE_MESSAGE:
     pass
@@ -1155,6 +1146,20 @@ def test_create_function_call_output_item():
                     "type": "message",
                 },
                 {
+                    "type": "mcp_approval_request",
+                    "id": "mcp_approval_request_123",
+                    "arguments": "{}",
+                    "name": "system__ai__python_exec",
+                    "server_label": "python_exec",
+                },
+                {
+                    "type": "mcp_approval_response",
+                    "id": "mcp_approval_response_123",
+                    "approval_request_id": "mcp_approval_request_123",
+                    "approve": True,
+                    "reason": "The request was approved",
+                },
+                {
                     "type": "function_call",
                     "id": "chatcmpl_56a443d8-bf71-4f71-aff5-082191c4db1e",
                     "call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
@@ -1171,6 +1176,25 @@ def test_create_function_call_output_item():
                 {"content": "what is 4*3 in python"},
                 {"role": "assistant", "content": '"I can help you calculate 4*3"'},
                 {"role": "assistant", "content": "I can help you calculate 4*"},
+                {
+                    "role": "assistant",
+                    "content": "mcp approval request",
+                    "tool_calls": [
+                        {
+                            "id": "mcp_approval_request_123",
+                            "type": "function",
+                            "function": {
+                                "arguments": "{}",
+                                "name": "system__ai__python_exec",
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "content": "True",
+                    "tool_call_id": "mcp_approval_request_123",
+                },
                 {
                     "role": "assistant",
                     "content": "tool call",

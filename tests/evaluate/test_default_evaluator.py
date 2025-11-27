@@ -1622,7 +1622,7 @@ class _ExampleToBePickledObject:
         self.b = "hello"
 
     def __eq__(self, o: object) -> bool:
-        return self.a == o.a and self.b == self.b
+        return self.a == o.a and self.b == o.b
 
 
 def test_custom_metric_logs_artifacts_from_objects(

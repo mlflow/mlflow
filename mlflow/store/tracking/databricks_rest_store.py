@@ -11,7 +11,7 @@ from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
-from mlflow.exceptions import MlflowException, RestException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException, RestException
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     BAD_REQUEST,
@@ -162,7 +162,7 @@ class DatabricksTracingRestStore(RestStore):
         )
         return TraceInfo.from_proto(response_proto)
 
-    def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 
@@ -211,6 +211,22 @@ class DatabricksTracingRestStore(RestStore):
             return TraceInfo.from_proto(response_proto.trace.trace_info)
 
         return super().get_trace_info(trace_id)
+
+    def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
+        """
+        Get a trace with spans for given trace id.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+            allow_partial: Whether to allow partial traces. If True, the trace will be returned
+                even if it is not fully exported yet. If False, MLflow retries and returns
+                the trace until all spans are exported or the retry timeout is reached. Default
+                to False.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.Trace``.
+        """
+        raise MlflowNotImplementedException()
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
@@ -363,9 +379,16 @@ class DatabricksTracingRestStore(RestStore):
         order_by: list[str] | None = None,
         page_token: str | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
+        sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+        if sql_warehouse_id is None:
+            raise MlflowException.invalid_parameter_value(
+                "SQL warehouse ID is required for searching traces by model ID in UC tables, "
+                f"set it with the `{MLFLOW_TRACING_SQL_WAREHOUSE_ID.name}` environment variable."
+            )
+
         request = SearchUnifiedTraces(
             model_id=model_id,
-            sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            sql_warehouse_id=sql_warehouse_id,
             experiment_ids=locations,
             filter=filter_string,
             max_results=max_results,

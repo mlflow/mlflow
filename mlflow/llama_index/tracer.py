@@ -40,7 +40,6 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_tools
-from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
 
@@ -294,7 +293,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         attr = {SpanAttributeKey.MESSAGE_FORMAT: "llamaindex"}
         if metadata := instance.metadata:
             attr["model_name"] = metadata.model_name
-            if params_str := metadata.json(exclude_unset=True):
+            if params_str := metadata.model_dump_json(exclude_unset=True):
                 attr["invocation_params"] = json.loads(params_str)
         return attr
 
@@ -375,7 +374,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         template = event.template
         template_args = {
             **template.kwargs,
-            **(event.template_args if event.template_args else {}),
+            **(event.template_args or {}),
         }
         span.set_attributes(
             {
@@ -433,7 +432,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
-                raw = model_dump_compat(raw)
+                raw = raw.model_dump()
 
             if usage := raw.get("usage"):
                 return usage
@@ -505,7 +504,7 @@ class StreamResolver:
         Returns:
             True if the span is registered successfully, False otherwise.
         """
-        if inspect.isgenerator(result):
+        if inspect.isgenerator(result) or inspect.isasyncgen(result):
             stream = result
         elif isinstance(result, (StreamingResponse, AsyncStreamingResponse)):
             stream = result.response_gen
@@ -516,13 +515,16 @@ class StreamResolver:
         else:
             raise ValueError(f"Unsupported streaming response type: {type(result)}")
 
-        if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
-            # Not registering the span because the generator is already exhausted.
-            # It's counter-intuitive that the generator is closed before the response
-            # is returned, but it can happen because some agents run streaming request
-            # in a separate thread. In this case, the generator can be closed before
-            # the response is returned in the main thread.
-            return False
+        # Check if generator/async generator is already closed
+        # Async generators use ag_frame, sync generators use gi_frame
+        if inspect.isasyncgen(stream):
+            # For async generators, ag_frame is None when closed
+            if stream.ag_frame is None:
+                return False
+        elif inspect.isgenerator(stream):
+            # For sync generators, use getgeneratorstate
+            if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
+                return False
 
         self._span_id_to_span_and_gen[span.span_id] = (span, stream)
         return True

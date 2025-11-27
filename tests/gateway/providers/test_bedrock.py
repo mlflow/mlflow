@@ -123,6 +123,7 @@ bedrock_model_provider_fixtures = [
             "max_tokens_to_sample": 200,
             "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             "stop_sequences": ["\n\nHuman:"],
+            "anthropic_version": "bedrock-2023-05-31",
         },
     },
     {
@@ -142,6 +143,7 @@ bedrock_model_provider_fixtures = [
             "max_tokens_to_sample": 200,
             "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             "stop_sequences": ["\n\nHuman:"],
+            "anthropic_version": "bedrock-2023-05-31",
         },
     },
     {
@@ -161,6 +163,7 @@ bedrock_model_provider_fixtures = [
             "max_tokens_to_sample": 200,
             "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             "stop_sequences": ["\n\nHuman:"],
+            "anthropic_version": "bedrock-2023-05-31",
         },
     },
     {
@@ -317,7 +320,7 @@ def _assert_any_call_at_least(mobj, *args, **kwargs):
 @pytest.mark.parametrize(("aws_config", "expected"), bedrock_aws_configs)
 def test_bedrock_aws_config(aws_config, expected):
     assert isinstance(
-        AmazonBedrockConfig.parse_obj({"aws_config": aws_config}).aws_config, expected
+        AmazonBedrockConfig.model_validate({"aws_config": aws_config}).aws_config, expected
     )
 
 

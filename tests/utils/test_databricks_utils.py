@@ -18,12 +18,14 @@ from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     DatabricksConfigProvider,
     DatabricksRuntimeVersion,
+    _NoDbutilsError,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
     get_databricks_workspace_client_config,
     get_dbconnect_udf_sandbox_info,
     get_mlflow_credential_context_by_run_id,
+    get_sgc_job_run_id,
     get_workspace_info_from_databricks_secrets,
     get_workspace_info_from_dbutils,
     get_workspace_url,
@@ -325,10 +327,6 @@ def test_is_in_databricks_model_serving_environment(monkeypatch):
 
     monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
     assert not databricks_utils.is_in_databricks_model_serving_environment()
-
-    # Backward compatibility with old env var name
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
-    assert databricks_utils.is_in_databricks_model_serving_environment()
 
 
 # test both is_in_databricks_model_serving_environment and
@@ -869,3 +867,33 @@ def test_get_databricks_workspace_client_config_client_creation_error():
     ):
         with pytest.raises(Exception, match="Client creation failed"):
             get_databricks_workspace_client_config("databricks://profile")
+
+
+def test_get_sgc_job_run_id_success():
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = "test_job_run_id_12345"
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "test_job_run_id_12345"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_no_dbutils():
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", side_effect=_NoDbutilsError()):
+        result = get_sgc_job_run_id()
+        assert result is None
+
+
+def test_get_sgc_job_run_id_value_error():
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.side_effect = ValueError("Widget not found")
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result is None
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )

@@ -6,6 +6,7 @@ import {
   Tag,
   LegacyTooltip,
   useDesignSystemTheme,
+  Tooltip,
 } from '@databricks/design-system';
 import { first, last, orderBy } from 'lodash';
 import { useMemo, useState } from 'react';
@@ -188,9 +189,10 @@ export const RunViewHeaderRegisterModelButton = ({
           />
         )}
         <DropdownMenu.Root modal={false}>
-          <LegacyTooltip
-            placement="bottom"
-            title={
+          <Tooltip
+            componentId="mlflow.run_details.header.register-model-button.tooltip"
+            side="bottom"
+            content={
               <FormattedMessage
                 defaultMessage="{registeredCount}/{loggedCount} logged models are registered"
                 description="Run page > Header > Register model dropdown > Button tooltip"
@@ -210,7 +212,7 @@ export const RunViewHeaderRegisterModelButton = ({
                 />
               </Button>
             </DropdownMenu.Trigger>
-          </LegacyTooltip>
+          </Tooltip>
           <DropdownMenu.Content align="end">
             <LoggedModelsDropdownContent
               models={models}

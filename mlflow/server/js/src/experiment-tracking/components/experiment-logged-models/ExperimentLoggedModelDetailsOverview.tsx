@@ -173,7 +173,7 @@ export const ExperimentLoggedModelDetailsOverview = ({
 
   return (
     <ExperimentLoggedModelOpenDatasetDetailsContextProvider>
-      <DetailsPageLayout css={{ flex: 1 }} usingSidebarLayout secondarySections={detailsSectionsV2}>
+      <DetailsPageLayout css={{ flex: 1 }} usingSidebarLayout secondarySections={detailsSectionsV2} sidebarSize="sm">
         <ExperimentLoggedModelDescription loggedModel={loggedModel} onDescriptionChanged={onDataUpdated} />
 
         {relatedRunsDataError?.message && (

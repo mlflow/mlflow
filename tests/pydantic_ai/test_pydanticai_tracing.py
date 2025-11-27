@@ -130,14 +130,25 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
 
     assert spans[0].name == "Agent.run_sync"
     assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
+    outputs_0 = spans[0].get_attribute(SpanAttributeKey.OUTPUTS)
+    assert outputs_0 is not None
+    assert "_new_messages_serialized" in outputs_0
+    assert len(outputs_0["_new_messages_serialized"]) > 0
 
     assert spans[1].name == "Agent.run"
     assert spans[1].span_type == SpanType.AGENT
+    assert spans[1].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
+    outputs_1 = spans[1].get_attribute(SpanAttributeKey.OUTPUTS)
+    assert outputs_1 is not None
+    assert "_new_messages_serialized" in outputs_1
+    assert len(outputs_1["_new_messages_serialized"]) > 0
 
     span2 = spans[2]
     assert span2.name == "InstrumentedModel.request"
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
+    assert span2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
 
     assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 1,
@@ -222,7 +233,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert spans[1].span_type == SpanType.AGENT
 
     span2 = spans[2]
-    assert span2.name == "InstrumentedModel.request_1"
+    assert span2.name == "InstrumentedModel.request"
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
 
@@ -231,7 +242,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span3.parent_id == spans[1].span_id
 
     span4 = spans[4]
-    assert span4.name == "InstrumentedModel.request_2"
+    assert span4.name == "InstrumentedModel.request"
     assert span4.span_type == SpanType.LLM
     assert span4.parent_id == spans[1].span_id
 
@@ -279,7 +290,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert spans[0].span_type == SpanType.AGENT
 
     span1 = spans[1]
-    assert span1.name == "InstrumentedModel.request_1"
+    assert span1.name == "InstrumentedModel.request"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
 
@@ -288,7 +299,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert span2.parent_id == spans[0].span_id
 
     span3 = spans[3]
-    assert span3.name == "InstrumentedModel.request_2"
+    assert span3.name == "InstrumentedModel.request"
     assert span3.span_type == SpanType.LLM
     assert span3.parent_id == spans[0].span_id
 
