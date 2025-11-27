@@ -16,13 +16,12 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'getting-started/connect-environment',
-      label: 'Set Up MLflow',
       className: 'sidebar-top-level-category',
     },
     {
       type: 'doc',
-      id: 'tracing/quickstart/python-openai',
-      label: 'Tracing Quickstart',
+      id: 'tracing/quickstart/index',
+      label: 'Start Tracing',
       className: 'sidebar-top-level-category',
     },
     {
