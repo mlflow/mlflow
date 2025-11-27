@@ -28,6 +28,7 @@ from mlflow.entities import (
     Param,
     RunTag,
     ViewType,
+    Workspace,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -45,6 +46,7 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, 
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
+    MLFLOW_ENABLE_WORKSPACES,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -57,6 +59,7 @@ from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
+    FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -105,6 +108,7 @@ from mlflow.protos.service_pb2 import (
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
+    CreateWorkspace,
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
@@ -119,6 +123,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTracesV3,
     DeleteTraceTag,
     DeleteTraceTagV3,
+    DeleteWorkspace,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
@@ -135,11 +140,13 @@ from mlflow.protos.service_pb2 import (
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
+    GetWorkspace,
     LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
+    ListWorkspaces,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -170,6 +177,7 @@ from mlflow.protos.service_pb2 import (
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
+    UpdateWorkspace,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -183,6 +191,7 @@ from mlflow.protos.webhooks_pb2 import (
     WebhookService,
 )
 from mlflow.server.validation import _validate_content_type
+from mlflow.server.workspace_helpers import _get_workspace_store
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -191,6 +200,7 @@ from mlflow.store.model_registry.abstract_store import AbstractStore as Abstract
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -777,6 +787,112 @@ def _disable_if_artifacts_only(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def _disable_if_workspaces_disabled(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return Response(
+                (
+                    f"Endpoint: {request.url_rule} disabled because the server is running "
+                    "without multi-tenancy support. To enable workspace functionality, run "
+                    "`mlflow server` with `--enable-workspaces`"
+                ),
+                503,
+            )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def _workspace_not_supported(message: str) -> MlflowException:
+    return MlflowException(message, FEATURE_DISABLED)
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _list_workspaces_handler():
+    _get_request_message(ListWorkspaces())
+    workspaces = _get_workspace_store().list_workspaces()
+    response_message = ListWorkspaces.Response()
+    response_message.workspaces.extend([ws.to_proto() for ws in workspaces])
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _create_workspace_handler():
+    request_message = _get_request_message(
+        CreateWorkspace(),
+        schema={
+            "name": [_assert_required, _assert_string],
+            "description": [_assert_string],
+        },
+    )
+
+    WorkspaceNameValidator.validate(request_message.name)
+    description = request_message.description if request_message.HasField("description") else None
+    store = _get_workspace_store()
+    try:
+        workspace = store.create_workspace(
+            Workspace(name=request_message.name, description=description)
+        )
+    except NotImplementedError:
+        raise _workspace_not_supported("Workspace creation is not supported by this provider")
+
+    response_message = CreateWorkspace.Response()
+    response_message.workspace.MergeFrom(workspace.to_proto())
+    response = _wrap_response(response_message)
+    response.status_code = 201
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _get_workspace_handler(workspace_name: str):
+    WorkspaceNameValidator.validate(workspace_name)
+    workspace = _get_workspace_store().get_workspace(workspace_name)
+    response_message = GetWorkspace.Response()
+    response_message.workspace.MergeFrom(workspace.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _update_workspace_handler(workspace_name: str):
+    WorkspaceNameValidator.validate(workspace_name)
+    request_message = _get_request_message(
+        UpdateWorkspace(),
+        schema={"description": [_assert_string]},
+    )
+
+    if not request_message.HasField("description"):
+        raise MlflowException.invalid_parameter_value("Workspace update must have at least one key")
+
+    store = _get_workspace_store()
+    try:
+        workspace = store.update_workspace(
+            Workspace(name=workspace_name, description=request_message.description)
+        )
+    except NotImplementedError:
+        raise _workspace_not_supported("Workspace updates are not supported by this provider")
+
+    response_message = UpdateWorkspace.Response()
+    response_message.workspace.MergeFrom(workspace.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _delete_workspace_handler(workspace_name: str):
+    WorkspaceNameValidator.validate(workspace_name)
+    store = _get_workspace_store()
+    try:
+        store.delete_workspace(workspace_name)
+    except NotImplementedError:
+        raise _workspace_not_supported("Workspace deletion is not supported by this provider")
+    return Response(status=204)
 
 
 @catch_mlflow_exception
@@ -4170,4 +4286,10 @@ HANDLERS = {
     ListScorerVersions: _list_scorer_versions,
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
+    # Workspace APIs
+    ListWorkspaces: _list_workspaces_handler,
+    CreateWorkspace: _create_workspace_handler,
+    GetWorkspace: _get_workspace_handler,
+    UpdateWorkspace: _update_workspace_handler,
+    DeleteWorkspace: _delete_workspace_handler,
 }

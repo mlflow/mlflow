@@ -301,7 +301,11 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
     return verify_rest_response(response, endpoint)
 
 
-def verify_rest_response(response, endpoint):
+def verify_rest_response(
+    response,
+    endpoint,
+    expected_status: int = 200,
+):
     """Verify the return code and format, raise exception if the request was not successful."""
     # Handle Armeria-specific response case where response text is "200 OK"
     # v1/traces endpoint might return empty response
@@ -309,19 +313,23 @@ def verify_rest_response(response, endpoint):
         response._content = b"{}"  # Update response content to be an empty JSON dictionary
         return response
 
-    # Handle non-200 status codes
-    if response.status_code != 200:
+    # Handle non-expected status codes
+    if response.status_code != expected_status:
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
             base_msg = (
                 f"API request to endpoint {endpoint} "
-                f"failed with error code {response.status_code} != 200"
+                f"failed with error code {response.status_code} "
+                f"!= {expected_status}"
             )
             raise MlflowException(
                 f"{base_msg}. Response body: '{response.text}'",
                 error_code=get_error_code(response.status_code),
             )
+
+    if response.status_code == 204:
+        return response
 
     # Skip validation for endpoints (e.g. DBFS file-download API) which may return a non-JSON
     # response
@@ -573,6 +581,7 @@ def call_endpoint(
     response_proto,
     extra_headers=None,
     retry_timeout_seconds=None,
+    expected_status: int = 200,
 ):
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
@@ -593,7 +602,14 @@ def call_endpoint(
         call_kwargs["json"] = json_body
         response = http_request(**call_kwargs)
 
-    response = verify_rest_response(response, endpoint)
+    response = verify_rest_response(
+        response,
+        endpoint,
+        expected_status=expected_status,
+    )
+    if response.status_code == 204:
+        return response_proto
+
     response_to_parse = response.text
     try:
         js_dict = json.loads(response_to_parse)

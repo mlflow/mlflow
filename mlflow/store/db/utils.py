@@ -65,6 +65,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.store.workspace.dbmodels.models import SqlWorkspace
 
 _logger = logging.getLogger(__name__)
 
@@ -105,6 +106,7 @@ def _all_tables_exist(engine):
         SqlScorer.__tablename__,
         SqlScorerVersion.__tablename__,
         SqlJob.__tablename__,
+        SqlWorkspace.__tablename__,
     }
 
 
