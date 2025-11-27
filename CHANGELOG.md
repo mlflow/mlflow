@@ -2,79 +2,29 @@
 
 ## 3.7.0rc0 (2025-11-27)
 
-MLflow 3.7.0rc0 includes several major features and improvements
+MLflow 3.7.0rc0 includes several major features and improvements!
 
-Breaking changes:
+### Major Features
 
-- [Build / Tracking] Use SQLite as default unless existing mlruns data is detected (#18497, @harupy)
-- [Build / Docs / Models] Remove deprecated diviner flavor (#18808, @copilot-swe-agent)
-- [Docs / Models] Remove deprecated promptflow flavor (#18805, @copilot-swe-agent)
+- ⚖️ **Trace Comparison**: New UI feature allowing side-by-side comparison of traces to analyze and debug LLM application behavior across different runs. (#17138, @joelrobin18, @daniellok-db)
+- 💬 **Multi-turn conversation support for Evaluation**: Enhanced evaluation support for multi-turn conversations in `mlflow.genai.evaluate`, enabling comprehensive assessment of conversational AI applications. (#18971, #19039, @AveshCSingh)
+- 🔎 **Full Text Trace Search from UI**: Search across all trace content directly from the UI, making it easier to find specific traces by searching through inputs, outputs, and span details. (#18683, @dbczumar)
+- 🌐 **Gemini TypeScript SDK**: Auto-tracing support for Gemini in TypeScript, expanding MLflow's observability capabilities for JavaScript/TypeScript AI applications. (#18207, @joelrobin18)
 
-Features:
+### Breaking Changes
 
-- [UI] Trace Comparison (#17138, @joelrobin18)
-- [Evaluation] Support multi-turn evaluation in mlflow.genai.evaluate for DataFrame and list input (#18971, @AveshCSingh)
-- [Tracking] Add support for SGC run resumption from Databricks Jobs (#19015, @artjen)
-- [Tracing] Pydantic AI Chat UI (#18777, @joelrobin18)
-- [Tracking] Add auth support for scorers (#18699, @BenWilson2)
-- [Evaluation] Remove experimental flags from scorers (#18122, @BenWilson2)
-- [Tracing] Gemini typescript sdk (#18207, @joelrobin18)
-- [Evaluation] Add description field to all built-in scorers (#18547, @alkispoly-db)
-- [Evaluation] Support structured outputs in make_judge (#18529, @TomeHirata)
+- **SQLite as Default Backend**: MLflow now uses SQLite as the default backend instead of file-based storage, unless existing mlruns data is detected. This improves performance and reliability for tracking experiments. (#18497, @harupy)
+- **Removed Deprecated Flavors**: The `diviner` and `promptflow` flavors have been removed from MLflow. Please migrate to supported alternatives. (#18808, #18805, @copilot-swe-agent)
 
-Bug fixes:
+### Important Notice
 
-- [UI] UI: Request TraceInfo and Trace Assessments from a relative API path  (#19032, @kbolashev)
-- [UI] Define `LoggedModelOutput.to_dictionary()` so `LoggedModelOutput` and runs containing them can be JSON serialized (#19017, @nicklamiller)
-- [Tracing / Tracking / UI] Add missing _delete_trace_tag_v3 api (#18813, @Tian-Sky-Lan)
-- [UI] Fix router issue in TracesUI page (#19044, @joelrobin18)
-- [Evaluation] Add validation to correctness judge expectation fields (#19026, @smoorjani)
-- [Tracing] Fix bug in chat sessions view where new sessions created after UI launch are not visible due to incorrect timestamp filtering (#18928, @dbczumar)
-- [Tracing] Fix otlp proto convertion for empty list/dict (#18958, @B-Step62)
-- [Build] Fix mlflow gc to remove model artifacts (#17282, @joelrobin18)
-- [Tracing] Agno V2 fixes (#18345, @joelrobin18)
-- [Evaluation] [Bug]Fix model uri underscore (#18849, @RohanRouth)
-- [] Fix v1/traces endpoint to return protobuf instead of JSON (#18929, @copilot-swe-agent)
-- [Tracking] Fix: correctly associate SqlLoggedModelMetric with experiment_id (#18382, @mcompen)
-- [Docs] Fix CLI link missing api_reference prefix in documentation sidebars (#18893, @copilot-swe-agent)
-- [Evaluation / Tracing] Fix evaluate_traces MCP tool error: use result_df instead of tables (#18825, @alkispoly-db)
-- [Build] Fix Click 8.3.0 `Sentinel.UNSET` handling in MCP server (#18858, @harupy)
-- [Evaluation / Scoring] Fix Bedrock Anthropic adapter by adding required `anthropic_version` field (#17744, @harupy)
-- [Tracking] Add flask routes to auth validators (#18486, @BenWilson2)
-- [Docs] Fix notebook download URLs to use versioned paths (#18806, @harupy)
-- [Docs] Fix documentation redirects for removed getting-started pages (#18789, @copilot-swe-agent)
-- [] Fix migration for pre-existing auth tables (#18793, @BenWilson2)
-- [Tracking] Add missing proto handler for Experiment association handling for datasets (#18769, @BenWilson2)
-- [Build] Added bucket-ownership checks for Amazon S3 (#18542, @kingroryg)
-- [Build / Tracing] Pin click!=8.3.0 in mcp extra to fix MCP server failure (#18748, @copilot-swe-agent)
-- [Docs / Tracing] Fix MCP server uv installation command for external users (#18745, @copilot-swe-agent)
+- **Installation ID for Telemetry**: MLflow now generates a unique installation ID (a randomly generated UUID) for telemetry purposes to better understand usage patterns. This ID is fully anonymous and persists across sessions. Telemetry can be disabled anytime by setting `MLFLOW_DISABLE_TELEMETRY=true` or `DO_NOT_TRACK=true`. See the [usage tracking documentation](https://mlflow.org/docs/latest/community/usage-tracking/) for details. (#18881, @B-Step62)
 
-Documentation updates:
+Stay tuned for the full release, which will be packed with more features and bugfixes.
 
-- [Docs] [DOC] Fix typos in ML documentation main page (#19048, @copilot-swe-agent)
-- [Docs] Convert documentation GIF animations to MP4 videos (#18946, @harupy)
-- [Docs] [Doc] Improve readablity by adjusting sidebar layout & style (#18937, @kevin-lyn)
-- [Docs] Cleanup scikit-learn docs (#18794, @BenWilson2)
-- [Docs] Cleanup XGBoost docs (#18790, @BenWilson2)
-- [Docs] Cleanup TensorFlow docs (#18850, @BenWilson2)
-- [Docs] fix(docs): use the correct otlphttp exporter in otel collector yaml (#18930, @Miaoxiang-philips)
-- [Docs] Cleanup spacy and keras (#18895, @BenWilson2)
-- [Docs] Fix contents in tracing doc pages (#18750, @B-Step62)
-- [Model Registry / Tracking] Improve file store deprecation warning messages (#18900, @harupy)
-- [Docs] Clean up the MLflow 3 docs content (#18871, @BenWilson2)
-- [Evaluation / Tracing] [ML-59303] Support multiturn judge creation with make_judge api and direct judge invocation (#18897, @xsh310)
-- [Docs] Cleanup torch docs (#18816, @BenWilson2)
-- [Docs] Cleanup Prophet docs (#18814, @BenWilson2)
-- [Docs] Clean up SparkML docs (#18811, @BenWilson2)
-- [Docs] Cleanup the traditional ML landing page (#18799, @BenWilson2)
-- [Docs] Clean up the Deep Learning landing page (#18820, @BenWilson2)
-- [Docs] Cleanup evaluation datasets docs (#18766, @BenWilson2)
-- [Docs] Otel Doc fixes (#18810, @joelrobin18)
-- [Docs / Tracking] Clarify mlflow gc command behavior for pinned runs and registered models (#18704, @copilot-swe-agent)
+To try out this release candidate, please run:
 
-Small bug fixes and documentation updates:
-
-#18992, #19025, #19020, #18950, @kevin-lyn; #19069, #19072, #19043, #19027, #19028, #19019, #18995, #18997, #18989, #18991, #18987, #18983, #18980, #18979, #18974, #18972, #18969, #18948, #18940, #18942, #18939, #18938, #18933, #18932, #18931, #18915, #18882, #18865, #18861, #18860, #18846, #18841, #18830, #18824, #18823, #18819, #18789, #18804, #18779, #18775, #18772, #18704, #18606, #18748, #18746, #18745, #18743, #18732, #18737, #18736, #18729, #18718, #18703, #18693, #18686, #18682, #18633, #18675, #18671, #18653, #18652, @copilot-swe-agent; #19030, #18778, #18780, #18556, #18555, @serena-ruan; #19067, #19064, #19045, #18968, #18967, #19018, #18966, #18990, #18912, @xsh310; #19001, #18945, @danielseong1; #18815, @kevin-wangg; #19039, #18898, @AveshCSingh; #19021, #19023, #18723, #18622, @smoorjani; #18742, @Killian-fal; #19022, #18951, #18887, #18954, #18949, #18934, #18914, #18903, #18877, #18859, #18838, #18828, #18821, #18717, #18710, #18756, #18713, @harupy; #18886, #18911, #18904, #18885, #18837, #18795, #18646, @daniellok-db; #18984, #18985, #18822, @dbczumar; #18802, #18881, #18695, #18879, #18782, #18845, #18787, #18786, #18590, @B-Step62; #18923, @HomeLH; #18922, #18920, @UnfixedMold; #18798, @WeichenXu123; #18792, #18818, #18579, @TomeHirata; #18776, @pcliupc; #18417, @shaperilio; #18702, #18642, @BenWilson2
+`pip install mlflow==3.7.0rc0`
 
 ## 3.6.0 (2025-11-07)
 
