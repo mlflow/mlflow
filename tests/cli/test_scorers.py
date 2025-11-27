@@ -8,7 +8,7 @@ from click.testing import CliRunner
 import mlflow
 from mlflow.cli.scorers import commands
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import list_scorers, scorer
+from mlflow.genai.scorers import get_all_scorers, list_scorers, scorer
 from mlflow.utils.string_utils import _create_table
 
 
@@ -616,8 +616,6 @@ def test_list_builtin_scorers_shows_all_available_scorers(runner, is_databricks)
         assert result.exit_code == 0
 
         # Get expected scorers from get_all_scorers() with same environment
-        from mlflow.genai.scorers import get_all_scorers
-
         expected_scorers = get_all_scorers()
         expected_names = {scorer.name for scorer in expected_scorers}
 
