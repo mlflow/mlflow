@@ -1888,7 +1888,7 @@ def test_trace_source_type_detection():
     trace_sources = df[df["source_type"] == DatasetRecordSourceType.TRACE.value]
     assert len(trace_sources) == 3
 
-    for idx, trace_id in enumerate(trace_ids):
+    for trace_id in trace_ids:
         matching_records = df[df["source_id"] == trace_id]
         assert len(matching_records) == 1
 

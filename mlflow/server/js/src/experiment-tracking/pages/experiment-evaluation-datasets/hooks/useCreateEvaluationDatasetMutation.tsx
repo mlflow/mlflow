@@ -1,6 +1,6 @@
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { EvaluationDataset } from '../types';
+import type { EvaluationDataset } from '../types';
 import { SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';
 
 type CreateDatasetResponse = {

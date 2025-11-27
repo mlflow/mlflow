@@ -15,7 +15,10 @@ import pytest
 import requests
 from opentelemetry import trace as otel_trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+    ExportTraceServiceRequest,
+    ExportTraceServiceResponse,
+)
 from opentelemetry.proto.common.v1.common_pb2 import InstrumentationScope
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource
 from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
@@ -746,3 +749,50 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
         assert record.status.value == "success"
         assert record.params["source"] == TraceSource.UNKNOWN.value
         assert record.params["count"] == 2
+
+
+def test_response_is_protobuf_format(mlflow_server: str):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-protobuf-response-test")
+    experiment_id = experiment.experiment_id
+
+    # Create a valid OTLP request
+    span = OTelProtoSpan()
+    span.trace_id = bytes.fromhex("0000000000000400" + "0" * 16)
+    span.span_id = bytes.fromhex("00000004" + "0" * 8)
+    span.name = "protobuf-test-span"
+    span.start_time_unix_nano = 1000000000
+    span.end_time_unix_nano = 2000000000
+
+    scope = InstrumentationScope()
+    scope.name = "test-scope"
+
+    scope_spans = ScopeSpans()
+    scope_spans.scope.CopyFrom(scope)
+    scope_spans.spans.append(span)
+
+    resource = Resource()
+    resource_spans = ResourceSpans()
+    resource_spans.resource.CopyFrom(resource)
+    resource_spans.scope_spans.append(scope_spans)
+
+    request = ExportTraceServiceRequest()
+    request.resource_spans.append(resource_spans)
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+
+    # Verify response status and content-type
+    assert response.status_code == 200
+    assert response.headers.get("content-type") == "application/x-protobuf"
+
+    # Verify the response can be parsed as a valid ExportTraceServiceResponse
+    response_message = ExportTraceServiceResponse()
+    response_message.ParseFromString(response.content)
