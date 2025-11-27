@@ -4561,7 +4561,7 @@ __metadata:
     eslint-plugin-import: "npm:^2.26.0"
     eslint-plugin-jest: "npm:^26.5.3"
     eslint-plugin-jsx-a11y: "npm:^6.7.1"
-    eslint-plugin-mlflow: "file:./custom-eslint-rules/"
+    eslint-plugin-mlflow: "portal:./custom-eslint-rules/"
     eslint-plugin-no-lookahead-lookbehind-regexp: "npm:^0.1.0"
     eslint-plugin-no-only-tests: "npm:^2.6.0"
     eslint-plugin-node: "npm:5.2.1"
@@ -16451,12 +16451,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-plugin-mlflow@file:./custom-eslint-rules/::locator=%40mlflow%2Fmlflow%40workspace%3A.":
-  version: 1.0.0
-  resolution: "eslint-plugin-mlflow@file:./custom-eslint-rules/#./custom-eslint-rules/::hash=f1ad6c&locator=%40mlflow%2Fmlflow%40workspace%3A."
-  checksum: 10c0/ee0651ba9799bd70be61dff4c1ae9cb5fdfc549655ed14e5a910bab887d2acf057475c7656cb7092cfe04278594507ea4314f324e76d82bad23431c5b0a76c76
+"eslint-plugin-mlflow@portal:./custom-eslint-rules/::locator=%40mlflow%2Fmlflow%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "eslint-plugin-mlflow@portal:./custom-eslint-rules/::locator=%40mlflow%2Fmlflow%40workspace%3A."
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "eslint-plugin-no-lookahead-lookbehind-regexp@npm:^0.1.0":
   version: 0.1.0
