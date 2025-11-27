@@ -207,10 +207,11 @@ def get_released_versions(package_name: str) -> list[Version]:
             continue
 
         # Extract the earliest upload time as the release date
-        upload_times = []
-        for dist in distributions:
-            if ut := dist.get("upload_time_iso_8601"):
-                upload_times.append(datetime.fromisoformat(ut.replace("Z", "+00:00")))
+        upload_times = [
+            datetime.fromisoformat(ut.replace("Z", "+00:00"))
+            for dist in distributions
+            if (ut := dist.get("upload_time_iso_8601"))
+        ]
 
         release_date = min(upload_times) if upload_times else None
         try:

@@ -363,19 +363,19 @@ class MlflowAutologgingQueueingClient:
                 )
             )
 
-        for metrics_batch in chunk_list(
-            pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
-        ):
-            operation_results.append(
-                self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch)
+        operation_results.extend(
+            self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch)
+            for metrics_batch in chunk_list(
+                pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
             )
+        )
 
-        for datasets_batch in chunk_list(
-            pending_operations.datasets_queue, chunk_size=MAX_DATASETS_PER_BATCH
-        ):
-            operation_results.append(
-                self._try_operation(self._client.log_inputs, run_id=run_id, datasets=datasets_batch)
+        operation_results.extend(
+            self._try_operation(self._client.log_inputs, run_id=run_id, datasets=datasets_batch)
+            for datasets_batch in chunk_list(
+                pending_operations.datasets_queue, chunk_size=MAX_DATASETS_PER_BATCH
             )
+        )
 
         if pending_operations.set_terminated:
             operation_results.append(

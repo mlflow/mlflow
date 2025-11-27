@@ -369,11 +369,10 @@ class DatabricksStore(AbstractScorerStore):
         scheduled_scorers = DatabricksStore.list_scheduled_scorers(experiment_id)
 
         # Convert to Scorer instances with registration info
-        scorers = []
-        for scheduled_scorer in scheduled_scorers:
-            scorers.append(DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer))
-
-        return scorers
+        return [
+            DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
+            for scheduled_scorer in scheduled_scorers
+        ]
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         if version is not None:

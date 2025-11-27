@@ -1776,14 +1776,14 @@ class SqlAlchemyStore(AbstractStore):
                         )
                     )
                     # add input tags to objs_to_write
-                    for input_tag in dataset_input.tags:
-                        objs_to_write.append(
-                            SqlInputTag(
-                                input_uuid=new_input_uuid,
-                                name=input_tag.key,
-                                value=input_tag.value,
-                            )
+                    objs_to_write.extend(
+                        SqlInputTag(
+                            input_uuid=new_input_uuid,
+                            name=input_tag.key,
+                            value=input_tag.value,
                         )
+                        for input_tag in dataset_input.tags
+                    )
 
             if models:
                 for model in models:
@@ -2166,11 +2166,9 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
 
-            scorers = []
-            for sql_scorer_version in sql_scorer_versions:
-                scorers.append(sql_scorer_version.to_mlflow_entity())
-
-            return scorers
+            return [
+                sql_scorer_version.to_mlflow_entity() for sql_scorer_version in sql_scorer_versions
+            ]
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
@@ -2351,11 +2349,9 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             # Convert to mlflow.entities.scorer.ScorerVersion objects
-            scorers = []
-            for sql_scorer_version in sql_scorer_versions:
-                scorers.append(sql_scorer_version.to_mlflow_entity())
-
-            return scorers
+            return [
+                sql_scorer_version.to_mlflow_entity() for sql_scorer_version in sql_scorer_versions
+            ]
 
     def _apply_order_by_search_logged_models(
         self,
@@ -4513,18 +4509,17 @@ class SqlAlchemyStore(AbstractStore):
 
             existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
 
-            new_associations = []
-            for exp_id in experiment_ids:
-                if str(exp_id) not in existing_exp_ids:
-                    new_associations.append(
-                        SqlEntityAssociation(
-                            association_id=uuid.uuid4().hex,
-                            source_id=dataset_id,
-                            source_type=EntityAssociationType.EVALUATION_DATASET,
-                            destination_id=str(exp_id),
-                            destination_type=EntityAssociationType.EXPERIMENT,
-                        )
-                    )
+            new_associations = [
+                SqlEntityAssociation(
+                    association_id=uuid.uuid4().hex,
+                    source_id=dataset_id,
+                    source_type=EntityAssociationType.EVALUATION_DATASET,
+                    destination_id=str(exp_id),
+                    destination_type=EntityAssociationType.EXPERIMENT,
+                )
+                for exp_id in experiment_ids
+                if str(exp_id) not in existing_exp_ids
+            ]
 
             if new_associations:
                 session.bulk_save_objects(new_associations)

@@ -438,15 +438,11 @@ class Linter(ast.NodeVisitor):
         return not self.stack
 
     def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
-        args: list[str] = []
-        for arg in func.args.posonlyargs:
-            args.append(arg.arg)
+        args: list[str] = [arg.arg for arg in func.args.posonlyargs]
 
-        for arg in func.args.args:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.args)
 
-        for arg in func.args.kwonlyargs:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.kwonlyargs)
 
         if func.args.vararg:
             args.append(func.args.vararg.arg)

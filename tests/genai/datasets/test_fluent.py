@@ -1318,14 +1318,13 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
         tags={"test": "large_dataset"},
     )
 
-    large_records = []
-    for i in range(150):
-        large_records.append(
-            {
-                "inputs": {"question": f"Question {i}", "index": i},
-                "expectations": {"answer": f"Answer {i}", "score": i * 0.01},
-            }
-        )
+    large_records = [
+        {
+            "inputs": {"question": f"Question {i}", "index": i},
+            "expectations": {"answer": f"Answer {i}", "score": i * 0.01},
+        }
+        for i in range(150)
+    ]
 
     dataset.merge_records(large_records)
 
@@ -1367,11 +1366,10 @@ def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
         tags={"test": "pagination_mock"},
     )
 
-    records = []
-    for i in range(75):
-        records.append(
-            {"inputs": {"question": f"Q{i}", "id": i}, "expectations": {"answer": f"A{i}"}}
-        )
+    records = [
+        {"inputs": {"question": f"Q{i}", "id": i}, "expectations": {"answer": f"A{i}"}}
+        for i in range(75)
+    ]
 
     dataset.merge_records(records)
 
