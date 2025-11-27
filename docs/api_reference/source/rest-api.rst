@@ -4894,6 +4894,24 @@ CreateLoggedModel
 | tags          | An array of :ref:`mlflowloggedmodeltag`       | LoggedModel tags.                                                             |
 +---------------+-----------------------------------------------+-------------------------------------------------------------------------------+
 
+.. _mlflowCreateWorkspace:
+
+CreateWorkspace
+---------------
+
+
+
+Create a new workspace.
+
+
++-------------+------------+---------------------------------------------------+
+| Field Name  |    Type    |                    Description                    |
++=============+============+===================================================+
+| name        | ``STRING`` | Workspace name to create. This field is required. |
++-------------+------------+---------------------------------------------------+
+| description | ``STRING`` | Optional workspace description.                   |
++-------------+------------+---------------------------------------------------+
+
 .. _mlflowDataset:
 
 Dataset
@@ -5243,6 +5261,22 @@ DeleteTracesV3
 +----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
 | request_ids          | An array of ``STRING`` | Case 2: request_ids must be specified for ID-based deletion A set of request IDs to delete                                                           |
 +----------------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+.. _mlflowDeleteWorkspace:
+
+DeleteWorkspace
+---------------
+
+
+
+Delete a workspace.
+
+
++----------------+------------+----------------------------------------------------------+
+|   Field Name   |    Type    |                       Description                        |
++================+============+==========================================================+
+| workspace_name | ``STRING`` | Name of the workspace to delete. This field is required. |
++----------------+------------+----------------------------------------------------------+
 
 .. _mlflowMetricDataPointDimensionsEntry:
 
@@ -5868,6 +5902,22 @@ GetTraceInfoV3
 +============+============+=============================================+
 | trace_id   | ``STRING`` | ID of the trace to fetch. Must be provided. |
 +------------+------------+---------------------------------------------+
+
+.. _mlflowGetWorkspace:
+
+GetWorkspace
+------------
+
+
+
+Retrieve workspace metadata.
+
+
++----------------+------------+---------------------------------------------------------+
+|   Field Name   |    Type    |                       Description                       |
++================+============+=========================================================+
+| workspace_name | ``STRING`` | Name of the workspace to fetch. This field is required. |
++----------------+------------+---------------------------------------------------------+
 
 .. _mlflowartifactsMultipartUploadCredentialHeadersEntry:
 
@@ -7445,6 +7495,70 @@ Response
 | secrets_available | ``BOOL`` | Whether the server is configured to handle secrets (encryption available) |
 +-------------------+----------+---------------------------------------------------------------------------+
 
+.. _mlflowListWorkspacesResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+------------------------------------+----------------------------------+
+| Field Name |                Type                |           Description            |
++============+====================================+==================================+
+| workspaces | An array of :ref:`mlflowworkspace` | Collection of workspace records. |
++------------+------------------------------------+----------------------------------+
+
+.. _mlflowCreateWorkspaceResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+------------------------+--------------------------------------------+
+| Field Name |          Type          |                Description                 |
++============+========================+============================================+
+| workspace  | :ref:`mlflowworkspace` | Metadata describing the created workspace. |
++------------+------------------------+--------------------------------------------+
+
+.. _mlflowGetWorkspaceResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+------------------------+----------------------------------------------+
+| Field Name |          Type          |                 Description                  |
++============+========================+==============================================+
+| workspace  | :ref:`mlflowworkspace` | Metadata describing the requested workspace. |
++------------+------------------------+----------------------------------------------+
+
+.. _mlflowUpdateWorkspaceResponse:
+
+Response
+--------
+
+
+
+
+
+
++------------+------------------------+--------------------------------------------+
+| Field Name |          Type          |                Description                 |
++============+========================+============================================+
+| workspace  | :ref:`mlflowworkspace` | Metadata describing the updated workspace. |
++------------+------------------------+--------------------------------------------+
+
 .. _mlflowRun:
 
 Run
@@ -8124,6 +8238,24 @@ A request to update an existing assessment.
 |             |                                    | required.                                                                                                                                         |
 +-------------+------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------+
 
+.. _mlflowUpdateWorkspace:
+
+UpdateWorkspace
+---------------
+
+
+
+Update workspace metadata.
+
+
++----------------+------------+----------------------------------------------------------+
+|   Field Name   |    Type    |                       Description                        |
++================+============+==========================================================+
+| workspace_name | ``STRING`` | Name of the workspace to update. This field is required. |
++----------------+------------+----------------------------------------------------------+
+| description    | ``STRING`` | Optional description update.                             |
++----------------+------------+----------------------------------------------------------+
+
 .. _mlflowUpsertDatasetRecords:
 
 UpsertDatasetRecords
@@ -8231,6 +8363,24 @@ Test webhook result
 +-----------------+------------+----------------------------------------+
 | error_message   | ``STRING`` | Error message if test failed           |
 +-----------------+------------+----------------------------------------+
+
+.. _mlflowWorkspace:
+
+Workspace
+---------
+
+
+
+Workspace metadata returned by workspace APIs.
+
+
++-------------+------------+----------------------------------------------------+
+| Field Name  |    Type    |                    Description                     |
++=============+============+====================================================+
+| name        | ``STRING`` | The unique workspace name. This field is required. |
++-------------+------------+----------------------------------------------------+
+| description | ``STRING`` | Optional workspace description.                    |
++-------------+------------+----------------------------------------------------+
 
 .. _mlflowAggregationType:
 
