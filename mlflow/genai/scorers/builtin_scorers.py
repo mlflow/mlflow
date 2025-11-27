@@ -1587,7 +1587,7 @@ class BuiltInSessionLevelScorer(BuiltInScorer):
     Session-level scorers evaluate entire conversation sessions rather than individual traces.
     """
 
-    required_columns: set[str] = {"session"}
+    required_columns: set[str] = {"trace"}
     _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
 
     @abstractmethod
