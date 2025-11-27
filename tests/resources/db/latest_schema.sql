@@ -390,7 +390,7 @@ CREATE TABLE spans (
 	status VARCHAR(50) NOT NULL,
 	start_time_unix_nano BIGINT NOT NULL,
 	end_time_unix_nano BIGINT,
-	duration_ns BIGINT GENERATED ALWAYS AS (end_time_unix_nano - start_time_unix_nano) STORED, content TEXT NOT NULL, CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id), CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE, CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) STORED,
+	duration_ns BIGINT GENERATED ALWAYS AS (end_time_unix_nano - start_time_unix_nano) STORED,
 	content TEXT NOT NULL,
 	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE,
