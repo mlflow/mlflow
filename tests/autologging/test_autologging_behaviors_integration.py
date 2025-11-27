@@ -281,7 +281,6 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
     mlflow.autolog(silent=True)
     mlflow.sklearn.autolog(silent=True, log_input_examples=True)
 
-    executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
         executions = [executor.submit(train_model) for _ in range(2)]
 
@@ -297,7 +296,6 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
 
     mlflow.sklearn.autolog(silent=False, log_input_examples=True)
 
-    executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
         executions = [executor.submit(train_model) for _ in range(100)]
 
