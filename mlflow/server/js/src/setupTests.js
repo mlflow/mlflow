@@ -93,3 +93,7 @@ beforeEach(() => {
     }
   };
 });
+
+afterAll(() => {
+  global.gc();
+});
