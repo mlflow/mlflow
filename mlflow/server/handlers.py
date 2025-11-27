@@ -4353,17 +4353,17 @@ def get_endpoints(get_handler=get_handler):
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
         + [
             (
-                _get_rest_path("/mlflow/endpoints/litellm/providers", version=3),
+                _get_ajax_path("/mlflow/endpoints/litellm/providers", version=3),
                 _list_litellm_providers,
                 ["GET"],
             ),
             (
-                _get_rest_path("/mlflow/endpoints/litellm/models", version=3),
+                _get_ajax_path("/mlflow/endpoints/litellm/models", version=3),
                 _list_litellm_models,
                 ["GET"],
             ),
             (
-                _get_rest_path("/mlflow/endpoints/litellm/provider-config", version=3),
+                _get_ajax_path("/mlflow/endpoints/litellm/provider-config", version=3),
                 _get_provider_config,
                 ["GET"],
             ),
