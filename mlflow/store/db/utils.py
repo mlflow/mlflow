@@ -249,9 +249,9 @@ def _check_sqlite_version(db_url: str) -> None:
     min_version_str = "3.31.0"
     if sqlite_version < Version(min_version_str):
         raise MlflowException(
-            f"MLflow requires SQLite version {min_version_str} or higher for SQL based "
-            f"tracking server, but found version {version_str}. Please upgrade your SQLite "
-            f"installation. See https://www.sqlite.org/download.html for download options."
+            f"MLflow requires SQLite >= {min_version_str} for SQL based "
+            f"store, but found {version_str}. Please upgrade your SQLite. "
+            f"See https://www.sqlite.org/download.html for installation options."
         )
 
 
