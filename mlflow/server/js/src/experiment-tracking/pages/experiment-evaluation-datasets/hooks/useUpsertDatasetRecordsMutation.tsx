@@ -19,7 +19,7 @@ export const useUpsertDatasetRecordsMutation = ({
   onSuccess?: () => void;
   onError?: (error: any) => void;
 }) => {
-  const { mutateAsync: upsertDatasetRecordsMutation, isLoading } = useMutation({
+  const { mutate: upsertDatasetRecordsMutation, isLoading } = useMutation({
     mutationFn: async ({ datasetId, records }: UpsertDatasetRecordsPayload) => {
       const requestBody = {
         dataset_id: datasetId,

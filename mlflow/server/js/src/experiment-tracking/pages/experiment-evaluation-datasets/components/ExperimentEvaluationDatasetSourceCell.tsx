@@ -17,19 +17,10 @@ export const SourceCell = ({
     return <span>-</span>;
   }
 
-  let source;
-  if (typeof sourceString === 'string') {
-    source = parseJSONSafe(sourceString);
-  } else {
-    source = sourceString;
-  }
+  const source = typeof sourceString === 'string' ? parseJSONSafe(sourceString) : sourceString;
 
-  if (!source) {
-    return <span>-</span>;
-  }
-
-  // Handle trace sources
-  if (source.source_type === 'TRACE' && source.source_data?.trace_id) {
+  // Handle trace sources with clickable link
+  if (source?.source_type === 'TRACE' && source.source_data?.trace_id) {
     const traceId = source.source_data.trace_id;
 
     return (
@@ -45,5 +36,6 @@ export const SourceCell = ({
     );
   }
 
+  // All other source types show as hyphen
   return <span>-</span>;
 };
