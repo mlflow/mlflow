@@ -4561,6 +4561,7 @@ __metadata:
     eslint-plugin-import: "npm:^2.26.0"
     eslint-plugin-jest: "npm:^26.5.3"
     eslint-plugin-jsx-a11y: "npm:^6.7.1"
+    eslint-plugin-mlflow: "file:./custom-eslint-rules/"
     eslint-plugin-no-lookahead-lookbehind-regexp: "npm:^0.1.0"
     eslint-plugin-no-only-tests: "npm:^2.6.0"
     eslint-plugin-node: "npm:5.2.1"
@@ -16447,6 +16448,13 @@ __metadata:
   peerDependencies:
     eslint: ^3 || ^4 || ^5 || ^6 || ^7 || ^8
   checksum: 10c0/41ad3d0c8036b36cd475685c1ad639157f403b16e8ac23c07f1dbe0226ccf8458f2805cbd5cc8e56856a5d8a356f3276e3139274d819476ccad80c41b9245502
+  languageName: node
+  linkType: hard
+
+"eslint-plugin-mlflow@file:./custom-eslint-rules/::locator=%40mlflow%2Fmlflow%40workspace%3A.":
+  version: 1.0.0
+  resolution: "eslint-plugin-mlflow@file:./custom-eslint-rules/#./custom-eslint-rules/::hash=5d0444&locator=%40mlflow%2Fmlflow%40workspace%3A."
+  checksum: 10c0/22de20601def6ffb9f24a5df622e477ead455ffd395b597ee3d2a182500836652f6a68b8110358fecd11bc2c2098f2b48096aedfd89d732811570ece026025fe
   languageName: node
   linkType: hard
 
