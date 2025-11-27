@@ -46,8 +46,7 @@ def main(questions: list[str]) -> list[str]:
         for question in questions:
             ctx = contextvars.copy_context()
             futures.append(executor.submit(ctx.run, worker, question))
-        for future in as_completed(futures):
-            results.append(future.result())
+        results.extend(future.result() for future in as_completed(futures))
     return results
 
 

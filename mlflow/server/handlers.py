@@ -2995,10 +2995,11 @@ def _search_traces_v3():
             "page_token": [_assert_string],
         },
     )
-    experiment_ids = []
-    for location in request_message.locations:
-        if location.HasField("mlflow_experiment"):
-            experiment_ids.append(location.mlflow_experiment.experiment_id)
+    experiment_ids = [
+        location.mlflow_experiment.experiment_id
+        for location in request_message.locations
+        if location.HasField("mlflow_experiment")
+    ]
 
     traces, token = _get_tracking_store().search_traces(
         locations=experiment_ids,
@@ -3130,6 +3131,24 @@ def _delete_trace_tag(request_id):
     )
     _get_tracking_store().delete_trace_tag(request_id, request_message.key)
     return _wrap_response(DeleteTraceTag.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_trace_tag_v3(trace_id):
+    """
+    A request handler for `DELETE /mlflow/traces/{trace_id}/tags` to delete tags
+    from a TraceInfo record.
+    Identical to `_delete_trace_tag`, but with request_id renamed to with trace_id.
+    """
+    request_message = _get_request_message(
+        DeleteTraceTagV3(),
+        schema={
+            "key": [_assert_string, _assert_required],
+        },
+    )
+    _get_tracking_store().delete_trace_tag(trace_id, request_message.key)
+    return _wrap_response(DeleteTraceTagV3.Response())
 
 
 @catch_mlflow_exception
@@ -4138,7 +4157,7 @@ HANDLERS = {
     DeleteTracesV3: _delete_traces,
     CalculateTraceFilterCorrelation: _calculate_trace_filter_correlation,
     SetTraceTagV3: _set_trace_tag_v3,
-    DeleteTraceTagV3: _delete_trace_tag,
+    DeleteTraceTagV3: _delete_trace_tag_v3,
     LinkTracesToRun: _link_traces_to_run,
     BatchGetTraces: _batch_get_traces,
     GetTrace: _get_trace,

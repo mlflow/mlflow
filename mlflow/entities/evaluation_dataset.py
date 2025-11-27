@@ -13,6 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
 from mlflow.telemetry.events import MergeRecordsEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 
@@ -158,13 +159,18 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             for expectation in expectation_assessments:
                 expectations[expectation.name] = expectation.value
 
+            # Preserve session metadata from the original trace
+            source_data = {"trace_id": trace.info.trace_id}
+            if session_id := trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+                source_data["session_id"] = session_id
+
             record_dict = {
                 "inputs": inputs,
                 "outputs": outputs,
                 "expectations": expectations,
                 "source": {
                     "source_type": DatasetRecordSourceType.TRACE.value,
-                    "source_data": {"trace_id": trace.info.trace_id},
+                    "source_data": source_data,
                 },
             }
             record_dicts.append(record_dict)
@@ -333,6 +339,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     "tags",
                     "source_type",
                     "source_id",
+                    "source",
                     "created_time",
                     "dataset_record_id",
                 ]
@@ -347,6 +354,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 "tags": record.tags,
                 "source_type": record.source_type,
                 "source_id": record.source_id,
+                "source": record.source,
                 "created_time": record.created_time,
                 "dataset_record_id": record.dataset_record_id,
             }

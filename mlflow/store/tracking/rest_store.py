@@ -1608,8 +1608,9 @@ class RestStore(AbstractStore):
 
                 if response_proto.records:
                     records_dicts = json.loads(response_proto.records)
-                    for record_dict in records_dicts:
-                        all_records.append(DatasetRecord.from_dict(record_dict))
+                    all_records.extend(
+                        DatasetRecord.from_dict(record_dict) for record_dict in records_dicts
+                    )
 
                 if response_proto.next_page_token:
                     current_page_token = response_proto.next_page_token
@@ -1633,8 +1634,9 @@ class RestStore(AbstractStore):
             records = []
             if response_proto.records:
                 records_dicts = json.loads(response_proto.records)
-                for record_dict in records_dicts:
-                    records.append(DatasetRecord.from_dict(record_dict))
+                records.extend(
+                    DatasetRecord.from_dict(record_dict) for record_dict in records_dicts
+                )
 
             next_page_token = response_proto.next_page_token or None
             return records, next_page_token

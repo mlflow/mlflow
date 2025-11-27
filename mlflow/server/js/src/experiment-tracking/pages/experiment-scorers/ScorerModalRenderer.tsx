@@ -29,9 +29,9 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
       componentId={`${COMPONENT_ID_PREFIX}.scorer-modal`}
       title={
         mode === SCORER_FORM_MODE.EDIT ? (
-          <FormattedMessage defaultMessage="Edit scorer" description="Title for edit scorer modal" />
+          <FormattedMessage defaultMessage="Edit judge" description="Title for edit judge modal" />
         ) : (
-          <FormattedMessage defaultMessage="Create scorer" description="Title for new scorer modal" />
+          <FormattedMessage defaultMessage="Create judge" description="Title for new judge modal" />
         )
       }
       visible={visible}
