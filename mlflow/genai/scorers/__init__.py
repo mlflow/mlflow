@@ -1,7 +1,12 @@
 from typing import TYPE_CHECKING
 
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, scorer
-from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorers
+from mlflow.genai.scorers.registry import (
+    delete_scorer,
+    get_scorer,
+    list_builtin_scorers,
+    list_scorers,
+)
 
 # NB: We use lazy imports for builtin_scorers to avoid a circular dependency issue.
 #
@@ -101,6 +106,7 @@ __all__ = [
     "ScorerSamplingConfig",
     "get_all_scorers",
     "get_scorer",
+    "list_builtin_scorers",
     "list_scorers",
     "delete_scorer",
 ]
