@@ -607,32 +607,30 @@ def test_list_builtin_scorers_short_flag(runner):
     assert "Scorer Name" in result.output
 
 
-def test_list_builtin_scorers_filters_databricks_scorers(runner):
-    result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
-    assert result.exit_code == 0
+@pytest.mark.parametrize("is_databricks", [False, True])
+def test_list_builtin_scorers_shows_all_available_scorers(runner, is_databricks):
+    mock_path = "mlflow.genai.scorers.builtin_scorers.is_databricks_uri"
 
-    data = json.loads(result.output)
-    scorer_names = [s["name"] for s in data["scorers"]]
-
-    # These Databricks-only scorers should NOT be present (OSS environment)
-    assert "safety" not in scorer_names
-    assert "retrieval_relevance" not in scorer_names
-
-
-def test_list_builtin_scorers_includes_databricks_scorers_on_databricks(runner):
-    # Mock is_databricks_uri where get_all_scorers() imports it from
-    with patch(
-        "mlflow.genai.scorers.builtin_scorers.is_databricks_uri", return_value=True
-    ) as mock_is_databricks:
+    with patch(mock_path, return_value=is_databricks) as mock_is_databricks:
         result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
         assert result.exit_code == 0
 
-        data = json.loads(result.output)
-        scorer_names = [s["name"] for s in data["scorers"]]
+        # Get expected scorers from get_all_scorers() with same environment
+        from mlflow.genai.scorers import get_all_scorers
 
-        # These Databricks-only scorers SHOULD be present
-        assert "safety" in scorer_names
-        assert "retrieval_relevance" in scorer_names
+        expected_scorers = get_all_scorers()
+        expected_names = {scorer.name for scorer in expected_scorers}
+
+        # Get actual scorers from CLI output
+        data = json.loads(result.output)
+        actual_names = {s["name"] for s in data["scorers"]}
+
+        # Verify all expected scorers are present in output
+        assert actual_names == expected_names, (
+            f"Mismatch in scorer names (is_databricks={is_databricks}). "
+            f"Missing: {expected_names - actual_names}, "
+            f"Extra: {actual_names - expected_names}"
+        )
 
         # Verify mock was called
         mock_is_databricks.assert_called()
