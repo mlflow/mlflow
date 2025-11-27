@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Any
 
@@ -8,9 +9,16 @@ from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
+_logger = logging.getLogger(__name__)
+
 # Constants for OpenTelemetry integration
 MLFLOW_EXPERIMENT_ID_HEADER = "x-mlflow-experiment-id"
 OTLP_TRACES_PATH = "/v1/traces"
+
+# Schema types for OTLP export
+SCHEMA_DEFAULT = "default"
+SCHEMA_GENAI = "genai"
+SUPPORTED_SCHEMAS = {SCHEMA_DEFAULT, SCHEMA_GENAI}
 
 
 def should_use_otlp_exporter() -> bool:
@@ -32,6 +40,14 @@ def should_export_otlp_metrics() -> bool:
 def get_otlp_exporter() -> SpanExporter:
     """
     Get the OTLP exporter based on the configured protocol.
+
+    If OTEL_EXPORTER_OTLP_TRACES_SCHEMA is set to "genai", the exporter
+    will be wrapped to convert span attributes to OpenTelemetry GenAI
+    semantic conventions before export.
+
+    Returns:
+        SpanExporter configured for the specified protocol, optionally
+        wrapped with GenAI schema conversion.
     """
     endpoint = _get_otlp_endpoint()
     protocol = _get_otlp_protocol()
@@ -45,7 +61,7 @@ def get_otlp_exporter() -> SpanExporter:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
 
-        return OTLPSpanExporter(endpoint=endpoint)
+        base_exporter = OTLPSpanExporter(endpoint=endpoint)
     elif protocol == "http/protobuf":
         try:
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -56,12 +72,52 @@ def get_otlp_exporter() -> SpanExporter:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             ) from e
 
-        return OTLPSpanExporter(endpoint=endpoint)
+        base_exporter = OTLPSpanExporter(endpoint=endpoint)
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unsupported OTLP protocol '{protocol}' is configured. Please set "
             "the protocol to either 'grpc' or 'http/protobuf'."
         )
+
+    # Wrap with GenAI schema exporter if configured
+    schema = _get_otlp_traces_schema()
+    if schema == SCHEMA_GENAI:
+        from mlflow.tracing.export.genai_schema_exporter import GenAISchemaSpanExporter
+
+        _logger.info(
+            f"OTEL_EXPORTER_OTLP_TRACES_SCHEMA is set to '{SCHEMA_GENAI}'. "
+            "Span attributes will be converted to OpenTelemetry GenAI semantic conventions."
+        )
+        return GenAISchemaSpanExporter(base_exporter)
+
+    return base_exporter
+
+
+def _get_otlp_traces_schema(default_value: str = SCHEMA_DEFAULT) -> str:
+    """
+    Get the OTLP traces schema from environment variables.
+
+    The schema determines how span attributes are formatted before export.
+    Supported values:
+    - "default": Export attributes as-is (MLflow format)
+    - "genai": Convert attributes to OpenTelemetry GenAI semantic conventions
+
+    Args:
+        default_value: The default schema to use if no environment variable is set.
+
+    Returns:
+        The schema string, defaulting to "default" if not set or invalid.
+    """
+    schema = os.environ.get("OTEL_EXPORTER_OTLP_TRACES_SCHEMA", default_value).lower()
+
+    if schema not in SUPPORTED_SCHEMAS:
+        _logger.warning(
+            f"Unsupported OTEL_EXPORTER_OTLP_TRACES_SCHEMA value '{schema}'. "
+            f"Supported values are: {SUPPORTED_SCHEMAS}. Using default behavior."
+        )
+        return SCHEMA_DEFAULT
+
+    return schema
 
 
 def _get_otlp_endpoint() -> str | None:
