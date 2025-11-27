@@ -483,7 +483,7 @@ class SageMakerBackend(BaseBackend):
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
         """
         summaries = []
-        for _, endpoint in self.endpoints.items():
+        for endpoint in self.endpoints.values():
             summary = EndpointSummary(endpoint=endpoint.resource, arn=endpoint.arn)
             summaries.append(summary)
         return summaries
@@ -495,7 +495,7 @@ class SageMakerBackend(BaseBackend):
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
         """
         summaries = []
-        for _, endpoint_config in self.endpoint_configs.items():
+        for endpoint_config in self.endpoint_configs.values():
             summary = EndpointConfigSummary(
                 config=endpoint_config.resource, arn=endpoint_config.arn
             )
@@ -509,7 +509,7 @@ class SageMakerBackend(BaseBackend):
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
         """
         summaries = []
-        for _, model in self.models.items():
+        for model in self.models.values():
             summary = ModelSummary(model=model.resource, arn=model.arn)
             summaries.append(summary)
         return summaries
@@ -662,7 +662,7 @@ class SageMakerBackend(BaseBackend):
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTransformJobs.html.
         """
         summaries = []
-        for _, transform_job in self.transform_jobs.items():
+        for transform_job in self.transform_jobs.values():
             summary = TransformJobSummary(
                 transform_job=transform_job.resource, arn=transform_job.arn
             )
