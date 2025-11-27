@@ -20,77 +20,55 @@ from mlflow.prompt.constants import (
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
 
+_logger = logging.getLogger(__name__)
+
 
 def model_version_to_prompt_version(
     model_version: ModelVersion, prompt_tags: dict[str, str] | None = None
-):
+) -> PromptVersion:
     """
-    Convert ModelVersion → PromptVersion.
-    Fully supports Dummy objects used in tests (no .name, no .tags).
+    Create a PromptVersion object from a ModelVersion object.
+
+    Args:
+        model_version: The ModelVersion object to convert to a PromptVersion.
+        prompt_tags: The prompt-level tags. Optional.
+
+    Returns:
+        PromptVersion: The converted PromptVersion object.
     """
-    prompt_tags = prompt_tags or {}
-
-    # 1) Ensure model_version.tags exists
-    if not hasattr(model_version, "tags") or not isinstance(getattr(model_version, "tags"), dict):
-        setattr(model_version, "tags", {})
-
-    # promote to dict
-    model_version.tags = dict(model_version.tags)
-
-    # 2) Merge prompt_tags (prompt-level)
-    model_version.tags.update(prompt_tags)
-
-    # 3) Recover template and type directly from model_version.__dict__
-    # register_prompt() stored template in kwargs, so reconstruction is possible
-    template = getattr(model_version, "template", None)
-    prompt_type = getattr(model_version, "prompt_type", None)
-
-    if template is not None:
-        model_version.tags[PROMPT_TEXT_TAG_KEY] = template
-
-    if prompt_type is not None:
-        model_version.tags[PROMPT_TYPE_TAG_KEY] = prompt_type
-
-    # 4) name fix
-    mv_name = getattr(model_version, "name", "<unknown>")
-
-    # 5) validation
     if IS_PROMPT_TAG_KEY not in model_version.tags:
         raise MlflowException.invalid_parameter_value(
-            f"Name `{mv_name}` is registered as a model, not a prompt."
+            f"Name `{model_version.name}` is registered as a model, not a prompt. MLflow "
+            "does not allow registering a prompt with the same name as an existing model.",
         )
 
     if PROMPT_TEXT_TAG_KEY not in model_version.tags:
         raise MlflowException.invalid_parameter_value(
-            f"Prompt `{mv_name}` does not contain a prompt text"
+            f"Prompt `{model_version.name}` does not contain a prompt text"
         )
 
-    # 6) restore template properly
     if model_version.tags.get(PROMPT_TYPE_TAG_KEY) == PROMPT_TYPE_CHAT:
-        restored_template = json.loads(model_version.tags[PROMPT_TEXT_TAG_KEY])
+        template = json.loads(model_version.tags[PROMPT_TEXT_TAG_KEY])
     else:
-        restored_template = model_version.tags[PROMPT_TEXT_TAG_KEY]
+        template = model_version.tags[PROMPT_TEXT_TAG_KEY]
 
-    # 7) response format
     if RESPONSE_FORMAT_TAG_KEY in model_version.tags:
         response_format = json.loads(model_version.tags[RESPONSE_FORMAT_TAG_KEY])
     else:
         response_format = None
 
-    # 8) return object
     return PromptVersion(
-        name=mv_name,
-        version=int(getattr(model_version, "version", 1)),
-        template=restored_template,
-        commit_message=getattr(model_version, "description", None),
-        creation_timestamp=getattr(model_version, "creation_timestamp", None),
+        name=model_version.name,
+        version=int(model_version.version),
+        template=template,
+        commit_message=model_version.description,
+        creation_timestamp=model_version.creation_timestamp,
         tags=model_version.tags,
-        aliases=getattr(model_version, "aliases", []),
-        last_updated_timestamp=getattr(model_version, "last_updated_timestamp", None),
-        user_id=getattr(model_version, "user_id", None),
+        aliases=model_version.aliases,
+        last_updated_timestamp=model_version.last_updated_timestamp,
+        user_id=model_version.user_id,
         response_format=response_format,
     )
-
 
 
 def add_prompt_filter_string(filter_string: str | None, is_prompt: bool = False) -> str | None:

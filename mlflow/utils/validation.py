@@ -112,7 +112,9 @@ def invalid_value(path, value, message=None):
     formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
 
     if message:
-        return f"Invalid value {formattedValue} for parameter '{path}' supplied: {message}"
+        return (
+            f"Invalid value {formattedValue} for parameter '{path}' supplied: {message}"
+        )
     else:
         return f"Invalid value {formattedValue} for parameter '{path}' supplied."
 
@@ -169,14 +171,21 @@ def bad_character_message():
 
 def path_not_unique(name):
     norm = posixpath.normpath(name)
-    return norm != str(name) or norm == "." or norm.startswith("..") or norm.startswith("/")
+    return (
+        norm != str(name)
+        or norm == "."
+        or norm.startswith("..")
+        or norm.startswith("/")
+    )
 
 
 def _validate_metric_name(name, path="name"):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
     if name is None:
         raise MlflowException(
-            invalid_value(path, name, f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}"),
+            invalid_value(
+                path, name, f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}"
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not validate_param_and_metric_name(name):
@@ -259,7 +268,9 @@ def _validate_param(key, value, path=""):
     _validate_param_name(key, append_to_json_path(path, "key"))
     return Param(
         _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key),
-        _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value, truncate=True),
+        _validate_length_limit(
+            "Param value", MAX_PARAM_VAL_LENGTH, value, truncate=True
+        ),
     )
 
 
@@ -269,7 +280,9 @@ def _validate_tag(key, value, path=""):
     """
     _validate_tag_name(key, append_to_json_path(path, "key"))
     return RunTag(
-        _validate_length_limit(append_to_json_path(path, "key"), MAX_ENTITY_KEY_LENGTH, key),
+        _validate_length_limit(
+            append_to_json_path(path, "key"), MAX_ENTITY_KEY_LENGTH, key
+        ),
         _validate_length_limit(
             append_to_json_path(path, "value"), MAX_TAG_VAL_LENGTH, value, truncate=True
         ),
@@ -391,7 +404,9 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
 def _validate_run_id(run_id, path="run_id"):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
     if _RUN_ID_REGEX.match(run_id) is None:
-        raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE
+        )
 
 
 def _validate_experiment_id(exp_id):
@@ -414,9 +429,15 @@ def _validate_batch_limit(entity_name, limit, length):
 
 def _validate_batch_log_limits(metrics, params, tags):
     """Validate that the provided batched logging arguments are within expected limits."""
-    _validate_batch_limit(entity_name="metrics", limit=MAX_METRICS_PER_BATCH, length=len(metrics))
-    _validate_batch_limit(entity_name="params", limit=MAX_PARAMS_TAGS_PER_BATCH, length=len(params))
-    _validate_batch_limit(entity_name="tags", limit=MAX_PARAMS_TAGS_PER_BATCH, length=len(tags))
+    _validate_batch_limit(
+        entity_name="metrics", limit=MAX_METRICS_PER_BATCH, length=len(metrics)
+    )
+    _validate_batch_limit(
+        entity_name="params", limit=MAX_PARAMS_TAGS_PER_BATCH, length=len(params)
+    )
+    _validate_batch_limit(
+        entity_name="tags", limit=MAX_PARAMS_TAGS_PER_BATCH, length=len(tags)
+    )
     total_length = len(metrics) + len(params) + len(tags)
     _validate_batch_limit(
         entity_name="metrics, params, and tags",
@@ -428,11 +449,19 @@ def _validate_batch_log_limits(metrics, params, tags):
 def _validate_batch_log_data(metrics, params, tags):
     for index, metric in enumerate(metrics):
         path = f"metrics[{index}]"
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
+        _validate_metric(
+            metric.key, metric.value, metric.timestamp, metric.step, path=path
+        )
     return (
         metrics,
-        [_validate_param(p.key, p.value, path=f"params[{idx}]") for (idx, p) in enumerate(params)],
-        [_validate_tag(t.key, t.value, path=f"tags[{idx}]") for (idx, t) in enumerate(tags)],
+        [
+            _validate_param(p.key, p.value, path=f"params[{idx}]")
+            for (idx, p) in enumerate(params)
+        ],
+        [
+            _validate_tag(t.key, t.value, path=f"tags[{idx}]")
+            for (idx, t) in enumerate(tags)
+        ],
     )
 
 
@@ -478,7 +507,9 @@ def _validate_experiment_id_type(experiment_id):
         )
 
 
-def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = False) -> None:
+def _validate_list_param(
+    param_name: str, param_value: Any, allow_none: bool = False
+) -> None:
     """
     Validate that a parameter is a list and raise a helpful error if it isn't.
 
@@ -507,7 +538,9 @@ def _validate_model_name(model_name):
 
 def _validate_model_renaming(model_new_name):
     if model_new_name is None or model_new_name == "":
-        raise MlflowException(missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE
+        )
 
 
 def _validate_model_version(model_version):
@@ -515,7 +548,8 @@ def _validate_model_version(model_version):
         model_version = int(model_version)
     except ValueError:
         raise MlflowException(
-            not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
+            not_integer_value("version", model_version),
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
 
@@ -571,7 +605,9 @@ def _validate_db_type_string(db_type):
 
 def _validate_model_version_or_stage_exists(version, stage):
     if version and stage:
-        raise MlflowException("version and stage cannot be set together", INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            "version and stage cannot be set together", INVALID_PARAMETER_VALUE
+        )
 
     if not (version or stage):
         raise MlflowException("version or stage must be set", INVALID_PARAMETER_VALUE)
@@ -596,7 +632,9 @@ def _validate_dataset(dataset: Dataset):
     if dataset.digest is None:
         raise MlflowException("Dataset digest cannot be None", INVALID_PARAMETER_VALUE)
     if dataset.source_type is None:
-        raise MlflowException("Dataset source_type cannot be None", INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            "Dataset source_type cannot be None", INVALID_PARAMETER_VALUE
+        )
     if dataset.source is None:
         raise MlflowException("Dataset source cannot be None", INVALID_PARAMETER_VALUE)
     if len(dataset.name) > MAX_DATASET_NAME_SIZE:
@@ -665,7 +703,9 @@ def _validate_password(password) -> None:
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
     key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
-    value = _validate_length_limit("value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True)
+    value = _validate_length_limit(
+        "value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True
+    )
     return key, value
 
 
@@ -729,7 +769,9 @@ def _validate_webhook_url(url: str) -> None:
     try:
         parsed_url = urllib.parse.urlparse(url)
     except ValueError as e:
-        raise MlflowException.invalid_parameter_value(f"Invalid webhook URL {url!r}: {e!r}") from e
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid webhook URL {url!r}: {e!r}"
+        ) from e
     schemes = _MLFLOW_WEBHOOK_ALLOWED_SCHEMES.get()
     if parsed_url.scheme not in schemes:
         raise MlflowException.invalid_parameter_value(
@@ -762,7 +804,9 @@ def _resolve_experiment_ids_and_locations(
     if not locations:
         return locations
 
-    if invalid_experiment_ids := [location for location in locations if "." in location]:
+    if invalid_experiment_ids := [
+        location for location in locations if "." in location
+    ]:
         invalid_exp_ids_str = ", ".join(invalid_experiment_ids)
         if len(invalid_exp_ids_str) > 20:
             invalid_exp_ids_str = invalid_exp_ids_str[:20] + "..."
@@ -771,8 +815,4 @@ def _resolve_experiment_ids_and_locations(
             f"Found invalid experiment IDs: {invalid_exp_ids_str}."
         )
 
-<<<<<<< HEAD
     return locations
-=======
-    return locations
->>>>>>> ce04d7fc5 (Fix: ensure mlflow.prompt.type is stored and restored correctly for Jinja2 prompts)
