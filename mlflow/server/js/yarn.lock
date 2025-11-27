@@ -4561,7 +4561,7 @@ __metadata:
     eslint-plugin-import: "npm:^2.26.0"
     eslint-plugin-jest: "npm:^26.5.3"
     eslint-plugin-jsx-a11y: "npm:^6.7.1"
-    eslint-plugin-mlflow: "portal:./custom-eslint-rules/"
+    eslint-plugin-mlflow: "link:./custom-eslint-rules/"
     eslint-plugin-no-lookahead-lookbehind-regexp: "npm:^0.1.0"
     eslint-plugin-no-only-tests: "npm:^2.6.0"
     eslint-plugin-node: "npm:5.2.1"
@@ -16451,9 +16451,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-plugin-mlflow@portal:./custom-eslint-rules/::locator=%40mlflow%2Fmlflow%40workspace%3A.":
+"eslint-plugin-mlflow@link:./custom-eslint-rules/::locator=%40mlflow%2Fmlflow%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "eslint-plugin-mlflow@portal:./custom-eslint-rules/::locator=%40mlflow%2Fmlflow%40workspace%3A."
+  resolution: "eslint-plugin-mlflow@link:./custom-eslint-rules/::locator=%40mlflow%2Fmlflow%40workspace%3A."
   languageName: node
   linkType: soft
 
