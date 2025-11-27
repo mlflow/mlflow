@@ -2995,10 +2995,11 @@ def _search_traces_v3():
             "page_token": [_assert_string],
         },
     )
-    experiment_ids = []
-    for location in request_message.locations:
-        if location.HasField("mlflow_experiment"):
-            experiment_ids.append(location.mlflow_experiment.experiment_id)
+    experiment_ids = [
+        location.mlflow_experiment.experiment_id
+        for location in request_message.locations
+        if location.HasField("mlflow_experiment")
+    ]
 
     traces, token = _get_tracking_store().search_traces(
         locations=experiment_ids,

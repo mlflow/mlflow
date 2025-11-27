@@ -8980,15 +8980,14 @@ def test_dataset_records_pagination(store):
         name="pagination_test_dataset", experiment_ids=[exp_id], tags={"test": "pagination"}
     )
 
-    records = []
-    for i in range(25):
-        records.append(
-            {
-                "inputs": {"id": i, "question": f"Question {i}"},
-                "expectations": {"answer": f"Answer {i}"},
-                "tags": {"index": str(i)},
-            }
-        )
+    records = [
+        {
+            "inputs": {"id": i, "question": f"Question {i}"},
+            "expectations": {"answer": f"Answer {i}"},
+            "tags": {"index": str(i)},
+        }
+        for i in range(25)
+    ]
 
     store.upsert_dataset_records(dataset.dataset_id, records)
 
