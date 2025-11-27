@@ -95,5 +95,5 @@ beforeEach(() => {
 });
 
 afterAll(() => {
-  global.gc();
+  jest.restoreAllMocks();
 });

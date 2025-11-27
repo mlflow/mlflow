@@ -5,7 +5,7 @@
     "start": "craco start",
     "storybook": "start-storybook -p 6006 -s public",
     "build-storybook": "build-storybook -s public",
-    "test": "NODE_OPTIONS=\"--expose-gc\" craco --max_old_space_size=8192 test --env=jsdom --colors --watchAll=false --logHeapUsage --silent",
+    "test": "NODE_OPTIONS=\"--expose-gc\" craco --max_old_space_size=8192 test --env=jsdom --colors --watchAll=false --silent",
     "test:watch": "yarn test --watch",
     "test:ci": "CI=true craco test --env=jsdom --colors --forceExit --ci --coverage",
     "lint": "eslint --ext js,jsx,ts,tsx src",
