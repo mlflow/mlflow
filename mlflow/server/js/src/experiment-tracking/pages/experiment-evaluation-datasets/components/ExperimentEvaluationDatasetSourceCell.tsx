@@ -13,11 +13,7 @@ export const SourceCell = ({
   const sourceString = cell.getValue();
   const onOpenTraceModal = (table.options.meta as any)?.onOpenTraceModal;
 
-  if (!sourceString) {
-    return <span>-</span>;
-  }
-
-  const source = typeof sourceString === 'string' ? parseJSONSafe(sourceString) : sourceString;
+  const source = sourceString && (typeof sourceString === 'string' ? parseJSONSafe(sourceString) : sourceString);
 
   // Handle trace sources with clickable link
   if (source?.source_type === 'TRACE' && source.source_data?.trace_id) {
