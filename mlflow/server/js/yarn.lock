@@ -16453,8 +16453,8 @@ __metadata:
 
 "eslint-plugin-mlflow@file:./custom-eslint-rules/::locator=%40mlflow%2Fmlflow%40workspace%3A.":
   version: 1.0.0
-  resolution: "eslint-plugin-mlflow@file:./custom-eslint-rules/#./custom-eslint-rules/::hash=5d0444&locator=%40mlflow%2Fmlflow%40workspace%3A."
-  checksum: 10c0/22de20601def6ffb9f24a5df622e477ead455ffd395b597ee3d2a182500836652f6a68b8110358fecd11bc2c2098f2b48096aedfd89d732811570ece026025fe
+  resolution: "eslint-plugin-mlflow@file:./custom-eslint-rules/#./custom-eslint-rules/::hash=d9cb47&locator=%40mlflow%2Fmlflow%40workspace%3A."
+  checksum: 10c0/7c8fd42d0b51788b404e7fbf4898ae663d8089b0d03e6f3bd8b2c86b0be129a7be8f40d26e603d5e4d6c9958c96ceb78761ed9bf2c0ea62461a195b7141aaed3
   languageName: node
   linkType: hard
 
