@@ -112,14 +112,12 @@ def test_get_webhook_not_found(store: RestStore):
 
 def test_list_webhooks(store: RestStore):
     # Create more webhooks than max_results
-    [
+    for i in range(5):
         store.create_webhook(
             name=f"webhook{i}",
             url=f"https://example.com/{i}",
             events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
         )
-        for i in range(5)
-    ]
     # Test pagination with max_results=2
     webhooks_page = store.list_webhooks(max_results=2)
     assert len(webhooks_page) == 2
