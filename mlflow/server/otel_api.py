@@ -41,7 +41,8 @@ otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 async def export_traces(
     request: Request,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
-    content_type: str = Header(None),
+    content_type: str | None = Header(default=None),
+    content_encoding: str | None = Header(default=None),
     user_agent: str | None = Header(None, alias=_USER_AGENT),
 ) -> Response:
     """
@@ -54,6 +55,7 @@ async def export_traces(
         request: OTel ExportTraceServiceRequest in protobuf format
         x_mlflow_experiment_id: Required header containing the experiment ID
         content_type: Content-Type header from the request
+        content_encoding: Content-Encoding header from the request
         user_agent: User-Agent header (used to identify MLflow Python client)
 
     Returns:
@@ -70,9 +72,9 @@ async def export_traces(
         )
 
     # Read & decompress request body
-    raw_body = await request.body()
-    content_encoding = request.headers.get("Content-Encoding", "identity").lower()
-    body = decompress_otlp_body(raw_body, content_encoding)
+    body = await request.body()
+    if content_encoding:
+        body = decompress_otlp_body(body, content_encoding.lower())
 
     # Parse protobuf payload
     parsed_request = ExportTraceServiceRequest()

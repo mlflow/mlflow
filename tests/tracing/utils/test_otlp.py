@@ -250,12 +250,11 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
 @pytest.mark.parametrize(
     ("encoding", "compress_fn", "data"),
     [
-        ("identity", lambda d: d, b"hello"),
         ("gzip", gzip.compress, b"otlp-data-test"),
         ("deflate", zlib.compress, b"otlp-deflate-data"),
         ("deflate", lambda d: zlib.compress(d)[2:-4], b"raw-deflate-data"),  # Raw deflate
     ],
-    ids=["identity", "gzip", "deflate-rfc", "deflate-raw"],
+    ids=["gzip", "deflate-rfc", "deflate-raw"],
 )
 def test_decompress_otlp_body_valid(
     encoding: str, compress_fn: Callable[[bytes], bytes], data: bytes

@@ -190,7 +190,6 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
     Decompress OTLP request body according to Content-Encoding.
 
     Supported encodings:
-    - identity (no compression)
     - gzip
     - deflate (RFC-compliant and raw deflate)
 
@@ -199,9 +198,6 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
     from fastapi import HTTPException, status
 
     match content_encoding:
-        case "identity":
-            return raw_body
-
         case "gzip":
             try:
                 return gzip.decompress(raw_body)
@@ -223,7 +219,6 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Failed to decompress deflate payload",
                     )
-
         case _:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -828,7 +828,7 @@ def _build_valid_otlp_request() -> str:
     return request.SerializeToString()
 
 
-def test_otlp_traces_identity_no_compression(mlflow_server: str):
+def test_otlp_traces_no_compression(mlflow_server: str):
     mlflow.set_tracking_uri(mlflow_server)
     experiment = mlflow.set_experiment("otel-identity-test")
     experiment_id = experiment.experiment_id
@@ -840,8 +840,8 @@ def test_otlp_traces_identity_no_compression(mlflow_server: str):
         data=data,
         headers={
             "Content-Type": "application/x-protobuf",
+            # No Content-Encoding -> no compression
             MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
-            # Collector compression=none → this header is omitted
         },
         timeout=10,
     )
