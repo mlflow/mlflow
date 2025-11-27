@@ -76,28 +76,29 @@ def upgrade():
         conn = op.get_bind()
 
         # 1. Create new table with updated FK constraint (ON DELETE CASCADE)
-        # fmt: off
-        conn.execute(sa.text(
-            "CREATE TABLE _alembic_tmp_spans ("
-            "trace_id VARCHAR(50) NOT NULL, "
-            "experiment_id INTEGER NOT NULL, "
-            "span_id VARCHAR(50) NOT NULL, "
-            "parent_span_id VARCHAR(50), "
-            "name TEXT, "
-            "type VARCHAR(500), "
-            "status VARCHAR(50) NOT NULL, "
-            "start_time_unix_nano BIGINT NOT NULL, "
-            "end_time_unix_nano BIGINT, "
-            "duration_ns BIGINT GENERATED ALWAYS AS "
-            "(end_time_unix_nano - start_time_unix_nano) STORED, "
-            "content TEXT NOT NULL, "
-            "CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id), "
-            "CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) "
-            "REFERENCES trace_info (request_id) ON DELETE CASCADE, "
-            "CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) "
-            "REFERENCES experiments (experiment_id) ON DELETE CASCADE)"
-        ))
-        # fmt: on
+        conn.execute(
+            sa.text(
+                "CREATE TABLE _alembic_tmp_spans (\n"
+                "    trace_id VARCHAR(50) NOT NULL,\n"
+                "    experiment_id INTEGER NOT NULL,\n"
+                "    span_id VARCHAR(50) NOT NULL,\n"
+                "    parent_span_id VARCHAR(50),\n"
+                "    name TEXT,\n"
+                "    type VARCHAR(500),\n"
+                "    status VARCHAR(50) NOT NULL,\n"
+                "    start_time_unix_nano BIGINT NOT NULL,\n"
+                "    end_time_unix_nano BIGINT,\n"
+                "    duration_ns BIGINT GENERATED ALWAYS AS "
+                "(end_time_unix_nano - start_time_unix_nano) STORED,\n"
+                "    content TEXT NOT NULL,\n"
+                "    CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),\n"
+                "    CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) "
+                "REFERENCES trace_info (request_id) ON DELETE CASCADE,\n"
+                "    CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) "
+                "REFERENCES experiments (experiment_id) ON DELETE CASCADE\n"
+                ")"
+            )
+        )
 
         # 2. Copy data (excluding computed column - it will be auto-calculated)
         conn.execute(

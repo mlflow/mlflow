@@ -242,7 +242,7 @@ CREATE TABLE trace_info (
 	request_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	response_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
-	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -301,7 +301,7 @@ CREATE TABLE logged_model_metrics (
 	dataset_name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	dataset_digest VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT logged_model_metrics_pk PRIMARY KEY (model_id, metric_name, metric_timestamp_ms, metric_step, run_id),
-	CONSTRAINT fk_logged_model_metrics_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_logged_model_metrics_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
 	CONSTRAINT fk_logged_model_metrics_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE,
 	CONSTRAINT fk_logged_model_metrics_run_id FOREIGN KEY(run_id) REFERENCES runs (run_uuid) ON DELETE CASCADE
 )
@@ -313,7 +313,7 @@ CREATE TABLE logged_model_params (
 	param_key VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	param_value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT logged_model_params_pk PRIMARY KEY (model_id, param_key),
-	CONSTRAINT fk_logged_model_params_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_logged_model_params_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
 	CONSTRAINT fk_logged_model_params_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
 )
 
@@ -324,7 +324,7 @@ CREATE TABLE logged_model_tags (
 	tag_key VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	tag_value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT logged_model_tags_pk PRIMARY KEY (model_id, tag_key),
-	CONSTRAINT fk_logged_model_tags_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_logged_model_tags_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
 	CONSTRAINT fk_logged_model_tags_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
 )
 
@@ -383,7 +383,7 @@ CREATE TABLE spans (
 	duration_ns BIGINT GENERATED ALWAYS AS (([end_time_unix_nano]-[start_time_unix_nano])) STORED,
 	content VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
-	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
