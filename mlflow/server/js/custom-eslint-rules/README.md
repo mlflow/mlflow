@@ -55,6 +55,10 @@ module.exports = {
 };
 ```
 
+4. Run `yarn install` from `mlflow/server/js` to make sure the new rules are loaded
+
+5. Run `yarn lint` from `mlflow/server/js` to make sure the new rule works as intended
+
 ## Testing Custom Rules
 
 Run `yarn test` to run all tests in the directory. We currently use ESlint's `RuleTester` util to
