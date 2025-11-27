@@ -377,6 +377,10 @@ const config: Config = {
             from: ['/llms/llm-tracking', '/tracing', '/llms/tracing', '/tracing/api/how-to'],
           },
           {
+            to: '/genai/tracing/python-openai',
+            from: ['/genai/tracing/quickstart'],
+          },
+          {
             to: '/genai/tracing/faq',
             from: ['/tracing/faq'],
           },
