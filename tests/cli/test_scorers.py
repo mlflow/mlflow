@@ -615,22 +615,18 @@ def test_list_builtin_scorers_shows_all_available_scorers(runner, is_databricks)
         result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
         assert result.exit_code == 0
 
-        # Get expected scorers from get_all_scorers() with same environment
         expected_scorers = get_all_scorers()
         expected_names = {scorer.name for scorer in expected_scorers}
 
-        # Get actual scorers from CLI output
         data = json.loads(result.output)
         actual_names = {s["name"] for s in data["scorers"]}
 
-        # Verify all expected scorers are present in output
         assert actual_names == expected_names, (
             f"Mismatch in scorer names (is_databricks={is_databricks}). "
             f"Missing: {expected_names - actual_names}, "
             f"Extra: {actual_names - expected_names}"
         )
 
-        # Verify mock was called
         mock_is_databricks.assert_called()
 
 
