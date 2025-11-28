@@ -5,6 +5,10 @@ on:
     workflows: [docs]
     types: [completed]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   main:
     if: github.repository == 'mlflow/mlflow' && github.event.workflow_run.conclusion == 'success'
