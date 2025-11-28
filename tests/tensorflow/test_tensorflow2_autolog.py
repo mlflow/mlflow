@@ -1102,7 +1102,7 @@ def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot
 def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
-    # tensorflow is already imported at the top as `tensorflow as tf`
+    __import__("tensorflow")
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 

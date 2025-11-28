@@ -144,7 +144,7 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
 
     # Tracer should be configured to export to OTLP
     exporter = _get_trace_exporter()
-    assert isinstance(exporter, (GrpcExporter, HttpExporter))
+    assert isinstance(exporter, GrpcExporter)
     assert exporter._endpoint == f"127.0.0.1:{port}"
 
     mlflow_traces = get_traces()

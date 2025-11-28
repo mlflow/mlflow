@@ -1351,6 +1351,8 @@ def test_functional_python_model_no_arguments(tmp_path):
 
 
 def requires_sklearn(x: list[str]) -> list[str]:
+    __import__("sklearn")
+
     return x
 
 
