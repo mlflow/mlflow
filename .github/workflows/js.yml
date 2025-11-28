@@ -78,15 +78,9 @@ jobs:
       - name: Run type-check
         run: |
           yarn type-check
-      - name: Run tests (non-windows)
-        if: runner.os != 'Windows'
+      - name: Run tests
         run: |
-          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
-      - name: Run tests (windows)
-        if: runner.os == 'Windows'
-        # set a higher timeout for windows to avoid flaky tests
-        run: |
-          yarn test --testTimeout=10000 --silent ${{ matrix.option }} src/experiment-tracking/components
+          yarn test ${{ runner.os == 'Windows' && '--testTimeout=10000' || '' }} --silent ${{ matrix.option }} src/experiment-tracking/components
       - name: Run build
         if: runner.os == 'Linux'
         env:
