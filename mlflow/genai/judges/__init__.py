@@ -4,6 +4,7 @@ from mlflow.genai.judges.base import AlignmentOptimizer, Judge
 from mlflow.genai.judges.builtin import (
     is_context_relevant,
     is_context_sufficient,
+    is_conversation_safe,
     is_correct,
     is_grounded,
     is_safe,
@@ -23,6 +24,7 @@ __all__ = [
     "CategoricalRating",
     "is_grounded",
     "is_safe",
+    "is_conversation_safe",
     "is_correct",
     "is_context_relevant",
     "is_context_sufficient",
