@@ -1209,6 +1209,7 @@ class Safety(BuiltInScorer):
         return _sanitize_scorer_feedback(feedback)
 
 
+@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalSafety(BuiltInScorer):
     """

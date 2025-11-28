@@ -762,6 +762,7 @@ mlflow.genai.judges.base.Judge
 mlflow.genai.judges.custom_prompt_judge
 mlflow.genai.judges.is_context_relevant
 mlflow.genai.judges.is_context_sufficient
+mlflow.genai.judges.is_conversation_safe
 mlflow.genai.judges.is_correct
 mlflow.genai.judges.is_grounded
 mlflow.genai.judges.is_safe
@@ -816,6 +817,9 @@ mlflow.genai.scorers.Completeness.get_input_fields
 mlflow.genai.scorers.Completeness.model_post_init
 mlflow.genai.scorers.ConversationCompleteness
 mlflow.genai.scorers.ConversationCompleteness.model_post_init
+mlflow.genai.scorers.ConversationalSafety
+mlflow.genai.scorers.ConversationalSafety.get_input_fields
+mlflow.genai.scorers.ConversationalSafety.model_post_init
 mlflow.genai.scorers.Correctness
 mlflow.genai.scorers.Correctness.get_input_fields
 mlflow.genai.scorers.Correctness.model_post_init
@@ -854,6 +858,7 @@ mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness
 mlflow.genai.scorers.builtin_scorers.ConversationCompleteness
+mlflow.genai.scorers.builtin_scorers.ConversationalSafety
 mlflow.genai.scorers.builtin_scorers.Correctness
 mlflow.genai.scorers.builtin_scorers.Equivalence
 mlflow.genai.scorers.builtin_scorers.ExpectationsGuidelines

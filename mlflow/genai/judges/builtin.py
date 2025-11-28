@@ -6,6 +6,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
+from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 _MODEL_API_DOC = {
@@ -475,6 +476,7 @@ def meets_guidelines(
     return _sanitize_feedback(feedback)
 
 
+@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def is_conversation_safe(
     *,

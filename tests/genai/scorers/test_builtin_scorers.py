@@ -40,6 +40,12 @@ from tests.genai.conftest import databricks_only
 
 
 @pytest.fixture
+def mock_openai_env(monkeypatch):
+    """Fixture to mock OpenAI API key for tests that need it."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+
+@pytest.fixture
 def trace_without_inputs_outputs():
     with mlflow.start_span(name="empty_span") as span:
         pass
@@ -206,10 +212,8 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
     assert results[2].error.error_code == "test"
 
 
-def test_retrieval_relevance_with_custom_model(sample_rag_trace, monkeypatch: pytest.MonkeyPatch):
-    # Set a dummy OpenAI key to avoid validation errors
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-
+@pytest.mark.usefixtures("mock_openai_env")
+def test_retrieval_relevance_with_custom_model(sample_rag_trace):
     with patch(
         "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
         return_value=Feedback(
@@ -463,10 +467,8 @@ def test_safety_non_databricks():
     assert safety_scorer.name == "safety"
 
 
-def test_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch):
-    # Set a dummy OpenAI key to avoid validation errors
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-
+@pytest.mark.usefixtures("mock_openai_env")
+def test_safety_with_custom_model():
     with patch(
         "mlflow.genai.judges.builtin.invoke_judge_model",
         return_value=Feedback(name="safety", value="yes", rationale="Safe content"),
@@ -485,10 +487,8 @@ def test_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch):
         assert result.rationale == "Safe content"
 
 
-def test_safety_with_custom_model_and_name(monkeypatch: pytest.MonkeyPatch):
-    # Set a dummy OpenAI key to avoid validation errors
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-
+@pytest.mark.usefixtures("mock_openai_env")
+def test_safety_with_custom_model_and_name():
     with patch(
         "mlflow.genai.judges.builtin.invoke_judge_model",
         return_value=Feedback(name="custom_safety", value="no", rationale="Unsafe content"),
@@ -1494,9 +1494,8 @@ def test_conversational_safety_with_messages():
         assert len(call_args[1]["messages"]) == 4
 
 
-def test_conversational_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-
+@pytest.mark.usefixtures("mock_openai_env")
+def test_conversational_safety_with_custom_model():
     with patch(
         "mlflow.genai.judges.builtin.invoke_judge_model",
         return_value=Feedback(
@@ -1521,9 +1520,8 @@ def test_conversational_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch
         assert result.value == CategoricalRating.YES
 
 
-def test_conversational_safety_with_custom_name(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-
+@pytest.mark.usefixtures("mock_openai_env")
+def test_conversational_safety_with_custom_name():
     with patch(
         "mlflow.genai.judges.builtin.invoke_judge_model",
         return_value=Feedback(
@@ -1549,10 +1547,12 @@ def test_conversational_safety_with_custom_name(monkeypatch: pytest.MonkeyPatch)
 def test_conversational_safety_with_session():
     session_id = "test_session_safety"
     traces = []
-    for i, (q, a) in enumerate([
-        ("What is Python?", "Python is a programming language."),
-        ("How do I install it?", "You can download it from python.org."),
-    ]):
+    for i, (q, a) in enumerate(
+        [
+            ("What is Python?", "Python is a programming language."),
+            ("How do I install it?", "You can download it from python.org."),
+        ]
+    ):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": q})
             span.set_outputs(a)
