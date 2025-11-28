@@ -32,7 +32,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        option: [--testPathPattern, --testPathIgnorePatterns]
+        # Split tests into 4 groups for faster CI:
+        # group1: experiment-tracking/components/experiment-page (~52 tests)
+        # group2: experiment-tracking/components excluding experiment-page (~122 tests)
+        # group3: shared (~65 tests)
+        # group4: everything else (~113 tests)
+        test-group:
+          - name: group1
+            args: "--testPathPattern src/experiment-tracking/components/experiment-page"
+          - name: group2
+            args: "--testPathPattern src/experiment-tracking/components --testPathIgnorePatterns src/experiment-tracking/components/experiment-page"
+          - name: group3
+            args: "--testPathPattern src/shared"
+          - name: group4
+            args: "--testPathIgnorePatterns src/experiment-tracking/components|src/shared"
         include:
           - os: ubuntu-latest
             shell: bash
@@ -80,7 +93,7 @@ jobs:
           yarn type-check
       - name: Run tests
         run: |
-          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
+          yarn test --silent ${{ matrix.test-group.args }}
       - name: Run build
         if: runner.os == 'Linux'
         env:
