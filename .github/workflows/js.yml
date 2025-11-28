@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   workflow-telemetry-action:
+    runs-on: [ubuntu-latest, windows-latest]
     permissions:
       pull-requests: write
     steps:
