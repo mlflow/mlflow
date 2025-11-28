@@ -22,7 +22,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  pull-requests: write
+
 jobs:
+  workflow-telemetry-action:
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@v2
   js:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
