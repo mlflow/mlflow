@@ -503,7 +503,6 @@ def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Tra
                 "Deleting them."
             )
             # Import MlflowClient locally to avoid issues with tracing-only SDK
-            from mlflow.tracking.client import MlflowClient
 
             MlflowClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids

@@ -563,8 +563,6 @@ def load_model(model_uri, dst_path=None):
 
 
 def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
-    from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
-
     index = load_model(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     engine_type = flavor_conf.pop(

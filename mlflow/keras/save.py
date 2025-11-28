@@ -154,8 +154,6 @@ def save_model(
             mlflow.keras.save_model(model, "./model")
     """
 
-    import keras
-
     if signature is None:
         _logger.warning("You are saving a Keras model without specifying model signature.")
     else:

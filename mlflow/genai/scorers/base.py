@@ -660,8 +660,6 @@ class Scorer(BaseModel):
                 )
         """
         from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
 
         if not is_databricks_uri(get_tracking_uri()):
             raise MlflowException(
@@ -738,8 +736,6 @@ class Scorer(BaseModel):
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
         from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
 
         if not is_databricks_uri(get_tracking_uri()):
             raise MlflowException(
@@ -797,8 +793,6 @@ class Scorer(BaseModel):
                     sampling_config=ScorerSamplingConfig(sample_rate=0.3)
                 )
         """
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
 
         if not is_databricks_uri(get_tracking_uri()):
             raise MlflowException(

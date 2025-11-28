@@ -46,8 +46,6 @@ Do not add additional new lines. Do not add any other fields."""
 
 
 def _format_args_string(grading_context_columns: list[str] | None, eval_values, indx) -> str:
-    import pandas as pd
-
     args_dict = {}
     for arg in grading_context_columns:
         if arg in eval_values:
