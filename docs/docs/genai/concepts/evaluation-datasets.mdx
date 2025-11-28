@@ -1,9 +1,9 @@
 import { APILink } from "@site/src/components/APILink";
-import ImageBox from "@site/src/components/ImageBox";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Database, ChartBar, FileText, Target, Activity, Code } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Evaluation Dataset Concepts
 
@@ -21,7 +21,7 @@ Unlike static test files, evaluation datasets are **living validation collection
 
 They can be viewed directly within the MLflow UI.
 
-<ImageBox src="/images/eval-datasets.gif" alt="Evaluation Datasets Video" />
+<video src={useBaseUrl("/images/eval-datasets.mp4")} controls loop autoPlay muted aria-label="Evaluation Datasets Video" />
 
 ## Core Components
 

@@ -36,5 +36,5 @@ python evaluate_on_multiclass_classifier.py
 python evaluate_on_regressor.py
 python evaluate_with_custom_metrics.py
 python evaluate_with_custom_metrics_comprehensive.py
-python evaluate_with_model_vaidation.py
+python evaluate_with_model_validation.py
 ```

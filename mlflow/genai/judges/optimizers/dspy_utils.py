@@ -11,7 +11,7 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.base import Judge
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL, USE_CASE_JUDGE_ALIGNMENT
 from mlflow.genai.utils.trace_utils import (
     extract_expectations_from_trace,
     extract_request_from_trace,
@@ -67,6 +67,7 @@ def _process_chat_completions(
         user_prompt=user_prompt,
         system_prompt=system_prompt,
         session_name=f"mlflow-judge-optimizer-v{VERSION}",
+        use_case=USE_CASE_JUDGE_ALIGNMENT,
     )
 
     if response.output is not None:
@@ -297,7 +298,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             example_inputs.append("expectations")
         example = dspy.Example(
             result=str(expected_result.feedback.value).lower(),
-            rationale=expected_result.rationale if expected_result.rationale else "",
+            rationale=expected_result.rationale or "",
             **example_kwargs,
         )
 

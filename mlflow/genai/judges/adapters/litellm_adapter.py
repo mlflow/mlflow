@@ -123,7 +123,7 @@ def _invoke_litellm(
     kwargs = {
         "model": litellm_model_uri,
         "messages": messages,
-        "tools": tools if tools else None,
+        "tools": tools or None,
         "tool_choice": "auto" if tools else None,
         "retry_policy": _get_litellm_retry_policy(num_retries),
         "retry_strategy": "exponential_backoff_retry",

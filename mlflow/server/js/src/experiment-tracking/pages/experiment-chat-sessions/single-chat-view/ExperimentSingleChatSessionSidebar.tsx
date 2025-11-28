@@ -2,6 +2,8 @@ import { ChainIcon, TitleSkeleton, Typography, useDesignSystemTheme } from '@dat
 import { getModelTraceId, type ModelTrace, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import type { MutableRefObject } from 'react';
 import { useCallback } from 'react';
+import { ExperimentSingleChatIcon } from './ExperimentSingleChatIcon';
+import { FormattedMessage } from 'react-intl';
 
 export const ExperimentSingleChatSessionSidebar = ({
   traces,
@@ -35,12 +37,10 @@ export const ExperimentSingleChatSessionSidebar = ({
   return (
     <div
       css={{
-        display: 'flex',
-        flexDirection: 'column',
         minHeight: 0,
         width: 200,
         borderRight: `1px solid ${theme.colors.border}`,
-        gap: theme.spacing.xs,
+        overflow: 'auto',
         paddingTop: theme.spacing.sm,
         paddingRight: theme.spacing.sm,
       }}
@@ -60,20 +60,15 @@ export const ExperimentSingleChatSessionSidebar = ({
           onMouseEnter={() => setSelectedTurnIndex(index)}
           onClick={() => scrollToTrace(trace)}
         >
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: theme.general.iconSize,
-              height: theme.general.iconSize,
-              borderRadius: theme.borders.borderRadiusSm,
-              backgroundColor: theme.colors.backgroundSecondary,
-            }}
-          >
-            <ChainIcon color="ai" />
-          </div>
-          <Typography.Text>Turn {index + 1}</Typography.Text>
+          <ExperimentSingleChatIcon displayLink={index !== traces.length - 1} />
+
+          <Typography.Text bold>
+            <FormattedMessage
+              defaultMessage="Turn {turnNumber}"
+              description="Label for a single turn within an experiment chat session"
+              values={{ turnNumber: index + 1 }}
+            />
+          </Typography.Text>
         </div>
       ))}
     </div>

@@ -1,16 +1,25 @@
-from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
+from mlflow.server.auth.entities import (
+    ExperimentPermission,
+    RegisteredModelPermission,
+    ScorerPermission,
+    User,
+)
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_SCORER_PERMISSION,
     CREATE_USER,
     DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_SCORER_PERMISSION,
     DELETE_USER,
     GET_EXPERIMENT_PERMISSION,
     GET_REGISTERED_MODEL_PERMISSION,
+    GET_SCORER_PERMISSION,
     GET_USER,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
 )
@@ -534,4 +543,115 @@ class AuthServiceClient:
             DELETE_REGISTERED_MODEL_PERMISSION,
             "DELETE",
             json={"name": name, "username": username},
+        )
+
+    def create_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str, permission: str
+    ):
+        """
+        Create a permission on a scorer for a user.
+
+        Args:
+            experiment_id: The id of the experiment containing the scorer.
+            scorer_name: The name of the scorer.
+            username: The username.
+            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
+
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist,
+                or the scorer permission already exists.
+
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.ScorerPermission` object.
+        """
+        resp = self._request(
+            CREATE_SCORER_PERMISSION,
+            "POST",
+            json={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username,
+                "permission": permission,
+            },
+        )
+        return ScorerPermission.from_json(resp["scorer_permission"])
+
+    def get_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
+        """
+        Get a scorer permission for a user.
+
+        Args:
+            experiment_id: The id of the experiment containing the scorer.
+            scorer_name: The name of the scorer.
+            username: The username.
+
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist,
+                or no permission exists for this scorer user pair.
+
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.ScorerPermission` object.
+        """
+        resp = self._request(
+            GET_SCORER_PERMISSION,
+            "GET",
+            params={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username,
+            },
+        )
+        return ScorerPermission.from_json(resp["scorer_permission"])
+
+    def update_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str, permission: str
+    ):
+        """
+        Update an existing scorer permission for a user.
+
+        Args:
+            experiment_id: The id of the experiment containing the scorer.
+            scorer_name: The name of the scorer.
+            username: The username.
+            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
+
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist,
+                or no permission exists for this scorer user pair,
+                or if the permission is invalid.
+        """
+        self._request(
+            UPDATE_SCORER_PERMISSION,
+            "PATCH",
+            json={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username,
+                "permission": permission,
+            },
+        )
+
+    def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
+        """
+        Delete an existing scorer permission for a user.
+
+        Args:
+            experiment_id: The id of the experiment containing the scorer.
+            scorer_name: The name of the scorer.
+            username: The username.
+
+        Raises:
+            mlflow.exceptions.RestException: if the user does not exist,
+                or no permission exists for this scorer user pair.
+        """
+        self._request(
+            DELETE_SCORER_PERMISSION,
+            "DELETE",
+            json={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username,
+            },
         )

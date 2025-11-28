@@ -2,13 +2,11 @@
 description: LLM evaluation involves assessing how well a model performs on a task. MLflow provides a simple API to evaluate your LLMs with popular metrics.
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
-import Link from "@docusaurus/Link";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import ImageBox from "@site/src/components/ImageBox";
 import WorkflowSteps from '@site/src/components/WorkflowSteps';
-import { Bot, Database, Target, Play, Code, Activity, MessageSquare } from 'lucide-react';
+import { Bot, Database, Target, Play } from 'lucide-react';
 
 # Migrating from Legacy LLM Evaluation
 
@@ -314,7 +312,7 @@ mlflow.genai.evaluate(
 
 To view the evaluation results, click the link in the console output, or navigate to the **Evaluations** tab in the MLflow UI.
 
-<ImageBox src="/images/mlflow-3/eval-monitor/evaluation-result-video.gif" alt="Prompt Evaluation" />
+<video src={useBaseUrl("/images/mlflow-3/eval-monitor/evaluation-result-video.mp4")} controls loop autoPlay muted aria-label="Prompt Evaluation" />
 
 ## Other Changes
 

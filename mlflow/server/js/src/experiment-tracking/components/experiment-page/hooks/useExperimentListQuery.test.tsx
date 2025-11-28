@@ -35,9 +35,7 @@ Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 });
 
-const mockSearchExperiments = MlflowService.searchExperiments as jest.MockedFunction<
-  typeof MlflowService.searchExperiments
->;
+const mockSearchExperiments = jest.mocked(MlflowService.searchExperiments);
 
 describe('useExperimentListQuery', () => {
   let queryClient: QueryClient;

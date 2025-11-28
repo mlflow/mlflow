@@ -3,6 +3,8 @@ import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { IntlProvider } from '@databricks/i18n';
+import type { Assessment, FeedbackAssessment, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { TracesServiceV4, getAssessmentValue } from '@databricks/web-shared/model-trace-explorer';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
@@ -20,13 +22,6 @@ import {
   SPAN_TYPE_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
 } from './useTableColumns';
-import {
-  Assessment,
-  getAssessmentValue,
-  TracesServiceV4,
-  type FeedbackAssessment,
-  type ModelTraceInfoV3,
-} from '@databricks/web-shared/model-trace-explorer';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import type { RunEvaluationTracesDataEntry } from '../types';
 import { shouldEnableUnifiedEvalTab, shouldUseTracesV4API } from '../utils/FeatureUtils';

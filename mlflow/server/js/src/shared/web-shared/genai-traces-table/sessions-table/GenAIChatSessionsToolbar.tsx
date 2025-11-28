@@ -1,3 +1,5 @@
+import type { RowSelectionState } from '@tanstack/react-table';
+
 import {
   ColumnsIcon,
   DialogCombobox,
@@ -7,23 +9,47 @@ import {
   DialogComboboxTrigger,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 
-import type { SessionTableColumn } from './types';
+import { GenAIChatSessionsActions } from './GenAIChatSessionsActions';
+import type { SessionTableColumn, SessionTableRow } from './types';
+import { GenAiTracesTableSearchInput } from '../GenAiTracesTableSearchInput';
+import type { TraceActions } from '../types';
 
 export const GenAIChatSessionsToolbar = ({
   columns,
   columnVisibility,
   setColumnVisibility,
+  searchQuery,
+  setSearchQuery,
+  traceActions,
+  experimentId,
+  selectedSessions,
+  setRowSelection,
 }: {
   columns: SessionTableColumn[];
   columnVisibility: Record<string, boolean>;
   setColumnVisibility: (columnVisibility: Record<string, boolean>) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  traceActions?: TraceActions;
+  experimentId: string;
+  selectedSessions: SessionTableRow[];
+  setRowSelection?: React.Dispatch<React.SetStateAction<RowSelectionState>>;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
 
   return (
     <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+      <GenAiTracesTableSearchInput
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        placeholder={intl.formatMessage({
+          defaultMessage: 'Search chat sessions by input',
+          description: 'Placeholder text for the search input in the chat sessions table',
+        })}
+      />
       <DialogCombobox
         componentId="mlflow.chat-sessions.table-column-selector"
         label={
@@ -59,6 +85,14 @@ export const GenAIChatSessionsToolbar = ({
           </DialogComboboxOptionList>
         </DialogComboboxContent>
       </DialogCombobox>
+      {traceActions && (
+        <GenAIChatSessionsActions
+          experimentId={experimentId}
+          selectedSessions={selectedSessions}
+          traceActions={traceActions}
+          setRowSelection={setRowSelection}
+        />
+      )}
     </div>
   );
 };

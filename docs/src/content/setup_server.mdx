@@ -47,41 +47,5 @@ Refer to the [instruction](https://github.com/mlflow/mlflow/tree/master/docker-c
 
 </TabItem>
 
-<TabItem value="remote" label="Remote MLflow Server">
-
-If you have a remote MLflow tracking server, configure the connection:
-
-```python
-import os
-import mlflow
-
-# Set your MLflow tracking URI
-os.environ["MLFLOW_TRACKING_URI"] = "http://your-mlflow-server:5000"
-# Or directly in code
-mlflow.set_tracking_uri("http://your-mlflow-server:5000")
-```
-
-</TabItem>
-
-<TabItem value="databricks" label="Databricks">
-
-If you have a Databricks account, configure the connection:
-
-```python
-import mlflow
-
-mlflow.login()
-```
-
-This will prompt you for your configuration details (Databricks Host url and a PAT).
-
-</TabItem>
-
 </Tabs>
 </TabsWrapper>
-
-:::tip
-
-If you are unsure about how to set up an MLflow tracking server, you can start with the cloud-based MLflow powered by Databricks: <ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
-
-:::

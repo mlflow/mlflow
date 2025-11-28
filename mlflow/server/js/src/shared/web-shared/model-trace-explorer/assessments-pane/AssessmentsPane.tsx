@@ -1,7 +1,15 @@
 import { isNil, partition, uniqBy } from 'lodash';
 import { useMemo } from 'react';
 
-import { Button, CloseIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { AssessmentCreateButton } from './AssessmentCreateButton';
@@ -69,7 +77,7 @@ export const AssessmentsPane = ({
   }, [assessments, reconstructAssessments, cachedActions]);
 
   const { theme } = useDesignSystemTheme();
-  const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+  const { setAssessmentsPaneExpanded, assessmentsPaneExpanded, isInComparisonView } = useModelTraceExplorerViewState();
   const [feedbacks, expectations] = useMemo(
     () => partition(allAssessments, (assessment) => 'feedback' in assessment),
     [allAssessments],
@@ -85,21 +93,23 @@ export const AssessmentsPane = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        padding: theme.spacing.sm,
-        paddingTop: theme.spacing.xs,
-        height: '100%',
-        borderLeft: `1px solid ${theme.colors.border}`,
-        overflowY: 'scroll',
+        ...(isInComparisonView
+          ? { padding: `${theme.spacing.sm} 0`, maxHeight: theme.spacing.lg * 10 }
+          : { padding: theme.spacing.sm, paddingTop: theme.spacing.xs, height: '100%' }),
+        ...(isInComparisonView ? {} : { borderLeft: `1px solid ${theme.colors.border}` }),
+        overflowY: 'auto',
         minWidth: ASSESSMENT_PANE_MIN_WIDTH,
         width: '100%',
         boxSizing: 'border-box',
       }}
     >
-      <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Typography.Text css={{ marginBottom: theme.spacing.sm }} bold>
-          <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
-        </Typography.Text>
-        {setAssessmentsPaneExpanded && (
+      <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        {!isInComparisonView && (
+          <Typography.Text bold>
+            <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
+          </Typography.Text>
+        )}
+        {!isInComparisonView && setAssessmentsPaneExpanded && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"
             content={

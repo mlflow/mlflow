@@ -257,10 +257,11 @@ class EntryPoint:
         self.command = command
 
     def _validate_parameters(self, user_parameters):
-        missing_params = []
-        for name in self.parameters:
-            if name not in user_parameters and self.parameters[name].default is None:
-                missing_params.append(name)
+        missing_params = [
+            name
+            for name in self.parameters
+            if name not in user_parameters and self.parameters[name].default is None
+        ]
         if missing_params:
             raise ExecutionException(
                 "No value given for missing parameters: {}".format(

@@ -586,22 +586,17 @@ def test_pyfunc_set_model():
 
 
 def test_langchain_set_model():
-    from langchain.chains import LLMChain
+    from langchain_core.runnables import RunnableLambda
 
-    def create_openai_llmchain():
-        from langchain.llms import OpenAI
-        from langchain.prompts import PromptTemplate
+    def create_runnable():
+        def my_runnable(input):
+            return f"Input was: {input}"
 
-        llm = OpenAI(temperature=0.9, openai_api_key="api_key")
-        prompt = PromptTemplate(
-            input_variables=["product"],
-            template="What is a good name for a company that makes {product}?",
-        )
-        model = LLMChain(llm=llm, prompt=prompt)
-        set_model(model)
+        runnable = RunnableLambda(my_runnable)
+        set_model(runnable)
 
-    create_openai_llmchain()
-    assert isinstance(mlflow.models.model.__mlflow_model__, LLMChain)
+    create_runnable()
+    assert isinstance(mlflow.models.model.__mlflow_model__, RunnableLambda)
 
 
 def test_error_set_model(sklearn_knn_model):

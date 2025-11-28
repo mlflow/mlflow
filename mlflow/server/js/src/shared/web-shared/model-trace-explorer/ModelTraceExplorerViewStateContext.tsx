@@ -20,6 +20,7 @@ export type ModelTraceExplorerViewState = {
   setAssessmentsPaneExpanded: (expanded: boolean) => void;
   isTraceInitialLoading?: boolean;
   assessmentsPaneEnabled: boolean;
+  isInComparisonView: boolean;
 };
 
 export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplorerViewState>({
@@ -37,6 +38,7 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   setAssessmentsPaneExpanded: () => {},
   isTraceInitialLoading: false,
   assessmentsPaneEnabled: true,
+  isInComparisonView: false,
 });
 
 export const useModelTraceExplorerViewState = () => {
@@ -53,6 +55,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   assessmentsPaneEnabled,
   initialAssessmentsPaneCollapsed,
   isTraceInitialLoading = false,
+  isInComparisonView = false,
   children,
 }: {
   modelTrace: ModelTrace;
@@ -60,8 +63,9 @@ export const ModelTraceExplorerViewStateProvider = ({
   selectedSpanIdOnRender?: string;
   children: React.ReactNode;
   assessmentsPaneEnabled: boolean;
-  initialAssessmentsPaneCollapsed?: boolean;
+  initialAssessmentsPaneCollapsed?: boolean | 'force-open';
   isTraceInitialLoading?: boolean;
+  isInComparisonView?: boolean;
 }) => {
   const rootNode = useMemo(() => parseModelTraceToTree(modelTrace), [modelTrace]);
   const nodeMap = useMemo(() => (rootNode ? getTimelineTreeNodesMap([rootNode]) : {}), [rootNode]);
@@ -78,13 +82,8 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpanded] = useState(
-    !initialAssessmentsPaneCollapsed && hasAssessments,
+    (!initialAssessmentsPaneCollapsed && hasAssessments) || initialAssessmentsPaneCollapsed === 'force-open',
   );
-
-  useEffect(() => {
-    const defaultActiveTab = getDefaultActiveTab(selectedNode);
-    setActiveTab(defaultActiveTab);
-  }, [selectedNode]);
 
   useEffect(() => {
     const defaultActiveTab = getDefaultActiveTab(selectedNode);
@@ -107,6 +106,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
       isTraceInitialLoading,
+      isInComparisonView,
     }),
     [
       activeView,
@@ -120,6 +120,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
       isTraceInitialLoading,
+      isInComparisonView,
     ],
   );
 

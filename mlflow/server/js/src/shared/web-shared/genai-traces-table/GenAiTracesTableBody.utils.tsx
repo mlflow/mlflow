@@ -260,6 +260,7 @@ export const getColumnConfig = (
             col.id,
             comparisonEntry,
             onChangeEvaluationId,
+            intl,
             theme,
             onTraceTagsEdit,
           );

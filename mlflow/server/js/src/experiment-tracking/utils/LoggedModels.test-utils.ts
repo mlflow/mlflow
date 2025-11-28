@@ -3,6 +3,7 @@ import type { LoggedModelProto } from '../types';
 import { LoggedModelStatusProtoEnum } from '../types';
 import { generateRandomRunName } from './RunNameUtils';
 import { rest } from 'msw';
+import { getAjaxUrl } from '../../common/utils/FetchUtils';
 
 // Generate some demo data
 const getLoggedModelsDemoData = (experimentId: string) =>
@@ -72,7 +73,7 @@ export const mockSearchLoggedModels = (
   experimentId = 'test-experiment',
   models = getLoggedModelsDemoData(experimentId),
 ) =>
-  rest.post('/ajax-api/2.0/mlflow/logged-models/search', (req, res, ctx) =>
+  rest.post(getAjaxUrl('ajax-api/2.0/mlflow/logged-models/search'), (req, res, ctx) =>
     res(
       ctx.json({
         models,
@@ -81,7 +82,7 @@ export const mockSearchLoggedModels = (
   );
 
 export const mockGetLoggedModels = (models = getLoggedModelsDemoData('test-experiment')) =>
-  rest.get('/ajax-api/2.0/mlflow/logged-models:batchGet', (req, res, ctx) =>
+  rest.get(getAjaxUrl('ajax-api/2.0/mlflow/logged-models:batchGet'), (req, res, ctx) =>
     res(
       ctx.json({
         models,

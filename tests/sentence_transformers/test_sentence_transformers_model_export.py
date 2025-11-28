@@ -157,7 +157,7 @@ def test_model_logging_and_inference(basic_model):
     encoded_multi = model.encode(
         [
             "Just a small town girl",
-            "livin in a lonely world",
+            "livin' in a lonely world",
             "she took the midnight train",
             "going anywhere",
         ]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -38,7 +39,10 @@ def _check_databricks_agents_installed() -> None:
 
 
 def call_chat_completions(
-    user_prompt: str, system_prompt: str, session_name: str | None = None
+    user_prompt: str,
+    system_prompt: str,
+    session_name: str | None = None,
+    use_case: str | None = None,
 ) -> Any:
     """
     Invokes the Databricks chat completions API using the databricks.agents.evals library.
@@ -47,6 +51,8 @@ def call_chat_completions(
         user_prompt (str): The user prompt.
         system_prompt (str): The system prompt.
         session_name (str | None): The session name for tracking. Defaults to "mlflow-v{VERSION}".
+        use_case (str | None): The use case for the chat completion. Only used if supported
+            by the installed databricks-agents version.
 
     Returns:
         The chat completions result.
@@ -64,15 +70,26 @@ def call_chat_completions(
     env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set(session_name)
 
     @context.eval_context
-    def _call_chat_completions(user_prompt: str, system_prompt: str):
+    def _call_chat_completions(user_prompt: str, system_prompt: str, use_case: str | None):
         managed_rag_client = context.get_context().build_managed_rag_client()
 
-        return managed_rag_client.get_chat_completions_result(
-            user_prompt=user_prompt,
-            system_prompt=system_prompt,
-        )
+        # Build kwargs dict starting with required parameters
+        kwargs = {
+            "user_prompt": user_prompt,
+            "system_prompt": system_prompt,
+        }
 
-    return _call_chat_completions(user_prompt, system_prompt)
+        # Check if use_case parameter is supported by checking the method signature
+        if use_case is not None:
+            get_chat_completions_sig = inspect.signature(
+                managed_rag_client.get_chat_completions_result
+            )
+            if "use_case" in get_chat_completions_sig.parameters:
+                kwargs["use_case"] = use_case
+
+        return managed_rag_client.get_chat_completions_result(**kwargs)
+
+    return _call_chat_completions(user_prompt, system_prompt, use_case)
 
 
 def _parse_databricks_judge_response(
@@ -123,6 +140,7 @@ def _parse_databricks_judge_response(
 def _invoke_databricks_default_judge(
     prompt: str | list["ChatMessage"],
     assessment_name: str,
+    use_case: str | None = None,
 ) -> Feedback:
     """
     Invoke the Databricks managed judge using the databricks.agents.evals library.
@@ -133,6 +151,8 @@ def _invoke_databricks_default_judge(
     Args:
         prompt: The formatted prompt with template variables filled in.
         assessment_name: The name of the assessment.
+        use_case: The use case for the chat completion. Only used if supported by the
+            installed databricks-agents version.
 
     Returns:
         Feedback object from the Databricks judge.
@@ -149,7 +169,7 @@ def _invoke_databricks_default_judge(
             system_prompt = prompts.system_prompt
             user_prompt = prompts.user_prompt
 
-        llm_result = call_chat_completions(user_prompt, system_prompt)
+        llm_result = call_chat_completions(user_prompt, system_prompt, use_case=use_case)
         return _parse_databricks_judge_response(llm_result.output, assessment_name)
 
     except Exception as e:

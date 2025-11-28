@@ -19,7 +19,7 @@ import {
   PROMPT_TYPE_CHAT,
   PROMPT_TYPE_TEXT,
 } from '../utils';
-import { ChatPromptMessage } from '../types';
+import type { ChatPromptMessage } from '../types';
 import { ChatMessageCreator } from '../components/ChatMessageCreator';
 
 export enum CreatePromptModalMode {

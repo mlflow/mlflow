@@ -1,7 +1,7 @@
 import { Typography } from '@databricks/design-system';
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { Row } from '@tanstack/react-table';
-import { EvaluationDataset } from '../types';
+import type { Row } from '@tanstack/react-table';
+import type { EvaluationDataset } from '../types';
 
 export const NameCell = ({ row }: { row: Row<EvaluationDataset> }) => {
   const { theme } = useDesignSystemTheme();

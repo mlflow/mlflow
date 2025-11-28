@@ -109,6 +109,10 @@ class Judge(Scorer):
         Returns:
             A new Judge instance that is better aligned with the input traces.
 
+        Raises:
+            NotImplementedError: If called on a session-level scorer. Alignment is currently
+                only supported for single-turn scorers.
+
         Note on Logging:
             By default, alignment optimization shows minimal progress information.
             To see detailed optimization output, set the optimizer's logger to DEBUG::
@@ -118,6 +122,9 @@ class Judge(Scorer):
                 # For SIMBA optimizer (default)
                 logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
         """
+        if self.is_session_level_scorer:
+            raise NotImplementedError("Alignment is not supported for session-level scorers.")
+
         if optimizer is None:
             optimizer = get_default_optimizer()
         return optimizer.align(self, traces)

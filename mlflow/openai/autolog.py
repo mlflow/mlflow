@@ -405,11 +405,12 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
         # Handle Databricks streaming format where content can be a list of content items
         # See https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#content-item
         if isinstance(content, list):
-            text_parts = []
-            for item in content:
-                # Extract text from text items only.
-                if isinstance(item, dict) and item.get("type") == "text" and "text" in item:
-                    text_parts.append(item["text"])
+            # Extract text from text items only.
+            text_parts = [
+                item["text"]
+                for item in content
+                if isinstance(item, dict) and item.get("type") == "text" and "text" in item
+            ]
             return "".join(text_parts)
         return content
 

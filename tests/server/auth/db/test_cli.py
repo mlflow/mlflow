@@ -22,6 +22,7 @@ def test_upgrade(tmp_path: Path) -> None:
         ("users",),
         ("experiment_permissions",),
         ("registered_model_permissions",),
+        ("scorer_permissions",),
     ]
 
 
@@ -48,6 +49,7 @@ def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
     assert "users" in tables
     assert "experiment_permissions" in tables
     assert "registered_model_permissions" in tables
+    assert "scorer_permissions" in tables
     assert "experiments" in tables
     assert "runs" in tables
 

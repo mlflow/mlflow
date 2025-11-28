@@ -6,9 +6,9 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { FormattedMessage } from 'react-intl';
-import { EvaluationDataset, EvaluationDatasetRecord } from '../types';
+import type { EvaluationDataset, EvaluationDatasetRecord } from '../types';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
 
 const getTotalRecordsCount = (profile: string | undefined): number | undefined => {
@@ -115,7 +115,7 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
           <DropdownMenu.Content>
             {columns.map((column) => (
               <DropdownMenu.CheckboxItem
-                componentId="YOUR_TRACKING_ID"
+                componentId="mlflow.eval-datasets.records-toolbar.column-checkbox"
                 key={column.id}
                 checked={columnVisibility[column.id ?? ''] ?? false}
                 onCheckedChange={(checked) =>

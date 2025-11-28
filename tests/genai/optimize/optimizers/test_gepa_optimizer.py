@@ -42,19 +42,17 @@ def sample_target_prompts():
 @pytest.fixture
 def mock_eval_fn():
     def eval_fn(candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]):
-        results = []
-        for record in dataset:
-            results.append(
-                EvaluationResultRecord(
-                    inputs=record["inputs"],
-                    outputs="outputs",
-                    expectations=record["outputs"],
-                    score=0.8,
-                    trace={"info": "mock trace"},
-                    rationales={"score": "mock rationale"},
-                )
+        return [
+            EvaluationResultRecord(
+                inputs=record["inputs"],
+                outputs="outputs",
+                expectations=record["outputs"],
+                score=0.8,
+                trace={"info": "mock trace"},
+                rationales={"score": "mock rationale"},
             )
-        return results
+            for record in dataset
+        ]
 
     return eval_fn
 

@@ -136,9 +136,9 @@ export interface EvaluationsOverviewTableSort {
 
 export interface TraceActions {
   exportToEvals?: {
-    showExportTracesToDatasetsModal: boolean;
-    setShowExportTracesToDatasetsModal: (visible: boolean) => void;
-    renderExportTracesToDatasetsModal: ({
+    showExportTracesToDatasetsModal?: boolean;
+    setShowExportTracesToDatasetsModal?: (visible: boolean) => void;
+    renderExportTracesToDatasetsModal?: ({
       selectedTraceInfos,
     }: {
       selectedTraceInfos: ModelTraceInfoV3[];

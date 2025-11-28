@@ -57,7 +57,6 @@ import type {
 } from './types';
 import { getAssessmentInfos, sortAssessmentInfos } from './utils/AggregationUtils';
 import { displayPercentage } from './utils/DisplayUtils';
-import { FILTER_DROPDOWN_COMPONENT_ID } from './utils/EvaluationLogging';
 import { filterEvaluationResults } from './utils/EvaluationsFilterUtils';
 import { applyTraceInfoV3ToEvalEntry } from './utils/TraceUtils';
 
@@ -337,7 +336,7 @@ function GenAiTracesTableImpl({
               >
                 <GenAiTracesTableSearchInput searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
                 <DialogCombobox
-                  componentId={FILTER_DROPDOWN_COMPONENT_ID}
+                  componentId="mlflow.genai_traces_table.filter_dropdown"
                   label="Filters"
                   value={Array.from(assessmentFilters).map((filter) => filter.assessmentName)}
                   multiSelect

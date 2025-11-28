@@ -41,7 +41,12 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
         schema = {
             "type": param_type_to_json_schema_type(p.type),
         }
-        if p.default is not None:
+        if p.default is not None and (
+            # In click >= 8.3.0, the default value is set to `Sentinel.UNSET` when no default is
+            # provided. Skip setting the default in this case.
+            # See https://github.com/pallets/click/pull/3030 for more details.
+            not isinstance(p.default, str) and repr(p.default) != "Sentinel.UNSET"
+        ):
             schema["default"] = p.default
         if isinstance(p, click.Option):
             schema["description"] = (p.help or "").strip()

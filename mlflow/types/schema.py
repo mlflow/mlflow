@@ -454,18 +454,22 @@ class Object(BaseType):
             return deepcopy(self)
         prop_dict1 = {prop.name: prop for prop in self.properties}
         prop_dict2 = {prop.name: prop for prop in other.properties}
-        updated_properties = []
         # For each property in the first element, if it doesn't appear
         # later, we update required=False
-        for k in prop_dict1.keys() - prop_dict2.keys():
-            updated_properties.append(Property(name=k, dtype=prop_dict1[k].dtype, required=False))
+        updated_properties = [
+            Property(name=k, dtype=prop_dict1[k].dtype, required=False)
+            for k in prop_dict1.keys() - prop_dict2.keys()
+        ]
         # For common keys, property type should be the same
-        for k in prop_dict1.keys() & prop_dict2.keys():
-            updated_properties.append(prop_dict1[k]._merge(prop_dict2[k]))
+        updated_properties.extend(
+            prop_dict1[k]._merge(prop_dict2[k]) for k in prop_dict1.keys() & prop_dict2.keys()
+        )
         # For each property appears in the second elements, if it doesn't
         # exist, we update and set required=False
-        for k in prop_dict2.keys() - prop_dict1.keys():
-            updated_properties.append(Property(name=k, dtype=prop_dict2[k].dtype, required=False))
+        updated_properties.extend(
+            Property(name=k, dtype=prop_dict2[k].dtype, required=False)
+            for k in prop_dict2.keys() - prop_dict1.keys()
+        )
         return Object(properties=updated_properties)
 
 

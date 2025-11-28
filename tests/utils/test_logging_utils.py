@@ -127,7 +127,7 @@ def test_suppress_logs():
     assert message in capture_stream.getvalue()
 
     capture_stream.truncate(0)
-    with suppress_logs(module, re.compile("This .* be suppressed.")):
+    with suppress_logs(module, re.compile(r"This .* be suppressed.")):
         logger.error(message)
     assert len(capture_stream.getvalue()) == 0
 

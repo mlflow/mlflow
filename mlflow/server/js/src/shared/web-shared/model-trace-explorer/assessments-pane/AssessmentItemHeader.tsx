@@ -1,13 +1,13 @@
 import { useState } from 'react';
 
-import { useDesignSystemTheme, Typography, SparkleIcon, UserIcon, CodeIcon } from '@databricks/design-system';
+import { useDesignSystemTheme, Typography } from '@databricks/design-system';
 
 import { AssessmentActionsOverflowMenu } from './AssessmentActionsOverflowMenu';
 import { AssessmentDeleteModal } from './AssessmentDeleteModal';
 import { AssessmentSourceName } from './AssessmentSourceName';
 import { timeSinceStr } from './AssessmentsPane.utils';
-import type { Assessment } from '../ModelTrace.types';
 import { getSourceIcon } from './utils';
+import type { Assessment } from '../ModelTrace.types';
 
 export const AssessmentItemHeader = ({
   // connector is not displayed in history items

@@ -1,16 +1,18 @@
 import { useState } from 'react';
+
 import { Typography, useDesignSystemTheme, ChevronRightIcon, ChevronDownIcon, Button } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+
 import { AssessmentActionsOverflowMenu } from './AssessmentActionsOverflowMenu';
 import { AssessmentDeleteModal } from './AssessmentDeleteModal';
 import { AssessmentEditForm } from './AssessmentEditForm';
+import { AssessmentSourceName } from './AssessmentSourceName';
 import { getParsedExpectationValue } from './AssessmentsPane.utils';
 import { ExpectationValuePreview } from './ExpectationValuePreview';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
+import { getSourceIcon } from './utils';
 import type { ExpectationAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import { getSourceIcon } from './utils';
-import { AssessmentSourceName } from './AssessmentSourceName';
 
 export const ExpectationItem = ({ expectation }: { expectation: ExpectationAssessment }) => {
   const { theme } = useDesignSystemTheme();

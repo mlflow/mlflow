@@ -416,9 +416,10 @@ def test_complete_multipart_upload(mock_client):
     repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, client=mock_client)
 
     upload_id = "some_upload_id"
-    parts = []
-    for part_number in range(1, 3):
-        parts.append(MultipartUploadPart(part_number=part_number, etag=f"etag_{part_number}"))
+    parts = [
+        MultipartUploadPart(part_number=part_number, etag=f"etag_{part_number}")
+        for part_number in range(1, 3)
+    ]
 
     gcs_mpu_arguments_patch = mock.patch(
         "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository._gcs_mpu_arguments",

@@ -199,10 +199,7 @@ def main(prev_version, release_version, remote):
     logs = [l[2:] for l in git_log_output.splitlines() if l.startswith("> ")]
 
     # Extract all PR numbers first
-    pr_numbers = []
-    for log in logs:
-        if pr_num := extract_pr_num_from_git_log_entry(log):
-            pr_numbers.append(pr_num)
+    pr_numbers = [pr_num for log in logs if (pr_num := extract_pr_num_from_git_log_entry(log))]
 
     prs = batch_fetch_prs_graphql(pr_numbers)
     label_to_prs = defaultdict(list)

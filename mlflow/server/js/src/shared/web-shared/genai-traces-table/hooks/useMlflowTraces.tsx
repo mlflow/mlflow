@@ -277,7 +277,10 @@ export const useSearchMlflowTraces = ({
   // For APIS <=v3, filter traces by assessments or search query on the client side
   const useClientSideFiltering = !usingV4APIs;
 
-  const { networkFilters, clientFilters } = getNetworkAndClientFilters(filters || [], useClientSideFiltering);
+  const { networkFilters, clientFilters } = useMemo(
+    () => getNetworkAndClientFilters(filters || [], useClientSideFiltering),
+    [filters, useClientSideFiltering],
+  );
 
   const filter = createMlflowSearchFilter(
     runUuid,

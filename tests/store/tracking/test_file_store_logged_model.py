@@ -1028,9 +1028,10 @@ def test_search_logged_models_order_by_metrics(store):
 def test_search_logged_models_pagination(store):
     exp_id = store.create_experiment("test")
     run_id = store.create_run(exp_id, "user", 0, [], "test").info.run_id
-    logged_models = []
-    for _ in range(SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT + 20):
-        logged_models.append(store.create_logged_model(exp_id, source_run_id=run_id))
+    logged_models = [
+        store.create_logged_model(exp_id, source_run_id=run_id)
+        for _ in range(SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT + 20)
+    ]
     logged_models = sorted(logged_models, key=lambda x: (-x.creation_timestamp, x.model_id))
     models = store.search_logged_models(experiment_ids=[exp_id])
     assert_models_match(

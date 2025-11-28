@@ -102,6 +102,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, default to virtualenv.
@@ -136,6 +137,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, default to None, then MLflow will automatically pick the env manager
@@ -151,7 +153,7 @@ INSTALL_MLFLOW = click.option(
     "--install-mlflow",
     is_flag=True,
     default=False,
-    help="If specified and there is a conda or virtualenv environment to be activated "
+    help="If specified and there is a conda, virtualenv, or uv environment to be activated "
     "mlflow will be installed into the environment after it has been "
     "activated. The version of installed mlflow will be the same as "
     "the one used to invoke this command.",

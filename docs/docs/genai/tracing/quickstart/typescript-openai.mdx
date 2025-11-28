@@ -1,6 +1,5 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
 import TabsWrapper from '@site/src/components/TabsWrapper';
 import ServerSetup from "@site/src/content/setup_server.mdx";
@@ -142,55 +141,6 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
         experimentId: "<your-experiment-id>",
         trackingServerUsername: "<remote-tracking-server-username>",
         trackingServerPassword: "<remote-tracking-server-password>",
-    });
-    ```
-
-    </TabItem>
-
-    <TabItem value="databricks" label="Databricks">
-
-    Call the `init` function with the URI of your remote MLflow server and the experiment ID. You can find the experiment ID by hovering over the <div className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-sm font-semibold text-gray-600">!</div> icon next to the experiment name within the MLflow UI.
-
-    **Method 1: Use Databricks config file for authentication.**
-
-    ```typescript
-    import { init } from "mlflow-tracing";
-
-    init({
-        trackingUri: "databricks",
-        experimentId: "<your-experiment-id>",
-        // Optional: Set the Databricks config file path if it is not in the default location
-        configPath: "<your-databricks-config-file-path>",
-    });
-    ```
-
-    **Method 2: Use environment variables**
-
-    ```bash
-    export DATABRICKS_HOST=<your-databricks-host>
-    export DATABRICKS_TOKEN=<your-databricks-personal-access-token>
-    ```
-
-    or create a `.env` file in the root directory of your project and add the following:
-
-    ```bash
-    DATABRICKS_HOST=<your-databricks-host>
-    DATABRICKS_TOKEN=<your-databricks-personal-access-token>
-    ```
-
-    ```typescript
-    // Load environment variables from .env file
-    import 'dotenv/config';
-    ```
-
-    The `init` function will automatically load the above environment variables when tracking URI is set to `databricks`.
-
-    ```typescript
-    import { init } from "mlflow-tracing";
-
-    init({
-        trackingUri: "databricks",
-        experimentId: "<your-experiment-id>",
     });
     ```
 

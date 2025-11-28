@@ -53,12 +53,13 @@ class TelemetryInfo:
     session_id: str
     source_sdk: str = get_source_sdk().value
     mlflow_version: str = VERSION
-    schema_version: int = 1
+    schema_version: int = 2
     python_version: str = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     operating_system: str = platform.platform()
     tracking_uri_scheme: str | None = None
+    installation_id: str | None = None
 
 
 @dataclass

@@ -122,11 +122,7 @@ def _get_tool_attributes(instance):
 
 
 def _parse_tools(tools):
-    result = []
-    for tool in tools:
-        res = _inner_get_tool_attributes(tool)
-        result.append(res)
-    return result
+    return [_inner_get_tool_attributes(tool) for tool in tools]
 
 
 def _get_model_attributes(instance):

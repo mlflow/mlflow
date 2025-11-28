@@ -83,7 +83,7 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 exporters:
-  otlp:
+  otlphttp:
     endpoint: ${MLFLOW_TRACKING_URI}
     headers:
       x-mlflow-experiment-id: ${MLFLOW_EXPERIMENT_ID}
@@ -93,7 +93,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp]
+      exporters: [otlphttp]
 ```
 
 ```bash

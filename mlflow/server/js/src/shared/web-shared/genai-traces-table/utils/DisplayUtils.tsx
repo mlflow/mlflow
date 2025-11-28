@@ -136,7 +136,7 @@ export function getDisplayScoreChange(assessmentInfo: AssessmentInfo, scoreChang
   }
 }
 
-// This is forked from mlflow: https://src.dev.databricks.com/databricks-eng/universe/-/blob/mlflow/web/js/src/common/utils/Utils.tsx?L188
+// This is forked from mlflow: https://src.dev.databricks.com/databricks-eng/universe/-/blob/mlflow/server/js/src/common/utils/Utils.tsx?L188
 export function timeSinceStr(date: any, referenceDate = new Date()) {
   // @ts-expect-error TS(2362): The left-hand side of an arithmetic operation must... Remove this comment to see the full error message
   const seconds = Math.max(0, Math.floor((referenceDate - date) / 1000));

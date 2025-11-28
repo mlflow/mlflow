@@ -24,6 +24,7 @@ import {
   TRACE_ID_COLUMN_ID,
   invalidateMlflowSearchTracesCache,
   createTraceLocationForExperiment,
+  doesTraceSupportV4API,
 } from '@databricks/web-shared/genai-traces-table';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
@@ -35,8 +36,9 @@ import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
-import { useExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
-
+// eslint-disable-next-line no-useless-rename -- renaming due to copybara transformation
+import { useExportTracesToDatasetModal as useExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
+import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 const ContextProviders = ({
   children,
   makeHtmlFromMarkdown,
@@ -82,6 +84,7 @@ const TracesV3LogsImpl = React.memo(
     );
 
     const isQueryDisabled = false;
+    const usesV4APIs = true;
 
     const getTrace = getTraceV3;
 
@@ -180,6 +183,9 @@ const TracesV3LogsImpl = React.memo(
         onSuccess: () => invalidateMlflowSearchTracesCache({ queryClient }),
       });
 
+    const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations });
+
+    // TODO: Unify export action between managed and OSS
     const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
       useExportTracesToDatasetModal({
         experimentId,
@@ -187,14 +193,11 @@ const TracesV3LogsImpl = React.memo(
 
     const traceActions: TraceActions = useMemo(() => {
       return {
-        deleteTracesAction: {
-          deleteTraces: (experimentId: string, traceIds: string[]) =>
-            deleteTracesMutation.mutateAsync({ experimentId, traceRequestIds: traceIds }),
-        },
+        deleteTracesAction,
         exportToEvals: {
-          showExportTracesToDatasetsModal,
-          setShowExportTracesToDatasetsModal,
-          renderExportTracesToDatasetsModal,
+          showExportTracesToDatasetsModal: showExportTracesToDatasetsModal,
+          setShowExportTracesToDatasetsModal: setShowExportTracesToDatasetsModal,
+          renderExportTracesToDatasetsModal: renderExportTracesToDatasetsModal,
         },
         // Enable unified tags modal if V4 APIs is enabled
         editTags: shouldUseTracesV4API()
@@ -208,6 +211,7 @@ const TracesV3LogsImpl = React.memo(
             },
       };
     }, [
+      deleteTracesAction,
       showExportTracesToDatasetsModal,
       setShowExportTracesToDatasetsModal,
       renderExportTracesToDatasetsModal,
@@ -215,7 +219,6 @@ const TracesV3LogsImpl = React.memo(
       EditTagsModalUnified,
       showEditTagsModalForTrace,
       EditTagsModal,
-      deleteTracesMutation,
     ]);
 
     const countInfo = useMemo(() => {
@@ -348,6 +351,7 @@ const TracesV3LogsImpl = React.memo(
             setSelectedColumns={setSelectedColumns}
             isMetadataLoading={isMetadataLoading}
             metadataError={metadataError}
+            usesV4APIs={usesV4APIs}
           />
           {renderMainContent()}
         </div>

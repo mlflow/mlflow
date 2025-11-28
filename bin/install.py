@@ -69,11 +69,11 @@ TOOLS = [
             (
                 "linux",
                 "x86_64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.28.0/typos-v1.28.0-x86_64-unknown-linux-musl.tar.gz",
+            ): "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-x86_64-unknown-linux-musl.tar.gz",
             (
                 "darwin",
                 "arm64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.28.0/typos-v1.28.0-aarch64-apple-darwin.tar.gz",
+            ): "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-aarch64-apple-darwin.tar.gz",
         },
     ),
     Tool(

@@ -1,7 +1,22 @@
-import { getModelTraceId, SingleChatTurnMessages, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import { Button, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  getModelTraceId,
+  SingleChatTurnMessages,
+  SingleChatTurnAssessments,
+  shouldEnableAssessmentsInSessions,
+  type ModelTrace,
+} from '@databricks/web-shared/model-trace-explorer';
+import {
+  Button,
+  importantify,
+  ParagraphSkeleton,
+  Spacer,
+  TitleSkeleton,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import type { MutableRefObject } from 'react';
+import { ExperimentSingleChatIcon } from './ExperimentSingleChatIcon';
 
 export const ExperimentSingleChatConversation = ({
   traces,
@@ -9,12 +24,14 @@ export const ExperimentSingleChatConversation = ({
   setSelectedTurnIndex,
   setSelectedTrace,
   chatRefs,
+  getAssessmentTitle,
 }: {
   traces: ModelTrace[];
   selectedTurnIndex: number | null;
   setSelectedTurnIndex: (turnIndex: number | null) => void;
   setSelectedTrace: (trace: ModelTrace) => void;
   chatRefs: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
+  getAssessmentTitle: (assessmentName: string) => string;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -54,29 +71,51 @@ export const ExperimentSingleChatConversation = ({
               position: 'relative',
               gap: theme.spacing.sm,
               backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : undefined,
+              border: `1px solid ${theme.colors.border}`,
               padding: theme.spacing.md,
+              borderRadius: theme.borders.borderRadiusMd,
             }}
             onMouseEnter={() => setSelectedTurnIndex(index)}
           >
-            <SingleChatTurnMessages key={traceId} trace={trace} />
-            {isActive && (
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              <ExperimentSingleChatIcon />
+              <Typography.Text bold>
+                <FormattedMessage
+                  defaultMessage="Turn {turnNumber}"
+                  description="Label for a single turn within an experiment chat session"
+                  values={{ turnNumber: index + 1 }}
+                />
+              </Typography.Text>
+              <div css={{ flex: 1 }} />
               <Button
                 componentId="mlflow.experiment.chat-session.view-trace"
                 size="small"
                 color="primary"
-                css={{
-                  position: 'absolute',
-                  top: theme.spacing.md,
-                  right: theme.spacing.md,
-                  backgroundColor: theme.colors.actionDefaultBackgroundDefault,
-                }}
+                css={[
+                  {
+                    visibility: isActive ? 'visible' : 'hidden',
+                  },
+                  // Required for button to have an outstanding background over the chat turn hover state
+                  importantify({ backgroundColor: theme.colors.backgroundPrimary }),
+                ]}
                 onClick={() => setSelectedTrace(trace)}
               >
                 <FormattedMessage
-                  defaultMessage="View trace"
+                  defaultMessage="View full trace"
                   description="Button to view a full trace within a chat session"
                 />
               </Button>
+            </div>
+            <SingleChatTurnMessages key={traceId} trace={trace} />
+            {shouldEnableAssessmentsInSessions() && (
+              <>
+                <Spacer size="sm" />
+                <SingleChatTurnAssessments
+                  trace={trace}
+                  getAssessmentTitle={getAssessmentTitle}
+                  onAddAssessmentsClick={() => setSelectedTrace(trace)}
+                />
+              </>
             )}
           </div>
         );

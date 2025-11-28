@@ -5,7 +5,6 @@ import { IntlProvider } from 'react-intl';
 import { QueryClient, QueryClientProvider, type UseMutateAsyncFunction } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { ApolloProvider, ApolloClient, InMemoryCache } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
-
 import { TracesV3Logs } from './TracesV3Logs';
 import {
   createTestTraceInfoV3,

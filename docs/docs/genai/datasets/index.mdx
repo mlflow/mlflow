@@ -1,14 +1,13 @@
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
-import { APILink } from "@site/src/components/APILink";
-import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import DAGLoop from "@site/src/components/DAGLoop";
-import { Database, Layers, TestTube, GitBranch, Users, ChartBar, FileText, Book, Code, Activity, Target, BarChart3, TrendingUp, RefreshCw } from "lucide-react";
+import { Database, Layers, TestTube, GitBranch, Users, ChartBar, FileText, Code, Activity, Target, BarChart3, TrendingUp, RefreshCw } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Evaluation Datasets
 
@@ -29,7 +28,7 @@ There are several ways to create evaluation datasets, each suited to different s
 The simplest way to create one is through MLflow's UI. Navigate to an Experiment that you want the evaluation dataset to be associated with and you can directly create a new one by supplying a unique name.
 After adding records to it, you can view the dataset's entries in the UI.
 
-<ImageBox src="/images/eval-datasets.gif" alt="Evaluation Datasets Video" />
+<video src={useBaseUrl("/images/eval-datasets.mp4")} controls loop autoPlay muted aria-label="Evaluation Datasets Video" />
 
 At its core, evaluation datasets are comprised of **inputs** and **expectations**. **Outputs** are an optional addition that can be added to an evaluation dataset for
 post-hoc evaluation with scorers. Adding these elements can be done either directly from traces, dictionaries, or via a Pandas DataFrame.

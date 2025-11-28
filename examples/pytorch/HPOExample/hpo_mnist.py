@@ -39,7 +39,7 @@ class SimpleNet(nn.Module):
 
 def train_epoch(model, device, train_loader, optimizer):
     model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
+    for data, target in train_loader:
         data = data.to(device)
         target = target.to(device)
         optimizer.zero_grad()

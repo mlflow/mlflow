@@ -266,13 +266,13 @@ class MlflowAutologgingQueueingClient:
             operations may still be inflight. Operation completion can be synchronously waited
             on via `RunOperations.await_completion()`.
         """
-        logging_futures = []
-        for pending_operations in self._pending_ops_by_run_id.values():
-            future = _AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL.submit(
+        logging_futures = [
+            _AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL.submit(
                 self._flush_pending_operations,
                 pending_operations=pending_operations,
             )
-            logging_futures.append(future)
+            for pending_operations in self._pending_ops_by_run_id.values()
+        ]
         self._pending_ops_by_run_id = {}
 
         logging_operations = RunOperations(logging_futures)
@@ -363,19 +363,19 @@ class MlflowAutologgingQueueingClient:
                 )
             )
 
-        for metrics_batch in chunk_list(
-            pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
-        ):
-            operation_results.append(
-                self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch)
+        operation_results.extend(
+            self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch)
+            for metrics_batch in chunk_list(
+                pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
             )
+        )
 
-        for datasets_batch in chunk_list(
-            pending_operations.datasets_queue, chunk_size=MAX_DATASETS_PER_BATCH
-        ):
-            operation_results.append(
-                self._try_operation(self._client.log_inputs, run_id=run_id, datasets=datasets_batch)
+        operation_results.extend(
+            self._try_operation(self._client.log_inputs, run_id=run_id, datasets=datasets_batch)
+            for datasets_batch in chunk_list(
+                pending_operations.datasets_queue, chunk_size=MAX_DATASETS_PER_BATCH
             )
+        )
 
         if pending_operations.set_terminated:
             operation_results.append(

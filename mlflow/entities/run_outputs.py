@@ -31,7 +31,7 @@ class RunOutputs(_MlflowObject):
 
     def to_dictionary(self) -> dict[Any, Any]:
         return {
-            "model_outputs": self.model_outputs,
+            "model_outputs": [model_output.to_dictionary() for model_output in self.model_outputs],
         }
 
     @classmethod

@@ -209,7 +209,7 @@ def set_pb_value(proto: Value, value: Any):
         for key, val in value.items():
             set_pb_value(proto.struct_value.fields[key], val)
     elif isinstance(value, list):
-        for idx, val in enumerate(value):
+        for val in value:
             pb = Value()
             set_pb_value(pb, val)
             proto.list_value.values.append(pb)

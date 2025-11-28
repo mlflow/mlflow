@@ -3,9 +3,10 @@ sidebar_label: Autologging
 sidebar_position: 2
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
-import { Table } from "@site/src/components/Table";
 
 # MLflow OpenAI Autologging
 
@@ -104,7 +105,8 @@ openai_client.chat.completions.create(
 Viewing the logged model and the trace used when invoking the OpenAI client within the UI can be seen in the image below:
 
 {/* TODO: update this gif */}
-![OpenAI Autologging artifacts and traces](/images/tutorials/llms/openai-autolog.gif)
+
+<video src={useBaseUrl("/images/tutorials/llms/openai-autolog.mp4")} controls loop autoPlay muted aria-label="OpenAI Autologging artifacts and traces" />
 
 ## FAQ
 

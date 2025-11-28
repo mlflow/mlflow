@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --directory=$CLAUDE_PROJECT_DIR --no-project .claude/hooks/lint.py",
+            "timeout": 10.0
+          }
+        ]
+      }
+    ]
+  }
+}

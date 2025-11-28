@@ -395,7 +395,7 @@ export const TracesViewTable = React.memo(
     ]);
 
     const table = useReactTable<ModelTraceInfoWithRunName>(
-      'mlflow/web/js/src/experiment-tracking/components/traces/TracesViewTable.tsx',
+      'mlflow/server/js/src/experiment-tracking/components/traces/TracesViewTable.tsx',
       {
         columns,
         data: showQuickStart ? [] : traces,

@@ -2,6 +2,7 @@ import hashlib
 import logging
 import os
 import re
+import sqlite3
 import tempfile
 import time
 from contextlib import contextmanager
@@ -9,6 +10,7 @@ from contextlib import contextmanager
 import sqlalchemy
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from packaging.version import Version
 from sqlalchemy import event, sql
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
@@ -229,6 +231,30 @@ def _get_alembic_config(db_url, alembic_dir=None):
     return config
 
 
+def _check_sqlite_version(db_url: str) -> None:
+    """
+    Check if SQLite version supports required features.
+
+    MLflow requires SQLite 3.31.0 or higher for computed columns support.
+    Raises MlflowException if the version is too old.
+    """
+    if not db_url.startswith("sqlite:"):
+        return
+
+    version_str = sqlite3.sqlite_version
+    try:
+        sqlite_version = Version(version_str)
+    except Exception:
+        return
+    min_version_str = "3.31.0"
+    if sqlite_version < Version(min_version_str):
+        raise MlflowException(
+            f"MLflow requires SQLite >= {min_version_str} for SQL based "
+            f"store, but found {version_str}. Please upgrade your SQLite. "
+            f"See https://www.sqlite.org/download.html for installation options."
+        )
+
+
 def _upgrade_db(engine):
     """
     Upgrade the schema of an MLflow tracking database to the latest supported version.
@@ -244,6 +270,8 @@ def _upgrade_db(engine):
     from alembic import command
 
     db_url = str(engine.url)
+    # Check SQLite version before running migrations
+    _check_sqlite_version(db_url)
     _logger.info("Updating database tables")
     config = _get_alembic_config(db_url)
     # Initialize a shared connection to be used for the database upgrade, ensuring that

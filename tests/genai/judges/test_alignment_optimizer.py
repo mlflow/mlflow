@@ -3,8 +3,9 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mlflow.entities.trace import Trace
-from mlflow.genai.judges import AlignmentOptimizer, Judge
+from mlflow.genai.judges import AlignmentOptimizer, Judge, make_judge
 from mlflow.genai.judges.base import JudgeField
+from mlflow.genai.scorers import UserFrustration
 
 
 class MockJudge(Judge):
@@ -141,3 +142,27 @@ def test_judge_align_with_default_optimizer():
     # Verify delegation to default optimizer
     mock_optimizer.align.assert_called_once_with(judge, traces)
     assert result is expected_result
+
+
+def test_session_level_scorer_alignment_raises_error():
+    traces = []
+
+    conversation_judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate if the {{ conversation }} is productive",
+        model="openai:/gpt-4",
+    )
+    assert conversation_judge.is_session_level_scorer is True
+
+    with pytest.raises(
+        NotImplementedError, match="Alignment is not supported for session-level scorers"
+    ):
+        conversation_judge.align(traces)
+
+    user_frustration_scorer = UserFrustration()
+    assert user_frustration_scorer.is_session_level_scorer is True
+
+    with pytest.raises(
+        NotImplementedError, match="Alignment is not supported for session-level scorers"
+    ):
+        user_frustration_scorer.align(traces)

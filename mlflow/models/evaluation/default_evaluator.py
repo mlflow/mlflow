@@ -578,9 +578,11 @@ class BuiltInEvaluator(ModelEvaluator):
         error_message_parts = [f"Metric '{metric_name}' requires the following:"]
 
         special_params = ["targets", "predictions"]
-        for param in special_params:
-            if param in param_names:
-                error_message_parts.append(f"  - the '{param}' parameter needs to be specified")
+        error_message_parts.extend(
+            f"  - the '{param}' parameter needs to be specified"
+            for param in special_params
+            if param in param_names
+        )
 
         remaining_params = [param for param in param_names if param not in special_params]
 
@@ -921,10 +923,9 @@ class BuiltInEvaluator(ModelEvaluator):
         if extra_metrics is None:
             extra_metrics = []
 
-        bad_metrics = []
-        for metric in extra_metrics:
-            if not isinstance(metric, EvaluationMetric):
-                bad_metrics.append(metric)
+        bad_metrics = [
+            metric for metric in extra_metrics if not isinstance(metric, EvaluationMetric)
+        ]
         if len(bad_metrics) > 0:
             message = "\n".join(
                 [f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics]

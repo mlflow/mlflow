@@ -174,7 +174,7 @@ def _upload_artifacts_to_databricks(
             dest_root, target_databricks_profile_uri
         )
         dest_repo = DbfsRestArtifactRepository(dest_root_with_profile)
-        dest_artifact_path = run_id if run_id else uuid.uuid4().hex
+        dest_artifact_path = run_id or uuid.uuid4().hex
         # Allow uploading from the same run id multiple times by randomizing a suffix
         if len(dest_repo.list_artifacts(dest_artifact_path)) > 0:
             dest_artifact_path = dest_artifact_path + "-" + uuid.uuid4().hex[0:4]

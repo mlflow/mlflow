@@ -1048,6 +1048,32 @@ def check_databricks_secret_scope_access(scope_name):
             )
 
 
+def get_sgc_job_run_id() -> str | None:
+    """
+    Retrieves the Serverless GPU Compute (SGC) job run ID from Databricks task values.
+
+    This function is used to enable automatic run resumption for SGC jobs by fetching
+    the job run ID from the Databricks task context. The job run ID is set by the
+    Databricks platform when running SGC jobs.
+
+    Returns:
+        str or None: The SGC job run ID if available, otherwise None. Returns None in
+        non-Databricks environments or when the task value is not set.
+    """
+    try:
+        dbutils = _get_dbutils()
+    except _NoDbutilsError:
+        return None
+
+    try:
+        job_run_id = dbutils.widgets.get("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID")
+        _logger.debug(f"SGC job run ID: {job_run_id}")
+        return job_run_id
+    except Exception as e:
+        _logger.debug(f"Failed to retrieve SGC job run ID from task values: {e}", exc_info=True)
+        return None
+
+
 def _construct_databricks_run_url(
     host: str,
     experiment_id: str,

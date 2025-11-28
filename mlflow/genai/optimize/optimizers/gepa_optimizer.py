@@ -23,8 +23,8 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
     Args:
         reflection_model: Name of the model to use for reflection and optimization.
-            Format: "<provider>/<model>" or "<provider>:/<model>"
-            (e.g., "openai/gpt-4", "openai:/gpt-4o", "anthropic/claude-3-5-sonnet-20241022").
+            Format: "<provider>:/<model>"
+            (e.g., "openai:/gpt-4o", "anthropic:/claude-3-5-sonnet-20241022").
         max_metric_calls: Maximum number of evaluation calls during optimization.
             Higher values may lead to better results but increase optimization time.
             Default: 100

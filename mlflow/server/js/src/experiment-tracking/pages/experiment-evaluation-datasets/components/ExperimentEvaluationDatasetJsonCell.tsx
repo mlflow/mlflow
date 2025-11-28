@@ -1,6 +1,6 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { Cell, Table } from '@tanstack/react-table';
-import { EvaluationDatasetRecord } from '../types';
+import type { Cell, Table } from '@tanstack/react-table';
+import type { EvaluationDatasetRecord } from '../types';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 
 export const JsonCell = ({

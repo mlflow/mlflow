@@ -1,11 +1,11 @@
 import { DropdownMenu, OverflowIcon, Spinner, TableRowAction, TrashIcon } from '@databricks/design-system';
 import { Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { Row } from '@tanstack/react-table';
-import { EvaluationDataset } from '../types';
+import type { Row } from '@tanstack/react-table';
+import type { EvaluationDataset } from '../types';
 import { SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';
 import { useDeleteEvaluationDatasetMutation } from '../hooks/useDeleteEvaluationDatasetMutation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useCallback } from 'react';
 
 // Component for rendering dataset actions

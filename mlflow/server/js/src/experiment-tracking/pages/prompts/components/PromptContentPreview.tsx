@@ -22,8 +22,8 @@ import { FormattedMessage } from 'react-intl';
 import { uniq } from 'lodash';
 import { useDeletePromptVersionModal } from '../hooks/useDeletePromptVersionModal';
 import { ShowArtifactCodeSnippet } from '../../../components/artifact-view-components/ShowArtifactCodeSnippet';
-import { ModelTraceExplorerChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/right-pane/ModelTraceExplorerChatMessage';
-import type { ModelTraceChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/ModelTrace.types';
+import { ModelTraceExplorerChatMessage } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceChatMessage } from '@databricks/web-shared/model-trace-explorer';
 import { OptimizeModal } from './OptimizeModal';
 
 const PROMPT_VARIABLE_REGEX = /\{\{\s*(.*?)\s*\}\}/g;

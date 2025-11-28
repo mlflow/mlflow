@@ -2394,7 +2394,7 @@ def spark_udf(
     dbconnect_artifact_cache = DBConnectArtifactCache.get_or_create(spark)
 
     if use_dbconnect_artifact:
-        # Upload model artifacts and python environment to NFS as DBConncet artifacts.
+        # Upload model artifacts and python environment to NFS as DBConnect artifacts.
         if env_manager in (_EnvManager.VIRTUALENV, _EnvManager.UV):
             if not dbconnect_artifact_cache.has_cache_key(env_cache_key):
                 if prebuilt_env_uri:

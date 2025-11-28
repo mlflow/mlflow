@@ -11,6 +11,7 @@ export type SessionTableRow = {
   sessionDuration: string | null;
   tokens: number;
   turns: number;
+  traces: ModelTraceInfoV3[];
 };
 
 export type SessionTableColumn = {

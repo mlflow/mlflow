@@ -62,16 +62,34 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
     # Class constants for default SIMBA parameters
     DEFAULT_SEED: ClassVar[int] = 42
 
-    def __init__(self, model: str | None = None, **kwargs):
+    def __init__(
+        self,
+        model: str | None = None,
+        batch_size: int | None = None,
+        seed: int | None = None,
+        simba_kwargs: dict[str, Any] | None = None,
+        **kwargs,
+    ):
         """
-        Initialize SIMBA optimizer with default parameters.
+        Initialize SIMBA optimizer with customizable parameters.
 
         Args:
             model: Model to use for DSPy optimization. If None, uses get_default_model().
+            batch_size: Batch size for SIMBA evaluation. If None, uses get_min_traces_required().
+            seed: Random seed for reproducibility. If None, uses DEFAULT_SEED (42).
+            simba_kwargs: Additional keyword arguments to pass directly to dspy.SIMBA().
+                         Supported parameters include:
+                         - metric: Custom metric function (overrides default agreement_metric)
+                         - max_demos: Maximum number of demonstrations to use
+                         - num_threads: Number of threads for parallel optimization
+                         - max_steps: Maximum number of optimization steps
+                         See https://dspy.ai/api/optimizers/SIMBA/ for full list.
             **kwargs: Additional keyword arguments passed to parent class
         """
         super().__init__(model=model, **kwargs)
-        self._seed = self.DEFAULT_SEED
+        self._batch_size = batch_size
+        self._seed = seed or self.DEFAULT_SEED
+        self._simba_kwargs = simba_kwargs or {}
 
     def _get_batch_size(self) -> int:
         """
@@ -80,7 +98,7 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         Returns:
             The batch size to use for SIMBA optimization.
         """
-        return self.get_min_traces_required()
+        return self._batch_size if self._batch_size is not None else self.get_min_traces_required()
 
     def _dspy_optimize(
         self,
@@ -96,14 +114,21 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         Args:
             program: The DSPy program to optimize
             examples: Examples for optimization
-            metric_fn: Metric function for optimization
+            metric_fn: Default metric function for optimization
 
         Returns:
             Optimized DSPy program
         """
         with _suppress_verbose_logging("dspy.teleprompt.simba"):
-            # Create SIMBA optimizer (default max_steps=8)
-            optimizer = dspy.SIMBA(metric=metric_fn, bsize=self._get_batch_size())
+            # Build SIMBA optimizer kwargs starting with required parameters
+            # If metric is in simba_kwargs, it will override the default metric_fn
+            optimizer_kwargs = {
+                "metric": metric_fn,
+                "bsize": self._get_batch_size(),
+                **self._simba_kwargs,  # Pass through any additional SIMBA parameters
+            }
+
+            optimizer = dspy.SIMBA(**optimizer_kwargs)
 
             _logger.info(
                 f"Starting SIMBA optimization with {len(examples)} examples "

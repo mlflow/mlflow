@@ -102,7 +102,6 @@ def test_no_metrics_when_disabled(
     if metrics_data:
         for resource_metric in metrics_data.resource_metrics:
             for scope_metric in resource_metric.scope_metrics:
-                for metric in scope_metric.metrics:
-                    metric_names.append(metric.name)
+                metric_names.extend(metric.name for metric in scope_metric.metrics)
 
     assert "mlflow.trace.span.duration" not in metric_names

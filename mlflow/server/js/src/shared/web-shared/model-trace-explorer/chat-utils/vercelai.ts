@@ -1,4 +1,4 @@
-import { compact, has, isArray, isNil, isObject, isString } from 'lodash';
+import { compact, has, isArray, isObject, isString } from 'lodash';
 
 import type { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
@@ -45,11 +45,11 @@ type VercelAIMessage = {
   tool_call_id?: string;
 };
 
-type VercelAIMessagesInput = {
+export type VercelAIMessagesInput = {
   messages: VercelAIMessage[];
 };
 
-type VercelAIPromptInput = {
+export type VercelAIPromptInput = {
   prompt: string;
 };
 
@@ -65,7 +65,7 @@ type VercelAIPromptInput = {
  *   ...
  * }
  */
-type VercelAIOutput = {
+export type VercelAIOutput = {
   text?: string;
   response?: {
     messages?: VercelAIMessage[];

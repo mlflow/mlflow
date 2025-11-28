@@ -11,13 +11,16 @@ import {
   TableSkeletonRows,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import { FormattedMessage } from 'react-intl';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
-import { EvaluationDataset } from '../types';
+import type { EvaluationDataset } from '../types';
 import { useCallback, useState } from 'react';
-import { getModelTraceId, ModelTrace } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer';
+import { getModelTraceId } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { compact } from 'lodash';
 import { extractDatasetInfoFromTraces } from '../utils/datasetUtils';
 import { useUpsertDatasetRecordsMutation } from '../hooks/useUpsertDatasetRecordsMutation';
@@ -71,13 +74,16 @@ export const ExportTracesToDatasetModal = ({
     fetchNextPage,
   });
 
-  const table = useReactTable({
-    columns,
-    getRowId: (row) => row.dataset_id,
-    data: datasets ?? [],
-    getCoreRowModel: getCoreRowModel(),
-    enableColumnResizing: false,
-  });
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal.tsx',
+    {
+      columns,
+      getRowId: (row) => row.dataset_id,
+      data: datasets ?? [],
+      getCoreRowModel: getCoreRowModel(),
+      enableColumnResizing: false,
+    },
+  );
 
   const selectedDatasets = table.getSelectedRowModel().rows.map((row) => row.original);
 
@@ -168,7 +174,7 @@ export const ExportTracesToDatasetModal = ({
             {table.getLeafHeaders().map((header) => (
               <TableHeader
                 key={header.id}
-                componentId={`mlflow.eval-datasets.${header.column.id}-header`}
+                componentId="mlflow.eval-datasets.column-header"
                 header={header}
                 column={header.column}
                 css={{ width: header.column.columnDef.size, maxWidth: header.column.columnDef.maxSize }}

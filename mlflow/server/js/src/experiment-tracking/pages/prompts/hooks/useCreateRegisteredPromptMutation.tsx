@@ -1,6 +1,7 @@
 import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { RegisteredPromptsApi } from '../api';
-import { PROMPT_TYPE_CHAT, PROMPT_TYPE_TAG_KEY, PROMPT_TYPE_TEXT, REGISTERED_PROMPT_CONTENT_TAG_KEY } from '../utils';
+import type { PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT } from '../utils';
+import { PROMPT_TYPE_TAG_KEY, REGISTERED_PROMPT_CONTENT_TAG_KEY } from '../utils';
 
 type UpdateContentPayload = {
   promptName: string;
