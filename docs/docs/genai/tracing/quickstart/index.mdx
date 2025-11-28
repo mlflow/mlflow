@@ -2,6 +2,7 @@ import ImageBox from '@site/src/components/ImageBox';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Tracing Quickstart
 
@@ -10,7 +11,9 @@ This quickstart guide will walk you through setting up a simple GenAI applicatio
 ## Prerequisites
 
 Make sure you have started the MLflow server.
-If not, please follow [this guide](/genai/getting-started/connect-environment) to get it started in under a minute.
+If you don't have the MLflow server running yet, just follow these simple steps to get it started.
+
+<ServerSetup />
 
 ## Create a MLflow Experiment
 
@@ -20,7 +23,7 @@ Let's create a new MLflow experiment using the MLflow UI so that you can start s
 
 <ImageBox src="/images/llms/tracing/quickstart/mlflow-ui-new-experiment.png" alt="New Experiment"/>
 
-1. Navigate to the MLflow UI in your browser at [http://127.0.0.1:5000](http://127.0.0.1:5000).
+1. Navigate to the MLflow UI in your browser at [http://localhost:5000](http://localhost:5000).
 2. Click on the <div className="inline-flex rounded-sm bg-sky-700 px-2 py-1.5 text-sm font-semibold text-white">Create</div> button on the top right.
 3. Enter a name for the experiment and click on "Create".
 

@@ -4,10 +4,8 @@ last_update:
   date: 2025-11-27
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-import TabsWrapper from '@site/src/components/TabsWrapper';
 import ImageBox from '@site/src/components/ImageBox';
+import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Set Up MLflow Server
 
@@ -21,36 +19,7 @@ Before you can leverage MLflow for your GenAI application development, you must 
 
 ## Start the MLflow Server
 
-<TabsWrapper>
-<Tabs>
-<TabItem value="local" label="Local (pip)" default>
-
-For the fastest setup, you can install the `mlflow` Python package via `pip` and start the MLflow server locally.
-
-```bash
-pip install --upgrade mlflow
-mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
-```
-
-</TabItem>
-
-<TabItem value="docker" label="Local (docker)">
-
-MLflow provides a Docker Compose file to start a local MLflow server with a postgres database and a minio server.
-
-```bash
-git clone https://github.com/mlflow/mlflow.git
-cd docker-compose
-cp .env.dev.example .env
-docker compose up -d
-```
-
-Refer to the [instruction](https://github.com/mlflow/mlflow/tree/master/docker-compose/README.md) for more details, e.g., overriding the default environment variables.
-
-</TabItem>
-
-</Tabs>
-</TabsWrapper>
+<ServerSetup />
 
 This will start the server at port 5000 on your local machine and you can access the MLflow web UI at http://localhost:5000.
 

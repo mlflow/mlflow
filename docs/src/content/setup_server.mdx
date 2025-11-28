@@ -6,21 +6,12 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 <Tabs>
 <TabItem value="local" label="Local (pip)" default>
 
-For the fastest setup, you can install the [mlflow](https://pypi.org/project/mlflow/) Python package and run MLflow locally:
+For the fastest setup, you can install the `mlflow` Python package via `pip` and start the MLflow server locally.
 
 ```bash
+pip install --upgrade mlflow
 mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 ```
-
-This will start the server at port 5000 on your local machine. Connect your notebook/IDE to the server by setting the tracking URI. You can also access to the MLflow UI at http://localhost:5000.
-
-```python
-import mlflow
-
-mlflow.set_tracking_uri("http://localhost:5000")
-```
-
-You can also brows the MLflow UI at http://localhost:5000.
 
 </TabItem>
 
@@ -33,14 +24,6 @@ git clone https://github.com/mlflow/mlflow.git
 cd docker-compose
 cp .env.dev.example .env
 docker compose up -d
-```
-
-This will start the server at port 5000 on your local machine. Connect your notebook/IDE to the server by setting the tracking URI. You can also access to the MLflow UI at http://localhost:5000.
-
-```python
-import mlflow
-
-mlflow.set_tracking_uri("http://localhost:5000")
 ```
 
 Refer to the [instruction](https://github.com/mlflow/mlflow/tree/master/docker-compose/README.md) for more details, e.g., overriding the default environment variables.
