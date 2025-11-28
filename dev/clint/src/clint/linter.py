@@ -386,6 +386,7 @@ class Linter(ast.NodeVisitor):
         self.index = index
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
         self.prev_stmt: ast.stmt | None = None
+        self.top_level_imports: set[str] = set()
 
     def _check(self, range: Range, rule: rules.Rule) -> None:
         # Skip rules that are not selected in the config
@@ -653,6 +654,16 @@ class Linter(ast.NodeVisitor):
         self.resolver.add_import(node)
         for alias in node.names:
             root_module = alias.name.split(".", 1)[0]
+
+            # Track top-level imports
+            if self._is_at_top_level() and not self.in_TYPE_CHECKING:
+                self.top_level_imports.add(alias.name)
+
+            # Check for duplicate imports in functions
+            if self._is_in_function() and not self.in_TYPE_CHECKING:
+                if alias.name in self.top_level_imports:
+                    self._check(Range.from_node(node), rules.DuplicateImport(name=alias.name))
+
             if self._is_in_function() and root_module in BUILTIN_MODULES:
                 self._check(Range.from_node(node), rules.LazyBuiltinImport())
 
@@ -677,6 +688,19 @@ class Linter(ast.NodeVisitor):
         self.resolver.add_import_from(node)
 
         root_module = node.module and node.module.split(".", 1)[0]
+
+        # Track top-level imports
+        if self._is_at_top_level() and not self.in_TYPE_CHECKING and node.module:
+            for alias in node.names:
+                self.top_level_imports.add(f"{node.module}.{alias.name}")
+
+        # Check for duplicate imports in functions
+        if self._is_in_function() and not self.in_TYPE_CHECKING and node.module:
+            for alias in node.names:
+                full_name = f"{node.module}.{alias.name}"
+                if full_name in self.top_level_imports:
+                    self._check(Range.from_node(node), rules.DuplicateImport(name=full_name))
+
         if self._is_in_function() and root_module in BUILTIN_MODULES:
             self._check(Range.from_node(node), rules.LazyBuiltinImport())
 

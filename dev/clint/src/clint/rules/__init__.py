@@ -2,6 +2,7 @@ from clint.rules.assign_before_append import AssignBeforeAppend
 from clint.rules.base import Rule
 from clint.rules.do_not_disable import DoNotDisable
 from clint.rules.docstring_param_order import DocstringParamOrder
+from clint.rules.duplicate_import import DuplicateImport
 from clint.rules.empty_notebook_cell import EmptyNotebookCell
 from clint.rules.example_syntax_error import ExampleSyntaxError
 from clint.rules.extraneous_docstring_param import ExtraneousDocstringParam
@@ -56,6 +57,7 @@ __all__ = [
     "Rule",
     "DoNotDisable",
     "DocstringParamOrder",
+    "DuplicateImport",
     "EmptyNotebookCell",
     "ExampleSyntaxError",
     "ExtraneousDocstringParam",
