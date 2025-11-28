@@ -11,7 +11,7 @@ import logging
 import os
 import threading
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
+from typing import IO, TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
 import mlflow
 from mlflow.entities import Dataset as DatasetEntity
@@ -1638,6 +1638,40 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     """
     run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
+
+
+def log_stream(stream: IO[bytes] | IO[str], artifact_file: str, run_id: str | None = None) -> None:
+    """
+    Log a file-like object (e.g., ``io.BytesIO``, ``io.StringIO``) as an artifact.
+
+    Args:
+        stream: A file-like object supporting ``.read()`` method (e.g., ``io.BytesIO``,
+            ``io.StringIO``, or any object implementing the ``IO`` protocol).
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the stream content is saved (e.g. "dir/file.txt").
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import io
+
+        import mlflow
+
+        with mlflow.start_run():
+            # Log a BytesIO stream
+            bytes_stream = io.BytesIO(b"binary content")
+            mlflow.log_stream(bytes_stream, "binary_file.bin")
+
+            # Log a StringIO stream
+            text_stream = io.StringIO("text content")
+            mlflow.log_stream(text_stream, "text_file.txt")
+
+    """
+    run_id = run_id or _get_or_start_run().info.run_id
+    MlflowClient().log_stream(run_id, stream, artifact_file)
 
 
 def log_figure(

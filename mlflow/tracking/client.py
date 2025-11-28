@@ -18,7 +18,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
+from typing import IO, TYPE_CHECKING, Any, Literal, Sequence, Union
 
 import yaml
 from pydantic import BaseModel
@@ -2683,6 +2683,55 @@ class MlflowClient:
                 else:
                     # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
+
+    def log_stream(self, run_id: str, stream: IO[bytes] | IO[str], artifact_file: str) -> None:
+        """Log a file-like object (e.g., ``io.BytesIO``, ``io.StringIO``) as an artifact.
+
+        Args:
+            run_id: String ID of the run.
+            stream: A file-like object supporting ``.read()`` method (e.g., ``io.BytesIO``,
+                ``io.StringIO``, or any object implementing the ``IO`` protocol).
+            artifact_file: The run-relative artifact file path in posixpath format to which
+                the stream content is saved (e.g. "dir/file.txt").
+
+        .. code-block:: python
+            :caption: Example
+
+            import io
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+
+            # Log a BytesIO stream
+            bytes_stream = io.BytesIO(b"binary content")
+            client.log_stream(run.info.run_id, bytes_stream, "binary_file.bin")
+
+            # Log a StringIO stream
+            text_stream = io.StringIO("text content")
+            client.log_stream(run.info.run_id, text_stream, "text_file.txt")
+
+        """
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            # Read a small chunk to determine the stream type (binary or text)
+            chunk = stream.read(1)
+            if isinstance(chunk, str):
+                # Text stream (empty string "" means exhausted)
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    f.write(chunk)
+                    while chunk := stream.read(8192):
+                        f.write(chunk)
+            elif isinstance(chunk, bytes):
+                # Binary stream (empty bytes b"" means exhausted)
+                with open(tmp_path, "wb") as f:
+                    f.write(chunk)
+                    while chunk := stream.read(8192):
+                        f.write(chunk)
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Expected stream to return str or bytes, got {type(chunk).__name__}"
+                )
 
     def log_figure(
         self,
