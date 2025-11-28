@@ -4474,7 +4474,6 @@ class SqlAlchemyStore(AbstractStore):
         """
         Add a dataset to additional experiments.
         """
-        from mlflow.entities.entity_type import EntityAssociationType
 
         with self.ManagedSessionMaker() as session:
             dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
@@ -4532,7 +4531,6 @@ class SqlAlchemyStore(AbstractStore):
         """
         Remove a dataset from experiments (idempotent).
         """
-        from mlflow.entities.entity_type import EntityAssociationType
 
         with self.ManagedSessionMaker() as session:
             dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()

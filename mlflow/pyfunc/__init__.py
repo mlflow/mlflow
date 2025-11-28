@@ -1911,8 +1911,6 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path, env_manage
 
 
 def _download_prebuilt_env_if_needed(prebuilt_env_uri):
-    from mlflow.utils.file_utils import get_or_create_tmp_dir
-
     parsed_url = urlparse(prebuilt_env_uri)
     if parsed_url.scheme in {"", "file"}:
         # local path

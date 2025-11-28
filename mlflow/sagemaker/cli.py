@@ -351,7 +351,6 @@ def build_and_push_container(build, push, container, install_java, env_manager, 
     The image is built locally and it requires Docker to run.
     The image is pushed to ECR under current active AWS account and to current active AWS region.
     """
-    from mlflow.models import docker_utils
 
     env_manager = env_manager or em.VIRTUALENV
     if not (build or push):
@@ -369,7 +368,7 @@ def build_and_push_container(build, push, container, install_java, env_manager, 
         )
 
         with tempfile.TemporaryDirectory() as tmp:
-            docker_utils.generate_dockerfile(
+            mlflow.models.docker_utils.generate_dockerfile(
                 base_image=mlflow.models.docker_utils.UBUNTU_BASE_IMAGE,
                 output_dir=tmp,
                 entrypoint=sagemaker_image_entrypoint,
@@ -381,6 +380,6 @@ def build_and_push_container(build, push, container, install_java, env_manager, 
                 install_java=install_java,
             )
 
-            docker_utils.build_image_from_context(tmp, image_name=container)
+            mlflow.models.docker_utils.build_image_from_context(tmp, image_name=container)
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)

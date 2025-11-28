@@ -1231,7 +1231,6 @@ def autolog(disable=False, silent=False):
         _listen_for_spark_activity,
         _stop_listen_for_spark_activity,
     )
-    from mlflow.utils import databricks_utils
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     if (

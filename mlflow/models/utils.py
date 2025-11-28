@@ -214,8 +214,6 @@ def _convert_dataframe_to_split_dict(df):
 
 
 def _contains_nd_array(data):
-    import numpy as np
-
     if isinstance(data, np.ndarray):
         return True
     if isinstance(data, list):
@@ -1570,7 +1568,6 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
             add_libraries_to_model(model_uri, registered_model_name="new-model")
     """
 
-    import mlflow
     from mlflow.models.wheeled_model import WheeledModel
 
     if mlflow.active_run() is None:
@@ -1587,7 +1584,6 @@ def get_model_version_from_model_uri(model_uri):
     Helper function to fetch a model version from a model uri of the form
     models:/<model_name>/<model_version/stage/latest>.
     """
-    import mlflow
     from mlflow import MlflowClient
 
     databricks_profile_uri = (

@@ -31,7 +31,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback  # noqa: F401
+from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -955,7 +955,6 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
     input list, and returns the new list and appropriate log directory.
     """
     from mlflow.tensorflow.autologging import _TensorBoard
-    from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback
 
     tb = _get_tensorboard_callback(callbacks)
     for callback in callbacks:
