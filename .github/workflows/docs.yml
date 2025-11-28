@@ -27,6 +27,7 @@ concurrency:
 
 defaults:
   run:
+    shell: bash
     working-directory: docs
 
 jobs:

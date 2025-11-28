@@ -6,6 +6,10 @@ on:
       - opened
       - ready_for_review
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   notify:
     if: github.event.pull_request.draft == false
