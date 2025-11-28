@@ -11,9 +11,9 @@ import { FeedbackHistoryModal } from './FeedbackHistoryModal';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { FeedbackAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import { Link, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
+import { Link, useParams } from '../RoutingUtils';
 import { MLFLOW_ASSESSMENT_JUDGE_COST, MLFLOW_ASSESSMENT_SCORER_TRACE_ID } from '../constants';
+import { getExperimentPageTracesTabRoute } from '../routes';
 
 export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }) => {
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
@@ -42,14 +42,11 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
       return undefined;
     }
 
-    const decimalMatch = String(judgeCost).match(/\.(\d+)/);
-    const truncatedDecimals = Math.min(Math.max(decimalMatch ? decimalMatch[1].length : 0, 2), 6);
-
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: truncatedDecimals,
-      maximumFractionDigits: truncatedDecimals,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
     }).format(numericCost);
   })();
   const shouldShowCostSection = Boolean(formattedCost);
@@ -146,5 +143,5 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
 };
 
 const getJudgeTraceHref = (experimentId: string, judgeTraceId: string) => {
-  return `${Routes.getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${judgeTraceId}`;
+  return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${judgeTraceId}`;
 };

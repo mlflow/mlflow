@@ -326,3 +326,29 @@ def test_construct_dspy_lm_utility_method(model, expected_type):
         assert isinstance(result, dspy.LM)
         # Ensure MLflow URI format is converted (no :/ in the model)
         assert ":/" not in result.model
+
+
+def test_agent_eval_lm_uses_optimizer_session_name():
+    """Test that AgentEvalLM uses mlflow-judge-optimizer session name."""
+    from mlflow.utils import AttrDict
+
+    pytest.importorskip("dspy", reason="DSPy not installed")
+
+    mock_response = AttrDict({"output": "test response", "error_message": None})
+
+    with (
+        patch("mlflow.genai.judges.optimizers.dspy_utils.call_chat_completions") as mock_call,
+        patch("mlflow.genai.judges.optimizers.dspy_utils.VERSION", "1.0.0"),
+    ):
+        mock_call.return_value = mock_response
+
+        agent_lm = AgentEvalLM()
+        agent_lm.forward(prompt="test prompt")
+
+        # Verify call_chat_completions was called with the optimizer session name
+        mock_call.assert_called_once_with(
+            user_prompt="test prompt",
+            system_prompt=None,
+            session_name="mlflow-judge-optimizer-v1.0.0",
+            use_case="judge_alignment",
+        )

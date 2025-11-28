@@ -1,12 +1,9 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
-import TabsWrapper from '@site/src/components/TabsWrapper';
 import WorkflowSteps from '@site/src/components/WorkflowSteps';
 import TilesGrid from '@site/src/components/TilesGrid';
 import TileCard from '@site/src/components/TileCard';
-import { Search, BookMarked, Target, Play, MessageSquare, Code, Activity, Zap } from 'lucide-react';
+import { Search, BookMarked, Target, Play, Code, Activity, Zap } from 'lucide-react';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Evaluating (Production) Traces
@@ -187,7 +184,7 @@ This generates a list of traces as follows:
 ### Step 1: Search and retrieve traces
 
 Traces stored in the MLflow backend can be retrieved using the <APILink fn="mlflow.search_traces" /> API.
-The following code retrieves all traces from the last 24 hours. See [Query Traces via SDK](/genai/tracing/observe-with-traces/query-via-sdk/) for the full supported syntax.
+The following code retrieves all traces from the last 24 hours. See [Searching for traces](/genai/tracing/search-traces/) for the full supported syntax.
 
 ```python
 import mlflow

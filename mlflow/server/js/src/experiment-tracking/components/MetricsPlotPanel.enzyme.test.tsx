@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
@@ -445,7 +446,7 @@ describe('unit tests', () => {
     wrapper = shallow(<MetricsPlotPanel {...props} />);
     instance = wrapper.instance();
     instance.getUrlState = jest.fn().mockReturnValue({ selectedMetricKeys: ['metric_1'] });
-    instance.loadMetricHistory = jest.fn().mockResolvedValue(undefined);
+    instance.loadMetricHistory = jest.fn<ReturnType<any>>().mockResolvedValue(undefined);
     instance.setState({ loading: false });
 
     await instance.handleDownloadCsv();
@@ -461,7 +462,7 @@ describe('unit tests', () => {
     instance = wrapper.instance();
     instance.setState({ loading: true });
     instance.getUrlState = jest.fn().mockReturnValue({ selectedMetricKeys: ['metric_1'] });
-    instance.loadMetricHistory = jest.fn().mockResolvedValue(undefined);
+    instance.loadMetricHistory = jest.fn<ReturnType<any>>().mockResolvedValue(undefined);
     jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     instance.setState({ loading: false });
     await instance.handleDownloadCsv();

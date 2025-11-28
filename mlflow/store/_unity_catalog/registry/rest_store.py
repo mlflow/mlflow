@@ -327,8 +327,9 @@ def get_model_version_dependencies(model_dir):
         index_names = _fetch_langchain_dependency_from_model_info(
             databricks_dependencies, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
         )
-        for index_name in index_names:
-            dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", "name": index_name})
+        dependencies.extend(
+            {"type": "DATABRICKS_VECTOR_INDEX", "name": index_name} for index_name in index_names
+        )
         for key in (
             _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
             _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
@@ -337,8 +338,10 @@ def get_model_version_dependencies(model_dir):
             endpoint_names = _fetch_langchain_dependency_from_model_info(
                 databricks_dependencies, key
             )
-            for endpoint_name in endpoint_names:
-                dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
+            dependencies.extend(
+                {"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name}
+                for endpoint_name in endpoint_names
+            )
     return dependencies
 
 
@@ -1348,10 +1351,11 @@ class UcModelRegistryStore(BaseRestStore):
         )
 
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
-        prompts = []
-        for prompt_info in response_proto.prompts:
-            # For UC, only use the basic prompt info without extra tag fetching
-            prompts.append(proto_info_to_mlflow_prompt_info(prompt_info, {}))
+        # For UC, only use the basic prompt info without extra tag fetching
+        prompts = [
+            proto_info_to_mlflow_prompt_info(prompt_info, {})
+            for prompt_info in response_proto.prompts
+        ]
 
         return PagedList(prompts, response_proto.next_page_token)
 
@@ -1482,7 +1486,7 @@ class UcModelRegistryStore(BaseRestStore):
         template: str | list[dict[str, Any]],
         description: str | None = None,
         tags: dict[str, str] | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new prompt version in Unity Catalog.

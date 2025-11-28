@@ -385,6 +385,7 @@ class Linter(ast.NodeVisitor):
         self.resolver = Resolver()
         self.index = index
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
+        self.prev_stmt: ast.stmt | None = None
 
     def _check(self, range: Range, rule: rules.Rule) -> None:
         # Skip rules that are not selected in the config
@@ -438,15 +439,11 @@ class Linter(ast.NodeVisitor):
         return not self.stack
 
     def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
-        args: list[str] = []
-        for arg in func.args.posonlyargs:
-            args.append(arg.arg)
+        args: list[str] = [arg.arg for arg in func.args.posonlyargs]
 
-        for arg in func.args.args:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.args)
 
-        for arg in func.args.kwonlyargs:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.kwonlyargs)
 
         if func.args.vararg:
             args.append(func.args.vararg.arg)
@@ -488,6 +485,11 @@ class Linter(ast.NodeVisitor):
     ) -> None:
         if rule := rules.RedundantTestDocstring.check(node, self.path.name):
             self._check(Range.from_node(node), rule)
+
+    def visit(self, node: ast.AST) -> None:
+        super().visit(node)
+        if isinstance(node, ast.stmt):
+            self.prev_stmt = node
 
     def visit_Module(self, node: ast.Module) -> None:
         if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
@@ -760,6 +762,9 @@ class Linter(ast.NodeVisitor):
         if rules.IsinstanceUnionSyntax.check(node):
             self._check(Range.from_node(node), rules.IsinstanceUnionSyntax())
 
+        if rules.SubprocessCheckCall.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.SubprocessCheckCall())
+
         if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsChdirInTest())
 
@@ -768,6 +773,9 @@ class Linter(ast.NodeVisitor):
 
         if self._is_in_test() and rules.MockPatchDictEnviron.check(node, self.resolver):
             self._check(Range.from_node(node), rules.MockPatchDictEnviron())
+
+        if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
 
         self.generic_visit(node)
 
@@ -792,6 +800,16 @@ class Linter(ast.NodeVisitor):
     def visit_Delete(self, node: ast.Delete) -> None:
         if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
+        self.generic_visit(node)
+
+    def visit_Compare(self, node: ast.Compare) -> None:
+        if rules.MajorVersionCheck.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.MajorVersionCheck())
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        if self.prev_stmt and rules.AssignBeforeAppend.check(node, self.prev_stmt):
+            self._check(Range.from_node(node), rules.AssignBeforeAppend())
         self.generic_visit(node)
 
     def visit_type_annotation(self, node: ast.expr) -> None:

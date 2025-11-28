@@ -9,6 +9,7 @@ import pandas as pd
 
 from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
@@ -41,6 +42,9 @@ class EvalItem:
     """Error message if the model invocation fails."""
     error_message: str | None = None
 
+    """Source information for the eval item (e.g., from which trace it was created)."""
+    source: DatasetRecordSource | None = None
+
     @classmethod
     def from_dataset_row(cls, row: dict[str, Any]) -> "EvalItem":
         """
@@ -63,6 +67,11 @@ class EvalItem:
         # Extract tags column from the dataset.
         tags = row.get(InputDatasetColumn.TAGS, {})
 
+        # Extract source column from the dataset.
+        source = row.get(InputDatasetColumn.SOURCE)
+        if is_none_or_nan(source):
+            source = None
+
         # Get the request ID from the row, or generate a new unique ID if not present.
         request_id = row.get(InputDatasetColumn.REQUEST_ID)
         if is_none_or_nan(request_id):
@@ -83,6 +92,7 @@ class EvalItem:
             expectations=expectations,
             tags=tags,
             trace=trace,
+            source=source,
         )
 
     @classmethod
@@ -166,15 +176,25 @@ class EvalResult:
 class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
-    result_df: pd.DataFrame
+    result_df: pd.DataFrame | None
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
+        result_df_str = (
+            f"{len(self.result_df)} rows x {len(self.result_df.columns)} cols"
+            if self.result_df is not None
+            else "None"
+        )
         return (
             "EvaluationResult(\n"
             f"  run_id: {self.run_id}\n"
             "  metrics:\n"
             f"    {metrics_str}\n"
-            f"  result_df: [{len(self.result_df)} rows x {len(self.result_df.columns)} cols]\n"
+            f"  result_df: {result_df_str}\n"
             ")"
         )
+
+    # For backwards compatibility
+    @property
+    def tables(self) -> dict[str, pd.DataFrame]:
+        return {"eval_results": self.result_df} if self.result_df is not None else {}

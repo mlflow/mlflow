@@ -1,16 +1,19 @@
 import ErrorUtils from '@mlflow/mlflow/src/common/utils/ErrorUtils';
 import { withErrorBoundary } from '@mlflow/mlflow/src/common/utils/withErrorBoundary';
 import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
+import type { GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
   createTraceLocationForExperiment,
+  createTraceLocationForUCSchema,
+  doesTraceSupportV4API,
   useGetTraces,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
 
-import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -24,7 +27,6 @@ import {
   ExperimentSingleChatSessionSidebar,
   ExperimentSingleChatSessionSidebarSkeleton,
 } from './ExperimentSingleChatSessionSidebar';
-import { shouldEnableChatSessionsTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { getChatSessionsFilter } from '../utils';
 import {
@@ -32,6 +34,7 @@ import {
   ExperimentSingleChatConversationSkeleton,
 } from './ExperimentSingleChatConversation';
 import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
+import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
 
 const ContextProviders = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
@@ -40,12 +43,18 @@ const ContextProviders = ({ children }: { children: React.ReactNode }) => {
 const ExperimentSingleChatSessionPageImpl = () => {
   const { theme } = useDesignSystemTheme();
   const { experimentId, sessionId } = useParams();
+  const location = useLocation();
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number | null>(null);
   const [selectedTrace, setSelectedTrace] = useState<ModelTrace | null>(null);
   const chatRefs = useRef<{ [traceId: string]: HTMLDivElement }>({});
 
   invariant(experimentId, 'Experiment ID must be defined');
   invariant(sessionId, 'Session ID must be defined');
+
+  const selectedTraceIdFromUrl = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search);
+    return searchParams.get(SELECTED_TRACE_ID_QUERY_PARAM);
+  }, [location.search]);
 
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
@@ -77,11 +86,25 @@ const ExperimentSingleChatSessionPageImpl = () => {
   }, [traceInfos]);
 
   const getTrace = getTraceV3;
-  const { data: traces, isLoading: isLoadingTraceDatas } = useGetTraces(getTrace, sortedTraceInfos);
+  const getAssessmentTitle = useCallback((assessmentName: string) => assessmentName, []);
+  const {
+    data: traces,
+    isLoading: isLoadingTraceDatas,
+    invalidateSingleTraceQuery,
+  } = useGetTraces(getTrace, sortedTraceInfos);
 
-  if (!shouldEnableChatSessionsTab()) {
-    return <div />;
-  }
+  useEffect(() => {
+    if (selectedTraceIdFromUrl && traces && traces.length > 0 && !isLoadingTraceDatas) {
+      const traceIndex = traces.findIndex((trace) => getModelTraceId(trace) === selectedTraceIdFromUrl);
+      if (traceIndex !== -1) {
+        setSelectedTurnIndex(traceIndex);
+        const traceRef = chatRefs.current[selectedTraceIdFromUrl];
+        if (traceRef) {
+          traceRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+  }, [selectedTraceIdFromUrl, traces, isLoadingTraceDatas]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -110,6 +133,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
             setSelectedTurnIndex={setSelectedTurnIndex}
             setSelectedTrace={setSelectedTrace}
             chatRefs={chatRefs}
+            getAssessmentTitle={getAssessmentTitle}
           />
         </div>
       )}
@@ -122,7 +146,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
         }}
       >
         <Drawer.Content
-          componentId="mlflow.experiment.chat-session.trace-data-drawer"
+          componentId="mlflow.experiment.chat-session.trace-drawer"
           title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
           width="90vw"
           expandContentToFullHeight
@@ -137,7 +161,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
           >
             <ContextProviders // prettier-ignore
             >
-              {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace as ModelTrace} />}
+              {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
             </ContextProviders>
           </div>
         </Drawer.Content>

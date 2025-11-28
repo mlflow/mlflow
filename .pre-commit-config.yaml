@@ -6,7 +6,7 @@ repos:
       - id: trailing-whitespace
         files: \.(mdx|ya?ml|txt)$
       - id: end-of-file-fixer
-        files: \.(proto|txt|sh|rst)$
+        files: \.(txt|sh|rst)$
         exclude: ^examples/|^mlflow/protos/opentelemetry/
       - id: check-vcs-permalinks
         files: \.py$
@@ -123,6 +123,15 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: buf
+        name: buf
+        entry: bin/buf format -d -w --exit-code --exclude-path mlflow/protos/opentelemetry mlflow/protos
+        files: '\.proto$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
       - id: typos
         name: typos
         entry: bin/typos --format brief --force-exclude --color never
@@ -165,3 +174,10 @@ repos:
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false
+
+      - id: forbid-gif
+        name: forbid-gif
+        language: fail
+        entry: "Please use MP4 instead of GIF for docs animations"
+        files: ^docs/.*\.gif$
+        stages: [pre-commit]

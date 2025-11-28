@@ -15,8 +15,10 @@ from mlflow.entities.span import Span
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
+from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
+from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
 from mlflow.tracing.utils import dump_span_attribute_value
 
 _logger = logging.getLogger(__name__)
@@ -25,6 +27,8 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     OpenInferenceTranslator(),
     GenAiTranslator(),
     TraceloopTranslator(),
+    GoogleADKTranslator(),
+    VercelAITranslator(),
 ]
 
 
@@ -46,7 +50,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
         Translated span dictionary
     """
     span_dict = span.to_dict()
-    attributes = span_dict.get("attributes", {})
+    attributes = sanitize_attributes(span_dict.get("attributes", {}))
 
     # Translate inputs and outputs
     if SpanAttributeKey.INPUTS not in attributes and (input_value := _get_input_value(attributes)):
@@ -191,6 +195,39 @@ def update_token_usage(
                     key, 0
                 )
     except Exception:
-        _logger.debug("Failed to update token usage", exc_info=True)
+        _logger.debug(
+            f"Failed to update token usage with current_token_usage: {current_token_usage}, "
+            f"new_token_usage: {new_token_usage}",
+            exc_info=True,
+        )
 
     return current_token_usage
+
+
+def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
+    """
+    Sanitize attributes by removing duplicate dumped attributes.
+    This is necessary because when spans are logged to sql store with otel_api, the
+    span attributes are dumped twice (once in Span.from_otel_proto and once in span.to_dict).
+    """
+    updated_attributes = {}
+    for key, value in attributes.items():
+        try:
+            result = json.loads(value)
+            if isinstance(result, str):
+                try:
+                    # If the original value is a string or dict, we store it as
+                    # a JSON-encoded string.  For other types, we store the original value directly.
+                    # For string type, this is to avoid interpreting "1" as an int accidentally.
+                    # For dictionary, we save the json-encoded-once string so that the UI can render
+                    # it correctly after loading.
+                    if isinstance(json.loads(result), (str, dict)):
+                        updated_attributes[key] = result
+                        continue
+                except json.JSONDecodeError:
+                    pass
+        except (json.JSONDecodeError, TypeError):
+            pass
+        # if the value is not a json string, or it's only dumped once, we keep the original value
+        updated_attributes[key] = value
+    return updated_attributes

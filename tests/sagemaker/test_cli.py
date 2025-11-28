@@ -3,10 +3,10 @@ import shutil
 from pathlib import Path
 from unittest import mock
 
+import docker
 import pytest
 from click.testing import CliRunner
 
-import docker
 import mlflow
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.sagemaker.cli import build_and_push_container

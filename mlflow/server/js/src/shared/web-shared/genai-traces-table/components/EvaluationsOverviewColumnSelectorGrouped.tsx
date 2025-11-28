@@ -18,7 +18,6 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { sortGroupedColumns } from '../GenAiTracesTable.utils';
 import { TracesTableColumnGroup, TracesTableColumnGroupToLabelMap, type TracesTableColumn } from '../types';
-import { COLUMN_SELECTOR_DROPDOWN_COMPONENT_ID } from '../utils/EvaluationLogging';
 
 interface Props {
   columns: TracesTableColumn[];
@@ -111,7 +110,11 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
   };
 
   return (
-    <DialogCombobox componentId={COLUMN_SELECTOR_DROPDOWN_COMPONENT_ID} label="Columns" multiSelect>
+    <DialogCombobox
+      componentId="mlflow.evaluations_overview_grouped.column_selector_dropdown"
+      label="Columns"
+      multiSelect
+    >
       <DialogComboboxCustomButtonTriggerWrapper>
         <Button
           endIcon={<ChevronDownIcon />}
@@ -133,7 +136,6 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
           </div>
         </Button>
       </DialogComboboxCustomButtonTriggerWrapper>
-
       <DialogComboboxContent
         maxHeight={OPTION_HEIGHT * 15.5}
         minWidth={300}

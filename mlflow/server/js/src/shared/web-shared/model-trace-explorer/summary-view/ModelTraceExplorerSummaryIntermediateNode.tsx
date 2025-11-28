@@ -58,7 +58,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
         css={{
           position: 'relative',
           boxSizing: 'border-box',
-          height: '100%',
+          height: ROW_HEIGHT,
           borderLeft: `2px solid ${theme.colors.border}`,
           width: CONNECTOR_WIDTH,
         }}
@@ -127,7 +127,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
                     flexDirection: 'column',
                     gap: theme.spacing.sm,
                     paddingLeft: theme.spacing.lg,
-                    marginBottom: containsOutputs ? 0 : theme.spacing.sm,
+                    marginBottom: theme.spacing.sm,
                   }}
                 >
                   {inputList.map(({ key, value }, index) => (

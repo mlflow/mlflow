@@ -2,11 +2,9 @@ import logging
 import math
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import pydantic
-
-from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
 
 if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
@@ -21,14 +19,28 @@ from mlflow.genai import judges
 from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
+from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.judges.prompts.completeness import (
+    COMPLETENESS_ASSESSMENT_NAME,
+    COMPLETENESS_PROMPT,
+)
 from mlflow.genai.judges.prompts.context_sufficiency import (
     CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS,
 )
+from mlflow.genai.judges.prompts.conversation_completeness import (
+    CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
+    CONVERSATION_COMPLETENESS_PROMPT,
+)
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.relevance_to_query import (
     RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
+)
+from mlflow.genai.judges.prompts.user_frustration import (
+    USER_FRUSTRATION_ASSESSMENT_NAME,
+    USER_FRUSTRATION_PROMPT,
 )
 from mlflow.genai.judges.utils import (
     CategoricalRating,
@@ -91,20 +103,32 @@ def _construct_field_extraction_config(
     schema_fields = {}
 
     if needs_inputs:
-        extraction_tasks.append("- inputs: The initial user request/question")
+        extraction_tasks.append('- "inputs": The initial user request/question')
         schema_fields["inputs"] = (
             str,
-            pydantic.Field(description="The user's original request"),
+            pydantic.Field(
+                description='The user\'s original request (field name must be exactly "inputs")'
+            ),
         )
 
     if needs_outputs:
-        extraction_tasks.append("- outputs: The final system response")
+        extraction_tasks.append('- "outputs": The final system response')
         schema_fields["outputs"] = (
             str,
-            pydantic.Field(description="The system's final response"),
+            pydantic.Field(
+                description='The system\'s final response (field name must be exactly "outputs")'
+            ),
         )
 
     schema = pydantic.create_model("ExtractionSchema", **schema_fields)
+
+    # Build example field names for the IMPORTANT message
+    example_fields = []
+    if needs_inputs:
+        example_fields.append('"inputs"')
+    if needs_outputs:
+        example_fields.append('"outputs"')
+    example_text = ", ".join(example_fields)
 
     messages = [
         ChatMessage(
@@ -113,12 +137,17 @@ def _construct_field_extraction_config(
                 "Extract the following fields from the trace.\n"
                 "Use the provided tools to examine the trace's spans to find:\n"
                 + "\n".join(extraction_tasks)
-                + "\n\nReturn the result as JSON."
+                + "\n\nIMPORTANT: Return the result as JSON with the EXACT field names shown "
+                + f"in quotes above (e.g., {example_text}). Do not use singular forms or "
+                + "variations of these field names."
             ),
         ),
         ChatMessage(
             role="user",
-            content="Use the tools to find the required fields, then return them as JSON.",
+            content=(
+                "Use the tools to find the required fields, then return them as JSON "
+                "with the exact field names specified."
+            ),
         ),
     ]
 
@@ -316,7 +345,6 @@ class BuiltInScorer(Judge):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class RetrievalRelevance(BuiltInScorer):
     """
     Retrieval relevance measures whether each chunk is relevant to the input request.
@@ -446,7 +474,6 @@ class RetrievalRelevance(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class RetrievalSufficiency(BuiltInScorer):
     """
     Retrieval sufficiency evaluates whether the retrieved documents provide all necessary
@@ -573,7 +600,6 @@ class RetrievalSufficiency(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class RetrievalGroundedness(BuiltInScorer):
     """
     RetrievalGroundedness assesses whether the agent's response is aligned with the information
@@ -669,7 +695,6 @@ class RetrievalGroundedness(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class Guidelines(BuiltInScorer):
     """
     Guideline adherence evaluates whether the agent's response follows specific constraints
@@ -743,6 +768,10 @@ class Guidelines(BuiltInScorer):
     )
 
     @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.GUIDELINES
+
+    @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return GUIDELINES_PROMPT_INSTRUCTIONS
@@ -811,7 +840,6 @@ class Guidelines(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class ExpectationsGuidelines(BuiltInScorer):
     """
     This scorer evaluates whether the agent's response follows specific constraints
@@ -966,7 +994,6 @@ class ExpectationsGuidelines(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class RelevanceToQuery(BuiltInScorer):
     """
     Relevance ensures that the agent's response directly addresses the user's input without
@@ -1081,7 +1108,6 @@ class RelevanceToQuery(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class Safety(BuiltInScorer):
     """
     Safety ensures that the agent's responses do not contain harmful, offensive, or toxic content.
@@ -1184,7 +1210,6 @@ class Safety(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class Correctness(BuiltInScorer):
     """
     Correctness ensures that the agent's responses are correct and accurate.
@@ -1369,7 +1394,6 @@ class Correctness(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.5.0")
 class Equivalence(BuiltInScorer):
     """
     Equivalence compares outputs against expected outputs for semantic equivalence.
@@ -1557,7 +1581,306 @@ class Equivalence(BuiltInScorer):
         return _sanitize_feedback(feedback)
 
 
-@experimental(version="3.0.0")
+class BuiltInSessionLevelScorer(BuiltInScorer):
+    """
+    Abstract base class for built-in session-level scorers.
+    Session-level scorers evaluate entire conversation sessions rather than individual traces.
+    """
+
+    required_columns: set[str] = {"trace"}
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    @abstractmethod
+    def _create_judge(self) -> InstructionsJudge:
+        """
+        Create the InstructionsJudge instance for this scorer.
+        Subclasses should implement this to configure their specific judge.
+
+        Note: Instantiate InstructionsJudge directly instead of using make_judge.
+        """
+
+    def _get_judge(self) -> InstructionsJudge:
+        """Get or create the cached judge instance."""
+        if self._judge is None:
+            self._judge = self._create_judge()
+        return self._judge
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="session",
+                description="A list of trace objects belonging to the same conversation session.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        session: list[Trace] | None = None,
+    ) -> Feedback:
+        return self._get_judge()(session=session)
+
+
+@experimental(version="3.7.0")
+@format_docstring(_MODEL_API_DOC)
+class UserFrustration(BuiltInSessionLevelScorer):
+    """
+    UserFrustration evaluates the user's frustration state throughout the conversation
+    with the AI assistant based on a conversation session.
+
+    This scorer analyzes a session of conversation (represented as a list of traces) to
+    determine if the user shows explicit or implicit frustration directed at the AI.
+    It evaluates the entire conversation and returns one of three values:
+
+    - "no_frustration": user not frustrated at any point in the conversation
+    - "frustration_resolved": user is frustrated at some point in the conversation,
+      but leaves the conversation satisfied
+    - "frustration_not_resolved": user is still frustrated at the end of the conversation
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "user_frustration".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import UserFrustration
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = UserFrustration(name="my_user_frustration_judge")(session=session)
+        print(assessment)
+        # Feedback with value "no_frustration", "frustration_resolved", or
+        # "frustration_not_resolved"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import UserFrustration
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[UserFrustration()])
+    """
+
+    name: str = USER_FRUSTRATION_ASSESSMENT_NAME
+    model: str | None = None
+    description: str = "Evaluate the user's frustration state throughout the conversation."
+
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal[
+                "no_frustration", "frustration_resolved", "frustration_not_resolved"
+            ],
+        )
+
+    @property
+    def instructions(self) -> str:
+        return USER_FRUSTRATION_PROMPT
+
+
+@experimental(version="3.7.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationCompleteness(BuiltInSessionLevelScorer):
+    """
+    ConversationCompleteness evaluates whether an AI assistant fully addresses all user requests
+    by the end of the conversation.
+
+    For evaluating the completeness of a single user prompt, use the Completeness scorer instead.
+
+    This scorer analyzes a complete conversation (represented as a list of traces) to determine
+    if the assistant successfully addressed all the user's requests in a conversation. It returns
+    "yes" or "no".
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversation_completeness".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationCompleteness
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = ConversationCompleteness(name="my_completion_check")(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationCompleteness
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationCompleteness()])
+    """
+
+    name: str = CONVERSATION_COMPLETENESS_ASSESSMENT_NAME
+    model: str | None = None
+    description: str = (
+        "Evaluate whether the assistant fully addresses all user requests by the end of "
+        "the conversation."
+    )
+
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+            generate_rationale_first=True,
+        )
+
+    @property
+    def instructions(self) -> str:
+        return CONVERSATION_COMPLETENESS_PROMPT
+
+
+@experimental(version="3.7.0")
+@format_docstring(_MODEL_API_DOC)
+class Completeness(BuiltInScorer):
+    """
+    Completeness evaluates whether an AI assistant fully addresses all user questions
+    in a single user prompt.
+
+    For evaluating the completeness of a conversation, use the ConversationCompleteness scorer
+    instead.
+
+    This scorer analyzes a single turn of interaction (user input and AI response) to determine
+    if the AI successfully answered all questions and provided all requested information.
+    It returns "yes" or "no".
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "completeness".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Completeness
+
+        assessment = Completeness(name="my_completeness_check")(
+            inputs={"question": "What is MLflow and what are its main features?"},
+            outputs="MLflow is an open-source platform for managing the ML lifecycle.",
+        )
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Completeness
+
+        data = [
+            {
+                "inputs": {"question": "What is MLflow and what are its main features?"},
+                "outputs": "MLflow is an open-source platform.",
+            },
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[Completeness()])
+    """
+
+    name: str = COMPLETENESS_ASSESSMENT_NAME
+    model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate whether the assistant fully addresses all user questions in a single turn."
+    )
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    def _get_judge(self) -> InstructionsJudge:
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=Literal["yes", "no"],
+            )
+        return self._judge
+
+    @property
+    def instructions(self) -> str:
+        return COMPLETENESS_PROMPT
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data, e.g. "
+                    "{'question': 'What is MLflow and what are its main features?'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description=(
+                    "The response from the model, e.g. "
+                    "'MLflow is an open-source platform for managing the ML lifecycle.'"
+                ),
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        inputs: dict[str, Any] | None = None,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        return self._get_judge()(
+            inputs=inputs,
+            outputs=outputs,
+            trace=trace,
+        )
+
+
 def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.
@@ -1585,6 +1908,9 @@ def get_all_scorers() -> list[BuiltInScorer]:
         RetrievalSufficiency(),
         RetrievalGroundedness(),
         Equivalence(),
+        UserFrustration(),
+        ConversationCompleteness(),
+        Completeness(),
     ]
     if is_databricks_uri(mlflow.get_tracking_uri()):
         scorers.extend([Safety(), RetrievalRelevance()])

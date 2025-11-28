@@ -112,8 +112,7 @@ def remove_decorators_from_file(
     # Create a set of line numbers to remove for quick lookup (handle ranges)
     lines_to_remove: set[int] = set()
     for decorator in decorators_to_remove:
-        for line_num in range(decorator.line_number, decorator.end_line_number + 1):
-            lines_to_remove.add(line_num)
+        lines_to_remove.update(range(decorator.line_number, decorator.end_line_number + 1))
 
     new_lines: list[str] = []
 

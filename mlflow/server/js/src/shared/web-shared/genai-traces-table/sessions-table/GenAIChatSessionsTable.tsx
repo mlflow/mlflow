@@ -1,62 +1,149 @@
-import type { Row } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import React, { useMemo } from 'react';
+import type { Row, SortingState, RowSelectionState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
+import React, { useMemo, useState } from 'react';
 
-import { Empty, Table, TableCell, TableHeader, TableRow, TableSkeletonRows } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
+import {
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+  TableRowSelectCell,
+  TableSkeletonRows,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { useReactTable_verifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 
+import { GenAIChatSessionsEmptyState } from './GenAIChatSessionsEmptyState';
+import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
 import { SessionIdCellRenderer } from './cell-renderers/SessionIdCellRenderer';
-import type { SessionTableRow } from './utils';
+import { SessionNumericCellRenderer } from './cell-renderers/SessionNumericCellRenderer';
+import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
+import { useSessionsTableColumnVisibility } from './hooks/useSessionsTableColumnVisibility';
+import type { SessionTableRow, SessionTableColumn } from './types';
 import { getSessionTableRows } from './utils';
+import type { TraceActions } from '../types';
 import MlflowUtils from '../utils/MlflowUtils';
-import { Link } from '../utils/RoutingUtils';
+import { Link, useLocation } from '../utils/RoutingUtils';
 
-// TODO: add following columns:
-// 1. conversation start time
-// 2. conversation duration
-// 3. token counts
-// 4. number of contained traces
-const columns = [
+const columns: SessionTableColumn[] = [
   {
+    id: 'sessionId',
     header: 'Session ID',
     accessorKey: 'sessionId',
     cell: SessionIdCellRenderer,
+    defaultVisibility: true,
+    enableSorting: true,
+    sortingFn: (a: Row<SessionTableRow>, b: Row<SessionTableRow>) =>
+      a.original.sessionId.localeCompare(b.original.sessionId),
   },
   {
+    id: 'requestPreview',
     header: 'Input',
     accessorKey: 'requestPreview',
+    defaultVisibility: true,
   },
   {
+    id: 'sessionStartTime',
+    header: 'Session start time',
+    accessorKey: 'sessionStartTime',
+    defaultVisibility: true,
+    enableSorting: true,
+  },
+  {
+    id: 'sessionDuration',
+    header: 'Session duration',
+    accessorKey: 'sessionDuration',
+    defaultVisibility: true,
+    enableSorting: true,
+  },
+  {
+    id: 'tokens',
+    header: 'Tokens',
+    accessorKey: 'tokens',
+    defaultVisibility: false,
+    enableSorting: true,
+    cell: SessionNumericCellRenderer,
+  },
+  {
+    id: 'turns',
+    header: 'Turns',
+    accessorKey: 'turns',
+    defaultVisibility: false,
+    enableSorting: true,
+    cell: SessionNumericCellRenderer,
+  },
+  {
+    id: 'source',
     header: 'Source',
-    accessorKey: 'source.name',
+    cell: SessionSourceCellRenderer,
+    defaultVisibility: false,
   },
 ];
 
 interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<SessionTableRow>;
+  enableRowSelection?: boolean;
 }
 
 const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>> =
   React.memo(
-    ({ row }) => {
+    ({ row, enableRowSelection }) => {
+      const { search } = useLocation();
+      const { theme } = useDesignSystemTheme();
+
       return (
-        <Link to={MlflowUtils.getExperimentChatSessionPageRoute(row.original.experimentId, row.original.sessionId)}>
-          <TableRow key={row.id} className="eval-datasets-table-row">
-            {row.getVisibleCells().map((cell) => (
-              <TableCell
-                key={cell.id}
+        <TableRow key={row.id} className="eval-datasets-table-row">
+          {enableRowSelection && (
+            <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
+              <TableRowSelectCell
+                componentId="mlflow.chat-sessions.table-row-checkbox"
+                checked={row.getIsSelected()}
+                onChange={row.getToggleSelectedHandler()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+              />
+            </div>
+          )}
+          {row.getVisibleCells().map((cell) => (
+            <TableCell
+              key={cell.id}
+              css={{
+                backgroundColor: 'transparent',
+                flex: `calc(var(--col-${cell.column.id}-size) / 100)`,
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                '> span:first-of-type': {
+                  padding: `${theme.spacing.xs}px 0px`,
+                  width: '100%',
+                },
+                ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
+              }}
+            >
+              <Link
+                to={{
+                  pathname: MlflowUtils.getExperimentChatSessionPageRoute(
+                    row.original.experimentId,
+                    row.original.sessionId,
+                  ),
+                  search,
+                }}
                 css={{
-                  backgroundColor: 'transparent',
-                  flex: `calc(var(--col-${cell.column.id}-size) / 100)`,
-                  ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
+                  display: 'flex',
+                  width: '100%',
+                  height: '100%',
+                  alignItems: 'center',
+                  color: 'inherit',
+                  textDecoration: 'none',
                 }}
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
-        </Link>
+              </Link>
+            </TableCell>
+          ))}
+        </TableRow>
       );
     },
     () => false,
@@ -66,20 +153,45 @@ export const GenAIChatSessionsTable = ({
   experimentId,
   traces,
   isLoading,
+  searchQuery,
+  setSearchQuery,
+  traceActions,
 }: {
   experimentId: string;
   traces: ModelTraceInfoV3[];
   isLoading: boolean;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  traceActions?: TraceActions;
 }) => {
-  const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
+
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const { columnVisibility, setColumnVisibility } = useSessionsTableColumnVisibility({
+    experimentId,
+    columns,
+  });
+
+  const enableRowSelection = Boolean(traceActions);
 
   const table = useReactTable<SessionTableRow>({
     data: sessionTableRows,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    onSortingChange: setSorting,
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
+    enableRowSelection,
+    onRowSelectionChange: setRowSelection,
+    getRowId: (row: SessionTableRow) => row.sessionId,
+    state: {
+      sorting,
+      columnVisibility,
+      rowSelection,
+    },
   });
 
   const columnSizeInfo = table.getState().columnSizingInfo;
@@ -92,43 +204,80 @@ export const GenAIChatSessionsTable = ({
     return colSizes;
     // we need to recompute this whenever columns get resized or changed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnSizeInfo, table]);
+  }, [columnSizeInfo, table, columnVisibility]);
+
+  const selectedSessions = useMemo(
+    () => table.getSelectedRowModel().rows.map((row) => row.original),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rowSelection],
+  );
 
   return (
-    <div css={{ flex: 1, minHeight: 0, position: 'relative' }}>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        position: 'relative',
+        marginTop: theme.spacing.sm,
+      }}
+    >
+      <GenAIChatSessionsToolbar
+        columns={columns}
+        columnVisibility={columnVisibility}
+        setColumnVisibility={setColumnVisibility}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        traceActions={traceActions}
+        experimentId={experimentId}
+        selectedSessions={selectedSessions}
+        setRowSelection={setRowSelection}
+      />
       <Table
         style={{ ...columnSizeVars }}
-        css={{ height: '100%' }}
-        empty={
-          !isLoading && sessionTableRows.length === 0 ? (
-            <Empty
-              description={intl.formatMessage({
-                defaultMessage: 'No chat sessions found',
-                description: 'Empty state for the chat sessions page',
-              })}
-            />
-          ) : undefined
-        }
+        empty={!isLoading && sessionTableRows.length === 0 ? <GenAIChatSessionsEmptyState /> : undefined}
         scrollable
+        someRowsSelected={
+          enableRowSelection ? table.getIsAllRowsSelected() || table.getIsSomeRowsSelected() : undefined
+        }
       >
         <TableRow isHeader>
+          {enableRowSelection && (
+            <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
+              <TableRowSelectCell
+                componentId="mlflow.chat-sessions.table-header-checkbox"
+                checked={table.getIsAllRowsSelected()}
+                indeterminate={table.getIsSomeRowsSelected()}
+                onChange={table.getToggleAllRowsSelectedHandler()}
+              />
+            </div>
+          )}
           {table.getLeafHeaders().map((header) => (
             <TableHeader
               key={header.id}
-              componentId={`mlflow.chat-sessions.${header.column.id}-header`}
+              componentId="mlflow.chat-sessions.table-header"
               header={header}
               column={header.column}
+              sortable={header.column.getCanSort()}
               css={{
                 cursor: header.column.getCanSort() ? 'pointer' : 'default',
                 flex: `calc(var(--col-${header.id}-size) / 100)`,
               }}
+              sortDirection={header.column.getIsSorted() || 'none'}
+              onToggleSort={header.column.getToggleSortingHandler()}
             >
               {flexRender(header.column.columnDef.header, header.getContext())}
             </TableHeader>
           ))}
         </TableRow>
 
-        {!isLoading && table.getRowModel().rows.map((row) => <ExperimentChatSessionsTableRow key={row.id} row={row} />)}
+        {!isLoading &&
+          table
+            .getRowModel()
+            .rows.map((row) => (
+              <ExperimentChatSessionsTableRow key={row.id} row={row} enableRowSelection={enableRowSelection} />
+            ))}
 
         {isLoading && <TableSkeletonRows table={table} />}
       </Table>

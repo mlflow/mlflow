@@ -12,7 +12,19 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 
 // displays a single JSON-strigified assessment value as a tag
-export const AssessmentDisplayValue = ({ jsonValue }: { jsonValue: string }) => {
+export const AssessmentDisplayValue = ({
+  jsonValue,
+  className,
+  prefix,
+  skipIcons = false,
+  overrideColor,
+}: {
+  jsonValue: string;
+  className?: string;
+  prefix?: React.ReactNode;
+  skipIcons?: boolean;
+  overrideColor?: TagColors;
+}) => {
   const { theme } = useDesignSystemTheme();
 
   // treat empty strings as null
@@ -34,7 +46,7 @@ export const AssessmentDisplayValue = ({ jsonValue }: { jsonValue: string }) => 
     color = 'lime';
     children = (
       <>
-        <CheckCircleIcon css={{ marginRight: theme.spacing.xs }} />
+        {!skipIcons && <CheckCircleIcon css={{ marginRight: theme.spacing.xs }} />}
         <FormattedMessage defaultMessage="Yes" description="Label for an assessment with a 'yes' value" />
       </>
     );
@@ -42,7 +54,7 @@ export const AssessmentDisplayValue = ({ jsonValue }: { jsonValue: string }) => 
     color = 'coral';
     children = (
       <>
-        <XCircleIcon css={{ marginRight: theme.spacing.xs }} />
+        {!skipIcons && <XCircleIcon css={{ marginRight: theme.spacing.xs }} />}
         <FormattedMessage defaultMessage="No" description="Label for an assessment with a 'no' value" />
       </>
     );
@@ -53,7 +65,7 @@ export const AssessmentDisplayValue = ({ jsonValue }: { jsonValue: string }) => 
     color = 'coral';
     children = (
       <>
-        <DangerIcon css={{ marginRight: theme.spacing.xs }} />
+        {!skipIcons && <DangerIcon css={{ marginRight: theme.spacing.xs }} />}
         <FormattedMessage defaultMessage="Error" description="Label for an assessment with an error" />
       </>
     );
@@ -61,7 +73,7 @@ export const AssessmentDisplayValue = ({ jsonValue }: { jsonValue: string }) => 
     color = 'lime';
     children = (
       <>
-        <CheckCircleIcon css={{ marginRight: theme.spacing.xs }} />
+        {!skipIcons && <CheckCircleIcon css={{ marginRight: theme.spacing.xs }} />}
         <FormattedMessage defaultMessage="True" description="Label for an assessment with a 'true' boolean value" />
       </>
     );
@@ -69,7 +81,7 @@ export const AssessmentDisplayValue = ({ jsonValue }: { jsonValue: string }) => 
     color = 'coral';
     children = (
       <>
-        <XCircleIcon css={{ marginRight: theme.spacing.xs }} />
+        {!skipIcons && <XCircleIcon css={{ marginRight: theme.spacing.xs }} />}
         <FormattedMessage defaultMessage="False" description="Label for an assessment with a 'false' boolean value" />
       </>
     );
@@ -80,7 +92,8 @@ export const AssessmentDisplayValue = ({ jsonValue }: { jsonValue: string }) => 
       <Tag
         css={{ display: 'inline-flex', maxWidth: '100%', minWidth: theme.spacing.md, marginRight: 0 }}
         componentId="shared.model-trace-explorer.assesment-value-tag"
-        color={color}
+        color={overrideColor ?? color}
+        className={className}
       >
         <span
           css={{
@@ -89,6 +102,7 @@ export const AssessmentDisplayValue = ({ jsonValue }: { jsonValue: string }) => 
             textWrap: 'nowrap',
           }}
         >
+          {prefix}
           {children}
         </span>
       </Tag>
