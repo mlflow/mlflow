@@ -322,3 +322,92 @@ def test_link_traces_generic_error():
 
         assert result.exit_code != 0
         assert "Failed to link traces: Some other error" in result.output
+
+
+def test_get_experiment_default():
+    result = CliRunner().invoke(experiments.get_experiment, ["--experiment-id", "0"])
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    assert output["experiment_id"] == "0"
+    assert "name" in output
+    assert "artifact_location" in output
+    assert "lifecycle_stage" in output
+    assert "tags" in output
+
+
+def test_get_experiment_explicit_json():
+    exp_id = mlflow.create_experiment("test_get_exp_explicit")
+
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-id", exp_id, "--output", "json"]
+    )
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    assert output["experiment_id"] == exp_id
+    assert output["name"] == "test_get_exp_explicit"
+    assert output["lifecycle_stage"] == "active"
+
+
+def test_get_experiment_short_option():
+    exp_id = mlflow.create_experiment("test_get_exp_short")
+
+    result = CliRunner().invoke(experiments.get_experiment, ["-x", exp_id])
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    assert output["experiment_id"] == exp_id
+    assert output["name"] == "test_get_exp_short"
+
+
+def test_get_experiment_with_tags():
+    exp_id = mlflow.create_experiment("test_get_exp_tags", tags={"env": "test", "team": "ml"})
+
+    result = CliRunner().invoke(experiments.get_experiment, ["-x", exp_id])
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    assert output["tags"] == {"env": "test", "team": "ml"}
+    assert output["experiment_id"] == exp_id
+    assert output["lifecycle_stage"] == "active"
+
+
+def test_get_experiment_json_structure():
+    exp_id = mlflow.create_experiment("test_json_structure")
+
+    result = CliRunner().invoke(experiments.get_experiment, ["--experiment-id", exp_id])
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    # Verify all expected fields
+    assert "experiment_id" in output
+    assert "name" in output
+    assert "artifact_location" in output
+    assert "lifecycle_stage" in output
+    assert "tags" in output
+    assert "creation_time" in output
+    assert "last_update_time" in output
+
+
+def test_get_experiment_missing_id():
+    result = CliRunner().invoke(experiments.get_experiment, [])
+    assert result.exit_code != 0
+    assert "Missing option '--experiment-id'" in result.output
+
+
+def test_get_experiment_invalid_id():
+    result = CliRunner().invoke(experiments.get_experiment, ["-x", "999999"])
+    assert result.exit_code != 0
+
+
+def test_get_experiment_deleted():
+    exp_id = mlflow.create_experiment("test_deleted")
+    mlflow.delete_experiment(exp_id)
+
+    result = CliRunner().invoke(experiments.get_experiment, ["-x", exp_id])
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    assert output["lifecycle_stage"] == "deleted"
+    assert output["experiment_id"] == exp_id

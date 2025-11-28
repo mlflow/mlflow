@@ -1,3 +1,4 @@
+import json
 import os
 
 import click
@@ -71,6 +72,43 @@ def search_experiments(view):
         for exp in experiments
     ]
     click.echo(_create_table(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
+
+
+@commands.command("get")
+@EXPERIMENT_ID
+@click.option(
+    "--output",
+    type=click.Choice(["json"]),
+    default="json",
+    help="Output format. Only 'json' is currently supported (default: json).",
+)
+def get_experiment(experiment_id, output):
+    """
+    Get details of an experiment by ID.
+
+    Displays experiment information including name, artifact location, lifecycle stage,
+    tags, creation time, and last update time in JSON format.
+
+    \b
+    Examples:
+
+    .. code-block:: bash
+
+        # Get experiment in JSON format (default)
+        mlflow experiments get --experiment-id 1
+
+        # Explicit JSON output
+        mlflow experiments get --experiment-id 1 --output json
+
+        # Using short option
+        mlflow experiments get -x 0
+    """
+    store = _get_store()
+    experiment = store.get_experiment(experiment_id)
+
+    # Convert experiment to dictionary using the __iter__ method from _MlflowObject
+    experiment_dict = dict(experiment)
+    click.echo(json.dumps(experiment_dict, indent=2))
 
 
 @commands.command("delete")
