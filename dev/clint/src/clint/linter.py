@@ -662,7 +662,9 @@ class Linter(ast.NodeVisitor):
             # Check for duplicate imports in functions
             if self._is_in_function() and not self.in_TYPE_CHECKING:
                 if alias.name in self.top_level_imports:
-                    self._check(Range.from_node(node), rules.DuplicateImport(name=alias.name))
+                    self._check(
+                        Range.from_node(node), rules.DuplicateImport(import_name=alias.name)
+                    )
 
             if self._is_in_function() and root_module in BUILTIN_MODULES:
                 self._check(Range.from_node(node), rules.LazyBuiltinImport())
@@ -699,7 +701,7 @@ class Linter(ast.NodeVisitor):
             for alias in node.names:
                 full_name = f"{node.module}.{alias.name}"
                 if full_name in self.top_level_imports:
-                    self._check(Range.from_node(node), rules.DuplicateImport(name=full_name))
+                    self._check(Range.from_node(node), rules.DuplicateImport(import_name=full_name))
 
         if self._is_in_function() and root_module in BUILTIN_MODULES:
             self._check(Range.from_node(node), rules.LazyBuiltinImport())
