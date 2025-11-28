@@ -2230,6 +2230,8 @@ def test_model_as_code_pycache_cleaned_up():
 def test_model_pip_requirements_pin_numpy_when_pandas_included():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
+            __import__("pandas")
+
             return model_input
 
     expected_mlflow_version = _mlflow_major_version_string()
