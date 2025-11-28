@@ -409,9 +409,6 @@ def test_sampling_ratio(monkeypatch):
 
 def test_otlp_exclusive_vs_dual_export(monkeypatch):
     """Test OTLP exclusive mode vs dual export mode."""
-    from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
-    from mlflow.tracing.processor.otel import OtelSpanProcessor
-    from mlflow.tracing.provider import _get_tracer
 
     # Test 1: OTLP exclusive mode (dual export = false, default)
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")

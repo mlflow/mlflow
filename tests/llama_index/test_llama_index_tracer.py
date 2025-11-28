@@ -688,7 +688,6 @@ async def test_tracer_simple_workflow():
 @pytest.mark.asyncio
 async def test_tracer_parallel_workflow():
     from llama_index.core.workflow import (
-        Context,
         Event,
         StartEvent,
         StopEvent,
@@ -748,7 +747,6 @@ async def test_tracer_parallel_workflow():
 @pytest.mark.asyncio
 async def test_tracer_parallel_workflow_with_custom_spans():
     from llama_index.core.workflow import (
-        Context,
         Event,
         StartEvent,
         StopEvent,

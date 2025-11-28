@@ -500,7 +500,6 @@ def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
     def mock_to_df():
         nonlocal profile_during_to_df
         profile_during_to_df = os.environ.get("DATABRICKS_CONFIG_PROFILE")
-        import pandas as pd
 
         return pd.DataFrame({"test": [1, 2, 3]})
 

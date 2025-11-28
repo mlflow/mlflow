@@ -753,7 +753,6 @@ def serve_wheel(request, tmp_path_factory):
     PyPI repository running on localhost and appends the repository URL to the
     `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
     """
-    from tests.helper_functions import get_safe_port
 
     if "COPILOT_AGENT_ACTION" in os.environ:
         yield  # pytest expects a generator fixture to yield

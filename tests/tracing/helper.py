@@ -169,10 +169,9 @@ def purge_traces(experiment_id=None):
 
 def get_tracer_tracking_uri() -> str | None:
     """Get current tracking URI configured as the trace export destination."""
-    from opentelemetry import trace
 
     tracer = _get_tracer(__name__)
-    if isinstance(tracer, trace.ProxyTracer):
+    if isinstance(tracer, trace_api.ProxyTracer):
         tracer = tracer._tracer
     span_processor = tracer.span_processor._span_processors[0]
 

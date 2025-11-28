@@ -30,7 +30,6 @@ def test_app():
 @pytest.fixture
 def mlflow_app_client():
     """Test client for the MLflow Flask application with security middleware."""
-    from flask import Flask
 
     from mlflow.server import handlers, security
 

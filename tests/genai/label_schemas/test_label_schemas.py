@@ -723,7 +723,6 @@ def test_create_label_schema_calls_to_databricks_input(mock_databricks_labeling_
             mock_to_databricks.return_value = mock_databricks_input
 
             # Import here to avoid early import errors
-            from mlflow.genai.label_schemas import create_label_schema
 
             create_label_schema(
                 name="test_schema",
@@ -762,7 +761,6 @@ def test_get_label_schema_calls_from_databricks_label_schema(mock_databricks_lab
             mock_from_databricks.return_value = mock_label_schema
 
             # Import here to avoid early import errors
-            from mlflow.genai.label_schemas import get_label_schema
 
             result = get_label_schema("test_schema")
 
@@ -796,7 +794,6 @@ def test_api_integration_with_all_input_types(
             mock_to_databricks.return_value = mock_databricks_input
 
             # Import here to avoid early import errors
-            from mlflow.genai.label_schemas import create_label_schema
 
             create_label_schema(
                 name=schema_name,

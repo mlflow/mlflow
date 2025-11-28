@@ -114,7 +114,6 @@ def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload
     Make a POST request to the specified MLflow Tracking API and retrieve the
     corresponding `requests.Response` object
     """
-    import requests
 
     url = tracking_server_uri + api_path
     return requests.post(url, json=json_payload, auth=auth)

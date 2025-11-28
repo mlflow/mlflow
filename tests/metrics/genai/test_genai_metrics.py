@@ -478,7 +478,6 @@ def test_make_genai_metric_failure():
         justification="justification",
         grading_context={"targets": "ground_truth"},
     )
-    import pandas as pd
 
     with pytest.raises(
         MlflowException,

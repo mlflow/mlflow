@@ -589,7 +589,6 @@ def test_all_numpy_dtypes():
 
 
 def test_spark_schema_inference(pandas_df_with_all_types):
-    import pyspark
     from pyspark.sql.types import StructField, StructType
 
     pandas_df_with_all_types = pandas_df_with_all_types.drop(
@@ -677,7 +676,6 @@ def test_spark_schema_inference_complex(spark):
 
 
 def test_spark_type_mapping(pandas_df_with_all_types):
-    import pyspark
     from pyspark.sql.types import (
         BinaryType,
         BooleanType,

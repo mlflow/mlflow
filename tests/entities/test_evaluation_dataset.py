@@ -680,7 +680,6 @@ def test_process_trace_records_preserves_session_metadata():
 
 
 def test_to_df_includes_source_column():
-    from mlflow.entities.dataset_record import DatasetRecord
     from mlflow.entities.dataset_record_source import DatasetRecordSource
 
     dataset = EvaluationDataset(

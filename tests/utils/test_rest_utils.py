@@ -654,8 +654,6 @@ def test_databricks_sdk_retry_on_transient_errors():
         if call_count <= 2:  # Fail first 2 attempts
             from databricks.sdk.errors import DatabricksError
 
-            from mlflow.protos.databricks_pb2 import ErrorCode
-
             raise DatabricksError(
                 error_code=ErrorCode.Name(ErrorCode.INTERNAL_ERROR), message="Transient error"
             )

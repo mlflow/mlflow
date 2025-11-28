@@ -387,7 +387,6 @@ def test_builtin_scorer_round_trip():
 
 def test_builtin_scorer_with_parameters_round_trip():
     """Test builtin scorer with custom parameters (like Guidelines with guidelines)."""
-    from mlflow.genai.scorers.builtin_scorers import Guidelines
 
     # Create scorer with custom parameters
     tone = (
@@ -568,7 +567,6 @@ def test_builtin_scorer_with_custom_name_compatibility():
     deserialized = Scorer.model_validate(fixed_serialized_data)
 
     # Verify correct type and properties
-    from mlflow.genai.scorers.builtin_scorers import Guidelines
 
     assert isinstance(deserialized, Guidelines)
     assert deserialized.name == "custom_guidelines"

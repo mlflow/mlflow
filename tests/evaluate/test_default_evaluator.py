@@ -2743,7 +2743,6 @@ def test_evaluate_no_model_type_with_custom_metric():
             name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
-        from mlflow.metrics import make_metric
         from mlflow.metrics.base import standard_aggregations
 
         def word_count_eval(predictions, targets=None, metrics=None):
@@ -3932,7 +3931,6 @@ def test_evaluate_custom_metric_with_string_type():
             name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
-        from mlflow.metrics import make_metric
 
         def word_count_eval(predictions):
             scores = []

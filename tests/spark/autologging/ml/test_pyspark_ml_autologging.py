@@ -1278,8 +1278,6 @@ def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
 
 
 def test_model_with_vector_input(spark_session):
-    from mlflow.types.schema import SparkMLVector
-
     mlflow.pyspark.ml.autolog()
     train_df = spark_session.createDataFrame(
         [([3.0, 4.0], 0), ([5.0, 6.0], 1)], schema="features array<double>, label long"
@@ -1305,8 +1303,6 @@ def test_model_with_vector_input(spark_session):
 
 
 def test_model_with_vector_input_vector_output(spark_session):
-    from mlflow.types.schema import SparkMLVector
-
     mlflow.pyspark.ml.autolog()
     train_df = spark_session.createDataFrame(
         [([3.0, 4.0], 0), ([5.0, 6.0], 1)], schema="features array<double>, label long"

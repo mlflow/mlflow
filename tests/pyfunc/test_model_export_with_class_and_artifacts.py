@@ -1351,8 +1351,6 @@ def test_functional_python_model_no_arguments(tmp_path):
 
 
 def requires_sklearn(x: list[str]) -> list[str]:
-    import sklearn  # noqa: F401
-
     return x
 
 
@@ -2230,8 +2228,6 @@ def test_model_as_code_pycache_cleaned_up():
 def test_model_pip_requirements_pin_numpy_when_pandas_included():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
-            import pandas as pd  # noqa: F401
-
             return model_input
 
     expected_mlflow_version = _mlflow_major_version_string()

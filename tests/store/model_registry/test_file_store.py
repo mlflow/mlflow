@@ -1554,9 +1554,6 @@ def test_delete_model_deletes_alias(store):
 
 
 def test_pyfunc_model_registry_with_file_store(store):
-    import mlflow
-    from mlflow.pyfunc import PythonModel
-
     class MyModel(PythonModel):
         def predict(self, context, model_input, params=None):
             return 7

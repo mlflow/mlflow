@@ -56,7 +56,6 @@ def test_crud_prompts(tmp_path):
     assert prompt.tags == {"model": "my-model"}
 
     # Check prompt-level tags separately (if needed for test completeness)
-    from mlflow import MlflowClient
 
     client = MlflowClient()
     prompt_entity = client.get_prompt("prompt_1")
@@ -1109,8 +1108,6 @@ def test_prompt_associate_with_run_chat_format():
 
 
 def test_register_prompt_with_pydantic_response_format():
-    from pydantic import BaseModel
-
     class ResponseSchema(BaseModel):
         answer: str
         confidence: float

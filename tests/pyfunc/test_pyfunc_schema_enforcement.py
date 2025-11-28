@@ -2914,8 +2914,6 @@ def test_pyfunc_model_schema_enforcement_map_type(data, schema, format_key):
 
     class CustomJsonEncoder(json.JSONEncoder):
         def default(self, o):
-            import numpy as np
-
             if isinstance(o, np.int64):
                 return int(o)
 

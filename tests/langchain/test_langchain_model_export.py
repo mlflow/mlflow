@@ -105,8 +105,6 @@ def spark():
 
 
 def create_openai_runnable():
-    from langchain_core.output_parsers import StrOutputParser
-
     prompt = PromptTemplate(
         input_variables=["product"],
         template="What is {product}?",
@@ -1858,7 +1856,6 @@ def test_save_load_langchain_binding_llm_with_tool():
     from langchain_core.tools import tool
 
     # We need to use ChatOpenAI from langchain_openai as community one does not support bind_tools
-    from langchain_openai import ChatOpenAI
 
     @tool
     def add(a: int, b: int) -> int:
