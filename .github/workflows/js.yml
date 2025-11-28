@@ -45,7 +45,7 @@ jobs:
           - name: group3
             args: "--testPathPattern src/shared"
           - name: group4
-            args: "--testPathIgnorePatterns src/experiment-tracking/components|src/shared"
+            args: '--testPathIgnorePatterns "src/experiment-tracking/components|src/shared"'
         include:
           - os: ubuntu-latest
             shell: bash
