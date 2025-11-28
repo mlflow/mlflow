@@ -167,7 +167,6 @@ class MlflowModelCheckpointCallbackBase(metaclass=ExceptionSafeAbstractClass):
 
 def download_checkpoint_artifact(run_id=None, epoch=None, global_step=None, dst_path=None):
     from mlflow.client import MlflowClient
-    from mlflow.utils.mlflow_tags import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 
     client = MlflowClient()
 

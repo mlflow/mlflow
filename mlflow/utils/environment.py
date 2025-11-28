@@ -468,7 +468,6 @@ def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]] | None:
     from mlflow.utils.databricks_utils import (
         _get_dbutils,
         _NoDbutilsError,
-        is_in_databricks_runtime,
     )
 
     if not is_in_databricks_runtime():

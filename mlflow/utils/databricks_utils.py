@@ -1490,7 +1490,6 @@ def databricks_api_disabled(api_name: str = "This API", alternative: str | None 
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             from mlflow.tracking import get_tracking_uri
-            from mlflow.utils.uri import is_databricks_uri
 
             tracking_uri = get_tracking_uri()
             if not is_databricks_uri(tracking_uri):
