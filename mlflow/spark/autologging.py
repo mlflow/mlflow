@@ -233,9 +233,7 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
         # thread information, therefore the tag is set to the latest active run, ignoring threading
         # information. This way, consistent behavior is kept with existing functionality for
         # Spark in MLflow.
-        latest_active_run = _get_latest_active_run()
-
-        if latest_active_run:
+        if latest_active_run := _get_latest_active_run():
             _set_run_tag_async(latest_active_run.info.run_id, path, version, data_format)
         else:
             add_table_info_to_context_provider(path, version, data_format)

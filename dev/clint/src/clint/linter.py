@@ -831,7 +831,7 @@ class Linter(ast.NodeVisitor):
         for idx, stmt in enumerate(stmts[1:], start=1):
             if isinstance(stmt, ast.If):
                 prev_stmt = stmts[idx - 1]
-                following_stmts = stmts[idx + 1 :] or None
+                following_stmts = stmts[idx + 1 :]
                 if rules.UseWalrusOperator.check(stmt, prev_stmt, following_stmts):
                     self._check(Range.from_node(prev_stmt), rules.UseWalrusOperator())
 
