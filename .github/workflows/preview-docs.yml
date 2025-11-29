@@ -22,18 +22,18 @@ jobs:
         with:
           sparse-checkout: |
             .github
-      - name: Download PR number
+      - name: Download PR alias
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
-          name: pr_number
+          pattern: pr-*
           path: /tmp
-      - name: Set PR number
+      - name: Set PR alias
         id: pr_number
         run: |
-          cat /tmp/pr_number.txt
-          echo "pr_number=$(cat /tmp/pr_number.txt)" >> $GITHUB_OUTPUT
+          cat /tmp/pr-*/pr_number.txt
+          echo "pr_number=$(cat /tmp/pr-*/pr_number.txt)" >> $GITHUB_OUTPUT
       - name: Download build artifact
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
