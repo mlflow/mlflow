@@ -110,7 +110,7 @@ jobs:
 
       # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
       # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
-      - name: Save PR alias
+      - name: Save alias
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
