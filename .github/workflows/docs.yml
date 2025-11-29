@@ -85,10 +85,6 @@ jobs:
             git diff api_reference/api_inventory.txt
             exit 1
           fi
-      - name: Test examples
-        working-directory: docs/api_reference
-        run: |
-          make test-examples
       - name: Check sitemap
         run: |
           npm run sitemap -- https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
@@ -127,6 +123,25 @@ jobs:
           path: /tmp/alias.txt
           retention-days: 1
           if-no-files-found: error
+
+  test-examples:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: |
+          uv pip install --system pytest pytest-cov plotly -r requirements/doc-requirements.txt
+          uv pip install --system -e '..[gateway]'
+      - name: Extract and test examples
+        working-directory: docs/api_reference
+        run: |
+          python source/testcode_block.py --output-dir .examples mlflow
+          pytest --no-cov .examples
 
   r:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
