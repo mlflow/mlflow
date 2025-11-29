@@ -111,12 +111,8 @@ def extract_code_blocks_from_file(filepath: Path, repo_root: Path) -> list[tuple
     Returns:
         List of tuples: (location_string, line_number, code_content)
     """
-    try:
-        source = filepath.read_text()
-        tree = ast.parse(source)
-    except (SyntaxError, UnicodeDecodeError) as e:
-        print(f"Warning: Could not parse {filepath}: {e}", file=sys.stderr)
-        return []
+    source = filepath.read_text()
+    tree = ast.parse(source)
 
     results = []
     rel_path = filepath.relative_to(repo_root)
@@ -139,9 +135,17 @@ def extract_code_blocks_from_file(filepath: Path, repo_root: Path) -> list[tuple
     return results
 
 
-def find_python_files(directory: Path) -> list[Path]:
-    """Recursively find all Python files in a directory."""
-    return sorted(directory.rglob("*.py"))
+def find_python_files(directory: Path, repo_root: Path) -> list[Path]:
+    """Find all Python files tracked by git in a directory."""
+    result = subprocess.run(
+        ["git", "ls-files", "*.py"],
+        cwd=directory,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    files = [directory / line for line in result.stdout.strip().split("\n") if line]
+    return sorted(files)
 
 
 def generate_test_file(location: str, line_num: int, code: str, output_dir: Path) -> Path:
@@ -197,19 +201,16 @@ def extract_examples(mlflow_dir: Path, output_dir: str | Path, repo_root: str | 
     total_tests = 0
 
     print(f"Scanning Python files in: {mlflow_dir}")
-    python_files = find_python_files(mlflow_dir)
+    python_files = find_python_files(mlflow_dir, repo_root)
     print(f"Found {len(python_files)} Python files")
 
     for filepath in python_files:
         results = extract_code_blocks_from_file(filepath, repo_root)
 
         for location, line_num, code in results:
-            try:
-                output_path = generate_test_file(location, line_num, code, output_dir)
-                print(f"  Generated: {output_path.name}")
-                total_tests += 1
-            except Exception as e:
-                print(f"  Error generating test for {location}: {e}", file=sys.stderr)
+            output_path = generate_test_file(location, line_num, code, output_dir)
+            print(f"  Generated: {output_path.name}")
+            total_tests += 1
 
     print(f"\nTotal tests generated: {total_tests}")
     return total_tests
@@ -226,12 +227,6 @@ def main() -> None:
     parser.add_argument(
         "--repo-root", help="Repository root directory (default: auto-detect using git)"
     )
-    parser.add_argument(
-        "directory",
-        nargs="?",
-        default=None,
-        help="Directory to scan for Python files (default: mlflow/)",
-    )
 
     args = parser.parse_args()
 
@@ -239,21 +234,13 @@ def main() -> None:
     if args.repo_root:
         repo_root = Path(args.repo_root)
     else:
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
-            )
-            repo_root = Path(result.stdout.strip())
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            repo_root = Path.cwd().parent.parent
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+        )
+        repo_root = Path(result.stdout.strip())
 
-    # Determine directory to scan
-    if args.directory:
-        scan_dir = Path(args.directory)
-        if not scan_dir.is_absolute():
-            scan_dir = repo_root / scan_dir
-    else:
-        scan_dir = repo_root / "mlflow"
+    # Always scan mlflow directory
+    scan_dir = repo_root / "mlflow"
 
     if not scan_dir.exists():
         print(f"Error: Directory does not exist: {scan_dir}", file=sys.stderr)
