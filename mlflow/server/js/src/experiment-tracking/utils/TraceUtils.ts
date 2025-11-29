@@ -20,10 +20,6 @@ export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info'])
     return undefined;
   }
 
-  // Always fetch V3 TraceInfo first to decide where spans live
-  const traceInfoResponse = await MlflowService.getExperimentTraceInfoV3(traceId);
-  const traceInfo = traceInfoResponse?.trace?.trace_info || {};
-
   // Check spans location tag to decide the source of span data
   // If spans are in the tracking store, use V3 get-trace (allow_partial=true)
   // Otherwise, fall back to artifact route

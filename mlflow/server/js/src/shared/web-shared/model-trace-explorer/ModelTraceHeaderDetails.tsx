@@ -18,7 +18,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { type ModelTrace, type ModelTraceInfoV3, type ModelTraceState } from './ModelTrace.types';
 import { createTraceV4LongIdentifier, doesTraceSupportV4API, getModelTraceId, isV3ModelTraceInfo } from './ModelTraceExplorer.utils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
@@ -26,7 +26,6 @@ import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
 import { useParams } from './RoutingUtils';
 import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
 import { SESSION_ID_METADATA_KEY, MLFLOW_TRACE_USER_KEY, TOKEN_USAGE_METADATA_KEY } from './constants';
-import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 
 const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details.notification';
 
