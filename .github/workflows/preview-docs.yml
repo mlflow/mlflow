@@ -30,10 +30,10 @@ jobs:
           pattern: pr-*
           path: /tmp
       - name: Set alias
-        id: pr_number
+        id: alias
         run: |
-          cat /tmp/pr-*/pr_number.txt
-          echo "pr_number=$(cat /tmp/pr-*/pr_number.txt)" >> $GITHUB_OUTPUT
+          cat /tmp/pr-*/alias.txt
+          echo "value=$(cat /tmp/pr-*/alias.txt)" >> $GITHUB_OUTPUT
       - name: Download build artifact
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
@@ -48,14 +48,14 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          PR_NUMBER: ${{ steps.pr_number.outputs.pr_number }}
+          ALIAS: ${{ steps.alias.outputs.value }}
           RUN_ID: ${{ github.run_id }}
         run: |-
           OUTPUT=$(npx -y netlify-cli deploy \
             --dir=. \
             --no-build \
-            --message="PR Preview #${PR_NUMBER} - GitHub Run ID: $RUN_ID" \
-            --alias="pr-${PR_NUMBER}" \
+            --message="PR Preview #${ALIAS} - GitHub Run ID: $RUN_ID" \
+            --alias="pr-${ALIAS}" \
             --json)
           DEPLOY_URL=$(echo "$OUTPUT" | jq -r '.deploy_url')
           echo "deploy_url=${DEPLOY_URL}/docs/latest/" >> $GITHUB_OUTPUT
@@ -64,7 +64,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
-          PULL_NUMBER: ${{ steps.pr_number.outputs.pr_number }}
+          PULL_NUMBER: ${{ steps.alias.outputs.value }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
           STAGE: ${{ steps.netlify_deploy.outcome == 'success' && 'completed' || 'failed' }}
           NETLIFY_URL: ${{ steps.netlify_deploy.outputs.deploy_url }}
