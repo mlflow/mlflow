@@ -137,12 +137,16 @@ def extract_code_blocks_from_file(filepath: Path, repo_root: Path) -> list[tuple
 
 def find_python_files(directory: Path, repo_root: Path) -> list[Path]:
     """Find all Python files tracked by git in a directory."""
+    # Get relative path from repo root
+    rel_dir = directory.relative_to(repo_root)
+
+    # Run git ls-files from repo root with the directory as a pattern
     output = subprocess.check_output(
-        ["git", "ls-files", "*.py"],
-        cwd=directory,
+        ["git", "ls-files", f"{rel_dir}/*.py"],
+        cwd=repo_root,
         text=True,
     )
-    files = [directory / line for line in output.strip().split("\n") if line]
+    files = [repo_root / line for line in output.strip().split("\n") if line]
     return sorted(files)
 
 
