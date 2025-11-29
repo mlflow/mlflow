@@ -494,7 +494,6 @@ class Linter(ast.NodeVisitor):
     def visit_Module(self, node: ast.Module) -> None:
         if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
             self._check(Range(Position(0, 0)), rule)
-        self._check_stmts_for_walrus(node.body)
         self.generic_visit(node)
 
     def _is_in_test(self) -> bool:
