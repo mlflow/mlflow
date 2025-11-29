@@ -137,14 +137,12 @@ def extract_code_blocks_from_file(filepath: Path, repo_root: Path) -> list[tuple
 
 def find_python_files(directory: Path, repo_root: Path) -> list[Path]:
     """Find all Python files tracked by git in a directory."""
-    result = subprocess.run(
+    output = subprocess.check_output(
         ["git", "ls-files", "*.py"],
         cwd=directory,
-        capture_output=True,
         text=True,
-        check=True,
     )
-    files = [directory / line for line in result.stdout.strip().split("\n") if line]
+    files = [directory / line for line in output.strip().split("\n") if line]
     return sorted(files)
 
 
@@ -234,10 +232,11 @@ def main() -> None:
     if args.repo_root:
         repo_root = Path(args.repo_root)
     else:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+        output = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"],
+            text=True,
         )
-        repo_root = Path(result.stdout.strip())
+        repo_root = Path(output.strip())
 
     # Always scan mlflow directory
     scan_dir = repo_root / "mlflow"
