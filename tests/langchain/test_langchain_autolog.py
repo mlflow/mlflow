@@ -377,8 +377,7 @@ def _extract_callback_handlers(config) -> list[BaseCallbackHandler] | None:
     if isinstance(config, list):
         callbacks = []
         for c in config:
-            callbacks_in_c = _extract_callback_handlers(c)
-            if callbacks_in_c:
+            if callbacks_in_c := _extract_callback_handlers(c):
                 callbacks.extend(callbacks_in_c)
         return callbacks
     # RunnableConfig is also a dict

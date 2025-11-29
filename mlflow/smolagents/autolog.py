@@ -139,8 +139,7 @@ def _parse_usage(output: Any) -> dict[str, int] | None:
         if isinstance(output, dict) and "raw" in output:
             output = output["raw"]
 
-        usage = getattr(output, "usage", None)
-        if usage:
+        if usage := getattr(output, "usage", None):
             return {
                 TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,

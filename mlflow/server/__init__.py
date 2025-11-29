@@ -339,8 +339,7 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
-    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
-    if secret_key:
+    if secret_key := MLFLOW_FLASK_SERVER_SECRET_KEY.get():
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
     # Determine which server we're using (only one should be true)

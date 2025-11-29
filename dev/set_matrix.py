@@ -713,8 +713,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
 
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
-                requirements = get_matched_requirements(cfg.requirements or {}, DEV_VERSION)
-                if requirements:
+                if requirements := get_matched_requirements(cfg.requirements or {}, DEV_VERSION):
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev

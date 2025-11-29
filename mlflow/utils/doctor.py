@@ -83,8 +83,7 @@ def doctor(mask_envs=False):
     if (runtime := get_databricks_runtime_version()) is not None:
         items.append(("Databricks runtime version", runtime))
 
-    active_run = mlflow.active_run()
-    if active_run:
+    if active_run := mlflow.active_run():
         items.extend(
             [
                 ("Active experiment ID", active_run.info.experiment_id),
