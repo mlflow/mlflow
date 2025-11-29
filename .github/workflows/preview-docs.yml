@@ -54,8 +54,8 @@ jobs:
           OUTPUT=$(npx -y netlify-cli deploy \
             --dir=. \
             --no-build \
-            --message="PR Preview #${ALIAS} - GitHub Run ID: $RUN_ID" \
-            --alias="pr-${ALIAS}" \
+            --message="Preview ${ALIAS} - GitHub Run ID: $RUN_ID" \
+            --alias="${ALIAS}" \
             --json)
           DEPLOY_URL=$(echo "$OUTPUT" | jq -r '.deploy_url')
           echo "deploy_url=${DEPLOY_URL}/docs/latest/" >> $GITHUB_OUTPUT
