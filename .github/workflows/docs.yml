@@ -1,14 +1,14 @@
 name: docs
 
 on:
-  # TODO: Support deploying docs on push
-  # push:
-  #   paths:
-  #     - docs/**
-  #     - .github/workflows/docs.yml
-  #   branches:
-  #     - master
-  #     - branch-[0-9]+.[0-9]+
+  push:
+    paths:
+      - pyproject.toml
+      - mlflow/**
+      - docs/**
+      - .github/workflows/docs.yml
+    branches:
+      - master
   pull_request:
     types:
       - opened
@@ -112,9 +112,14 @@ jobs:
       # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
       - name: Save alias
         env:
-          ALIAS: pr-${{ github.event.pull_request.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "$ALIAS" > /tmp/alias.txt
+          if [ "$EVENT_NAME" = "push" ]; then
+            echo "dev" > /tmp/alias.txt
+          else
+            echo "pr-$PR_NUMBER" > /tmp/alias.txt
+          fi
           cat /tmp/alias.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
