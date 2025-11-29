@@ -112,13 +112,13 @@ jobs:
       # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
       - name: Save alias
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ALIAS: pr-${{ github.event.pull_request.number }}
         run: |
-          echo "pr-$PR_NUMBER" > /tmp/alias.txt
+          echo "$ALIAS" > /tmp/alias.txt
           cat /tmp/alias.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: pr-${{ github.event.pull_request.number }}
+          name: alias
           path: /tmp/alias.txt
           retention-days: 1
           if-no-files-found: error

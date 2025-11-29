@@ -27,13 +27,13 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
-          pattern: pr-*
+          name: alias
           path: /tmp
       - name: Set alias
         id: alias
         run: |
-          cat /tmp/pr-*/alias.txt
-          echo "value=$(cat /tmp/pr-*/alias.txt)" >> $GITHUB_OUTPUT
+          cat /tmp/alias.txt
+          echo "value=$(cat /tmp/alias.txt)" >> $GITHUB_OUTPUT
       - name: Download build artifact
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
