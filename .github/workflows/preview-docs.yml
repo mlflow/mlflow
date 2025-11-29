@@ -63,8 +63,9 @@ jobs:
       - name: Extract PR number
         id: pr_number
         if: startsWith(steps.alias.outputs.value, 'pr-')
+        env:
+          ALIAS: ${{ steps.alias.outputs.value }}
         run: |
-          ALIAS="${{ steps.alias.outputs.value }}"
           # Extract number from alias (e.g., "pr-123" -> "123")
           PR_NUM=$(echo "$ALIAS" | sed 's/^pr-//')
           echo "value=$PR_NUM" >> $GITHUB_OUTPUT
