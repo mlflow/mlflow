@@ -7,7 +7,6 @@ Uses AST to parse Python files and extract docstrings with test code blocks.
 import ast
 import re
 import subprocess
-import sys
 import textwrap
 from pathlib import Path
 
@@ -227,10 +226,6 @@ def main() -> None:
     # Always scan mlflow directory
     scan_dir = repo_root / "mlflow"
     output_dir = Path(".examples")
-
-    if not scan_dir.exists():
-        print(f"Error: Directory does not exist: {scan_dir}", file=sys.stderr)
-        sys.exit(1)
 
     extract_examples(scan_dir, output_dir, repo_root)
 
