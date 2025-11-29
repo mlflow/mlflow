@@ -7,7 +7,7 @@ from clint.rules import UseWalrusOperator
 
 def test_basic_walrus_pattern(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         use(a)
@@ -21,7 +21,7 @@ def foo():
 
 def test_walrus_in_function(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         use(a)
@@ -46,7 +46,7 @@ if result:
 
 def test_flag_with_elif_not_using_var(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         use(a)
@@ -61,7 +61,7 @@ def foo():
 
 def test_no_flag_with_elif_using_var(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         use(a)
@@ -76,7 +76,7 @@ def foo():
 
 def test_flag_with_else_not_using_var(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         use(a)
@@ -91,7 +91,7 @@ def foo():
 
 def test_no_flag_with_else_using_var(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         use(a)
@@ -106,7 +106,7 @@ def foo():
 
 def test_no_flag_variable_used_after_if(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         use(a)
@@ -119,7 +119,7 @@ def foo():
 
 def test_no_flag_variable_not_used_in_if_body(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         do_something_else()
@@ -131,7 +131,7 @@ def foo():
 
 def test_no_flag_comparison_in_if(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a > 5:
         use(a)
@@ -143,7 +143,7 @@ def foo():
 
 def test_no_flag_different_variable_in_if(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if b:
         use(a)
@@ -155,7 +155,7 @@ def foo():
 
 def test_no_flag_tuple_unpacking(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a, b = func()
     if a:
         use(a)
@@ -167,7 +167,7 @@ def foo():
 
 def test_no_flag_multiple_targets(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = b = func()
     if a:
         use(a)
@@ -179,7 +179,7 @@ def foo():
 
 def test_no_flag_attribute_assignment(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     self.a = func()
     if self.a:
         use(self.a)
@@ -191,7 +191,7 @@ def foo():
 
 def test_no_flag_multiline_assignment(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = (
         func()
     )
@@ -205,7 +205,7 @@ def foo():
 
 def test_no_flag_augmented_assignment(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = 1
     a += func()
     if a:
@@ -218,7 +218,7 @@ def foo():
 
 def test_no_flag_annotated_assignment(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a: int = func()
     if a:
         use(a)
@@ -230,7 +230,7 @@ def foo():
 
 def test_multiple_violations(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func1()
     if a:
         use(a)
@@ -247,7 +247,7 @@ def foo():
 
 def test_nested_function_scope_not_considered(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         def inner():
@@ -266,7 +266,7 @@ def test_no_flag_line_too_long(index_path: Path) -> None:
         "characters_when_combined_with_walrus()"
     )
     code = f"""
-def foo():
+def f():
     a = {long_value}
     if a:
         use(a)
@@ -278,7 +278,7 @@ def foo():
 
 def test_flag_when_line_length_ok(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = short()
     if a:
         use(a)
@@ -290,7 +290,7 @@ def foo():
 
 def test_no_flag_non_adjacent_statements(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     other_statement()
     if a:
@@ -303,7 +303,7 @@ def foo():
 
 def test_variable_used_multiple_times_in_if_body(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         use(a)
@@ -317,7 +317,7 @@ def foo():
 
 def test_nested_if_in_body(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         use(a)
@@ -331,7 +331,7 @@ def foo():
 
 def test_class_scope_not_confused(index_path: Path) -> None:
     code = """
-def foo():
+def f():
     a = func()
     if a:
         class Inner:
