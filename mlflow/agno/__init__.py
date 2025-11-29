@@ -53,8 +53,7 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
         "agno.tools.function.FunctionCall": ["execute", "aexecute"],
     }
 
-    storages = discover_storage_backends()
-    if storages:
+    if storages := discover_storage_backends():
         class_map.update(
             {
                 cls.__module__ + "." + cls.__name__: [
@@ -68,9 +67,7 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
             }
         )
 
-    models = find_model_subclasses()
-
-    if models:
+    if models := find_model_subclasses():
         class_map.update(
             {
                 # TODO: Support streaming

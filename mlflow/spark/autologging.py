@@ -177,8 +177,7 @@ def _get_repl_id():
     local properties, and expect that the PythonSubscriber for the current Python process only
     receives events for datasource reads triggered by the current process.
     """
-    repl_id = get_databricks_repl_id()
-    if repl_id:
+    if repl_id := get_databricks_repl_id():
         return repl_id
     main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
     return f"PythonSubscriber[{main_file}][{uuid.uuid4().hex}]"

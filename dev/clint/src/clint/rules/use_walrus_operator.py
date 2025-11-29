@@ -100,11 +100,9 @@ def _name_used_in_stmts(name: str, stmts: list[ast.stmt]) -> bool:
 
 
 def _name_used_in_node(name: str, node: ast.AST) -> bool:
-    """Recursively check if a name is used, skipping nested scopes."""
+    """Recursively check if a name is used."""
     match node:
         case ast.Name(id=id, ctx=ast.Load()) if id == name:
             return True
-        case ast.FunctionDef() | ast.AsyncFunctionDef() | ast.ClassDef():
-            return False
         case _:
             return any(_name_used_in_node(name, child) for child in ast.iter_child_nodes(node))

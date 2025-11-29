@@ -141,8 +141,7 @@ def get_config():
             f"Custom provider returned no DatabricksConfig: {_config_provider}"
         )
 
-    config = DefaultConfigProvider().get_config()
-    if config:
+    if config := DefaultConfigProvider().get_config():
         return config
     raise InvalidConfigurationError.for_profile(None)
 
@@ -169,8 +168,7 @@ def get_config_for_profile(profile):
     if config and config.is_valid:
         return config
 
-    config = ProfileConfigProvider(profile).get_config()
-    if config:
+    if config := ProfileConfigProvider(profile).get_config():
         return config
     return DatabricksConfig.empty()
 

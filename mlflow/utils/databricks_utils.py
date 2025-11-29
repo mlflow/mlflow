@@ -1033,8 +1033,7 @@ def get_databricks_workspace_info_from_uri(tracking_uri: str) -> DatabricksWorks
 
 
 def check_databricks_secret_scope_access(scope_name):
-    dbutils = _get_dbutils()
-    if dbutils:
+    if dbutils := _get_dbutils():
         try:
             dbutils.secrets.list(scope_name)
         except Exception as e:

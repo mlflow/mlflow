@@ -584,9 +584,7 @@ class BuiltInEvaluator(ModelEvaluator):
             if param in param_names
         )
 
-        remaining_params = [param for param in param_names if param not in special_params]
-
-        if remaining_params:
+        if remaining_params := [param for param in param_names if param not in special_params]:
             error_message_parts.append(
                 f"  - missing columns {remaining_params} need to be defined or mapped"
             )

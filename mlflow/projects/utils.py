@@ -293,8 +293,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     project = _project_spec.load_project(work_dir)
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
-    entry_point_obj = project.get_entry_point(entry_point)
-    if entry_point_obj:
+    if entry_point_obj := project.get_entry_point(entry_point):
         final_params, extra_params = entry_point_obj.compute_parameters(
             parameters, storage_dir=None
         )

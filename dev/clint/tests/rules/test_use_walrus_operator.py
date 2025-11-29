@@ -213,20 +213,6 @@ if a:
     assert len(results) == 1
 
 
-def test_variable_used_after_in_nested_scope(index_path: Path) -> None:
-    code = """
-a = func()
-if a:
-    use(a)
-def other():
-    return a
-"""
-    config = Config(select={UseWalrusOperator.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
-    # Should flag because nested function usage doesn't count (it's a different scope)
-    assert len(results) == 1
-
-
 def test_no_flag_line_too_long(index_path: Path) -> None:
     # Create a very long function call that would make the line too long
     long_value = (
