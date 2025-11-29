@@ -4,7 +4,6 @@ This script no longer depends on Sphinx and can be run independently.
 Uses AST to parse Python files and extract docstrings with test code blocks.
 """
 
-import argparse
 import ast
 import re
 import subprocess
@@ -180,7 +179,7 @@ def generate_test_file(location: str, line_num: int, code: str, output_dir: Path
     return output_path
 
 
-def extract_examples(mlflow_dir: Path, output_dir: str | Path, repo_root: str | Path) -> int:
+def extract_examples(mlflow_dir: Path, output_dir: Path, repo_root: Path) -> int:
     """
     Extract test examples from Python files and generate test files.
 
@@ -192,9 +191,7 @@ def extract_examples(mlflow_dir: Path, output_dir: str | Path, repo_root: str | 
     Returns:
         Number of tests generated
     """
-    output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True)
-    repo_root = Path(repo_root)
 
     # Clean up old test files
     for old_file in output_dir.glob("test_*.py"):
@@ -220,36 +217,22 @@ def extract_examples(mlflow_dir: Path, output_dir: str | Path, repo_root: str | 
 
 def main() -> None:
     """Main entry point for the script."""
-    parser = argparse.ArgumentParser(description="Extract test code blocks from Python docstrings")
-    parser.add_argument(
-        "--output-dir",
-        default=".examples",
-        help="Directory to write test files (default: .examples)",
+    # Get repository root
+    output = subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"],
+        text=True,
     )
-    parser.add_argument(
-        "--repo-root", help="Repository root directory (default: auto-detect using git)"
-    )
-
-    args = parser.parse_args()
-
-    # Determine repository root
-    if args.repo_root:
-        repo_root = Path(args.repo_root)
-    else:
-        output = subprocess.check_output(
-            ["git", "rev-parse", "--show-toplevel"],
-            text=True,
-        )
-        repo_root = Path(output.strip())
+    repo_root = Path(output.strip())
 
     # Always scan mlflow directory
     scan_dir = repo_root / "mlflow"
+    output_dir = Path(".examples")
 
     if not scan_dir.exists():
         print(f"Error: Directory does not exist: {scan_dir}", file=sys.stderr)
         sys.exit(1)
 
-    extract_examples(scan_dir, args.output_dir, repo_root)
+    extract_examples(scan_dir, output_dir, repo_root)
 
 
 if __name__ == "__main__":

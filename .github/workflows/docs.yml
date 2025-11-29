@@ -142,7 +142,7 @@ jobs:
           uv pip install --system -e '../..[gateway]'
       - name: Extract and test examples
         run: |
-          python source/testcode_block.py --output-dir .examples
+          python source/testcode_block.py
           pytest --no-cov .examples
 
   r:
