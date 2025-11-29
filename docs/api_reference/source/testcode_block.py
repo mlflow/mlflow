@@ -1,69 +1,16 @@
 """
 Standalone script to extract code blocks marked with :test: from Python docstrings.
 This script no longer depends on Sphinx and can be run independently.
-Uses a similar approach to clint for parsing code blocks.
+Uses AST to parse Python files and extract docstrings with test code blocks.
 """
 
 import argparse
-import functools
-import importlib
-import inspect
+import ast
 import re
 import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import Any
-
-
-def get_obj_and_module(obj_path: str) -> tuple[Any, Any]:
-    """Import a module and get an object from it by dotted path."""
-    splits = obj_path.split(".")
-    for i in reversed(range(1, len(splits) + 1)):
-        try:
-            maybe_module = ".".join(splits[:i])
-            mod = importlib.import_module(maybe_module)
-        except ImportError:
-            continue
-        return mod, functools.reduce(getattr, splits[i:], mod)
-
-    raise Exception(f"Could not import {obj_path}")
-
-
-def get_code_block_line(mod_file: Path, obj_line: int, lineno_in_docstring: int) -> int:
-    """Calculate the actual line number of a code block in the source file."""
-    with mod_file.open() as f:
-        lines = f.readlines()[obj_line:]
-        for offset, line in enumerate(lines):
-            if line.lstrip().startswith('"""'):
-                extra_offset = 0
-                while re.search(r"[^\"\s]", lines[offset + extra_offset]) is None:
-                    extra_offset += 1
-                return obj_line + offset + extra_offset + lineno_in_docstring
-
-
-# fmt: off
-# This function helps understand what each variable represents in `get_code_block_line`.
-def _func():           # <- obj_line
-    """                  <- obj_line + offset
-
-    Docstring            <- obj_line + offset + extra_offset
-
-    .. code-block::      <- obj_line + offset + extra_offset + lineno_in_docstring
-        :test:
-        ...
-    """
-# fmt: on
-
-
-def get_code_block_location(obj_path: str, lineno_in_docstring: int, repo_root: Path) -> str:
-    """Get the file location of a code block."""
-    mod, obj = get_obj_and_module(obj_path)
-    abs_mod_file = Path(mod.__file__)
-    rel_mod_file = abs_mod_file.relative_to(repo_root)
-    obj_line = inspect.getsourcelines(obj)[1]
-    code_block_line = get_code_block_line(abs_mod_file, obj_line, lineno_in_docstring)
-    return f"{rel_mod_file}:{code_block_line}"
 
 
 def _get_indent(s: str) -> int:
@@ -153,89 +100,65 @@ def extract_code_blocks_from_docstring(docstring: str | None) -> list[tuple[int,
     return blocks
 
 
-def find_all_objects_with_docstrings(module_name: str) -> list[tuple[str, int, str]]:
+def extract_code_blocks_from_file(filepath: Path, repo_root: Path) -> list[tuple[str, int, str]]:
     """
-    Find all functions and classes in a module that have docstrings with test blocks.
+    Extract all code blocks marked with :test: from a Python file.
 
-    Returns a list of tuples: (obj_path, line_number, code_block)
+    Args:
+        filepath: Path to the Python file
+        repo_root: Root of the repository
+
+    Returns:
+        List of tuples: (location_string, line_number, code_content)
     """
     try:
-        module = importlib.import_module(module_name)
-    except ImportError as e:
-        print(f"Warning: Could not import {module_name}: {e}", file=sys.stderr)
+        source = filepath.read_text()
+        tree = ast.parse(source)
+    except (SyntaxError, UnicodeDecodeError) as e:
+        print(f"Warning: Could not parse {filepath}: {e}", file=sys.stderr)
         return []
 
     results = []
+    rel_path = filepath.relative_to(repo_root)
 
-    # Get all members of the module
-    for name, obj in inspect.getmembers(module):
-        # Skip private members
-        if name.startswith("_"):
-            continue
+    for node in ast.walk(tree):
+        # Check functions and classes for docstrings
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            docstring = ast.get_docstring(node)
+            if not docstring:
+                continue
 
-        # Only process functions and classes
-        if not (inspect.isfunction(obj) or inspect.isclass(obj) or inspect.ismethod(obj)):
-            continue
-
-        # Get the object's module - only process if it's from the target module
-        obj_module = inspect.getmodule(obj)
-        if obj_module is None or not obj_module.__name__.startswith(module_name):
-            continue
-
-        obj_path = f"{obj_module.__name__}.{name}"
-        docstring = inspect.getdoc(obj)
-
-        if docstring and (blocks := extract_code_blocks_from_docstring(docstring)):
-            for line_num, code in blocks:
-                results.append((obj_path, line_num, code))
-
-        # For classes, also check their methods
-        if inspect.isclass(obj):
-            for method_name, method in inspect.getmembers(obj):
-                if method_name.startswith("_") and method_name not in ("__init__", "__call__"):
-                    continue
-
-                if not (inspect.isfunction(method) or inspect.ismethod(method)):
-                    continue
-
-                method_module = inspect.getmodule(method)
-                if method_module is None or not method_module.__name__.startswith(module_name):
-                    continue
-
-                method_path = f"{obj_path}.{method_name}"
-                method_docstring = inspect.getdoc(method)
-
-                if method_docstring and (
-                    blocks := extract_code_blocks_from_docstring(method_docstring)
-                ):
-                    for line_num, code in blocks:
-                        results.append((method_path, line_num, code))
+            blocks = extract_code_blocks_from_docstring(docstring)
+            for lineno_in_docstring, code in blocks:
+                # Calculate the actual line number in the file
+                # The docstring starts at node.lineno, and lineno_in_docstring is relative to that
+                actual_line = node.lineno + lineno_in_docstring
+                location = f"{rel_path}:{actual_line}"
+                results.append((location, lineno_in_docstring, code))
 
     return results
 
 
-def generate_test_file(
-    obj_path: str, line_num: int, code: str, repo_root: Path, output_dir: Path
-) -> Path:
-    """Generate a pytest test file for a code block."""
-    try:
-        code_block_location = get_code_block_location(obj_path, line_num, repo_root)
-    except Exception as e:
-        print(f"Warning: Could not get location for {obj_path}:{line_num}: {e}", file=sys.stderr)
-        code_block_location = f"{obj_path}:{line_num}"
+def find_python_files(directory: Path) -> list[Path]:
+    """Recursively find all Python files in a directory."""
+    return sorted(directory.rglob("*.py"))
 
-    name = re.sub(r"[\._]+", "_", obj_path).strip("_")
-    filename = f"test_{name}_{line_num}.py"
+
+def generate_test_file(location: str, line_num: int, code: str, output_dir: Path) -> Path:
+    """Generate a pytest test file for a code block."""
+    # Create a unique filename based on location
+    safe_name = re.sub(r"[/\\:.]", "_", location)
+    filename = f"test_{safe_name}_{line_num}.py"
     content = textwrap.indent(code, " " * 4)
 
     test_code = "\n".join(
         [
-            f"# Location: {code_block_location}",
+            f"# Location: {location}",
             "import pytest",
             "",
             "",
             # Show the code block location in the test report.
-            f"@pytest.mark.parametrize('_', [' {code_block_location} '])",
+            f"@pytest.mark.parametrize('_', [' {location} '])",
             "def test(_):",
             content,
             "",
@@ -251,14 +174,12 @@ def generate_test_file(
     return output_path
 
 
-def extract_examples(
-    mlflow_modules: list[str], output_dir: str | Path, repo_root: str | Path
-) -> int:
+def extract_examples(mlflow_dir: Path, output_dir: str | Path, repo_root: str | Path) -> int:
     """
-    Extract test examples from mlflow modules and generate test files.
+    Extract test examples from Python files and generate test files.
 
     Args:
-        mlflow_modules: List of module names to scan (e.g., ['mlflow', 'mlflow.tracking'])
+        mlflow_dir: Directory containing Python files to scan
         output_dir: Directory to write test files to
         repo_root: Root of the repository
 
@@ -275,17 +196,20 @@ def extract_examples(
 
     total_tests = 0
 
-    for module_name in mlflow_modules:
-        print(f"Processing module: {module_name}")
-        results = find_all_objects_with_docstrings(module_name)
+    print(f"Scanning Python files in: {mlflow_dir}")
+    python_files = find_python_files(mlflow_dir)
+    print(f"Found {len(python_files)} Python files")
 
-        for obj_path, line_num, code in results:
+    for filepath in python_files:
+        results = extract_code_blocks_from_file(filepath, repo_root)
+
+        for location, line_num, code in results:
             try:
-                output_path = generate_test_file(obj_path, line_num, code, repo_root, output_dir)
+                output_path = generate_test_file(location, line_num, code, output_dir)
                 print(f"  Generated: {output_path.name}")
                 total_tests += 1
             except Exception as e:
-                print(f"  Error generating test for {obj_path}:{line_num}: {e}", file=sys.stderr)
+                print(f"  Error generating test for {location}: {e}", file=sys.stderr)
 
     print(f"\nTotal tests generated: {total_tests}")
     return total_tests
@@ -303,7 +227,10 @@ def main() -> None:
         "--repo-root", help="Repository root directory (default: auto-detect using git)"
     )
     parser.add_argument(
-        "modules", nargs="*", default=["mlflow"], help="Module names to scan (default: mlflow)"
+        "directory",
+        nargs="?",
+        default=None,
+        help="Directory to scan for Python files (default: mlflow/)",
     )
 
     args = parser.parse_args()
@@ -320,12 +247,19 @@ def main() -> None:
         except (subprocess.CalledProcessError, FileNotFoundError):
             repo_root = Path.cwd().parent.parent
 
-    # Ensure mlflow is importable
-    mlflow_root = repo_root
-    if str(mlflow_root) not in sys.path:
-        sys.path.insert(0, str(mlflow_root))
+    # Determine directory to scan
+    if args.directory:
+        scan_dir = Path(args.directory)
+        if not scan_dir.is_absolute():
+            scan_dir = repo_root / scan_dir
+    else:
+        scan_dir = repo_root / "mlflow"
 
-    extract_examples(args.modules, args.output_dir, repo_root)
+    if not scan_dir.exists():
+        print(f"Error: Directory does not exist: {scan_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    extract_examples(scan_dir, args.output_dir, repo_root)
 
 
 if __name__ == "__main__":

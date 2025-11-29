@@ -140,7 +140,7 @@ jobs:
       - name: Extract and test examples
         working-directory: docs/api_reference
         run: |
-          python source/testcode_block.py --output-dir .examples mlflow
+          python source/testcode_block.py --output-dir .examples
           pytest --no-cov .examples
 
   r:
