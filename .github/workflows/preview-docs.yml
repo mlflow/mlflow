@@ -62,20 +62,15 @@ jobs:
         continue-on-error: true
       - name: Extract PR number
         id: pr_number
+        if: startsWith(steps.alias.outputs.value, 'pr-')
         run: |
           ALIAS="${{ steps.alias.outputs.value }}"
-          # Extract number from alias if it starts with "pr-" (e.g., "pr-123" -> "123")
-          if [[ "$ALIAS" =~ ^pr-([0-9]+)$ ]]; then
-            PR_NUM="${BASH_REMATCH[1]}"
-            echo "value=$PR_NUM" >> $GITHUB_OUTPUT
-            echo "is_pr=true" >> $GITHUB_OUTPUT
-            echo "Extracted PR number: $PR_NUM"
-          else
-            echo "is_pr=false" >> $GITHUB_OUTPUT
-            echo "Not a PR alias: $ALIAS"
-          fi
+          # Extract number from alias (e.g., "pr-123" -> "123")
+          PR_NUM=$(echo "$ALIAS" | sed 's/^pr-//')
+          echo "value=$PR_NUM" >> $GITHUB_OUTPUT
+          echo "Extracted PR number: $PR_NUM"
       - name: Create preview link
-        if: steps.pr_number.outputs.is_pr == 'true'
+        if: startsWith(steps.alias.outputs.value, 'pr-')
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
