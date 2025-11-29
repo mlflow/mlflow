@@ -185,8 +185,7 @@ _HEAD_BRANCH_REGEX = re.compile(r"^\s*HEAD branch:\s+(?P<branch>\S+)")
 
 def _get_head_branch(remote_show_output):
     for line in remote_show_output.splitlines():
-        match = _HEAD_BRANCH_REGEX.match(line)
-        if match:
+        if match := _HEAD_BRANCH_REGEX.match(line):
             return match.group("branch")
 
 

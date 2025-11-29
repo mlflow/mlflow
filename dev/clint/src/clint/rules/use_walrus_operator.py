@@ -106,3 +106,67 @@ def _name_used_in_node(name: str, node: ast.AST) -> bool:
             return True
         case _:
             return any(_name_used_in_node(name, child) for child in ast.iter_child_nodes(node))
+
+
+class WalrusOperatorVisitor(ast.NodeVisitor):
+    """Visits all statement blocks to check for walrus operator opportunities."""
+
+    def __init__(self) -> None:
+        self.violations: list[ast.stmt] = []
+
+    def _check_stmts(self, stmts: list[ast.stmt]) -> None:
+        for idx, stmt in enumerate(stmts[1:], start=1):
+            if isinstance(stmt, ast.If):
+                prev_stmt = stmts[idx - 1]
+                following_stmts = stmts[idx + 1 :]
+                if UseWalrusOperator.check(stmt, prev_stmt, following_stmts):
+                    self.violations.append(prev_stmt)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._check_stmts(node.body)
+        self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._check_stmts(node.body)
+        self.generic_visit(node)
+
+    def visit_If(self, node: ast.If) -> None:
+        self._check_stmts(node.body)
+        self._check_stmts(node.orelse)
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        self._check_stmts(node.body)
+        self._check_stmts(node.orelse)
+        self.generic_visit(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        self._check_stmts(node.body)
+        self._check_stmts(node.orelse)
+        self.generic_visit(node)
+
+    def visit_While(self, node: ast.While) -> None:
+        self._check_stmts(node.body)
+        self._check_stmts(node.orelse)
+        self.generic_visit(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        self._check_stmts(node.body)
+        self.generic_visit(node)
+
+    def visit_AsyncWith(self, node: ast.AsyncWith) -> None:
+        self._check_stmts(node.body)
+        self.generic_visit(node)
+
+    def visit_Try(self, node: ast.Try) -> None:
+        self._check_stmts(node.body)
+        for handler in node.handlers:
+            self._check_stmts(handler.body)
+        self._check_stmts(node.orelse)
+        self._check_stmts(node.finalbody)
+        self.generic_visit(node)
+
+    def visit_Match(self, node: ast.Match) -> None:
+        for case in node.cases:
+            self._check_stmts(case.body)
+        self.generic_visit(node)

@@ -134,8 +134,7 @@ def get_config():
     If no DatabricksConfig can be found, an InvalidConfigurationError will be raised.
     """
     if _config_provider:
-        config = _config_provider.get_config()
-        if config:
+        if config := _config_provider.get_config():
             return config
         raise InvalidConfigurationError(
             f"Custom provider returned no DatabricksConfig: {_config_provider}"

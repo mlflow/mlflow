@@ -629,7 +629,7 @@ class Linter(ast.NodeVisitor):
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
-        self._check_stmts_for_walrus(node.body)
+        self._check_walrus_operator(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -646,7 +646,7 @@ class Linter(ast.NodeVisitor):
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
-        self._check_stmts_for_walrus(node.body)
+        self._check_walrus_operator(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -827,13 +827,11 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
         self.in_TYPE_CHECKING = False
 
-    def _check_stmts_for_walrus(self, stmts: list[ast.stmt]) -> None:
-        for idx, stmt in enumerate(stmts[1:], start=1):
-            if isinstance(stmt, ast.If):
-                prev_stmt = stmts[idx - 1]
-                following_stmts = stmts[idx + 1 :]
-                if rules.UseWalrusOperator.check(stmt, prev_stmt, following_stmts):
-                    self._check(Range.from_node(prev_stmt), rules.UseWalrusOperator())
+    def _check_walrus_operator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        visitor = rules.WalrusOperatorVisitor()
+        visitor.visit(node)
+        for stmt in visitor.violations:
+            self._check(Range.from_node(stmt), rules.UseWalrusOperator())
 
     def visit_With(self, node: ast.With) -> None:
         # Only check in test files

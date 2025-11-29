@@ -342,3 +342,75 @@ def f():
     results = lint_file(Path("test.py"), code, config, index_path)
     # Flagged (false positive) - nested scopes are not handled for simplicity
     assert len(results) == 1
+
+
+def test_walrus_in_nested_if(index_path: Path) -> None:
+    code = """
+def f():
+    if condition:
+        a = func()
+        if a:
+            use(a)
+"""
+    config = Config(select={UseWalrusOperator.name})
+    results = lint_file(Path("test.py"), code, config, index_path)
+    assert len(results) == 1
+    assert isinstance(results[0].rule, UseWalrusOperator)
+
+
+def test_walrus_in_for_loop(index_path: Path) -> None:
+    code = """
+def f():
+    for x in items:
+        a = func()
+        if a:
+            use(a)
+"""
+    config = Config(select={UseWalrusOperator.name})
+    results = lint_file(Path("test.py"), code, config, index_path)
+    assert len(results) == 1
+    assert isinstance(results[0].rule, UseWalrusOperator)
+
+
+def test_walrus_in_while_loop(index_path: Path) -> None:
+    code = """
+def f():
+    while condition:
+        a = func()
+        if a:
+            use(a)
+"""
+    config = Config(select={UseWalrusOperator.name})
+    results = lint_file(Path("test.py"), code, config, index_path)
+    assert len(results) == 1
+    assert isinstance(results[0].rule, UseWalrusOperator)
+
+
+def test_walrus_in_with_block(index_path: Path) -> None:
+    code = """
+def f():
+    with context:
+        a = func()
+        if a:
+            use(a)
+"""
+    config = Config(select={UseWalrusOperator.name})
+    results = lint_file(Path("test.py"), code, config, index_path)
+    assert len(results) == 1
+    assert isinstance(results[0].rule, UseWalrusOperator)
+
+
+def test_walrus_in_try_block(index_path: Path) -> None:
+    code = """
+def f():
+    try:
+        a = func()
+        if a:
+            use(a)
+    except Exception:
+        pass
+"""
+    config = Config(select={UseWalrusOperator.name})
+    results = lint_file(Path("test.py"), code, config, index_path)
+    assert len(results) == 1
+    assert isinstance(results[0].rule, UseWalrusOperator)

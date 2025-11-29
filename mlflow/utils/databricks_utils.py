@@ -170,8 +170,7 @@ def _get_property_from_spark_context(key):
     try:
         from pyspark import TaskContext
 
-        task_context = TaskContext.get()
-        if task_context:
+        if task_context := TaskContext.get():
             return task_context.getLocalProperty(key)
     except Exception:
         return None
@@ -646,8 +645,7 @@ def warn_on_deprecated_cross_workspace_registry_uri(registry_uri):
 def get_workspace_info_from_databricks_secrets(tracking_uri):
     profile, key_prefix = get_db_info_from_uri(tracking_uri)
     if key_prefix:
-        dbutils = _get_dbutils()
-        if dbutils:
+        if dbutils := _get_dbutils():
             workspace_id = dbutils.secrets.get(scope=profile, key=key_prefix + "-workspace-id")
             workspace_host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
             return workspace_host, workspace_id
@@ -731,8 +729,7 @@ class TrackingURIConfigProvider(DatabricksConfigProvider):
         scope, key_prefix = get_db_info_from_uri(self.tracking_uri)
 
         if scope and key_prefix:
-            dbutils = _get_dbutils()
-            if dbutils:
+            if dbutils := _get_dbutils():
                 # Prefix differentiates users and is provided as path information in the URI
                 host = dbutils.secrets.get(scope=scope, key=key_prefix + "-host")
                 token = dbutils.secrets.get(scope=scope, key=key_prefix + "-token")
