@@ -549,12 +549,8 @@ class InstructionsJudge(Judge):
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
-        # Use get_output_fields() as the single source of truth for field definitions
-        # This ensures field descriptions are consistent between the response format model
-        # and the system prompt instructions
         output_fields = self.get_output_fields()
 
-        # Convert JudgeFields to Pydantic field definitions
         fields = {}
         for field in output_fields:
             fields[field.name] = (
