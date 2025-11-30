@@ -27,6 +27,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai import make_judge
+from mlflow.genai.judges.constants import _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.judges.utils import _NATIVE_PROVIDERS, validate_judge_model
@@ -3416,3 +3417,85 @@ def test_instructions_judge_generate_rationale_first():
     assert output_fields_default[1].value_type == str
     assert output_fields_rationale_first[0].value_type == str  # rationale
     assert output_fields_rationale_first[1].value_type == Literal["good", "bad"]  # result
+
+
+def test_response_format_uses_generic_description_when_scorer_has_description():
+    """
+    Verify that response format uses generic field description even when scorer has
+    a custom description.
+
+    Bug: Previously the Pydantic Field description was set to self.description,
+    which caused the LLM to see the scorer's description in the JSON schema
+    and potentially echo it back as the value instead of generating an assessment.
+
+    Fix: The Field description should always be _RESULT_FIELD_DESCRIPTION
+    ("The evaluation rating/result") so the LLM understands what to return.
+    """
+    scorer_description = "Evaluates the conciseness of the response"
+    judge = InstructionsJudge(
+        name="Conciseness",
+        instructions="Evaluate if the output {{ outputs }} is concise",
+        description=scorer_description,
+        model="openai:/gpt-4",
+    )
+
+    response_format_model = judge._create_response_format_model()
+    schema = response_format_model.model_json_schema()
+
+    # The result field description should be the generic description,
+    # NOT the scorer's description
+    result_description = schema["properties"]["result"]["description"]
+    assert result_description == _RESULT_FIELD_DESCRIPTION, (
+        f"Response format should use generic field description, not scorer description.\n"
+        f"  Expected: '{_RESULT_FIELD_DESCRIPTION}'\n"
+        f"  Got: '{result_description}'\n"
+        f"Using the scorer's description causes the LLM to see it in the JSON schema "
+        f"and potentially echo it as the value instead of providing an actual assessment."
+    )
+
+    # Verify rationale field uses its own description
+    rationale_description = schema["properties"]["rationale"]["description"]
+    assert rationale_description == "Detailed explanation for the evaluation"
+
+    # Also verify get_output_fields() uses generic description (used in system prompt)
+    output_fields = judge.get_output_fields()
+    result_field = next(f for f in output_fields if f.name == "result")
+    assert result_field.description == _RESULT_FIELD_DESCRIPTION, (
+        f"Output fields should use generic description in system prompt.\n"
+        f"  Expected: '{_RESULT_FIELD_DESCRIPTION}'\n"
+        f"  Got: '{result_field.description}'"
+    )
+
+
+def test_response_format_uses_generic_description_when_scorer_has_no_description():
+    """
+    Verify that response format uses generic field description when scorer
+    has no custom description.
+
+    This ensures the fallback behavior is correct when self.description is None.
+    """
+    judge = InstructionsJudge(
+        name="TestJudge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        # No description provided
+    )
+
+    response_format_model = judge._create_response_format_model()
+    schema = response_format_model.model_json_schema()
+
+    result_description = schema["properties"]["result"]["description"]
+    assert result_description == _RESULT_FIELD_DESCRIPTION, (
+        f"Response format should use generic field description.\n"
+        f"  Expected: '{_RESULT_FIELD_DESCRIPTION}'\n"
+        f"  Got: '{result_description}'"
+    )
+
+    # Verify rationale field uses its own description
+    rationale_description = schema["properties"]["rationale"]["description"]
+    assert rationale_description == "Detailed explanation for the evaluation"
+
+    # Also verify get_output_fields() uses generic description (used in system prompt)
+    output_fields = judge.get_output_fields()
+    result_field = next(f for f in output_fields if f.name == "result")
+    assert result_field.description == _RESULT_FIELD_DESCRIPTION
