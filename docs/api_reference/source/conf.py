@@ -344,6 +344,7 @@ texinfo_documents = [
 nitpicky = True
 nitpick_ignore_regex = [
     ("py:class", r".+"),
+    ("py:obj", r".+"),
 ]
 
 
@@ -388,6 +389,9 @@ def _get_reference_map():
         ref_map[invalid_ref] = valid_ref
 
     ref_map["mlflow.genai.scorers.base.Scorer"] = "mlflow.genai.Scorer"
+
+    # Resolve ambiguous Model reference to the main mlflow.models.Model
+    ref_map["Model"] = "mlflow.models.Model"
 
     return ref_map
 
