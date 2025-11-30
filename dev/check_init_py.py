@@ -40,8 +40,7 @@ def main() -> int:
         return 0
 
     python_dirs = {p for f in python_files for p in f.parents if p != Path(".")}
-    missing_init_files = [d for d in python_dirs if not (d / "__init__.py").exists()]
-    if missing_init_files:
+    if missing_init_files := [d for d in python_dirs if not (d / "__init__.py").exists()]:
         print("Error: The following directories contain Python files but lack __init__.py:")
         for d in sorted(missing_init_files):
             print(f"  {d.as_posix()}/")
