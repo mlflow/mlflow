@@ -4,22 +4,23 @@ import type { EvaluationDatasetRecord } from '../types';
 import { useMemo } from 'react';
 import { escapeRegExp } from 'lodash';
 
-const HIGHLIGHT_COLOR = 'yellow200';
-
 const HighlightedText = ({ text, searchFilter, theme }: { text: string; searchFilter: string; theme: any }) => {
   const highlightedParts = useMemo(() => {
     if (!searchFilter.trim()) {
       return [text];
     }
 
-    const regex = new RegExp(`(${escapeRegExp(searchFilter.trim())})`, 'gi');
+    const regex = new RegExp(`(${escapeRegExp(searchFilter)})`, 'gi');
     const parts = text.split(regex);
 
+    // Use blue highlight colors that work well in both light and dark modes
+    const highlightColor = theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue100;
+
     return parts.map((part, index) => {
-      const isMatch = part.toLowerCase() === searchFilter.toLowerCase().trim();
+      const isMatch = part.toLowerCase() === searchFilter.toLowerCase();
       if (isMatch) {
         return (
-          <span key={index} css={{ backgroundColor: theme.colors[HIGHLIGHT_COLOR] }}>
+          <span key={index} css={{ backgroundColor: highlightColor }}>
             {part}
           </span>
         );
@@ -39,12 +40,13 @@ export const JsonCell = ({
   table: Table<EvaluationDatasetRecord>;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const value = JSON.stringify(cell.getValue(), null, 2);
+  const cellValue = cell.getValue();
+  const value = cellValue !== undefined ? JSON.stringify(cellValue, null, 2) : '';
   const rowSize = (options?.meta as any)?.rowSize;
   const searchFilter = (options?.meta as any)?.searchFilter || '';
 
   // Calculate number of lines for dynamic row count
-  const lineCount = useMemo(() => value.split('\n').length, [value]);
+  const lineCount = useMemo(() => (value ? value.split('\n').length : 1), [value]);
   const rows = useMemo(() => Math.min(Math.max(lineCount + 1, 3), 20), [lineCount]);
 
   return (
