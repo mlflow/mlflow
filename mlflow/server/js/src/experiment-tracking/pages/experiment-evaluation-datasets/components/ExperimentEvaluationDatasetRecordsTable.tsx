@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useGetDatasetRecords } from '../hooks/useGetDatasetRecords';
 import type { ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel } from '@tanstack/react-table';
@@ -88,6 +88,20 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
       return false;
     });
   }, [datasetRecords, searchFilter]);
+
+  // Auto-fetch more records when filtering reduces visible results but more pages exist.
+  // This ensures we keep loading until we find matching records or exhaust all pages.
+  useEffect(() => {
+    if (!searchFilter.trim() || isFetching || !hasNextPage) {
+      return;
+    }
+
+    // Threshold based on row size - smaller rows show more records, so need higher threshold
+    const minResultsThreshold = rowSize === 'sm' ? 20 : rowSize === 'md' ? 10 : 5;
+    if (filteredRecords.length < minResultsThreshold) {
+      fetchNextPage();
+    }
+  }, [filteredRecords.length, searchFilter, isFetching, hasNextPage, fetchNextPage, rowSize]);
 
   const table = useReactTable(
     'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExperimentEvaluationDatasetRecordsTable.tsx',
