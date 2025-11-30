@@ -1,4 +1,9 @@
+from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
+from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
+from mlflow.entities.model_registry.model_version_deployment_job_state import (
+    ModelVersionDeploymentJobState,
+)
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
@@ -12,140 +17,170 @@ class ModelVersion(_ModelRegistryEntity):
 
     def __init__(
         self,
-        name,
-        version,
-        creation_timestamp,
-        last_updated_timestamp=None,
-        description=None,
-        user_id=None,
-        current_stage=None,
-        source=None,
-        run_id=None,
-        status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
-        status_message=None,
-        tags=None,
-        run_link=None,
-        aliases=None,
+        name: str,
+        version: str,
+        creation_timestamp: int,
+        last_updated_timestamp: int | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
+        current_stage: str | None = None,
+        source: str | None = None,
+        run_id: str | None = None,
+        status: str = ModelVersionStatus.to_string(ModelVersionStatus.READY),
+        status_message: str | None = None,
+        tags: list[ModelVersionTag] | None = None,
+        run_link: str | None = None,
+        aliases: list[str] | None = None,
+        # TODO: Make model_id a required field
+        # (currently optional to minimize breakages during prototype development)
+        model_id: str | None = None,
+        params: list[ModelParam] | None = None,
+        metrics: list[Metric] | None = None,
+        deployment_job_state: ModelVersionDeploymentJobState | None = None,
     ):
         super().__init__()
-        self._name = name
-        self._version = version
-        self._creation_time = creation_timestamp
-        self._last_updated_timestamp = last_updated_timestamp
-        self._description = description
-        self._user_id = user_id
-        self._current_stage = current_stage
-        self._source = source
-        self._run_id = run_id
-        self._run_link = run_link
-        self._status = status
-        self._status_message = status_message
-        self._tags = {tag.key: tag.value for tag in (tags or [])}
-        self._aliases = aliases or []
+        self._name: str = name
+        self._version: str = version
+        self._creation_time: int = creation_timestamp
+        self._last_updated_timestamp: int | None = last_updated_timestamp
+        self._description: str | None = description
+        self._user_id: str | None = user_id
+        self._current_stage: str | None = current_stage
+        self._source: str | None = source
+        self._run_id: str | None = run_id
+        self._run_link: str | None = run_link
+        self._status: str = status
+        self._status_message: str | None = status_message
+        self._tags: dict[str, str] = {tag.key: tag.value for tag in (tags or [])}
+        self._aliases: list[str] = aliases or []
+        self._model_id: str | None = model_id
+        self._params: list[ModelParam] | None = params
+        self._metrics: list[Metric] | None = metrics
+        self._deployment_job_state: ModelVersionDeploymentJobState | None = deployment_job_state
 
     @property
-    def name(self):
+    def name(self) -> str:
         """String. Unique name within Model Registry."""
         return self._name
 
     @name.setter
-    def name(self, new_name):
+    def name(self, new_name: str):
         self._name = new_name
 
     @property
-    def version(self):
-        """version"""
+    def version(self) -> str:
+        """Version"""
         return self._version
 
     @property
-    def creation_timestamp(self):
+    def creation_timestamp(self) -> int:
         """Integer. Model version creation timestamp (milliseconds since the Unix epoch)."""
         return self._creation_time
 
     @property
-    def last_updated_timestamp(self):
+    def last_updated_timestamp(self) -> int | None:
         """Integer. Timestamp of last update for this model version (milliseconds since the Unix
         epoch).
         """
         return self._last_updated_timestamp
 
     @last_updated_timestamp.setter
-    def last_updated_timestamp(self, updated_timestamp):
+    def last_updated_timestamp(self, updated_timestamp: int):
         self._last_updated_timestamp = updated_timestamp
 
     @property
-    def description(self):
+    def description(self) -> str | None:
         """String. Description"""
         return self._description
 
     @description.setter
-    def description(self, description):
+    def description(self, description: str):
         self._description = description
 
     @property
-    def user_id(self):
+    def user_id(self) -> str | None:
         """String. User ID that created this model version."""
         return self._user_id
 
     @property
-    def current_stage(self):
+    def current_stage(self) -> str | None:
         """String. Current stage of this model version."""
         return self._current_stage
 
     @current_stage.setter
-    def current_stage(self, stage):
+    def current_stage(self, stage: str):
         self._current_stage = stage
 
     @property
-    def source(self):
+    def source(self) -> str | None:
         """String. Source path for the model."""
         return self._source
 
     @property
-    def run_id(self):
+    def run_id(self) -> str | None:
         """String. MLflow run ID that generated this model."""
         return self._run_id
 
     @property
-    def run_link(self):
+    def run_link(self) -> str | None:
         """String. MLflow run link referring to the exact run that generated this model version."""
         return self._run_link
 
     @property
-    def status(self):
+    def status(self) -> str:
         """String. Current Model Registry status for this model."""
         return self._status
 
     @property
-    def status_message(self):
+    def status_message(self) -> str | None:
         """String. Descriptive message for error status conditions."""
         return self._status_message
 
     @property
-    def tags(self):
+    def tags(self) -> dict[str, str]:
         """Dictionary of tag key (string) -> tag value for the current model version."""
         return self._tags
 
     @property
-    def aliases(self):
+    def aliases(self) -> list[str]:
         """List of aliases (string) for the current model version."""
         return self._aliases
 
     @aliases.setter
-    def aliases(self, aliases):
+    def aliases(self, aliases: list[str]):
         self._aliases = aliases
 
+    @property
+    def model_id(self) -> str | None:
+        """String. ID of the model associated with this version."""
+        return self._model_id
+
+    @property
+    def params(self) -> list[ModelParam] | None:
+        """List of parameters associated with this model version."""
+        return self._params
+
+    @property
+    def metrics(self) -> list[Metric] | None:
+        """List of metrics associated with this model version."""
+        return self._metrics
+
+    @property
+    def deployment_job_state(self) -> ModelVersionDeploymentJobState | None:
+        """Deployment job state for the current model version."""
+        return self._deployment_job_state
+
     @classmethod
-    def _properties(cls):
+    def _properties(cls) -> list[str]:
         # aggregate with base class properties since cls.__dict__ does not do it automatically
         return sorted(cls._get_properties_helper())
 
-    def _add_tag(self, tag):
+    def _add_tag(self, tag: ModelVersionTag):
         self._tags[tag.key] = tag.value
 
     # proto mappers
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto) -> "ModelVersion":
         # input: mlflow.protos.model_registry_pb2.ModelVersion
         # returns: ModelVersion entity
         model_version = cls(
@@ -153,18 +188,22 @@ class ModelVersion(_ModelRegistryEntity):
             proto.version,
             proto.creation_timestamp,
             proto.last_updated_timestamp,
-            proto.description,
+            proto.description if proto.HasField("description") else None,
             proto.user_id,
             proto.current_stage,
             proto.source,
-            proto.run_id,
+            proto.run_id if proto.HasField("run_id") else None,
             ModelVersionStatus.to_string(proto.status),
-            proto.status_message,
+            proto.status_message if proto.HasField("status_message") else None,
             run_link=proto.run_link,
             aliases=proto.aliases,
+            deployment_job_state=ModelVersionDeploymentJobState.from_proto(
+                proto.deployment_job_state
+            ),
         )
         for tag in proto.tags:
             model_version._add_tag(ModelVersionTag.from_proto(tag))
+        # TODO: Include params, metrics, and model ID in proto
         return model_version
 
     def to_proto(self):
@@ -196,4 +235,7 @@ class ModelVersion(_ModelRegistryEntity):
             [ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()]
         )
         model_version.aliases.extend(self.aliases)
+        if self.deployment_job_state is not None:
+            ModelVersionDeploymentJobState.to_proto(self.deployment_job_state)
+        # TODO: Include params, metrics, and model ID in proto
         return model_version

@@ -2,12 +2,12 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -17,7 +17,7 @@ from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "cohere",
             "name": "command",
@@ -65,10 +65,11 @@ def chat_payload(stream: bool = False):
 async def test_chat():
     resp = chat_response()
     config = chat_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
-        provider = CohereProvider(RouteConfig(**config))
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = CohereProvider(EndpointConfig(**config))
         payload = chat_payload()
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -82,6 +83,7 @@ async def test_chat():
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,
@@ -112,10 +114,11 @@ async def test_chat():
 async def test_chat_with_system_messages():
     resp = chat_response()
     config = chat_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
-        provider = CohereProvider(RouteConfig(**config))
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = CohereProvider(EndpointConfig(**config))
         payload = {
             "messages": [
                 {"role": "system", "content": "System Message 1"},
@@ -150,10 +153,10 @@ async def test_chat_with_system_messages():
 @pytest.mark.asyncio
 async def test_chat_throws_if_parameter_not_permitted(params):
     config = chat_config()
-    provider = CohereProvider(RouteConfig(**config))
+    provider = CohereProvider(EndpointConfig(**config))
     payload = chat_payload()
     payload.update(params)
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
     assert e.value.status_code == 422
 
@@ -178,10 +181,13 @@ async def test_chat_stream():
     resp = chat_stream_response()
     config = chat_config()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
-        provider = CohereProvider(RouteConfig(**config))
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
+        provider = CohereProvider(EndpointConfig(**config))
         payload = chat_payload(stream=True)
         response = provider.chat_stream(chat.RequestPayload(**payload))
         chunks = [jsonable_encoder(chunk) async for chunk in response]
@@ -189,7 +195,11 @@ async def test_chat_stream():
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": " Hi"},
+                        "delta": {
+                            "role": None,
+                            "content": " Hi",
+                            "tool_calls": None,
+                        },
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -202,7 +212,11 @@ async def test_chat_stream():
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": " there"},
+                        "delta": {
+                            "role": None,
+                            "content": " there",
+                            "tool_calls": None,
+                        },
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -215,7 +229,11 @@ async def test_chat_stream():
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": None},
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": None,
+                        },
                         "finish_reason": "COMPLETE",
                         "index": 0,
                     }
@@ -245,7 +263,7 @@ async def test_chat_stream():
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "cohere",
             "name": "command",
@@ -274,10 +292,11 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
-        provider = CohereProvider(RouteConfig(**config))
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = CohereProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
             "n": 1,
@@ -318,7 +337,7 @@ async def test_completions_temperature_is_scaled_correctly():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = CohereProvider(RouteConfig(**config))
+        provider = CohereProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
             "temperature": 0.5,
@@ -344,10 +363,13 @@ async def test_completions_stream():
     resp = completions_stream_response()
     config = completions_config()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
-        provider = CohereProvider(RouteConfig(**config))
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
+        provider = CohereProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
             "n": 1,
@@ -359,7 +381,7 @@ async def test_completions_stream():
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": " Hi"},
+                        "text": " Hi",
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -372,7 +394,7 @@ async def test_completions_stream():
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": " there"},
+                        "text": " there",
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -385,7 +407,7 @@ async def test_completions_stream():
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": None},
+                        "text": None,
                         "finish_reason": "COMPLETE",
                         "index": 0,
                     }
@@ -412,7 +434,7 @@ async def test_completions_stream():
 def embeddings_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "cohere",
             "name": "embed-english-light-v2.0",
@@ -492,7 +514,7 @@ async def test_embeddings():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = CohereProvider(RouteConfig(**config))
+        provider = CohereProvider(EndpointConfig(**config))
         payload = {"input": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -524,7 +546,7 @@ async def test_batch_embeddings():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = CohereProvider(RouteConfig(**config))
+        provider = CohereProvider(EndpointConfig(**config))
         payload = {"input": ["This is a", "batch test"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -564,13 +586,13 @@ async def test_batch_embeddings():
 @pytest.mark.asyncio
 async def test_param_model_is_not_permitted():
     config = embeddings_config()
-    provider = CohereProvider(RouteConfig(**config))
+    provider = CohereProvider(EndpointConfig(**config))
     payload = {
         "prompt": "This should fail",
         "max_tokens": 5000,
         "model": "something-else",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422
@@ -580,7 +602,7 @@ async def test_param_model_is_not_permitted():
 @pytest.mark.asyncio
 async def test_completions_throws_if_prompt_contains_non_string(prompt):
     config = completions_config()
-    provider = CohereProvider(RouteConfig(**config))
+    provider = CohereProvider(EndpointConfig(**config))
     payload = {"prompt": prompt}
     with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))

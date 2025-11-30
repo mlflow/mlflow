@@ -7,6 +7,7 @@ import pytest
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import IS_PROMPT_TAG_KEY
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -426,10 +427,6 @@ def test_get_model_version_by_alias(store, creds):
     )
 
 
-@mock.patch(
-    "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
-    1,
-)
 def test_await_model_version_creation_pending(store):
     pending_mv = ModelVersion(
         name="Model 1",
@@ -437,8 +434,13 @@ def test_await_model_version_creation_pending(store):
         creation_timestamp=123,
         status=ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION),
     )
-    with mock.patch.object(store, "get_model_version", return_value=pending_mv), pytest.raises(
-        MlflowException, match="Exceeded max wait time"
+    with (
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
+            1,
+        ),
+        mock.patch.object(store, "get_model_version", return_value=pending_mv),
+        pytest.raises(MlflowException, match="Exceeded max wait time"),
     ):
         store._await_model_version_creation(pending_mv, 0.5)
 
@@ -450,7 +452,42 @@ def test_await_model_version_creation_failed(store):
         creation_timestamp=123,
         status=ModelVersionStatus.to_string(ModelVersionStatus.FAILED_REGISTRATION),
     )
-    with mock.patch.object(store, "get_model_version", return_value=pending_mv), pytest.raises(
-        MlflowException, match="Model version creation failed for model name"
+    with (
+        mock.patch.object(store, "get_model_version", return_value=pending_mv),
+        pytest.raises(MlflowException, match="Model version creation failed for model name"),
     ):
         store._await_model_version_creation(pending_mv, 0.5)
+
+
+@pytest.mark.parametrize("is_prompt", [True, False], ids=["prompt", "model"])
+def test_await_model_version_creation_show_correct_message_for_prompt(store, is_prompt):
+    tags = [ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true")] if is_prompt else []
+    pending = ModelVersion(
+        name="test",
+        version="1",
+        creation_timestamp=123,
+        tags=tags,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION),
+    )
+    completed = ModelVersion(
+        name="test",
+        version="1",
+        creation_timestamp=123,
+        tags=tags,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
+    )
+
+    with (
+        mock.patch("mlflow.store.model_registry.abstract_store._logger") as mock_logger,
+        mock.patch.object(store, "get_model_version", return_value=completed),
+    ):
+        store._await_model_version_creation(pending, 10)
+
+    mock_logger.info.assert_called_once()
+    info_message = mock_logger.mock_calls[0][1][0]
+    if is_prompt:
+        assert "prompt" in info_message
+        assert "model" not in info_message
+    else:
+        assert "prompt" not in info_message
+        assert "model" in info_message

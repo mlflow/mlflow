@@ -88,12 +88,15 @@ def test_init_validation_and_cleaning():
 def test_init_get_host_creds_with_databricks_profile_uri():
     databricks_host = "https://something.databricks.com"
     default_host = "http://host"
-    with mock.patch(
-        DBFS_ARTIFACT_REPOSITORY_PACKAGE + "._get_host_creds_from_default_store",
-        return_value=lambda: MlflowHostCreds(default_host),
-    ), mock.patch(
-        DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".get_databricks_host_creds",
-        return_value=MlflowHostCreds(databricks_host),
+    with (
+        mock.patch(
+            DBFS_ARTIFACT_REPOSITORY_PACKAGE + "._get_host_creds_from_default_store",
+            return_value=lambda: MlflowHostCreds(default_host),
+        ),
+        mock.patch(
+            DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".get_databricks_host_creds",
+            return_value=MlflowHostCreds(databricks_host),
+        ),
     ):
         repo = DbfsRestArtifactRepository("dbfs://profile@databricks/test/")
         assert repo.artifact_uri == "dbfs:/test/"
@@ -110,9 +113,12 @@ def test_init_get_host_creds_with_databricks_profile_uri():
     [(None, "/dbfs/test/test.txt"), ("output", "/dbfs/test/output/test.txt")],
 )
 def test_log_artifact(dbfs_artifact_repo, test_file, artifact_path, expected_endpoint):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock, mock.patch(
-        "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
-    ) as mock_base_request:
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock,
+        mock.patch(
+            "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
+        ) as mock_base_request,
+    ):
         endpoints = []
         data = []
 
@@ -131,9 +137,12 @@ def test_log_artifact(dbfs_artifact_repo, test_file, artifact_path, expected_end
 
 
 def test_log_artifact_empty_file(dbfs_artifact_repo, test_dir):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock, mock.patch(
-        "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
-    ) as mock_base_request:
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock,
+        mock.patch(
+            "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
+        ) as mock_base_request,
+    ):
 
         def my_http_request(host_creds, **kwargs):
             assert kwargs["endpoint"] == "/dbfs/test/empty-file"
@@ -148,9 +157,12 @@ def test_log_artifact_empty_file(dbfs_artifact_repo, test_dir):
 
 
 def test_log_artifact_empty_artifact_path(dbfs_artifact_repo, test_file):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock, mock.patch(
-        "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
-    ) as mock_base_request:
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock,
+        mock.patch(
+            "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
+        ) as mock_base_request,
+    ):
 
         def my_http_request(host_creds, **kwargs):
             assert kwargs["endpoint"] == "/dbfs/test/test.txt"
@@ -181,9 +193,12 @@ def test_log_artifact_error(dbfs_artifact_repo, test_file):
     ],
 )
 def test_log_artifacts(dbfs_artifact_repo, test_dir, artifact_path):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock, mock.patch(
-        "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
-    ) as mock_base_request:
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock,
+        mock.patch(
+            "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
+        ) as mock_base_request,
+    ):
         endpoints = []
         data = []
 
@@ -249,9 +264,12 @@ def test_log_artifacts_error(dbfs_artifact_repo, test_dir):
 def test_log_artifacts_with_artifact_path(
     dbfs_artifact_repo, test_dir, artifact_path, expected_endpoints
 ):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock, mock.patch(
-        "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
-    ) as mock_base_request:
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock,
+        mock.patch(
+            "requests.Session.request", return_value=MOCK_SUCCESS_RESPONSE
+        ) as mock_base_request,
+    ):
         endpoints = []
 
         def my_http_request(host_creds, **kwargs):
@@ -304,9 +322,11 @@ def test_list_artifacts(dbfs_artifact_repo):
 
 
 def test_download_artifacts(dbfs_artifact_repo):
-    with mock.patch(DBFS_ARTIFACT_REPOSITORY + "._dbfs_is_dir") as is_dir_mock, mock.patch(
-        DBFS_ARTIFACT_REPOSITORY + "._dbfs_list_api"
-    ) as list_mock, mock.patch(DBFS_ARTIFACT_REPOSITORY + "._dbfs_download") as download_mock:
+    with (
+        mock.patch(DBFS_ARTIFACT_REPOSITORY + "._dbfs_is_dir") as is_dir_mock,
+        mock.patch(DBFS_ARTIFACT_REPOSITORY + "._dbfs_list_api") as list_mock,
+        mock.patch(DBFS_ARTIFACT_REPOSITORY + "._dbfs_download") as download_mock,
+    ):
         is_dir_mock.side_effect = [
             True,
             False,

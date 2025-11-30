@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
-import { RunInfoEntity } from '../../../types';
+import type { RunInfoEntity } from '../../../types';
 import { chartColors, ChartStoryWrapper, getRandomRunName, stableNormalRandom } from './RunsCharts.stories-common';
-import { RunsMetricsLinePlot, RunsMetricsLinePlotProps } from './RunsMetricsLinePlot';
+import type { RunsMetricsLinePlotProps } from './RunsMetricsLinePlot';
+import { RunsMetricsLinePlot } from './RunsMetricsLinePlot';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
 
 export default {

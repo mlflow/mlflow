@@ -1,5 +1,5 @@
 import { last, uniq } from 'lodash';
-import { RunsChartsLineChartExpression } from '../runs-charts.types';
+import type { RunsChartsLineChartExpression } from '../runs-charts.types';
 import { useCallback } from 'react';
 
 const VARIABLE_OPERATOR = '$';

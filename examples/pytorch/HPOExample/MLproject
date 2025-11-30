@@ -1,0 +1,11 @@
+name: pytorch-hpo-example
+
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      n_trials: {type: int, default: 10}
+      max_epochs: {type: int, default: 5}
+      batch_size: {type: int, default: 64}
+    command: "python hpo_mnist.py --n-trials {n_trials} --max-epochs {max_epochs} --batch-size {batch_size}"

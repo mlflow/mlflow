@@ -1,13 +1,24 @@
 import { fulfilled } from '@mlflow/mlflow/src/common/utils/ActionUtils';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
-import { LIST_IMAGES_API, ListImagesAction } from '@mlflow/mlflow/src/experiment-tracking/actions';
+import type { ListImagesAction } from '@mlflow/mlflow/src/experiment-tracking/actions';
+import { LIST_IMAGES_API } from '@mlflow/mlflow/src/experiment-tracking/actions';
 import {
   IMAGE_COMPRESSED_FILE_EXTENSION,
   IMAGE_FILE_EXTENSION,
   MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH,
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { ArtifactFileInfo, ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { AsyncFulfilledAction } from '@mlflow/mlflow/src/redux-types';
+import type { ArtifactFileInfo, ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { AsyncFulfilledAction } from '@mlflow/mlflow/src/redux-types';
+
+class ImagePathParseError extends Error {
+  public filename: string;
+
+  constructor(message: string, filename: string) {
+    super(message);
+    this.filename = filename;
+    this.name = 'ImagePathParseError';
+  }
+}
 
 const IMAGE_FILEPATH_DELIMITERS = ['%', '+'];
 
@@ -18,19 +29,24 @@ const parseImageFile = (filename: string) => {
 
   const delimiter = IMAGE_FILEPATH_DELIMITERS.find((delimiter) => fileKey.includes(delimiter));
   if (delimiter === undefined) {
-    throw new Error(`Incorrect filename format for image file ${filename}`);
+    throw new ImagePathParseError('Logged image path parse: incorrect filename format for image file', filename);
   }
+  // The variables retrieved here are not reliable on OSS due to the usage of "%" as the separator.
+  // Need to switch to a different separator on the backend to fully resolve the issue.
   const [serializedImageKey, stepLabel, stepString, timestampLabel, timestampString, _, compressed] =
     fileKey.split(delimiter);
+  const isCompressed = fileKey.endsWith('compressed');
 
   if (stepLabel !== 'step' || timestampLabel !== 'timestamp') {
-    throw new Error(`Failed to parse step and timestamp from image filename ${filename}`);
+    throw new ImagePathParseError(
+      'Logged image path parse: failed to parse step and timestamp from image filename',
+      filename,
+    );
   }
 
   const step = parseInt(stepString, 10);
   const timestamp = parseInt(timestampString, 10);
   const imageKey = serializedImageKey.replace(/#/g, '/');
-  const isCompressed = compressed !== undefined;
 
   if (isCompressed) {
     fileKey = fileKey.slice(0, -('compressed'.length + 1));
@@ -100,8 +116,8 @@ export const imagesByRunUuid = (
           [runUuid]: result,
         };
       } catch (e) {
+        // On malformed inputs we will report alert and continue without updating the state
         Utils.logErrorAndNotifyUser(e);
-        // On malformed inputs we will not update the state
         return state;
       }
     }

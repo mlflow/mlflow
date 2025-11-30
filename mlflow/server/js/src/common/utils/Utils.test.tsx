@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { test, expect, jest } from '@jest/globals';
 import Utils from './Utils';
 import React from 'react';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from '../../experiment-tracking/components/MetricsPlotControls';
@@ -131,18 +132,7 @@ test('renderNotebookSource', () => {
       {Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
     </a>,
   );
-  expect(
-    Utils.renderNotebookSource(
-      null,
-      notebookId,
-      revisionId,
-      runUuid,
-      sourceName,
-      null,
-      // @ts-expect-error TS(2345): Argument of type '"some feature"' is not assignabl... Remove this comment to see the full error message
-      nameOverride,
-    ),
-  ).toEqual(
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null, nameOverride)).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
@@ -214,7 +204,6 @@ test('renderJobSource', () => {
       {Utils.getDefaultJobRunName(jobId, jobRunId)}
     </a>,
   );
-  // @ts-expect-error TS(2345): Argument of type '"random text"' is not assignable... Remove this comment to see the full error message
   expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target="_top">
       {nameOverride}
@@ -863,7 +852,6 @@ test('mergeLoggedAndRegisteredModels should output registered models in order', 
   modelVersions[1].version = '2';
   modelVersions[1].creation_timestamp = 1000;
   models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
-  // @ts-expect-error TODO: fix this
   expect(models[0].registeredModelVersion).toEqual('3');
   // Only one registered
   modelVersions = [modelVersions[0]];

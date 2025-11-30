@@ -1,4 +1,6 @@
-from typing import Any, Dict, Iterator, Optional
+import inspect
+import logging
+from typing import Any, Generator
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _convert_llm_ndarray_to_list
@@ -6,16 +8,16 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
 )
-from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
-from mlflow.utils.annotations import experimental
+from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
+
+_logger = logging.getLogger(__name__)
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):
     context, chat_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _ChatModelPyfuncWrapper(chat_model=chat_model, context=context, signature=signature)
 
 
-@experimental
 class _ChatModelPyfuncWrapper:
     """
     Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ChatModel`.
@@ -61,8 +63,8 @@ class _ChatModelPyfuncWrapper:
         return messages, params
 
     def predict(
-        self, model_input: Dict[str, Any], params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, model_input: dict[str, Any], params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Args:
             model_input: Model input data in the form of a chat request.
@@ -71,24 +73,37 @@ class _ChatModelPyfuncWrapper:
                        via ``self._convert_input()``.
 
         Returns:
-            Model predictions in :py:class:`~ChatResponse` format.
+            Model predictions in :py:class:`~ChatCompletionResponse` format.
         """
         messages, params = self._convert_input(model_input)
-        response = self.chat_model.predict(self.context, messages, params)
+        parameters = inspect.signature(self.chat_model.predict).parameters
+        if "context" in parameters or len(parameters) == 3:
+            response = self.chat_model.predict(self.context, messages, params)
+        else:
+            response = self.chat_model.predict(messages, params)
         return self._response_to_dict(response)
 
-    def _response_to_dict(self, response: ChatResponse) -> Dict[str, Any]:
-        if not isinstance(response, ChatResponse):
+    def _response_to_dict(self, response: ChatCompletionResponse) -> dict[str, Any]:
+        if not isinstance(response, ChatCompletionResponse):
             raise MlflowException(
-                "Model returned an invalid response. Expected a ChatResponse, but "
+                "Model returned an invalid response. Expected a ChatCompletionResponse, but "
+                f"got {type(response)} instead.",
+                error_code=INTERNAL_ERROR,
+            )
+        return response.to_dict()
+
+    def _streaming_response_to_dict(self, response: ChatCompletionChunk) -> dict[str, Any]:
+        if not isinstance(response, ChatCompletionChunk):
+            raise MlflowException(
+                "Model returned an invalid response. Expected a ChatCompletionChunk, but "
                 f"got {type(response)} instead.",
                 error_code=INTERNAL_ERROR,
             )
         return response.to_dict()
 
     def predict_stream(
-        self, model_input: Dict[str, Any], params: Optional[Dict[str, Any]] = None
-    ) -> Iterator[Dict[str, Any]]:
+        self, model_input: dict[str, Any], params: dict[str, Any] | None = None
+    ) -> Generator[dict[str, Any], None, None]:
         """
         Args:
             model_input: Model input data in the form of a chat request.
@@ -97,8 +112,14 @@ class _ChatModelPyfuncWrapper:
                        via ``self._convert_input()``.
 
         Returns:
-            Iterator over model predictions in :py:class:`~ChatResponse` format.
+            Generator over model predictions in :py:class:`~ChatCompletionChunk` format.
         """
         messages, params = self._convert_input(model_input)
-        response = self.chat_model.predict_stream(self.context, messages, params)
-        return map(self._response_to_dict, response)
+        parameters = inspect.signature(self.chat_model.predict_stream).parameters
+        if "context" in parameters or len(parameters) == 3:
+            stream = self.chat_model.predict_stream(self.context, messages, params)
+        else:
+            stream = self.chat_model.predict_stream(messages, params)
+
+        for response in stream:
+            yield self._streaming_response_to_dict(response)

@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -22,9 +23,15 @@ import { ErrorCodes } from '../../common/constants';
 import { ModelRegistryRoutes } from '../routes';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { getModelVersionApi } from '../actions';
 
 jest.mock('../../common/utils/ActionUtils', () => ({
   getUUID: jest.fn(),
+}));
+
+jest.mock('../actions', () => ({
+  ...jest.requireActual<typeof import('../actions')>('../actions'),
+  getModelVersionApi: jest.fn(),
 }));
 
 describe('ModelVersionPage', () => {
@@ -53,6 +60,9 @@ describe('ModelVersionPage', () => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
     // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
     global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
+    jest
+      .mocked(getModelVersionApi)
+      .mockImplementation(jest.requireActual<typeof import('../actions')>('../actions').getModelVersionApi);
     minimalProps = {
       params: {
         modelName: encodeURIComponent('Model A'),
@@ -101,7 +111,7 @@ describe('ModelVersionPage', () => {
     // Initial mount
     wrapper = mountWithIntl(<TestComponent />);
     // Assert first (original) call for model version
-    expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=1', expect.anything());
+    expect(global.fetch).toHaveBeenCalledWith(endpoint + '?name=Model+A&version=1', expect.anything());
     // Update the mocked params object with new params
     wrapper.setProps({
       params: {
@@ -110,7 +120,7 @@ describe('ModelVersionPage', () => {
       },
     });
     // Assert second call for model version
-    expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=5', expect.anything());
+    expect(global.fetch).toHaveBeenCalledWith(endpoint + '?name=Model+A&version=5', expect.anything());
   });
   test('should redirect to model page when model version is deleted', async () => {
     wrapper = mountComponent();
@@ -143,6 +153,30 @@ describe('ModelVersionPage', () => {
     expect(wrapper.find(ErrorView).length).toBe(1);
     expect(wrapper.find(ErrorView).prop('statusCode')).toBe(404);
     expect(wrapper.find(ErrorView).prop('subMessage')).toBe('Model Model A v1 does not exist');
+  });
+  test('should not crash runtime when API call rejects', () => {
+    const httpError = new ErrorWrapper(`{"error_code": "${ErrorCodes.RESOURCE_DOES_NOT_EXIST}"}`, 404);
+    jest.mocked(getModelVersionApi).mockImplementation(() => {
+      return {
+        type: 'GET_MODEL_VERSION',
+        payload: Promise.reject(httpError),
+        meta: { id: 'abc', modelName: 'abc', version: '1' },
+      };
+    });
+    (getUUID as any).mockImplementation(() => 'resource_not_found_error');
+    const myStore = mockStore({
+      ...minimalStoreState,
+      apis: {
+        resource_not_found_error: {
+          id: 'resource_not_found_error',
+          active: false,
+          error: httpError,
+        },
+      },
+    });
+
+    // This test would fail if any unhandled promise rejection occurs
+    expect(() => mountComponent(minimalProps, myStore)).not.toThrow();
   });
   test('should show ErrorView when resource conflict error is thrown', () => {
     const testMessage = 'Detected model version conflict';

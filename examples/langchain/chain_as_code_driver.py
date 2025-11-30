@@ -24,7 +24,7 @@ print("Logging model as code using Langchain log model API")
 with mlflow.start_run():
     logged_chain_info = mlflow.langchain.log_model(
         lc_model=chain_path,
-        artifact_path="chain",
+        name="chain",
         input_example=input_example,
     )
 

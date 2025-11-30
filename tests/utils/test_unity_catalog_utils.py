@@ -2,6 +2,7 @@ import pytest
 
 from mlflow.entities.model_registry import (
     ModelVersion,
+    ModelVersionDeploymentJobState,
     ModelVersionTag,
     RegisteredModel,
     RegisteredModelAlias,
@@ -40,7 +41,23 @@ from mlflow.utils._unity_catalog_utils import (
 )
 
 
-def test_model_version_from_uc_proto():
+@pytest.mark.parametrize(
+    "run_state",
+    [
+        "DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED",
+        "NO_VALID_DEPLOYMENT_JOB_FOUND",
+        "RUNNING",
+        "SUCCEEDED",
+        "FAILED",
+        "PENDING",
+        "APPROVAL",
+    ],
+)
+def test_model_version_from_uc_proto(run_state):
+    from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+        ModelVersionDeploymentJobState as ProtoModelVersionDeploymentJobState,
+    )
+
     expected_model_version = ModelVersion(
         name="name",
         version="1",
@@ -57,7 +74,27 @@ def test_model_version_from_uc_proto():
             ModelVersionTag(key="key1", value="value"),
             ModelVersionTag(key="key2", value=""),
         ],
+        metrics=[],
+        model_id="",
+        params=[],
+        deployment_job_state=ModelVersionDeploymentJobState(
+            "job_123",
+            "run_456",
+            "DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED",
+            run_state,
+            "task_name",
+        ),
     )
+
+    # Create protobuf with deployment job state
+    deployment_job_state_proto = ProtoModelVersionDeploymentJobState(
+        job_id="job_123",
+        run_id="run_456",
+        job_state=0,  # DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED
+        run_state=ProtoModelVersionDeploymentJobState.DeploymentJobRunState.Value(run_state),
+        current_task_name="task_name",
+    )
+
     uc_proto = ProtoModelVersion(
         name="name",
         version="1",
@@ -77,6 +114,7 @@ def test_model_version_from_uc_proto():
             ProtoModelVersionTag(key="key1", value="value"),
             ProtoModelVersionTag(key="key2", value=""),
         ],
+        deployment_job_state=deployment_job_state_proto,
     )
     actual_model_version = model_version_from_uc_proto(uc_proto)
     assert actual_model_version == expected_model_version
@@ -96,6 +134,13 @@ def test_model_version_search_from_uc_proto():
         status_message="status_message",
         aliases=[],
         tags=[],
+        deployment_job_state=ModelVersionDeploymentJobState(
+            "",
+            "",
+            "DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED",
+            "DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED",
+            "",
+        ),
     )
     uc_proto = ProtoModelVersion(
         name="name",
@@ -173,6 +218,8 @@ def test_registered_model_from_uc_proto():
             RegisteredModelTag(key="key1", value="value"),
             RegisteredModelTag(key="key2", value=""),
         ],
+        deployment_job_id="",
+        deployment_job_state="DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED",
     )
     uc_proto = ProtoRegisteredModel(
         name="name",
@@ -280,6 +327,18 @@ def test_registered_model_and_registered_model_search_equality():
             {
                 "ServerSideEncryption": "aws:kms",
                 "SSEKMSKeyId": "key_id",
+            },
+        ),
+        (
+            TemporaryCredentials(
+                encryption_details=EncryptionDetails(
+                    sse_encryption_details=SseEncryptionDetails(
+                        algorithm=SseEncryptionAlgorithm.AWS_SSE_S3,
+                    )
+                )
+            ),
+            {
+                "ServerSideEncryption": "AES256",
             },
         ),
     ],

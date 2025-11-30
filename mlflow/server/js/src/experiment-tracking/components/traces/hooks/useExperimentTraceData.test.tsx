@@ -1,6 +1,7 @@
+import { describe, afterEach, jest, test, expect } from '@jest/globals';
 import { renderHook, cleanup, waitFor } from '@testing-library/react';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { ModelTraceStatus, type ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
+import { ModelSpanType, ModelTraceStatus, type ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
 import { useExperimentTraceData } from './useExperimentTraceData';
 import Utils from '../../../../common/utils/Utils';
 
@@ -22,6 +23,7 @@ const mockTraceData: ModelTraceData = {
       },
       parent_span_id: null,
       span_type: 'test-span-type',
+      type: ModelSpanType.FUNCTION,
     },
   ],
 };
@@ -77,12 +79,12 @@ describe('useExperimentTraceData', () => {
       expect(result.current.loading).toEqual(false);
     });
 
-    expect(Utils.logErrorAndNotifyUser).toBeCalled();
+    expect(Utils.logErrorAndNotifyUser).toHaveBeenCalled();
   });
 
   test("doesn't dispatch a network request if skip argument is provided", async () => {
     jest.spyOn(MlflowService, 'getExperimentTraceData');
     renderTestHook(true);
-    expect(MlflowService.getExperimentTraceData).not.toBeCalled();
+    expect(MlflowService.getExperimentTraceData).not.toHaveBeenCalled();
   });
 });

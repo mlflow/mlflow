@@ -13,6 +13,7 @@ Defines four endpoints:
     /invocations used for scoring
 """
 
+import asyncio
 import inspect
 import json
 import logging
@@ -20,9 +21,13 @@ import os
 import shlex
 import sys
 import traceback
-from typing import Any, Dict, NamedTuple, Optional, Tuple
+from functools import wraps
+from typing import Any, NamedTuple
 
-from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_IS_IN_SERVING_ENVIRONMENT,
+    MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
+)
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
@@ -33,9 +38,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
 from mlflow.types import ParamSchema, Schema
 from mlflow.utils import reraise
-from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import (
     MlflowInvalidInputException,
     NumpyEncoder,
@@ -53,9 +56,9 @@ from io import StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
-from mlflow.server.handlers import catch_mlflow_exception
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
+SERVING_MODEL_CONFIG = "SERVING_MODEL_CONFIG"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
@@ -91,9 +94,16 @@ SCORING_PROTOCOL_CHANGE_INFO = (
 )
 
 
+def load_model_with_mlflow_config(model_uri):
+    extra_kwargs = {}
+    if model_config_json := os.environ.get(SERVING_MODEL_CONFIG):
+        extra_kwargs["model_config"] = json.loads(model_config_json)
+
+    return load_model(model_uri, **extra_kwargs)
+
+
 # Keep this method to maintain compatibility with MLServer
 # https://github.com/SeldonIO/MLServer/blob/caa173ab099a4ec002a7c252cbcc511646c261a6/runtimes/mlflow/mlserver_mlflow/runtime.py#L13C5-L13C31
-@deprecated("infer_and_parse_data", "2.6.0")
 def infer_and_parse_json_input(json_input, schema: Schema = None):
     """
     Args:
@@ -175,7 +185,7 @@ def _decode_json_input(json_input):
     )
 
 
-def _split_data_and_params_for_llm_input(json_input, param_schema: Optional[ParamSchema]):
+def _split_data_and_params_for_llm_input(json_input, param_schema: ParamSchema | None):
     data = {}
     params = {}
     schema_params = {param.name for param in param_schema.params} if param_schema else {}
@@ -294,8 +304,6 @@ class InvocationsResponse(NamedTuple):
 
 
 def invocations(data, content_type, model, input_schema):
-    import flask
-
     type_parts = list(map(str.strip, content_type.split(";")))
     mime_type = type_parts[0]
     parameter_value_pairs = type_parts[1:]
@@ -311,8 +319,7 @@ def invocations(data, content_type, model, input_schema):
             mimetype="text/plain",
         )
 
-    unexpected_content_parameters = set(parameter_values.keys()).difference({"charset"})
-    if unexpected_content_parameters:
+    if unexpected_content_parameters := set(parameter_values.keys()).difference({"charset"}):
         return InvocationsResponse(
             response=(
                 f"Unrecognized content type parameters: "
@@ -330,6 +337,8 @@ def invocations(data, content_type, model, input_schema):
 
     if mime_type == CONTENT_TYPE_CSV:
         # Convert from CSV to pandas
+        if isinstance(data, bytes):
+            data = data.decode("utf-8")
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
@@ -343,7 +352,7 @@ def invocations(data, content_type, model, input_schema):
             response=(
                 "This predictor only supports the following content types:"
                 f" Types: {CONTENT_TYPES}."
-                f" Got '{flask.request.content_type}'."
+                f" Got '{content_type}'."
             ),
             status=415,
             mimetype="text/plain",
@@ -353,7 +362,7 @@ def invocations(data, content_type, model, input_schema):
     # NB: utils._validate_serving_input mimic the scoring process here to validate input_example
     # work for serving, so any changes here should be reflected there as well
     try:
-        if inspect.signature(model.predict).parameters.get("params"):
+        if "params" in inspect.signature(model.predict).parameters:
             raw_predictions = model.predict(data, params=params)
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
@@ -393,13 +402,14 @@ def invocations(data, content_type, model, input_schema):
 
 class ParsedJsonInput(NamedTuple):
     data: Any
-    params: Optional[Dict]
+    params: dict[str, Any] | None
     is_unified_llm_input: bool
 
 
 def _parse_json_data(data, metadata, input_schema):
     json_input = _decode_json_input(data)
     _is_unified_llm_input = is_unified_llm_input(json_input)
+    # no data parsing for unified LLM input format
     if _is_unified_llm_input:
         # Unified LLM input format
         if hasattr(metadata, "get_params_schema"):
@@ -410,88 +420,153 @@ def _parse_json_data(data, metadata, input_schema):
     else:
         # Traditional json input format
         data, params = _split_data_and_params(data)
-        data = infer_and_parse_data(data, input_schema)
+        # data only needs to be parsed if the model signature is not from type hint
+        # default to True for backwards compatibility
+        should_parse_data = (
+            not metadata._is_signature_from_type_hint()
+            if hasattr(metadata, "_is_signature_from_type_hint")
+            else True
+        )
+        if should_parse_data:
+            data = infer_and_parse_data(data, input_schema)
+        else:
+            if INPUTS not in data:
+                raise MlflowException.invalid_parameter_value(
+                    "Request payload must be a dictionary with 'inputs' key when "
+                    f"the model contains a valid type hint. Found keys in payload: {data.keys()}."
+                )
+            data = data[INPUTS]
     return ParsedJsonInput(data, params, _is_unified_llm_input)
+
+
+def _async_catch_mlflow_exception(func):
+    from fastapi.responses import Response
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except MlflowException as e:
+            return Response(
+                content=e.serialize_as_json(),
+                status_code=e.get_http_status_code(),
+                media_type="application/json",
+            )
+
+    return wrapper
 
 
 def init(model: PyFuncModel):
     """
     Initialize the server. Loads pyfunc model from the path.
     """
-    import flask
+    from fastapi import FastAPI, Request
+    from fastapi.responses import Response
 
-    app = flask.Flask(__name__)
+    app = FastAPI()
     input_schema = model.metadata.get_input_schema()
+    # set the environment variable to indicate that we are in a serving environment
+    os.environ[_MLFLOW_IS_IN_SERVING_ENVIRONMENT.name] = "true"
+    timeout = MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
+
+    @app.middleware("http")
+    async def timeout_middleware(request: Request, call_next):
+        try:
+            return await asyncio.wait_for(call_next(request), timeout=timeout)
+        except (asyncio.TimeoutError, TimeoutError):
+            return Response(
+                content="Request processing time exceeded limit",
+                status_code=504,
+                media_type="application/json",
+            )
 
     @app.route("/ping", methods=["GET"])
     @app.route("/health", methods=["GET"])
-    def ping():
+    async def ping(request: Request):
         """
         Determine if the container is working and healthy.
         We declare it healthy if we can load the model successfully.
         """
         health = model is not None
         status = 200 if health else 404
-        return flask.Response(response="\n", status=status, mimetype="application/json")
+        return Response(content="\n", status_code=status, media_type="application/json")
 
     @app.route("/version", methods=["GET"])
-    def version():
+    async def version(request: Request):
         """
         Returns the current mlflow version.
         """
-        return flask.Response(response=VERSION, status=200, mimetype="application/json")
+        return Response(content=VERSION, status_code=200, media_type="application/json")
 
     @app.route("/invocations", methods=["POST"])
-    @catch_mlflow_exception
-    def transformation():
+    @_async_catch_mlflow_exception
+    async def transformation(request: Request):
         """
         Do an inference on a single batch of data. In this sample server,
         we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
         generate predictions and convert them back to json.
         """
 
-        # Content-Type can include other attributes like CHARSET
-        # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
-        # TODO: Suport ";" in quoted parameter values
-        data = flask.request.data.decode("utf-8")
-        content_type = flask.request.content_type
-        result = invocations(data, content_type, model, input_schema)
+        data = await request.body()
+        content_type = request.headers.get("content-type")
+        # TODO: convert "invocations" to an async method to make internal logic fully non-blocking.
+        result = await asyncio.to_thread(invocations, data, content_type, model, input_schema)
 
-        return flask.Response(
-            response=result.response, status=result.status, mimetype=result.mimetype
+        return Response(
+            content=result.response, status_code=result.status, media_type=result.mimetype
         )
 
     return app
 
 
 def _predict(model_uri, input_path, output_path, content_type):
-    pyfunc_model = load_model(model_uri)
+    from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 
-    if content_type == "json":
-        if input_path is None:
-            input_str = sys.stdin.read()
+    with _simulate_serving_environment():
+        pyfunc_model = load_model(model_uri)
+
+        should_parse_as_unified_llm_input = False
+        if content_type == "json":
+            if input_path is None:
+                input_str = sys.stdin.read()
+            else:
+                with open(input_path) as f:
+                    input_str = f.read()
+            parsed_json_input = _parse_json_data(
+                data=input_str,
+                metadata=pyfunc_model.metadata,
+                input_schema=pyfunc_model.metadata.get_input_schema(),
+            )
+            df = parsed_json_input.data
+            params = parsed_json_input.params
+            should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
+        elif content_type == "csv":
+            df = (
+                parse_csv_input(input_path)
+                if input_path is not None
+                else parse_csv_input(sys.stdin)
+            )
+            params = None
         else:
-            with open(input_path) as f:
-                input_str = f.read()
-        data, params = _split_data_and_params(input_str)
-        df = infer_and_parse_data(data)
-    elif content_type == "csv":
-        df = parse_csv_input(input_path) if input_path is not None else parse_csv_input(sys.stdin)
-        params = None
-    else:
-        raise Exception(f"Unknown content type '{content_type}'")
+            raise Exception(f"Unknown content type '{content_type}'")
 
-    if inspect.signature(pyfunc_model.predict).parameters.get("params"):
-        raw_predictions = pyfunc_model.predict(df, params=params)
-    else:
-        _log_warning_if_params_not_in_predict_signature(_logger, params)
-        raw_predictions = pyfunc_model.predict(df)
+        if "params" in inspect.signature(pyfunc_model.predict).parameters:
+            raw_predictions = pyfunc_model.predict(df, params=params)
+        else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
+            raw_predictions = pyfunc_model.predict(df)
 
-    if output_path is None:
-        predictions_to_json(raw_predictions, sys.stdout)
-    else:
-        with open(output_path, "w") as fout:
-            predictions_to_json(raw_predictions, fout)
+        parse_output_func = (
+            unwrapped_predictions_to_json
+            if should_parse_as_unified_llm_input
+            else predictions_to_json
+        )
+
+        if output_path is None:
+            parse_output_func(raw_predictions, sys.stdout)
+        else:
+            with open(output_path, "w") as fout:
+                parse_output_func(raw_predictions, fout)
 
 
 def _serve(model_uri, port, host):
@@ -501,45 +576,28 @@ def _serve(model_uri, port, host):
 
 def get_cmd(
     model_uri: str,
-    port: Optional[int] = None,
-    host: Optional[int] = None,
-    timeout: Optional[int] = None,
-    nworkers: Optional[int] = None,
-) -> Tuple[str, Dict[str, str]]:
+    port: int | None = None,
+    host: int | None = None,
+    timeout: int | None = None,
+    nworkers: int | None = None,
+) -> tuple[str, dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
 
-    # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
-    # platform compatibility.
-    if not is_windows():
-        args = [f"--timeout={timeout}"]
-        if port and host:
-            address = shlex.quote(f"{host}:{port}")
-            args.append(f"-b {address}")
-        elif host:
-            args.append(f"-b {shlex.quote(host)}")
+    args = []
+    if host:
+        args.append(f"--host {shlex.quote(host)}")
 
-        if nworkers:
-            args.append(f"-w {nworkers}")
+    if port:
+        args.append(f"--port {port}")
 
-        command = (
-            f"gunicorn {' '.join(args)} ${{GUNICORN_CMD_ARGS}}"
-            " -- mlflow.pyfunc.scoring_server.wsgi:app"
-        )
-    else:
-        args = []
-        if host:
-            args.append(f"--host={shlex.quote(host)}")
+    if nworkers:
+        args.append(f"--workers {nworkers}")
 
-        if port:
-            args.append(f"--port={port}")
-
-        command = (
-            f"waitress-serve {' '.join(args)} "
-            "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
-        )
+    command = f"uvicorn {' '.join(args)} mlflow.pyfunc.scoring_server.app:app"
 
     command_env = os.environ.copy()
     command_env[_SERVER_MODEL_PATH] = local_uri
+    command_env[MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.name] = str(timeout)
 
     return command, command_env

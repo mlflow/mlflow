@@ -1,11 +1,10 @@
 ## Dependencies required to run tests
-# Required for testing utilities for parsing pip requirements
-pip>=20.1
 ## Test-only dependencies
-pytest==8.1.1
+pytest
+pytest-asyncio
+pytest-repeat
 pytest-cov
 pytest-timeout
-pytest-localserver==0.5.0
 moto>=4.2.0,<5,!=4.2.5
 azure-storage-blob>=12.0.0
 azure-storage-file-datalake>=12.9.1
@@ -13,19 +12,6 @@ azure-identity>=1.6.1
 pillow
 plotly
 kaleido
-# Required by tuning tests
-hyperopt
-# Required by recipes tests
-ipython
-# Required by automl tests
-# TODO: Remove pin once https://github.com/microsoft/FLAML/issues/1353 is resolved
-flaml[automl]!=2.3.0
-# Required by transformers tests
-# Note: other requirements for transformers are defined in cross-version-tests.yml
-# they are not installed here due to their size and stability implications for other test suites.
-# this is pinned because huggingface_hub >= 0.24.0 causes setfit to be unimportable, see
-# https://github.com/huggingface/setfit/issues/544
-huggingface_hub<0.24.0
 # Required by evaluator tests
 shap
 # Required to evaluate language models in `mlflow.evaluate`
@@ -35,17 +21,20 @@ rouge_score
 textstat
 tiktoken
 # Required by progress bar tests
-ipywidgets
-tqdm
+tqdm[notebook]
 # Required for LLM eval in `mlflow.evaluate`
 openai
 # Required for showing pytest stats
 psutil
-# SQLAlchemy == 2.0.25 requires typing_extensions >= 4.6.0
-typing_extensions>=4.6.0
-# Required for importing boto3 ClientError directly for testing
-botocore>=1.34
 pyspark
 # Required for testing the opentelemetry exporter of tracing
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
+# Required for testing mlflow.server.auth
+Flask-WTF<2
+# required for testing polars dataset integration
+polars>=1
+# required for testing mlflow.genai.optimize_prompt
+dspy
+# required for testing mlflow.genai.optimize.optimizers
+gepa

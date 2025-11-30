@@ -1,0 +1,154 @@
+# Build a wheel for MLflow and upload it as an artifact.
+name: build-wheel
+
+on:
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The branch, tag or SHA to build the wheel from."
+        required: true
+        default: "master"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        type: ["dev", "skinny", "tracing"]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+
+      - name: Build UI
+        working-directory: mlflow/server/js
+        run: |
+          yarn
+          yarn build
+
+      - name: Install dependencies
+        run: |
+          pip install build setuptools twine wheel
+
+      - name: Build distribution files
+        id: build-dist
+        run: |
+          # if workflow_dispatch is triggered, use the specified ref
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            SHA_OPT="--sha $(git rev-parse HEAD)"
+          else
+            SHA_OPT=""
+          fi
+
+          python dev/build.py --package-type "${{ matrix.type }}" $SHA_OPT
+
+          # List distribution files and check their file sizes
+          ls -lh dist
+
+          # Set step outputs
+          sdist_path=$(find dist -type f -name "*.tar.gz")
+          wheel_path=$(find dist -type f -name "*.whl")
+          wheel_name=$(basename $wheel_path)
+          wheel_size=$(stat -c %s $wheel_path)
+          echo "sdist-path=${sdist_path}" >> $GITHUB_OUTPUT
+          echo "wheel-path=${wheel_path}" >> $GITHUB_OUTPUT
+          echo "wheel-name=${wheel_name}" >> $GITHUB_OUTPUT
+          echo "wheel-size=${wheel_size}" >> $GITHUB_OUTPUT
+
+      - name: List files in source distribution
+        run: |
+          tar -tf ${{ steps.build-dist.outputs.sdist-path }}
+
+      - name: List files in binary distribution
+        run: |
+          unzip -l ${{ steps.build-dist.outputs.wheel-path }}
+
+      - name: Compare files in source and binary distributions
+        run: |
+          tar -tzf ${{ steps.build-dist.outputs.sdist-path }} | grep -v '/$' | cut -d'/' -f2- | sort > /tmp/source.txt
+          zipinfo -1 ${{ steps.build-dist.outputs.wheel-path }} | sort > /tmp/wheel.txt
+          diff /tmp/source.txt /tmp/wheel.txt || true
+
+      - name: Run twine check
+        run: |
+          twine check --strict ${{ steps.build-dist.outputs.wheel-path }}
+
+      - name: Test installation from tarball
+        run: |
+          pip install ${{ steps.build-dist.outputs.sdist-path }}
+          python -c "import mlflow; print(mlflow.__version__)"
+          python -c "from mlflow import *"
+
+      - name: Test installation from wheel
+        run: |
+          pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
+          python -c "import mlflow; print(mlflow.__version__)"
+          python -c "from mlflow import *"
+
+      - name: Test installation from GitHub
+        env:
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref }}
+        run: |
+          if [ "${{ matrix.type }}" == "skinny" ]; then
+            URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/skinny"
+          elif [ "${{ matrix.type }}" == "tracing" ]; then
+            URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/tracing"
+          else
+            URL="git+https://github.com/${REPO}.git@${REF}"
+          fi
+
+          uv run --isolated --no-project --with $URL python -I -c 'import mlflow; print(mlflow.__version__)'
+
+      - name: Test dev/install-skinny.sh
+        if: github.event_name == 'pull_request'
+        run: |
+          dev/install-skinny.sh pull/${{ github.event.pull_request.number }}/merge
+
+      # Anyone with read access can download the uploaded wheel on GitHub.
+      - name: Upload wheel
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: github.event_name == 'workflow_dispatch'
+        id: upload-wheel
+        with:
+          name: ${{ steps.build-dist.outputs.wheel-name }}
+          path: ${{ steps.build-dist.outputs.wheel-path }}
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Generate summary
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "### Download URL" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.upload-wheel.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- The artifact will be deleted after 7 days." >> $GITHUB_STEP_SUMMARY
+          echo "- Unzip the downloaded artifact to get the wheel." >> $GITHUB_STEP_SUMMARY

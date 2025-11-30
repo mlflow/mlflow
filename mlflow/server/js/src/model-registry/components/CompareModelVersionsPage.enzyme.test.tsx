@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { mount, shallow } from 'enzyme';
 import configureStore from 'redux-mock-store';
@@ -97,8 +98,8 @@ describe('CompareModelVersionPage', () => {
     };
     const wrapper2 = shallow(<CompareModelVersionsPageImpl {...myProps} />);
     expect(wrapper2.state('requestIds').length).toBe(4);
-    await expect(getRunApi).toBeCalled();
-    await expect(getModelVersionArtifactApi).toBeCalled();
+    await expect(getRunApi).toHaveBeenCalled();
+    await expect(getModelVersionArtifactApi).toHaveBeenCalled();
     expect(wrapper2.state('requestIds').length).toBe(2);
   });
 });

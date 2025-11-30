@@ -4,7 +4,7 @@ import os
 import posixpath
 import re
 import urllib.parse
-from typing import Union
+from datetime import timezone
 
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -17,7 +17,7 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUpl
 from mlflow.utils.credentials import get_default_host_creds
 
 
-def encode_base64(data: Union[str, bytes]) -> str:
+def encode_base64(data: str | bytes) -> str:
     if isinstance(data, str):
         data = data.encode("utf-8")
     encoded = base64.b64encode(data)
@@ -41,8 +41,14 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     - DefaultAzureCredential is configured
     """
 
-    def __init__(self, artifact_uri, client=None):
-        super().__init__(artifact_uri)
+    def __init__(
+        self,
+        artifact_uri: str,
+        client=None,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
 
         _DEFAULT_TIMEOUT = 600  # 10 minutes
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
@@ -104,8 +110,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         storage_account = match.group(2)
         api_uri_suffix = match.group(3)
         path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return container, storage_account, path, api_uri_suffix
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -174,8 +179,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
             if is_dir(result):
                 subdir = posixpath.relpath(path=result.name, start=artifact_path)
-                if subdir.endswith("/"):
-                    subdir = subdir[:-1]
+                subdir = subdir.removesuffix("/")
                 infos.append(FileInfo(subdir, is_dir=True, file_size=None))
             else:  # Just a plain old blob
                 file_name = posixpath.relpath(path=result.name, start=artifact_path)
@@ -197,7 +201,23 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blob.readinto(file)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        from azure.core.exceptions import ResourceNotFoundError
+
+        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
+        container_client = self.client.get_container_client(container)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+
+        try:
+            blobs = container_client.list_blobs(name_starts_with=dest_path)
+            blob_list = list(blobs)
+            if not blob_list:
+                raise MlflowException(f"No such file or directory: '{dest_path}'")
+
+            for blob in blob_list:
+                container_client.delete_blob(blob.name)
+        except ResourceNotFoundError:
+            raise MlflowException(f"No such file or directory: '{dest_path}'")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         from azure.storage.blob import BlobSasPermissions, generate_blob_sas
@@ -216,7 +236,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blob_name=dest_path,
             account_key=self.client.credential.account_key,
             permission=BlobSasPermissions(read=True, write=True),
-            expiry=datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+            expiry=datetime.datetime.now(timezone.utc) + datetime.timedelta(hours=1),
         )
         credentials = []
         for i in range(1, num_parts + 1):

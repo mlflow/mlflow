@@ -5,25 +5,20 @@
  * annotations are already looking good, please remove this comment.
  */
 
-// @ts-expect-error TS(7016): Could not find a declaration file for module 'date... Remove this comment to see the full error message
-import dateFormat from 'dateformat';
 import React from 'react';
-import notebookSvg from '../static/notebook.svg';
-import revisionSvg from '../static/revision.svg';
-import emptySvg from '../static/empty.svg';
-import laptopSvg from '../static/laptop.svg';
-import projectSvg from '../static/project.svg';
-import workflowsIconSvg from '../static/WorkflowsIcon.svg';
+import moment from 'moment';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
-import _ from 'lodash';
+import { flatMap as lodashFlatMap, merge, omit, sortBy, spread, uniq, uniqWith, groupBy } from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
+import type { IntlShape } from 'react-intl';
 import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
-import { KeyValueEntity, RunInfoEntity } from '../../experiment-tracking/types';
-import { FileCodeIcon, FolderBranchIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
+import type { RunInfoEntity } from '../../experiment-tracking/types';
+import type { KeyValueEntity } from '../types';
 import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class Utils {
   /**
    * Merge a runs parameters / metrics.
@@ -69,6 +64,16 @@ class Utils {
       return;
     }
     (Utils.#notificationsApi as any).error({ message: content, duration: duration });
+  }
+
+  /**
+   * Displays the info notification in the UI.
+   */
+  static displayGlobalInfoNotification(content: any, duration?: any) {
+    if (!Utils.#notificationsApi) {
+      return;
+    }
+    (Utils.#notificationsApi as any).info({ message: content, duration: duration });
   }
 
   static runNameTag = 'mlflow.runName';
@@ -126,13 +131,22 @@ class Utils {
   /**
    * Format timestamps from millisecond epoch time.
    */
-  static formatTimestamp(timestamp: any, format = 'yyyy-mm-dd HH:MM:ss') {
-    if (timestamp === undefined) {
-      return '(unknown)';
-    }
+  static formatTimestamp(timestamp: any, intl?: IntlShape) {
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
-    return dateFormat(d, format);
+
+    // Need to update here when the original shared code is updated: https://github.com/databricks-eng/universe/blob/master/js/packages/web-shared/src/date-time/DateTimeFormats.ts#L37
+    if (intl) {
+      return intl.formatDate(d, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    }
+    return moment(d).format('YYYY-MM-DD HH:mm:ss');
   }
 
   static timeSinceStr(date: any, referenceDate = new Date()) {
@@ -223,8 +237,11 @@ class Utils {
    * @param startTime in milliseconds
    * @param endTime in milliseconds
    */
-  static getDuration(startTime: any, endTime: any) {
-    return startTime && endTime ? Utils.formatDuration(endTime - startTime) : null;
+  static getDuration(startTime?: number | string | null, endTime?: number | string | null) {
+    if (!Number(startTime) || !Number(endTime)) {
+      return null;
+    }
+    return Utils.formatDuration(Number(endTime) - Number(startTime));
   }
 
   static baseName(path: any) {
@@ -478,7 +495,7 @@ class Utils {
     runUuid: any,
     sourceName: any,
     workspaceUrl = null,
-    nameOverride = null,
+    nameOverride: string | null = null,
   ) {
     // sourceName may not be present when rendering feature table notebook consumers from remote
     // workspaces or when notebook fetcher failed to fetch the sourceName. Always provide a default
@@ -524,7 +541,7 @@ class Utils {
     jobRunId: any,
     jobName: any,
     workspaceUrl = null,
-    nameOverride = null,
+    nameOverride: string | null = null,
   ) {
     // jobName may not be present when rendering feature table job consumers from remote
     // workspaces or when getJob API failed to fetch the jobName. Always provide a default
@@ -601,8 +618,8 @@ class Utils {
     return Utils.getRunName(runInfo) || 'Run ' + runUuid;
   }
 
-  static getRunName(runInfo: RunInfoEntity) {
-    return runInfo.runName || '';
+  static getRunName(runInfo?: RunInfoEntity) {
+    return runInfo?.runName || '';
   }
 
   static getRunNameFromTags(runTags: any) {
@@ -862,7 +879,7 @@ class Utils {
   }
 
   static getVisibleTagKeyList(tagsList: any) {
-    return _.uniq(_.flatMap(tagsList, (tags) => Utils.getVisibleTagValues(tags).map(([key]) => key)));
+    return uniq(lodashFlatMap(tagsList, (tags) => Utils.getVisibleTagValues(tags).map(([key]) => key)));
   }
 
   /**
@@ -874,13 +891,11 @@ class Utils {
    * From https://stackoverflow.com/a/38506572/13837474
    */
   static concatAndGroupArraysById(array: any, arrayToConcat: any, id: any) {
+    const groupedArrays = groupBy(array.concat(arrayToConcat), id);
     return (
-      _(array)
-        .concat(arrayToConcat)
-        .groupBy(id)
+      Object.values(groupedArrays)
         // complication of _.merge necessary to avoid mutating arguments
-        .map(_.spread((obj, source) => _.merge({}, obj, source)))
-        .value()
+        .map(spread((obj, source) => merge({}, obj, source)))
     );
   }
 
@@ -912,7 +927,7 @@ class Utils {
         // extract artifact path, flavors and creation time from tag.
         // 'python_function' should be interpreted as pyfunc flavor
         const filtered = models.map((model: any) => {
-          const removeFunc = Object.keys(_.omit(model.flavors, 'python_function'));
+          const removeFunc = Object.keys(omit(model.flavors, 'python_function'));
           const flavors = removeFunc.length ? removeFunc : ['pyfunc'];
           return {
             artifactPath: model.artifact_path,
@@ -922,7 +937,7 @@ class Utils {
         });
         // sort in descending order of creation time
         const sorted = filtered.sort((a: any, b: any) => parseFloat(b.utcTimeCreated) - parseFloat(a.utcTimeCreated));
-        return _.uniqWith(sorted, (a, b) => (a as any).artifactPath === (b as any).artifactPath);
+        return uniqWith(sorted, (a, b) => (a as any).artifactPath === (b as any).artifactPath);
       }
     }
     return [];
@@ -956,30 +971,19 @@ class Utils {
       'artifactPath',
     );
     return models.sort((a, b) => {
-      // @ts-expect-error TODO: fix this
       if (a.registeredModelVersion && b.registeredModelVersion) {
-        // @ts-expect-error TODO: fix this
         if (a.flavors && !b.flavors) {
           return -1;
-          // @ts-expect-error TODO: fix this
         } else if (!a.flavors && b.flavors) {
           return 1;
         } else {
-          return (
-            // @ts-expect-error TODO: fix this
-            parseInt(b.registeredModelCreationTimestamp, 10) -
-            // @ts-expect-error TODO: fix this
-            parseInt(a.registeredModelCreationTimestamp, 10)
-          );
+          return parseInt(b.registeredModelCreationTimestamp, 10) - parseInt(a.registeredModelCreationTimestamp, 10);
         }
-        // @ts-expect-error TODO: fix this
       } else if (a.registeredModelVersion && !b.registeredModelVersion) {
         return -1;
-        // @ts-expect-error TODO: fix this
       } else if (!a.registeredModelVersion && b.registeredModelVersion) {
         return 1;
       }
-      // @ts-expect-error TODO: fix this
       return b.utcTimeCreated - a.utcTimeCreated;
     });
   }
@@ -991,6 +995,7 @@ class Utils {
     duration = 3,
     passErrorToParentFrame = false,
   ) {
+    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
     console.error(e);
     if (typeof e === 'string') {
       Utils.displayGlobalErrorNotification(e, duration);
@@ -1027,7 +1032,7 @@ class Utils {
   }
 
   static sortExperimentsById = (experiments: any) => {
-    return _.sortBy(experiments, [({ experimentId }) => experimentId]);
+    return sortBy(experiments, [({ experimentId }) => experimentId]);
   };
 
   static getExperimentNameMap = (experiments: any) => {

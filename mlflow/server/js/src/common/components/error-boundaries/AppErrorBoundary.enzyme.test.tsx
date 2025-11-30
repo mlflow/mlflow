@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, afterEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { mount, shallow } from 'enzyme';
 import AppErrorBoundary from './AppErrorBoundary';
@@ -29,20 +30,20 @@ describe('AppErrorBoundary', () => {
 
   test('should render with minimal props without exploding', () => {
     expect(wrapper.find('[data-testid="child-component"]')).toHaveLength(1);
-    expect(wrapper.find('.error-image').length).toBe(0);
+    expect(wrapper.find('.mlflow-error-image').length).toBe(0);
   });
 
-  test('test componentDidCatch causes error message to render', () => {
+  test('componentDidCatch causes error message to render', () => {
     const instance = wrapper.instance();
     instance.componentDidCatch('testError', 'testInfo');
     instance.forceUpdate();
-    expect(wrapper.find('.error-image').length).toBe(1);
+    expect(wrapper.find('.mlflow-error-image').length).toBe(1);
     expect(wrapper.text()).not.toMatch('testChild');
     expect(wrapper.find({ href: SupportPageUrl }).length).toBe(1);
   });
   test('register its notifications API in global utils', () => {
     jest.spyOn(Utils, 'registerNotificationsApi').mockImplementation(() => {});
     mount(<AppErrorBoundary {...minimalProps} />);
-    expect(Utils.registerNotificationsApi).toBeCalledTimes(1);
+    expect(Utils.registerNotificationsApi).toHaveBeenCalledTimes(1);
   });
 });

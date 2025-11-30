@@ -3,6 +3,7 @@ mlruns/
 mlartifacts/
 outputs/
 mlruns.db
+mlflow.db
 **/basic_auth.db
 
 # Mac
@@ -35,6 +36,11 @@ wheels/
 *.egg
 MANIFEST
 node_modules
+yarn-error.log
+.docusaurus
+*-ipynb.mdx
+docs/src/api_modules.json
+docs/static/api_reference
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -73,7 +79,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-.python-version
 dev-env-setup-progress
 
 # Editor files
@@ -81,9 +86,13 @@ dev-env-setup-progress
 *.swp
 *.swo
 *.idea
-*.vscode
 *.iml
 *~
+
+# vscode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # mkdocs documentation
 /site
@@ -104,6 +113,9 @@ travis_wait*.log
 # Pytorch logs
 lightning_logs
 
+# Downloaded datasets
+examples/pytorch/*/data/
+
 a.py
 a.ipynb
 a.md
@@ -116,3 +128,11 @@ a.md
 
 # Ignore a gunicorn config file
 gunicorn.conf.py
+
+# ignore everything in .claude
+.claude/*
+# except commands and skills
+!.claude/commands/
+!.claude/skills/
+!.claude/hooks/
+!.claude/settings.json

@@ -24,7 +24,7 @@ def train_random_forest(ntrees):
         mlflow.log_metric("r2", rf.r2())
         mlflow.log_metric("mae", rf.mae())
 
-        mlflow.h2o.log_model(rf, "model")
+        mlflow.h2o.log_model(rf, name="model")
 
 
 if __name__ == "__main__":

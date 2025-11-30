@@ -1,14 +1,14 @@
 import { Button, CloseIcon } from '@databricks/design-system';
-import { EmotionJSX, WithConditionalCSSProp } from '@emotion/react/types/jsx-namespace';
 import React, { PropsWithChildren, ReactNode, useState } from 'react';
 import { IntlProvider } from 'react-intl';
-import { RunInfoEntity } from '../../../types';
+import type { RunInfoEntity } from '../../../types';
 import { chartColors, getRandomRunName, stableNormalRandom } from '../components/RunsCharts.stories-common';
 import { RunsContourPlot } from '../components/RunsContourPlot';
 import { RunsMetricsBarPlot } from '../components/RunsMetricsBarPlot';
 import { RunsMetricsLinePlot } from '../components/RunsMetricsLinePlot';
 import { RunsScatterPlot } from '../components/RunsScatterPlot';
-import { RunsChartsTooltipBodyProps, RunsChartsTooltipWrapper, useRunsChartsTooltip } from './useRunsChartsTooltip';
+import type { RunsChartsTooltipBodyProps } from './useRunsChartsTooltip';
+import { RunsChartsTooltipWrapper, useRunsChartsTooltip } from './useRunsChartsTooltip';
 
 export default {
   title: 'Runs charts/Context menu',
@@ -103,10 +103,10 @@ const createMockData = (numRuns: number, numValues: number, negative = false) =>
 const withChartMenuContext =
   <
     T,
-    P extends EmotionJSX.IntrinsicAttributes &
-      EmotionJSX.LibraryManagedAttributes<React.ComponentType<T>, React.PropsWithChildren<T>>,
+    P extends JSX.IntrinsicAttributes &
+      JSX.LibraryManagedAttributes<React.ComponentType<React.PropsWithChildren<T>>, React.PropsWithChildren<T>>,
   >(
-    Component: React.ComponentType<T>,
+    Component: React.ComponentType<React.PropsWithChildren<T>>,
   ) =>
   (props: P) => {
     const [data, setData] = useState(() => ({ runs: createMockData(15, 10) }));

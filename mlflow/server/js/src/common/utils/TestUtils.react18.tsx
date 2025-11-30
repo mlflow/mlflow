@@ -1,25 +1,30 @@
-/*
-  This file contains utility functions based on react-testing-library@>=14,
-  dedicated to be used in tests for components migrated to react@18.
-
-  Will NOT work with react@17.
-*/
-
+import { jest, expect } from '@jest/globals';
 import { fireEvent, within, render, type RenderResult, screen, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
+import { DesignSystemProvider } from '@databricks/design-system';
 
-const defaultProviderProps = {
+const defaultIntlProviderProps = {
   locale: DEFAULT_LOCALE,
   defaultLocale: DEFAULT_LOCALE,
   messages: {},
 };
 
+export function renderWithDesignSystem(ui: React.ReactElement, renderOptions = {}, providerProps = {}): RenderResult {
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <IntlProvider {...defaultIntlProviderProps}>
+      <DesignSystemProvider {...providerProps}>{children}</DesignSystemProvider>
+    </IntlProvider>
+  );
+
+  return render(ui, { wrapper, ...renderOptions });
+}
+
 export function renderWithIntl(ui: React.ReactElement, renderOptions = {}, providerProps = {}): RenderResult {
   const mergedProviderProps = {
-    ...defaultProviderProps,
+    ...defaultIntlProviderProps,
     ...providerProps,
   };
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -31,10 +36,17 @@ export function renderWithIntl(ui: React.ReactElement, renderOptions = {}, provi
 /**
  * userEvent.type() can be quite slow, let's use userEvent.paste()
  * to improve testing performance
+ *
+ * @param user Pass this in when the test is using fake timers and the userEvent
+ * instance needs to be setup with `advanceTimers` to work properly.
  */
-export async function fastFillInput(element: HTMLInputElement, text: string) {
-  await userEvent.click(element);
-  return userEvent.paste(text, { clipboardData: { getData: jest.fn() } } as any);
+export async function fastFillInput(
+  element: HTMLInputElement,
+  text: string,
+  user?: ReturnType<typeof userEvent.setup>,
+) {
+  await (user ?? userEvent).click(element);
+  return (user ?? userEvent).paste(text, { clipboardData: { getData: jest.fn() } } as any);
 }
 
 export const selectAntdOption = async (container: HTMLElement, optionText: string) => {
@@ -44,17 +56,6 @@ export const selectAntdOption = async (container: HTMLElement, optionText: strin
   const optionElement = findAntdOption(optionText);
   act(() => {
     fireEvent.click(optionElement);
-  });
-};
-
-export const selectAntdOptionByText = async (container: HTMLElement, optionText: string) => {
-  // open the select component
-  await userEvent.click(within(container).getByRole('combobox'));
-  // select option
-  await userEvent.click(await findAntdOptionContaining(optionText));
-  // wait for the option selected to be reflected in the UI
-  await waitFor(async () => {
-    expect(await findAntdSelectElement(optionText, '-select-selection-item')).toBeInTheDocument();
   });
 };
 
@@ -73,7 +74,7 @@ export const findAntdOptionContaining = async (optionText: string) => {
 };
 
 // Function to find the correct antd component based on class name
-export const findAntdSelectElement = async (optionText: string, endsWith: string) => {
+const findAntdSelectElement = async (optionText: string, endsWith: string) => {
   return await screen.findByText((content, element) => {
     return (
       Boolean(element) &&

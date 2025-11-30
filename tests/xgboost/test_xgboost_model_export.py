@@ -1,7 +1,7 @@
 import json
 import os
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -42,7 +42,11 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("xgboost") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_dataframe: pd.DataFrame
+    inference_dmatrix: xgb.DMatrix
 
 
 @pytest.fixture(scope="module")
@@ -176,17 +180,16 @@ def test_model_log(xgb_model, model_path):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
 
-                model_info = mlflow.xgboost.log_model(model, artifact_path, conda_env=conda_env)
-                model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-                assert model_info.model_uri == model_uri
-
-                reloaded_model = mlflow.xgboost.load_model(model_uri=model_uri)
+                model_info = mlflow.xgboost.log_model(
+                    model, name=artifact_path, conda_env=conda_env
+                )
+                reloaded_model = mlflow.xgboost.load_model(model_uri=model_info.model_uri)
                 np.testing.assert_array_almost_equal(
                     model.predict(xgb_model.inference_dmatrix),
                     reloaded_model.predict(xgb_model.inference_dmatrix),
                 )
 
-                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+                model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
                 assert pyfunc.FLAVOR_NAME in model_config.flavors
                 assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
@@ -203,16 +206,15 @@ def test_log_model_calls_register_model(xgb_model):
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
-        mlflow.xgboost.log_model(
+        model_info = mlflow.xgboost.log_model(
             xgb_model.model,
-            artifact_path,
+            name=artifact_path,
             conda_env=conda_env,
             registered_model_name="AdsModel1",
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
-            model_uri=model_uri,
+            model_uri=model_info.model_uri,
             registered_model_name="AdsModel1",
         )
 
@@ -223,7 +225,7 @@ def test_log_model_no_registered_model_name(xgb_model):
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
-        mlflow.xgboost.log_model(xgb_model.model, artifact_path, conda_env=conda_env)
+        mlflow.xgboost.log_model(xgb_model.model, name=artifact_path, conda_env=conda_env)
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -309,23 +311,27 @@ def test_log_model_with_pip_requirements(xgb_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, "model", pip_requirements=str(req_file))
-        _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name="model", pip_requirements=str(req_file)
         )
+        _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, "model", pip_requirements=[f"-r {req_file}", "b"])
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name="model", pip_requirements=[f"-r {req_file}", "b"]
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
+            model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, "model", pip_requirements=[f"-c {req_file}", "b"])
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name="model", pip_requirements=[f"-c {req_file}", "b"]
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
@@ -340,27 +346,29 @@ def test_log_model_with_extra_pip_requirements(xgb_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, "model", extra_pip_requirements=str(req_file))
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name="model", extra_pip_requirements=str(req_file)
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.xgboost.log_model(
-            xgb_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name="model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.xgboost.log_model(
-            xgb_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name="model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
@@ -383,12 +391,12 @@ def test_model_save_accepts_conda_env_as_dict(xgb_model, model_path):
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     xgb_model, xgb_custom_env
 ):
-    artifact_path = "model"
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, artifact_path, conda_env=xgb_custom_env)
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name="model", conda_env=xgb_custom_env
+        )
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
@@ -404,10 +412,11 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_log_persists_requirements_in_mlflow_model_directory(xgb_model, xgb_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, artifact_path, conda_env=xgb_custom_env)
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name=artifact_path, conda_env=xgb_custom_env
+        )
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(xgb_custom_env, saved_pip_req_path)
 
@@ -424,10 +433,9 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.xgboost.log_model(xgb_model.model, name=artifact_path)
 
-    _assert_pip_requirements(model_uri, mlflow.xgboost.get_default_pip_requirements())
+    _assert_pip_requirements(model_info.model_uri, mlflow.xgboost.get_default_pip_requirements())
 
 
 def test_pyfunc_serve_and_score(xgb_model):
@@ -435,7 +443,7 @@ def test_pyfunc_serve_and_score(xgb_model):
     artifact_path = "model"
     with mlflow.start_run():
         model_info = mlflow.xgboost.log_model(
-            model, artifact_path, input_example=inference_dataframe
+            model, name=artifact_path, input_example=inference_dataframe
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -463,7 +471,7 @@ def test_pyfunc_serve_and_score_sklearn(model):
     model.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model", input_example=X.head(3))
+        model_info = mlflow.sklearn.log_model(model, name="model", input_example=X.head(3))
 
     inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
@@ -486,7 +494,8 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
     ``model_class`` in XGBoost flavor.
     """
     model = xgb_model.model
-    mlflow.xgboost.save_model(xgb_model=model, path=model_path)
+    # Use xgb format explicitly since this test verifies backward compatibility with old models
+    mlflow.xgboost.save_model(xgb_model=model, path=model_path, model_format="xgb")
 
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
@@ -525,13 +534,15 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
 
 def test_log_model_with_code_paths(xgb_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.xgboost._add_code_from_conf_to_system_path"
-    ) as add_mock:
-        mlflow.xgboost.log_model(xgb_model.model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.xgboost.FLAVOR_NAME)
-        mlflow.xgboost.load_model(model_uri=model_uri)
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.xgboost._add_code_from_conf_to_system_path") as add_mock,
+    ):
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name=artifact_path, code_paths=[__file__]
+        )
+        _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.xgboost.FLAVOR_NAME)
+        mlflow.xgboost.load_model(model_uri=model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -546,7 +557,9 @@ def test_virtualenv_subfield_points_to_correct_path(xgb_model, model_path):
 @pytest.mark.parametrize("model_format", ["xgb", "json", "ubj"])
 def test_log_model_with_model_format(xgb_model, model_format):
     with mlflow.start_run():
-        model_info = mlflow.xgboost.log_model(xgb_model.model, "model", model_format=model_format)
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name="model", model_format=model_format
+        )
         loaded_model = mlflow.xgboost.load_model(model_info.model_uri)
         np.testing.assert_array_almost_equal(
             xgb_model.model.predict(xgb_model.inference_dmatrix),
@@ -564,17 +577,14 @@ def test_model_save_load_with_metadata(xgb_model, model_path):
 
 
 def test_model_log_with_metadata(xgb_model):
-    artifact_path = "model"
-
     with mlflow.start_run():
-        mlflow.xgboost.log_model(
+        model_info = mlflow.xgboost.log_model(
             xgb_model.model,
-            artifact_path,
+            name="model",
             metadata={"metadata_key": "metadata_value"},
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
@@ -584,10 +594,11 @@ def test_model_log_with_signature_inference(xgb_model, xgb_model_signature):
     example = X.iloc[[0]]
 
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, artifact_path, input_example=example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.xgboost.log_model(
+            xgb_model.model, name=artifact_path, input_example=example
+        )
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == xgb_model_signature
 
 
@@ -597,10 +608,9 @@ def test_model_without_signature_predict(xgb_model):
     example = X.iloc[[0]]
 
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.xgboost.log_model(xgb_model.model, name=artifact_path)
 
-    loaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     data = pd.DataFrame(example).to_dict(orient="split")
     parsed_data = dataframe_from_parsed_json(data, pandas_orient="split")
     loaded_model.predict(parsed_data)
@@ -609,7 +619,7 @@ def test_model_without_signature_predict(xgb_model):
 def test_get_raw_model(xgb_model):
     with mlflow.start_run():
         model_info = mlflow.xgboost.log_model(
-            xgb_model.model, "model", input_example=xgb_model.inference_dataframe.head(3)
+            xgb_model.model, name="model", input_example=xgb_model.inference_dataframe.head(3)
         )
     pyfunc_model = pyfunc.load_model(model_info.model_uri)
     raw_model = pyfunc_model.get_raw_model()
@@ -625,7 +635,7 @@ def test_xgbooster_predict_exclude_invalid_params(xgb_model):
         xgb_model.inference_dataframe.head(3), params={"invalid_param": 1, "approx_contribs": True}
     )
     with mlflow.start_run():
-        model_info = mlflow.xgboost.log_model(xgb_model.model, "model", signature=signature)
+        model_info = mlflow.xgboost.log_model(xgb_model.model, name="model", signature=signature)
     pyfunc_model = pyfunc.load_model(model_info.model_uri)
     with mock.patch("mlflow.xgboost._logger.warning") as mock_warning:
         np.testing.assert_array_almost_equal(
@@ -646,7 +656,9 @@ def test_xgbmodel_predict_exclude_invalid_params(xgb_sklearn_model):
         params={"invalid_param": 1, "output_margin": True},
     )
     with mlflow.start_run():
-        model_info = mlflow.xgboost.log_model(xgb_sklearn_model.model, "model", signature=signature)
+        model_info = mlflow.xgboost.log_model(
+            xgb_sklearn_model.model, name="model", signature=signature
+        )
     pyfunc_model = pyfunc.load_model(model_info.model_uri)
     with mock.patch("mlflow.xgboost._logger.warning") as mock_warning:
         np.testing.assert_array_almost_equal(

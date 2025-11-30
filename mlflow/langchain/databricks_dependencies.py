@@ -2,9 +2,7 @@ import importlib
 import inspect
 import logging
 import warnings
-from typing import Any, Generator, List, Optional, Set
-
-from packaging import version
+from typing import Any, Generator
 
 from mlflow.models.resources import (
     DatabricksFunction,
@@ -18,15 +16,14 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_embedding_model_endpoint_names(index):
-    embedding_model_endpoint_names = []
     desc = index.describe()
     delta_sync_index_spec = desc.get("delta_sync_index_spec", {})
     embedding_source_columns = delta_sync_index_spec.get("embedding_source_columns", [])
-    for column in embedding_source_columns:
-        embedding_model_endpoint_name = column.get("embedding_model_endpoint_name", None)
-        if embedding_model_endpoint_name:
-            embedding_model_endpoint_names.append(embedding_model_endpoint_name)
-    return embedding_model_endpoint_names
+    return [
+        name
+        for column in embedding_source_columns
+        if (name := column.get("embedding_model_endpoint_name", None))
+    ]
 
 
 def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None]:
@@ -34,7 +31,12 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
     if _isinstance_with_multiple_modules(
         vectorstore,
         "DatabricksVectorSearch",
-        ["langchain_databricks", "langchain_community.vectorstores", "langchain.vectorstores"],
+        [
+            "databricks_langchain",
+            "langchain_databricks",
+            "langchain_community.vectorstores",
+            "langchain.vectorstores",
+        ],
     ):
         index = vectorstore.index
         yield DatabricksVectorSearchIndex(index_name=index.name)
@@ -45,9 +47,32 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
     if _isinstance_with_multiple_modules(
         embeddings,
         "DatabricksEmbeddings",
-        ["langchain_databricks", "langchain_community.embeddings", "langchain.embeddings"],
+        [
+            "databricks_langchain",
+            "langchain_databricks",
+            "langchain_community.embeddings",
+            "langchain.embeddings",
+        ],
     ):
         yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
+
+
+def _is_langchain_community_uc_function_toolkit(obj):
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+    except Exception:
+        return False
+
+    return isinstance(obj, UCFunctionToolkit)
+
+
+def _is_unitycatalog_tool(obj):
+    try:
+        from unitycatalog.ai.langchain.toolkit import UnityCatalogTool
+    except Exception:
+        return False
+
+    return isinstance(obj, UnityCatalogTool)
 
 
 def _extract_databricks_dependencies_from_tools(tools) -> Generator[Resource, None, None]:
@@ -61,21 +86,21 @@ def _extract_databricks_dependencies_from_tools(tools) -> Generator[Resource, No
                 if hasattr(tool.func, "keywords") and "retriever" in tool.func.keywords:
                     retriever = tool.func.keywords.get("retriever")
                     yield from _get_vectorstore_from_retriever(retriever)
+                elif _is_unitycatalog_tool(tool):
+                    if warehouse_id := tool.client_config.get("warehouse_id"):
+                        warehouse_ids.add(warehouse_id)
+                    yield DatabricksFunction(function_name=tool.uc_function_name)
                 else:
-                    try:
-                        from langchain_community.tools.databricks import UCFunctionToolkit
-                    except Exception:
-                        continue
                     # Tools here are a part of the BaseTool and have no attribute of a
                     # WarehouseID Extract the global variables of the function defined
                     # in the tool to get the UCFunctionToolkit Constants
                     nonlocal_vars = inspect.getclosurevars(tool.func).nonlocals
-                    if "self" in nonlocal_vars and isinstance(
-                        nonlocal_vars.get("self"), UCFunctionToolkit
+                    if "self" in nonlocal_vars and _is_langchain_community_uc_function_toolkit(
+                        nonlocal_vars.get("self")
                     ):
                         uc_function_toolkit = nonlocal_vars.get("self")
                         # As we are iterating through each tool, adding a warehouse id everytime
-                        # is a duplicative resouce. Use a set to dedup warehouse ids and add
+                        # is a duplicative resource. Use a set to dedup warehouse ids and add
                         # them in the end
                         warehouse_ids.add(uc_function_toolkit.warehouse_id)
 
@@ -129,14 +154,24 @@ def _extract_databricks_dependencies_from_chat_model(chat_model) -> Generator[Re
     if _isinstance_with_multiple_modules(
         chat_model,
         "ChatDatabricks",
-        ["langchain_databricks", "langchain.chat_models", "langchain_community.chat_models"],
+        [
+            "databricks_langchain",
+            "langchain_databricks",
+            "langchain.chat_models",
+            "langchain_community.chat_models",
+        ],
     ):
         yield DatabricksServingEndpoint(endpoint_name=chat_model.endpoint)
 
 
 def _extract_databricks_dependencies_from_tool_nodes(tool_node) -> Generator[Resource, None, None]:
     try:
-        from langgraph.prebuilt.tool_node import ToolNode
+        try:
+            # LangGraph >= 0.3
+            from langgraph.prebuilt import ToolNode
+        except ImportError:
+            # LangGraph < 0.3
+            from langgraph.prebuilt.tool_node import ToolNode
 
         if isinstance(tool_node, ToolNode):
             yield from _extract_databricks_dependencies_from_tools(
@@ -147,11 +182,11 @@ def _extract_databricks_dependencies_from_tool_nodes(tool_node) -> Generator[Res
 
 
 def _isinstance_with_multiple_modules(
-    object: Any, class_name: str, from_modules: List[str]
+    object: Any, class_name: str, from_modules: list[str]
 ) -> bool:
     """
     Databricks components are defined in different modules in LangChain e.g.
-    langchain, langchain_community, langchain_databricks due to historical migrations.
+    langchain, langchain_community, databricks_langchain due to historical migrations.
     To keep backward compatibility, we need to check if the object is an instance of the
     class defined in any of those different modules.
 
@@ -215,7 +250,7 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
 
 def _traverse_runnable(
     lc_model,
-    visited: Optional[Set[int]] = None,
+    visited: set[int] | None = None,
 ) -> Generator[Resource, None, None]:
     """
     This function contains the logic to traverse a langchain_core.runnables.RunnableSerializable
@@ -224,7 +259,6 @@ def _traverse_runnable(
     by lc_model.get_graph().nodes.values().
     This function supports arbitrary LCEL chain.
     """
-    import pydantic
     from langchain_core.runnables import Runnable, RunnableLambda
 
     visited = visited or set()
@@ -238,18 +272,50 @@ def _traverse_runnable(
 
     if isinstance(lc_model, Runnable):
         # Visit the returned graph
-        if isinstance(lc_model, RunnableLambda) and version.parse(
-            pydantic.version.VERSION
-        ) >= version.parse("2.0"):
+        if isinstance(lc_model, RunnableLambda):
             nodes = _get_nodes_from_runnable_lambda(lc_model)
         else:
-            nodes = lc_model.get_graph().nodes.values()
+            nodes = _get_nodes_from_runnable_callable(lc_model)
+            # If no nodes are found continue with the default behaviour
+            if len(nodes) == 0:
+                nodes = lc_model.get_graph().nodes.values()
 
         for node in nodes:
             yield from _traverse_runnable(node.data, visited)
     else:
         # No-op for non-runnable, if any
         pass
+
+
+def _get_deps_from_closures(lc_model):
+    """
+    In some cases, the dependency extraction of Runnable Lambda fails because the call
+    `inspect.getsource(func)` can fail. This causes deps of RunnableLambda to be empty.
+    Therefore this method adds an additional way of getting dependencies through
+    closure variables.
+
+    TODO: Remove when issue gets resolved: https://github.com/langchain-ai/langchain/issues/27970
+    """
+    if not hasattr(lc_model, "func"):
+        return []
+
+    try:
+        from langchain_core.runnables import Runnable
+
+        closure = inspect.getclosurevars(lc_model.func)
+        candidates = {**closure.globals, **closure.nonlocals}
+        deps = []
+
+        # This code is taken from Langchain deps here: https://github.com/langchain-ai/langchain/blob/14f182795312f01985344576b5199681683641e1/libs/core/langchain_core/runnables/base.py#L4481
+        for _, v in candidates.items():
+            if isinstance(v, Runnable):
+                deps.append(v)
+            elif isinstance(getattr(v, "__self__", None), Runnable):
+                deps.append(v.__self__)
+
+        return deps
+    except Exception:
+        return []
 
 
 def _get_nodes_from_runnable_lambda(lc_model):
@@ -273,7 +339,8 @@ def _get_nodes_from_runnable_lambda(lc_model):
     from the original get_graph() function, dropping the input/output related logic.
     https://github.com/langchain-ai/langchain/blob/2ea5f60cc5747a334550273a5dba1b70b11414c1/libs/core/langchain_core/runnables/base.py#L4493C1-L4512C46
     """
-    if deps := lc_model.deps:
+
+    if deps := lc_model.deps or _get_deps_from_closures(lc_model):
         nodes = []
         for dep in deps:
             dep_graph = dep.get_graph()
@@ -285,14 +352,59 @@ def _get_nodes_from_runnable_lambda(lc_model):
     return nodes
 
 
-def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> List[Resource]:
+def _get_nodes_from_runnable_callable(lc_model):
+    """
+    RunnableLambda has a `deps` property which goes through the function and extracts a
+    ny dependencies. RunnableCallable does not have this property so we cannot derive all
+    the dependencies from the function. This helper method also looks into the function of the
+    callable to retrieve these dependencies.
+
+    The code here is from: https://github.com/langchain-ai/langchain/blob/12fea5b868edd12b0d576e7f8bfc922d0167eeab/libs/core/langchain_core/runnables/base.py#L4467
+    """
+
+    # If Runnable Callable is not importable or if the lc_model is not an instance
+    # of RunnableCallable return early
+    try:
+        from langchain_core.runnables import Runnable
+        from langchain_core.runnables.utils import get_function_nonlocals
+        from langgraph.utils.runnable import RunnableCallable
+
+        if not isinstance(lc_model, RunnableCallable):
+            return []
+    except ImportError:
+        return []
+
+    if hasattr(lc_model, "func"):
+        objects = get_function_nonlocals(lc_model.func)
+    elif hasattr(lc_model, "afunc"):
+        objects = get_function_nonlocals(lc_model.afunc)
+    else:
+        objects = []
+
+    deps = []
+    for obj in objects:
+        if isinstance(obj, Runnable):
+            deps.append(obj)
+        elif isinstance(getattr(obj, "__self__", None), Runnable):
+            deps.append(obj.__self__)
+
+    nodes = []
+    for dep in deps:
+        dep_graph = dep.get_graph()
+        dep_graph.trim_first_node()
+        dep_graph.trim_last_node()
+        nodes.extend(dep_graph.nodes.values())
+    return nodes
+
+
+def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> list[Resource]:
     """
     Detects the databricks dependencies of a langchain model and returns a list of
     detected endpoint names and index names.
 
-    lc_model can be an arbitrary [chain that is built with LCEL](https://python.langchain.com
-    /docs/modules/chains#lcel-chains), which is a langchain_core.runnables.RunnableSerializable.
-    [Legacy chains](https://python.langchain.com/docs/modules/chains#legacy-chains) have limited
+    lc_model can be an arbitrary `chain that is built with LCEL <https://python.langchain.com/docs/modules/chains#lcel-chains>`_,
+    which is a langchain_core.runnables.RunnableSerializable.
+    `Legacy chains <https://python.langchain.com/docs/modules/chains#legacy-chains>`_ have limited
     support. Only RetrievalQA, StuffDocumentsChain, ReduceDocumentsChain, RefineDocumentsChain,
     MapRerankDocumentsChain, MapReduceDocumentsChain, BaseConversationalRetrievalChain are
     supported. If you need to support a custom chain, you need to monkey patch

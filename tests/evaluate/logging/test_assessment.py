@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.evaluation import Assessment
+from mlflow.evaluation.assessment import AssessmentSource
 from mlflow.exceptions import MlflowException
 
 
@@ -312,3 +313,15 @@ def test_assessment_without_metadata():
 
     assert assessment.metadata == {}
     assert assessment.rationale is None
+
+
+def test_assessment_without_source():
+    assessment = Assessment(
+        name="relevance",
+        value=0.9,
+    )
+
+    assert assessment.source.source_type == AssessmentSourceType.SOURCE_TYPE_UNSPECIFIED
+
+    entity = assessment._to_entity("evaluation_1")
+    assert entity.source.source_type == AssessmentSourceType.SOURCE_TYPE_UNSPECIFIED

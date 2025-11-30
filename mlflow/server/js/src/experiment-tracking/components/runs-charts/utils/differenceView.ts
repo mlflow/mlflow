@@ -1,12 +1,13 @@
 import { MLFLOW_SYSTEM_METRIC_PREFIX } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { KeyValueEntity, MetricEntitiesByName } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { useCallback, useMemo } from 'react';
-import { RunsChartsRunData } from '../components/RunsCharts.common';
-import { DifferenceCardAttributes, RunsChartsDifferenceCardConfig } from '../runs-charts.types';
+import type { MetricEntitiesByName } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
+import type { RunsChartsRunData } from '../components/RunsCharts.common';
+import type { RunsChartsDifferenceCardConfig } from '../runs-charts.types';
+import { DifferenceCardAttributes } from '../runs-charts.types';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 
-export const DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE = '-';
+const DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE = '-';
 const DIFFERENCE_EPSILON = 1e-6;
 export const getDifferenceChartDisplayedValue = (val: any, places = 2) => {
   if (typeof val === 'number') {
@@ -148,7 +149,7 @@ export const getDifferenceViewDataGroups = (
     let hasDifference = false;
     previewData.forEach((runData, index) => {
       if (attribute === DifferenceCardAttributes.USER) {
-        const user = Utils.getUser(runData.runInfo, runData.tags);
+        const user = Utils.getUser(runData.runInfo ?? {}, runData.tags);
         attributeData[runData.uuid] = user;
       } else if (attribute === DifferenceCardAttributes.SOURCE) {
         const source = Utils.getSourceName(runData.tags);
@@ -178,4 +179,134 @@ export const getDifferenceViewDataGroups = (
     ];
   });
   return { modelMetrics, systemMetrics, parameters, tags, attributes };
+};
+
+export const DIFFERENCE_PLOT_EXPAND_COLUMN_ID = 'expand';
+export const DIFFERENCE_PLOT_HEADING_COLUMN_ID = 'headingColumn';
+
+/**
+ * Transforms an array of objects into a format suitable for rendering in a table.
+ * Each object in the array represents a row in the table.
+ * If all values in a row are JSON objects with the same keys, the row is transformed into a parent row with child rows.
+ * Each child row represents a key-value pair from the JSON objects.
+ * If a value in a row is not a JSON object or the JSON objects don't have the same keys, the row is not transformed.
+ *
+ * @param data - An array of objects. Each object represents a row in the table.
+ * @returns An array of objects. Each object represents a row or a parent row with child rows in the table.
+ */
+export const getDifferencePlotJSONRows = (data: { [key: string]: string | number }[]) => {
+  const validateParseJSON = (value: string) => {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed) || Object.keys(parsed).length === 0) {
+        return null;
+      }
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const extractMaximumCommonSchema = (schema1: Record<any, any> | undefined, schema2: Record<any, any> | undefined) => {
+    if (schema1 !== undefined && Object.keys(schema1).length === 0) {
+      // This may not be a suitable object, return null
+      return null;
+    } else if (schema2 !== undefined && Object.keys(schema2).length === 0) {
+      return null;
+    }
+
+    const schema: Record<string, unknown> = {};
+
+    const collectKeys = (target: Record<any, any>, source: Record<any, any>) => {
+      for (const key in source) {
+        if (!target.hasOwnProperty(key) || target[key]) {
+          if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
+            target[key] = target[key] || {};
+            collectKeys(target[key], source[key]);
+          } else if (source[key] === DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE) {
+            target[key] = true;
+          } else {
+            target[key] = false;
+          }
+        }
+      }
+    };
+
+    schema1 !== undefined && collectKeys(schema, schema1);
+    schema2 !== undefined && collectKeys(schema, schema2);
+
+    return schema;
+  };
+
+  const getChildren = (
+    parsedRowWithoutHeadingCol: { [key: string]: Record<any, any> | undefined },
+    schema: Record<any, any>,
+  ): Record<string, any>[] => {
+    return Object.keys(schema).map((key) => {
+      if (typeof schema[key] === 'boolean') {
+        let result = {
+          key: key,
+          [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: key,
+        };
+        Object.keys(parsedRowWithoutHeadingCol).forEach((runUuid) => {
+          const value = parsedRowWithoutHeadingCol[runUuid]?.[key];
+          result = {
+            ...result,
+            [runUuid]: value === undefined ? DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE : value,
+          };
+        });
+        return result;
+      }
+      // Recurse
+      const newParsedRow: { [key: string]: Record<any, any> | undefined } = {};
+      Object.keys(parsedRowWithoutHeadingCol).forEach((runUuid) => {
+        newParsedRow[runUuid] = parsedRowWithoutHeadingCol[runUuid]?.[key];
+      });
+
+      return {
+        key: key,
+        [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: key,
+        children: getChildren(newParsedRow, schema[key]),
+      };
+    });
+  };
+
+  const isAllElementsJSON = (row: { [key: string]: string | number }) => {
+    let jsonSchema: Record<any, any> | undefined = undefined;
+    let isAllJson = true;
+    const parsedRow: Record<string, any> = {};
+
+    Object.keys(row).forEach((runUuid) => {
+      if (runUuid !== DIFFERENCE_PLOT_HEADING_COLUMN_ID) {
+        if (row[runUuid] !== DIFFERENCE_CHART_DEFAULT_EMPTY_VALUE) {
+          const json = validateParseJSON(row[runUuid] as string);
+          parsedRow[runUuid] = json;
+          if (json === null) {
+            isAllJson = false;
+          } else {
+            const commonSchema = extractMaximumCommonSchema(jsonSchema, json);
+            if (commonSchema === null) {
+              isAllJson = false;
+            } else {
+              jsonSchema = commonSchema;
+            }
+          }
+        }
+      }
+    });
+    if (isAllJson && jsonSchema !== undefined) {
+      try {
+        return {
+          [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: row[DIFFERENCE_PLOT_HEADING_COLUMN_ID],
+          children: getChildren(parsedRow, jsonSchema),
+          key: row[DIFFERENCE_PLOT_HEADING_COLUMN_ID],
+        };
+      } catch {
+        return row;
+      }
+    } else {
+      return row;
+    }
+  };
+  return data.map(isAllElementsJSON);
 };

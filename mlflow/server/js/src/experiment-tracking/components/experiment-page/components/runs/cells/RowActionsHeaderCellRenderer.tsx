@@ -1,33 +1,23 @@
-import {
-  DropdownMenu,
-  Icon,
-  VisibleIcon as VisibleHollowIcon,
-  VisibleOffIcon,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import { DashIcon, DropdownMenu, Icon, VisibleOffIcon, useDesignSystemTheme } from '@databricks/design-system';
+import type { Theme } from '@emotion/react';
 import React, { useEffect } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { RUNS_VISIBILITY_MODE } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/models/ExperimentPageUIState';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../../common/utils/FeatureUtils';
 // TODO: Import this icon from design system when added
 import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';
 import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
-const VisibleIcon = () =>
-  shouldUseNewRunRowsVisibilityModel() ? <Icon component={VisibleFillIcon} /> : <VisibleHollowIcon />;
+const VisibleIcon = () => <Icon component={VisibleFillIcon} />;
 
-export const RowActionsHeaderCellRendererV2 = React.memo(
+const RowActionsHeaderCellRendererV2 = React.memo(
   ({
-    allRunsHidden,
     onToggleVisibility,
   }: {
-    allRunsHidden?: boolean;
     onToggleVisibility: (mode: RUNS_VISIBILITY_MODE | string, runOrGroupUuid?: string) => void;
   }) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const { runsHiddenMode } = useExperimentViewRunsTableHeaderContext();
+    const { runsHiddenMode, usingCustomVisibility, allRunsHidden } = useExperimentViewRunsTableHeaderContext();
 
     return (
       <DropdownMenu.Root modal={false}>
@@ -35,8 +25,8 @@ export const RowActionsHeaderCellRendererV2 = React.memo(
           <button
             css={[
               styles.actionButton(theme),
-              // We show this button only in the runs compare mode and only when the feature flag is set
-              shouldUseNewRunRowsVisibilityModel() && styles.showOnlyInCompareMode,
+              // We show this button only in the runs compare mode
+              styles.showOnlyInCompareMode,
             ]}
             data-testid="experiment-view-runs-visibility-column-header"
             aria-label={intl.formatMessage({
@@ -55,31 +45,39 @@ export const RowActionsHeaderCellRendererV2 = React.memo(
             onValueChange={(e) => onToggleVisibility(e)}
           >
             <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.FIRST_10_RUNS}>
-              <DropdownMenu.ItemIndicator />
+              {/* Dropdown menu does not support indeterminate state, so we're doing it manually */}
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
               <FormattedMessage
                 defaultMessage="Show first 10"
                 description="Menu option for showing only 10 first runs in the experiment view runs compare mode"
               />
             </DropdownMenu.RadioItem>
             <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.FIRST_20_RUNS}>
-              <DropdownMenu.ItemIndicator />
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
               <FormattedMessage
                 defaultMessage="Show first 20"
                 description="Menu option for showing only 10 first runs in the experiment view runs compare mode"
               />
             </DropdownMenu.RadioItem>
             <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.SHOWALL}>
-              <DropdownMenu.ItemIndicator />
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
               <FormattedMessage
                 defaultMessage="Show all runs"
                 description="Menu option for revealing all hidden runs in the experiment view runs compare mode"
               />
             </DropdownMenu.RadioItem>
             <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.HIDEALL}>
-              <DropdownMenu.ItemIndicator />
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
               <FormattedMessage
                 defaultMessage="Hide all runs"
                 description="Menu option for revealing all hidden runs in the experiment view runs compare mode"
+              />
+            </DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS}>
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
+              <FormattedMessage
+                defaultMessage="Hide finished runs"
+                description="Menu option for hiding all finished runs in the experiment view runs compare mode"
               />
             </DropdownMenu.RadioItem>
           </DropdownMenu.RadioGroup>
@@ -95,6 +93,7 @@ export const RowActionsHeaderCellRendererV2 = React.memo(
 export const RowActionsHeaderCellRenderer = React.memo(
   (props: {
     allRunsHidden?: boolean;
+    usingCustomVisibility?: boolean;
     onToggleVisibility: (runUuidOrToggle: string) => void;
     eGridHeader?: HTMLElement;
   }) => {
@@ -115,48 +114,7 @@ export const RowActionsHeaderCellRenderer = React.memo(
       }
     }, [props.eGridHeader, intl]);
 
-    return shouldUseNewRunRowsVisibilityModel() ? (
-      <RowActionsHeaderCellRendererV2 {...props} />
-    ) : (
-      <DropdownMenu.Root modal={false}>
-        <DropdownMenu.Trigger asChild>
-          <button css={[styles.actionButton]} data-testid="experiment-view-runs-visibility-column-header">
-            {props.allRunsHidden ? <VisibleOffIcon /> : <VisibleIcon />}
-          </button>
-        </DropdownMenu.Trigger>
-
-        <DropdownMenu.Content>
-          <DropdownMenu.Item
-            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_rowactionsheadercellrenderer.tsx_125"
-            onClick={() => props.onToggleVisibility(RUNS_VISIBILITY_MODE.HIDEALL)}
-            data-testid="experiment-view-runs-visibility-hide-all"
-          >
-            <DropdownMenu.IconWrapper>
-              <VisibleOffIcon />
-            </DropdownMenu.IconWrapper>
-            <FormattedMessage
-              defaultMessage="Hide all runs"
-              description="Menu option for hiding all runs in the experiment view runs compare mode"
-            />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_rowactionsheadercellrenderer.tsx_137"
-            onClick={() => props.onToggleVisibility(RUNS_VISIBILITY_MODE.SHOWALL)}
-            data-testid="experiment-view-runs-visibility-show-all"
-          >
-            <DropdownMenu.IconWrapper>
-              <VisibleIcon />
-            </DropdownMenu.IconWrapper>
-            <FormattedMessage
-              defaultMessage="Show all runs"
-              description="Menu option for revealing all hidden runs in the experiment view runs compare mode"
-            />
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-
-        {/*  */}
-      </DropdownMenu.Root>
-    );
+    return <RowActionsHeaderCellRendererV2 {...props} />;
   },
 );
 

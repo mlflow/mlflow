@@ -1,0 +1,272 @@
+---
+description: "Learn how to connect your development environment to MLflow, whether using OSS MLflow or a managed offering."
+last_update:
+  date: 2025-05-18
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+
+# Connect Your Development Environment to MLflow
+
+This guide shows you how to connect your development environment to an MLflow Experiment. You can run MLflow on your local machine, self-host the open source MLflow service, or use a managed offering, such as Databricks Managed MLflow.
+
+## Prerequisites
+
+<Tabs>
+  <TabItem value="oss" label="OSS MLflow">
+
+    - **Python Environment**: Python 3.9+ with pip installed
+
+  </TabItem>
+  <TabItem value="managed" label="Databricks">
+
+    - **Databricks Workspace**: Access to a Databricks workspace
+
+    :::note[Authentication Methods]
+    This guide describes using a Databricks Personal Access Token. MLflow also works with the other <ins>[Databricks-supported authentication methods](https://docs.databricks.com/aws/en/dev-tools/auth)</ins>.
+    :::
+
+  </TabItem>
+</Tabs>
+
+## Setup Instructions
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="oss" label="OSS MLflow">
+
+        #### Step 1: Install MLflow
+
+        ```bash
+        pip install --upgrade "mlflow>=3.1"
+        ```
+
+        <br/>
+
+        #### Step 2: Configure Tracking
+
+        MLflow supports different backends for tracking your experiment data. Choose one of the following options to get started. Refer to the [Self Hosting Guide](/self-hosting) for detailed setup and configurations.
+
+        **Option A: Database (Recommended)**
+
+        Set the tracking URI to a local database URI (e.g., `sqlite:///mlflow.db`). This is recommended option for quickstart and local development.
+
+        ```python
+        import mlflow
+
+        mlflow.set_tracking_uri("sqlite:///mlflow.db")
+        mlflow.set_experiment("my-first-experiment")
+        ```
+
+        **Option B: File System**
+
+        MLflow will automatically use local file storage if no tracking URI is specified:
+
+        ```python
+        import mlflow
+
+        # Creates local mlruns directory for experiments
+        mlflow.set_experiment("my-first-experiment")
+        ```
+
+        :::warning[TO BE DEPRECATED SOON]
+
+          File system backend is in Keep-the-Light-On (KTLO) mode and will not receive most of the new features in MLflow.
+          We recommend using the database backend instead. Database backend will also be the default option soon.
+
+        :::
+
+        **Option C: Remote Tracking Server**
+
+        Start a remote MLflow tracking server following the [Self Hosting Guide](/self-hosting).
+        Then configure your client to use the remote server:
+
+        ```python
+        import mlflow
+
+        # Connect to remote MLflow server
+        mlflow.set_tracking_uri("http://localhost:5000")
+        mlflow.set_experiment("my-first-experiment")
+        ```
+
+        Alternatively, you can configure the tracking URI and experiment using environment variables:
+
+        ```bash
+        export MLFLOW_TRACKING_URI="http://localhost:5000"
+        export MLFLOW_EXPERIMENT_NAME="my-first-experiment"
+        ```
+
+        <br/>
+
+        #### Step 3: Verify Your Connection
+
+        Create a test file and run this code:
+
+        ```python
+        import mlflow
+
+        # Print connection information
+        print(f"MLflow Tracking URI: {mlflow.get_tracking_uri()}")
+        print(f"Active Experiment: {mlflow.get_experiment_by_name('my-first-experiment')}")
+
+        # Test logging
+        with mlflow.start_run():
+            mlflow.log_param("test_param", "test_value")
+            print("✓ Successfully connected to MLflow!")
+        ```
+
+        <br/>
+
+        #### Step 4: Access MLflow UI
+
+        If you are using local tracking (option A or B), run the following command and access the MLflow UI at `http://localhost:5000`.
+
+        ```bash
+        # For Option A
+        mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+        # For Option B
+        mlflow ui --port 5000
+        ```
+
+        If you have the remote tracking server running (option C), access the MLflow UI at the same URI.
+
+
+        :::info[ACCESS DENIED?]
+
+          When using the remove tracking server, you may hit an access denied error when accessing the MLflow UI
+          from a browser.
+
+          > Invalid Host header - possible DNS rebinding attack detected
+
+          The common cause for this error is the tracking server does not allow requests from your origin to
+          prevent clickjacking attacks. You need to set up an allowlist of CORS origins in the tracking server
+          configuration in this case.
+          Refer to the <ins>[Network Security Guide](/self-hosting/security/network#cors-origins)</ins> for more details.
+
+        :::
+
+      </TabItem>
+
+  <TabItem value="databricks-ide" label="Databricks - Local IDE">
+
+    #### Step 1: Install MLflow
+
+    Install MLflow with Databricks connectivity:
+
+    ```bash
+    pip install --upgrade "mlflow[databricks]>=3.1"
+    ```
+
+    <br/>
+
+    #### Step 2: Create an MLflow Experiment
+
+    1. Open your Databricks workspace
+    2. Go to **Experiments** in the left sidebar under **Machine Learning**
+    3. At the top of the Experiments page, click on **New Experiment**
+
+    <br/>
+
+    #### Step 3: Configure Authentication
+
+    Choose one of the following authentication methods:
+
+    **Option A: Environment Variables**
+
+    1. In your MLflow Experiment, click **Generate API Key**
+    2. Copy and run the generated code in your terminal:
+
+    ```bash
+    export DATABRICKS_TOKEN=<databricks-personal-access-token>
+    export DATABRICKS_HOST=https://<workspace-name>.cloud.databricks.com
+    export MLFLOW_TRACKING_URI=databricks
+    export MLFLOW_EXPERIMENT_ID=<experiment-id>
+    ```
+
+    **Option B: .env File**
+
+    1. In your MLflow Experiment, click **Generate API Key**
+    2. Copy the generated code to a `.env` file in your project root:
+
+    ```bash
+    DATABRICKS_TOKEN=<databricks-personal-access-token>
+    DATABRICKS_HOST=https://<workspace-name>.cloud.databricks.com
+    MLFLOW_TRACKING_URI=databricks
+    MLFLOW_EXPERIMENT_ID=<experiment-id>
+    ```
+
+    3. Install the `python-dotenv` package:
+
+    ```bash
+    pip install python-dotenv
+    ```
+
+    4. Load environment variables in your code:
+
+    ```python
+    # At the beginning of your Python script
+    from dotenv import load_dotenv
+
+    # Load environment variables from .env file
+    load_dotenv()
+    ```
+
+    #### Step 4: Verify Your Connection
+
+    Create a test file and run this code to verify your connection:
+
+    ```python
+    import mlflow
+
+    # Test logging to verify connection
+    print(f"MLflow Tracking URI: {mlflow.get_tracking_uri()}")
+    with mlflow.start_run():
+        print("✓ Successfully connected to MLflow!")
+    ```
+
+  </TabItem>
+  <TabItem value="databricks-notebook" label="Databricks - Notebook">
+    #### Step 1: Install MLflow
+
+    Databricks runtimes include MLflow, but for the best experience, update to the latest version:
+
+    ```bash
+    %pip install --upgrade "mlflow[databricks]>=3.1"
+    dbutils.library.restartPython()
+    ```
+    <br/>
+
+    #### Step 2: Create a Notebook
+
+    Creating a Databricks Notebook will create an MLflow Experiment that is the container for your ML projects. Learn more about Experiments in the [MLflow documentation](/ml/tracking).
+
+    1. Open your Databricks workspace
+    2. Go to **New** at the top of the left sidebar
+    3. Click **Notebook**
+
+    <br/>
+
+    #### Step 3: Configure Authentication
+
+    No additional authentication configuration is needed when working within a Databricks Notebook. The notebook automatically has access to your workspace and the associated MLflow Experiment.
+
+    <br/>
+
+    #### Step 4: Verify Your Connection
+
+    Run this code in a notebook cell to verify your connection:
+
+    ```python
+    import mlflow
+
+    # Test logging to verify connection
+    print(f"MLflow Tracking URI: {mlflow.get_tracking_uri()}")
+    with mlflow.start_run():
+        print("✓ Successfully connected to MLflow!")
+    ```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>

@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+from mlflow.store.artifact.databricks_run_artifact_repo import DatabricksRunArtifactRepository
 from mlflow.store.artifact.dbfs_artifact_repo import (
     DbfsRestArtifactRepository,
     dbfs_artifact_repo_factory,
@@ -16,14 +16,15 @@ from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
     [("dbfs:/path", "file:///dbfs/path"), ("dbfs://databricks/path", "file:///dbfs/path")],
 )
 def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True
-    ), mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo.LocalArtifactRepository", autospec=True
-    ) as mock_repo:
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True),
+        mock.patch(
+            "mlflow.store.artifact.dbfs_artifact_repo.LocalArtifactRepository", autospec=True
+        ) as mock_repo,
+    ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, LocalArtifactRepository)
-        mock_repo.assert_called_once_with(uri_at_init)
+        mock_repo.assert_called_once_with(uri_at_init, tracking_uri=None, registry_uri=None)
 
 
 @pytest.mark.parametrize(
@@ -42,14 +43,15 @@ def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
     ],
 )
 def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True
-    ), mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
-    ) as mock_repo:
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True),
+        mock.patch(
+            "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
+        ) as mock_repo,
+    ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, DbfsRestArtifactRepository)
-        mock_repo.assert_called_once_with(artifact_uri)
+        mock_repo.assert_called_once_with(artifact_uri, tracking_uri=None, registry_uri=None)
 
 
 @pytest.mark.parametrize(
@@ -61,20 +63,15 @@ def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
     ],
 )
 def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
-    repo_pkg_path = "mlflow.store.artifact.databricks_artifact_repo"
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True
-    ), mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo.DatabricksArtifactRepository", autospec=True
-    ) as mock_repo, mock.patch(
-        repo_pkg_path + ".get_databricks_host_creds", return_value=None
-    ), mock.patch(
-        repo_pkg_path + ".DatabricksArtifactRepository._get_run_artifact_root",
-        return_value="whatever",
+    with (
+        mock.patch(
+            "mlflow.store.artifact.dbfs_artifact_repo.DatabricksRunArtifactRepository",
+            autospec=True,
+        ) as mock_repo,
     ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
-        assert isinstance(repo, DatabricksArtifactRepository)
-        mock_repo.assert_called_once_with(artifact_uri)
+        assert isinstance(repo, DatabricksRunArtifactRepository)
+        mock_repo.assert_called_once_with(artifact_uri, tracking_uri=None, registry_uri=None)
 
 
 @pytest.mark.parametrize(

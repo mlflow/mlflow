@@ -17,9 +17,8 @@ import re
 import shutil
 import string
 import sys
-from collections import namedtuple
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, NamedTuple
 from urllib.parse import urlparse
 
 import numpy as np
@@ -28,6 +27,7 @@ import yaml
 from packaging.version import Version
 
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     MLFLOW_DEFAULT_PREDICTION_DEVICE,
     MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
@@ -97,7 +97,6 @@ from mlflow.transformers.signature import (
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     disable_discrete_autologging,
@@ -183,13 +182,12 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
 #  1. A string representing the path or URL to an audio file.
 #  2. A bytes object representing the raw audio data.
 #  3. A float numpy array representing the audio time series.
-AudioInput = Union[str, bytes, np.ndarray]
+AudioInput = str | bytes | np.ndarray
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
-def get_default_pip_requirements(model) -> List[str]:
+def get_default_pip_requirements(model) -> list[str]:
     """
     Args:
         model: The model instance to be saved in order to provide the required underlying
@@ -257,7 +255,6 @@ def _validate_transformers_model_dict(transformers_model):
         )
 
 
-@experimental
 def get_default_conda_env(model):
     """
     Returns:
@@ -267,28 +264,34 @@ def get_default_conda_env(model):
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
 
 
-@experimental
+class _DummyModel(NamedTuple):
+    name_or_path: str
+
+
+class _DummyPipeline(NamedTuple):
+    task: str
+    model: _DummyModel
+
+
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     transformers_model,
     path: str,
     processor=None,
-    task: Optional[str] = None,
-    torch_dtype: Optional[torch.dtype] = None,
+    task: str | None = None,
+    torch_dtype: torch.dtype | None = None,
     model_card=None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
-    model_config: Optional[Dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
-    prompt_template: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    model_config: dict[str, Any] | None = None,
+    prompt_template: str | None = None,
     save_pretrained: bool = True,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
@@ -386,10 +389,49 @@ def save_model(
             .. Note:: In order for a ModelCard to be fetched (if not provided),
                         the huggingface_hub package must be installed and the version
                         must be >=0.10.0
-        inference_config:
 
-            .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
+        code_paths: {{ code_paths }}
+        mlflow_model: An MLflow model object that specifies the flavor that this model is being
+            added to.
+        signature: A Model Signature object that describes the input and output Schema of the
+            model. The model signature can be inferred using `infer_signature` function
+            of `mlflow.models.signature`.
 
+            .. code-block:: python
+                :caption: Example
+
+                from mlflow.models import infer_signature
+                from mlflow.transformers import generate_signature_output
+                from transformers import pipeline
+
+                en_to_de = pipeline("translation_en_to_de")
+
+                data = "MLflow is great!"
+                output = generate_signature_output(en_to_de, data)
+                signature = infer_signature(data, output)
+
+                mlflow.transformers.save_model(
+                    transformers_model=en_to_de,
+                    path="/path/to/save/model",
+                    signature=signature,
+                    input_example=data,
+                )
+
+                loaded = mlflow.pyfunc.load_model("/path/to/save/model")
+                print(loaded.predict(data))
+                # MLflow ist großartig!
+
+            If an input_example is provided and the signature is not, a signature will
+            be inferred automatically and applied to the MLmodel file iff the
+            pipeline type is a text-based model (NLP). If the pipeline type is not
+            a supported type, this inference functionality will not function correctly
+            and a warning will be issued. In order to ensure that a precise signature
+            is logged, it is recommended to explicitly provide one.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        conda_env: {{ conda_env }}
+        metadata: {{ metadata }}
         model_config:
             A dict of valid overrides that can be applied to a pipeline instance during inference.
             These arguments are used exclusively for the case of loading the model as a ``pyfunc``
@@ -441,50 +483,6 @@ def save_model(
                     task=task,
                     model_config=model_config,
                 )
-
-        code_paths: {{ code_paths }}
-        mlflow_model: An MLflow model object that specifies the flavor that this model is being
-            added to.
-        signature: A Model Signature object that describes the input and output Schema of the
-            model. The model signature can be inferred using `infer_signature` function
-            of `mlflow.models.signature`.
-
-            .. code-block:: python
-                :caption: Example
-
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
-                from transformers import pipeline
-
-                en_to_de = pipeline("translation_en_to_de")
-
-                data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
-
-                mlflow.transformers.save_model(
-                    transformers_model=en_to_de,
-                    path="/path/to/save/model",
-                    signature=signature,
-                    input_example=data,
-                )
-
-                loaded = mlflow.pyfunc.load_model("/path/to/save/model")
-                print(loaded.predict(data))
-                # MLflow ist großartig!
-
-            If an input_example is provided and the signature is not, a signature will
-            be inferred automatically and applied to the MLmodel file iff the
-            pipeline type is a text-based model (NLP). If the pipeline type is not
-            a supported type, this inference functionality will not function correctly
-            and a warning will be issued. In order to ensure that a precise signature
-            is logged, it is recommended to explicitly provide one.
-        input_example: {{ input_example }}
-        pip_requirements: {{ pip_requirements }}
-        extra_pip_requirements: {{ extra_pip_requirements }}
-        conda_env: {{ conda_env }}
-        metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
         kwargs: Optional additional configurations for transformers serialization.
@@ -527,9 +525,9 @@ def save_model(
             )
 
         # Create a dummy pipeline object to be used for saving the model
-        DummyModel = namedtuple("DummyModel", ["name_or_path"])
-        DummyPipeline = namedtuple("DummyPipeline", ["task", "model"])
-        built_pipeline = DummyPipeline(task=task, model=DummyModel(name_or_path=transformers_model))
+        built_pipeline = _DummyPipeline(
+            task=task, model=_DummyModel(name_or_path=transformers_model)
+        )
     else:
         raise MlflowException(
             "The `transformers_model` must be one of the following types: \n"
@@ -582,7 +580,7 @@ def save_model(
 
     if input_example is not None:
         input_example = format_input_example_for_special_cases(input_example, built_pipeline)
-        _save_example(mlflow_model, input_example, str(path), example_no_conversion)
+        _save_example(mlflow_model, input_example, str(path))
 
     if metadata is not None:
         mlflow_model.metadata = metadata
@@ -676,15 +674,6 @@ def save_model(
             "will be logged instead."
         )
 
-    if inference_config:
-        _logger.warning(
-            "Indicating `inference_config` is deprecated and will be removed in a future version "
-            "of MLflow. Use `model_config` instead."
-        )
-        path.joinpath(_INFERENCE_CONFIG_BINARY_KEY).write_text(
-            json.dumps(inference_config, indent=2)
-        )
-
     model_name = built_pipeline.model.name_or_path
 
     # Get the model card from either the argument or the HuggingFace marketplace
@@ -708,7 +697,7 @@ def save_model(
             mlflow_model.signature = infer_or_get_default_signature(
                 pipeline=built_pipeline,
                 example=input_example,
-                model_config=model_config or inference_config,
+                model_config=model_config,
                 flavor_config=flavor_conf,
             )
 
@@ -788,30 +777,34 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     transformers_model,
-    artifact_path: str,
+    artifact_path: str | None = None,
     processor=None,
-    task: Optional[str] = None,
-    torch_dtype: Optional[torch.dtype] = None,
+    task: str | None = None,
+    torch_dtype: torch.dtype | None = None,
     model_card=None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
-    registered_model_name: Optional[str] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
+    code_paths: list[str] | None = None,
+    registered_model_name: str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
-    model_config: Optional[Dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
-    prompt_template: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    model_config: dict[str, Any] | None = None,
+    prompt_template: str | None = None,
     save_pretrained: bool = True,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -846,7 +839,7 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model=qa_pipe,
-                        artifact_path="model",
+                        name="model",
                     )
 
             An example of specifying component-level parts of a transformers model is shown below:
@@ -866,7 +859,7 @@ def log_model(
                     }
                     mlflow.transformers.log_model(
                         transformers_model=components,
-                        artifact_path="model",
+                        name="model",
                     )
 
             An example of specifying a local checkpoint path is shown below:
@@ -876,10 +869,10 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model="path/to/local/checkpoint",
-                        artifact_path="model",
+                        name="model",
                     )
 
-        artifact_path: Local path destination for the serialized model to be saved.
+        artifact_path: Deprecated. Use `name` instead.
         processor: An optional ``Processor`` subclass object. Some model architectures,
             particularly multi-modal types, utilize Processors to combine text
             encoding and image or audio encoding in a single entrypoint.
@@ -906,9 +899,57 @@ def log_model(
                 .. Note:: In order for a ModelCard to be fetched (if not provided),
                     the huggingface_hub package must be installed and the version
                     must be >=0.10.0
-        inference_config:
 
-            .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
+        code_paths: {{ code_paths }}
+        registered_model_name: If given, create a model
+            version under ``registered_model_name``, also creating a
+            registered model if one with the given name does not exist.
+        signature: A Model Signature object that describes the input and output Schema of the
+            model. The model signature can be inferred using `infer_signature` function
+            of `mlflow.models.signature`.
+
+            .. code-block:: python
+                :caption: Example
+
+                from mlflow.models import infer_signature
+                from mlflow.transformers import generate_signature_output
+                from transformers import pipeline
+
+                en_to_de = pipeline("translation_en_to_de")
+
+                data = "MLflow is great!"
+                output = generate_signature_output(en_to_de, data)
+                signature = infer_signature(data, output)
+
+                with mlflow.start_run() as run:
+                    mlflow.transformers.log_model(
+                        transformers_model=en_to_de,
+                        name="english_to_german_translator",
+                        signature=signature,
+                        input_example=data,
+                    )
+
+                model_uri = f"runs:/{run.info.run_id}/english_to_german_translator"
+                loaded = mlflow.pyfunc.load_model(model_uri)
+
+                print(loaded.predict(data))
+                # MLflow ist großartig!
+
+            If an input_example is provided and the signature is not, a signature will
+            be inferred automatically and applied to the MLmodel file iff the
+            pipeline type is a text-based model (NLP). If the pipeline type is not
+            a supported type, this inference functionality will not function correctly
+            and a warning will be issued. In order to ensure that a precise signature
+            is logged, it is recommended to explicitly provide one.
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version
+            to finish being created and is in ``READY`` status.
+            By default, the function waits for five minutes.
+            Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        conda_env: {{ conda_env }}
+        metadata: {{ metadata }}
         model_config:
             A dict of valid overrides that can be applied to a pipeline instance during inference.
             These arguments are used exclusively for the case of loading the model as a ``pyfunc``
@@ -956,69 +997,24 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model=sentence_pipeline,
-                        artifact_path="my_sentence_generator",
+                        name="my_sentence_generator",
                         task=task,
                         model_config=model_config,
                     )
-
-        code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
-            version under ``registered_model_name``, also creating a
-            registered model if one with the given name does not exist.
-        signature: A Model Signature object that describes the input and output Schema of the
-            model. The model signature can be inferred using `infer_signature` function
-            of `mlflow.models.signature`.
-
-            .. code-block:: python
-                :caption: Example
-
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
-                from transformers import pipeline
-
-                en_to_de = pipeline("translation_en_to_de")
-
-                data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
-
-                with mlflow.start_run() as run:
-                    mlflow.transformers.log_model(
-                        transformers_model=en_to_de,
-                        artifact_path="english_to_german_translator",
-                        signature=signature,
-                        input_example=data,
-                    )
-
-                model_uri = f"runs:/{run.info.run_id}/english_to_german_translator"
-                loaded = mlflow.pyfunc.load_model(model_uri)
-
-                print(loaded.predict(data))
-                # MLflow ist großartig!
-
-            If an input_example is provided and the signature is not, a signature will
-            be inferred automatically and applied to the MLmodel file iff the
-            pipeline type is a text-based model (NLP). If the pipeline type is not
-            a supported type, this inference functionality will not function correctly
-            and a warning will be issued. In order to ensure that a precise signature
-            is logged, it is recommended to explicitly provide one.
-        input_example: {{ input_example }}
-        await_registration_for: Number of seconds to wait for the model version
-            to finish being created and is in ``READY`` status.
-            By default, the function waits for five minutes.
-            Specify 0 or None to skip waiting.
-        pip_requirements: {{ pip_requirements }}
-        extra_pip_requirements: {{ extra_pip_requirements }}
-        conda_env: {{ conda_env }}
-        metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
+        prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=sys.modules[__name__],  # Get the current module.
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
@@ -1028,7 +1024,6 @@ def log_model(
         task=task,
         torch_dtype=torch_dtype,
         model_card=model_card,
-        inference_config=inference_config,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -1042,17 +1037,21 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
-        example_no_conversion=example_no_conversion,
         prompt_template=prompt_template,
         save_pretrained=save_pretrained,
+        prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(
-    model_uri: str, dst_path: Optional[str] = None, return_type="pipeline", device=None, **kwargs
+    model_uri: str, dst_path: str | None = None, return_type="pipeline", device=None, **kwargs
 ):
     """
     Load a ``transformers`` object from a local file or a run.
@@ -1154,7 +1153,7 @@ def persist_pretrained_model(model_uri: str) -> None:
         with mlflow.start_run() as run:
             model = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
             mlflow.transformers.log_model(
-                transformers_model=model, artifact_path="pipeline", save_pretrained=False
+                transformers_model=model, name="pipeline", save_pretrained=False
             )
 
         # The model cannot be registered to the Model Registry as it is
@@ -1474,7 +1473,7 @@ def _get_supported_pretrained_model_types():
     return supported_model_types
 
 
-def _build_pipeline_from_model_input(model_dict: Dict[str, Any], task: Optional[str]) -> Pipeline:
+def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: str | None) -> Pipeline:
     """
     Utility for generating a pipeline from component parts. If required components are not
     specified, use the transformers library pipeline component validation to force raising an
@@ -1515,10 +1514,28 @@ def _get_task_for_model(model_name_or_path: str, default_task=None) -> str:
     NB: The get_task() function only works for remote models available in the Hugging
     Face hub, so the default task should be supplied when using a custom local model.
     """
-    from transformers.pipelines import get_task
+    from transformers.pipelines import get_supported_tasks, get_task
 
     try:
-        return get_task(model_name_or_path)
+        model_task = get_task(model_name_or_path)
+        if model_task in get_supported_tasks():
+            return model_task
+        elif default_task is not None:
+            _logger.warning(
+                f"The task '{model_task}' inferred from the model is not"
+                "supported by the transformers pipeline. MLflow will "
+                f"construct the pipeline with the fallback task {default_task} "
+                "inferred from the specified 'llm/v1/xxx' task."
+            )
+            return default_task
+        else:
+            raise MlflowException(
+                f"Cannot construct transformers pipeline because the task '{model_task}' "
+                "inferred from the model is not supported by the transformers pipeline. "
+                "Please construct the pipeline instance manually and pass it to the "
+                "`log_model` or `save_model` function."
+            )
+
     except RuntimeError as e:
         if default_task:
             return default_task
@@ -1630,7 +1647,7 @@ def _get_model_config(local_path, pyfunc_config):
         return pyfunc_config or {}
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
     """
     Loads the model as pyfunc model
     """
@@ -1669,7 +1686,6 @@ def _try_import_conversational_pipeline():
         return
 
 
-@experimental
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
@@ -1814,7 +1830,7 @@ class _TransformersWrapper:
                 ) from e
             raise
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Model input data.
@@ -2193,8 +2209,8 @@ class _TransformersWrapper:
             return data
 
     def _coerce_exploded_dict_to_single_dict(
-        self, data: List[Dict[str, Any]]
-    ) -> Dict[str, List[Any]]:
+        self, data: list[dict[str, Any]]
+    ) -> dict[str, list[Any]]:
         """
         Parses the result of Pandas DataFrame.to_dict(orient="records") from pyfunc
         signature validation to coerce the output to the required format for a
@@ -2400,7 +2416,7 @@ class _TransformersWrapper:
         else:
             return output_data
 
-    def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
+    def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> list[str]:
         """
         Parses the output results from select Pipeline types to extract specific values from a
         target key.
@@ -2766,8 +2782,8 @@ class _TransformersWrapper:
         return input_data
 
     def _convert_audio_input(
-        self, data: Union[AudioInput, List[Dict[int, List[AudioInput]]]]
-    ) -> Union[AudioInput, List[AudioInput]]:
+        self, data: AudioInput | list[dict[int, list[AudioInput]]]
+    ) -> AudioInput | list[AudioInput]:
         """
         Convert the input data into the format that the Transformers pipeline expects.
 
@@ -2886,7 +2902,6 @@ class _TransformersWrapper:
         )
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
@@ -2918,11 +2933,7 @@ def autolog(
 
         safe_patch(
             FLAVOR_NAME,
-            (
-                setfit.SetFitTrainer
-                if Version(setfit.__version__) < Version("1.0.0")
-                else setfit.Trainer
-            ),
+            (setfit.SetFitTrainer if Version(setfit.__version__).major < 1 else setfit.Trainer),
             "train",
             functools.partial(train),
             manage_run=False,

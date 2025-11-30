@@ -6,6 +6,7 @@ from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
+from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 
 @pytest.mark.parametrize(
@@ -20,7 +21,8 @@ from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_
     ],
 )
 def test_parse_models_uri_with_version(uri, expected_name, expected_version):
-    (name, version, stage, alias) = _parse_model_uri(uri)
+    (model_id, name, version, stage, alias) = _parse_model_uri(uri)
+    assert model_id is None
     assert name == expected_name
     assert version == expected_version
     assert stage is None
@@ -45,7 +47,8 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
     ],
 )
 def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
-    (name, version, stage, alias) = _parse_model_uri(uri)
+    (model_id, name, version, stage, alias) = _parse_model_uri(uri)
+    assert model_id is None
     assert name == expected_name
     assert version is None
     assert stage == expected_stage
@@ -65,7 +68,8 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
     ],
 )
 def test_parse_models_uri_with_latest(uri, expected_name):
-    (name, version, stage, alias) = _parse_model_uri(uri)
+    (model_id, name, version, stage, alias) = _parse_model_uri(uri)
+    assert model_id is None
     assert name == expected_name
     assert version is None
     assert stage is None
@@ -91,11 +95,21 @@ def test_parse_models_uri_with_latest(uri, expected_name):
     ],
 )
 def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
-    (name, version, stage, alias) = _parse_model_uri(uri)
+    (model_id, name, version, stage, alias) = _parse_model_uri(uri)
+    assert model_id is None
     assert name == expected_name
     assert version is None
     assert stage is None
     assert alias == expected_alias
+
+
+def test_parse_models_uri_model_id():
+    (model_id, name, version, stage, alias) = _parse_model_uri("models:/12345")
+    assert model_id == "12345"
+    assert name is None
+    assert version is None
+    assert stage is None
+    assert alias is None
 
 
 @pytest.mark.parametrize(
@@ -106,12 +120,10 @@ def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
         "notmodels:/NameOfModel@alias",  # wrong scheme with alias
         "models:/",  # no model name
         "models:/ /Stage",  # empty name
-        "models:/Name",  # no specifiers
         "models:/Name/",  # empty suffix
         "models:/Name@",  # empty alias
         "models:/Name/Stage/0",  # too many specifiers
         "models:Name/Stage",  # missing slash
-        "models://Name/Stage",  # hostnames are ignored, path too short
     ],
 )
 def test_parse_models_uri_invalid_input(uri):
@@ -119,9 +131,19 @@ def test_parse_models_uri_invalid_input(uri):
         _parse_model_uri(uri)
 
 
+def test_improper_model_uri_msg_prompts():
+    from mlflow.store.artifact.utils.models import _improper_model_uri_msg
+
+    uri = "prompts:/baduri"
+    msg = _improper_model_uri_msg(uri, scheme="prompts")
+    assert "prompts:/" in msg, f"Missing 'prompts:/' in message: {msg}"
+    assert "Prompts URIs" in msg, f"Missing 'Prompts URIs' in message: {msg}"
+    assert "prompts:/name/suffix" in msg, f"Missing 'prompts:/name/suffix' in message: {msg}"
+
+
 def test_get_model_name_and_version_with_version():
     with mock.patch.object(
-        MlflowClient, "get_latest_versions", return_value=[]
+        ModelRegistryClient, "get_latest_versions", return_value=[]
     ) as mlflow_client_mock:
         assert get_model_name_and_version(MlflowClient(), "models:/AdsModel1/123") == (
             "AdsModel1",
@@ -132,7 +154,7 @@ def test_get_model_name_and_version_with_version():
 
 def test_get_model_name_and_version_with_stage():
     with mock.patch.object(
-        MlflowClient,
+        ModelRegistryClient,
         "get_latest_versions",
         return_value=[
             ModelVersion(
@@ -152,7 +174,7 @@ def test_get_model_name_and_version_with_stage():
 
 def test_get_model_name_and_version_with_latest():
     with mock.patch.object(
-        MlflowClient,
+        ModelRegistryClient,
         "get_latest_versions",
         return_value=[
             ModelVersion(
@@ -176,7 +198,7 @@ def test_get_model_name_and_version_with_latest():
 
 def test_get_model_name_and_version_with_alias():
     with mock.patch.object(
-        MlflowClient,
+        ModelRegistryClient,
         "get_model_version_by_alias",
         return_value=ModelVersion(
             name="mv1", version="10", creation_timestamp=123, aliases=["Champion"]
@@ -187,3 +209,47 @@ def test_get_model_name_and_version_with_alias():
             "10",
         )
         mlflow_client_mock.assert_called_once_with("AdsModel1", "Champion")
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected_name", "expected_version", "expected_alias"),
+    [
+        ("prompts:/Prompt1/1", "Prompt1", "1", None),
+        ("prompts:/Prompt-Name_123/42", "Prompt-Name_123", "42", None),
+        ("prompts:/Prompt1@production", "Prompt1", None, "production"),
+        ("prompts:/Prompt1@PRODUCTION", "Prompt1", None, "PRODUCTION"),
+        ("prompts:/Prompt1@prod-1", "Prompt1", None, "prod-1"),
+        ("prompts:/complex.prompt_name@alias-42", "complex.prompt_name", None, "alias-42"),
+    ],
+)
+def test_parse_prompts_uri(uri, expected_name, expected_version, expected_alias):
+    parsed = _parse_model_uri(uri, scheme="prompts")
+    assert parsed.name == expected_name
+    assert parsed.version == expected_version
+    assert parsed.alias == expected_alias
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "notprompts:/Prompt1/1",  # wrong scheme
+        "prompts:/",  # no prompt name
+        "prompts:/ /1",  # empty name
+        "prompts:/Prompt1/",  # empty version
+        "prompts:/Prompt1@",  # empty alias
+        "prompts:/Prompt1/1/2",  # too many specifiers
+        "prompts:Prompt1/1",  # missing slash
+        "prompts:/Prompt1/latest",  # 'latest' not supported for prompts
+        "prompts:/Prompt1/Production",  # stage not supported for prompts
+    ],
+)
+def test_parse_prompts_uri_invalid_input(uri):
+    with pytest.raises(MlflowException, match="Not a proper prompts"):
+        _parse_model_uri(uri, scheme="prompts")
+
+
+def test_improper_model_uri_msg_invalid_scheme():
+    from mlflow.store.artifact.utils.models import _improper_model_uri_msg
+
+    with pytest.raises(ValueError, match="Unsupported scheme"):
+        _improper_model_uri_msg("foo:/bar", scheme="foo")

@@ -102,16 +102,17 @@ def _overwrite_config(raw_config):
         raw_config.write(cfg)
 
 
-def update_and_persist_config(profile, databricks_config):  # noqa: D417
+def update_and_persist_config(profile, databricks_config):
     """
     Takes a DatabricksConfig and adds the in memory contents to the persisted version of the
     config. This will overwrite any other config that was persisted to the file system under the
     same profile.
 
     Args:
+        profile: str
         databricks_config: DatabricksConfig
     """
-    profile = profile if profile else DEFAULT_SECTION
+    profile = profile or DEFAULT_SECTION
     raw_config = _fetch_from_fs()
     _create_section_if_absent(raw_config, profile)
     _set_option(raw_config, profile, HOST, databricks_config.host)
@@ -132,17 +133,14 @@ def get_config():
 
     If no DatabricksConfig can be found, an InvalidConfigurationError will be raised.
     """
-    global _config_provider
     if _config_provider:
-        config = _config_provider.get_config()
-        if config:
+        if config := _config_provider.get_config():
             return config
         raise InvalidConfigurationError(
             f"Custom provider returned no DatabricksConfig: {_config_provider}"
         )
 
-    config = DefaultConfigProvider().get_config()
-    if config:
+    if config := DefaultConfigProvider().get_config():
         return config
     raise InvalidConfigurationError.for_profile(None)
 
@@ -164,13 +162,12 @@ def get_config_for_profile(profile):
     Returns:
         DatabricksConfig
     """
-    profile = profile if profile else DEFAULT_SECTION
+    profile = profile or DEFAULT_SECTION
     config = EnvironmentVariableConfigProvider().get_config()
     if config and config.is_valid:
         return config
 
-    config = ProfileConfigProvider(profile).get_config()
-    if config:
+    if config := ProfileConfigProvider(profile).get_config():
         return config
     return DatabricksConfig.empty()
 
@@ -191,7 +188,6 @@ def get_config_provider():
     Returns the current DatabricksConfigProvider.
     If None, the DefaultConfigProvider will be used.
     """
-    global _config_provider
     return _config_provider
 
 
@@ -469,10 +465,15 @@ class DatabricksConfig:
         return self.auth_type == "databricks-cli"
 
     @property
+    def is_azure_cli_auth_type(self):
+        return self.auth_type == "azure-cli"
+
+    @property
     def is_valid(self):
         return (
             self.is_valid_with_token
             or self.is_valid_with_password
             or self.is_valid_with_client_id_secret
             or self.is_databricks_cli_auth_type
+            or self.is_azure_cli_auth_type
         )

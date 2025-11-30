@@ -14,7 +14,7 @@ sentence_transformer_pipeline = pipeline(task=task, model=model, tokenizer=token
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=sentence_transformer_pipeline,
-        artifact_path="sentence_transformer",
+        name="sentence_transformer",
         framework="pt",
         torch_dtype=torch.bfloat16,
     )

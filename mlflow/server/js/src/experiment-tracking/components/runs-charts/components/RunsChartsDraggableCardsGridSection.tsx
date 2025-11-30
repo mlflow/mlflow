@@ -1,21 +1,22 @@
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
-import { shouldEnableHidingChartsWithNoData } from '../../../../common/utils/FeatureUtils';
 import { useUpdateRunsChartsUIConfiguration } from '../hooks/useRunsChartsUIConfiguration';
-import { RunsChartsCardConfig } from '../runs-charts.types';
-import type { RunsChartsProps } from './RunsCharts';
+import type { RunsChartsCardConfig } from '../runs-charts.types';
+import type { RunsChartsRunData } from './RunsCharts.common';
 import { isEmptyChartCard } from './RunsCharts.common';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { Global } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
-import { ChartSectionConfig } from '../../../types';
+import type { ChartSectionConfig } from '../../../types';
 import { RunsChartsDraggableCard } from './RunsChartsDraggableCard';
 import {
   useRunsChartsDraggableGridActionsContext,
   useRunsChartsDraggableGridStateContext,
 } from './RunsChartsDraggableCardsGridContext';
 import { RunsChartsDraggablePreview } from './RunsChartsDraggablePreview';
-import { DRAGGABLE_CARD_TRANSITION_NAME } from './cards/ChartCard.common';
+import { DRAGGABLE_CARD_TRANSITION_NAME, type RunsChartCardSetFullscreenFn } from './cards/ChartCard.common';
+import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
+import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
 
 const rowHeightSuggestions = [300, 330, 360, 400, 500];
 
@@ -27,21 +28,18 @@ const getColumnSuggestions = (containerWidth: number, gapSize = 8) =>
 
 const PlaceholderSymbol = Symbol('placeholder');
 
-interface RunsChartsDraggableCardsGridProps
-  extends Pick<
-    RunsChartsProps,
-    | 'onStartEditChart'
-    | 'onRemoveChart'
-    | 'setFullScreenChart'
-    | 'sectionId'
-    | 'groupBy'
-    | 'autoRefreshEnabled'
-    | 'hideEmptyCharts'
-    | 'chartRunData'
-    | 'cardsConfig'
-    | 'globalLineChartConfig'
-  > {
+interface RunsChartsDraggableCardsGridProps {
+  onRemoveChart: (chart: RunsChartsCardConfig) => void;
+  onStartEditChart: (chart: RunsChartsCardConfig) => void;
   sectionConfig: ChartSectionConfig;
+  setFullScreenChart: RunsChartCardSetFullscreenFn;
+  sectionId: string;
+  groupBy: RunsGroupByConfig | null;
+  autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+  chartRunData: RunsChartsRunData[];
+  cardsConfig: RunsChartsCardConfig[];
 }
 
 // Renders draggable cards grid in a single chart section
@@ -161,7 +159,7 @@ export const RunsChartsDraggableCardsGridSection = memo(
 
     const cardsToRender = useMemo(() => {
       return cardsConfig.filter((cardConfig) => {
-        if (!shouldEnableHidingChartsWithNoData() || !hideEmptyCharts) {
+        if (!hideEmptyCharts) {
           return true;
         }
         return !isEmptyChartCard(chartRunData, cardConfig);
@@ -374,9 +372,13 @@ export const RunsChartsDraggableCardsGridSection = memo(
               height={cardHeight}
               canMoveDown={Boolean(array[index + 1])}
               canMoveUp={Boolean(array[index - 1])}
+              canMoveToTop={index > 0}
+              canMoveToBottom={index < array.length - 1}
               previousChartUuid={array[index - 1]?.uuid}
               nextChartUuid={array[index + 1]?.uuid}
               hideEmptyCharts={hideEmptyCharts}
+              firstChartUuid={array[0]?.uuid}
+              lastChartUuid={array[array.length - 1]?.uuid}
               {...cardProps}
             />
           );

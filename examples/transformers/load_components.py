@@ -16,7 +16,7 @@ signature = mlflow.models.infer_signature(
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=translation_pipeline,
-        artifact_path="french_translator",
+        name="french_translator",
         signature=signature,
     )
 

@@ -1,6 +1,0 @@
-python: "3.8"
-build_dependencies:
-  - pip
-dependencies:
-  - fastai>=2.4.1
-  - mlflow>=1.9.0

@@ -2,19 +2,17 @@ import inspect
 import json
 import keyword
 import logging
-import operator
 import os
 import pathlib
 import signal
 import urllib
 import urllib.parse
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
-from contextlib import contextmanager
-from decimal import Decimal
+from contextlib import contextmanager, nullcontext
+from dataclasses import dataclass
 from inspect import Parameter, Signature
 from types import FunctionType
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -24,17 +22,18 @@ from mlflow.data.evaluation_dataset import (
 )
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.validation import (
-    MetricThreshold,
-    ModelValidationFailedException,
-    _MetricValidationResult,
-)
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.telemetry.events import EvaluateEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils import _get_fully_qualified_class_name
-from mlflow.utils.annotations import developer_stable, experimental
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
@@ -56,6 +55,9 @@ class _ModelType:
     TEXT_SUMMARIZATION = "text-summarization"
     TEXT = "text"
     RETRIEVER = "retriever"
+    # This model type is used for Mosaic AI Agent evaluation and only available in Databricks
+    # https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html
+    DATABRICKS_AGENT = "databricks-agent"
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
@@ -110,7 +112,7 @@ class EvaluationMetric:
                     ...
 
         name: The name of the metric.
-        greater_is_better: Whether a higher value of the metric is better.
+        greater_is_better: Whether a greater value of the metric is better.
         long_name: (Optional) The long name of the metric. For example,
             ``"root_mean_squared_error"`` for ``"mse"``.
         version: (Optional) The metric version. For example ``v1``.
@@ -198,9 +200,9 @@ def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
         def genai_call_method(
             self,
             *,
-            predictions: Union[pd.Series, str, List[str]],
-            inputs: Union[pd.Series, str, List[str]],
-            metrics: Optional[Dict[str, MetricValue]] = None,
+            predictions: pd.Series | str | list[str],
+            inputs: pd.Series | str | list[str],
+            metrics: dict[str, MetricValue] | None = None,
             **kwargs,
         ) -> MetricValue:
             if missed_kwargs := set(allowed_kwargs_names) - set(kwargs.keys()):
@@ -230,23 +232,21 @@ def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
                 Parameter(
                     "predictions",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Union[pd.Series, str, List[str]],
+                    annotation=pd.Series | str | list[str],
                 ),
                 Parameter(
                     "inputs",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Union[pd.Series, str, List[str]],
+                    annotation=pd.Series | str | list[str],
                 ),
                 Parameter(
                     "metrics",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Optional[Dict[str, MetricValue]],
+                    annotation=dict[str, MetricValue] | None,
                     default=None,
                 ),
                 *[
-                    Parameter(
-                        name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, str, List[str]]
-                    )
+                    Parameter(name, Parameter.KEYWORD_ONLY, annotation=pd.Series | str | list[str])
                     for name in allowed_kwargs_names
                 ],
             ]
@@ -372,7 +372,7 @@ def make_metric(
                     """
                     ...
 
-        greater_is_better: Whether a higher value of the metric is better.
+        greater_is_better: Whether a greater value of the metric is better.
         name: The name of the metric. This argument must be specified if ``eval_fn`` is a lambda
                     function or the ``eval_fn.__name__`` attribute is not available.
         long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
@@ -453,7 +453,7 @@ def _make_metric(
                     """
                     ...
 
-        greater_is_better: Whether a higher value of the metric is better.
+        greater_is_better: Whether a greater value of the metric is better.
         name: The name of the metric. This argument must be specified if ``eval_fn`` is a lambda
                     function or the ``eval_fn.__name__`` attribute is not available.
         long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
@@ -600,10 +600,9 @@ class EvaluationResult:
     both scalar metrics and output artifacts such as performance plots.
     """
 
-    def __init__(self, metrics, artifacts, baseline_model_metrics=None, run_id=None):
+    def __init__(self, metrics, artifacts, run_id=None):
         self._metrics = metrics
         self._artifacts = artifacts
-        self._baseline_model_metrics = baseline_model_metrics if baseline_model_metrics else {}
         self._run_id = (
             run_id
             if run_id is not None
@@ -657,14 +656,14 @@ class EvaluationResult:
             artifact._save(os.path.join(artifacts_dir, filename))
 
     @property
-    def metrics(self) -> Dict[str, Any]:
+    def metrics(self) -> dict[str, Any]:
         """
         A dictionary mapping scalar metric names to scalar metric values
         """
         return self._metrics
 
     @property
-    def artifacts(self) -> Dict[str, "mlflow.models.EvaluationArtifact"]:
+    def artifacts(self) -> dict[str, "mlflow.models.EvaluationArtifact"]:
         """
         A dictionary mapping standardized artifact names (e.g. "roc_data") to
         artifact content and location information
@@ -672,15 +671,14 @@ class EvaluationResult:
         return self._artifacts
 
     @property
-    def baseline_model_metrics(self) -> Dict[str, Any]:
+    def run_id(self) -> str:
         """
-        A dictionary mapping scalar metric names to scalar metric values for the baseline model
+        The ID of the MLflow Run to which the evaluation results were logged.
         """
-        return self._baseline_model_metrics
+        return self._run_id
 
-    @experimental
     @property
-    def tables(self) -> Dict[str, "pd.DataFrame"]:
+    def tables(self) -> dict[str, "pd.DataFrame"]:
         """
         A dictionary mapping standardized artifact names (e.g. "eval_results_table") to
         corresponding table content as pandas DataFrame.
@@ -703,8 +701,9 @@ class EvaluationResult:
 
 @developer_stable
 class ModelEvaluator(metaclass=ABCMeta):
+    @classmethod
     @abstractmethod
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs) -> bool:
+    def can_evaluate(cls, *, model_type, evaluator_config, **kwargs) -> bool:
         """
         Args:
             model_type: A string describing the model type (e.g., "regressor", "classifier", …).
@@ -717,10 +716,9 @@ class ModelEvaluator(metaclass=ABCMeta):
             True if the evaluator can evaluate the specified model on the
             specified dataset. False otherwise.
         """
-        raise NotImplementedError()
 
     @abstractmethod
-    def evaluate(  # noqa: D417
+    def evaluate(
         self,
         *,
         model_type,
@@ -728,10 +726,8 @@ class ModelEvaluator(metaclass=ABCMeta):
         run_id,
         evaluator_config,
         model=None,
-        custom_metrics=None,
         extra_metrics=None,
         custom_artifacts=None,
-        baseline_model=None,
         predictions=None,
         **kwargs,
     ):
@@ -746,28 +742,20 @@ class ModelEvaluator(metaclass=ABCMeta):
             run_id: The ID of the MLflow Run to which to log results.
             evaluator_config: A dictionary of additional configurations for
                 the evaluator.
-            model: A pyfunc model instance, used as the candidate_model
-                to be compared with baseline_model (specified by the `baseline_model` param)
-                for model validation. If None, the model output is supposed to be found in
+            model: A pyfunc model instance. If None, the model output is supposed to be found in
                 ``dataset.predictions_data``.
             extra_metrics: A list of :py:class:`EvaluationMetric` objects.
             custom_artifacts: A list of callable custom artifact functions.
-            kwargs: For forwards compatibility, a placeholder for additional arguments that
-                may be added to the evaluation interface in the future.
-            baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
-                flavor as a baseline model to be compared with the
-                candidate model (specified by the `model` param) for model
-                validation. (pyfunc model instance is not allowed)
             predictions: The column name of the model output column that is used for evaluation.
                 This is only used when a model returns a pandas dataframe that contains
                 multiple columns.
+            kwargs: For forwards compatibility, a placeholder for additional arguments that
+                may be added to the evaluation interface in the future.
 
         Returns:
             A :py:class:`mlflow.models.EvaluationResult` instance containing
-            evaluation metrics for candidate model and baseline model and
-            artifacts for candidate model.
+            evaluation metrics and artifacts for the model.
         """
-        raise NotImplementedError()
 
 
 def list_evaluators():
@@ -797,11 +785,86 @@ def _start_run_or_reuse_active_run():
         yield active_run.info.run_id
 
 
-def _normalize_evaluators_and_evaluator_config_args(
-    evaluators,
-    evaluator_config,
-):
+# NB: We often pass around evaluator name, config, and its instance together. Ideally, the
+# evaluator class should have name and config as class attributes, however, it was not
+# designed that way. Adding them while keeping backward compatibility is not trivial.
+# So, we use a dataclass to bundle them together.
+@dataclass
+class EvaluatorBundle:
+    name: str
+    evaluator: ModelEvaluator
+    config: dict[str, Any]
+
+
+def _resolve_default_evaluator(model_type, default_config) -> list[EvaluatorBundle]:
+    """
+    Determine which built-in evaluators should be used for the given model type by default.
+
+    Previously, MLflow evaluate API only had a single "default" evaluator used for all models like
+    classifier, regressor, etc. We split it into multiple built-in evaluators for different model
+    types for maintainability, but in order to maintain backward compatibility, we need to map
+    the "default" provided by users to the correct built-in evaluators.
+
+    Args:
+        model_type: A string describing the model type (e.g., "regressor", "classifier", …).
+        default_config: A dictionary of configurations for the "default" evaluator. If any
+            non-default built-in evaluator is applicable, this config will be applied to them.
+    """
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+
+    builtin_evaluators = []
+    for name in _model_evaluation_registry._registry:
+        evaluator = _model_evaluation_registry.get_evaluator(name)
+        if (
+            name != "default"
+            and _model_evaluation_registry.is_builtin(name)
+            and evaluator.can_evaluate(model_type=model_type, evaluator_config=default_config)
+        ):
+            builtin_evaluators.append(EvaluatorBundle(name, evaluator, default_config))
+
+    # We should use DefaultEvaluator only if there is no other built-in evaluator applicable.
+    if not builtin_evaluators:
+        default_evaluator = _model_evaluation_registry.get_evaluator("default")
+        builtin_evaluators = [EvaluatorBundle("default", default_evaluator, default_config)]
+
+    return builtin_evaluators
+
+
+def resolve_evaluators_and_configs(
+    evaluators: str | list[str] | None,
+    evaluator_config: dict[str, Any] | None,
+    model_type: str | None = None,
+) -> list[EvaluatorBundle]:
+    """
+    The `evaluators` and `evaluator_config` arguments of the `evaluate` API can be specified
+    in multiple ways. This function normalizes the arguments into a single format for easier
+    downstream processing.
+
+    Args:
+        evaluators: A string or a list of strings specifying the evaluators to use for model
+            evaluation. If None, all available evaluators will be used.
+        evaluator_config: A dictionary containing configuration items for the evaluators.
+        model_type: A string describing the model type (e.g., "regressor", "classifier", …).
+
+    Returns:
+        A list of EvaluatorBundle that contains name, evaluator, config for each evaluator.
+    """
+    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry as rg
+
+    # NB: The `databricks-agents` package must be installed to use the 'databricks-agent' model
+    # type. Ideally this check should be done in the 'databricks-agent' evaluator implementation,
+    # but we need to do it here because the code won't reach the evaluator implementation if the
+    # package is not installed.
+    if model_type == _ModelType.DATABRICKS_AGENT:
+        try:
+            import databricks.agents  # noqa: F401
+        except ImportError as e:
+            raise MlflowException(
+                message="Databricks Agents SDK must be installed to use the "
+                f"`{_ModelType.DATABRICKS_AGENT}` model type. Run `pip install databricks-agents` "
+                "to install the package and try again.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e
 
     def check_nesting_config_dict(_evaluator_name_list, _evaluator_name_to_conf_map):
         return isinstance(_evaluator_name_to_conf_map, dict) and all(
@@ -810,73 +873,100 @@ def _normalize_evaluators_and_evaluator_config_args(
         )
 
     if evaluators is None:
-        evaluator_name_list = list(_model_evaluation_registry._registry.keys())
-        if len(evaluator_name_list) > 1:
-            _logger.debug(
-                f"Multiple registered evaluators have been configured: {evaluator_name_list}. "
-                "Each evaluator will be used for evaluation if the specified model type is "
-                "compatible with the evaluator definition. If you are intending to override "
-                "the default evaluator, define your custom evaluator by declaring it via the "
-                "`evaluator` argument. If your evaluator requires additional configuration, "
-                "ensure that it is provided by specifying the `evaluator_config` argument."
-            )
-        if evaluator_config is not None:
-            conf_dict_value_error = MlflowException(
-                message="If `evaluators` argument is None, all available evaluators will be used. "
-                "If only the default evaluator is available, the `evaluator_config` argument is "
-                "interpreted as the config dictionary for the default evaluator. Otherwise, the "
-                "`evaluator_config` argument must be a dictionary mapping each evaluator's name "
-                "to its own evaluator config dictionary.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-            if evaluator_name_list == ["default"]:
-                if not isinstance(evaluator_config, dict):
-                    raise conf_dict_value_error
-                elif "default" not in evaluator_config:
-                    evaluator_name_to_conf_map = {"default": evaluator_config}
-                else:
-                    evaluator_name_to_conf_map = evaluator_config
-            else:
-                if not check_nesting_config_dict(evaluator_name_list, evaluator_config):
-                    raise conf_dict_value_error
-                evaluator_name_to_conf_map = evaluator_config
-        else:
-            evaluator_name_to_conf_map = {}
+        # If no evaluators are specified, use all available evaluators.
+        evaluators = list(rg._registry.keys())
+
+        evaluator_config = evaluator_config or {}
+        if evaluator_config is not None and not any(
+            name in evaluator_config for name in evaluators
+        ):
+            # If evaluator config is passed but any of available evaluator key is not
+            # in the evaluator config, we assume the evaluator config to be a flat dict,
+            # which is globally applied to all evaluators.
+            evaluator_config = dict.fromkeys(evaluators, evaluator_config)
+
+        # Filter out evaluators that cannot evaluate the model type.
+        resolved = []
+        for name in evaluators:
+            evaluator = rg.get_evaluator(name)
+            config = evaluator_config.get(name, {})
+            if evaluator.can_evaluate(model_type=model_type, evaluator_config=config):
+                resolved.append(EvaluatorBundle(name=name, evaluator=evaluator, config=config))
+
+        # If any of built-in evaluator can apply, skip "default" evaluator.
+        default = next((ev for ev in resolved if ev.name == "default"), None)
+        non_default_builtins = [
+            ev for ev in resolved if ev.name != "default" and rg.is_builtin(ev.name)
+        ]
+        if default and non_default_builtins:
+            resolved.remove(default)
+            # Apply default config (passed like `evaluator_config={"default": config}`) to
+            # non-default built-in evaluators (e.g., ClassifierEvaluator) if they don't have
+            # explicitly specified configs. This is for backward compatibility where we only
+            # had a single "default" evaluator used for all models.
+            # For example, if the user passes this for a classifier model:
+            #     evaluator_config = {"default": my_config}
+            # it should be equivalent to
+            #    evaluator_config = {"classifier": my_config, "shap": my_config}
+            for ev in non_default_builtins:
+                ev.config = ev.config or default.config
+
+        return resolved
+
     elif isinstance(evaluators, str):
+        # Single evaluator name specified
         if not (evaluator_config is None or isinstance(evaluator_config, dict)):
             raise MlflowException(
                 message="If `evaluators` argument is the name of an evaluator, evaluator_config"
                 " must be None or a dict containing config items for the evaluator.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        evaluator_name_list = [evaluators]
-        evaluator_name_to_conf_map = {evaluators: evaluator_config}
+
+        evaluator_config = evaluator_config or {}
+        if evaluators == "default":
+            # Previously we only had a single "default" evaluator used for all models.
+            # We need to map "default" to the new dedicated builtin evaluators.
+            return _resolve_default_evaluator(model_type, evaluator_config)
+        elif rg.is_registered(evaluators):
+            return [EvaluatorBundle(evaluators, rg.get_evaluator(evaluators), evaluator_config)]
+        else:
+            return []
+
     elif isinstance(evaluators, list):
-        if evaluator_config is not None:
-            if not check_nesting_config_dict(evaluators, evaluator_config):
-                raise MlflowException(
-                    message="If `evaluators` argument is an evaluator name list, evaluator_config "
-                    "must be a dict contains mapping from evaluator name to individual "
-                    "evaluator config dict.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        # Use `OrderedDict.fromkeys` to deduplicate elements but keep elements order.
-        evaluator_name_list = list(OrderedDict.fromkeys(evaluators))
-        evaluator_name_to_conf_map = evaluator_config or {}
+        if evaluator_config is not None and not check_nesting_config_dict(
+            evaluators, evaluator_config
+        ):
+            raise MlflowException(
+                message="If `evaluators` argument is an evaluator name list, evaluator_config "
+                "must be a dict containing mapping from evaluator name to individual "
+                "evaluator config dict.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        evaluator_config = evaluator_config or {}
+
+        # Previously we only had a single "default" evaluator used for all models.
+        # We need to map "default" to the new dedicated builtin evaluators.
+        resolved = []
+        for name in evaluators:
+            config = evaluator_config.get(name, {})
+            if name == "default":
+                builtin_evaluators = _resolve_default_evaluator(model_type, config)
+                resolved.extend(builtin_evaluators)
+            else:
+                resolved.append(EvaluatorBundle(name, rg.get_evaluator(name), config))
+        return resolved
     else:
         raise MlflowException(
-            message="`evaluators` argument must be None, an evaluator name string, or a list of "
-            "evaluator names.",
+            message="Invalid `evaluators` and `evaluator_config` arguments. "
+            "Please refer to the documentation for correct usage.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-
-    return evaluator_name_list, evaluator_name_to_conf_map
 
 
 def _model_validation_contains_model_comparison(validation_thresholds):
     """
     Helper function for determining if validation_thresholds contains
-    thresholds for model comparsion: either min_relative_change or min_absolute_change
+    thresholds for model comparison: either min_relative_change or min_absolute_change
     """
     if not validation_thresholds:
         return False
@@ -897,136 +987,30 @@ def _get_last_failed_evaluator():
     return _last_failed_evaluator
 
 
-def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
-    """
-    Validate the model based on validation_thresholds by metrics value and
-    metrics comparison between candidate model's metrics (candidate_metrics) and
-    baseline model's metrics (baseline_metrics).
-
-    Args:
-        validation_thresholds: A dictionary from metric_name to MetricThreshold.
-        candidate_metrics: The metric evaluation result of the candidate model.
-        baseline_metrics: The metric evaluation result of the baseline model.
-            If the validation does not pass, raise an MlflowException with detail failure message.
-    """
-    if not baseline_metrics:
-        baseline_metrics = {}
-
-    validation_results = {
-        metric_name: _MetricValidationResult(
-            metric_name,
-            candidate_metrics.get(metric_name, None),
-            threshold,
-            baseline_metrics.get(metric_name, None),
-        )
-        for (metric_name, threshold) in validation_thresholds.items()
-    }
-
-    for metric_name in validation_thresholds.keys():
-        metric_threshold, validation_result = (
-            validation_thresholds[metric_name],
-            validation_results[metric_name],
-        )
-
-        if metric_name not in candidate_metrics:
-            validation_result.missing_candidate = True
-            continue
-
-        candidate_metric_value, baseline_metric_value = (
-            candidate_metrics[metric_name],
-            baseline_metrics[metric_name] if baseline_metrics else None,
-        )
-
-        # If metric is higher is better, >= is used, otherwise <= is used
-        # for thresholding metric value and model comparsion
-        comparator_fn = operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
-        operator_fn = operator.add if metric_threshold.greater_is_better else operator.sub
-
-        if metric_threshold.threshold is not None:
-            # metric threshold fails
-            # - if not (metric_value >= threshold) for higher is better
-            # - if not (metric_value <= threshold) for lower is better
-            validation_result.threshold_failed = not comparator_fn(
-                candidate_metric_value, metric_threshold.threshold
-            )
-
-        if (
-            metric_threshold.min_relative_change or metric_threshold.min_absolute_change
-        ) and metric_name not in baseline_metrics:
-            validation_result.missing_baseline = True
-            continue
-
-        if metric_threshold.min_absolute_change is not None:
-            # metric comparsion aboslute change fails
-            # - if not (metric_value >= baseline + min_absolute_change) for higher is better
-            # - if not (metric_value <= baseline - min_absolute_change) for lower is better
-            validation_result.min_absolute_change_failed = not comparator_fn(
-                Decimal(candidate_metric_value),
-                Decimal(operator_fn(baseline_metric_value, metric_threshold.min_absolute_change)),
-            )
-
-        if metric_threshold.min_relative_change is not None:
-            # If baseline metric value equals 0, fallback to simple comparison check
-            if baseline_metric_value == 0:
-                _logger.warning(
-                    f"Cannot perform relative model comparison for metric {metric_name} as "
-                    "baseline metric value is 0. Falling back to simple comparison: verifying "
-                    "that candidate metric value is better than the baseline metric value."
-                )
-                validation_result.min_relative_change_failed = not comparator_fn(
-                    Decimal(candidate_metric_value),
-                    Decimal(operator_fn(baseline_metric_value, 1e-10)),
-                )
-                continue
-            # metric comparsion relative change fails
-            # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
-            # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
-            if metric_threshold.greater_is_better:
-                relative_change = (
-                    candidate_metric_value - baseline_metric_value
-                ) / baseline_metric_value
-            else:
-                relative_change = (
-                    baseline_metric_value - candidate_metric_value
-                ) / baseline_metric_value
-            validation_result.min_relative_change_failed = (
-                relative_change < metric_threshold.min_relative_change
-            )
-
-    failure_messages = []
-
-    for metric_validation_result in validation_results.values():
-        if metric_validation_result.is_success():
-            continue
-        failure_messages.append(str(metric_validation_result))
-
-    if not failure_messages:
-        return
-
-    raise ModelValidationFailedException(message=os.linesep.join(failure_messages))
-
-
+# DO NOT CHANGE THE ORDER OF THE ARGUMENTS
+# The order of the arguments need to be preserved. You can add new arguments at the end
+# of the argument list, but do not change the order of the existing arguments.
+@record_usage_event(EvaluateEvent)
 def _evaluate(
     *,
     model,
     model_type,
+    model_id,
     dataset,
     run_id,
+    # The `evaluator_name_list` and `evaluator_name_to_conf_map` are not used by MLflow at all,
+    # but we need to keep these for backward compatibility.
     evaluator_name_list,
     evaluator_name_to_conf_map,
-    custom_metrics,
     extra_metrics,
     custom_artifacts,
-    baseline_model,
     predictions,
+    evaluators,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
     to the _evaluate method.
     """
-    # import _model_evaluation_registry and PyFuncModel inside function to avoid circuit importing
-    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
-
     global _last_failed_evaluator
     _last_failed_evaluator = None
 
@@ -1039,30 +1023,26 @@ def _evaluate(
         dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
-    for evaluator_name in evaluator_name_list:
-        config = evaluator_name_to_conf_map.get(evaluator_name) or {}
-        try:
-            evaluator = _model_evaluation_registry.get_evaluator(evaluator_name)
-        except MlflowException:
-            _logger.warning(f"Evaluator '{evaluator_name}' is not registered.")
-            continue
+    should_enable_tracing = model is not None  # Do not enable tracing if static dataset is provided
+    for eval_ in evaluators:
+        _logger.debug(f"Evaluating the model with the {eval_.name} evaluator.")
+        _last_failed_evaluator = eval_.name
+        if eval_.evaluator.can_evaluate(model_type=model_type, evaluator_config=eval_.config):
+            with configure_autologging_for_evaluation(enable_tracing=should_enable_tracing):
+                eval_result = eval_.evaluator.evaluate(
+                    model=model,
+                    model_type=model_type,
+                    model_id=model_id,
+                    dataset=dataset,
+                    run_id=run_id,
+                    evaluator_config=eval_.config,
+                    extra_metrics=extra_metrics,
+                    custom_artifacts=custom_artifacts,
+                    predictions=predictions,
+                )
 
-        _last_failed_evaluator = evaluator_name
-        if evaluator.can_evaluate(model_type=model_type, evaluator_config=config):
-            _logger.debug(f"Evaluating the model with the {evaluator_name} evaluator.")
-            eval_result = evaluator.evaluate(
-                model=model,
-                model_type=model_type,
-                dataset=dataset,
-                run_id=run_id,
-                evaluator_config=config,
-                custom_metrics=custom_metrics,
-                extra_metrics=extra_metrics,
-                custom_artifacts=custom_artifacts,
-                baseline_model=baseline_model,
-                predictions=predictions,
-            )
-            eval_results.append(eval_result)
+            if eval_result is not None:
+                eval_results.append(eval_result)
 
     _last_failed_evaluator = None
 
@@ -1073,15 +1053,11 @@ def _evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    merged_eval_result = EvaluationResult({}, {}, {}, None)
+    merged_eval_result = EvaluationResult({}, {}, None)
 
     for eval_result in eval_results:
-        if not eval_result:
-            continue
         merged_eval_result.metrics.update(eval_result.metrics)
         merged_eval_result.artifacts.update(eval_result.artifacts)
-        if baseline_model and eval_result.baseline_model_metrics:
-            merged_eval_result.baseline_model_metrics.update(eval_result.baseline_model_metrics)
 
     return merged_eval_result
 
@@ -1111,7 +1087,7 @@ def _is_model_deployment_endpoint_uri(model: Any) -> bool:
 
 
 def _get_model_from_deployment_endpoint_uri(
-    endpoint_uri: str, params: Optional[Dict[str, Any]] = None
+    endpoint_uri: str, params: dict[str, Any] | None = None
 ):
     from mlflow.metrics.genai.model_utils import _parse_model_uri
     from mlflow.pyfunc.model import ModelFromDeploymentEndpoint, _PythonModelPyfuncWrapper
@@ -1123,7 +1099,7 @@ def _get_model_from_deployment_endpoint_uri(
     return _PythonModelPyfuncWrapper(python_model, None, None)
 
 
-def evaluate(  # noqa: D417
+def evaluate(
     model=None,
     data=None,
     *,
@@ -1134,15 +1110,13 @@ def evaluate(  # noqa: D417
     feature_names=None,
     evaluators=None,
     evaluator_config=None,
-    custom_metrics=None,
     extra_metrics=None,
     custom_artifacts=None,
-    validation_thresholds=None,
-    baseline_model=None,
     env_manager="local",
     model_config=None,
-    baseline_config=None,
     inference_params=None,
+    model_id=None,
+    _called_from_genai_evaluate=False,
 ):
     '''
     Evaluate the model performance on given data and selected metrics.
@@ -1151,7 +1125,7 @@ def evaluate(  # noqa: D417
     specified ``evaluators``, and logs resulting metrics & artifacts to MLflow tracking server.
     Users can also skip setting ``model`` and put the model outputs in ``data`` directly for
     evaluation. For detailed information, please read
-    :ref:`the Model Evaluation documentation <model-evaluation>`.
+    `the Model Evaluation documentation <../../model-evaluation/index.html>`_.
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
@@ -1286,7 +1260,7 @@ def evaluate(  # noqa: D417
 
      - The metrics/artifacts listed above are logged to the active MLflow run.
        If no active run exists, a new MLflow run is created for logging these metrics and
-       artifacts. Note that no metrics/artifacts are logged for the ``baseline_model``.
+       artifacts.
 
      - Additionally, information about the specified dataset - hash, name (if specified), path
        (if specified), and the UUID of the model that evaluated it - is logged to the
@@ -1295,6 +1269,8 @@ def evaluate(  # noqa: D417
      - The available ``evaluator_config`` options for the default evaluator include:
         - **log_model_explainability**: A boolean value specifying whether or not to log model
           explainability insights, default value is True.
+        - **log_explainer**: If True, log the explainer used to compute model explainability
+            insights as a model. Default value is False.
         - **explainability_algorithm**: A string to specify the SHAP Explainer algorithm for model
           explainability. Supported algorithm includes: 'exact', 'permutation', 'partition',
           'kernel'.
@@ -1302,7 +1278,7 @@ def evaluate(  # noqa: D417
           Explainer based on the model.
         - **explainability_nsamples**: The number of sample rows to use for computing model
           explainability insights. Default value is 2000.
-        - **explainability_kernel_link**: The kernel link function used by shap kernal explainer.
+        - **explainability_kernel_link**: The kernel link function used by shap kernel explainer.
           Available values are "identity" and "logit". Default value is "identity".
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log
@@ -1396,7 +1372,7 @@ def evaluate(  # noqa: D417
             - A Pandas DataFrame containing evaluation features, labels, and optionally model
                 outputs. Model outputs are required to be provided when model is unspecified.
                 If ``feature_names`` argument not specified, all columns except for the label
-                column and model_output column are regarded as feature columns. Otherwise,
+                column and predictions column are regarded as feature columns. Otherwise,
                 only column names present in ``feature_names`` are regarded as feature columns.
             -  A Spark DataFrame containing evaluation features and labels. If
                 ``feature_names`` argument not specified, all columns except for the label
@@ -1406,7 +1382,25 @@ def evaluate(  # noqa: D417
             - A :py:class:`mlflow.data.dataset.Dataset` instance containing evaluation
                 features, labels, and optionally model outputs. Model outputs are only supported
                 with a PandasDataset. Model outputs are required when model is unspecified, and
-                should be specified via the ``predictions`` prerty of the PandasDataset.
+                should be specified via the ``predictions`` property of the PandasDataset.
+
+        model_type: (Optional) A string describing the model type. The default evaluator
+            supports the following model types:
+
+            - ``'classifier'``
+            - ``'regressor'``
+            - ``'question-answering'``
+            - ``'text-summarization'``
+            - ``'text'``
+            - ``'retriever'``
+
+            If no ``model_type`` is specified, then you must provide a a list of
+            metrics to compute via the ``extra_metrics`` param.
+
+            .. note::
+                ``'question-answering'``, ``'text-summarization'``, ``'text'``, and
+                ``'retriever'`` are experimental and may be changed or removed in a
+                future release.
 
         targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
             labels. If ``data`` is a DataFrame, the string name of a column from ``data``
@@ -1435,36 +1429,22 @@ def evaluate(  # noqa: D417
                     return pd.DataFrame({"answer": ["bar"], "source": ["baz"]})
 
 
-                results = evaluate(model=model, data=data, predictions="answer", ...)
+                results = evaluate(
+                    model=model,
+                    data=data,
+                    predictions="answer",
+                    # other arguments if needed
+                )
 
                 # Evaluate a static dataset
                 data = pd.DataFrame({"question": ["foo"], "answer": ["bar"], "source": ["baz"]})
-                results = evaluate(data=data, predictions="answer", ...)
-
-        model_type: (Optional) A string describing the model type. The default evaluator
-            supports the following model types:
-
-            - ``'classifier'``
-            - ``'regressor'``
-            - ``'question-answering'``
-            - ``'text-summarization'``
-            - ``'text'``
-            - ``'retriever'``
-
-            If no ``model_type`` is specified, then you must provide a a list of
-            metrics to compute via the ``extra_metrics`` param.
-
-            .. note::
-                ``'question-answering'``, ``'text-summarization'``, ``'text'``, and
-                ``'retriever'`` are experimental and may be changed or removed in a
-                future release.
-
-        inference_params: (Optional) A dictionary of inference parameters to be passed to the model
-            when making predictions, such as ``{"max_tokens": 100}``. This is only used when
-            the ``model`` is an MLflow Deployments endpoint URI e.g. ``"endpoints:/my-chat"``
-
+                results = evaluate(
+                    data=data,
+                    predictions="answer",
+                    # other arguments if needed
+                )
         dataset_path: (Optional) The path where the data is stored. Must not contain double
-            quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
+            quotes (``"``). If specified, the path is logged to the ``mlflow.datasets``
             tag for lineage tracking purposes.
 
         feature_names: (Optional) A list. If the ``data`` argument is a numpy array or list,
@@ -1501,7 +1481,7 @@ def evaluate(  # noqa: D417
 
 
                 def root_mean_squared_error(eval_df, _builtin_metrics):
-                    return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean)
+                    return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean())
 
 
                 rmse_metric = mlflow.models.make_metric(
@@ -1582,49 +1562,8 @@ def evaluate(  # noqa: D417
 
                 mlflow.evaluate(..., custom_artifacts=[scatter_plot, pred_sample])
 
-        validation_thresholds: (Optional) A dictionary of metric name to
-            :py:class:`mlflow.models.MetricThreshold` used for model validation. Each metric name
-            must either be the name of a builtin metric or the name of a metric defined in the
-            ``extra_metrics`` parameter.
-
-            .. code-block:: python
-                :caption: Example of Model Validation
-
-                from mlflow.models import MetricThreshold
-
-                thresholds = {
-                    "accuracy_score": MetricThreshold(
-                        # accuracy should be >=0.8
-                        threshold=0.8,
-                        # accuracy should be at least 5 percent greater than baseline model accuracy
-                        min_absolute_change=0.05,
-                        # accuracy should be at least 0.05 greater than baseline model accuracy
-                        min_relative_change=0.05,
-                        greater_is_better=True,
-                    ),
-                }
-
-                with mlflow.start_run():
-                    mlflow.evaluate(
-                        model=your_candidate_model,
-                        data,
-                        targets,
-                        model_type,
-                        dataset_name,
-                        evaluators,
-                        validation_thresholds=thresholds,
-                        baseline_model=your_baseline_model,
-                    )
-
-            See :ref:`the Model Validation documentation <model-validation>`
-            for more details.
-
-        baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
-            flavor. If specified, the candidate ``model`` is compared to this
-            baseline for model validation purposes.
-
-        env_manager: Specify an environment manager to load the candidate ``model`` and
-            ``baseline_model`` in isolated Python environments and restore their
+        env_manager: Specify an environment manager to load the candidate ``model`` in
+            isolated Python environments and restore their
             dependencies. Default value is ``local``, and the following values are
             supported:
 
@@ -1640,14 +1579,22 @@ def evaluate(  # noqa: D417
             the model's pyfunc flavor to know which keys are supported for your
             specific model. If not indicated, the default model configuration
             from the model is used (if any).
-        baseline_config: the model configuration to use for loading the baseline
-            model. If not indicated, the default model configuration
-            from the baseline model is used (if any).
+
+        inference_params: (Optional) A dictionary of inference parameters to be passed to the model
+            when making predictions, such as ``{"max_tokens": 100}``. This is only used when
+            the ``model`` is an MLflow Deployments endpoint URI e.g. ``"endpoints:/my-chat"``
+
+        model_id: (Optional) The ID of the MLflow LoggedModel or Model Version to which the
+                  evaluation results (e.g. metrics and traces) will be linked. If `model_id` is not
+                  specified but `model` is specified, the ID from `model` will be used.
+
+        _called_from_genai_evaluate: (Optional) Only used internally.
 
     Returns:
         An :py:class:`mlflow.models.EvaluationResult` instance containing
-        metrics of candidate model and baseline model, and artifacts of candidate model.
+        metrics of evaluating the model with the given dataset.
     '''
+    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
@@ -1734,7 +1681,10 @@ def evaluate(  # noqa: D417
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    specified_model_id = model_id
+    model_id = None
     if isinstance(model, str):
+        model_id = _parse_model_id_if_present(model)
         if _is_model_deployment_endpoint_uri(model):
             model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:
@@ -1746,6 +1696,7 @@ def evaluate(  # noqa: D417
             error_code=INVALID_PARAMETER_VALUE,
         )
     elif isinstance(model, PyFuncModel):
+        model_id = model.model_id
         if model_config:
             raise MlflowException(
                 message="Indicating ``model_config`` when passing a `PyFuncModel`` object as "
@@ -1765,42 +1716,30 @@ def evaluate(  # noqa: D417
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if validation_thresholds:
-        try:
-            assert type(validation_thresholds) is dict
-            for key in validation_thresholds.keys():
-                assert type(key) is str
-            for threshold in validation_thresholds.values():
-                assert isinstance(threshold, MetricThreshold)
-        except AssertionError:
-            raise MlflowException(
-                message="The validation thresholds argument must be a dictionary that maps strings "
-                "to MetricThreshold objects.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-    if isinstance(baseline_model, str):
-        baseline_model = _load_model_or_server(
-            baseline_model, env_manager, model_config=baseline_config
-        )
-    elif baseline_model is not None:
+    # If model_id is specified, verify it matches the derived model_id
+    if specified_model_id is not None and model_id is not None and specified_model_id != model_id:
         raise MlflowException(
-            message="The baseline model argument must be a string URI referring to an "
-            "MLflow model.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    elif _model_validation_contains_model_comparison(validation_thresholds):
-        raise MlflowException(
-            message="The baseline model argument is None. The baseline model must be specified "
-            "when model comparison thresholds (min_absolute_change, min_relative_change) "
-            "are specified.",
+            message=(
+                f"The specified value of the 'model_id' parameter '{specified_model_id}' "
+                f"contradicts the model_id '{model_id}' associated with the model. Please ensure "
+                f"they match or omit the 'model_id' parameter."
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    (
-        evaluator_name_list,
-        evaluator_name_to_conf_map,
-    ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
+    # Use specified model_id if provided, otherwise use derived model_id
+    model_id = specified_model_id if specified_model_id is not None else model_id
+    # If none of the model_id and model is specified, use the active model_id
+    model_id = model_id or mlflow.get_active_model_id()
+
+    evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
+        evaluators, evaluator_config, model_type
+    )
+
+    # NB: MLflow do not use either of these two variables. However, we need to pass these to
+    # _evaluate() function for backward compatibility.
+    evaluator_name_list = [evaluator.name for evaluator in evaluators]
+    evaluator_name_to_conf_map = {evaluator.name: evaluator.config for evaluator in evaluators}
 
     with _start_run_or_reuse_active_run() as run_id:
         if not isinstance(data, Dataset):
@@ -1814,55 +1753,60 @@ def evaluate(  # noqa: D417
 
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
-        if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
-            dataset = data.to_evaluation_dataset(dataset_path, feature_names)
-            if evaluator_name_to_conf_map and evaluator_name_to_conf_map.get("default", None):
-                context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
-            else:
+        # model_id could be None
+        with _set_active_model(model_id=model_id) if model_id else nullcontext():
+            if isinstance(data, Dataset) and issubclass(
+                data.__class__, PyFuncConvertibleDatasetMixin
+            ):
+                dataset = data.to_evaluation_dataset(dataset_path, feature_names)
+
+                # Use metric_prefix configured for builtin evaluators as a dataset tag
                 context = None
-            client = MlflowClient()
-            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
-            dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
-            client.log_inputs(run_id, [dataset_input])
-        else:
-            dataset = EvaluationDataset(
-                data,
-                targets=targets,
-                path=dataset_path,
-                feature_names=feature_names,
-                predictions=predictions,
-            )
-        predictions_expected_in_model_output = predictions if model is not None else None
+                for e in evaluators:
+                    if _model_evaluation_registry.is_builtin(e.name) and e.config.get(
+                        "metric_prefix"
+                    ):
+                        context = e.config.get("metric_prefix")
+                        break
 
-        try:
-            evaluate_result = _evaluate(
-                model=model,
-                model_type=model_type,
-                dataset=dataset,
-                run_id=run_id,
-                evaluator_name_list=evaluator_name_list,
-                evaluator_name_to_conf_map=evaluator_name_to_conf_map,
-                custom_metrics=custom_metrics,
-                extra_metrics=extra_metrics,
-                custom_artifacts=custom_artifacts,
-                baseline_model=baseline_model,
-                predictions=predictions_expected_in_model_output,
-            )
-        finally:
-            if isinstance(model, _ServedPyFuncModel):
-                os.kill(model.pid, signal.SIGTERM)
-            if isinstance(baseline_model, _ServedPyFuncModel):
-                os.kill(baseline_model.pid, signal.SIGTERM)
+                client = MlflowClient()
+                tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
+                dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
+                client.log_inputs(
+                    run_id,
+                    [dataset_input],
+                    models=[LoggedModelInput(model_id)] if model_id else None,
+                )
+            else:
+                dataset = EvaluationDataset(
+                    data,
+                    targets=targets,
+                    path=dataset_path,
+                    feature_names=feature_names,
+                    predictions=predictions,
+                )
+            predictions_expected_in_model_output = predictions if model is not None else None
 
-        if not validation_thresholds:
-            return evaluate_result
+            try:
+                evaluate_result = _evaluate(
+                    model=model,
+                    model_type=model_type,
+                    model_id=model_id,
+                    dataset=dataset,
+                    run_id=run_id,
+                    evaluator_name_list=evaluator_name_list,
+                    evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+                    extra_metrics=extra_metrics,
+                    custom_artifacts=custom_artifacts,
+                    predictions=predictions_expected_in_model_output,
+                    evaluators=evaluators,
+                )
+            finally:
+                if isinstance(model, _ServedPyFuncModel):
+                    os.kill(model.pid, signal.SIGTERM)
 
-        _logger.info("Validating generated model metrics")
-        _validate(
-            validation_thresholds,
-            evaluate_result.metrics,
-            evaluate_result.baseline_model_metrics,
-        )
-        _logger.info("Model validation passed!")
+            # if model_id is specified log metrics to the eval run and logged model
+            if model_id is not None:
+                mlflow.log_metrics(metrics=evaluate_result.metrics, dataset=data, model_id=model_id)
 
-        return evaluate_result
+    return evaluate_result

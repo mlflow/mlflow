@@ -2862,6 +2862,940 @@ public final class DatabricksArtifacts {
 
   }
 
+  public interface LoggedModelArtifactCredentialOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.LoggedModelArtifactCredential)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+     * </pre>
+     *
+     * <code>optional string model_id = 1;</code>
+     * @return Whether the modelId field is set.
+     */
+    boolean hasModelId();
+    /**
+     * <pre>
+     * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+     * </pre>
+     *
+     * <code>optional string model_id = 1;</code>
+     * @return The modelId.
+     */
+    java.lang.String getModelId();
+    /**
+     * <pre>
+     * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+     * </pre>
+     *
+     * <code>optional string model_id = 1;</code>
+     * @return The bytes for modelId.
+     */
+    com.google.protobuf.ByteString
+        getModelIdBytes();
+
+    /**
+     * <pre>
+     * The ArtifactCredentialInfo object for the logged model artifacts
+     * </pre>
+     *
+     * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+     * @return Whether the credentialInfo field is set.
+     */
+    boolean hasCredentialInfo();
+    /**
+     * <pre>
+     * The ArtifactCredentialInfo object for the logged model artifacts
+     * </pre>
+     *
+     * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+     * @return The credentialInfo.
+     */
+    com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfo();
+    /**
+     * <pre>
+     * The ArtifactCredentialInfo object for the logged model artifacts
+     * </pre>
+     *
+     * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+     */
+    com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfoOrBuilder();
+  }
+  /**
+   * <pre>
+   * Credentials returned by GetCredentialsForLoggedModelUpload and GetCredentialsForLoggedModelDownload for
+   * writing and reading respectively to the artifact locations of a logged model.
+   * Contains an ArtifactCredentialInfo object for the logged model artifacts.
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.LoggedModelArtifactCredential}
+   */
+  public static final class LoggedModelArtifactCredential extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.LoggedModelArtifactCredential)
+      LoggedModelArtifactCredentialOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use LoggedModelArtifactCredential.newBuilder() to construct.
+    private LoggedModelArtifactCredential(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private LoggedModelArtifactCredential() {
+      modelId_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new LoggedModelArtifactCredential();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private LoggedModelArtifactCredential(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              modelId_ = bs;
+              break;
+            }
+            case 18: {
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000002) != 0)) {
+                subBuilder = credentialInfo_.toBuilder();
+              }
+              credentialInfo_ = input.readMessage(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(credentialInfo_);
+                credentialInfo_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000002;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_LoggedModelArtifactCredential_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_LoggedModelArtifactCredential_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder.class);
+    }
+
+    private int bitField0_;
+    public static final int MODEL_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object modelId_;
+    /**
+     * <pre>
+     * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+     * </pre>
+     *
+     * <code>optional string model_id = 1;</code>
+     * @return Whether the modelId field is set.
+     */
+    @java.lang.Override
+    public boolean hasModelId() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+     * </pre>
+     *
+     * <code>optional string model_id = 1;</code>
+     * @return The modelId.
+     */
+    @java.lang.Override
+    public java.lang.String getModelId() {
+      java.lang.Object ref = modelId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          modelId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+     * </pre>
+     *
+     * <code>optional string model_id = 1;</code>
+     * @return The bytes for modelId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getModelIdBytes() {
+      java.lang.Object ref = modelId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        modelId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int CREDENTIAL_INFO_FIELD_NUMBER = 2;
+    private com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo credentialInfo_;
+    /**
+     * <pre>
+     * The ArtifactCredentialInfo object for the logged model artifacts
+     * </pre>
+     *
+     * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+     * @return Whether the credentialInfo field is set.
+     */
+    @java.lang.Override
+    public boolean hasCredentialInfo() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * The ArtifactCredentialInfo object for the logged model artifacts
+     * </pre>
+     *
+     * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+     * @return The credentialInfo.
+     */
+    @java.lang.Override
+    public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfo() {
+      return credentialInfo_ == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+    }
+    /**
+     * <pre>
+     * The ArtifactCredentialInfo object for the logged model artifacts
+     * </pre>
+     *
+     * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+     */
+    @java.lang.Override
+    public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfoOrBuilder() {
+      return credentialInfo_ == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, modelId_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeMessage(2, getCredentialInfo());
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, modelId_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(2, getCredentialInfo());
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential)) {
+        return super.equals(obj);
+      }
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential) obj;
+
+      if (hasModelId() != other.hasModelId()) return false;
+      if (hasModelId()) {
+        if (!getModelId()
+            .equals(other.getModelId())) return false;
+      }
+      if (hasCredentialInfo() != other.hasCredentialInfo()) return false;
+      if (hasCredentialInfo()) {
+        if (!getCredentialInfo()
+            .equals(other.getCredentialInfo())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasModelId()) {
+        hash = (37 * hash) + MODEL_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getModelId().hashCode();
+      }
+      if (hasCredentialInfo()) {
+        hash = (37 * hash) + CREDENTIAL_INFO_FIELD_NUMBER;
+        hash = (53 * hash) + getCredentialInfo().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * Credentials returned by GetCredentialsForLoggedModelUpload and GetCredentialsForLoggedModelDownload for
+     * writing and reading respectively to the artifact locations of a logged model.
+     * Contains an ArtifactCredentialInfo object for the logged model artifacts.
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.LoggedModelArtifactCredential}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.LoggedModelArtifactCredential)
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_LoggedModelArtifactCredential_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_LoggedModelArtifactCredential_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder.class);
+      }
+
+      // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+          getCredentialInfoFieldBuilder();
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        modelId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        if (credentialInfoBuilder_ == null) {
+          credentialInfo_ = null;
+        } else {
+          credentialInfoBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_LoggedModelArtifactCredential_descriptor;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential getDefaultInstanceForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential build() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential buildPartial() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.modelId_ = modelId_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          if (credentialInfoBuilder_ == null) {
+            result.credentialInfo_ = credentialInfo_;
+          } else {
+            result.credentialInfo_ = credentialInfoBuilder_.build();
+          }
+          to_bitField0_ |= 0x00000002;
+        }
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential) {
+          return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential other) {
+        if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.getDefaultInstance()) return this;
+        if (other.hasModelId()) {
+          bitField0_ |= 0x00000001;
+          modelId_ = other.modelId_;
+          onChanged();
+        }
+        if (other.hasCredentialInfo()) {
+          mergeCredentialInfo(other.getCredentialInfo());
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object modelId_ = "";
+      /**
+       * <pre>
+       * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+       * </pre>
+       *
+       * <code>optional string model_id = 1;</code>
+       * @return Whether the modelId field is set.
+       */
+      public boolean hasModelId() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+       * </pre>
+       *
+       * <code>optional string model_id = 1;</code>
+       * @return The modelId.
+       */
+      public java.lang.String getModelId() {
+        java.lang.Object ref = modelId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            modelId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+       * </pre>
+       *
+       * <code>optional string model_id = 1;</code>
+       * @return The bytes for modelId.
+       */
+      public com.google.protobuf.ByteString
+          getModelIdBytes() {
+        java.lang.Object ref = modelId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          modelId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+       * </pre>
+       *
+       * <code>optional string model_id = 1;</code>
+       * @param value The modelId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setModelId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        modelId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+       * </pre>
+       *
+       * <code>optional string model_id = 1;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearModelId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        modelId_ = getDefaultInstance().getModelId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+       * </pre>
+       *
+       * <code>optional string model_id = 1;</code>
+       * @param value The bytes for modelId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setModelIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        modelId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo credentialInfo_;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder> credentialInfoBuilder_;
+      /**
+       * <pre>
+       * The ArtifactCredentialInfo object for the logged model artifacts
+       * </pre>
+       *
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+       * @return Whether the credentialInfo field is set.
+       */
+      public boolean hasCredentialInfo() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * The ArtifactCredentialInfo object for the logged model artifacts
+       * </pre>
+       *
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+       * @return The credentialInfo.
+       */
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfo() {
+        if (credentialInfoBuilder_ == null) {
+          return credentialInfo_ == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+        } else {
+          return credentialInfoBuilder_.getMessage();
+        }
+      }
+      /**
+       * <pre>
+       * The ArtifactCredentialInfo object for the logged model artifacts
+       * </pre>
+       *
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+       */
+      public Builder setCredentialInfo(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo value) {
+        if (credentialInfoBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          credentialInfo_ = value;
+          onChanged();
+        } else {
+          credentialInfoBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * The ArtifactCredentialInfo object for the logged model artifacts
+       * </pre>
+       *
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+       */
+      public Builder setCredentialInfo(
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder builderForValue) {
+        if (credentialInfoBuilder_ == null) {
+          credentialInfo_ = builderForValue.build();
+          onChanged();
+        } else {
+          credentialInfoBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * The ArtifactCredentialInfo object for the logged model artifacts
+       * </pre>
+       *
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+       */
+      public Builder mergeCredentialInfo(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo value) {
+        if (credentialInfoBuilder_ == null) {
+          if (((bitField0_ & 0x00000002) != 0) &&
+              credentialInfo_ != null &&
+              credentialInfo_ != com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance()) {
+            credentialInfo_ =
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.newBuilder(credentialInfo_).mergeFrom(value).buildPartial();
+          } else {
+            credentialInfo_ = value;
+          }
+          onChanged();
+        } else {
+          credentialInfoBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * The ArtifactCredentialInfo object for the logged model artifacts
+       * </pre>
+       *
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+       */
+      public Builder clearCredentialInfo() {
+        if (credentialInfoBuilder_ == null) {
+          credentialInfo_ = null;
+          onChanged();
+        } else {
+          credentialInfoBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+      /**
+       * <pre>
+       * The ArtifactCredentialInfo object for the logged model artifacts
+       * </pre>
+       *
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+       */
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder getCredentialInfoBuilder() {
+        bitField0_ |= 0x00000002;
+        onChanged();
+        return getCredentialInfoFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * The ArtifactCredentialInfo object for the logged model artifacts
+       * </pre>
+       *
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+       */
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfoOrBuilder() {
+        if (credentialInfoBuilder_ != null) {
+          return credentialInfoBuilder_.getMessageOrBuilder();
+        } else {
+          return credentialInfo_ == null ?
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.getDefaultInstance() : credentialInfo_;
+        }
+      }
+      /**
+       * <pre>
+       * The ArtifactCredentialInfo object for the logged model artifacts
+       * </pre>
+       *
+       * <code>optional .mlflow.ArtifactCredentialInfo credential_info = 2;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder> 
+          getCredentialInfoFieldBuilder() {
+        if (credentialInfoBuilder_ == null) {
+          credentialInfoBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder>(
+                  getCredentialInfo(),
+                  getParentForChildren(),
+                  isClean());
+          credentialInfo_ = null;
+        }
+        return credentialInfoBuilder_;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.LoggedModelArtifactCredential)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.LoggedModelArtifactCredential)
+    private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential();
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<LoggedModelArtifactCredential>
+        PARSER = new com.google.protobuf.AbstractParser<LoggedModelArtifactCredential>() {
+      @java.lang.Override
+      public LoggedModelArtifactCredential parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new LoggedModelArtifactCredential(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<LoggedModelArtifactCredential> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<LoggedModelArtifactCredential> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   public interface GetCredentialsForReadOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.GetCredentialsForRead)
       com.google.protobuf.MessageOrBuilder {
@@ -17066,6 +18000,4652 @@ public final class DatabricksArtifacts {
 
   }
 
+  public interface GetCredentialsForLoggedModelUploadOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.GetCredentialsForLoggedModelUpload)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the modelId field is set.
+     */
+    boolean hasModelId();
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The modelId.
+     */
+    java.lang.String getModelId();
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for modelId.
+     */
+    com.google.protobuf.ByteString
+        getModelIdBytes();
+
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @return A list containing the paths.
+     */
+    java.util.List<java.lang.String>
+        getPathsList();
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @return The count of paths.
+     */
+    int getPathsCount();
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @param index The index of the element to return.
+     * @return The paths at the given index.
+     */
+    java.lang.String getPaths(int index);
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the paths at the given index.
+     */
+    com.google.protobuf.ByteString
+        getPathsBytes(int index);
+
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
+     */
+    boolean hasPageToken();
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
+     */
+    java.lang.String getPageToken();
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
+     */
+    com.google.protobuf.ByteString
+        getPageTokenBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.GetCredentialsForLoggedModelUpload}
+   */
+  public static final class GetCredentialsForLoggedModelUpload extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForLoggedModelUpload)
+      GetCredentialsForLoggedModelUploadOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use GetCredentialsForLoggedModelUpload.newBuilder() to construct.
+    private GetCredentialsForLoggedModelUpload(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private GetCredentialsForLoggedModelUpload() {
+      modelId_ = "";
+      paths_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      pageToken_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new GetCredentialsForLoggedModelUpload();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private GetCredentialsForLoggedModelUpload(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              modelId_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                paths_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000002;
+              }
+              paths_.add(bs);
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              pageToken_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        if (((mutable_bitField0_ & 0x00000002) != 0)) {
+          paths_ = paths_.getUnmodifiableView();
+        }
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.GetCredentialsForLoggedModelUpload.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> 
+          getCredentialsList();
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential getCredentials(int index);
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      int getCredentialsCount();
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> 
+          getCredentialsOrBuilderList();
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder getCredentialsOrBuilder(
+          int index);
+
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      boolean hasNextPageToken();
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The nextPageToken.
+       */
+      java.lang.String getNextPageToken();
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The bytes for nextPageToken.
+       */
+      com.google.protobuf.ByteString
+          getNextPageTokenBytes();
+    }
+    /**
+     * Protobuf type {@code mlflow.GetCredentialsForLoggedModelUpload.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForLoggedModelUpload.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+        credentials_ = java.util.Collections.emptyList();
+        nextPageToken_ = "";
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                if (!((mutable_bitField0_ & 0x00000001) != 0)) {
+                  credentials_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential>();
+                  mutable_bitField0_ |= 0x00000001;
+                }
+                credentials_.add(
+                    input.readMessage(com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.PARSER, extensionRegistry));
+                break;
+              }
+              case 18: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                nextPageToken_ = bs;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          if (((mutable_bitField0_ & 0x00000001) != 0)) {
+            credentials_ = java.util.Collections.unmodifiableList(credentials_);
+          }
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int CREDENTIALS_FIELD_NUMBER = 1;
+      private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> credentials_;
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> getCredentialsList() {
+        return credentials_;
+      }
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> 
+          getCredentialsOrBuilderList() {
+        return credentials_;
+      }
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public int getCredentialsCount() {
+        return credentials_.size();
+      }
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential getCredentials(int index) {
+        return credentials_.get(index);
+      }
+      /**
+       * <pre>
+       * Credentials for writing to the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder getCredentialsOrBuilder(
+          int index) {
+        return credentials_.get(index);
+      }
+
+      public static final int NEXT_PAGE_TOKEN_FIELD_NUMBER = 2;
+      private volatile java.lang.Object nextPageToken_;
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      @java.lang.Override
+      public boolean hasNextPageToken() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The nextPageToken.
+       */
+      @java.lang.Override
+      public java.lang.String getNextPageToken() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            nextPageToken_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The bytes for nextPageToken.
+       */
+      @java.lang.Override
+      public com.google.protobuf.ByteString
+          getNextPageTokenBytes() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          nextPageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        for (int i = 0; i < credentials_.size(); i++) {
+          output.writeMessage(1, credentials_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 2, nextPageToken_);
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        for (int i = 0; i < credentials_.size(); i++) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(1, credentials_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, nextPageToken_);
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response)) {
+          return super.equals(obj);
+        }
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response) obj;
+
+        if (!getCredentialsList()
+            .equals(other.getCredentialsList())) return false;
+        if (hasNextPageToken() != other.hasNextPageToken()) return false;
+        if (hasNextPageToken()) {
+          if (!getNextPageToken()
+              .equals(other.getNextPageToken())) return false;
+        }
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (getCredentialsCount() > 0) {
+          hash = (37 * hash) + CREDENTIALS_FIELD_NUMBER;
+          hash = (53 * hash) + getCredentialsList().hashCode();
+        }
+        if (hasNextPageToken()) {
+          hash = (37 * hash) + NEXT_PAGE_TOKEN_FIELD_NUMBER;
+          hash = (53 * hash) + getNextPageToken().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.GetCredentialsForLoggedModelUpload.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.GetCredentialsForLoggedModelUpload.Response)
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response.Builder.class);
+        }
+
+        // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+            getCredentialsFieldBuilder();
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          if (credentialsBuilder_ == null) {
+            credentials_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+          } else {
+            credentialsBuilder_.clear();
+          }
+          nextPageToken_ = "";
+          bitField0_ = (bitField0_ & ~0x00000002);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response getDefaultInstanceForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response build() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response buildPartial() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (credentialsBuilder_ == null) {
+            if (((bitField0_ & 0x00000001) != 0)) {
+              credentials_ = java.util.Collections.unmodifiableList(credentials_);
+              bitField0_ = (bitField0_ & ~0x00000001);
+            }
+            result.credentials_ = credentials_;
+          } else {
+            result.credentials_ = credentialsBuilder_.build();
+          }
+          if (((from_bitField0_ & 0x00000002) != 0)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.nextPageToken_ = nextPageToken_;
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response) {
+            return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response other) {
+          if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response.getDefaultInstance()) return this;
+          if (credentialsBuilder_ == null) {
+            if (!other.credentials_.isEmpty()) {
+              if (credentials_.isEmpty()) {
+                credentials_ = other.credentials_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+              } else {
+                ensureCredentialsIsMutable();
+                credentials_.addAll(other.credentials_);
+              }
+              onChanged();
+            }
+          } else {
+            if (!other.credentials_.isEmpty()) {
+              if (credentialsBuilder_.isEmpty()) {
+                credentialsBuilder_.dispose();
+                credentialsBuilder_ = null;
+                credentials_ = other.credentials_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+                credentialsBuilder_ = 
+                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                     getCredentialsFieldBuilder() : null;
+              } else {
+                credentialsBuilder_.addAllMessages(other.credentials_);
+              }
+            }
+          }
+          if (other.hasNextPageToken()) {
+            bitField0_ |= 0x00000002;
+            nextPageToken_ = other.nextPageToken_;
+            onChanged();
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> credentials_ =
+          java.util.Collections.emptyList();
+        private void ensureCredentialsIsMutable() {
+          if (!((bitField0_ & 0x00000001) != 0)) {
+            credentials_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential>(credentials_);
+            bitField0_ |= 0x00000001;
+           }
+        }
+
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> credentialsBuilder_;
+
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> getCredentialsList() {
+          if (credentialsBuilder_ == null) {
+            return java.util.Collections.unmodifiableList(credentials_);
+          } else {
+            return credentialsBuilder_.getMessageList();
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public int getCredentialsCount() {
+          if (credentialsBuilder_ == null) {
+            return credentials_.size();
+          } else {
+            return credentialsBuilder_.getCount();
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential getCredentials(int index) {
+          if (credentialsBuilder_ == null) {
+            return credentials_.get(index);
+          } else {
+            return credentialsBuilder_.getMessage(index);
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder setCredentials(
+            int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential value) {
+          if (credentialsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureCredentialsIsMutable();
+            credentials_.set(index, value);
+            onChanged();
+          } else {
+            credentialsBuilder_.setMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder setCredentials(
+            int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder builderForValue) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            credentials_.set(index, builderForValue.build());
+            onChanged();
+          } else {
+            credentialsBuilder_.setMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addCredentials(com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential value) {
+          if (credentialsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureCredentialsIsMutable();
+            credentials_.add(value);
+            onChanged();
+          } else {
+            credentialsBuilder_.addMessage(value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addCredentials(
+            int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential value) {
+          if (credentialsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureCredentialsIsMutable();
+            credentials_.add(index, value);
+            onChanged();
+          } else {
+            credentialsBuilder_.addMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addCredentials(
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder builderForValue) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            credentials_.add(builderForValue.build());
+            onChanged();
+          } else {
+            credentialsBuilder_.addMessage(builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addCredentials(
+            int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder builderForValue) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            credentials_.add(index, builderForValue.build());
+            onChanged();
+          } else {
+            credentialsBuilder_.addMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addAllCredentials(
+            java.lang.Iterable<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> values) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            com.google.protobuf.AbstractMessageLite.Builder.addAll(
+                values, credentials_);
+            onChanged();
+          } else {
+            credentialsBuilder_.addAllMessages(values);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder clearCredentials() {
+          if (credentialsBuilder_ == null) {
+            credentials_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+            onChanged();
+          } else {
+            credentialsBuilder_.clear();
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder removeCredentials(int index) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            credentials_.remove(index);
+            onChanged();
+          } else {
+            credentialsBuilder_.remove(index);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder getCredentialsBuilder(
+            int index) {
+          return getCredentialsFieldBuilder().getBuilder(index);
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder getCredentialsOrBuilder(
+            int index) {
+          if (credentialsBuilder_ == null) {
+            return credentials_.get(index);  } else {
+            return credentialsBuilder_.getMessageOrBuilder(index);
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> 
+             getCredentialsOrBuilderList() {
+          if (credentialsBuilder_ != null) {
+            return credentialsBuilder_.getMessageOrBuilderList();
+          } else {
+            return java.util.Collections.unmodifiableList(credentials_);
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder addCredentialsBuilder() {
+          return getCredentialsFieldBuilder().addBuilder(
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder addCredentialsBuilder(
+            int index) {
+          return getCredentialsFieldBuilder().addBuilder(
+              index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Credentials for writing to the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder> 
+             getCredentialsBuilderList() {
+          return getCredentialsFieldBuilder().getBuilderList();
+        }
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> 
+            getCredentialsFieldBuilder() {
+          if (credentialsBuilder_ == null) {
+            credentialsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder>(
+                    credentials_,
+                    ((bitField0_ & 0x00000001) != 0),
+                    getParentForChildren(),
+                    isClean());
+            credentials_ = null;
+          }
+          return credentialsBuilder_;
+        }
+
+        private java.lang.Object nextPageToken_ = "";
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return Whether the nextPageToken field is set.
+         */
+        public boolean hasNextPageToken() {
+          return ((bitField0_ & 0x00000002) != 0);
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return The nextPageToken.
+         */
+        public java.lang.String getNextPageToken() {
+          java.lang.Object ref = nextPageToken_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              nextPageToken_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return The bytes for nextPageToken.
+         */
+        public com.google.protobuf.ByteString
+            getNextPageTokenBytes() {
+          java.lang.Object ref = nextPageToken_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            nextPageToken_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @param value The nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageToken(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearNextPageToken() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          nextPageToken_ = getDefaultInstance().getNextPageToken();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @param value The bytes for nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageTokenBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.GetCredentialsForLoggedModelUpload.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.GetCredentialsForLoggedModelUpload.Response)
+      private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response();
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int MODEL_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object modelId_;
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the modelId field is set.
+     */
+    @java.lang.Override
+    public boolean hasModelId() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The modelId.
+     */
+    @java.lang.Override
+    public java.lang.String getModelId() {
+      java.lang.Object ref = modelId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          modelId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for modelId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getModelIdBytes() {
+      java.lang.Object ref = modelId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        modelId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int PATHS_FIELD_NUMBER = 2;
+    private com.google.protobuf.LazyStringList paths_;
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @return A list containing the paths.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getPathsList() {
+      return paths_;
+    }
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @return The count of paths.
+     */
+    public int getPathsCount() {
+      return paths_.size();
+    }
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @param index The index of the element to return.
+     * @return The paths at the given index.
+     */
+    public java.lang.String getPaths(int index) {
+      return paths_.get(index);
+    }
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact write credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the paths at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getPathsBytes(int index) {
+      return paths_.getByteString(index);
+    }
+
+    public static final int PAGE_TOKEN_FIELD_NUMBER = 3;
+    private volatile java.lang.Object pageToken_;
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
+     */
+    @java.lang.Override
+    public boolean hasPageToken() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
+     */
+    @java.lang.Override
+    public java.lang.String getPageToken() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          pageToken_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getPageTokenBytes() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        pageToken_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, modelId_);
+      }
+      for (int i = 0; i < paths_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, paths_.getRaw(i));
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, pageToken_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, modelId_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < paths_.size(); i++) {
+          dataSize += computeStringSizeNoTag(paths_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getPathsList().size();
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, pageToken_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload)) {
+        return super.equals(obj);
+      }
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload) obj;
+
+      if (hasModelId() != other.hasModelId()) return false;
+      if (hasModelId()) {
+        if (!getModelId()
+            .equals(other.getModelId())) return false;
+      }
+      if (!getPathsList()
+          .equals(other.getPathsList())) return false;
+      if (hasPageToken() != other.hasPageToken()) return false;
+      if (hasPageToken()) {
+        if (!getPageToken()
+            .equals(other.getPageToken())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasModelId()) {
+        hash = (37 * hash) + MODEL_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getModelId().hashCode();
+      }
+      if (getPathsCount() > 0) {
+        hash = (37 * hash) + PATHS_FIELD_NUMBER;
+        hash = (53 * hash) + getPathsList().hashCode();
+      }
+      if (hasPageToken()) {
+        hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
+        hash = (53 * hash) + getPageToken().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.GetCredentialsForLoggedModelUpload}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.GetCredentialsForLoggedModelUpload)
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUploadOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.Builder.class);
+      }
+
+      // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        modelId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        paths_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        pageToken_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelUpload_descriptor;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload getDefaultInstanceForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload build() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload buildPartial() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.modelId_ = modelId_;
+        if (((bitField0_ & 0x00000002) != 0)) {
+          paths_ = paths_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000002);
+        }
+        result.paths_ = paths_;
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.pageToken_ = pageToken_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload) {
+          return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload other) {
+        if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload.getDefaultInstance()) return this;
+        if (other.hasModelId()) {
+          bitField0_ |= 0x00000001;
+          modelId_ = other.modelId_;
+          onChanged();
+        }
+        if (!other.paths_.isEmpty()) {
+          if (paths_.isEmpty()) {
+            paths_ = other.paths_;
+            bitField0_ = (bitField0_ & ~0x00000002);
+          } else {
+            ensurePathsIsMutable();
+            paths_.addAll(other.paths_);
+          }
+          onChanged();
+        }
+        if (other.hasPageToken()) {
+          bitField0_ |= 0x00000004;
+          pageToken_ = other.pageToken_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object modelId_ = "";
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the modelId field is set.
+       */
+      public boolean hasModelId() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The modelId.
+       */
+      public java.lang.String getModelId() {
+        java.lang.Object ref = modelId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            modelId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for modelId.
+       */
+      public com.google.protobuf.ByteString
+          getModelIdBytes() {
+        java.lang.Object ref = modelId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          modelId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The modelId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setModelId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        modelId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearModelId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        modelId_ = getDefaultInstance().getModelId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for modelId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setModelIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        modelId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList paths_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensurePathsIsMutable() {
+        if (!((bitField0_ & 0x00000002) != 0)) {
+          paths_ = new com.google.protobuf.LazyStringArrayList(paths_);
+          bitField0_ |= 0x00000002;
+         }
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @return A list containing the paths.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getPathsList() {
+        return paths_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @return The count of paths.
+       */
+      public int getPathsCount() {
+        return paths_.size();
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param index The index of the element to return.
+       * @return The paths at the given index.
+       */
+      public java.lang.String getPaths(int index) {
+        return paths_.get(index);
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the paths at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getPathsBytes(int index) {
+        return paths_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param index The index to set the value at.
+       * @param value The paths to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPaths(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensurePathsIsMutable();
+        paths_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param value The paths to add.
+       * @return This builder for chaining.
+       */
+      public Builder addPaths(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensurePathsIsMutable();
+        paths_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param values The paths to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllPaths(
+          java.lang.Iterable<java.lang.String> values) {
+        ensurePathsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, paths_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPaths() {
+        paths_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact write credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param value The bytes of the paths to add.
+       * @return This builder for chaining.
+       */
+      public Builder addPathsBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensurePathsIsMutable();
+        paths_.add(value);
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object pageToken_ = "";
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return Whether the pageToken field is set.
+       */
+      public boolean hasPageToken() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return The pageToken.
+       */
+      public java.lang.String getPageToken() {
+        java.lang.Object ref = pageToken_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            pageToken_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return The bytes for pageToken.
+       */
+      public com.google.protobuf.ByteString
+          getPageTokenBytes() {
+        java.lang.Object ref = pageToken_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          pageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @param value The pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageToken(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPageToken() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        pageToken_ = getDefaultInstance().getPageToken();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @param value The bytes for pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageTokenBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.GetCredentialsForLoggedModelUpload)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.GetCredentialsForLoggedModelUpload)
+    private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload();
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<GetCredentialsForLoggedModelUpload>
+        PARSER = new com.google.protobuf.AbstractParser<GetCredentialsForLoggedModelUpload>() {
+      @java.lang.Override
+      public GetCredentialsForLoggedModelUpload parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new GetCredentialsForLoggedModelUpload(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<GetCredentialsForLoggedModelUpload> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<GetCredentialsForLoggedModelUpload> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelUpload getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface GetCredentialsForLoggedModelDownloadOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.GetCredentialsForLoggedModelDownload)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the modelId field is set.
+     */
+    boolean hasModelId();
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The modelId.
+     */
+    java.lang.String getModelId();
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for modelId.
+     */
+    com.google.protobuf.ByteString
+        getModelIdBytes();
+
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @return A list containing the paths.
+     */
+    java.util.List<java.lang.String>
+        getPathsList();
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @return The count of paths.
+     */
+    int getPathsCount();
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @param index The index of the element to return.
+     * @return The paths at the given index.
+     */
+    java.lang.String getPaths(int index);
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the paths at the given index.
+     */
+    com.google.protobuf.ByteString
+        getPathsBytes(int index);
+
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
+     */
+    boolean hasPageToken();
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
+     */
+    java.lang.String getPageToken();
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
+     */
+    com.google.protobuf.ByteString
+        getPageTokenBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.GetCredentialsForLoggedModelDownload}
+   */
+  public static final class GetCredentialsForLoggedModelDownload extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForLoggedModelDownload)
+      GetCredentialsForLoggedModelDownloadOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use GetCredentialsForLoggedModelDownload.newBuilder() to construct.
+    private GetCredentialsForLoggedModelDownload(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private GetCredentialsForLoggedModelDownload() {
+      modelId_ = "";
+      paths_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      pageToken_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new GetCredentialsForLoggedModelDownload();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private GetCredentialsForLoggedModelDownload(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              modelId_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                paths_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000002;
+              }
+              paths_.add(bs);
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              pageToken_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        if (((mutable_bitField0_ & 0x00000002) != 0)) {
+          paths_ = paths_.getUnmodifiableView();
+        }
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.GetCredentialsForLoggedModelDownload.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> 
+          getCredentialsList();
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential getCredentials(int index);
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      int getCredentialsCount();
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> 
+          getCredentialsOrBuilderList();
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder getCredentialsOrBuilder(
+          int index);
+
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      boolean hasNextPageToken();
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The nextPageToken.
+       */
+      java.lang.String getNextPageToken();
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The bytes for nextPageToken.
+       */
+      com.google.protobuf.ByteString
+          getNextPageTokenBytes();
+    }
+    /**
+     * Protobuf type {@code mlflow.GetCredentialsForLoggedModelDownload.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForLoggedModelDownload.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+        credentials_ = java.util.Collections.emptyList();
+        nextPageToken_ = "";
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                if (!((mutable_bitField0_ & 0x00000001) != 0)) {
+                  credentials_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential>();
+                  mutable_bitField0_ |= 0x00000001;
+                }
+                credentials_.add(
+                    input.readMessage(com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.PARSER, extensionRegistry));
+                break;
+              }
+              case 18: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                nextPageToken_ = bs;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          if (((mutable_bitField0_ & 0x00000001) != 0)) {
+            credentials_ = java.util.Collections.unmodifiableList(credentials_);
+          }
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int CREDENTIALS_FIELD_NUMBER = 1;
+      private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> credentials_;
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> getCredentialsList() {
+        return credentials_;
+      }
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> 
+          getCredentialsOrBuilderList() {
+        return credentials_;
+      }
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public int getCredentialsCount() {
+        return credentials_.size();
+      }
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential getCredentials(int index) {
+        return credentials_.get(index);
+      }
+      /**
+       * <pre>
+       * Credentials for reading the specified artifact locations
+       * </pre>
+       *
+       * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+       */
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder getCredentialsOrBuilder(
+          int index) {
+        return credentials_.get(index);
+      }
+
+      public static final int NEXT_PAGE_TOKEN_FIELD_NUMBER = 2;
+      private volatile java.lang.Object nextPageToken_;
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      @java.lang.Override
+      public boolean hasNextPageToken() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The nextPageToken.
+       */
+      @java.lang.Override
+      public java.lang.String getNextPageToken() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            nextPageToken_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * Token used to fetch the next page of credentials for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The bytes for nextPageToken.
+       */
+      @java.lang.Override
+      public com.google.protobuf.ByteString
+          getNextPageTokenBytes() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          nextPageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        for (int i = 0; i < credentials_.size(); i++) {
+          output.writeMessage(1, credentials_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 2, nextPageToken_);
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        for (int i = 0; i < credentials_.size(); i++) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(1, credentials_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, nextPageToken_);
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response)) {
+          return super.equals(obj);
+        }
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response) obj;
+
+        if (!getCredentialsList()
+            .equals(other.getCredentialsList())) return false;
+        if (hasNextPageToken() != other.hasNextPageToken()) return false;
+        if (hasNextPageToken()) {
+          if (!getNextPageToken()
+              .equals(other.getNextPageToken())) return false;
+        }
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (getCredentialsCount() > 0) {
+          hash = (37 * hash) + CREDENTIALS_FIELD_NUMBER;
+          hash = (53 * hash) + getCredentialsList().hashCode();
+        }
+        if (hasNextPageToken()) {
+          hash = (37 * hash) + NEXT_PAGE_TOKEN_FIELD_NUMBER;
+          hash = (53 * hash) + getNextPageToken().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.GetCredentialsForLoggedModelDownload.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.GetCredentialsForLoggedModelDownload.Response)
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response.Builder.class);
+        }
+
+        // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+            getCredentialsFieldBuilder();
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          if (credentialsBuilder_ == null) {
+            credentials_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+          } else {
+            credentialsBuilder_.clear();
+          }
+          nextPageToken_ = "";
+          bitField0_ = (bitField0_ & ~0x00000002);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response getDefaultInstanceForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response build() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response buildPartial() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (credentialsBuilder_ == null) {
+            if (((bitField0_ & 0x00000001) != 0)) {
+              credentials_ = java.util.Collections.unmodifiableList(credentials_);
+              bitField0_ = (bitField0_ & ~0x00000001);
+            }
+            result.credentials_ = credentials_;
+          } else {
+            result.credentials_ = credentialsBuilder_.build();
+          }
+          if (((from_bitField0_ & 0x00000002) != 0)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.nextPageToken_ = nextPageToken_;
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response) {
+            return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response other) {
+          if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response.getDefaultInstance()) return this;
+          if (credentialsBuilder_ == null) {
+            if (!other.credentials_.isEmpty()) {
+              if (credentials_.isEmpty()) {
+                credentials_ = other.credentials_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+              } else {
+                ensureCredentialsIsMutable();
+                credentials_.addAll(other.credentials_);
+              }
+              onChanged();
+            }
+          } else {
+            if (!other.credentials_.isEmpty()) {
+              if (credentialsBuilder_.isEmpty()) {
+                credentialsBuilder_.dispose();
+                credentialsBuilder_ = null;
+                credentials_ = other.credentials_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+                credentialsBuilder_ = 
+                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                     getCredentialsFieldBuilder() : null;
+              } else {
+                credentialsBuilder_.addAllMessages(other.credentials_);
+              }
+            }
+          }
+          if (other.hasNextPageToken()) {
+            bitField0_ |= 0x00000002;
+            nextPageToken_ = other.nextPageToken_;
+            onChanged();
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> credentials_ =
+          java.util.Collections.emptyList();
+        private void ensureCredentialsIsMutable() {
+          if (!((bitField0_ & 0x00000001) != 0)) {
+            credentials_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential>(credentials_);
+            bitField0_ |= 0x00000001;
+           }
+        }
+
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> credentialsBuilder_;
+
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> getCredentialsList() {
+          if (credentialsBuilder_ == null) {
+            return java.util.Collections.unmodifiableList(credentials_);
+          } else {
+            return credentialsBuilder_.getMessageList();
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public int getCredentialsCount() {
+          if (credentialsBuilder_ == null) {
+            return credentials_.size();
+          } else {
+            return credentialsBuilder_.getCount();
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential getCredentials(int index) {
+          if (credentialsBuilder_ == null) {
+            return credentials_.get(index);
+          } else {
+            return credentialsBuilder_.getMessage(index);
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder setCredentials(
+            int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential value) {
+          if (credentialsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureCredentialsIsMutable();
+            credentials_.set(index, value);
+            onChanged();
+          } else {
+            credentialsBuilder_.setMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder setCredentials(
+            int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder builderForValue) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            credentials_.set(index, builderForValue.build());
+            onChanged();
+          } else {
+            credentialsBuilder_.setMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addCredentials(com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential value) {
+          if (credentialsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureCredentialsIsMutable();
+            credentials_.add(value);
+            onChanged();
+          } else {
+            credentialsBuilder_.addMessage(value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addCredentials(
+            int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential value) {
+          if (credentialsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureCredentialsIsMutable();
+            credentials_.add(index, value);
+            onChanged();
+          } else {
+            credentialsBuilder_.addMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addCredentials(
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder builderForValue) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            credentials_.add(builderForValue.build());
+            onChanged();
+          } else {
+            credentialsBuilder_.addMessage(builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addCredentials(
+            int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder builderForValue) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            credentials_.add(index, builderForValue.build());
+            onChanged();
+          } else {
+            credentialsBuilder_.addMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder addAllCredentials(
+            java.lang.Iterable<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential> values) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            com.google.protobuf.AbstractMessageLite.Builder.addAll(
+                values, credentials_);
+            onChanged();
+          } else {
+            credentialsBuilder_.addAllMessages(values);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder clearCredentials() {
+          if (credentialsBuilder_ == null) {
+            credentials_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+            onChanged();
+          } else {
+            credentialsBuilder_.clear();
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public Builder removeCredentials(int index) {
+          if (credentialsBuilder_ == null) {
+            ensureCredentialsIsMutable();
+            credentials_.remove(index);
+            onChanged();
+          } else {
+            credentialsBuilder_.remove(index);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder getCredentialsBuilder(
+            int index) {
+          return getCredentialsFieldBuilder().getBuilder(index);
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder getCredentialsOrBuilder(
+            int index) {
+          if (credentialsBuilder_ == null) {
+            return credentials_.get(index);  } else {
+            return credentialsBuilder_.getMessageOrBuilder(index);
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> 
+             getCredentialsOrBuilderList() {
+          if (credentialsBuilder_ != null) {
+            return credentialsBuilder_.getMessageOrBuilderList();
+          } else {
+            return java.util.Collections.unmodifiableList(credentials_);
+          }
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder addCredentialsBuilder() {
+          return getCredentialsFieldBuilder().addBuilder(
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder addCredentialsBuilder(
+            int index) {
+          return getCredentialsFieldBuilder().addBuilder(
+              index, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Credentials for reading the specified artifact locations
+         * </pre>
+         *
+         * <code>repeated .mlflow.LoggedModelArtifactCredential credentials = 1;</code>
+         */
+        public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder> 
+             getCredentialsBuilderList() {
+          return getCredentialsFieldBuilder().getBuilderList();
+        }
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder> 
+            getCredentialsFieldBuilder() {
+          if (credentialsBuilder_ == null) {
+            credentialsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredential.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.LoggedModelArtifactCredentialOrBuilder>(
+                    credentials_,
+                    ((bitField0_ & 0x00000001) != 0),
+                    getParentForChildren(),
+                    isClean());
+            credentials_ = null;
+          }
+          return credentialsBuilder_;
+        }
+
+        private java.lang.Object nextPageToken_ = "";
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return Whether the nextPageToken field is set.
+         */
+        public boolean hasNextPageToken() {
+          return ((bitField0_ & 0x00000002) != 0);
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return The nextPageToken.
+         */
+        public java.lang.String getNextPageToken() {
+          java.lang.Object ref = nextPageToken_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              nextPageToken_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return The bytes for nextPageToken.
+         */
+        public com.google.protobuf.ByteString
+            getNextPageTokenBytes() {
+          java.lang.Object ref = nextPageToken_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            nextPageToken_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @param value The nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageToken(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearNextPageToken() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          nextPageToken_ = getDefaultInstance().getNextPageToken();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Token used to fetch the next page of credentials for large requests that require pagination
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @param value The bytes for nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageTokenBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.GetCredentialsForLoggedModelDownload.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.GetCredentialsForLoggedModelDownload.Response)
+      private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response();
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int MODEL_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object modelId_;
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the modelId field is set.
+     */
+    @java.lang.Override
+    public boolean hasModelId() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The modelId.
+     */
+    @java.lang.Override
+    public java.lang.String getModelId() {
+      java.lang.Object ref = modelId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          modelId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The ID of the LoggedModel for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for modelId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getModelIdBytes() {
+      java.lang.Object ref = modelId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        modelId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int PATHS_FIELD_NUMBER = 2;
+    private com.google.protobuf.LazyStringList paths_;
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @return A list containing the paths.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getPathsList() {
+      return paths_;
+    }
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @return The count of paths.
+     */
+    public int getPathsCount() {
+      return paths_.size();
+    }
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @param index The index of the element to return.
+     * @return The paths at the given index.
+     */
+    public java.lang.String getPaths(int index) {
+      return paths_.get(index);
+    }
+    /**
+     * <pre>
+     * The artifact paths, relative to the LoggedModel's artifact root location,
+     * for which to fetch artifact read credentials
+     * </pre>
+     *
+     * <code>repeated string paths = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the paths at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getPathsBytes(int index) {
+      return paths_.getByteString(index);
+    }
+
+    public static final int PAGE_TOKEN_FIELD_NUMBER = 3;
+    private volatile java.lang.Object pageToken_;
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
+     */
+    @java.lang.Override
+    public boolean hasPageToken() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
+     */
+    @java.lang.Override
+    public java.lang.String getPageToken() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          pageToken_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Token specifying the page of credentials to fetch for large requests that require pagination
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getPageTokenBytes() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        pageToken_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, modelId_);
+      }
+      for (int i = 0; i < paths_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, paths_.getRaw(i));
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, pageToken_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, modelId_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < paths_.size(); i++) {
+          dataSize += computeStringSizeNoTag(paths_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getPathsList().size();
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, pageToken_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload)) {
+        return super.equals(obj);
+      }
+      com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload) obj;
+
+      if (hasModelId() != other.hasModelId()) return false;
+      if (hasModelId()) {
+        if (!getModelId()
+            .equals(other.getModelId())) return false;
+      }
+      if (!getPathsList()
+          .equals(other.getPathsList())) return false;
+      if (hasPageToken() != other.hasPageToken()) return false;
+      if (hasPageToken()) {
+        if (!getPageToken()
+            .equals(other.getPageToken())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasModelId()) {
+        hash = (37 * hash) + MODEL_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getModelId().hashCode();
+      }
+      if (getPathsCount() > 0) {
+        hash = (37 * hash) + PATHS_FIELD_NUMBER;
+        hash = (53 * hash) + getPathsList().hashCode();
+      }
+      if (hasPageToken()) {
+        hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
+        hash = (53 * hash) + getPageToken().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.GetCredentialsForLoggedModelDownload}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.GetCredentialsForLoggedModelDownload)
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownloadOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.Builder.class);
+      }
+
+      // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        modelId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        paths_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        pageToken_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_GetCredentialsForLoggedModelDownload_descriptor;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload getDefaultInstanceForType() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload build() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload buildPartial() {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.modelId_ = modelId_;
+        if (((bitField0_ & 0x00000002) != 0)) {
+          paths_ = paths_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000002);
+        }
+        result.paths_ = paths_;
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.pageToken_ = pageToken_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload) {
+          return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload other) {
+        if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload.getDefaultInstance()) return this;
+        if (other.hasModelId()) {
+          bitField0_ |= 0x00000001;
+          modelId_ = other.modelId_;
+          onChanged();
+        }
+        if (!other.paths_.isEmpty()) {
+          if (paths_.isEmpty()) {
+            paths_ = other.paths_;
+            bitField0_ = (bitField0_ & ~0x00000002);
+          } else {
+            ensurePathsIsMutable();
+            paths_.addAll(other.paths_);
+          }
+          onChanged();
+        }
+        if (other.hasPageToken()) {
+          bitField0_ |= 0x00000004;
+          pageToken_ = other.pageToken_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object modelId_ = "";
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the modelId field is set.
+       */
+      public boolean hasModelId() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The modelId.
+       */
+      public java.lang.String getModelId() {
+        java.lang.Object ref = modelId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            modelId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for modelId.
+       */
+      public com.google.protobuf.ByteString
+          getModelIdBytes() {
+        java.lang.Object ref = modelId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          modelId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The modelId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setModelId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        modelId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearModelId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        modelId_ = getDefaultInstance().getModelId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the LoggedModel for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>optional string model_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for modelId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setModelIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        modelId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList paths_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensurePathsIsMutable() {
+        if (!((bitField0_ & 0x00000002) != 0)) {
+          paths_ = new com.google.protobuf.LazyStringArrayList(paths_);
+          bitField0_ |= 0x00000002;
+         }
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @return A list containing the paths.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getPathsList() {
+        return paths_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @return The count of paths.
+       */
+      public int getPathsCount() {
+        return paths_.size();
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param index The index of the element to return.
+       * @return The paths at the given index.
+       */
+      public java.lang.String getPaths(int index) {
+        return paths_.get(index);
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the paths at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getPathsBytes(int index) {
+        return paths_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param index The index to set the value at.
+       * @param value The paths to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPaths(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensurePathsIsMutable();
+        paths_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param value The paths to add.
+       * @return This builder for chaining.
+       */
+      public Builder addPaths(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensurePathsIsMutable();
+        paths_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param values The paths to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllPaths(
+          java.lang.Iterable<java.lang.String> values) {
+        ensurePathsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, paths_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPaths() {
+        paths_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The artifact paths, relative to the LoggedModel's artifact root location,
+       * for which to fetch artifact read credentials
+       * </pre>
+       *
+       * <code>repeated string paths = 2;</code>
+       * @param value The bytes of the paths to add.
+       * @return This builder for chaining.
+       */
+      public Builder addPathsBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensurePathsIsMutable();
+        paths_.add(value);
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object pageToken_ = "";
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return Whether the pageToken field is set.
+       */
+      public boolean hasPageToken() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return The pageToken.
+       */
+      public java.lang.String getPageToken() {
+        java.lang.Object ref = pageToken_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            pageToken_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return The bytes for pageToken.
+       */
+      public com.google.protobuf.ByteString
+          getPageTokenBytes() {
+        java.lang.Object ref = pageToken_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          pageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @param value The pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageToken(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPageToken() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        pageToken_ = getDefaultInstance().getPageToken();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Token specifying the page of credentials to fetch for large requests that require pagination
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @param value The bytes for pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageTokenBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.GetCredentialsForLoggedModelDownload)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.GetCredentialsForLoggedModelDownload)
+    private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload();
+    }
+
+    public static com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<GetCredentialsForLoggedModelDownload>
+        PARSER = new com.google.protobuf.AbstractParser<GetCredentialsForLoggedModelDownload>() {
+      @java.lang.Override
+      public GetCredentialsForLoggedModelDownload parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new GetCredentialsForLoggedModelDownload(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<GetCredentialsForLoggedModelDownload> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<GetCredentialsForLoggedModelDownload> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForLoggedModelDownload getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_ArtifactCredentialInfo_descriptor;
   private static final 
@@ -17076,6 +22656,11 @@ public final class DatabricksArtifacts {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_LoggedModelArtifactCredential_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_LoggedModelArtifactCredential_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_GetCredentialsForRead_descriptor;
   private static final 
@@ -17151,6 +22736,26 @@ public final class DatabricksArtifacts {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetCredentialsForLoggedModelUpload_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetCredentialsForLoggedModelUpload_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetCredentialsForLoggedModelDownload_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetCredentialsForLoggedModelDownload_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -17160,105 +22765,122 @@ public final class DatabricksArtifacts {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\032databricks_artifacts.proto\022\006mlflow\032\025sc" +
-      "alapb/scalapb.proto\032\020databricks.proto\"\337\001" +
+      "\n\032databricks_artifacts.proto\022\006mlflow\032\020da" +
+      "tabricks.proto\032\025scalapb/scalapb.proto\"\337\001" +
       "\n\026ArtifactCredentialInfo\022\016\n\006run_id\030\001 \001(\t" +
       "\022\014\n\004path\030\002 \001(\t\022\022\n\nsigned_uri\030\003 \001(\t\022:\n\007he" +
       "aders\030\004 \003(\0132).mlflow.ArtifactCredentialI" +
       "nfo.HttpHeader\022,\n\004type\030\005 \001(\0162\036.mlflow.Ar" +
       "tifactCredentialType\032)\n\nHttpHeader\022\014\n\004na" +
-      "me\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\225\002\n\025GetCredentia" +
-      "lsForRead\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path\030" +
-      "\002 \003(\t\022\022\n\npage_token\030\003 \001(\t\032c\n\010Response\0228\n" +
-      "\020credential_infos\030\002 \003(\0132\036.mlflow.Artifac" +
-      "tCredentialInfo\022\027\n\017next_page_token\030\003 \001(\t" +
-      "J\004\010\001\020\002:_\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\342?1\n/com.databricks.mlflow.ap" +
-      "i.MlflowTrackingMessage\"\226\002\n\026GetCredentia" +
-      "lsForWrite\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path" +
-      "\030\002 \003(\t\022\022\n\npage_token\030\003 \001(\t\032c\n\010Response\0228" +
-      "\n\020credential_infos\030\002 \003(\0132\036.mlflow.Artifa" +
-      "ctCredentialInfo\022\027\n\017next_page_token\030\003 \001(" +
-      "\tJ\004\010\001\020\002:_\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\342?1\n/com.databricks.mlflow.a" +
-      "pi.MlflowTrackingMessage\"\325\002\n\025CreateMulti" +
-      "partUpload\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path" +
-      "\030\002 \001(\t\022\027\n\tnum_parts\030\003 \001(\003B\004\370\206\031\001\032\235\001\n\010Resp" +
-      "onse\022\021\n\tupload_id\030\001 \001(\t\022?\n\027upload_creden" +
-      "tial_infos\030\002 \003(\0132\036.mlflow.ArtifactCreden" +
-      "tialInfo\022=\n\025abort_credential_info\030\003 \001(\0132" +
-      "\036.mlflow.ArtifactCredentialInfo:_\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\342?1\n" +
-      "/com.databricks.mlflow.api.MlflowTrackin" +
-      "gMessage\"-\n\010PartEtag\022\023\n\013part_number\030\001 \001(" +
-      "\003\022\014\n\004etag\030\002 \001(\t\"\351\001\n\027CompleteMultipartUpl" +
-      "oad\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path\030\002 \001(\t\022" +
-      "\027\n\tupload_id\030\003 \001(\tB\004\370\206\031\001\022$\n\npart_etags\030\004" +
-      " \003(\0132\020.mlflow.PartEtag\032\n\n\010Response:_\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\342" +
-      "?1\n/com.databricks.mlflow.api.MlflowTrac" +
-      "kingMessage\"\240\002\n\031GetPresignedUploadPartUr" +
-      "l\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path\030\002 \001(\t\022\027\n" +
-      "\tupload_id\030\003 \001(\tB\004\370\206\031\001\022\031\n\013part_number\030\004 " +
-      "\001(\003B\004\370\206\031\001\032J\n\010Response\022>\n\026upload_credenti" +
-      "al_info\030\001 \001(\0132\036.mlflow.ArtifactCredentia" +
-      "lInfo:_\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]\342?1\n/com.databricks.mlflow.api" +
-      ".MlflowTrackingMessage\"\344\001\n\"GetCredential" +
-      "sForTraceDataDownload\022\030\n\nrequest_id\030\001 \001(" +
-      "\tB\004\370\206\031\001\032C\n\010Response\0227\n\017credential_info\030\001" +
-      " \001(\0132\036.mlflow.ArtifactCredentialInfo:_\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\342?1\n/com.databricks.mlflow.api.MlflowTr" +
-      "ackingMessage\"\342\001\n GetCredentialsForTrace" +
-      "DataUpload\022\030\n\nrequest_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010" +
-      "Response\0227\n\017credential_info\030\001 \001(\0132\036.mlfl" +
-      "ow.ArtifactCredentialInfo:_\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\342?1\n/com.d" +
-      "atabricks.mlflow.api.MlflowTrackingMessa" +
-      "ge*s\n\026ArtifactCredentialType\022\021\n\rAZURE_SA" +
-      "S_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002\022\022\n\016GCP_SI" +
-      "GNED_URL\020\003\022\033\n\027AZURE_ADLS_GEN2_SAS_URI\020\0042" +
-      "\213\n\n DatabricksMlflowArtifactsService\022\234\001\n" +
-      "\025getCredentialsForRead\022\035.mlflow.GetCrede" +
-      "ntialsForRead\032&.mlflow.GetCredentialsFor" +
-      "Read.Response\"<\362\206\0318\n4\n\004POST\022&/mlflow/art" +
-      "ifacts/credentials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026" +
-      "getCredentialsForWrite\022\036.mlflow.GetCrede" +
-      "ntialsForWrite\032\'.mlflow.GetCredentialsFo" +
-      "rWrite.Response\"=\362\206\0319\n5\n\004POST\022\'/mlflow/a" +
-      "rtifacts/credentials-for-write\032\004\010\002\020\000\020\003\022\237" +
-      "\001\n\025createMultipartUpload\022\035.mlflow.Create" +
-      "MultipartUpload\032&.mlflow.CreateMultipart" +
-      "Upload.Response\"?\362\206\031;\n7\n\004POST\022)/mlflow/a" +
-      "rtifacts/create-multipart-upload\032\004\010\002\020\000\020\003" +
-      "\022\247\001\n\027completeMultipartUpload\022\037.mlflow.Co" +
-      "mpleteMultipartUpload\032(.mlflow.CompleteM" +
-      "ultipartUpload.Response\"A\362\206\031=\n9\n\004POST\022+/" +
-      "mlflow/artifacts/complete-multipart-uplo" +
-      "ad\032\004\010\002\020\000\020\003\022\260\001\n\031getPresignedUploadPartUrl" +
-      "\022!.mlflow.GetPresignedUploadPartUrl\032*.ml" +
-      "flow.GetPresignedUploadPartUrl.Response\"" +
-      "D\362\206\031@\n<\n\003GET\022//mlflow/artifacts/get-pres" +
-      "igned-upload-part-url\032\004\010\002\020\000\020\003\022\325\001\n\"getCre" +
-      "dentialsForTraceDataDownload\022*.mlflow.Ge" +
-      "tCredentialsForTraceDataDownload\0323.mlflo" +
-      "w.GetCredentialsForTraceDataDownload.Res" +
-      "ponse\"N\362\206\031J\nF\n\003GET\0229/mlflow/traces/{requ" +
-      "est_id}/credentials-for-data-download\032\004\010" +
-      "\002\020\000\020\003\022\315\001\n getCredentialsForTraceDataUplo" +
-      "ad\022(.mlflow.GetCredentialsForTraceDataUp" +
-      "load\0321.mlflow.GetCredentialsForTraceData" +
-      "Upload.Response\"L\362\206\031H\nD\n\003GET\0227/mlflow/tr" +
-      "aces/{request_id}/credentials-for-data-u" +
-      "pload\032\004\010\002\020\000\020\003B,\n\037com.databricks.api.prot" +
-      "o.mlflow\220\001\001\240\001\001\342?\002\020\001"
+      "me\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"j\n\035LoggedModelAr" +
+      "tifactCredential\022\020\n\010model_id\030\001 \001(\t\0227\n\017cr" +
+      "edential_info\030\002 \001(\0132\036.mlflow.ArtifactCre" +
+      "dentialInfo\"\341\001\n\025GetCredentialsForRead\022\024\n" +
+      "\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path\030\002 \003(\t\022\022\n\npag" +
+      "e_token\030\003 \001(\t\032c\n\010Response\0228\n\020credential_" +
+      "infos\030\002 \003(\0132\036.mlflow.ArtifactCredentialI" +
+      "nfo\022\027\n\017next_page_token\030\003 \001(\tJ\004\010\001\020\002:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "\342\001\n\026GetCredentialsForWrite\022\024\n\006run_id\030\001 \001" +
+      "(\tB\004\370\206\031\001\022\014\n\004path\030\002 \003(\t\022\022\n\npage_token\030\003 \001" +
+      "(\t\032c\n\010Response\0228\n\020credential_infos\030\002 \003(\013" +
+      "2\036.mlflow.ArtifactCredentialInfo\022\027\n\017next" +
+      "_page_token\030\003 \001(\tJ\004\010\001\020\002:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"\241\002\n\025CreateM" +
+      "ultipartUpload\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004" +
+      "path\030\002 \001(\t\022\027\n\tnum_parts\030\003 \001(\003B\004\370\206\031\001\032\235\001\n\010" +
+      "Response\022\021\n\tupload_id\030\001 \001(\t\022?\n\027upload_cr" +
+      "edential_infos\030\002 \003(\0132\036.mlflow.ArtifactCr" +
+      "edentialInfo\022=\n\025abort_credential_info\030\003 " +
+      "\001(\0132\036.mlflow.ArtifactCredentialInfo:+\342?(" +
+      "\n&com.databricks.rpc.RPC[$this.Response]" +
+      "\"-\n\010PartEtag\022\023\n\013part_number\030\001 \001(\003\022\014\n\004eta" +
+      "g\030\002 \001(\t\"\265\001\n\027CompleteMultipartUpload\022\024\n\006r" +
+      "un_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path\030\002 \001(\t\022\027\n\tuploa" +
+      "d_id\030\003 \001(\tB\004\370\206\031\001\022$\n\npart_etags\030\004 \003(\0132\020.m" +
+      "lflow.PartEtag\032\n\n\010Response:+\342?(\n&com.dat" +
+      "abricks.rpc.RPC[$this.Response]\"\354\001\n\031GetP" +
+      "resignedUploadPartUrl\022\024\n\006run_id\030\001 \001(\tB\004\370" +
+      "\206\031\001\022\014\n\004path\030\002 \001(\t\022\027\n\tupload_id\030\003 \001(\tB\004\370\206" +
+      "\031\001\022\031\n\013part_number\030\004 \001(\003B\004\370\206\031\001\032J\n\010Respons" +
+      "e\022>\n\026upload_credential_info\030\001 \001(\0132\036.mlfl" +
+      "ow.ArtifactCredentialInfo:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"\260\001\n\"GetCr" +
+      "edentialsForTraceDataDownload\022\030\n\nrequest" +
+      "_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010Response\0227\n\017credentia" +
+      "l_info\030\001 \001(\0132\036.mlflow.ArtifactCredential" +
+      "Info:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]\"\256\001\n GetCredentialsForTraceData" +
+      "Upload\022\030\n\nrequest_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010Resp" +
+      "onse\0227\n\017credential_info\030\001 \001(\0132\036.mlflow.A" +
+      "rtifactCredentialInfo:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\355\001\n\"GetCreden" +
+      "tialsForLoggedModelUpload\022\026\n\010model_id\030\001 " +
+      "\001(\tB\004\370\206\031\001\022\r\n\005paths\030\002 \003(\t\022\022\n\npage_token\030\003" +
+      " \001(\t\032_\n\010Response\022:\n\013credentials\030\001 \003(\0132%." +
+      "mlflow.LoggedModelArtifactCredential\022\027\n\017" +
+      "next_page_token\030\002 \001(\t:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\357\001\n$GetCreden" +
+      "tialsForLoggedModelDownload\022\026\n\010model_id\030" +
+      "\001 \001(\tB\004\370\206\031\001\022\r\n\005paths\030\002 \003(\t\022\022\n\npage_token" +
+      "\030\003 \001(\t\032_\n\010Response\022:\n\013credentials\030\001 \003(\0132" +
+      "%.mlflow.LoggedModelArtifactCredential\022\027" +
+      "\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]*s\n\026Artifact" +
+      "CredentialType\022\021\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS" +
+      "_PRESIGNED_URL\020\002\022\022\n\016GCP_SIGNED_URL\020\003\022\033\n\027" +
+      "AZURE_ADLS_GEN2_SAS_URI\020\0042\325\r\n Databricks" +
+      "MlflowArtifactsService\022\234\001\n\025getCredential" +
+      "sForRead\022\035.mlflow.GetCredentialsForRead\032" +
+      "&.mlflow.GetCredentialsForRead.Response\"" +
+      "<\362\206\0318\n4\n\004POST\022&/mlflow/artifacts/credent" +
+      "ials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getCredentials" +
+      "ForWrite\022\036.mlflow.GetCredentialsForWrite" +
+      "\032\'.mlflow.GetCredentialsForWrite.Respons" +
+      "e\"=\362\206\0319\n5\n\004POST\022\'/mlflow/artifacts/crede" +
+      "ntials-for-write\032\004\010\002\020\000\020\003\022\237\001\n\025createMulti" +
+      "partUpload\022\035.mlflow.CreateMultipartUploa" +
+      "d\032&.mlflow.CreateMultipartUpload.Respons" +
+      "e\"?\362\206\031;\n7\n\004POST\022)/mlflow/artifacts/creat" +
+      "e-multipart-upload\032\004\010\002\020\000\020\003\022\247\001\n\027completeM" +
+      "ultipartUpload\022\037.mlflow.CompleteMultipar" +
+      "tUpload\032(.mlflow.CompleteMultipartUpload" +
+      ".Response\"A\362\206\031=\n9\n\004POST\022+/mlflow/artifac" +
+      "ts/complete-multipart-upload\032\004\010\002\020\000\020\003\022\260\001\n" +
+      "\031getPresignedUploadPartUrl\022!.mlflow.GetP" +
+      "resignedUploadPartUrl\032*.mlflow.GetPresig" +
+      "nedUploadPartUrl.Response\"D\362\206\031@\n<\n\003GET\022/" +
+      "/mlflow/artifacts/get-presigned-upload-p" +
+      "art-url\032\004\010\002\020\000\020\003\022\325\001\n\"getCredentialsForTra" +
+      "ceDataDownload\022*.mlflow.GetCredentialsFo" +
+      "rTraceDataDownload\0323.mlflow.GetCredentia" +
+      "lsForTraceDataDownload.Response\"N\362\206\031J\nF\n" +
+      "\003GET\0229/mlflow/traces/{request_id}/creden" +
+      "tials-for-data-download\032\004\010\002\020\000\020\003\022\315\001\n getC" +
+      "redentialsForTraceDataUpload\022(.mlflow.Ge" +
+      "tCredentialsForTraceDataUpload\0321.mlflow." +
+      "GetCredentialsForTraceDataUpload.Respons" +
+      "e\"L\362\206\031H\nD\n\003GET\0227/mlflow/traces/{request_" +
+      "id}/credentials-for-data-upload\032\004\010\002\020\000\020\003\022" +
+      "\336\001\n\"getCredentialsForLoggedModelUpload\022*" +
+      ".mlflow.GetCredentialsForLoggedModelUplo" +
+      "ad\0323.mlflow.GetCredentialsForLoggedModel" +
+      "Upload.Response\"W\362\206\031S\nO\n\004POST\022A/mlflow/l" +
+      "ogged-models/{model_id}/artifacts/creden" +
+      "tials-for-upload\032\004\010\002\020\000\020\003\022\346\001\n$getCredenti" +
+      "alsForLoggedModelDownload\022,.mlflow.GetCr" +
+      "edentialsForLoggedModelDownload\0325.mlflow" +
+      ".GetCredentialsForLoggedModelDownload.Re" +
+      "sponse\"Y\362\206\031U\nQ\n\004POST\022C/mlflow/logged-mod" +
+      "els/{model_id}/artifacts/credentials-for" +
+      "-download\032\004\010\002\020\000\020\003B,\n\037com.databricks.api." +
+      "proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
-          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
+          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
         });
     internal_static_mlflow_ArtifactCredentialInfo_descriptor =
       getDescriptor().getMessageTypes().get(0);
@@ -17272,8 +22894,14 @@ public final class DatabricksArtifacts {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_descriptor,
         new java.lang.String[] { "Name", "Value", });
-    internal_static_mlflow_GetCredentialsForRead_descriptor =
+    internal_static_mlflow_LoggedModelArtifactCredential_descriptor =
       getDescriptor().getMessageTypes().get(1);
+    internal_static_mlflow_LoggedModelArtifactCredential_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_LoggedModelArtifactCredential_descriptor,
+        new java.lang.String[] { "ModelId", "CredentialInfo", });
+    internal_static_mlflow_GetCredentialsForRead_descriptor =
+      getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_GetCredentialsForRead_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForRead_descriptor,
@@ -17285,7 +22913,7 @@ public final class DatabricksArtifacts {
         internal_static_mlflow_GetCredentialsForRead_Response_descriptor,
         new java.lang.String[] { "CredentialInfos", "NextPageToken", });
     internal_static_mlflow_GetCredentialsForWrite_descriptor =
-      getDescriptor().getMessageTypes().get(2);
+      getDescriptor().getMessageTypes().get(3);
     internal_static_mlflow_GetCredentialsForWrite_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForWrite_descriptor,
@@ -17297,7 +22925,7 @@ public final class DatabricksArtifacts {
         internal_static_mlflow_GetCredentialsForWrite_Response_descriptor,
         new java.lang.String[] { "CredentialInfos", "NextPageToken", });
     internal_static_mlflow_CreateMultipartUpload_descriptor =
-      getDescriptor().getMessageTypes().get(3);
+      getDescriptor().getMessageTypes().get(4);
     internal_static_mlflow_CreateMultipartUpload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateMultipartUpload_descriptor,
@@ -17309,13 +22937,13 @@ public final class DatabricksArtifacts {
         internal_static_mlflow_CreateMultipartUpload_Response_descriptor,
         new java.lang.String[] { "UploadId", "UploadCredentialInfos", "AbortCredentialInfo", });
     internal_static_mlflow_PartEtag_descriptor =
-      getDescriptor().getMessageTypes().get(4);
+      getDescriptor().getMessageTypes().get(5);
     internal_static_mlflow_PartEtag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_PartEtag_descriptor,
         new java.lang.String[] { "PartNumber", "Etag", });
     internal_static_mlflow_CompleteMultipartUpload_descriptor =
-      getDescriptor().getMessageTypes().get(5);
+      getDescriptor().getMessageTypes().get(6);
     internal_static_mlflow_CompleteMultipartUpload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CompleteMultipartUpload_descriptor,
@@ -17327,7 +22955,7 @@ public final class DatabricksArtifacts {
         internal_static_mlflow_CompleteMultipartUpload_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetPresignedUploadPartUrl_descriptor =
-      getDescriptor().getMessageTypes().get(6);
+      getDescriptor().getMessageTypes().get(7);
     internal_static_mlflow_GetPresignedUploadPartUrl_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetPresignedUploadPartUrl_descriptor,
@@ -17339,7 +22967,7 @@ public final class DatabricksArtifacts {
         internal_static_mlflow_GetPresignedUploadPartUrl_Response_descriptor,
         new java.lang.String[] { "UploadCredentialInfo", });
     internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor =
-      getDescriptor().getMessageTypes().get(7);
+      getDescriptor().getMessageTypes().get(8);
     internal_static_mlflow_GetCredentialsForTraceDataDownload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor,
@@ -17351,7 +22979,7 @@ public final class DatabricksArtifacts {
         internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor,
         new java.lang.String[] { "CredentialInfo", });
     internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor =
-      getDescriptor().getMessageTypes().get(8);
+      getDescriptor().getMessageTypes().get(9);
     internal_static_mlflow_GetCredentialsForTraceDataUpload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor,
@@ -17362,6 +22990,30 @@ public final class DatabricksArtifacts {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor,
         new java.lang.String[] { "CredentialInfo", });
+    internal_static_mlflow_GetCredentialsForLoggedModelUpload_descriptor =
+      getDescriptor().getMessageTypes().get(10);
+    internal_static_mlflow_GetCredentialsForLoggedModelUpload_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetCredentialsForLoggedModelUpload_descriptor,
+        new java.lang.String[] { "ModelId", "Paths", "PageToken", });
+    internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_descriptor =
+      internal_static_mlflow_GetCredentialsForLoggedModelUpload_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetCredentialsForLoggedModelUpload_Response_descriptor,
+        new java.lang.String[] { "Credentials", "NextPageToken", });
+    internal_static_mlflow_GetCredentialsForLoggedModelDownload_descriptor =
+      getDescriptor().getMessageTypes().get(11);
+    internal_static_mlflow_GetCredentialsForLoggedModelDownload_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetCredentialsForLoggedModelDownload_descriptor,
+        new java.lang.String[] { "ModelId", "Paths", "PageToken", });
+    internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_descriptor =
+      internal_static_mlflow_GetCredentialsForLoggedModelDownload_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetCredentialsForLoggedModelDownload_Response_descriptor,
+        new java.lang.String[] { "Credentials", "NextPageToken", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
@@ -17370,8 +23022,8 @@ public final class DatabricksArtifacts {
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
-    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
     com.databricks.api.proto.databricks.Databricks.getDescriptor();
+    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

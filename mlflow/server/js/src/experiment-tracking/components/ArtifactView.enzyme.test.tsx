@@ -5,8 +5,9 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
-import { Typography } from '@databricks/design-system';
+import { DesignSystemProvider, Typography } from '@databricks/design-system';
 import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ArtifactView, ArtifactViewImpl } from './ArtifactView';
 import ShowArtifactTextView from './artifact-view-components/ShowArtifactTextView';
@@ -27,7 +28,7 @@ const { Text } = Typography;
 
 // Mock these methods because js-dom doesn't implement window.Request
 jest.mock('../../common/utils/ArtifactUtils', () => ({
-  ...jest.requireActual('../../common/utils/ArtifactUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/ArtifactUtils')>('../../common/utils/ArtifactUtils'),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
   getArtifactContent: jest.fn().mockResolvedValue(),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
@@ -51,9 +52,11 @@ describe('ArtifactView', () => {
   const getWrapper = (fakeStore: any, mockProps: any) =>
     mountWithIntl(
       <Provider store={fakeStore}>
-        <BrowserRouter>
-          <ArtifactView {...mockProps} />
-        </BrowserRouter>
+        <DesignSystemProvider>
+          <BrowserRouter>
+            <ArtifactView {...mockProps} />
+          </BrowserRouter>
+        </DesignSystemProvider>
       </Provider>,
     );
   beforeEach(() => {

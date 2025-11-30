@@ -1,10 +1,12 @@
+import os
+
 from mlflow.metrics import genai
-from mlflow.metrics.base import (
-    MetricValue,
-)
+from mlflow.metrics.base import MetricValue
+from mlflow.metrics.genai.utils import _MIGRATION_GUIDE
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
+    _bleu_eval_fn,
     _f1_score_eval_fn,
     _flesch_kincaid_eval_fn,
     _mae_eval_fn,
@@ -22,17 +24,16 @@ from mlflow.metrics.metric_definitions import (
     _rouge2_eval_fn,
     _rougeL_eval_fn,
     _rougeLsum_eval_fn,
-    _token_count_eval_fn,
     _toxicity_eval_fn,
 )
 from mlflow.models import (
     EvaluationMetric,
     make_metric,
 )
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def latency() -> EvaluationMetric:
     """
     This function will create a metric for calculating latency. Latency is determined by the time
@@ -46,13 +47,37 @@ def latency() -> EvaluationMetric:
     )
 
 
-# general text metrics
-@experimental
-def token_count() -> EvaluationMetric:
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
+def token_count(encoding: str = "cl100k_base") -> EvaluationMetric:
     """
     This function will create a metric for calculating token_count. Token count is calculated
     using tiktoken by using the `cl100k_base` tokenizer.
+
+    Note: For air-gapped environments, you can set the TIKTOKEN_CACHE_DIR environment variable
+    to specify a local cache directory for tiktoken to avoid downloading the tokenizer files.
     """
+
+    def _token_count_eval_fn(predictions, targets=None, metrics=None):
+        import tiktoken
+
+        # ref: https://github.com/openai/tiktoken/issues/75
+        # Only set TIKTOKEN_CACHE_DIR if not already set by user
+        if "TIKTOKEN_CACHE_DIR" not in os.environ:
+            os.environ["TIKTOKEN_CACHE_DIR"] = ""
+        enc = tiktoken.get_encoding(encoding)
+
+        num_tokens = []
+        for prediction in predictions:
+            if isinstance(prediction, str):
+                num_tokens.append(len(enc.encode(prediction)))
+            else:
+                num_tokens.append(None)
+
+        return MetricValue(
+            scores=num_tokens,
+            aggregate_results={},
+        )
+
     return make_metric(
         eval_fn=_token_count_eval_fn,
         greater_is_better=True,
@@ -60,7 +85,7 @@ def token_count() -> EvaluationMetric:
     )
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def toxicity() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `toxicity`_ using the model
@@ -86,7 +111,7 @@ def toxicity() -> EvaluationMetric:
     )
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def flesch_kincaid_grade_level() -> EvaluationMetric:
     """
     This function will create a metric for calculating `flesch kincaid grade level`_ using
@@ -110,7 +135,7 @@ def flesch_kincaid_grade_level() -> EvaluationMetric:
     )
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def ari_grade_level() -> EvaluationMetric:
     """
     This function will create a metric for calculating `automated readability index`_ using
@@ -134,8 +159,7 @@ def ari_grade_level() -> EvaluationMetric:
     )
 
 
-# question answering metrics
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def exact_match() -> EvaluationMetric:
     """
     This function will create a metric for calculating `accuracy`_ using sklearn.
@@ -149,8 +173,7 @@ def exact_match() -> EvaluationMetric:
     )
 
 
-# text summarization metrics
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def rouge1() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rouge1`_.
@@ -171,7 +194,7 @@ def rouge1() -> EvaluationMetric:
     )
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def rouge2() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rouge2`_.
@@ -192,7 +215,7 @@ def rouge2() -> EvaluationMetric:
     )
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def rougeL() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rougeL`_.
@@ -213,7 +236,7 @@ def rougeL() -> EvaluationMetric:
     )
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def rougeLsum() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rougeLsum`_.
@@ -234,7 +257,7 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def precision_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``precision_at_k`` for retriever models.
@@ -253,7 +276,7 @@ def precision_at_k(k) -> EvaluationMetric:
     )
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def recall_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``recall_at_k`` for retriever models.
@@ -274,7 +297,7 @@ def recall_at_k(k) -> EvaluationMetric:
     )
 
 
-@experimental
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def ndcg_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for evaluating `NDCG@k`_ for retriever models.
@@ -291,7 +314,7 @@ def ndcg_at_k(k) -> EvaluationMetric:
     3. If ground truth doc IDs are provided and no documents are retrieved, the score is 0.
     4. If duplicate doc IDs are retrieved and the duplicate doc IDs are in the ground truth,
        they will be treated as different docs. For example, if the ground truth doc IDs are
-       [1, 2] and the retrieved doc IDs are [1, 1, 1, 3], the score will be equavalent to
+       [1, 2] and the retrieved doc IDs are [1, 1, 1, 3], the score will be equivalent to
        ground truth doc IDs [10, 11, 12, 2] and retrieved doc IDs [10, 11, 12, 3].
 
     .. _NDCG@k: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html
@@ -435,13 +458,38 @@ def f1_score() -> EvaluationMetric:
     return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
+def bleu() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `bleu`_.
+
+    The BLEU scores range from 0 to 1, with higher scores indicating greater similarity to
+    reference texts. BLEU considers n-gram precision and brevity penalty. While adding more
+    references can boost the score, perfect scores are rare and not essential for effective
+    evaluation.
+
+    Aggregations calculated for this metric:
+        - mean
+        - variance
+        - p90
+
+    .. _bleu: https://huggingface.co/spaces/evaluate-metric/bleu
+    """
+    return make_metric(
+        eval_fn=_bleu_eval_fn,
+        greater_is_better=True,
+        name="bleu",
+        version="v1",
+    )
+
+
 __all__ = [
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
     "flesch_kincaid_grade_level",
     "ari_grade_level",
-    "accuracy",
+    "exact_match",
     "rouge1",
     "rouge2",
     "rougeL",
@@ -453,10 +501,11 @@ __all__ = [
     "r2_score",
     "max_error",
     "mape",
-    "binary_recall",
-    "binary_precision",
-    "binary_f1_score",
+    "recall_score",
+    "precision_score",
+    "f1_score",
     "token_count",
     "latency",
     "genai",
+    "bleu",
 ]

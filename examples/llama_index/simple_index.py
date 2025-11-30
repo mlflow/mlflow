@@ -33,7 +33,7 @@ mlflow.set_experiment("llama_index")
 with mlflow.start_run() as run:
     model_info = mlflow.llama_index.log_model(
         llama_index_model=index,
-        artifact_path="chat_index",
+        name="chat_index",
         # Log the index with chat engine type. This lets you load the index back as a chat engine
         # using `mlflow.pyfunc.load_model()`` API for querying and deploying.
         engine_type="chat",

@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect, afterEach, test } from '@jest/globals';
 import { last } from 'lodash';
 import { render, screen, waitFor } from '@testing-library/react';
 import ArtifactPage from './ArtifactPage';
@@ -5,24 +6,31 @@ import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import { MlflowService } from '../sdk/MlflowService';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { IntlProvider } from 'react-intl';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { getArtifactContent, getArtifactBytesContent } from '../../common/utils/ArtifactUtils';
 import { TestRouter, testRoute } from '../../common/utils/RoutingTestUtils';
 import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '../constants';
 import Utils from '../../common/utils/Utils';
 import { Services } from '../../model-registry/services';
 import type { ReduxState } from '../../redux-types';
-import type { DeepPartial } from 'redux';
-import type { KeyValueEntity } from '../types';
+import { applyMiddleware, combineReducers, createStore, type DeepPartial } from 'redux';
+import type { KeyValueEntity } from '../../common/types';
 // eslint-disable-next-line import/no-nodejs-modules
 import { readFileSync } from 'fs';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 jest.mock('../../common/utils/ArtifactUtils', () => ({
-  ...jest.requireActual('../../common/utils/ArtifactUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/ArtifactUtils')>('../../common/utils/ArtifactUtils'),
   getArtifactContent: jest.fn(),
   getArtifactBytesContent: jest.fn(),
+}));
+
+jest.mock('../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../common/utils/FeatureUtils')>('../../common/utils/FeatureUtils'),
 }));
 
 // List of various artifacts to be downloaded and rendered
@@ -90,6 +98,7 @@ const mockArtifactRetrieval = <T extends BlobPart>(artifactData: T) => {
       }
     });
   };
+  // @ts-expect-error Type 'unknown' is not assignable to type 'R'
   jest.mocked(getArtifactContent).mockImplementation(getArtifactContentMocked);
   jest.mocked(getArtifactBytesContent).mockImplementation((...props) => getArtifactContentMocked(...props, true));
 };
@@ -146,14 +155,16 @@ describe('Artifact page, artifact files rendering integration test', () => {
       },
     };
 
-    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} />, {
+    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} experimentId="test-experiment-id" />, {
       wrapper: ({ children }) => (
         <TestRouter
           routes={[
             testRoute(
-              <IntlProvider locale="en">
-                <MockedReduxStoreProvider state={testReduxStoreState}>{children}</MockedReduxStoreProvider>
-              </IntlProvider>,
+              <DesignSystemProvider>
+                <IntlProvider locale="en">
+                  <MockedReduxStoreProvider state={testReduxStoreState}>{children}</MockedReduxStoreProvider>
+                </IntlProvider>
+              </DesignSystemProvider>,
             ),
           ]}
         />
@@ -219,13 +230,15 @@ describe('Artifact page, artifact files rendering integration test', () => {
       },
     };
 
-    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} />, {
+    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} experimentId="test-experiment-id" />, {
       wrapper: ({ children }) => (
         <TestRouter
           routes={[
             testRoute(
               <IntlProvider locale="en">
-                <MockedReduxStoreProvider state={testReduxStoreState}>{children}</MockedReduxStoreProvider>
+                <DesignSystemProvider>
+                  <MockedReduxStoreProvider state={testReduxStoreState}>{children}</MockedReduxStoreProvider>
+                </DesignSystemProvider>
               </IntlProvider>,
             ),
           ]}
@@ -245,6 +258,57 @@ describe('Artifact page, artifact files rendering integration test', () => {
     await waitFor(() => {
       expect(screen.getByText('test_model_input')).toBeInTheDocument();
       expect(screen.getByText('test_model_output')).toBeInTheDocument();
+    });
+  });
+});
+
+describe('Artifact page, artifact list request error handling', () => {
+  beforeEach(() => {
+    jest.spyOn(MlflowService, 'listArtifacts').mockResolvedValue({});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  // Mock failed API response as a slice of redux store which ArtifactPage uses for getting error state
+  const alwaysFailingResponseApiStub = new Proxy(
+    {},
+    {
+      get() {
+        return { active: false, error: new ErrorWrapper({ message: 'User does not have permissions' }, 403) };
+      },
+    },
+  );
+
+  const testReduxStoreState: DeepPartial<ReduxState> = {
+    apis: alwaysFailingResponseApiStub,
+    entities: {
+      modelVersionsByModel: {},
+      artifactRootUriByRunUuid: {},
+      artifactsByRunUuid: {},
+    },
+  };
+
+  test('renders error message when artifact list request fails', async () => {
+    render(<ArtifactPage runUuid="test-run-uuid" runTags={{}} experimentId="test-experiment-id" />, {
+      wrapper: ({ children }) => (
+        <TestRouter
+          routes={[
+            testRoute(
+              <IntlProvider locale="en">
+                <MockedReduxStoreProvider state={testReduxStoreState}>{children}</MockedReduxStoreProvider>
+              </IntlProvider>,
+            ),
+          ]}
+        />
+      ),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Loading artifact failed')).toBeInTheDocument();
+      expect(screen.getByText('User does not have permissions')).toBeInTheDocument();
     });
   });
 });

@@ -1,11 +1,15 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 2.17.1
+Version: 3.7.1
 Authors@R: 
-    c(person(given = "Matei",
-             family = "Zaharia",
+    c(person(given = "Ben",
+             family = "Wilson",
              role = c("aut", "cre"),
+             email = "benjamin.wilson@databricks.com"),
+      person(given = "Matei",
+             family = "Zaharia",
+             role = "aut",
              email = "matei@databricks.com"),
       person(given = "Javier",
              family = "Luraschi",
@@ -18,7 +22,6 @@ Authors@R:
              comment = c(ORCID = "0000-0001-7803-7901")),
       person(family = "RStudio",
              role = "cph"))
-Maintainer: Matei Zaharia <matei@databricks.com>
 Description: R interface to 'MLflow', open source platform for
     the complete machine learning life cycle, see <https://mlflow.org/>.
     This package supports installing 'MLflow', tracking experiments,
@@ -30,7 +33,6 @@ Depends:
     R (>= 3.3.0)
 Imports:
     base64enc,
-    forge,
     fs,
     git2r,
     glue,
@@ -61,6 +63,7 @@ Suggests:
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:
+    'cast-utils.R'
     'cli.R'
     'databricks-utils.R'
     'globals.R'

@@ -1,10 +1,8 @@
-from typing import List
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
-def _validate_content_type(flask_request, allowed_content_types: List[str]):
+def _validate_content_type(flask_request, allowed_content_types: list[str]):
     """
     Validates that the request content type is one of the allowed content types.
 

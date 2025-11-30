@@ -1,6 +1,7 @@
 import logging
 import os
-from typing import Optional
+
+from mlflow.utils.string_utils import _backtick_quote
 
 _logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def _is_delta_table_path(path: str) -> bool:
         return False
 
 
-def _try_get_delta_table_latest_version_from_path(path: str) -> Optional[int]:
+def _try_get_delta_table_latest_version_from_path(path: str) -> int | None:
     """Gets the latest version of the Delta table located at the specified path.
 
     Args:
@@ -71,7 +72,7 @@ def _try_get_delta_table_latest_version_from_path(path: str) -> Optional[int]:
         )
 
 
-def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Optional[int]:
+def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> int | None:
     """Gets the latest version of the Delta table with the specified name.
 
     Args:
@@ -85,8 +86,9 @@ def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Opti
 
     try:
         spark = SparkSession.builder.getOrCreate()
+        backticked_table_name = ".".join(map(_backtick_quote, table_name.split(".")))
         j_delta_table = spark._jvm.io.delta.tables.DeltaTable.forName(
-            spark._jsparkSession, table_name
+            spark._jsparkSession, backticked_table_name
         )
         return _get_delta_table_latest_version(j_delta_table)
     except Exception as e:

@@ -7,8 +7,9 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow import MlflowException
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.schemas.chat import RequestMessage
@@ -19,7 +20,7 @@ from tests.gateway.tools import MockAsyncResponse
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "mosaicml",
             "name": "mpt-7b-instruct",
@@ -43,10 +44,11 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
-        provider = MosaicMLProvider(RouteConfig(**config))
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = MosaicMLProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
             "max_tokens": 1000,
@@ -73,7 +75,7 @@ async def test_completions():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "mosaicml",
             "name": "llama2-70b-chat",
@@ -165,10 +167,11 @@ def chat_response():
 async def test_chat(payload, expected_llm_input):
     resp = chat_response()
     config = chat_config()
-    with mock.patch("time.time", return_value=1700242674), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
-        provider = MosaicMLProvider(RouteConfig(**config))
+    with (
+        mock.patch("time.time", return_value=1700242674),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = MosaicMLProvider(EndpointConfig(**config))
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
             "id": None,
@@ -181,6 +184,7 @@ async def test_chat(payload, expected_llm_input):
                         "role": "assistant",
                         "content": "This is a test",
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,
@@ -202,7 +206,7 @@ async def test_chat(payload, expected_llm_input):
 def embeddings_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "mosaicml",
             "name": "instructor-large",
@@ -260,7 +264,7 @@ async def test_embeddings():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = MosaicMLProvider(RouteConfig(**config))
+        provider = MosaicMLProvider(EndpointConfig(**config))
         payload = {"input": ["This is a", "batch test"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -292,7 +296,7 @@ async def test_batch_embeddings():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = MosaicMLProvider(RouteConfig(**config))
+        provider = MosaicMLProvider(EndpointConfig(**config))
         payload = {"input": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -332,13 +336,13 @@ async def test_batch_embeddings():
 @pytest.mark.asyncio
 async def test_param_model_is_not_permitted():
     config = embeddings_config()
-    provider = MosaicMLProvider(RouteConfig(**config))
+    provider = MosaicMLProvider(EndpointConfig(**config))
     payload = {
         "prompt": "This should fail",
         "max_tokens": 5000,
         "model": "something-else",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422
@@ -348,7 +352,7 @@ async def test_param_model_is_not_permitted():
 @pytest.mark.asyncio
 async def test_completions_throws_if_prompt_contains_non_string(prompt):
     config = completions_config()
-    provider = MosaicMLProvider(RouteConfig(**config))
+    provider = MosaicMLProvider(EndpointConfig(**config))
     payload = {"prompt": prompt}
     with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
@@ -467,7 +471,7 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
     ],
 )
 def test_valid_parsing(messages, expected_output):
-    route_config = RouteConfig(**chat_config())
+    route_config = EndpointConfig(**chat_config())
 
     assert (
         MosaicMLProvider(route_config)._parse_chat_messages_to_prompt(messages=messages)
@@ -488,7 +492,7 @@ def test_valid_parsing(messages, expected_output):
     ],
 )
 def test_invalid_role_submitted_raises(messages):
-    route_config = RouteConfig(**chat_config())
+    route_config = EndpointConfig(**chat_config())
     with pytest.raises(
         MlflowException, match=".*Must be one of 'system', 'user', or 'assistant'.*"
     ):
@@ -498,7 +502,7 @@ def test_invalid_role_submitted_raises(messages):
 def unsupported_mosaic_chat_model_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "mosaicml",
             "name": "unsupported",
@@ -511,7 +515,7 @@ def unsupported_mosaic_chat_model_config():
 
 def test_unsupported_model_name_raises_in_chat_parsing_route_configuration():
     with pytest.raises(MlflowException, match="An invalid model has been specified"):
-        RouteConfig(**unsupported_mosaic_chat_model_config())
+        EndpointConfig(**unsupported_mosaic_chat_model_config())
 
 
 @pytest.mark.asyncio
@@ -527,7 +531,7 @@ async def test_completions_raises_with_invalid_max_tokens_too_large():
     }
 
     with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp, status=500)):
-        provider = MosaicMLProvider(RouteConfig(**config))
+        provider = MosaicMLProvider(EndpointConfig(**config))
         payload = {
             "prompt": "How many puffins can fit on the flight deck of a Nimitz class "
             "aircraft carrier?",
@@ -550,7 +554,7 @@ async def test_chat_raises_with_invalid_max_tokens_too_large():
         "message": error_msg["message"],
     }
     with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp, status=500)):
-        provider = MosaicMLProvider(RouteConfig(**config))
+        provider = MosaicMLProvider(EndpointConfig(**config))
         payload = {
             "messages": [
                 {"role": "system", "content": "You're an astronaut."},

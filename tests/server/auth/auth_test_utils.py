@@ -10,9 +10,9 @@ ADMIN_USERNAME = auth_config.admin_username
 ADMIN_PASSWORD = auth_config.admin_password
 
 
-def create_user(tracking_uri):
-    username = random_str()
-    password = random_str()
+def create_user(tracking_uri: str, username: str | None = None, password: str | None = None):
+    username = random_str() if username is None else username
+    password = random_str() if password is None else password
     response = _send_rest_tracking_post_request(
         tracking_uri,
         "/api/2.0/mlflow/users/create",
@@ -33,14 +33,9 @@ class User:
         self.monkeypatch = monkeypatch
 
     def __enter__(self):
-        self.monkeypatch.setenvs(
-            {
-                MLFLOW_TRACKING_USERNAME.name: self.username,
-                MLFLOW_TRACKING_PASSWORD.name: self.password,
-            }
-        )
+        self.monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, self.username)
+        self.monkeypatch.setenv(MLFLOW_TRACKING_PASSWORD.name, self.password)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.monkeypatch.delenvs(
-            [MLFLOW_TRACKING_PASSWORD.name, MLFLOW_TRACKING_PASSWORD.name], raising=False
-        )
+        self.monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+        self.monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)

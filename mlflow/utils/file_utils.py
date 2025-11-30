@@ -3,6 +3,7 @@ import codecs
 import errno
 import fnmatch
 import gzip
+import importlib.util
 import json
 import logging
 import math
@@ -23,20 +24,10 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
-from typing import Optional, Union
+from types import TracebackType
+from typing import Any
 from urllib.parse import unquote
 from urllib.request import pathname2url
-
-import yaml
-
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
-try:
-    from yaml import CSafeDumper as YamlSafeDumper
-    from yaml import CSafeLoader as YamlSafeLoader
-except ImportError:
-    from yaml import SafeDumper as YamlSafeDumper
-    from yaml import SafeLoader as YamlSafeLoader
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
@@ -45,9 +36,10 @@ from mlflow.environment_variables import (
     MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
 )
-from mlflow.exceptions import MissingConfigException, MlflowException
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
-from mlflow.utils import download_cloud_file_chunk, merge_dicts
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils import download_cloud_file_chunk
 from mlflow.utils.databricks_utils import (
     get_databricks_local_temp_dir,
     get_databricks_nfs_temp_dir,
@@ -61,6 +53,13 @@ ENCODING = "utf-8"
 _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
 
 _logger = logging.getLogger(__name__)
+
+# This is for backward compatibility with databricks-feature-engineering<=0.10.2
+if importlib.util.find_spec("yaml") is not None:
+    try:
+        from yaml import CSafeDumper as YamlSafeDumper
+    except ImportError:
+        from yaml import SafeDumper as YamlSafeDumper  # noqa: F401
 
 
 class ArtifactProgressBar:
@@ -222,162 +221,18 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):  # noqa: D417
-    """Write dictionary data in yaml format.
-
-    Args:
-        root: Directory name.
-        file_name: Desired file name.
-        data: Data to be dumped as yaml format.
-        overwrite: If True, will overwrite existing files.
-        ensure_yaml_extension: If True, will automatically add .yaml extension if not given.
-    """
-    if not exists(root):
-        raise MissingConfigException(f"Parent directory '{root}' does not exist.")
-
-    file_path = os.path.join(root, file_name)
-    yaml_file_name = file_path
-    if ensure_yaml_extension and not file_path.endswith(".yaml"):
-        yaml_file_name = file_path + ".yaml"
-
-    if exists(yaml_file_name) and not overwrite:
-        raise Exception(f"Yaml file '{file_path}' exists as '{yaml_file_name}")
-
-    with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
-        yaml.dump(
-            data,
-            yaml_file,
-            default_flow_style=False,
-            allow_unicode=True,
-            sort_keys=sort_keys,
-            Dumper=YamlSafeDumper,
-        )
-
-
-def overwrite_yaml(root, file_name, data, ensure_yaml_extension=True):
-    """Safely overwrites a preexisting yaml file, ensuring that file contents are not deleted or
-    corrupted if the write fails. This is achieved by writing contents to a temporary file
-    and moving the temporary file to replace the preexisting file, rather than opening the
-    preexisting file for a direct write.
-
-    Args:
-        root: Directory name.
-        file_name: File name.
-        data: The data to write, represented as a dictionary.
-        ensure_yaml_extension: If True, Will automatically add .yaml extension if not given.
-
-    """
-    tmp_file_path = None
-    original_file_path = os.path.join(root, file_name)
-    original_file_mode = os.stat(original_file_path).st_mode
-    try:
-        tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
-        os.close(tmp_file_fd)
-        write_yaml(
-            root=get_parent_dir(tmp_file_path),
-            file_name=os.path.basename(tmp_file_path),
-            data=data,
-            overwrite=True,
-            sort_keys=True,
-            ensure_yaml_extension=ensure_yaml_extension,
-        )
-        shutil.move(tmp_file_path, original_file_path)
-        # restores original file permissions, see https://docs.python.org/3/library/tempfile.html#tempfile.mkstemp
-        os.chmod(original_file_path, original_file_mode)
-    finally:
-        if tmp_file_path is not None and os.path.exists(tmp_file_path):
-            os.remove(tmp_file_path)
-
-
-def read_yaml(root, file_name):
-    """Read data from yaml file and return as dictionary
-
-    Args:
-        root: Directory name.
-        file_name: File name. Expects to have '.yaml' extension.
-
-    Returns:
-        Data in yaml file as dictionary.
-    """
-    if not exists(root):
-        raise MissingConfigException(
-            f"Cannot read '{file_name}'. Parent dir '{root}' does not exist."
-        )
-
-    file_path = os.path.join(root, file_name)
-    if not exists(file_path):
-        raise MissingConfigException(f"Yaml file '{file_path}' does not exist.")
-    with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
-        return yaml.load(yaml_file, Loader=YamlSafeLoader)
-
-
-class UniqueKeyLoader(YamlSafeLoader):
-    def construct_mapping(self, node, deep=False):
-        mapping = set()
-        for key_node, _ in node.value:
-            key = self.construct_object(key_node, deep=deep)
-            if key in mapping:
-                raise ValueError(f"Duplicate '{key}' key found in YAML.")
-            mapping.add(key)
-        return super().construct_mapping(node, deep)
-
-
-def render_and_merge_yaml(root, template_name, context_name):
-    """Renders a Jinja2-templated YAML file based on a YAML context file, merge them, and return
-    result as a dictionary.
-
-    Args:
-        root: Root directory of the YAML files.
-        template_name: Name of the template file.
-        context_name: Name of the context file.
-
-    Returns:
-        Data in yaml file as dictionary.
-    """
-    from jinja2 import FileSystemLoader, StrictUndefined
-    from jinja2.sandbox import SandboxedEnvironment
-
-    template_path = os.path.join(root, template_name)
-    context_path = os.path.join(root, context_name)
-
-    for path in (template_path, context_path):
-        if not pathlib.Path(path).is_file():
-            raise MissingConfigException(f"Yaml file '{path}' does not exist.")
-
-    j2_env = SandboxedEnvironment(
-        loader=FileSystemLoader(root, encoding=ENCODING),
-        undefined=StrictUndefined,
-        line_comment_prefix="#",
-    )
-
-    def from_json(input_var):
-        with open(input_var, encoding="utf-8") as f:
-            return json.load(f)
-
-    j2_env.filters["from_json"] = from_json
-    # Compute final source of context file (e.g. my-profile.yml), applying Jinja filters
-    # like from_json as needed to load context information from files, then load into a dict
-    context_source = j2_env.get_template(context_name).render({})
-    context_dict = yaml.load(context_source, Loader=UniqueKeyLoader) or {}
-
-    # Substitute parameters from context dict into template
-    source = j2_env.get_template(template_name).render(context_dict)
-    rendered_template_dict = yaml.load(source, Loader=UniqueKeyLoader)
-    return merge_dicts(rendered_template_dict, context_dict)
-
-
 def read_parquet_as_pandas_df(data_parquet_path: str):
     """Deserialize and load the specified parquet file as a Pandas DataFrame.
 
     Args:
         data_parquet_path: String, path object (implementing os.PathLike[str]),
-        or file-like object implementing a binary read() function. The string
-        could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
-        For file URLs, a host is expected. A local file could
-        be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
-        directory that contains multiple partitioned parquet files. Pyarrow
-        support paths to directories as well as file URLs. A directory
-        path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
+            or file-like object implementing a binary read() function. The string
+            could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
+            For file URLs, a host is expected. A local file could
+            be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
+            directory that contains multiple partitioned parquet files. Pyarrow
+            support paths to directories as well as file URLs. A directory
+            path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
 
     Returns:
         pandas dataframe
@@ -459,11 +314,12 @@ def read_file(parent_path, file_name):
         return f.read()
 
 
-def get_file_info(path, rel_path):  # noqa: D417
+def get_file_info(path, rel_path):
     """Returns file meta data : location, size, ... etc
 
     Args:
-        path: Path to artifact
+        path: Path to artifact.
+        rel_path: Relative path.
 
     Returns:
         `FileInfo` object
@@ -516,9 +372,12 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
         # When gzipping the tar, don't include the tar's filename or modification time in the
         # zipped archive (see https://docs.python.org/3/library/gzip.html#gzip.GzipFile)
-        with gzip.GzipFile(
-            filename="", fileobj=open(output_filename, "wb"), mode="wb", mtime=0
-        ) as gzipped_tar, open(unzipped_filename, "rb") as tar:
+        with (
+            gzip.GzipFile(
+                filename="", fileobj=open(output_filename, "wb"), mode="wb", mtime=0
+            ) as gzipped_tar,
+            open(unzipped_filename, "rb") as tar,
+        ):
             gzipped_tar.write(tar.read())
     finally:
         os.close(unzipped_file_handle)
@@ -543,7 +402,7 @@ def _copy_project(src_path, dst_path=""):
         patterns = []
         if os.path.exists(docker_ignore):
             with open(docker_ignore) as f:
-                patterns = [x.strip() for x in f.readlines()]
+                patterns = [x.strip() for x in f]
 
         def ignore(_, names):
             res = set()
@@ -667,8 +526,7 @@ def yield_file_in_chunks(file, chunk_size=100000000):
     """
     with open(file, "rb") as f:
         while True:
-            chunk = f.read(chunk_size)
-            if chunk:
+            if chunk := f.read(chunk_size):
                 yield chunk
             else:
                 break
@@ -899,8 +757,10 @@ def get_or_create_tmp_dir():
     else:
         tmp_dir = tempfile.mkdtemp()
         # mkdtemp creates a directory with permission 0o700
-        # change it to be 0o777 to ensure it can be seen in spark UDF
-        os.chmod(tmp_dir, 0o777)
+        # For Spark UDFs, we need to make it accessible to other processes
+        # Use 0o750 (owner: rwx, group: r-x, others: None) instead of 0o777
+        # This allows read/execute but not write for group and others
+        os.chmod(tmp_dir, 0o750)
         atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
 
     return tmp_dir
@@ -968,7 +828,8 @@ def shutil_copytree_without_file_permissions(src_dir, dst_dir):
             # For each directory <dirname> immediately under <dirpath>, create an equivalently-named
             # directory under the destination directory
             abs_dir_path = os.path.join(dst_dir, relative_dir_path)
-            os.mkdir(abs_dir_path)
+            if not os.path.exists(abs_dir_path):
+                os.mkdir(abs_dir_path)
         for filename in filenames:
             # For each file with name <filename> immediately under <dirpath>, copy that file to
             # the appropriate location in the destination directory
@@ -1032,6 +893,9 @@ def remove_on_error(path: os.PathLike, onerror=None):
                 os.remove(path)
             elif os.path.isdir(path):
                 shutil.rmtree(path)
+        _logger.warning(
+            f"Failed to remove {path}" if os.path.exists(path) else f"Successfully removed {path}"
+        )
         raise
 
 
@@ -1050,7 +914,7 @@ def chdir(path: str) -> None:
         os.chdir(cwd)
 
 
-def get_total_file_size(path: Union[str, pathlib.Path]) -> Optional[int]:
+def get_total_file_size(path: str | pathlib.Path) -> int | None:
     """Return the size of all files under given path, including files in subdirectories.
 
     Args:
@@ -1075,8 +939,77 @@ def get_total_file_size(path: Union[str, pathlib.Path]) -> Optional[int]:
         total_size = 0
         for cur_path, dirs, files in os.walk(path):
             full_paths = [os.path.join(cur_path, file) for file in files]
-            total_size += sum([os.path.getsize(file) for file in full_paths])
+            total_size += sum(map(os.path.getsize, full_paths))
         return total_size
     except Exception as e:
         _logger.info(f"Failed to get the total size of {path} because of error :{e}")
         return None
+
+
+def write_yaml(
+    root: str,
+    file_name: str,
+    data: dict[str, Any],
+    overwrite: bool = False,
+    sort_keys: bool = True,
+    ensure_yaml_extension: bool = True,
+) -> None:
+    """
+    NEVER TOUCH THIS FUNCTION. KEPT FOR BACKWARD COMPATIBILITY with
+    databricks-feature-engineering<=0.10.2
+    """
+    import yaml
+
+    with open(os.path.join(root, file_name), "w") as f:
+        yaml.safe_dump(
+            data,
+            f,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=sort_keys,
+        )
+
+
+def read_yaml(root: str, file_name: str) -> dict[str, Any]:
+    """
+    NEVER TOUCH THIS FUNCTION. KEPT FOR BACKWARD COMPATIBILITY with
+    databricks-feature-engineering<=0.10.2
+    """
+    import yaml
+
+    with open(os.path.join(root, file_name)) as f:
+        return yaml.safe_load(f)
+
+
+class ExclusiveFileLock:
+    """
+    Exclusive file lock (only works on Unix system)
+    """
+
+    def __init__(self, path: str):
+        if os.name == "nt":
+            raise MlflowException("ExclusiveFileLock class does not support Windows system.")
+        self.path = path
+        self.fd = None
+
+    def __enter__(self) -> None:
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
+        import fcntl  # clint: disable=lazy-builtin-import
+
+        # Open file (create if missing)
+        self.fd = open(self.path, "w")
+        # Acquire exclusive lock (blocking)
+        fcntl.flock(self.fd, fcntl.LOCK_EX)
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ):
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
+        import fcntl  # clint: disable=lazy-builtin-import
+
+        # Release lock
+        fcntl.flock(self.fd, fcntl.LOCK_UN)
+        self.fd.close()

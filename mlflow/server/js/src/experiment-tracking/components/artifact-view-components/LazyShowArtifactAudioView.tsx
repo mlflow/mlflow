@@ -1,7 +1,7 @@
 import React from 'react';
 import { LegacySkeleton } from '@databricks/design-system';
 import { SectionErrorBoundary } from '../../../common/components/error-boundaries/SectionErrorBoundary';
-import { ShowArtifactAudioViewProps } from './ShowArtifactAudioView';
+import type { ShowArtifactAudioViewProps } from './ShowArtifactAudioView';
 
 const ShowArtifactAudioView = React.lazy(() => import('./ShowArtifactAudioView'));
 

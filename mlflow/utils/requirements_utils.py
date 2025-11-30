@@ -11,11 +11,10 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections import namedtuple
 from itertools import chain, filterfalse
 from pathlib import Path
 from threading import Timer
-from typing import List, NamedTuple, Optional
+from typing import NamedTuple
 
 import importlib_metadata
 from packaging.requirements import Requirement
@@ -36,11 +35,6 @@ from mlflow.utils.databricks_utils import (
 )
 
 _logger = logging.getLogger(__name__)
-
-# Some packages have different PyPI package names compared to their importable module names.
-PACKAGE_MAPPING = {
-    "dspy": "dspy-ai",
-}
 
 
 def _is_comment(line):
@@ -85,11 +79,11 @@ def _join_continued_lines(lines):
         yield "".join(continued_lines)
 
 
-# Represents a pip requirement.
-#
-# :param req_str: A requirement string (e.g. "scikit-learn == 0.24.2").
-# :param is_constraint: A boolean indicating whether this requirement is a constraint.
-_Requirement = namedtuple("_Requirement", ["req_str", "is_constraint"])
+class _Requirement(NamedTuple):
+    # A string representation of the requirement.
+    req_str: str
+    # A boolean indicating whether this requirement is a constraint.
+    is_constraint: bool
 
 
 def _parse_requirements(requirements, is_constraint, base_dir=None):
@@ -243,7 +237,9 @@ def _prune_packages(packages):
     requires = {req for req in requires if not req.startswith("llama-index-")}
 
     # Do not exclude mlflow's dependencies
-    return packages - (requires - set(_get_requires("mlflow")))
+    # Do not exclude databricks-connect since it conflicts with pyspark during execution time,
+    # and we need to determine if pyspark needs to be stripped based on the inferred packages
+    return packages - (requires - set(_get_requires("mlflow")) - {"databricks-connect"})
 
 
 def _run_command(cmd, timeout_seconds, env=None):
@@ -272,15 +268,17 @@ def _run_command(cmd, timeout_seconds, env=None):
             timer.cancel()
 
 
-def _get_installed_version(package, module=None):
+def _get_installed_version(package: str, module: str | None = None) -> str:
     """
     Obtains the installed package version using `importlib_metadata.version`. If it fails, use
     `__import__(module or package).__version__`.
     """
+    if package == "mlflow":
+        # `importlib.metadata.version` may return an incorrect version of MLflow when it's
+        # installed in editable mode (e.g. `pip install -e .`).
+        return mlflow.__version__
+
     try:
-        # If `package` exists in PACKAGE_MAPPING, it means the package name on pypi is different
-        # from the imported name, and we should use the pipy name to get the version.
-        package = PACKAGE_MAPPING.get(package) or package
         version = importlib_metadata.version(package)
     except importlib_metadata.PackageNotFoundError:
         # Note `importlib_metadata.version(package)` is not necessarily equal to
@@ -303,7 +301,7 @@ def _get_installed_version(package, module=None):
     return version
 
 
-def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # noqa: D417
+def _capture_imported_modules(model_uri, flavor, record_full_module=False, extra_env_vars=None):
     """Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
     If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.
@@ -311,6 +309,10 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # n
     Args:
         model_uri: The URI of the model.
         flavor: The flavor name of the model.
+        record_full_module: Whether to capture top level modules for inferring python
+            package purpose. Default to False.
+        extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
+            Default to None.
 
     Returns:
         A list of captured modules.
@@ -320,6 +322,7 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # n
 
     process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
     raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
+    extra_env_vars = extra_env_vars or {}
 
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -372,6 +375,7 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # n
                             **main_env,
                             **transformer_env,
                             _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                            **extra_env_vars,
                         },
                     )
                     with open(output_file) as f:
@@ -404,6 +408,7 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False):  # n
             env={
                 **main_env,
                 _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                **extra_env_vars,
             },
         )
 
@@ -436,8 +441,8 @@ _PACKAGES_TO_MODULES = None
 def _init_modules_to_packages_map():
     global _MODULES_TO_PACKAGES
     if _MODULES_TO_PACKAGES is None:
-        # Note `importlib_metada.packages_distributions` only captures packages installed into
-        # Python’s site-packages directory via tools such as pip:
+        # Note `importlib_metadata.packages_distributions` only captures packages installed into
+        # Python's site-packages directory via tools such as pip:
         # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
         _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
 
@@ -470,26 +475,7 @@ def _init_packages_to_modules_map():
             _PACKAGES_TO_MODULES[pkg_name] = module
 
 
-# Represents the PyPI package index at a particular date
-# :param date: The YYYY-MM-DD formatted string date on which the index was fetched.
-# :param package_names: The set of package names in the index.
-_PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
-
-
-def _load_pypi_package_index():
-    with Path(mlflow.__file__).parent.joinpath("pypi_package_index.json").open() as f:
-        index_dict = json.load(f)
-
-    return _PyPIPackageIndex(
-        date=index_dict["index_date"],
-        package_names=set(index_dict["package_names"]),
-    )
-
-
-_PYPI_PACKAGE_INDEX = None
-
-
-def _infer_requirements(model_uri, flavor, raise_on_error=False):
+def _infer_requirements(model_uri, flavor, raise_on_error=False, extra_env_vars=None):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
@@ -497,17 +483,16 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False):
         model_uri: The URI of the model.
         flavor: The flavor name of the model.
         raise_on_error: If True, raise an exception if an unrecognized package is encountered.
+        extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
+            Default to None.
 
     Returns:
         A list of inferred pip requirements.
 
     """
     _init_modules_to_packages_map()
-    global _PYPI_PACKAGE_INDEX
-    if _PYPI_PACKAGE_INDEX is None:
-        _PYPI_PACKAGE_INDEX = _load_pypi_package_index()
 
-    modules = _capture_imported_modules(model_uri, flavor)
+    modules = _capture_imported_modules(model_uri, flavor, extra_env_vars=extra_env_vars)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_normalize_package_name, packages)
     packages = _prune_packages(packages)
@@ -521,26 +506,19 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False):
         # Certain flavors (e.g. pytorch) import mlflow while loading a model, but mlflow should
         # not be counted as a model requirement.
         *_MODULES_TO_PACKAGES.get("mlflow", []),
-        # dspy's pypi name is dspy-ai, so we need to exclude "dspy" from requirement list.
-        "dspy",
     ]
     packages = packages - set(excluded_packages)
 
-    # manually exclude mlflow[gateway] as it isn't listed separately in PYPI_PACKAGE_INDEX
-    unrecognized_packages = packages - _PYPI_PACKAGE_INDEX.package_names - {"mlflow[gateway]"}
-    if unrecognized_packages:
-        if raise_on_error:
-            raise MlflowException(
-                "Failed to infer requirements for the model due to unrecognized packages: "
-                f"{unrecognized_packages}"
-            )
-        _logger.warning(
-            "The following packages were not found in the public PyPI package index as of"
-            " %s; if these packages are not present in the public PyPI index, you must install"
-            " them manually before loading your model: %s",
-            _PYPI_PACKAGE_INDEX.date,
-            unrecognized_packages,
-        )
+    # Handle pandas incompatibility issue with numpy 2.x https://github.com/pandas-dev/pandas/issues/55519
+    # pandas == 2.2.*: compatible with numpy >= 2
+    # pandas >= 2.1.2: incompatible with numpy >= 2, but it pins numpy < 2
+    # pandas < 2.1.2: incompatible with numpy >= 2 and doesn't pin numpy, so we need to pin numpy
+    if any(
+        package == "pandas"
+        and Version(_get_pinned_requirement(package).split("==")[1]) < Version("2.1.2")
+        for package in packages
+    ):
+        packages.add("numpy")
 
     return sorted(map(_get_pinned_requirement, packages))
 
@@ -595,8 +573,7 @@ def _get_pinned_requirement(req_str, version=None, module=None):
     package = req.name
     if version is None:
         version_raw = _get_installed_version(package, module)
-        local_version_label = _get_local_version_label(version_raw)
-        if local_version_label:
+        if local_version_label := _get_local_version_label(version_raw):
             version = _strip_local_version_label(version_raw)
             if not (is_in_databricks_runtime() and package in ("torch", "torchvision")):
                 msg = (
@@ -618,11 +595,11 @@ def _get_pinned_requirement(req_str, version=None, module=None):
 
 class _MismatchedPackageInfo(NamedTuple):
     package_name: str
-    installed_version: Optional[str]
+    installed_version: str | None
     requirement: str
 
     def __str__(self):
-        current_status = self.installed_version if self.installed_version else "uninstalled"
+        current_status = self.installed_version or "uninstalled"
         return f"{self.package_name} (current: {current_status}, required: {self.requirement})"
 
 
@@ -662,11 +639,7 @@ def _check_requirement_satisfied(requirement_str):
                 requirement=requirement_str,
             )
 
-    if (
-        pkg_name == "mlflow"
-        and installed_version == mlflow.__version__
-        and Version(installed_version).is_devrelease
-    ):
+    if pkg_name == "mlflow" and Version(installed_version).is_devrelease:
         return None
 
     if len(req.specifier) > 0 and not req.specifier.contains(installed_version):
@@ -679,7 +652,7 @@ def _check_requirement_satisfied(requirement_str):
     return None
 
 
-def warn_dependency_requirement_mismatches(model_requirements: List[str]):
+def warn_dependency_requirement_mismatches(model_requirements: list[str]):
     """
     Inspects the model's dependencies and prints a warning if the current Python environment
     doesn't satisfy them.

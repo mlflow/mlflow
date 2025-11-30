@@ -1,4 +1,3 @@
-import collections
 import inspect
 import logging
 import pkgutil
@@ -8,11 +7,15 @@ from copy import deepcopy
 from importlib import import_module
 from numbers import Number
 from operator import itemgetter
+from typing import Any, Callable, NamedTuple
 
 import numpy as np
 from packaging.version import Version
 
 from mlflow import MlflowClient
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
+from mlflow.tracking.fluent import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -25,15 +28,22 @@ _TRAINING_PREFIX = "training_"
 
 _SAMPLE_WEIGHT = "sample_weight"
 
+
 # _SklearnArtifact represents a artifact (e.g confusion matrix) that will be computed and
 # logged during the autologging routine for a particular model type (eg, classifier, regressor).
-_SklearnArtifact = collections.namedtuple(
-    "_SklearnArtifact", ["name", "function", "arguments", "title"]
-)
+class _SklearnArtifact(NamedTuple):
+    name: str
+    function: Callable[..., Any]
+    arguments: dict[str, Any]
+    title: str
+
 
 # _SklearnMetric represents a metric (e.g, precision_score) that will be computed and
 # logged during the autologging routine for a particular model type (eg, classifier, regressor).
-_SklearnMetric = collections.namedtuple("_SklearnMetric", ["name", "function", "arguments"])
+class _SklearnMetric(NamedTuple):
+    name: str
+    function: Callable[..., Any]
+    arguments: dict[str, Any]
 
 
 def _gen_xgboost_sklearn_estimators_to_patch():
@@ -157,7 +167,7 @@ def _get_metrics_value_dict(metrics_list):
     return metric_value_dict
 
 
-def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, pos_label):  # noqa: D417
+def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, pos_label):
     """
     Compute and record various common metrics for classifiers
 
@@ -298,7 +308,7 @@ def _get_class_labels_from_estimator(estimator):
     return estimator.classes_ if hasattr(estimator, "classes_") else None
 
 
-def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):  # noqa: D417
+def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Draw and record various common artifacts for classifier
 
@@ -410,7 +420,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     return classifier_artifacts
 
 
-def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):  # noqa: D417
+def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Compute and record various common metrics for regressors
 
@@ -511,7 +521,16 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    autologging_client, fitted_estimator, run_id, prefix, X, y_true, sample_weight, pos_label
+    autologging_client,
+    fitted_estimator,
+    run_id,
+    prefix,
+    X,
+    y_true,
+    sample_weight,
+    pos_label,
+    model_id,
+    dataset,
 ):
     import sklearn
 
@@ -534,7 +553,12 @@ def _log_specialized_estimator_content(
             )
             _logger.warning(msg)
         else:
-            autologging_client.log_metrics(run_id=run_id, metrics=metrics)
+            autologging_client.log_metrics(
+                run_id=run_id,
+                metrics=metrics,
+                model_id=model_id,
+                dataset=dataset,
+            )
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
@@ -616,6 +640,8 @@ def _log_estimator_content(
     y_true=None,
     sample_weight=None,
     pos_label=None,
+    model_id=None,
+    dataset=None,
 ):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
@@ -636,6 +662,8 @@ def _log_estimator_content(
             precision, recall, f1, etc. This parameter is only used for classification metrics.
             If set to `None`, the function will calculate metrics for each label and find their
             average weighted by support (number of true instances for each label).
+        model_id: Model ID.
+        dataset: The dataset used to evaluate the model.
 
     Returns:
         A dict of the computed metrics.
@@ -649,6 +677,8 @@ def _log_estimator_content(
         y_true=y_true,
         sample_weight=sample_weight,
         pos_label=pos_label,
+        model_id=model_id,
+        dataset=dataset,
     )
 
     if hasattr(estimator, "score") and y_true is not None:
@@ -668,7 +698,12 @@ def _log_estimator_content(
             _logger.warning(msg)
         else:
             score_key = prefix + "score"
-            autologging_client.log_metrics(run_id=run_id, metrics={score_key: score})
+            autologging_client.log_metrics(
+                run_id=run_id,
+                metrics={score_key: score},
+                model_id=model_id,
+                dataset=dataset,
+            )
             metrics[score_key] = score
     _log_estimator_html(run_id, estimator)
     return metrics
@@ -751,8 +786,15 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
     _logger.info("Logging %s, %s will be omitted.", logging_phrase, omitting_phrase)
 
 
-def _create_child_runs_for_parameter_search(  # noqa: D417
-    autologging_client, cv_estimator, parent_run, max_tuning_runs, child_tags=None
+def _create_child_runs_for_parameter_search(
+    autologging_client,
+    cv_estimator,
+    parent_run,
+    max_tuning_runs,
+    child_tags=None,
+    dataset=None,
+    best_estimator_params=None,
+    best_estimator_model_id=None,
 ):
     """
     Creates a collection of child runs for a parameter search training session.
@@ -771,6 +813,9 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
             parameter search run for which child runs should be created.
         child_tags: An optional dictionary of MLflow tag keys and values to log
             for each child run.
+        dataset: The dataset used to evaluate the model.
+        best_estimator_params: The parameters of the best estimator.
+        best_estimator_model_id: The model ID of the logged best estimator.
     """
     import pandas as pd
 
@@ -814,6 +859,11 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
         # Log how many child runs will be created vs omitted.
         _log_child_runs_info(max_tuning_runs, len(cv_results_df))
 
+    datasets = [
+        DatasetInput(
+            dataset._to_mlflow_entity(), tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+        )
+    ]
     for _, result_row in cv_results_best_n_df.iterrows():
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
@@ -843,11 +893,21 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
             if not any(key.startswith(prefix) for prefix in excluded_metric_prefixes)
             and isinstance(value, Number)
         }
+        # Only log metrics to the best_estimator_model when the child run's
+        # parameters match the best_estimator's parameters.
+        model_id = (
+            best_estimator_model_id
+            if best_estimator_params
+            and result_row.get("params", {}).items() <= best_estimator_params.items()
+            else None
+        )
         autologging_client.log_metrics(
             run_id=pending_child_run_id,
             metrics=metrics_to_log,
+            dataset=dataset,
+            model_id=model_id,
         )
-
+        autologging_client.log_inputs(run_id=pending_child_run_id, datasets=datasets)
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
 
 
@@ -886,7 +946,7 @@ def _backported_all_estimators(type_filter=None):
     Use this backported `all_estimators` in old versions of sklearn because:
     1. An inferior version of `all_estimators` that old versions of sklearn use for testing,
        might function differently from a newer version.
-    2. This backported `all_estimators` works on old versions of sklearn that don’t even define
+    2. This backported `all_estimators` works on old versions of sklearn that don't even define
        the testing utility variant of `all_estimators`.
 
     ========== original docstring ==========

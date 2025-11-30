@@ -40,7 +40,10 @@ from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import get_or_create_conda_env
-from mlflow.utils.databricks_utils import get_databricks_env_vars, is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    get_databricks_env_vars,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.file_utils import get_or_create_nfs_tmp_dir
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
@@ -52,7 +55,6 @@ from mlflow.utils.virtualenv import (
     _get_mlflow_virtualenv_root,
     _get_virtualenv_extra_env_vars,
     _get_virtualenv_name,
-    _install_python,
 )
 
 _logger = logging.getLogger(__name__)
@@ -134,10 +136,8 @@ class LocalBackend(AbstractBackend):
             )
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
-        elif env_manager == _EnvManager.VIRTUALENV:
-            tracking.MlflowClient().set_tag(
-                active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
-            )
+        elif env_manager in {_EnvManager.VIRTUALENV, _EnvManager.UV}:
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, env_manager)
             command_separator = " && "
             if project.env_type == env_type.CONDA:
                 python_env = _PythonEnv.from_conda_yaml(project.env_config_path)
@@ -151,19 +151,23 @@ class LocalBackend(AbstractBackend):
             if is_in_databricks_runtime():
                 nfs_tmp_dir = get_or_create_nfs_tmp_dir()
                 env_root = Path(nfs_tmp_dir) / "envs"
-                pyenv_root = env_root / _PYENV_ROOT_DIR
+                pyenv_root_dir = str(env_root / _PYENV_ROOT_DIR)
                 virtualenv_root = env_root / _VIRTUALENV_ENVS_DIR
                 env_vars = _get_virtualenv_extra_env_vars(str(env_root))
             else:
-                pyenv_root = None
+                pyenv_root_dir = None
                 virtualenv_root = Path(_get_mlflow_virtualenv_root())
                 env_vars = None
-            python_bin_path = _install_python(python_env.python, pyenv_root=pyenv_root)
             work_dir_path = Path(work_dir)
             env_name = _get_virtualenv_name(python_env, work_dir_path)
             env_dir = virtualenv_root / env_name
             activate_cmd = _create_virtualenv(
-                work_dir_path, python_bin_path, env_dir, python_env, extra_env=env_vars
+                local_model_path=work_dir_path,
+                python_env=python_env,
+                env_dir=env_dir,
+                python_install_dir=pyenv_root_dir,
+                env_manager=env_manager,
+                extra_env=env_vars,
             )
             command_args += [activate_cmd]
         elif env_manager == _EnvManager.CONDA:
@@ -257,7 +261,7 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
         return subprocess.Popen(mlflow_run_arr, env=final_env, text=True, preexec_fn=os.setsid)
 
 
-def _run_entry_point(command, work_dir, experiment_id, run_id):  # noqa: D417
+def _run_entry_point(command, work_dir, experiment_id, run_id):
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
     query the run's status.

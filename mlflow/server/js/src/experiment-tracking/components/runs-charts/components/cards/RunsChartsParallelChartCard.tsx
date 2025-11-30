@@ -3,22 +3,16 @@ import { useCallback, useMemo } from 'react';
 import { ReactComponent as ParallelChartSvg } from '../../../../../common/static/parallel-chart-placeholder.svg';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import LazyParallelCoordinatesPlot from '../charts/LazyParallelCoordinatesPlot';
-import { processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
+import { isParallelChartConfigured, processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import type { RunsChartsParallelCardConfig } from '../../runs-charts.types';
+import type { RunsChartCardFullScreenProps, RunsChartCardVisibilityProps } from './ChartCard.common';
 import {
   type RunsChartCardReorderProps,
   RunsChartCardWrapper,
   RunsChartsChartsDragGroup,
-  RunsChartCardFullScreenProps,
-  RunsChartCardVisibilityProps,
+  RunsChartCardLoadingPlaceholder,
 } from './ChartCard.common';
-import { useIsInViewport } from '../../hooks/useIsInViewport';
-import {
-  shouldEnableDraggableChartsGridLayout,
-  shouldEnableHidingChartsWithNoData,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
 import { FormattedMessage } from 'react-intl';
 import { useUpdateExperimentViewUIState } from '../../../experiment-page/contexts/ExperimentPageUIStateContext';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
@@ -122,7 +116,7 @@ export const RunsChartsParallelChartCard = ({
   };
 
   const configuredChartRunData = useMemo(() => {
-    if (!shouldUseNewRunRowsVisibilityModel() || config?.showAllRuns) {
+    if (config?.showAllRuns) {
       return chartRunData;
     }
     return chartRunData?.filter(({ hidden }) => !hidden);
@@ -155,10 +149,7 @@ export const RunsChartsParallelChartCard = ({
   );
 
   const [isConfigured, parallelCoordsData] = useMemo(() => {
-    const selectedParamsCount = config.selectedParams?.length || 0;
-    const selectedMetricsCount = config.selectedMetrics?.length || 0;
-
-    const configured = selectedParamsCount + selectedMetricsCount >= 2;
+    const configured = isParallelChartConfigured(config);
 
     // Prepare the data in the parcoord-es format
     const data = configured
@@ -169,24 +160,19 @@ export const RunsChartsParallelChartCard = ({
   }, [config, configuredChartRunData]);
 
   const isEmptyDataset = useMemo(() => {
-    return shouldEnableHidingChartsWithNoData() && parallelCoordsData.length === 0;
+    return parallelCoordsData.length === 0;
   }, [parallelCoordsData]);
-
-  const { elementRef, isInViewport: isInViewportInternal } = useIsInViewport({
-    enabled: !shouldEnableDraggableChartsGridLayout(),
-  });
 
   // If the chart is in fullscreen mode, we always render its body.
   // Otherwise, we only render the chart if it is in the viewport.
-  // Viewport flag is either consumed from the prop (new approach) or calculated internally (legacy).
-  const isInViewport = fullScreen || (isInViewportProp ?? isInViewportInternal);
+  const isInViewport = fullScreen || isInViewportProp;
 
   const { setTooltip, resetTooltip, selectedRunUuid, closeContextMenu } = useRunsChartsTooltip(config);
 
   const containsUnsupportedValues = containsStringValues && groupBy;
   const displaySubtitle = isConfigured && !containsUnsupportedValues;
 
-  const subtitle = shouldUseNewRunRowsVisibilityModel() ? (
+  const subtitle = (
     <>
       {config.showAllRuns ? (
         <FormattedMessage
@@ -200,8 +186,6 @@ export const RunsChartsParallelChartCard = ({
         />
       )}
     </>
-  ) : (
-    <>Comparing {parallelCoordsData.length} runs</>
   );
 
   const chartBody = (
@@ -221,7 +205,6 @@ export const RunsChartsParallelChartCard = ({
               height: fullScreen ? '100%' : undefined,
             },
           ]}
-          ref={elementRef}
         >
           {isInViewport ? (
             <LazyParallelCoordinatesPlot
@@ -233,6 +216,7 @@ export const RunsChartsParallelChartCard = ({
               axesRotateThreshold={8}
               selectedRunUuid={selectedRunUuid}
               closeContextMenu={closeContextMenu}
+              fallback={<RunsChartCardLoadingPlaceholder css={{ flex: 1 }} />}
             />
           ) : null}
         </div>
@@ -268,33 +252,31 @@ export const RunsChartsParallelChartCard = ({
       // Disable fullscreen button if the chart is empty
       toggleFullScreenChart={fullScreenEnabled ? toggleFullScreenChart : undefined}
       additionalMenuContent={
-        shouldUseNewRunRowsVisibilityModel() ? (
-          <>
-            <DropdownMenu.Separator />
-            <DropdownMenu.CheckboxItem
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_runschartsparallelchartcard.tsx_293"
-              checked={!config.showAllRuns}
-              onClick={() => updateVisibleOnlySetting(false)}
-            >
-              <DropdownMenu.ItemIndicator />
-              <FormattedMessage
-                defaultMessage="Show only visible"
-                description="Experiment page > compare runs tab > chart header > move down option"
-              />
-            </DropdownMenu.CheckboxItem>
-            <DropdownMenu.CheckboxItem
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_runschartsparallelchartcard.tsx_300"
-              checked={config.showAllRuns}
-              onClick={() => updateVisibleOnlySetting(true)}
-            >
-              <DropdownMenu.ItemIndicator />
-              <FormattedMessage
-                defaultMessage="Show all runs"
-                description="Experiment page > compare runs tab > chart header > move down option"
-              />
-            </DropdownMenu.CheckboxItem>
-          </>
-        ) : null
+        <>
+          <DropdownMenu.Separator />
+          <DropdownMenu.CheckboxItem
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_runschartsparallelchartcard.tsx_293"
+            checked={!config.showAllRuns}
+            onClick={() => updateVisibleOnlySetting(false)}
+          >
+            <DropdownMenu.ItemIndicator />
+            <FormattedMessage
+              defaultMessage="Show only visible"
+              description="Experiment page > compare runs tab > chart header > move down option"
+            />
+          </DropdownMenu.CheckboxItem>
+          <DropdownMenu.CheckboxItem
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_runschartsparallelchartcard.tsx_300"
+            checked={config.showAllRuns}
+            onClick={() => updateVisibleOnlySetting(true)}
+          >
+            <DropdownMenu.ItemIndicator />
+            <FormattedMessage
+              defaultMessage="Show all runs"
+              description="Experiment page > compare runs tab > chart header > move down option"
+            />
+          </DropdownMenu.CheckboxItem>
+        </>
       }
       supportedDownloadFormats={['csv']}
       onClickDownload={(format) => {

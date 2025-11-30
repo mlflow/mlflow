@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { RunPage } from './run-page/RunPage';
 import thunk from 'redux-thunk';
@@ -7,12 +8,15 @@ import { Provider } from 'react-redux';
 import { EXPERIMENT_RUNS_MOCK_STORE } from './experiment-page/fixtures/experiment-runs.fixtures';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { RoutePaths } from '../routes';
 import { useRunDetailsPageData } from './run-page/hooks/useRunDetailsPageData';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 // Mock tab contents
 jest.mock('./run-page/RunViewMetricCharts', () => ({
+  // @ts-expect-error 'props' is of type 'unknown'
   RunViewMetricCharts: jest.fn((props) => <div>{props.mode} metric charts</div>),
 }));
 jest.mock('./run-page/RunViewOverview', () => ({
@@ -38,12 +42,17 @@ describe('RunView navigation integration test', () => {
         hasComparedExperimentsBefore: false,
       },
     };
+    const queryClient = new QueryClient();
     const renderResult = renderWithIntl(
       <Provider store={mockStore(mockState)}>
-        <TestRouter
-          initialEntries={[createMLflowRoutePath(initialRoute)]}
-          routes={[testRoute(<RunPage />, RoutePaths.runPageWithTab)]}
-        />
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <TestRouter
+              initialEntries={[createMLflowRoutePath(initialRoute)]}
+              routes={[testRoute(<RunPage />, RoutePaths.runPageWithTab)]}
+            />
+          </DesignSystemProvider>
+        </QueryClientProvider>
       </Provider>,
     );
 

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -14,12 +14,11 @@ from mlflow.deployments.server.constants import (
 )
 from mlflow.deployments.utils import resolve_endpoint_url
 from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT,
     MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
-    MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.utils.annotations import experimental
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import join_paths
@@ -28,7 +27,6 @@ if TYPE_CHECKING:
     from mlflow.deployments.server.config import Endpoint
 
 
-@experimental
 class MlflowDeploymentClient(BaseDeploymentClient):
     """
     Client for interacting with the MLflow AI Gateway.
@@ -119,8 +117,8 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         self,
         method: str,
         route: str,
-        json_body: Optional[str] = None,
-        timeout: Optional[int] = None,
+        json_body: str | None = None,
+        timeout: int | None = None,
     ):
         call_kwargs = {}
         if method.lower() == "get":
@@ -132,7 +130,9 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             host_creds=get_default_host_creds(self.target_uri),
             endpoint=route,
             method=method,
-            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
+            timeout=MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
+            if timeout is None
+            else timeout,
             retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             raise_on_status=False,
             **call_kwargs,
@@ -140,7 +140,6 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         augmented_raise_for_status(response)
         return response.json()
 
-    @experimental
     def get_endpoint(self, endpoint) -> "Endpoint":
         """
         Gets a specified endpoint configured for the MLflow AI Gateway.
@@ -201,8 +200,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
 
-    @experimental
-    def list_endpoints(self) -> "List[Endpoint]":
+    def list_endpoints(self) -> "list[Endpoint]":
         """
         List endpoints configured for the MLflow AI Gateway.
 
@@ -238,8 +236,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                 break
         return endpoints
 
-    @experimental
-    def predict(self, deployment_name=None, inputs=None, endpoint=None) -> Dict[str, Any]:
+    def predict(self, deployment_name=None, inputs=None, endpoint=None) -> dict[str, Any]:
         """
         Submit a query to a configured provider endpoint.
 

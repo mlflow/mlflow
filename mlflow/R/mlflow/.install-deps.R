@@ -2,6 +2,7 @@
 # could be too short to download large packages such as h2o.
 options(timeout=300)
 install.packages("devtools", dependencies = TRUE)
+devtools::install_version("usethis", "3.2.1")
 devtools::install_dev_deps(dependencies = TRUE)
 
 # Install dependencies for documentation build
@@ -12,4 +13,6 @@ devtools::install_dev_deps(dependencies = TRUE)
 # with a single extra commit to fix rendering of \link tags between methods in R documentation.
 devtools::install_git("https://github.com/smurching/Rd2md", ref = "mlflow-patches")
 devtools::install_version("roxygen2", "7.1.2")
+# The latest version of git2r (0.35.0) doesn't work with the rocker/r-ver:4.2.1 docker image
+devtools::install_version("git2r", "0.33.0")
 install.packages("rmarkdown", repos = "https://cloud.r-project.org")

@@ -4,10 +4,11 @@ import { MlflowService } from '../../../sdk/MlflowService';
 import { EXPERIMENT_TRACES_SORTABLE_COLUMNS, getTraceInfoRunId } from '../TracesView.utils';
 import { ViewType } from '../../../sdk/MlflowEnums';
 import { first, uniq, values } from 'lodash';
-import { RunEntity } from '../../../types';
+import type { RunEntity } from '../../../types';
 
 // A filter expression used to filter traces by run ID
 const RUN_ID_FILTER_EXPRESSION = 'request_metadata.`mlflow.sourceRun`';
+const LOGGED_MODEL_ID_FILTER_EXPRESSION = 'request_metadata.`mlflow.modelId`';
 
 const createRunIdsFilterExpression = (runUuids: string[]) => {
   const runIdsInQuotes = runUuids.map((runId: any) => `'${runId}'`);
@@ -60,15 +61,22 @@ export interface ModelTraceInfoWithRunName extends ModelTraceInfo {
   runName?: string;
 }
 
-export const useExperimentTraces = (
-  experimentIds: string[],
+export const useExperimentTraces = ({
+  experimentIds,
+  sorting,
+  filter = '',
+  runUuid,
+  loggedModelId,
+}: {
+  experimentIds: string[];
   sorting: {
     id: string;
     desc: boolean;
-  }[],
-  filter = '',
-  runUuid?: string,
-) => {
+  }[];
+  filter?: string;
+  runUuid?: string;
+  loggedModelId?: string;
+}) => {
   const [traces, setTraces] = useState<ModelTraceInfoWithRunName[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | undefined>(undefined);
@@ -83,8 +91,15 @@ export const useExperimentTraces = (
   }, [sorting]);
 
   const filterString = useMemo(() => {
-    if (!runUuid) {
+    if (!runUuid && !loggedModelId) {
       return filter;
+    }
+
+    if (loggedModelId) {
+      if (filter) {
+        return `${filter} AND ${LOGGED_MODEL_ID_FILTER_EXPRESSION}='${loggedModelId}'`;
+      }
+      return `${LOGGED_MODEL_ID_FILTER_EXPRESSION}='${loggedModelId}'`;
     }
 
     if (filter) {
@@ -92,7 +107,7 @@ export const useExperimentTraces = (
     }
 
     return `${RUN_ID_FILTER_EXPRESSION}='${runUuid}'`;
-  }, [filter, runUuid]);
+  }, [filter, runUuid, loggedModelId]);
 
   const [pageTokens, setPageTokens] = useState<Record<string, string | undefined>>({ 0: undefined });
   const [currentPage, setCurrentPage] = useState(0);

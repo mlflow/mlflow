@@ -13,6 +13,11 @@ cloudpickle:
   pip_release: cloudpickle
   max_major_version: 3
 
+python-dotenv:
+  pip_release: python-dotenv
+  minimum: "0.19.0"
+  max_major_version: 1
+
 gitpython:
   pip_release: gitpython
   minimum: "3.1.9"
@@ -26,7 +31,7 @@ pyyaml:
 protobuf:
   pip_release: protobuf
   minimum: "3.12.0"
-  max_major_version: 5
+  max_major_version: 6
 
 requests:
   pip_release: requests
@@ -35,7 +40,7 @@ requests:
 
 packaging:
   pip_release: packaging
-  max_major_version: 24
+  max_major_version: 25
 
 importlib_metadata:
   pip_release: importlib_metadata
@@ -57,7 +62,7 @@ sqlparse:
 cachetools:
   pip_release: cachetools
   minimum: "5.0.0"
-  max_major_version: 5
+  max_major_version: 6
 
 # 1.9.0 is the minimum supported version as NoOpTracer was introduced in 1.9.0
 opentelemetry-api:
@@ -70,7 +75,30 @@ opentelemetry-sdk:
   minimum: "1.9.0"
   max_major_version: 2
 
+opentelemetry-proto:
+  pip_release: opentelemetry-proto
+  minimum: "1.9.0"
+  max_major_version: 2
+
 databricks-sdk:
   pip_release: databricks-sdk
   minimum: "0.20.0"
+  max_major_version: 0
+
+pydantic:
+  pip_release: pydantic
+  minimum: "2.0.0"
+  max_major_version: 2
+
+typing-extensions:
+  pip_release: typing-extensions
+  minimum: "4.0.0"
+  max_major_version: 4
+
+fastapi:
+  pip_release: fastapi
+  max_major_version: 0
+
+uvicorn:
+  pip_release: uvicorn
   max_major_version: 0

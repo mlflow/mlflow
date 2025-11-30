@@ -5,9 +5,20 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import ShowArtifactPdfView from './ShowArtifactPdfView';
+import { setupReactPDFWorker } from './utils/setupReactPDFWorker';
+
+jest.mock('react-pdf', () => ({
+  Document: () => null,
+  Page: () => null,
+  pdfjs: { GlobalWorkerOptions: { workerSrc: '' } },
+}));
+jest.mock('./utils/setupReactPDFWorker', () => ({
+  setupReactPDFWorker: jest.fn(),
+}));
 
 describe('ShowArtifactPdfView', () => {
   let wrapper: any;
@@ -40,6 +51,7 @@ describe('ShowArtifactPdfView', () => {
     expect(wrapper.find('.artifact-pdf-view-loading').length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render error message when error occurs', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.reject(new Error('my error text'));
@@ -56,12 +68,12 @@ describe('ShowArtifactPdfView', () => {
   });
 
   test('should render PDF in container', () => {
-    wrapper.setState({ loading: false });
     wrapper.setProps({ path: 'fake.pdf', runUuid: 'fakeRunId' });
-    expect(wrapper.find('.pdf-outer-container')).toHaveLength(1);
-    expect(wrapper.find('.pdf-viewer')).toHaveLength(1);
-    expect(wrapper.find('.paginator')).toHaveLength(1);
-    expect(wrapper.find('.document')).toHaveLength(1);
+    wrapper.setState({ loading: false });
+    expect(wrapper.find('.mlflow-pdf-outer-container')).toHaveLength(1);
+    expect(wrapper.find('.mlflow-pdf-viewer')).toHaveLength(1);
+    expect(wrapper.find('.mlflow-paginator')).toHaveLength(1);
+    expect(wrapper.find('.mlflow-document')).toHaveLength(1);
   });
 
   test('should call fetchPdf on component update', () => {

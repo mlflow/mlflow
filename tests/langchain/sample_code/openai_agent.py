@@ -1,10 +1,9 @@
-import os
+import itertools
 
-from langchain.agents import AgentExecutor, create_openai_tools_agent
+from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain_core.messages import AIMessageChunk, ToolCall
-from langchain_core.outputs import ChatGenerationChunk
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_openai import ChatOpenAI
 
 import mlflow
@@ -19,18 +18,19 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
     # Therefore, we mock the OpenAI client in the model definition here.
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self._responses = iter(
+        # Using itertools.cycle to create an infinite iterator
+        self._responses = itertools.cycle(
             [
-                # First response is tool call
                 AIMessageChunk(
                     content="",
                     tool_calls=[ToolCall(name="multiply", args={"a": 2, "b": 3}, id="123")],
                 ),
-                # Second response is the final answer
                 AIMessageChunk(content="The result of 2 * 3 is 6."),
             ]
         )
+
+    def _generate(self, *args, **kwargs):
+        return ChatResult(generations=[ChatGeneration(message=next(self._responses))])
 
     def _stream(self, *args, **kwargs):
         yield ChatGenerationChunk(message=next(self._responses))
@@ -49,21 +49,5 @@ def multiply(a: int, b: int) -> int:
 
 
 llm = FakeOpenAI()
-tools = [add, multiply]
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "You are a helpful assistant"),
-        MessagesPlaceholder("chat_history", optional=True),
-        ("human", "{input}"),
-        MessagesPlaceholder("agent_scratchpad"),
-    ]
-)
-agent = create_openai_tools_agent(llm, tools, prompt)
-agent_executor = AgentExecutor(
-    agent=agent,
-    tools=tools,
-    # Use env var to switch model configuration during testing
-    return_intermediate_steps=os.environ.get("RETURN_INTERMEDIATE_STEPS", False),
-)
-
-mlflow.models.set_model(agent_executor)
+agent = create_agent(llm, [add, multiply], system_prompt="You are a helpful assistant")
+mlflow.models.set_model(agent)

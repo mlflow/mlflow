@@ -6,7 +6,16 @@
  */
 
 import React from 'react';
-import { Input, Button, Form, Modal, LegacyTable, PencilIcon, Spinner, TrashIcon } from '@databricks/design-system';
+import {
+  Input,
+  Button,
+  LegacyForm,
+  Modal,
+  LegacyTable,
+  PencilIcon,
+  Spinner,
+  TrashIcon,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
@@ -44,16 +53,16 @@ class EditableCell extends React.Component<EditableCellProps> {
           <div className={editing ? 'editing-cell' : ''}>
             {editing ? (
               // @ts-expect-error TS(2322): Type '{ children: Element; ref: any; }' is not ass... Remove this comment to see the full error message
-              <Form ref={formRef}>
+              <LegacyForm ref={formRef}>
                 {/* @ts-expect-error TS(2322): Type '{ children: Element; style: { margin: number... Remove this comment to see the full error message */}
-                <Form.Item style={{ margin: 0 }} name={dataIndex} initialValue={record[dataIndex]}>
+                <LegacyForm.Item style={{ margin: 0 }} name={dataIndex} initialValue={record[dataIndex]}>
                   <Input
                     componentId="codegen_mlflow_app_src_common_components_tables_editableformtable.tsx_50"
                     onKeyDown={this.handleKeyPress}
                     data-testid="editable-table-edited-input"
                   />
-                </Form.Item>
-              </Form>
+                </LegacyForm.Item>
+              </LegacyForm>
             ) : (
               children
             )}

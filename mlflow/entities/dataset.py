@@ -1,5 +1,3 @@
-from typing import Optional
-
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Dataset as ProtoDataset
 
@@ -13,8 +11,8 @@ class Dataset(_MlflowObject):
         digest: str,
         source_type: str,
         source: str,
-        schema: Optional[str] = None,
-        profile: Optional[str] = None,
+        schema: str | None = None,
+        profile: str | None = None,
     ) -> None:
         self._name = name
         self._digest = digest
@@ -80,3 +78,13 @@ class Dataset(_MlflowObject):
             proto.schema if proto.HasField("schema") else None,
             proto.profile if proto.HasField("profile") else None,
         )
+
+    def to_dictionary(self):
+        return {
+            "name": self.name,
+            "digest": self.digest,
+            "source_type": self.source_type,
+            "source": self.source,
+            "schema": self.schema,
+            "profile": self.profile,
+        }

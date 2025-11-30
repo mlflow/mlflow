@@ -6,31 +6,38 @@ import json
 import logging
 import os
 import re
+import shutil
 import sys
 import tempfile
 import uuid
-import warnings
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from pathlib import Path
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import pandas as pd
+import pydantic
 
 import mlflow
+from mlflow.entities import LoggedModel
+from mlflow.environment_variables import MLFLOW_DISABLE_SCHEMA_DETAILS
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.models.model_config import _set_model_config
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Map, Object, Property
+from mlflow.types.schema import AnyType, Array, Map, Object, Property
 from mlflow.types.utils import (
     TensorsNotSupportedException,
     _infer_param_schema,
+    _is_none_or_nan,
     clean_tensor_type,
 )
-from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
+from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
     dataframe_from_parsed_json,
@@ -82,19 +89,9 @@ ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
 
-PyFuncLLMSingleInput = Union[
-    Dict[str, Any],
-    bool,
-    bytes,
-    float,
-    int,
-    str,
-]
+PyFuncLLMSingleInput = dict[str, Any] | bool | bytes | float | int | str
 
-PyFuncLLMOutputChunk = Union[
-    Dict[str, Any],
-    str,
-]
+PyFuncLLMOutputChunk = dict[str, Any] | str
 
 PyFuncInput = Union[
     pd.DataFrame,
@@ -102,8 +99,8 @@ PyFuncInput = Union[
     np.ndarray,
     "csc_matrix",
     "csr_matrix",
-    List[Any],
-    Dict[str, Any],
+    List[Any],  # noqa: UP006
+    Dict[str, Any],  # noqa: UP006
     dt.datetime,
     bool,
     bytes,
@@ -111,11 +108,11 @@ PyFuncInput = Union[
     int,
     str,
 ]
-PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
+PyFuncOutput = pd.DataFrame | pd.Series | np.ndarray | list | str
 
 if HAS_PYSPARK:
-    PyFuncInput = Union[PyFuncInput, SparkDataFrame]
-    PyFuncOutput = Union[PyFuncOutput, SparkDataFrame]
+    PyFuncInput = PyFuncInput | SparkDataFrame
+    PyFuncOutput = PyFuncOutput | SparkDataFrame
 
 _logger = logging.getLogger(__name__)
 
@@ -155,7 +152,7 @@ def _handle_ndarray_nans(x: np.ndarray):
         return x
 
 
-def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
+def _handle_ndarray_input(input_array: np.ndarray | dict[str, Any]):
     if isinstance(input_array, dict):
         result = {}
         for name in input_array.keys():
@@ -298,6 +295,9 @@ class _Example:
             self.info[EXAMPLE_PARAMS_KEY] = "true"
         model_input = deepcopy(self._inference_data)
 
+        if isinstance(model_input, pydantic.BaseModel):
+            model_input = model_input.model_dump()
+
         is_unified_llm_input = False
         if isinstance(model_input, dict):
             """
@@ -315,16 +315,6 @@ class _Example:
                 model_input = _handle_ndarray_input(model_input)
                 self.serving_input = {INPUTS: model_input}
             else:
-                # TODO: remove this warning after 2.17.0 release
-                warnings.warn(
-                    "Since MLflow 2.16.0, we no longer convert dictionary input example "
-                    "to pandas Dataframe, and directly save it as a json object. "
-                    "If the model expects a pandas DataFrame input instead, please "
-                    "pass the pandas DataFrame as input example directly.",
-                    FutureWarning,
-                    stacklevel=2,
-                )
-
                 from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
 
                 self.info["type"] = "json_object"
@@ -363,8 +353,8 @@ class _Example:
             else:
                 example_type = "sparse_matrix_csr"
             self.info["type"] = example_type
+            self.serving_input = {INPUTS: model_input.toarray()}
             model_input = _handle_sparse_matrix(model_input)
-            self.serving_input = None
         elif isinstance(model_input, pd.DataFrame):
             model_input = _convert_dataframe_to_split_dict(model_input)
             self.serving_input = {DF_SPLIT: model_input}
@@ -375,7 +365,7 @@ class _Example:
                     "pandas_orient": orient,
                 }
             )
-        elif np.isscalar(model_input):
+        elif np.isscalar(model_input) or isinstance(model_input, dt.datetime):
             self.info["type"] = "json_object"
             self.serving_input = {INPUTS: model_input}
         else:
@@ -389,6 +379,8 @@ class _Example:
                 "- dict\n"
                 "- list\n"
                 "- scalars\n"
+                "- datetime.datetime\n"
+                "- pydantic model instance\n"
                 f"but got '{type(model_input)}'",
             )
 
@@ -463,8 +455,7 @@ def _split_input_data_and_params(input_example):
     return input_example, None
 
 
-@experimental
-def convert_input_example_to_serving_input(input_example) -> Optional[str]:
+def convert_input_example_to_serving_input(input_example) -> str | None:
     """
     Helper function to convert a model's input example to a serving input example that
     can be used for model inference in the scoring server.
@@ -484,9 +475,9 @@ def convert_input_example_to_serving_input(input_example) -> Optional[str]:
     return example.json_serving_input
 
 
-def _save_example(  # noqa: D417
-    mlflow_model: Model, input_example: Optional[ModelInputExample], path: str, no_conversion=None
-) -> Optional[_Example]:
+def _save_example(
+    mlflow_model: Model, input_example: ModelInputExample | None, path: str
+) -> _Example | None:
     """
     Saves example to a file on the given path and updates passed Model with example metadata.
 
@@ -510,27 +501,21 @@ def _save_example(  # noqa: D417
     if input_example is None:
         return None
 
-    # TODO: remove this and all example_no_conversion param after 2.17.0 release
-    if no_conversion is not None:
-        warnings.warn(
-            "The `example_no_conversion` parameter is deprecated since mlflow 2.16.0 and will be "
-            "removed in a future release. This parameter is no longer used and safe to be removed, "
-            "MLflow no longer converts input examples when logging the model.",
-            FutureWarning,
-            stacklevel=2,
-        )
-
     example = _Example(input_example)
     example.save(path)
     mlflow_model.saved_input_example_info = example.info
     return example
 
 
-def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
+def _get_mlflow_model_input_example_dict(
+    mlflow_model: Model, uri_or_path: str
+) -> dict[str, Any] | None:
     """
     Args:
         mlflow_model: Model metadata.
-        path: Path to the model directory.
+        uri_or_path: Model or run URI, or path to the `model` directory.
+            e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+            or /path/to/model
 
     Returns:
         Input example or None if the model has no example.
@@ -546,14 +531,14 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
         "json_object",
     ]:
         raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
-    path = os.path.join(path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
-    with open(path) as handle:
-        return json.load(handle)
+    return json.loads(
+        _read_file_content(uri_or_path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
+    )
 
 
-def _load_serving_input_example(mlflow_model: Model, path: str):
+def _load_serving_input_example(mlflow_model: Model, path: str) -> str | None:
     """
-    Load serving input exaple from a model directory. Returns None if there is no serving input
+    Load serving input example from a model directory. Returns None if there is no serving input
     example.
 
     Args:
@@ -580,20 +565,36 @@ def load_serving_example(model_uri_or_path: str):
         model_uri_or_path: Model URI or path to the `model` directory.
             e.g. models://<model_name>/<model_version> or /path/to/model
     """
-    serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
-    if os.path.exists(serving_input_path):
-        with open(serving_input_path) as handle:
+    return _read_file_content(model_uri_or_path, SERVING_INPUT_FILENAME)
+
+
+def _read_file_content(uri_or_path: str, file_name: str):
+    """
+    Read file content from a model directory or URI.
+
+    Args:
+        uri_or_path: Model or run URI, or path to the `model` directory.
+            e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+            or /path/to/model
+        file_name: Name of the file to read.
+    """
+    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+
+    if ModelsArtifactRepository._is_logged_model_uri(uri_or_path):
+        uri_or_path = ModelsArtifactRepository.get_underlying_uri(uri_or_path)
+
+    file_path = str(uri_or_path).rstrip("/") + "/" + file_name
+    if os.path.exists(file_path):
+        with open(file_path) as handle:
             return handle.read()
     else:
         with tempfile.TemporaryDirectory() as tmpdir:
-            local_serving_input_path = _download_artifact_from_uri(
-                serving_input_path, output_path=tmpdir
-            )
-            with open(local_serving_input_path) as handle:
+            local_file_path = _download_artifact_from_uri(file_path, output_path=tmpdir)
+            with open(local_file_path) as handle:
                 return handle.read()
 
 
-def _read_example(mlflow_model: Model, path: str):
+def _read_example(mlflow_model: Model, uri_or_path: str):
     """
     Read example from a model directory. Returns None if there is no example metadata (i.e. the
     model was saved without example). Raises FileNotFoundError if there is model metadata but the
@@ -601,12 +602,14 @@ def _read_example(mlflow_model: Model, path: str):
 
     Args:
         mlflow_model: Model metadata.
-        path: Path to the model directory.
+        uri_or_path: Model or run URI, or path to the `model` directory.
+                e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+                or /path/to/model
 
     Returns:
         Input example data or None if the model has no example.
     """
-    input_example = _get_mlflow_model_input_example_dict(mlflow_model, path)
+    input_example = _get_mlflow_model_input_example_dict(mlflow_model, uri_or_path)
     if input_example is None:
         return None
 
@@ -780,7 +783,13 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # NB: datetime values have variable precision denoted by brackets, e.g. datetime64[ns]
         # denotes nanosecond precision. Since MLflow datetime type is precision agnostic, we
         # ignore precision when matching datetime columns.
-        return values.astype(np.dtype("datetime64[ns]"))
+        try:
+            return values.astype(np.dtype("datetime64[ns]"))
+        except TypeError as e:
+            raise MlflowException(
+                "Please ensure that the input data of datetime column only contains timezone-naive "
+                f"datetime objects. Error: {e}"
+            )
 
     if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
         # NB: Pyspark date columns get converted to object when converted to a pandas
@@ -860,6 +869,74 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             f"Incompatible input types for column {name}. "
             f"Can not safely convert {values.dtype} to {numpy_type}.{hint}"
         )
+
+
+# dtype -> possible value types mapping
+_ALLOWED_CONVERSIONS_FOR_PARAMS = {
+    DataType.long: (DataType.integer,),
+    DataType.float: (DataType.integer, DataType.long),
+    DataType.double: (DataType.integer, DataType.long, DataType.float),
+}
+
+
+def _enforce_param_datatype(value: Any, dtype: DataType):
+    """
+    Enforce the value matches the data type. This is used to enforce params datatype.
+    The returned data is of python built-in type or a datetime object.
+
+    The following type conversions are allowed:
+
+    1. int -> long, float, double
+    2. long -> float, double
+    3. float -> double
+    4. any -> datetime (try conversion)
+
+    Any other type mismatch will raise error.
+
+    Args:
+        value: parameter value
+        dtype: expected data type
+    """
+    if value is None:
+        return
+
+    if dtype == DataType.datetime:
+        try:
+            datetime_value = np.datetime64(value).item()
+            if isinstance(datetime_value, int):
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to convert value to `{dtype}`. "
+                    f"It must be convertible to datetime.date/datetime, got `{value}`"
+                )
+            return datetime_value
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to convert value `{value}` from type `{type(value)}` to `{dtype}`"
+            ) from e
+
+    # Note that np.isscalar(datetime.date(...)) is False
+    if not np.isscalar(value):
+        raise MlflowException.invalid_parameter_value(
+            f"Value must be a scalar for type `{dtype}`, got `{value}`"
+        )
+
+    # Always convert to python native type for params
+    if DataType.check_type(dtype, value):
+        return dtype.to_python()(value)
+
+    if dtype in _ALLOWED_CONVERSIONS_FOR_PARAMS and any(
+        DataType.check_type(t, value) for t in _ALLOWED_CONVERSIONS_FOR_PARAMS[dtype]
+    ):
+        try:
+            return dtype.to_python()(value)
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to convert value `{value}` from type `{type(value)}` to `{dtype}`"
+            ) from e
+
+    raise MlflowException.invalid_parameter_value(
+        f"Can not safely convert `{type(value)}` to `{dtype}` for value `{value}`"
+    )
 
 
 def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
@@ -1046,7 +1123,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     return new_pf_input
 
 
-def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optional[str] = None):
+def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str | None = None):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -1166,10 +1243,22 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
         missing_cols = [c for c in input_names if c in missing_cols]
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
-            message = f"Model is missing inputs {missing_cols}."
-            if extra_cols:
-                message += f" Note that there were extra inputs: {extra_cols}"
+            # If the user has set MLFLOW_DISABLE_SCHEMA_DETAILS to true, we raise a generic error
+            if MLFLOW_DISABLE_SCHEMA_DETAILS.get():
+                message = "Input schema validation failed. Mismatched or missing input(s)."
+                if extra_cols:
+                    message += " Note that there were extra inputs provided."
+            else:
+                message = f"Model is missing inputs {missing_cols}."
+                if extra_cols:
+                    message += f" Note that there were extra inputs: {extra_cols}."
             raise MlflowException(message)
+
+        if extra_cols:
+            _logger.warning(
+                "Found extra inputs in the model input that are not defined in the model "
+                f"signature: `{extra_cols}`. These inputs will be ignored."
+            )
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
         num_actual_columns = len(pf_input.columns)
@@ -1199,7 +1288,7 @@ def _enforce_pyspark_dataframe_schema(
     original_pf_input: SparkDataFrame,
     pf_input_as_pandas,
     input_schema: Schema,
-    flavor: Optional[str] = None,
+    flavor: str | None = None,
 ):
     """
     Enforce that the input PySpark DataFrame conforms to the model's input schema.
@@ -1233,7 +1322,7 @@ def _enforce_pyspark_dataframe_schema(
     columns_not_dropped_for_feature_store_model = []
     for col, dtype in new_pf_input.dtypes:
         if col not in input_names:
-            # to support backwards compatability with feature store models
+            # to support backwards compatibility with feature store models
             if any(x in dtype for x in ["array", "map", "struct"]):
                 if flavor == _FEATURE_STORE_FLAVOR:
                     columns_not_dropped_for_feature_store_model.append(col)
@@ -1249,7 +1338,7 @@ def _enforce_pyspark_dataframe_schema(
 
 
 def _enforce_datatype(data: Any, dtype: DataType, required=True):
-    if not required and data is None:
+    if not required and _is_none_or_nan(data):
         return None
 
     if not isinstance(dtype, DataType):
@@ -1267,31 +1356,49 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
     return pd_series[0]
 
 
-def _enforce_array(data: Any, arr: Array, required=True):
-    if not required and data is None:
-        return None
+def _enforce_array(data: Any, arr: Array, required: bool = True):
+    """
+    Enforce data against an Array type.
+    If the field is required, then the data must be provided.
+    If Array's internal dtype is AnyType, then None and empty lists are also accepted.
+    """
+    if not required or isinstance(arr.dtype, AnyType):
+        if data is None or (isinstance(data, (list, np.ndarray)) and len(data) == 0):
+            return data
 
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
 
-    data_enforced = [_enforce_type(x, arr.dtype) for x in data]
+    if isinstance(arr.dtype, DataType):
+        # TODO: this is still significantly slower than direct np.asarray dtype conversion
+        # pd.Series conversion can be removed once we support direct validation on the numpy array
+        data_enforced = (
+            _enforce_mlflow_datatype("", pd.Series(data), arr.dtype).to_numpy(
+                dtype=arr.dtype.to_numpy()
+            )
+            if len(data) > 0
+            else data
+        )
+    else:
+        data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
-    # Keep input data type
-    if isinstance(data, np.ndarray):
+    if isinstance(data, list) and isinstance(data_enforced, np.ndarray):
+        data_enforced = data_enforced.tolist()
+    elif isinstance(data, np.ndarray) and isinstance(data_enforced, list):
         data_enforced = np.array(data_enforced)
 
     return data_enforced
 
 
 def _enforce_property(data: Any, property: Property):
-    return _enforce_type(data, property.dtype)
+    return _enforce_type(data, property.dtype, required=property.required)
 
 
-def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
-    if not required and data is None:
-        return None
+def _enforce_object(data: dict[str, Any], obj: Object, required: bool = True):
     if HAS_PYSPARK and isinstance(data, Row):
-        data = data.asDict(True)
+        data = None if len(data) == 0 else data.asDict(True)
+    if not required and (data is None or data == {}):
+        return data
     if not isinstance(data, dict):
         raise MlflowException(
             f"Failed to enforce schema of '{data}' with type '{obj}'. "
@@ -1304,8 +1411,7 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
         )
     properties = {prop.name: prop for prop in obj.properties}
     required_props = {k for k, prop in properties.items() if prop.required}
-    missing_props = required_props - set(data.keys())
-    if missing_props:
+    if missing_props := required_props - set(data.keys()):
         raise MlflowException(f"Missing required properties: {missing_props}")
     if invalid_props := data.keys() - properties.keys():
         raise MlflowException(
@@ -1323,9 +1429,9 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
     return data
 
 
-def _enforce_map(data: Any, map_type: Map, required=True):
-    if not required and data is None:
-        return None
+def _enforce_map(data: Any, map_type: Map, required: bool = True):
+    if (not required or isinstance(map_type.value_type, AnyType)) and (data is None or data == {}):
+        return data
 
     if not isinstance(data, dict):
         raise MlflowException(f"Expected data to be a dict, got {type(data).__name__}")
@@ -1333,10 +1439,10 @@ def _enforce_map(data: Any, map_type: Map, required=True):
     if not all(isinstance(k, str) for k in data):
         raise MlflowException("Expected all keys in the map type data are string type.")
 
-    return {k: _enforce_type(v, map_type.value_type) for k, v in data.items()}
+    return {k: _enforce_type(v, map_type.value_type, required=required) for k, v in data.items()}
 
 
-def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], required=True):
+def _enforce_type(data: Any, data_type: DataType | Array | Object | Map, required=True):
     if isinstance(data_type, DataType):
         return _enforce_datatype(data, data_type, required=required)
     if isinstance(data_type, Array):
@@ -1345,6 +1451,8 @@ def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], req
         return _enforce_object(data, data_type, required=required)
     if isinstance(data_type, Map):
         return _enforce_map(data, data_type, required=required)
+    if isinstance(data_type, AnyType):
+        return data
     raise MlflowException(f"Invalid data type: {data_type!r}")
 
 
@@ -1385,7 +1493,6 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
     _enforce_schema(data, expected_schema)
 
 
-@experimental
 def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
     """
     Given a registered model_uri (e.g. models:/<model_name>/<model_version>), this utility
@@ -1434,7 +1541,10 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
             clf.fit(iris_train, iris.target)
             signature = infer_signature(iris_train, clf.predict(iris_train))
             mlflow.sklearn.log_model(
-                clf, "iris_rf", signature=signature, registered_model_name="model-with-libs"
+                clf,
+                name="iris_rf",
+                signature=signature,
+                registered_model_name="model-with-libs",
             )
 
         # model uri for the above model
@@ -1487,7 +1597,7 @@ def get_model_version_from_model_uri(model_uri):
     return client.get_model_version(name, version)
 
 
-def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):
+def _enforce_params_schema(params: dict[str, Any] | None, schema: ParamSchema | None):
     if schema is None:
         if params in [None, {}]:
             return params
@@ -1519,8 +1629,7 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
         params = {str(k): v for k, v in params.items()}
 
     allowed_keys = {param.name for param in schema.params}
-    ignored_keys = set(params) - allowed_keys
-    if ignored_keys:
+    if ignored_keys := set(params) - allowed_keys:
         _logger.warning(
             f"Unrecognized params {list(ignored_keys)} are ignored for inference. "
             f"Supported params are: {allowed_keys}. "
@@ -1571,8 +1680,7 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
         return [
             convert_complex_types_pyspark_to_pandas(elem, dataType.elementType) for elem in value
         ]
-    converter = type_mapping.get(type(dataType))
-    if converter:
+    if converter := type_mapping.get(type(dataType)):
         return converter(value)
     return value
 
@@ -1668,7 +1776,7 @@ def _convert_llm_ndarray_to_list(data):
     return data
 
 
-def _convert_llm_input_data(data: Any) -> Union[List, Dict]:
+def _convert_llm_input_data(data: Any) -> list[Any] | dict[str, Any]:
     """
     Convert input data to a format that can be passed to the model with GenAI flavors such as
     LangChain and LLamaIndex.
@@ -1691,51 +1799,79 @@ def _convert_llm_input_data(data: Any) -> Union[List, Dict]:
     return _convert_llm_ndarray_to_list(data)
 
 
+def _databricks_path_exists(path: Path) -> bool:
+    """
+    Check if a path exists in Databricks workspace.
+    """
+    if not is_in_databricks_runtime():
+        return False
+
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.errors import ResourceDoesNotExist
+
+    client = WorkspaceClient()
+    try:
+        client.workspace.get_status(str(path))
+        return True
+    except ResourceDoesNotExist:
+        return False
+
+
 def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> str:
     """
-    Validate model code path exists. Creates a temp file in temp_dir and validate its contents if
-    it's a notebook.
+    Validate model code path exists. When failing to open the model file on Databricks,
+    creates a temp file in temp_dir and validate its contents if it's a notebook.
 
     Returns either `model_code_path` or a temp file path with the contents of the notebook.
     """
 
     # If the path is not a absolute path then convert it
-    model_code_path = os.path.abspath(model_code_path)
+    model_code_path = Path(model_code_path).resolve()
 
-    if not os.path.exists(model_code_path):
+    if not (model_code_path.exists() or _databricks_path_exists(model_code_path)):
+        additional_message = (
+            f" Perhaps you meant '{model_code_path}.py'?" if not model_code_path.suffix else ""
+        )
+
         raise MlflowException.invalid_parameter_value(
-            f"The provided model path '{model_code_path}' is not a valid Python file path or a "
-            "Databricks Notebook file path containing the code for defining the chain instance. "
-            "Ensure the file path is valid and try again."
+            f"The provided model path '{model_code_path}' does not exist. "
+            f"Ensure the file path is valid and try again.{additional_message}"
         )
 
     try:
-        with open(model_code_path) as _:
-            return model_code_path
+        # If `model_code_path` points to a notebook on Databricks, this line throws either
+        # a `FileNotFoundError` or an `OSError`. In this case, try to export the notebook as
+        # a Python file.
+        with open(model_code_path):
+            pass
+
+        return str(model_code_path)
     except Exception:
-        try:
-            from databricks.sdk import WorkspaceClient
-            from databricks.sdk.service.workspace import ExportFormat
+        pass
 
-            w = WorkspaceClient()
-            response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
-            decoded_content = base64.b64decode(response.content)
-        except Exception:
-            raise MlflowException.invalid_parameter_value(
-                f"The provided model path '{model_code_path}' is not a valid Python file path or a "
-                "Databricks Notebook file path containing the code for defining the chain "
-                "instance. Ensure the file path is valid and try again."
-            )
+    try:
+        from databricks.sdk import WorkspaceClient
+        from databricks.sdk.service.workspace import ExportFormat
 
-        _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
-        path = os.path.join(temp_dir, "model.py")
-        with open(path, "wb") as f:
-            f.write(decoded_content)
-        return path
+        w = WorkspaceClient()
+        response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
+        decoded_content = base64.b64decode(response.content)
+    except Exception:
+        raise MlflowException.invalid_parameter_value(
+            f"The provided model path '{model_code_path}' is not a valid Python file path or a "
+            "Databricks Notebook file path containing the code for defining the chain "
+            "instance. Ensure the file path is valid and try again."
+        )
+
+    _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
+    path = os.path.join(temp_dir, "model.py")
+    with open(path, "wb") as f:
+        f.write(decoded_content)
+    return path
 
 
 @contextmanager
-def _config_context(config: Optional[Union[str, Dict[str, Any]]] = None):
+def _config_context(config: str | dict[str, Any] | None = None):
     # Check if config_path is None and set it to "" so when loading the model
     # the config_path is set to "" so the ModelConfig can correctly check if the
     # config is set or not
@@ -1796,8 +1932,8 @@ def _mock_dbutils(globals_dict):
 # This function addresses this by dynamically importing the `code path` module under a unique,
 # dynamically generated module name. This bypasses the caching mechanism, as each import is
 # considered a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, Any]]]):
-    with _config_context(config):
+def _load_model_code_path(code_path: str, model_config: str | dict[str, Any] | None):
+    with _config_context(model_config):
         try:
             new_module_name = f"code_model_{uuid.uuid4().hex}"
             spec = importlib.util.spec_from_file_location(new_module_name, code_path)
@@ -1826,9 +1962,9 @@ def _load_model_code_path(code_path: str, config: Optional[Union[str, Dict[str, 
 
 
 def _flatten_nested_params(
-    d: Dict[str, Any], parent_key: str = "", sep: str = "/"
-) -> Dict[str, str]:
-    items: Dict[str, Any] = {}
+    d: dict[str, Any], parent_key: str = "", sep: str = "/"
+) -> dict[str, str]:
+    items: dict[str, Any] = {}
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
         if isinstance(v, dict):
@@ -1840,8 +1976,7 @@ def _flatten_nested_params(
 
 # NB: this function should always be kept in sync with the serving
 # process in scoring_server invocations.
-@experimental
-def validate_serving_input(model_uri: str, serving_input: Union[str, Dict[str, Any]]):
+def validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
     """
     Helper function to validate the model can be served and provided input is valid
     prior to serving the model.
@@ -1854,15 +1989,55 @@ def validate_serving_input(model_uri: str, serving_input: Union[str, Dict[str, A
         The prediction result from the model.
     """
     from mlflow.pyfunc.scoring_server import _parse_json_data
+    from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 
     # sklearn model might not have python_function flavor if it
     # doesn't define a predict function. In such case the model
     # can not be served anyways
-    with tempfile.TemporaryDirectory() as temp_output_dir:
-        pyfunc_model = mlflow.pyfunc.load_model(model_uri, dst_path=temp_output_dir)
+
+    output_dir = None if get_local_path_or_none(model_uri) else create_tmp_dir()
+
+    try:
+        pyfunc_model = mlflow.pyfunc.load_model(model_uri, dst_path=output_dir)
         parsed_input = _parse_json_data(
             serving_input,
             pyfunc_model.metadata,
             pyfunc_model.metadata.get_input_schema(),
         )
-        return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
+        with _simulate_serving_environment():
+            return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
+    finally:
+        if output_dir and os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+
+
+def get_external_mlflow_model_spec(logged_model: LoggedModel) -> Model:
+    """
+    Create the MLflow Model specification for a given logged model whose artifacts
+    (code, weights, etc.) are stored externally outside of MLflow.
+
+    Args:
+        logged_model: The external logged model for which to create an MLflow Model specification.
+
+    Returns:
+        Model: MLflow Model specification for the given logged model with external artifacts.
+    """
+    from mlflow.models.signature import infer_signature
+
+    return Model(
+        artifact_path=logged_model.artifact_location,
+        model_uuid=logged_model.model_id,
+        model_id=logged_model.model_id,
+        run_id=logged_model.source_run_id,
+        # Include a dummy signature so that the model can be registered to the Databricks Unity
+        # Catalog Model Registry.
+        # TODO: Remove this once the Databricks Unity Catalog Model Registry supports registration
+        # of models without signatures
+        signature=infer_signature(model_input=True, model_output=True),
+        metadata={
+            # Add metadata to the logged model indicating that its artifacts are stored externally.
+            # This helps downstream consumers of the model, such as the Model Registry, easily
+            # and consistently identify that the model's artifacts are external
+            MLFLOW_MODEL_IS_EXTERNAL: True,
+        },
+    )

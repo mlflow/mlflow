@@ -2,13 +2,11 @@
  * TODO: implement actual UI for this modal, it's a crude placeholder with minimal logic for now
  */
 import { Modal, useDesignSystemTheme, SimpleSelect, SimpleSelectOption } from '@databricks/design-system';
-import { Interpolation, Theme } from '@emotion/react';
+import type { Interpolation, Theme } from '@emotion/react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useIntl, FormattedMessage } from 'react-intl';
-import {
+import type {
   RunsChartsBarCardConfig,
-  RunsChartsCardConfig,
-  RunsChartType,
   RunsChartsLineCardConfig,
   RunsChartsContourCardConfig,
   RunsChartsScatterCardConfig,
@@ -16,6 +14,7 @@ import {
   RunsChartsDifferenceCardConfig,
   RunsChartsImageCardConfig,
 } from '../runs-charts.types';
+import { RunsChartsCardConfig, RunsChartType, type RunsChartsMetricByDatasetEntry } from '../runs-charts.types';
 
 import { ReactComponent as ChartBarIcon } from '../../../../common/static/chart-bar.svg';
 import { ReactComponent as ChartContourIcon } from '../../../../common/static/chart-contour.svg';
@@ -38,38 +37,37 @@ import { RunsChartsConfigureContourChart } from './config/RunsChartsConfigureCon
 import { RunsChartsConfigureScatterChart } from './config/RunsChartsConfigureScatterChart';
 import { RunsChartsTooltipBody } from './RunsChartsTooltipBody';
 import { RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
-import {
-  shouldEnableDifferenceViewCharts,
-  shouldEnableImageGridCharts,
-  shouldUseNewRunRowsVisibilityModel,
-} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { RunsChartsConfigureDifferenceChartPreview } from './config/RunsChartsConfigureDifferenceChart.preview';
 import { RunsChartsConfigureDifferenceChart } from './config/RunsChartsConfigureDifferenceChart';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsConfigureImageChart } from './config/RunsChartsConfigureImageChart';
 import { RunsChartsConfigureImageChartPreview } from './config/RunsChartsConfigureImageChart.preview';
 import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
+import { isEmpty } from 'lodash';
+import { RunsChartsConfigureScatterChartWithDatasets } from './config/RunsChartsConfigureScatterChartWithDatasets';
+import { DifferenceViewPlot } from './charts/DifferenceViewPlot';
 
 const previewComponentsMap: Record<
   RunsChartType,
-  React.FC<{
-    previewData: RunsChartsRunData[];
-    cardConfig: any;
-    groupBy: RunsGroupByConfig | null;
-    globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
-    setCardConfig: (
-      setter: (
-        current: RunsChartsCardConfig,
-      ) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig | RunsChartsLineCardConfig,
-    ) => void;
-  }>
+  React.FC<
+    React.PropsWithChildren<{
+      previewData: RunsChartsRunData[];
+      cardConfig: any;
+      groupBy: RunsGroupByConfig | null;
+      globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+      setCardConfig: (
+        setter: (
+          current: RunsChartsCardConfig,
+        ) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig | RunsChartsLineCardConfig,
+      ) => void;
+    }>
+  >
 > = {
   [RunsChartType.BAR]: RunsChartsConfigureBarChartPreview,
   [RunsChartType.CONTOUR]: RunsChartsConfigureContourChartPreview,
   [RunsChartType.LINE]: RunsChartsConfigureLineChartPreview,
   [RunsChartType.PARALLEL]: RunsChartsConfigureParallelChartPreview,
   [RunsChartType.SCATTER]: RunsChartsConfigureScatterChartPreview,
-  [RunsChartType.DIFFERENCE]: RunsChartsConfigureDifferenceChartPreview,
+  [RunsChartType.DIFFERENCE]: DifferenceViewPlot,
   [RunsChartType.IMAGE]: RunsChartsConfigureImageChartPreview,
 };
 
@@ -79,12 +77,14 @@ export const RunsChartsConfigureModal = ({
   config,
   chartRunData,
   metricKeyList,
+  metricKeysByDataset,
   paramKeyList,
   groupBy,
   supportedChartTypes,
   globalLineChartConfig,
 }: {
   metricKeyList: string[];
+  metricKeysByDataset?: RunsChartsMetricByDatasetEntry[];
   paramKeyList: string[];
   config: RunsChartsCardConfig;
   chartRunData: RunsChartsRunData[];
@@ -97,7 +97,8 @@ export const RunsChartsConfigureModal = ({
   const isChartTypeSupported = (type: RunsChartType) => !supportedChartTypes || supportedChartTypes.includes(type);
   const { theme } = useDesignSystemTheme();
   const borderStyle = `1px solid ${theme.colors.actionDefaultBorderDefault}`;
-  const [currentFormState, setCurrentFormState] = useState<RunsChartsCardConfig>(config);
+  // if a user is editing a generated chart, we should set isGenerated to false
+  const [currentFormState, setCurrentFormState] = useState<RunsChartsCardConfig>({ ...config, isGenerated: false });
 
   const isEditing = Boolean(currentFormState.uuid);
 
@@ -105,18 +106,13 @@ export const RunsChartsConfigureModal = ({
     if (!type) {
       return;
     }
-    const emptyChartCard = RunsChartsCardConfig.getEmptyChartCardByType(type, true);
+    const emptyChartCard = RunsChartsCardConfig.getEmptyChartCardByType(type, false);
     if (emptyChartCard) {
       setCurrentFormState(emptyChartCard);
     }
   }, []);
 
-  const previewData = useMemo(() => {
-    if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden).reverse();
-    }
-    return chartRunData.slice(0, currentFormState.runsCountToCompare).reverse();
-  }, [chartRunData, currentFormState.runsCountToCompare]);
+  const previewData = useMemo(() => chartRunData.filter(({ hidden }) => !hidden).reverse(), [chartRunData]);
 
   const imageKeyList = useMemo(() => {
     const imageKeys = new Set<string>();
@@ -133,6 +129,7 @@ export const RunsChartsConfigureModal = ({
       return (
         <RunsChartsConfigureBarChart
           metricKeyList={metricKeyList}
+          metricKeysByDataset={metricKeysByDataset}
           state={currentFormState as RunsChartsBarCardConfig}
           onStateChange={setCurrentFormState}
         />
@@ -168,6 +165,16 @@ export const RunsChartsConfigureModal = ({
       );
     }
     if (type === RunsChartType.SCATTER) {
+      if (!isEmpty(metricKeysByDataset)) {
+        return (
+          <RunsChartsConfigureScatterChartWithDatasets
+            paramKeyList={paramKeyList}
+            metricKeysByDataset={metricKeysByDataset}
+            state={currentFormState as RunsChartsScatterCardConfig}
+            onStateChange={setCurrentFormState}
+          />
+        );
+      }
       return (
         <RunsChartsConfigureScatterChart
           metricKeyList={metricKeyList}
@@ -177,7 +184,7 @@ export const RunsChartsConfigureModal = ({
         />
       );
     }
-    if (shouldEnableDifferenceViewCharts() && type === RunsChartType.DIFFERENCE) {
+    if (type === RunsChartType.DIFFERENCE) {
       return (
         <RunsChartsConfigureDifferenceChart
           metricKeyList={metricKeyList}
@@ -188,7 +195,7 @@ export const RunsChartsConfigureModal = ({
         />
       );
     }
-    if (shouldEnableImageGridCharts() && type === RunsChartType.IMAGE) {
+    if (type === RunsChartType.IMAGE) {
       return (
         <RunsChartsConfigureImageChart
           previewData={previewData}
@@ -359,7 +366,7 @@ export const RunsChartsConfigureModal = ({
                     </div>
                   </SimpleSelectOption>
                 )}
-                {shouldEnableDifferenceViewCharts() && isChartTypeSupported(RunsChartType.DIFFERENCE) && (
+                {isChartTypeSupported(RunsChartType.DIFFERENCE) && (
                   <SimpleSelectOption value={RunsChartType.DIFFERENCE}>
                     <div css={styles.chartTypeOption(theme)}>
                       <ChartDifferenceIcon />
@@ -370,7 +377,7 @@ export const RunsChartsConfigureModal = ({
                     </div>
                   </SimpleSelectOption>
                 )}
-                {shouldEnableImageGridCharts() && isChartTypeSupported(RunsChartType.IMAGE) && (
+                {isChartTypeSupported(RunsChartType.IMAGE) && (
                   <SimpleSelectOption value={RunsChartType.IMAGE}>
                     <div css={styles.chartTypeOption(theme)}>
                       <ChartImageIcon />
@@ -394,6 +401,7 @@ export const RunsChartsConfigureModal = ({
                 height: '100%',
                 width: 500,
                 padding: '32px 0px',
+                display: 'flex',
               }}
             >
               {renderPreviewChartType(currentFormState.type)}

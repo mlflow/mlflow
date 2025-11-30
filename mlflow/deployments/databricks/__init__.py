@@ -1,6 +1,7 @@
 import json
 import posixpath
-from typing import Any, Dict, Iterator, Optional
+import warnings
+from typing import Any, Iterator
 
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
@@ -8,13 +9,18 @@ from mlflow.deployments.constants import (
 )
 from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
+    MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils import AttrDict
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+from mlflow.utils.rest_utils import (
+    augmented_raise_for_status,
+    http_request,
+    validate_deployment_timeout_config,
+)
 
 
 class DatabricksEndpoint(AttrDict):
@@ -39,7 +45,6 @@ class DatabricksEndpoint(AttrDict):
     """
 
 
-@experimental
 class DatabricksDeploymentClient(BaseDeploymentClient):
     """
     Client for interacting with Databricks serving endpoints.
@@ -124,10 +129,22 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         *,
         method: str,
         prefix: str = "/api/2.0",
-        route: Optional[str] = None,
-        json_body: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
+        route: str | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        retry_timeout_seconds: int | None = None,
     ):
+        """
+        Args:
+            method: HTTP method (GET, POST, etc.).
+            prefix: API prefix path.
+            route: Endpoint route.
+            json_body: Request payload.
+            timeout: Maximum time (in seconds) for a single HTTP request.
+            retry_timeout_seconds: Maximum time (in seconds) for all retry attempts combined.
+        """
+        validate_deployment_timeout_config(timeout, retry_timeout_seconds)
+
         call_kwargs = {}
         if method.lower() == "get":
             call_kwargs["params"] = json_body
@@ -139,6 +156,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             endpoint=posixpath.join(prefix, "serving-endpoints", route or ""),
             method=method,
             timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
+            retry_timeout_seconds=retry_timeout_seconds,
             raise_on_status=False,
             retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             extra_headers={"X-Databricks-Endpoints-API-Client": "Databricks Deployment Client"},
@@ -152,10 +170,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         *,
         method: str,
         prefix: str = "/api/2.0",
-        route: Optional[str] = None,
-        json_body: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
+        route: str | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        retry_timeout_seconds: int | None = None,
     ) -> Iterator[str]:
+        validate_deployment_timeout_config(timeout, retry_timeout_seconds)
+
         call_kwargs = {}
         if method.lower() == "get":
             call_kwargs["params"] = json_body
@@ -167,6 +188,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             endpoint=posixpath.join(prefix, "serving-endpoints", route or ""),
             method=method,
             timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
+            retry_timeout_seconds=retry_timeout_seconds,
             raise_on_status=False,
             retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             extra_headers={"X-Databricks-Endpoints-API-Client": "Databricks Deployment Client"},
@@ -177,13 +199,15 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         # Streaming response content are composed of multiple lines.
         # Each line format depends on specific endpoint
+        # Explicitly set the encoding to `utf-8` so the `decode_unicode` in the next line
+        # will decode correctly
+        response.encoding = "utf-8"
         return (
             line.strip()
             for line in response.iter_lines(decode_unicode=True)
             if line.strip()  # filter out keep-alive new lines
         )
 
-    @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         Query a serving endpoint with the provided model inputs.
@@ -241,12 +265,12 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             route=posixpath.join(endpoint, "invocations"),
             json_body=inputs,
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
+            retry_timeout_seconds=MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT.get(),
         )
 
-    @experimental
     def predict_stream(
         self, deployment_name=None, inputs=None, endpoint=None
-    ) -> Iterator[Dict[str, Any]]:
+    ) -> Iterator[dict[str, Any]]:
         """
         Submit a query to a configured provider endpoint, and get streaming response
 
@@ -301,6 +325,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             route=posixpath.join(endpoint, "invocations"),
             json_body={**inputs, "stream": True},
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
+            retry_timeout_seconds=MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT.get(),
         )
 
         for line in chunk_line_iter:
@@ -325,8 +350,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
             yield json.loads(value)
 
-    @experimental
-    def create_endpoint(self, name, config=None, route_optimized=False):
+    def create_endpoint(self, name=None, config=None, route_optimized=False):
         """
         Create a new serving endpoint with the provided name and configuration.
 
@@ -335,10 +359,17 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         Args:
             name: The name of the serving endpoint to create.
-            config: A dictionary containing the configuration of the serving endpoint to create.
+
+                .. warning::
+                    Deprecated. Include `name` in `config` instead.
+
+            config: A dictionary containing either the full API request payload
+                or the configuration of the serving endpoint to create.
             route_optimized: A boolean which defines whether databricks serving endpoint
-                in optimized for routing traffic. Refer to the following doc for more details.
-                https://docs.databricks.com/en/machine-learning/model-serving/route-optimization.html#enable-route-optimization-on-a-feature-serving-endpoint
+                is optimized for routing traffic. Only used in the deprecated approach.
+
+                .. warning::
+                    Deprecated. Include `route_optimized` in `config` instead.
 
         Returns:
             A :py:class:`DatabricksEndpoint` object containing the request response.
@@ -351,26 +382,27 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
             client = get_deploy_client("databricks")
             endpoint = client.create_endpoint(
-                name="chat",
                 config={
-                    "served_entities": [
-                        {
-                            "name": "test",
-                            "external_model": {
-                                "name": "gpt-4",
-                                "provider": "openai",
-                                "task": "llm/v1/chat",
-                                "openai_config": {
-                                    "openai_api_key": "{{secrets/scope/key}}",
+                    "name": "test",
+                    "config": {
+                        "served_entities": [
+                            {
+                                "external_model": {
+                                    "name": "gpt-4",
+                                    "provider": "openai",
+                                    "task": "llm/v1/chat",
+                                    "openai_config": {
+                                        "openai_api_key": "{{secrets/scope/key}}",
+                                    },
                                 },
-                            },
-                        }
-                    ],
+                            }
+                        ],
+                        "route_optimized": True,
+                    },
                 },
-                route_optimized: True
             )
             assert endpoint == {
-                "name": "chat",
+                "name": "test",
                 "creator": "alice@company.com",
                 "creation_timestamp": 0,
                 "last_updated_timestamp": 0,
@@ -378,18 +410,92 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 "config": {...},
                 "tags": [...],
                 "id": "88fd3f75a0d24b0380ddc40484d7a31b",
+                "permission_level": "CAN_MANAGE",
+                "route_optimized": False,
+                "task": "llm/v1/chat",
+                "endpoint_type": "EXTERNAL_MODEL",
+                "creator_display_name": "Alice",
+                "creator_kind": "User",
             }
 
         """
-        config = config.copy() if config else {}  # avoid mutating config
-        extras = {}
-        for key in ("tags", "rate_limits"):
-            if tags := config.pop(key, None):
-                extras[key] = tags
-        payload = {"name": name, "config": config, "route_optimized": route_optimized, **extras}
+        warnings_list = []
+
+        if config and "config" in config:
+            # Using new style: full API request payload
+            payload = config.copy()
+
+            # Validate name conflicts
+            if "name" in payload:
+                if name is not None:
+                    if payload["name"] == name:
+                        warnings_list.append(
+                            "Passing 'name' as a parameter is deprecated. "
+                            "Please specify 'name' only within the config dictionary."
+                        )
+                    else:
+                        raise MlflowException(
+                            f"Name mismatch. Found '{name}' as parameter and '{payload['name']}' "
+                            "in config. Please specify 'name' only within the config dictionary "
+                            "as this parameter is deprecated."
+                        )
+            else:
+                if name is None:
+                    raise MlflowException(
+                        "The 'name' field is required. Please specify it within the config "
+                        "dictionary."
+                    )
+                payload["name"] = name
+                warnings_list.append(
+                    "Passing 'name' as a parameter is deprecated. "
+                    "Please specify 'name' within the config dictionary."
+                )
+
+            # Validate route_optimized conflicts
+            if "route_optimized" in payload:
+                if route_optimized is not None:
+                    if payload["route_optimized"] != route_optimized:
+                        raise MlflowException(
+                            "Conflicting 'route_optimized' values found. "
+                            "Please specify 'route_optimized' only within the config dictionary "
+                            "as this parameter is deprecated."
+                        )
+                    warnings_list.append(
+                        "Passing 'route_optimized' as a parameter is deprecated. "
+                        "Please specify 'route_optimized' only within the config dictionary."
+                    )
+            else:
+                if route_optimized:
+                    payload["route_optimized"] = route_optimized
+                    warnings_list.append(
+                        "Passing 'route_optimized' as a parameter is deprecated. "
+                        "Please specify 'route_optimized' within the config dictionary."
+                    )
+        else:
+            # Handle legacy format (backwards compatibility)
+            warnings_list.append(
+                "Passing 'name', 'config', and 'route_optimized' as separate parameters is "
+                "deprecated. Please pass the full API request payload as a single dictionary "
+                "in the 'config' parameter."
+            )
+            config = config.copy() if config else {}  # avoid mutating config
+            extras = {}
+            for key in ("tags", "rate_limits"):
+                if tags := config.pop(key, None):
+                    extras[key] = tags
+            payload = {"name": name, "config": config, "route_optimized": route_optimized, **extras}
+
+        if warnings_list:
+            warnings.warn("\n".join(warnings_list), UserWarning)
+
         return self._call_endpoint(method="POST", json_body=payload)
 
-    @experimental
+    @deprecated(
+        alternative=(
+            "update_endpoint_config, update_endpoint_tags, update_endpoint_rate_limits, "
+            "or update_endpoint_ai_gateway"
+        )
+    )
     def update_endpoint(self, endpoint, config=None):
         """
         Update a specified serving endpoint with the provided configuration.
@@ -461,6 +567,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 ],
             }
         """
+        warnings.warn(
+            "The `update_endpoint` method is deprecated. Use the specific update methods—"
+            "`update_endpoint_config`, `update_endpoint_tags`, `update_endpoint_rate_limits`, "
+            "`update_endpoint_ai_gateway`—instead.",
+            UserWarning,
+        )
+
         if list(config) == ["rate_limits"]:
             return self._call_endpoint(
                 method="PUT", route=posixpath.join(endpoint, "rate-limits"), json_body=config
@@ -470,7 +583,175 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
             )
 
-    @experimental
+    def update_endpoint_config(self, endpoint, config):
+        """
+        Update the configuration of a specified serving endpoint. See
+        https://docs.databricks.com/api/workspace/servingendpoints/updateconfig for request/response
+        request/response schema.
+
+        Args:
+            endpoint: The name of the serving endpoint to update.
+            config: A dictionary containing the configuration of the serving endpoint to update.
+
+        Returns:
+            A :py:class:`DatabricksEndpoint` object containing the request response.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("databricks")
+            updated_endpoint = client.update_endpoint_config(
+                endpoint="test",
+                config={
+                    "served_entities": [
+                        {
+                            "name": "gpt-4o-mini",
+                            "external_model": {
+                                "name": "gpt-4o-mini",
+                                "provider": "openai",
+                                "task": "llm/v1/chat",
+                                "openai_config": {
+                                    "openai_api_key": "{{secrets/scope/key}}",
+                                },
+                            },
+                        }
+                    ]
+                },
+            )
+            assert updated_endpoint == {
+                "name": "test",
+                "creator": "alice@company.com",
+                "creation_timestamp": 1729527763000,
+                "last_updated_timestamp": 1729530896000,
+                "state": {"ready": "READY", "config_update": "NOT_UPDATING"},
+                "config": {...},
+                "id": "44b258fb39804564b37603d8d14b853e",
+                "permission_level": "CAN_MANAGE",
+                "route_optimized": False,
+                "task": "llm/v1/chat",
+                "endpoint_type": "EXTERNAL_MODEL",
+                "creator_display_name": "Alice",
+                "creator_kind": "User",
+            }
+        """
+
+        return self._call_endpoint(
+            method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
+        )
+
+    def update_endpoint_tags(self, endpoint, config):
+        """
+        Update the tags of a specified serving endpoint. See
+        https://docs.databricks.com/api/workspace/servingendpoints/patch for request/response
+        schema.
+
+        Args:
+            endpoint: The name of the serving endpoint to update.
+            config: A dictionary containing tags to add and/or remove.
+
+        Returns:
+            A :py:class:`DatabricksEndpoint` object containing the request response.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("databricks")
+            updated_tags = client.update_endpoint_tags(
+                endpoint="test", config={"add_tags": [{"key": "project", "value": "test"}]}
+            )
+            assert updated_tags == {"tags": [{"key": "project", "value": "test"}]}
+        """
+        return self._call_endpoint(
+            method="PATCH", route=posixpath.join(endpoint, "tags"), json_body=config
+        )
+
+    def update_endpoint_rate_limits(self, endpoint, config):
+        """
+        Update the rate limits of a specified serving endpoint.
+        See https://docs.databricks.com/api/workspace/servingendpoints/put for request/response
+        schema.
+
+        Args:
+            endpoint: The name of the serving endpoint to update.
+            config: A dictionary containing the updated rate limit configuration.
+
+        Returns:
+            A :py:class:`DatabricksEndpoint` object containing the updated rate limits.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("databricks")
+            name = "databricks-dbrx-instruct"
+            rate_limits = {
+                "rate_limits": [{"calls": 10, "key": "endpoint", "renewal_period": "minute"}]
+            }
+            updated_rate_limits = client.update_endpoint_rate_limits(
+                endpoint=name, config=rate_limits
+            )
+            assert updated_rate_limits == {
+                "rate_limits": [{"calls": 10, "key": "endpoint", "renewal_period": "minute"}]
+            }
+        """
+        return self._call_endpoint(
+            method="PUT", route=posixpath.join(endpoint, "rate-limits"), json_body=config
+        )
+
+    def update_endpoint_ai_gateway(self, endpoint, config):
+        """
+        Update the AI Gateway configuration of a specified serving endpoint.
+
+        Args:
+            endpoint (str): The name of the serving endpoint to update.
+            config (dict): A dictionary containing the AI Gateway configuration to update.
+
+        Returns:
+            dict: A dictionary containing the updated AI Gateway configuration.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("databricks")
+            name = "test"
+
+            gateway_config = {
+                "usage_tracking_config": {"enabled": True},
+                "inference_table_config": {
+                    "enabled": True,
+                    "catalog_name": "my_catalog",
+                    "schema_name": "my_schema",
+                },
+            }
+
+            updated_gateway = client.update_endpoint_ai_gateway(
+                endpoint=name, config=gateway_config
+            )
+            assert updated_gateway == {
+                "usage_tracking_config": {"enabled": True},
+                "inference_table_config": {
+                    "catalog_name": "my_catalog",
+                    "schema_name": "my_schema",
+                    "table_name_prefix": "test",
+                    "enabled": True,
+                },
+            }
+        """
+        return self._call_endpoint(
+            method="PUT", route=posixpath.join(endpoint, "ai-gateway"), json_body=config
+        )
+
     def delete_endpoint(self, endpoint):
         """
         Delete a specified serving endpoint.
@@ -494,7 +775,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         return self._call_endpoint(method="DELETE", route=endpoint)
 
-    @experimental
     def list_endpoints(self):
         """
         Retrieve all serving endpoints.
@@ -529,7 +809,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         return self._call_endpoint(method="GET").endpoints
 
-    @experimental
     def get_endpoint(self, endpoint):
         """
         Get a specified serving endpoint.

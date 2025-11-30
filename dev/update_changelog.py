@@ -1,12 +1,12 @@
+import argparse
 import os
 import re
 import subprocess
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, NamedTuple
+from typing import Any, NamedTuple
 
-import click
 import requests
 from packaging.version import Version
 
@@ -32,7 +32,7 @@ class PullRequest(NamedTuple):
     title: str
     number: int
     author: str
-    labels: List[str]
+    labels: list[str]
 
     @property
     def url(self):
@@ -59,7 +59,7 @@ class PullRequest(NamedTuple):
 
 class Section(NamedTuple):
     title: str
-    items: List[Any]
+    items: list[Any]
 
     def __str__(self):
         if not self.items:
@@ -86,12 +86,91 @@ def is_shallow():
     )
 
 
-@click.command(help="Update CHANGELOG.md")
-@click.option("--prev-version", required=True, help="Previous version")
-@click.option("--release-version", required=True, help="MLflow version to release.")
-@click.option(
-    "--remote", required=False, default="origin", help="Git remote to use (default: origin). "
-)
+def batch_fetch_prs_graphql(pr_numbers: list[int]) -> list[PullRequest]:
+    """
+    Batch fetch PR data using GitHub GraphQL API.
+    """
+    if not pr_numbers:
+        return []
+
+    # GitHub GraphQL has query size limits, so batch in chunks
+    MAX_PRS_PER_QUERY = 50  # Conservative limit to avoid query size issues
+    all_prs: list[PullRequest] = []
+
+    for i in range(0, len(pr_numbers), MAX_PRS_PER_QUERY):
+        chunk = pr_numbers[i : i + MAX_PRS_PER_QUERY]
+        chunk_prs = _fetch_pr_chunk_graphql(chunk)
+        all_prs.extend(chunk_prs)
+
+    return all_prs
+
+
+def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
+    """
+    Fetch a chunk of PRs using GraphQL.
+    """
+    # Build GraphQL query with aliases for each PR
+    query_parts = [
+        "query($owner: String!, $repo: String!) {",
+        "  repository(owner: $owner, name: $repo) {",
+    ]
+
+    for i, pr_num in enumerate(pr_numbers):
+        query_parts.append(f"""
+    pr{i}: pullRequest(number: {pr_num}) {{
+      number
+      title
+      author {{
+        login
+      }}
+      labels(first: 100) {{
+        nodes {{
+          name
+        }}
+      }}
+    }}""")
+
+    query_parts.extend(["  }", "}"])
+    query = "\n".join(query_parts)
+
+    # Headers with authentication
+    headers = {"Content-Type": "application/json"}
+    if token := os.getenv("GITHUB_TOKEN"):
+        headers["Authorization"] = f"Bearer {token}"
+    print(f"Batch fetching {len(pr_numbers)} PRs with GraphQL...")
+    resp = requests.post(
+        "https://api.github.com/graphql",
+        json={
+            "query": query,
+            "variables": {"owner": "mlflow", "repo": "mlflow"},
+        },
+        headers=headers,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "errors" in data:
+        raise Exception(f"GraphQL errors: {data['errors']}")
+
+    # Extract PR data from response and create PullRequest objects
+    repository_data = data["data"]["repository"]
+    prs = []
+    for i, pr_num in enumerate(pr_numbers):
+        pr_info = repository_data.get(f"pr{i}")
+        if pr_info and pr_info.get("author"):
+            prs.append(
+                PullRequest(
+                    title=pr_info["title"],
+                    number=pr_info["number"],
+                    author=pr_info["author"]["login"],
+                    labels=[label["name"] for label in pr_info["labels"]["nodes"]],
+                )
+            )
+        else:
+            print(f"Warning: Could not fetch data for PR #{pr_num}")
+
+    return prs
+
+
 def main(prev_version, release_version, remote):
     if is_shallow():
         print("Unshallowing repository to ensure `git log` works correctly")
@@ -102,7 +181,7 @@ def main(prev_version, release_version, remote):
         )
     release_tag = f"v{prev_version}"
     ver = Version(release_version)
-    branch = "master" if ver.micro == 0 else f"branch-{ver.major}.{ver.minor}"
+    branch = f"branch-{ver.major}.{ver.minor}"
     subprocess.check_call(["git", "fetch", remote, "tag", release_tag])
     subprocess.check_call(["git", "fetch", remote, branch])
     git_log_output = subprocess.check_output(
@@ -118,32 +197,16 @@ def main(prev_version, release_version, remote):
         text=True,
     )
     logs = [l[2:] for l in git_log_output.splitlines() if l.startswith("> ")]
-    prs = []
-    for log in logs:
-        pr_num = extract_pr_num_from_git_log_entry(log)
-        if not pr_num:
-            continue
-        print(f"Fetching PR #{pr_num}...")
-        resp = requests.get(
-            f"https://api.github.com/repos/mlflow/mlflow/pulls/{pr_num}",
-            auth=("mlflow-automation", os.getenv("GITHUB_TOKEN")),
-        )
-        resp.raise_for_status()
-        pr = resp.json()
-        prs.append(
-            PullRequest(
-                title=log.rsplit(maxsplit=1)[0],
-                number=pr_num,
-                author=pr["user"]["login"],
-                labels=[l["name"] for l in pr["labels"]],
-            )
-        )
 
+    # Extract all PR numbers first
+    pr_numbers = [pr_num for log in logs if (pr_num := extract_pr_num_from_git_log_entry(log))]
+
+    prs = batch_fetch_prs_graphql(pr_numbers)
     label_to_prs = defaultdict(list)
     author_to_prs = defaultdict(list)
     unlabelled_prs = []
     for pr in prs:
-        if pr.author == "mlflow-automation":
+        if pr.author == "mlflow-app":
             continue
 
         if len(pr.release_note_labels) == 0:
@@ -160,6 +223,7 @@ def main(prev_version, release_version, remote):
     )
 
     unknown_labels = set(label_to_prs.keys()) - {
+        "rn/highlight",
         "rn/feature",
         "rn/breaking-change",
         "rn/bug-fix",
@@ -168,7 +232,8 @@ def main(prev_version, release_version, remote):
     }
     assert len(unknown_labels) == 0, f"Unknown labels: {unknown_labels}"
 
-    breaking_changes = Section("Breaking changes:", label_to_prs.get("rn/breaking_change", []))
+    breaking_changes = Section("Breaking changes:", label_to_prs.get("rn/breaking-change", []))
+    highlights = Section("Major new features:", label_to_prs.get("rn/highlight", []))
     features = Section("Features:", label_to_prs.get("rn/feature", []))
     bug_fixes = Section("Bug fixes:", label_to_prs.get("rn/bug-fix", []))
     doc_updates = Section("Documentation updates:", label_to_prs.get("rn/documentation", []))
@@ -185,6 +250,7 @@ def main(prev_version, release_version, remote):
                 get_header_for_version(release_version),
                 f"MLflow {release_version} includes several major features and improvements",
                 breaking_changes,
+                highlights,
                 features,
                 bug_fixes,
                 doc_updates,
@@ -207,4 +273,9 @@ def main(prev_version, release_version, remote):
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Update CHANGELOG.md")
+    parser.add_argument("--prev-version", required=True, help="Previous version")
+    parser.add_argument("--release-version", required=True, help="MLflow version to release")
+    parser.add_argument("--remote", default="origin", help="Git remote to use (default: origin)")
+    args = parser.parse_args()
+    main(args.prev_version, args.release_version, args.remote)

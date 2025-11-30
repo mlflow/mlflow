@@ -5,12 +5,9 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '../../experiment-tracking/constants';
-import {
-  type KeyValueEntity,
-  RunLoggedArtifactType,
-  type RunLoggedArtifactsDeclaration,
-} from '../../experiment-tracking/types';
+import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '../constants';
+import { RunLoggedArtifactType, type RunLoggedArtifactsDeclaration } from '../types';
+import type { KeyValueEntity } from '../../common/types';
 
 export class ArtifactNode {
   children: any;

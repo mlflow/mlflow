@@ -34,9 +34,6 @@ We welcome community contributions to MLflow. This page provides useful informat
     - [Python Server](#python-server)
       - [Building Protobuf Files](#building-protobuf-files)
       - [Database Schema Changes](#database-schema-changes)
-  - [Developing inside a Docker container (experimental)](#developing-inside-a-docker-container-experimental)
-    - [Prerequisites](#prerequisites)
-    - [Setup](#setup)
   - [Writing MLflow Examples](#writing-mlflow-examples)
   - [Building a Distributable Artifact](#building-a-distributable-artifact)
   - [Writing Docs](#writing-docs)
@@ -66,6 +63,7 @@ MLflow is currently maintained by the following core members with significant co
 - [Serena Ruan](https://github.com/serena-ruan)
 - [Yuki Watanabe](https://github.com/B-Step62)
 - [Daniel Lok](https://github.com/daniellok-db)
+- [Tomu Hirata](https://github.com/TomeHirata)
 - [Gabriel Fu](https://github.com/gabrielfu)
 
 ## Contribution process
@@ -150,7 +148,7 @@ backwards compatibility testing may be requested.
 ### Consider introducing new features as MLflow Plugins
 
 [MLflow Plugins](https://mlflow.org/docs/latest/plugins.html) enable
-integration of third-party modules with many of MLflow’s components,
+integration of third-party modules with many of MLflow's components,
 allowing you to maintain and iterate on certain features independently
 of the MLflow Repository. Before implementing changes to the MLflow code
 base, consider whether your feature might be better structured as an
@@ -341,7 +339,7 @@ commits are signed-off and runs `ruff check --fix` and `ruff format` to ensure t
 code will pass the lint check for python. You can enable it by running:
 
 ```bash
-pre-commit install -t pre-commit -t prepare-commit-msg
+pre-commit install --install-hooks
 ```
 
 Then, install the Python MLflow package from source - this is required
@@ -418,7 +416,7 @@ Distributable Artifact](#building-a-distributable-artifact).
 
 #### Running the Javascript Dev Server
 
-[Install Node Modules](#install-node-modules), then run the following:
+[Install Node Modules](#install-node-modules), then run the following in two separate shells:
 
 In one shell:
 
@@ -426,7 +424,7 @@ In one shell:
 mlflow ui
 ```
 
-In another shell:
+And in another shell:
 
 ```bash
 cd mlflow/server/js
@@ -436,6 +434,32 @@ yarn start
 The Javascript Dev Server will run at <http://localhost:3000> and the
 MLflow server will run at <http://localhost:5000> and show runs logged
 in `./mlruns`.
+
+**Note:** On some versions of MacOS, the "Airplay Receiver" process runs on port 5000 by default,
+which can cause [network request failures](https://stackoverflow.com/questions/72369320/why-always-something-is-running-at-port-5000-on-my-mac).
+If you are encountering such issues, disable the
+process via system settings, or specify another port (e.g. `mlflow server --port 8000`).
+
+If specifying a different port, please set the following environment variables before running `yarn start`:
+
+- `MLFLOW_PROXY=<tracking_server_uri>`
+- `MLFLOW_DEV_PROXY_MODE=false`
+
+For example:
+
+```
+$ mlflow server --port 8000
+...
+
+(in a separate shell)
+$ export MLFLOW_PROXY=http://127.0.0.1:8000
+$ export MLFLOW_DEV_PROXY_MODE=false
+$ yarn install
+$ yarn start
+...
+
+(UI should now be visible at localhost:3000)
+```
 
 #### Launching MLflow UI with MLflow AI Gateway for PromptLab
 
@@ -534,10 +558,8 @@ If contributing to MLflow's Java APIs or modifying Java documentation,
 install [Java](https://www.java.com/) and [Apache
 Maven](https://maven.apache.org/download.cgi).
 
-Certain MLflow modules are implemented in Java, under the `mlflow/java/`
-directory. These are the Java Tracking API client (`mlflow/java/client`)
-and the Model Scoring Server for Java-based models like MLeap
-(`mlflow/java/scoring`).
+A certain MLflow module is implemented in Java, under the `mlflow/java/`
+directory. This is the Java Tracking API client (`mlflow/java/client`).
 
 Other Java functionality (like artifact storage) depends on the Python
 package, so first install the Python package in a conda environment as
@@ -573,8 +595,8 @@ in a new file prefixed with `test_` so that `pytest` includes that file
 for testing.
 
 If your tests require usage of a tracking URI, the [pytest
-fixture](https://docs.pytest.org/en/3.2.1/fixture.html)
-[tracking_uri_mock](https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74)
+fixture](https://docs.pytest.org/en/stable/explanation/fixtures.html)
+[`tracking_uri_mock`](https://github.com/mlflow/mlflow/blob/42c02c800a827fc1c78308ff017c31145143b52e/tests/conftest.py#L542)
 is automatically set up for every tests. It sets up a mock tracking URI
 that will set itself up before your test runs and tear itself down
 after.
@@ -603,7 +625,7 @@ request by running:
 ```bash
 pre-commit run --all-files
 pytest tests --quiet --requires-ssh --ignore-flavors --serve-wheel \
-  --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
+  --ignore=tests/examples --ignore=tests/evaluate
 ```
 
 We use [pytest](https://docs.pytest.org/en/latest/contents.html) to run
@@ -654,39 +676,16 @@ below.
 
 ##### Building Protobuf Files
 
-To build protobuf files, simply run `python ./dev/generate_protos.py`. The required
+To build protobuf files, simply run `./dev/generate-protos.sh`. The required
 `protoc` version is `3.19.4`. You can find the URL of a
 system-appropriate installation of `protoc` at
 <https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4>, e.g.
 <https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-osx-x86_64.zip>
 if you're on 64-bit Mac OSX.
 
-Then, run the following to install `protoc`:
+Alternatively, you can comment `/autoformat` on your PR to automatically compile the protobuf files and update the autogenerated code.
 
-```bash
-# Update PROTOC_ZIP if on a platform other than 64-bit Mac OSX
-PROTOC_ZIP=protoc-3.19.4-osx-x86_64.zip
-curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/$PROTOC_ZIP
-sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
-sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
-rm -f $PROTOC_ZIP
-```
-
-Alternatively, you can build protobuf files using Docker:
-
-```bash
-pushd dev
-DOCKER_BUILDKIT=1 docker build -t gen-protos -f Dockerfile.protos .
-popd
-docker run --rm \
-  -v $(pwd)/mlflow/protos:/app/mlflow/protos \
-  -v $(pwd)/mlflow/java/client/src/main/java:/app/mlflow/java/client/src/main/java \
-  -v $(pwd)/generate-protos.sh:/app/generate-protos.sh \
-  gen-protos ./generate-protos.sh
-```
-
-Verify that .proto files and autogenerated code are in sync by running
-`./dev/test-generate-protos.sh.`
+Once the autogenerated code is updated, verify that `.proto` files and autogenerated code are in sync by running `./dev/test-generate-protos.sh`.
 
 ##### Database Schema Changes
 
@@ -710,60 +709,6 @@ These commands generate a new migration script (e.g., at
 `~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py`) that
 you should then edit to add migration logic.
 
-### Developing inside a Docker container (experimental)
-
-Instead of setting up local or virtual environment, it's possible to
-write code and tests inside a Docker container that will contain an
-isolated Python environment setup inside. It's possible to build and run
-preconfigured image, then attach with the compatible code editor (e.g.
-VSCode) into a running container. This helps avoiding issues with local
-setup, e.g. on CPU architectures that are not yet fully compatible with
-all dependency packages (e.g. Apple arm64 architecture).
-
-#### Prerequisites
-
-- Docker runtime installed on a local machine
-  (<https://docs.docker.com/get-docker/>)
-- Code editor compatible capable of running inside containers
-  - Example: VSCode (<https://code.visualstudio.com/download>) with
-    Remote Containers extension
-    (<https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers>)
-
-#### Setup
-
-Run the following command:
-
-```bash
-dev/run-test-container.sh
-```
-
-You will need to wait until the docker daemon will complete building the
-docker image. After successful build, the container will be
-automatically run with `mlflow-test` name. A new shell session running
-in container's context will start in the terminal window, do not close
-it.
-
-Now you can attach to the running container with your code editor.
-
-- Instructions for VSCode:
-
-  - invoke the command palette (`[Ctrl/CMD]+Shift+P`)
-  - find "Remote-Containers: Attach to Running Container..." option,
-    confirm with `Enter` key
-  - find the "mlflow-test" container, confirm with `Enter` key
-  - a new code editor should appear running inside the context of
-    Docker container
-  - you can now freely change source code and corresponding tests,
-    the changes will be reflected on your machine filesystem
-  - to run code or tests inside container, you can open a terminal
-    with `` [Ctrl/CMD]+Shift+` `` and run any
-    command which will be executed inside container, e.g.
-    `pytest tests/test_version.py`
-
-After typing `exit` in the terminal window that executed
-`dev/run-test-container.sh`, the container will be shut down and
-removed.
-
 ### Writing MLflow Examples
 
 The `mlflow/examples` directory has a collection of quickstart tutorials
@@ -782,7 +727,7 @@ If you are contributing a new model flavor, follow these steps:
     `mlflow/examples/new-model-flavor`
 3.  Implement your Python training `new-model-flavor` code in this
     directory
-4.  Convert this directory’s content into an [MLflow
+4.  Convert this directory's content into an [MLflow
     Project](https://mlflow.org/docs/latest/projects.html) executable
 5.  Add `README.md`, `MLproject`, and `conda.yaml` files and your code
 6.  Read instructions in the `mlflow/test/examples/README.md` and add a
@@ -828,89 +773,35 @@ python -m build
 
 We use [taplo](https://taplo.tamasfe.dev/) to enforce consistent TOML formatting. You can install it by following the instructions [here](https://taplo.tamasfe.dev/cli/introduction.html).
 
+### Excluding Symlinks from IDE Searches
+
+The `mlflow/skinny` symlink points to `../mlflow` and may cause duplicate entries in search results. To exclude it from searches, follow these steps:
+
+**VSCode:**
+
+1. Open `Settings`.
+2. Search for `search.followSymlinks` and set it to `false`.
+
+**PyCharm:**
+
+1. Right-click `skinny/mlflow`.
+2. Select `Mark Directory as` -> `Excluded`.
+
 ### Writing Docs
 
-First, install dependencies for building docs as described in [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
+There are two separate build systems for the MLflow documentation:
 
-Building documentation requires [Pandoc](https://pandoc.org/index.html). It should have already been
-installed if you used the automated env setup script
-([dev-env-setup.sh](https://github.com/mlflow/mlflow/blob/master/dev/dev-env-setup.sh)),
-but if you are manually installing dependencies, please follow [the official instruction](https://pandoc.org/installing.html).
+#### API Docs
 
-Also, check the version of your installation via `pandoc --version` and ensure it is 2.2.1 or above.
-If you are using Mac OSX, be aware that the Homebrew installation of Pandoc may be outdated. If you are using Linux,
-you should use a deb installer or install from the source, instead of running `apt` / `apt-get` commands. Pandoc package available on official
-repositories is an older version and contains several bugs. You can find newer versions at <https://github.com/jgm/pandoc/releases>.
+The [API reference](https://mlflow.org/docs/latest/api_reference/) is managed by [Sphinx](https://www.sphinx-doc.org/en/master/). The content is primarily populated by our Python docstrings, which are written in reStructuredText (RST).
 
-To generate a live preview of Python & other rst documentation, run the
-following snippet. Note that R & Java API docs must be regenerated
-separately after each change and are not live-updated; see subsequent
-sections for instructions on generating R and Java docs.
+For instructions on how to build the API docs, please check the [README.md](https://github.com/mlflow/mlflow/blob/master/docs/api_reference/README.md) in the `docs/api_reference/` subfolder.
 
-```bash
-cd docs
-make livehtml
-```
+#### Main Docs
 
-Generate R API rst doc files via:
+The main MLflow docs (e.g. feature docs, tutorials, etc) are written using [Docusaurus](https://docusaurus.io/). The only prerequisite for building these docs is NodeJS >= 18.0. Please check out the [official NodeJS docs](https://nodejs.org/en/download) for platform-specific installation instructions.
 
-```bash
-cd docs
-make rdocs
-```
-
----
-
-**NOTE**
-
-If you attempt to build the R documentation on an ARM-based platform (Apple silicon M1, M2, etc.)
-you will likely get an error when trying to execute the Docker build process for the make command.
-To address this, set the default docker platform environment variable as follows:
-
-```bash
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
-```
-
----
-
-Generate Java API rst doc files via:
-
-```bash
-cd docs
-make javadocs
-```
-
-Generate API docs for all languages via:
-
-```bash
-cd docs
-make html
-```
-
-Generate only the main .rst based documentation:
-
-```bash
-cd docs
-make rsthtml
-```
-
-If changing existing Python APIs or adding new APIs under existing
-modules, ensure that references to the modified APIs are updated in
-existing docs under `docs/source`. Note that the Python doc generation
-process will automatically produce updated API docs, but you should
-still audit for usages of the modified APIs in guides and examples.
-
-If adding a new public Python module, create a corresponding doc file
-for the module under `docs/source/python_api` - [see
-here](https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking)
-for an example.
-
-> Note: If you are experiencing issues with rstcheck warning of failures in files that you did not modify, try:
-
-```bash
-cd docs
-make clean; make html
-```
+Please check the [README.md](https://github.com/mlflow/mlflow/blob/master/docs/README.md) in the `docs/` folder to get started. We're looking forward to your contributions!
 
 ### Sign your work
 

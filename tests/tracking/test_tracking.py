@@ -5,8 +5,8 @@ import pathlib
 import posixpath
 import random
 import re
-from collections import namedtuple
 from datetime import datetime, timezone
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
@@ -26,6 +26,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import (
@@ -42,7 +43,10 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
 )
 
-MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
+
+class MockExperiment(NamedTuple):
+    experiment_id: str
+    lifecycle_stage: str
 
 
 def test_create_experiment():
@@ -52,7 +56,7 @@ def test_create_experiment():
     with pytest.raises(MlflowException, match="Invalid experiment name"):
         mlflow.create_experiment("")
 
-    exp_id = mlflow.create_experiment(f"Some random experiment name {random.randint(1, 1e6)}")
+    exp_id = mlflow.create_experiment(f"Some random experiment name {random.randint(1, int(1e6))}")
     assert exp_id is not None
 
 
@@ -157,13 +161,14 @@ def test_set_experiment_with_deleted_experiment():
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_set_experiment_with_zero_id():
     mock_experiment = MockExperiment(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
-    with mock.patch.object(
-        MlflowClient,
-        "get_experiment_by_name",
-        mock.Mock(return_value=mock_experiment),
-    ) as get_experiment_by_name_mock, mock.patch.object(
-        MlflowClient, "create_experiment"
-    ) as create_experiment_mock:
+    with (
+        mock.patch.object(
+            TrackingServiceClient,
+            "get_experiment_by_name",
+            mock.Mock(return_value=mock_experiment),
+        ) as get_experiment_by_name_mock,
+        mock.patch.object(TrackingServiceClient, "create_experiment") as create_experiment_mock,
+    ):
         mlflow.set_experiment("my_exp")
         get_experiment_by_name_mock.assert_called_once()
         create_experiment_mock.assert_not_called()
@@ -204,7 +209,7 @@ def test_metric_timestamp():
     with mlflow.start_run() as active_run:
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_1", 30)
-        run_id = active_run.info.run_uuid
+        run_id = active_run.info.run_id
     # Check that metric timestamps are between run start and finish
     client = MlflowClient()
     history = client.get_metric_history(run_id, "name_1")
@@ -218,7 +223,11 @@ def test_metric_timestamp():
 
 def test_log_batch():
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
-    expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
+    expected_params = {
+        "param-key0": "param-val0",
+        "param-key1": 123,
+        "param-key2": None,
+    }
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
     approx_expected_tags = {
         MLFLOW_USER,
@@ -258,7 +267,7 @@ def test_log_batch():
         else:
             assert exact_expected_tags[tag_key] == tag_value
     # Validate params
-    assert finished_run.data.params == expected_params
+    assert finished_run.data.params == {k: str(v) for k, v in expected_params.items()}
     # test that log_batch works with fewer params
     new_tags = {"1": "2", "3": "4", "5": "6"}
     tags = [RunTag(key=key, value=value) for key, value in new_tags.items()]
@@ -310,8 +319,7 @@ def test_log_batch_with_many_elements():
 
 
 def test_log_metric():
-    with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = [123 for _ in range(100)]
+    with start_run() as active_run, mock.patch("time.time", return_value=123):
         run_id = active_run.info.run_id
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_2", -3)

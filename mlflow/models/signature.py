@@ -8,14 +8,15 @@ for more details on Schema and data types.
 import inspect
 import logging
 import re
+import warnings
 from copy import deepcopy
-from dataclasses import dataclass, is_dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, get_type_hints
+from dataclasses import is_dataclass
+from typing import TYPE_CHECKING, Any, get_type_hints
 
 import numpy as np
 import pandas as pd
 
-from mlflow import environment_variables
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -24,8 +25,20 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
-from mlflow.types.schema import ParamSchema, Schema, convert_dataclass_to_schema
-from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
+from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_dataclass_to_schema
+from mlflow.types.type_hints import (
+    InvalidTypeHintException,
+    _get_data_validation_result,
+    _infer_schema_from_list_type_hint,
+    _infer_schema_from_type_hint,
+    _is_list_type_hint,
+)
+from mlflow.types.utils import (
+    InvalidDataForSignatureInferenceError,
+    _infer_param_schema,
+    _infer_schema,
+)
+from mlflow.utils.annotations import filter_user_warnings_once
 from mlflow.utils.uri import append_to_uri_path
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -33,19 +46,18 @@ if TYPE_CHECKING:
     try:
         import pyspark.sql.dataframe
 
-        MlflowInferableDataset = Union[
-            pd.DataFrame, np.ndarray, Dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
-        ]
+        MlflowInferableDataset = (
+            pd.DataFrame | np.ndarray | dict[str, np.ndarray] | pyspark.sql.dataframe.DataFrame
+        )
     except ImportError:
-        MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
+        MlflowInferableDataset = pd.DataFrame | np.ndarray | dict[str, np.ndarray]
 
 _logger = logging.getLogger(__name__)
 
 _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE = (
     "Failed to infer the model signature from the input example. Reason: %s. To see the full "
     "traceback, set the logging level to DEBUG via "
-    '`logging.getLogger("mlflow").setLevel(logging.DEBUG)`. To disable automatic signature '
-    "inference, set `signature` to `False` in your `log_model` or `save_model` call."
+    '`logging.getLogger("mlflow").setLevel(logging.DEBUG)`.'
 )
 
 
@@ -61,8 +73,9 @@ class ModelSignature:
 
     def __init__(
         self,
-        inputs: Union[Schema, dataclass] = None,
-        outputs: Union[Schema, dataclass] = None,
+        # `dataclass` is an invalid type annotation. Use `Any` instead as a workaround.
+        inputs: Schema | Any = None,
+        outputs: Schema | Any = None,
         params: ParamSchema = None,
     ):
         if inputs and not isinstance(inputs, Schema) and not is_dataclass(inputs):
@@ -91,8 +104,26 @@ class ModelSignature:
         else:
             self.outputs = outputs
         self.params = params
+        self.__is_signature_from_type_hint = False
+        self.__is_type_hint_from_example = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    @property
+    def _is_signature_from_type_hint(self):
+        return self.__is_signature_from_type_hint
+
+    @_is_signature_from_type_hint.setter
+    def _is_signature_from_type_hint(self, value):
+        self.__is_signature_from_type_hint = value
+
+    @property
+    def _is_type_hint_from_example(self):
+        return self.__is_type_hint_from_example
+
+    @_is_type_hint_from_example.setter
+    def _is_type_hint_from_example(self, value):
+        self.__is_type_hint_from_example = value
+
+    def to_dict(self) -> dict[str, Any]:
         """
         Serialize into a 'jsonable' dictionary.
 
@@ -110,7 +141,7 @@ class ModelSignature:
         }
 
     @classmethod
-    def from_dict(cls, signature_dict: Dict[str, Any]):
+    def from_dict(cls, signature_dict: dict[str, Any]):
         """
         Deserialize from dictionary representation.
 
@@ -127,7 +158,6 @@ class ModelSignature:
         inputs = Schema.from_json(x) if (x := signature_dict.get("inputs")) else None
         outputs = Schema.from_json(x) if (x := signature_dict.get("outputs")) else None
         params = ParamSchema.from_json(x) if (x := signature_dict.get("params")) else None
-
         return cls(inputs, outputs, params)
 
     def __eq__(self, other) -> bool:
@@ -152,7 +182,7 @@ class ModelSignature:
 def infer_signature(
     model_input: Any = None,
     model_output: "MlflowInferableDataset" = None,
-    params: Optional[Dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input), model predictions (output)
@@ -225,10 +255,30 @@ def infer_signature(
     Returns:
       ModelSignature
     """
-    inputs = _infer_schema(model_input) if model_input is not None else None
-    outputs = _infer_schema(model_output) if model_output is not None else None
-    params = _infer_param_schema(params) if params else None
-    return ModelSignature(inputs, outputs, params)
+    schemas = {"inputs": model_input, "outputs": model_output}
+    for key, data in schemas.items():
+        if data is not None:
+            try:
+                schemas[key] = (
+                    convert_dataclass_to_schema(data) if is_dataclass(data) else _infer_schema(data)
+                )
+            except InvalidDataForSignatureInferenceError:
+                raise
+            except Exception:
+                extra_msg = (
+                    ("Note that MLflow doesn't validate data types during inference for AnyType. ")
+                    if key == "inputs"
+                    else ""
+                )
+                _logger.warning(
+                    f"Failed to infer schema for {key}. "
+                    f"Setting schema to `Schema([ColSpec(type=AnyType())]` as default. {extra_msg}"
+                    "To see the full traceback, set logging level to DEBUG.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+                schemas[key] = Schema([ColSpec(type=AnyType())])
+    schemas["params"] = _infer_param_schema(params) if params else None
+    return ModelSignature(**schemas)
 
 
 # `t\w*\.` matches the `typing` module or its alias
@@ -250,9 +300,9 @@ def _is_list_of_string_dict(hint_str):
 
 def _infer_hint_from_str(hint_str):
     if _is_list_str(hint_str):
-        return List[str]
+        return list[str]
     elif _is_list_of_string_dict(hint_str):
-        return List[Dict[str, str]]
+        return list[dict[str, str]]
     else:
         return None
 
@@ -287,16 +337,19 @@ def _extract_type_hints(f, input_arg_index):
     if f.__annotations__ == {}:
         return _TypeHints()
 
-    arg_names = _get_arg_names(f)
+    arg_names = list(filter(lambda x: x != "self", _get_arg_names(f)))
     if len(arg_names) - 1 < input_arg_index:
         raise MlflowException.invalid_parameter_value(
             f"The specified input argument index ({input_arg_index}) is out of range for the "
             "function signature: {}".format(input_arg_index, arg_names)
         )
-    arg_name = _get_arg_names(f)[input_arg_index]
+    arg_name = arg_names[input_arg_index]
     try:
         hints = get_type_hints(f)
-    except TypeError:
+    except (
+        TypeError,
+        NameError,  # To handle this issue: https://github.com/python/typing/issues/797
+    ):
         # ---
         # from __future__ import annotations # postpones evaluation of 'list[str]'
         #
@@ -320,9 +373,27 @@ def _extract_type_hints(f, input_arg_index):
     return _TypeHints(hints.get(arg_name), hints.get("return"))
 
 
-def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
-    hints = _extract_type_hints(func, input_arg_index)
-    if hints.input is None:
+def _is_context_in_predict_function_signature(*, func=None, parameters=None):
+    if parameters is None:
+        if func is None:
+            raise ValueError("Either `func` or `parameters` must be provided.")
+        parameters = inspect.signature(func).parameters
+    return (
+        # predict(self, context, model_input, ...)
+        "context" in parameters
+        # predict(self, ctx, model_input, ...) ctx can be any parameter name
+        or len([param for param in parameters if param not in ("self", "params")]) == 2
+    )
+
+
+@filter_user_warnings_once
+def _infer_signature_from_type_hints(
+    python_model, context, type_hints: _TypeHints, input_example=None
+) -> ModelSignature | None:
+    """
+    Infer the signature from type hints.
+    """
+    if type_hints.input is None:
         return None
 
     params = None
@@ -330,30 +401,111 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     if _contains_params(input_example):
         input_example, params = input_example
 
-    input_schema = _infer_schema_from_type_hint(hints.input, input_example) if hints.input else None
-    params_schema = _infer_param_schema(params) if params else None
-    input_arg_name = _get_arg_names(func)[input_arg_index]
-    if input_example:
-        inputs = {input_arg_name: input_example}
-        if params and params_key in inspect.signature(func).parameters:
-            inputs[params_key] = params
-        # This is for PythonModel's predict function
-        if input_arg_index == 1:
-            inputs["context"] = None
-        output_example = func(**inputs)
+    try:
+        input_schema = _infer_schema_from_list_type_hint(type_hints.input)
+    except InvalidTypeHintException:
+        raise MlflowException.invalid_parameter_value(
+            "The `predict` function has unsupported type hints for the model input "
+            "arguments. Update it to one of supported type hints, or remove type hints "
+            "to bypass this check. Error: {e}"
+        )
+    except Exception as e:
+        warnings.warn(f"Failed to infer signature from type hint: {e.message}", stacklevel=3)
+        return None
+
+    func = python_model if callable(python_model) else python_model.predict
+
+    # only warn if the pyfunc decorator is not used and schema can
+    # be inferred from the input type hint
+    _pyfunc_decorator_used = getattr(func, "_is_pyfunc", False)
+    if not _pyfunc_decorator_used:
+        # stacklevel is 3 because we have a decorator
+        warnings.warn(
+            "Decorate your function with `@mlflow.pyfunc.utils.pyfunc` to enable auto "
+            "data validation against model input type hints.",
+            stacklevel=3,
+        )
+
+    default_output_schema = Schema([ColSpec(type=AnyType())])
+    is_output_type_hint_valid = False
+    output_schema = None
+    if type_hints.output:
+        try:
+            # output type hint doesn't need to be a list
+            # but if it's a list, we infer the schema from the list type hint
+            # to be consistent with input schema inference
+            output_schema = (
+                _infer_schema_from_list_type_hint(type_hints.output)
+                if _is_list_type_hint(type_hints.output)
+                else _infer_schema_from_type_hint(type_hints.output)
+            )
+            is_output_type_hint_valid = True
+        except Exception as e:
+            _logger.info(
+                f"Failed to infer output type hint, setting output schema to AnyType. {e}",
+                stacklevel=2,
+            )
+            output_schema = default_output_schema
     else:
-        output_example = None
-    output_schema = (
-        _infer_schema_from_type_hint(hints.output, output_example) if hints.output else None
-    )
+        output_schema = default_output_schema
+    params_schema = _infer_param_schema(params) if params else None
+
+    if input_example is not None:
+        # only validate input example here if pyfunc decorator is not used
+        # because when the decorator is used, the input is validated in the predict function
+        if not _pyfunc_decorator_used and (
+            msg := _get_data_validation_result(
+                data=input_example, type_hint=type_hints.input
+            ).error_message
+        ):
+            _logger.warning(
+                "Input example is not compatible with the type hint of the `predict` function. "
+                f"Error: {msg}"
+            )
+        else:
+            kwargs = (
+                {params_key: params}
+                if params and params_key in inspect.signature(func).parameters
+                else {}
+            )
+            # This is for PythonModel's predict function
+            if _is_context_in_predict_function_signature(func=func):
+                inputs = [None, input_example]
+            else:
+                inputs = [input_example]
+            _logger.info("Running the predict function to generate output based on input example")
+            try:
+                if hasattr(python_model, "load_context"):
+                    python_model.load_context(context)
+                output_example = func(*inputs, **kwargs)
+            except Exception:
+                _logger.warning(
+                    "Failed to run the predict function on input example. To see the full "
+                    "traceback, set logging level to DEBUG.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+            else:
+                if is_output_type_hint_valid and (
+                    msg := _get_data_validation_result(
+                        data=output_example, type_hint=type_hints.output
+                    ).error_message
+                ):
+                    _logger.warning(
+                        f"Failed to validate output `{output_example}` against type hint "
+                        f"`{type_hints.output}`, setting output schema to AnyType. "
+                        f"Error: {msg}"
+                    )
+                    output_schema = default_output_schema
     if not any([input_schema, output_schema, params_schema]):
         return None
-    return ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema, params=params_schema)
+    signature._is_signature_from_type_hint = True
+    return signature
 
 
 def _infer_signature_from_input_example(
-    input_example: Optional[_Example], wrapped_model
-) -> Optional[ModelSignature]:
+    input_example: _Example | None, wrapped_model
+) -> ModelSignature | None:
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
 
@@ -392,21 +544,14 @@ def _infer_signature_from_input_example(
             and prediction.ndim == 1
         ):
             prediction = pd.Series(prediction)
+
+        output_schema = None
         try:
             output_schema = _infer_schema(prediction)
-        except Exception as e:
-            _logger.warning(
-                "Failed to infer model output schema from prediction "
-                f"result {prediction}. Detailed exception: {e}"
-            )
-            signature = ModelSignature(inputs=input_schema, params=params_schema)
-        else:
-            signature = ModelSignature(input_schema, output_schema, params_schema)
-
-        # try assign output schema if failing to infer it from prediction for langchain models
-        if signature.outputs is None:
+        except Exception:
+            # try assign output schema if failing to infer it from prediction for langchain models
             try:
-                from mlflow.langchain import _LangChainModelWrapper
+                from mlflow.langchain.model import _LangChainModelWrapper
                 from mlflow.langchain.utils.chat import _ChatResponse
             except ImportError:
                 pass
@@ -414,15 +559,24 @@ def _infer_signature_from_input_example(
                 if isinstance(wrapped_model, _LangChainModelWrapper) and isinstance(
                     prediction, _ChatResponse
                 ):
-                    signature.outputs = prediction.get_schema()
+                    output_schema = prediction.get_schema()
+            if output_schema is None:
+                _logger.warning(
+                    "Failed to infer model output schema from prediction result, setting "
+                    "output schema to AnyType. For full traceback, set logging level to debug.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+                output_schema = Schema([ColSpec(type=AnyType())])
 
-        return signature
+        return ModelSignature(input_schema, output_schema, params_schema)
     except Exception as e:
-        if environment_variables._MLFLOW_TESTING.get():
+        if _MLFLOW_TESTING.get():
             raise
-        _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
-        _logger.debug("", exc_info=True)
-        return None
+        _logger.warning(
+            _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE,
+            repr(e),
+            exc_info=_logger.isEnabledFor(logging.DEBUG),
+        )
 
 
 def set_signature(
@@ -439,10 +593,10 @@ def set_signature(
 
     Furthermore, as model registry artifacts are read-only, model artifacts located in the
     model registry and represented by ``models:/`` URI schemes are not compatible with this API.
-    To set a signature on a model version, first set the signature on the source model artifacts.
-    Following this, generate a new model version using the updated model artifacts. For more
-    information about setting signatures on model versions, see
-    `this doc section <https://www.mlflow.org/docs/latest/models.html#set-signature-on-mv>`_.
+    To set a signature on a model version, first load the source model artifacts. Following this,
+    generate a new model version using the loaded model artifacts and a corresponding signature.
+    For more information about setting signatures on model versions, see
+    `this doc section <https://mlflow.org/docs/latest/ml/model/signatures/#adding-signatures-to-registered-model-versions>`_.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
@@ -452,12 +606,14 @@ def set_signature(
             - ``s3://my_bucket/path/to/model``
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
             - ``mlflow-artifacts:/path/to/model``
+            - ``models:/<model_id>``
 
             For more information about supported URI schemes, see
             `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
             artifact-locations>`_.
 
-            Please note that model URIs with the ``models:/`` scheme are not supported.
+            Please note that model URIs with the ``models:/<name>/<version>`` scheme are not
+            supported.
 
         signature: ModelSignature to set on the model.
 
@@ -481,19 +637,22 @@ def set_signature(
         # set the signature for the logged model
         set_signature(model_uri, signature)
     """
-    assert isinstance(
-        signature, ModelSignature
-    ), "The signature argument must be a ModelSignature object"
-    if ModelsArtifactRepository.is_models_uri(model_uri):
+    assert isinstance(signature, ModelSignature), (
+        "The signature argument must be a ModelSignature object"
+    )
+    resolved_uri = model_uri
+    if RunsArtifactRepository.is_runs_uri(model_uri):
+        resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    elif ModelsArtifactRepository._is_logged_model_uri(model_uri):
+        resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
+    elif ModelsArtifactRepository.is_models_uri(model_uri):
         raise MlflowException(
-            f'Failed to set signature on "{model_uri}". '
-            + "Model URIs with the `models:/` scheme are not supported.",
+            f"Failed to set signature on {model_uri!r}. "
+            "Model URIs with the `models:/<name>/<version>` scheme are not supported.",
             INVALID_PARAMETER_VALUE,
         )
+
     try:
-        resolved_uri = model_uri
-        if RunsArtifactRepository.is_runs_uri(model_uri):
-            resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
         ml_model_file = _download_artifact_from_uri(
             artifact_uri=append_to_uri_path(resolved_uri, MLMODEL_FILE_NAME)
         )

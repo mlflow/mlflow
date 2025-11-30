@@ -1,12 +1,11 @@
 import time
+import warnings
 from contextlib import contextmanager
-from typing import Any, Dict, List
-
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
+from typing import Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import MosaicMLConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, MosaicMLConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -16,13 +15,18 @@ class MosaicMLProvider(BaseProvider):
     NAME = "MosaicML"
     CONFIG_TYPE = MosaicMLConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
+        warnings.warn(
+            "MosaicML provider is deprecated and will be removed in a future MLflow version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
         if config.model.config is None or not isinstance(config.model.config, MosaicMLConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.mosaicml_config: MosaicMLConfig = config.model.config
 
-    async def _request(self, model: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _request(self, model: str, payload: dict[str, Any]) -> dict[str, Any]:
         headers = {"Authorization": f"{self.mosaicml_config.mosaicml_api_key}"}
         return await send_request(
             headers=headers,
@@ -35,7 +39,7 @@ class MosaicMLProvider(BaseProvider):
     # NB: as this parser performs no blocking operations, we are intentionally not defining it
     # as async due to the overhead of spawning an additional thread if we did.
     @staticmethod
-    def _parse_chat_messages_to_prompt(messages: List[chat.RequestMessage]) -> str:
+    def _parse_chat_messages_to_prompt(messages: list[chat.RequestMessage]) -> str:
         """
         This parser is based on the format described in
         https://huggingface.co/blog/llama2#how-to-prompt-llama-2 .
@@ -49,7 +53,7 @@ class MosaicMLProvider(BaseProvider):
         """
         prompt = "<s>"  # Always start with an opening <s> tag
         for m in messages:
-            if m.role == "system" or m.role == "user":
+            if m.role in {"system", "user"}:
                 inst = m.content
 
                 # Wrap system messages in <<SYS>> tags
@@ -78,11 +82,11 @@ class MosaicMLProvider(BaseProvider):
 
         # Remove the last </s><s> tags if they exist to allow for
         # assistant completion prompts.
-        if prompt.endswith("</s><s>"):
-            prompt = prompt[:-7]
-        return prompt
+        return prompt.removesuffix("</s><s>")
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         # Extract the List[RequestMessage] from the RequestPayload
         messages = payload.messages
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -94,7 +98,7 @@ class MosaicMLProvider(BaseProvider):
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
@@ -103,7 +107,7 @@ class MosaicMLProvider(BaseProvider):
         try:
             prompt = [self._parse_chat_messages_to_prompt(messages)]
         except MlflowException as e:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422, detail=f"An invalid request structure was submitted. {e.message}"
             )
         # Construct final payload structure
@@ -151,6 +155,8 @@ class MosaicMLProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
@@ -158,7 +164,7 @@ class MosaicMLProvider(BaseProvider):
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
@@ -216,12 +222,14 @@ class MosaicMLProvider(BaseProvider):
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {"input": "inputs"}
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
@@ -273,6 +281,7 @@ def custom_token_allowance_exceeded_handling():
     Context manager handler for specific error messages that are incorrectly set as server-side
     errors, but are in actuality an issue with the request sent to the external provider.
     """
+    from fastapi import HTTPException
 
     try:
         yield

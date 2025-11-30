@@ -42,7 +42,8 @@ def _check(
 
 def test_creation_and_hydration():
     name = random_str()
-    t1, t2 = 100, 150
+    t1 = 100
+    t2 = 150
     source = "path/to/source"
     run_id = uuid.uuid4().hex
     run_link = "http://localhost:5000/path/to/run"
@@ -96,6 +97,10 @@ def test_creation_and_hydration():
         "status_message": "Model version #5 is ready to use.",
         "tags": {tag.key: tag.value for tag in (tags or [])},
         "aliases": ["test_alias"],
+        "model_id": None,
+        "metrics": None,
+        "params": None,
+        "deployment_job_state": None,
     }
     model_version_as_dict = dict(mvd)
     assert model_version_as_dict == expected_dict
@@ -165,13 +170,12 @@ def test_string_repr():
         aliases=[],
     )
 
-    assert (
-        str(model_version) == "<ModelVersion: aliases=[], creation_timestamp=12, "
-        "current_stage='Archived', description='This is a test "
-        "model.', last_updated_timestamp=100, "
-        "name='myname', "
-        "run_id='some run', run_link='http://localhost:5000/path/"
-        "to/run', source='path/to/a/notebook', "
-        "status='PENDING_REGISTRATION', status_message='Copying!', "
-        "tags={}, user_id='user one', version='43'>"
+    assert str(model_version) == (
+        "<ModelVersion: aliases=[], creation_timestamp=12, current_stage='Archived', "
+        "deployment_job_state=None, "
+        "description='This is a test model.', last_updated_timestamp=100, metrics=None, "
+        "model_id=None, name='myname', params=None, run_id='some run', "
+        "run_link='http://localhost:5000/path/to/run', source='path/to/a/notebook', "
+        "status='PENDING_REGISTRATION', status_message='Copying!', tags={}, user_id='user one', "
+        "version='43'>"
     )

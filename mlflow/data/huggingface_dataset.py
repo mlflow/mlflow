@@ -1,9 +1,10 @@
 import json
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from mlflow.data.dataset import Dataset
+from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_pandas_digest
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
@@ -26,13 +27,13 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     Represents a HuggingFace dataset for use with MLflow Tracking.
     """
 
-    def __init__(  # noqa: D417
+    def __init__(
         self,
         ds: "datasets.Dataset",
         source: HuggingFaceDatasetSource,
-        targets: Optional[str] = None,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        targets: str | None = None,
+        name: str | None = None,
+        digest: str | None = None,
     ):
         """
         Args:
@@ -67,7 +68,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
         return compute_pandas_digest(df)
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
 
         Returns a string dictionary containing the following fields: name, digest, source, source
@@ -94,7 +95,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._ds
 
     @property
-    def targets(self) -> Optional[str]:
+    def targets(self) -> str | None:
         """
         The name of the Hugging Face dataset column containing targets (labels) for supervised
         learning.
@@ -114,7 +115,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def profile(self) -> Optional[Any]:
+    def profile(self) -> Any | None:
         """
         Summary statistics for the Hugging Face dataset, including the number of rows,
         size, and size in bytes.
@@ -126,7 +127,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         }
 
     @cached_property
-    def schema(self) -> Optional[Schema]:
+    def schema(self) -> Schema | None:
         """
         The MLflow ColSpec schema of the Hugging Face dataset.
         """
@@ -169,19 +170,22 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            name=self.name,
+            digest=self.digest,
         )
 
 
 def from_huggingface(
     ds,
-    path: Optional[str] = None,
-    targets: Optional[str] = None,
-    data_dir: Optional[str] = None,
-    data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
+    path: str | None = None,
+    targets: str | None = None,
+    data_dir: str | None = None,
+    data_files: str | Sequence[str] | Mapping[str, str | Sequence[str]] | None = None,
     revision=None,
-    name: Optional[str] = None,
-    digest: Optional[str] = None,
-    trust_remote_code: Optional[bool] = None,
+    name: str | None = None,
+    digest: str | None = None,
+    trust_remote_code: bool | None = None,
+    source: str | DatasetSource | None = None,
 ) -> HuggingFaceDataset:
     """
     Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
@@ -214,10 +218,12 @@ def from_huggingface(
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
             automatically computed.
         trust_remote_code: Whether to trust remote code from the dataset repo.
+        source: The source of the dataset, e.g. a S3 URI, an HTTPS URL etc.
     """
     import datasets
 
     from mlflow.data.code_dataset_source import CodeDatasetSource
+    from mlflow.data.dataset_source_registry import resolve_dataset_source
     from mlflow.tracking.context import registry
 
     if not isinstance(ds, datasets.Dataset):
@@ -229,7 +235,14 @@ def from_huggingface(
 
     # Set the source to a `HuggingFaceDatasetSource` if a path is specified, otherwise set it to a
     # `CodeDatasetSource`.
-    if path is not None:
+    if source is not None and path is not None:
+        _logger.warning(
+            "Both 'source' and 'path' are provided."
+            "'source' will take precedence, and 'path' will be ignored."
+        )
+    if source is not None:
+        source = source if isinstance(source, DatasetSource) else resolve_dataset_source(source)
+    elif path is not None:
         source = HuggingFaceDatasetSource(
             path=path,
             config_name=ds.config_name,

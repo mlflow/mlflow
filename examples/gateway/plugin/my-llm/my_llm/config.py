@@ -1,6 +1,6 @@
 import os
 
-from pydantic import validator
+from pydantic import field_validator
 
 from mlflow.gateway.base_models import ConfigModel
 
@@ -8,7 +8,7 @@ from mlflow.gateway.base_models import ConfigModel
 class MyLLMConfig(ConfigModel):
     my_llm_api_key: str
 
-    @validator("my_llm_api_key", pre=True)
+    @field_validator("my_llm_api_key", mode="before")
     def validate_my_llm_api_key(cls, value):
         if value.startswith("$"):
             # This resolves the API key from an environment variable

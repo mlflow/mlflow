@@ -184,7 +184,7 @@ def store_imported_modules(
             # because `pyfunc_conf[MAIN]` might also be a module loaded from
             # code_paths.
             with cap_cm:
-                # `mlflow.pyfunc.load_model` interanlly invokes
+                # `mlflow.pyfunc.load_model` internally invokes
                 # `importlib.import_module(pyfunc_conf[MAIN])`
                 mlflow.pyfunc.load_model(model_path)
         else:
@@ -243,8 +243,7 @@ def main():
     if flavor == mlflow.spark.FLAVOR_NAME:
         from mlflow.utils._spark_utils import _get_active_spark_session
 
-        spark = _get_active_spark_session()
-        if spark:
+        if spark := _get_active_spark_session():
             try:
                 spark.stop()
             except Exception:

@@ -1,6 +1,6 @@
 import { chunk, isEqual } from 'lodash';
 import { AnyAction } from 'redux';
-import { searchModelVersionsApi } from '../../../../model-registry/actions';
+import type { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../../../model-registry/constants';
 import {
   ATTRIBUTE_COLUMN_SORT_KEY,
@@ -9,9 +9,10 @@ import {
   DEFAULT_START_TIME,
 } from '../../../constants';
 import { ViewType } from '../../../sdk/MlflowEnums';
-import { KeyValueEntity, LIFECYCLE_FILTER } from '../../../types';
+import { LIFECYCLE_FILTER } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { EXPERIMENT_LOG_MODEL_HISTORY_TAG } from './experimentPage.common-utils';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { RUNS_SEARCH_MAX_RESULTS } from '../../../actions';
 import { getUUID } from '../../../../common/utils/ActionUtils';
@@ -40,6 +41,8 @@ const VALID_TABLE_ALIASES = [
   'tags',
   'dataset',
   'datasets',
+  'model',
+  'models',
 ];
 const SQL_SYNTAX_PATTERN = new RegExp(
   `(${VALID_TABLE_ALIASES.join('|')})\\.\\S+\\s*(>|<|>=|<=|=|!=| like| ilike| rlike| in)`,
@@ -47,23 +50,6 @@ const SQL_SYNTAX_PATTERN = new RegExp(
 );
 
 export const RUNS_AUTO_REFRESH_INTERVAL = 30000;
-
-/**
- * This function checks if the sort+model state update has
- * been updated enough and if the change should invoke re-fetching
- * the runs from the back-end. This enables differentiation between
- * front-end and back-end filtering.
- */
-export const shouldRefetchRuns = (
-  currentSearchFacetsState: ExperimentPageSearchFacetsState,
-  newSearchFacetsState: ExperimentPageSearchFacetsState,
-) =>
-  !isEqual(currentSearchFacetsState.searchFilter, newSearchFacetsState.searchFilter) ||
-  !isEqual(currentSearchFacetsState.orderByAsc, newSearchFacetsState.orderByAsc) ||
-  !isEqual(currentSearchFacetsState.orderByKey, newSearchFacetsState.orderByKey) ||
-  !isEqual(currentSearchFacetsState.lifecycleFilter, newSearchFacetsState.lifecycleFilter) ||
-  !isEqual(currentSearchFacetsState.startTime, newSearchFacetsState.startTime) ||
-  !isEqual(currentSearchFacetsState.datasetsFilter, newSearchFacetsState.datasetsFilter);
 
 /**
  * Creates "order by" SQL expression
@@ -209,18 +195,17 @@ export const fetchModelVersionsForRuns = (
     run.data.tags.some((t) => t.key === EXPERIMENT_LOG_MODEL_HISTORY_TAG),
   );
 
-  chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).forEach((runsChunk) => {
-    // eslint-disable-next-line prefer-const
-    let maxResults = undefined;
+  const promises = chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).map((runsChunk) => {
     const action = actionCreator(
       {
         run_id: runsChunk.map((run) => run.info.run_id),
       },
       getUUID(),
-      maxResults,
     );
-    dispatch(action);
+    return dispatch(action);
   });
+
+  return Promise.all(promises);
 };
 
 /**

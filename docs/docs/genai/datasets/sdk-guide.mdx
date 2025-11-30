@@ -1,0 +1,563 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Activity, Users, Code, FileText, HelpCircle, Rocket, BarChart3, Target } from "lucide-react";
+
+# Evaluation Datasets SDK Reference
+
+Complete API reference for creating, managing, and querying evaluation datasets programmatically.
+
+:::warning[SQL Backend Required]
+Evaluation Datasets require an MLflow Tracking Server with a **[SQL backend](/self-hosting/architecture/backend-store/#types-of-backend-stores)** (PostgreSQL, MySQL, SQLite, or MSSQL).
+This feature is **not available** with FileStore (local file system-based tracking).
+:::
+
+## Creating a Dataset
+
+Use <APILink fn="mlflow.genai.datasets.create_dataset" text="create_dataset()" /> to create a new evaluation dataset:
+
+```python
+from mlflow.genai.datasets import create_dataset
+
+# Create a new dataset
+dataset = create_dataset(
+    name="customer_support_qa",
+    experiment_id=["0"],  # Link to experiments
+    tags={"version": "1.0", "team": "ml-platform", "status": "active"},
+)
+
+print(f"Created dataset: {dataset.dataset_id}")
+```
+
+You can also use the <APILink fn="mlflow.tracking.MlflowClient" text="MlflowClient" /> API:
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+dataset = client.create_dataset(
+    name="customer_support_qa",
+    experiment_id=["0"],
+    tags={"version": "1.0"},
+)
+```
+
+## Adding Records to a Dataset
+
+Use the <APILink fn="mlflow.entities.EvaluationDataset.merge_records" text="merge_records()" /> method to add new records to your dataset. Records can be added from dictionaries, DataFrames, or traces:
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="from-dicts" label="From Dictionaries" default>
+
+Add records directly from Python dictionaries:
+
+```python
+# Add records with inputs and expectations (ground truth)
+new_records = [
+    {
+        "inputs": {"question": "What are your business hours?"},
+        "expectations": {
+            "expected_answer": "We're open Monday-Friday 9am-5pm EST",
+            "must_mention_hours": True,
+            "must_include_timezone": True,
+        },
+    },
+    {
+        "inputs": {"question": "How do I reset my password?"},
+        "expectations": {
+            "expected_answer": (
+                "Click 'Forgot Password' and follow the email instructions"
+            ),
+            "must_include_steps": True,
+        },
+    },
+]
+
+dataset.merge_records(new_records)
+print(f"Dataset now has {len(dataset.records)} records")
+```
+
+    </TabItem>
+    <TabItem value="from-traces" label="From Traces">
+
+Add records from MLflow traces:
+
+```python
+import mlflow
+
+# Search for traces to add to the dataset
+traces = mlflow.search_traces(
+    experiment_ids=["0"],
+    filter_string="attributes.name = 'chat_completion'",
+    max_results=50,
+    return_type="list",
+)
+
+# Add traces directly to the dataset
+dataset.merge_records(traces)
+```
+
+    </TabItem>
+    <TabItem value="from-dataframe" label="From DataFrame">
+
+Add records from a pandas DataFrame:
+
+```python
+import pandas as pd
+
+# Create DataFrame with structured data (ground truth expectations)
+df = pd.DataFrame(
+    [
+        {
+            "inputs": {
+                "question": "What is MLflow?",
+                "context": "general",
+            },
+            "expectations": {
+                "expected_answer": "MLflow is an open-source platform for ML lifecycle",
+                "must_mention": ["tracking", "experiments"],
+            },
+            "tags": {"priority": "high"},
+        },
+        {
+            "inputs": {
+                "question": "How to track experiments?",
+                "context": "technical",
+            },
+            "expectations": {
+                "expected_answer": "Use mlflow.start_run() and mlflow.log_params()",
+                "must_mention": ["log_params", "start_run"],
+            },
+            "tags": {"priority": "medium"},
+        },
+    ]
+)
+
+dataset.merge_records(df)
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+## Updating Existing Records
+
+The <APILink fn="mlflow.entities.EvaluationDataset.merge_records" text="merge_records()" /> method intelligently handles updates. **Records are matched based on a hash of their inputs** - if a record with identical inputs already exists, its expectations and tags are merged rather than creating a duplicate:
+
+```python
+# Initial record
+dataset.merge_records(
+    [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {
+                "expected_answer": "MLflow is a platform for ML",
+                "must_mention_tracking": True,
+            },
+        }
+    ]
+)
+
+# Update with same inputs but enhanced expectations
+dataset.merge_records(
+    [
+        {
+            "inputs": {"question": "What is MLflow?"},  # Same inputs = update
+            "expectations": {
+                # Updates existing value
+                "expected_answer": (
+                    "MLflow is an open-source platform for managing the ML lifecycle"
+                ),
+                "must_mention_models": True,  # Adds new expectation
+                # Note: "must_mention_tracking": True is preserved
+            },
+        }
+    ]
+)
+
+# Result: One record with merged expectations
+```
+
+## Retrieving Datasets
+
+Retrieve existing datasets by ID or search for them:
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="get-by-id" label="Get by ID" default>
+
+```python
+from mlflow.genai.datasets import get_dataset
+
+# Get a specific dataset by ID
+dataset = get_dataset(dataset_id="d-7f2e3a9b8c1d4e5f")
+
+# Access dataset properties
+print(f"Name: {dataset.name}")
+print(f"Records: {len(dataset.records)}")
+print(f"Schema: {dataset.schema}")
+print(f"Tags: {dataset.tags}")
+```
+
+    </TabItem>
+    <TabItem value="search" label="Search Datasets">
+
+```python
+from mlflow.genai.datasets import search_datasets
+
+# Search for datasets with filters
+datasets = search_datasets(
+    experiment_ids=["0"],
+    filter_string="tags.status = 'active' AND name LIKE '%support%'",
+    order_by=["last_update_time DESC"],
+    max_results=10,
+)
+
+for ds in datasets:
+    print(f"{ds.name} ({ds.dataset_id}): {len(ds.records)} records")
+```
+
+See [Search Filter Reference](#search-filter-reference) for filter syntax details.
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+## Managing Tags
+
+Add, update, or remove tags from datasets:
+
+```python
+from mlflow.genai.datasets import set_dataset_tags, delete_dataset_tag
+
+# Set or update tags
+set_dataset_tags(
+    dataset_id=dataset.dataset_id,
+    tags={"status": "production", "validated": "true", "version": "2.0"},
+)
+
+# Delete a specific tag
+delete_dataset_tag(dataset_id=dataset.dataset_id, key="deprecated")
+```
+
+## Deleting a Dataset
+
+Permanently delete a dataset and all its records:
+
+```python
+from mlflow.genai.datasets import delete_dataset
+
+# Delete the entire dataset
+delete_dataset(dataset_id="d-1a2b3c4d5e6f7890")
+```
+
+:::warning
+Dataset deletion is permanent and cannot be undone. All records will be deleted.
+:::
+
+## Working with Dataset Records
+
+The <APILink fn="mlflow.entities.EvaluationDataset" text="EvaluationDataset" /> object provides several ways to access and analyze records:
+
+```python
+# Access all records
+all_records = dataset.records
+
+# Convert to DataFrame for analysis
+df = dataset.to_df()
+print(df.head())
+
+# View dataset schema (auto-computed from records)
+print(dataset.schema)
+
+# View dataset profile (statistics)
+print(dataset.profile)
+
+# Get record count
+print(f"Total records: {len(dataset.records)}")
+```
+
+---
+
+## Advanced Topics
+
+### Understanding Input Uniqueness
+
+Records are considered unique based on their **entire inputs dictionary**. Even small differences create separate records:
+
+```python
+# These are treated as different records due to different inputs
+record_a = {
+    "inputs": {"question": "What is MLflow?", "temperature": 0.7},
+    "expectations": {"expected_answer": "MLflow is an ML platform"},
+}
+
+record_b = {
+    "inputs": {
+        "question": "What is MLflow?",
+        "temperature": 0.8,
+    },  # Different temperature
+    "expectations": {"expected_answer": "MLflow is an ML platform"},
+}
+
+dataset.merge_records([record_a, record_b])
+# Results in 2 separate records due to different temperature values
+```
+
+### Source Type Inference
+
+MLflow automatically assigns source types before sending records to the backend using these rules:
+
+<ConceptOverview
+  concepts={[
+    {
+      title: "Automatic Inference",
+      description: "MLflow automatically infers source types based on record characteristics when no explicit source is provided."
+    },
+    {
+      title: "Client-Side Processing",
+      description: "Source type inference happens in merge_records() before records are sent to the tracking backend."
+    },
+    {
+      title: "Manual Override",
+      description: "You can always specify explicit source information to override automatic inference."
+    }
+  ]}
+/>
+
+#### Inference Rules
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="trace" label="TRACE Source" default>
+
+Records from MLflow traces are automatically assigned the `TRACE` source type:
+
+```python
+# When adding traces directly (automatic TRACE source)
+traces = mlflow.search_traces(experiment_ids=["0"], return_type="list")
+dataset.merge_records(traces)
+
+# Or when using DataFrame from search_traces
+traces_df = mlflow.search_traces(experiment_ids=["0"])  # Returns DataFrame
+# Automatically detects traces and assigns TRACE source
+dataset.merge_records(traces_df)
+```
+
+    </TabItem>
+    <TabItem value="human" label="HUMAN Source">
+
+Records with expectations are inferred as `HUMAN` source:
+
+```python
+# Records with expectations indicate human review/annotation
+human_curated = [
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expectations": {
+            "expected_answer": "MLflow is an open-source ML platform",
+            "must_mention": ["tracking", "models", "deployment"],
+        }
+        # Automatically inferred as HUMAN source
+    }
+]
+dataset.merge_records(human_curated)
+```
+
+    </TabItem>
+    <TabItem value="code" label="CODE Source">
+
+Records with only inputs (no expectations) are inferred as `CODE` source:
+
+```python
+# Records without expectations are inferred as CODE source
+generated_tests = [{"inputs": {"question": f"Test question {i}"}} for i in range(100)]
+dataset.merge_records(generated_tests)
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+#### Manual Source Override
+
+You can explicitly specify the source type and metadata for any record:
+
+```python
+# Specify HUMAN source with metadata
+human_curated = {
+    "inputs": {"question": "What are your business hours?"},
+    "expectations": {
+        "expected_answer": "We're open Monday-Friday 9am-5pm EST",
+        "must_include_timezone": True,
+    },
+    "source": {
+        "source_type": "HUMAN",
+        "source_data": {"curator": "support_team", "date": "2024-11-01"},
+    },
+}
+
+# Specify DOCUMENT source
+from_docs = {
+    "inputs": {"question": "How to install MLflow?"},
+    "expectations": {
+        "expected_answer": "pip install mlflow",
+        "must_mention_pip": True,
+    },
+    "source": {
+        "source_type": "DOCUMENT",
+        "source_data": {"document_id": "install_guide", "page": 1},
+    },
+}
+
+dataset.merge_records([human_curated, from_docs])
+```
+
+#### Available Source Types
+
+<FeatureHighlights features={[
+  {
+    icon: Activity,
+    title: "TRACE",
+    description: "Production data captured via MLflow tracing - automatically assigned when adding traces"
+  },
+  {
+    icon: Users,
+    title: "HUMAN",
+    description: "Subject matter expert annotations - inferred for records with expectations"
+  },
+  {
+    icon: Code,
+    title: "CODE",
+    description: "Programmatically generated tests - inferred for records without expectations"
+  },
+  {
+    icon: FileText,
+    title: "DOCUMENT",
+    description: "Test cases from documentation or specs - must be explicitly specified"
+  },
+  {
+    icon: HelpCircle,
+    title: "UNSPECIFIED",
+    description: "Source unknown or not provided - for legacy or imported data"
+  }
+]} />
+
+### Search Filter Reference
+
+#### Searchable Fields
+
+| Field              | Type      | Example                               |
+| ------------------ | --------- | ------------------------------------- |
+| `name`             | string    | `name = 'production_tests'`           |
+| `tags.<key>`       | string    | `tags.status = 'validated'`           |
+| `created_by`       | string    | `created_by = 'alice@company.com'`    |
+| `last_updated_by`  | string    | `last_updated_by = 'bob@company.com'` |
+| `created_time`     | timestamp | `created_time > 1698800000000`        |
+| `last_update_time` | timestamp | `last_update_time > 1698800000000`    |
+
+#### Filter Operators
+
+- `=`, `!=`: Exact match
+- `LIKE`, `ILIKE`: Pattern matching with `%` wildcard (ILIKE is case-insensitive)
+- `>`, `<`, `>=`, `<=`: Numeric/timestamp comparison
+- `AND`: Combine conditions (OR is not currently supported)
+
+#### Common Filter Examples
+
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "40%" }}>Filter Expression</th>
+      <th style={{ width: "30%" }}>Description</th>
+      <th style={{ width: "30%" }}>Use Case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>`name = 'production_qa'`</strong></td>
+      <td>Exact name match</td>
+      <td>Find a specific dataset</td>
+    </tr>
+    <tr>
+      <td><strong>`name LIKE '%test%'`</strong></td>
+      <td>Pattern matching</td>
+      <td>Find all test datasets</td>
+    </tr>
+    <tr>
+      <td><strong>`tags.status = 'validated'`</strong></td>
+      <td>Tag equality</td>
+      <td>Find production-ready datasets</td>
+    </tr>
+    <tr>
+      <td><strong>`tags.version = '2.0' AND tags.team = 'ml'`</strong></td>
+      <td>Multiple tag conditions</td>
+      <td>Find team-specific versions</td>
+    </tr>
+    <tr>
+      <td><strong>`created_by = 'alice@company.com'`</strong></td>
+      <td>Creator filter</td>
+      <td>Find datasets by author</td>
+    </tr>
+    <tr>
+      <td><strong>`created_time > 1698800000000`</strong></td>
+      <td>Time-based filter</td>
+      <td>Find recent datasets</td>
+    </tr>
+  </tbody>
+</table>
+
+```python
+# Complex filter example
+datasets = search_datasets(
+    filter_string="""
+        tags.status = 'production'
+        AND name LIKE '%customer%'
+        AND created_time > 1698800000000
+    """,
+    order_by=["last_update_time DESC"],
+)
+```
+
+---
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="End-to-End Workflow"
+    description="Learn the complete evaluation-driven development workflow from app building to production"
+    href="/genai/datasets/end-to-end-workflow"
+    linkText="View complete workflow →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="Run Evaluations"
+    description="Use your datasets to systematically evaluate and improve your GenAI applications"
+    href="/genai/eval-monitor"
+    linkText="Start evaluating →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Define Expectations"
+    description="Learn how to add ground truth expectations to your test data for quality validation"
+    href="/genai/assessments/expectations"
+    linkText="Set expectations →"
+    containerHeight={64}
+  />
+</TilesGrid>

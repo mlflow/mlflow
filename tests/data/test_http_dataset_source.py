@@ -93,10 +93,13 @@ def test_source_load(tmp_path):
         return cloud_storage_http_request(*args, **kwargs)
 
     source5 = HTTPDatasetSource("https://nonexistentwebsitebuiltbythemlflowteam112312.com")
-    with mock.patch(
-        "mlflow.data.http_dataset_source.cloud_storage_http_request",
-        side_effect=cloud_storage_http_request_with_fast_fail,
-    ), pytest.raises(Exception, match="Max retries exceeded with url"):
+    with (
+        mock.patch(
+            "mlflow.data.http_dataset_source.cloud_storage_http_request",
+            side_effect=cloud_storage_http_request_with_fast_fail,
+        ),
+        pytest.raises(Exception, match="Max retries exceeded with url"),
+    ):
         source5.load()
 
 

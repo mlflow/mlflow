@@ -1,5 +1,7 @@
-import { RunsChartsRunData } from '../components/RunsCharts.common';
-import { PARALLEL_CHART_MAX_NUMBER_STRINGS, ParallelCoordinateDataEntry } from './parallelCoordinatesPlot.utils';
+import { describe, test, expect } from '@jest/globals';
+import type { RunsChartsRunData } from '../components/RunsCharts.common';
+import type { ParallelCoordinateDataEntry } from './parallelCoordinatesPlot.utils';
+import { PARALLEL_CHART_MAX_NUMBER_STRINGS } from './parallelCoordinatesPlot.utils';
 import { filterParallelCoordinateData } from './parallelCoordinatesPlot.utils';
 import { processParallelCoordinateData } from './parallelCoordinatesPlot.utils';
 

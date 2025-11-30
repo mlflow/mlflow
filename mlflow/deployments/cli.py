@@ -1,15 +1,11 @@
 import json
 import sys
-import warnings
 from inspect import signature
 
 import click
 
 from mlflow.deployments import interface
-from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import experimental
-from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
 
 
@@ -470,41 +466,3 @@ def validate_config_path(_ctx, _param, value):
         return value
     except Exception as e:
         raise click.BadParameter(str(e))
-
-
-@experimental
-@commands.command("start-server", help="Start MLflow AI Gateway")
-@click.option(
-    "--config-path",
-    envvar=MLFLOW_DEPLOYMENTS_CONFIG.name,
-    callback=validate_config_path,
-    required=True,
-    help="The path to the deployments configuration file.",
-)
-@click.option(
-    "--host",
-    default="127.0.0.1",
-    help="The network address to listen on (default: 127.0.0.1).",
-)
-@click.option(
-    "--port",
-    default=5000,
-    help="The port to listen on (default: 5000).",
-)
-@click.option(
-    "--workers",
-    default=2,
-    help="The number of workers.",
-)
-def start_server(config_path: str, host: str, port: str, workers: int):
-    warnings.warn(
-        "`mlflow deployments start-server` is deprecated and will be removed in a future release. "
-        "Use `mlflow gateway start` instead.",
-        FutureWarning,
-    )
-    if is_windows():
-        raise click.ClickException("MLflow AI Gateway does not support Windows.")
-
-    from mlflow.gateway.runner import run_app
-
-    run_app(config_path=config_path, host=host, port=port, workers=workers)

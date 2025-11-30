@@ -15,6 +15,7 @@ import {
   PDF_EXTENSIONS,
   DATA_EXTENSIONS,
   AUDIO_EXTENSIONS,
+  VIDEO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags, getLoggedTablesFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -31,8 +32,11 @@ import { ModelRegistryRoutes } from '../../../model-registry/routes';
 import Utils from '../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
-import { Empty, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, Spacer } from '@databricks/design-system';
 import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { LazyShowArtifactVideoView } from './LazyShowArtifactVideoView';
+import type { KeyValueEntity } from '../../../common/types';
 
 const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
 
@@ -45,11 +49,22 @@ type ShowArtifactPageProps = {
   runTags?: any;
   modelVersions?: any[];
   showArtifactLoggedTableView?: boolean;
-};
+  entityTags?: Partial<KeyValueEntity>[];
+} & LoggedModelArtifactViewerProps;
 
 class ShowArtifactPage extends Component<ShowArtifactPageProps> {
   render() {
     if (this.props.path) {
+      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId, entityTags } = this.props;
+      const commonArtifactProps = {
+        loggedModelId,
+        isLoggedModelsMode,
+        path,
+        runUuid,
+        experimentId,
+        entityTags,
+      };
+
       const normalizedExtension = getExtension(this.props.path);
       let registeredModelLink;
       const { modelVersions } = this.props;
@@ -75,26 +90,29 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
               path={this.props.path}
               artifactRootUri={this.props.artifactRootUri}
               registeredModelLink={registeredModelLink}
+              experimentId={this.props.experimentId}
             />
           );
         }
       } else if (this.props.showArtifactLoggedTableView) {
-        return <ShowArtifactLoggedTableView runUuid={this.props.runUuid} path={this.props.path} />;
+        return <ShowArtifactLoggedTableView {...commonArtifactProps} />;
       } else if (normalizedExtension) {
         if (IMAGE_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path} />;
+          return <ShowArtifactImageView {...commonArtifactProps} />;
         } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <LazyShowArtifactTableView runUuid={this.props.runUuid} path={this.props.path} />;
+          return <LazyShowArtifactTableView {...commonArtifactProps} />;
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path} size={this.props.size} />;
+          return <ShowArtifactTextView {...commonArtifactProps} size={this.props.size} />;
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <LazyShowArtifactMapView runUuid={this.props.runUuid} path={this.props.path} />;
+          return <LazyShowArtifactMapView {...commonArtifactProps} />;
         } else if (HTML_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <ShowArtifactHtmlView runUuid={this.props.runUuid} path={this.props.path} />;
+          return <ShowArtifactHtmlView {...commonArtifactProps} />;
         } else if (PDF_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <LazyShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
+          return <LazyShowArtifactPdfView {...commonArtifactProps} />;
         } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <LazyShowArtifactAudioView runUuid={this.props.runUuid} path={this.props.path} />;
+          return <LazyShowArtifactAudioView {...commonArtifactProps} />;
+        } else if (VIDEO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <LazyShowArtifactVideoView {...commonArtifactProps} />;
         }
       }
     }
@@ -120,7 +138,7 @@ const getSelectFileView = () => {
         }
         description={
           <FormattedMessage
-            defaultMessage="Supported formats: image, text, html, pdf, audio, geojson files"
+            defaultMessage="Supported formats: image, text, html, pdf, audio, video, geojson files"
             description="Text to explain users which formats are supported to display the artifacts"
           />
         }
@@ -147,6 +165,7 @@ const getFileTooLargeView = () => {
         }
         description={
           <FormattedMessage
+            // eslint-disable-next-line formatjs/enforce-default-message
             defaultMessage={`Maximum file size for preview: ${MAX_PREVIEW_ARTIFACT_SIZE_MB}MiB`}
             description="Text to notify users of the maximum file size for which artifact previews are displayed"
           />

@@ -3,7 +3,7 @@ import importlib.metadata
 import os
 import posixpath
 import urllib.parse
-from collections import namedtuple
+from typing import Any, NamedTuple
 
 from packaging.version import Version
 
@@ -14,15 +14,23 @@ from mlflow.entities.multipart_upload import (
 )
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
-    MLFLOW_GCS_DEFAULT_TIMEOUT,
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
 from mlflow.exceptions import _UnsupportedMultipartUploadException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import (
+    ArtifactRepository,
+    MultipartUploadMixin,
+    _retry_with_new_creds,
+)
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
-GCSMPUArguments = namedtuple("GCSMPUArguments", ["transport", "url", "headers", "content_type"])
+
+class GCSMPUArguments(NamedTuple):
+    transport: Any
+    url: str
+    headers: dict[str, str]
+    content_type: str
 
 
 class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
@@ -36,8 +44,15 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             credentials as described in https://google-cloud.readthedocs.io/en/latest/core/auth.html
     """
 
-    def __init__(self, artifact_uri, client=None):
-        super().__init__(artifact_uri)
+    def __init__(
+        self,
+        artifact_uri: str,
+        client=None,
+        credential_refresh_def=None,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         from google.auth.exceptions import DefaultCredentialsError
         from google.cloud import storage as gcs_storage
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
@@ -45,11 +60,10 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         self._GCS_DOWNLOAD_CHUNK_SIZE = MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE.get()
         self._GCS_UPLOAD_CHUNK_SIZE = MLFLOW_GCS_UPLOAD_CHUNK_SIZE.get()
         self._GCS_DEFAULT_TIMEOUT = (
-            MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get()
-            or MLFLOW_GCS_DEFAULT_TIMEOUT.get()
-            or _DEFAULT_TIMEOUT
+            MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
         )
-
+        # Method to use for refresh
+        self.credential_refresh_def = credential_refresh_def
         # If the user-supplied timeout environment variable value is -1,
         # use `None` for `self._GCS_DEFAULT_TIMEOUT`
         # to use indefinite timeout
@@ -71,12 +85,23 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if parsed.scheme != "gs":
             raise Exception(f"Not a GCS URI: {uri}")
         path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return parsed.netloc, path
 
     def _get_bucket(self, bucket):
         return self.client.bucket(bucket)
+
+    def _refresh_credentials(self):
+        from google.cloud.storage import Client
+        from google.oauth2.credentials import Credentials
+
+        (bucket, _) = self.parse_gcs_uri(self.artifact_uri)
+        if not self.credential_refresh_def:
+            return self._get_bucket(bucket)
+        new_token = self.credential_refresh_def()
+        credentials = Credentials(new_token["oauth_token"])
+        self.client = Client(project="mlflow", credentials=credentials)
+        return self._get_bucket(bucket)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -92,9 +117,9 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        gcs_bucket = self._get_bucket(bucket)
 
         local_dir = os.path.abspath(local_dir)
+
         for root, _, filenames in os.walk(local_dir):
             upload_path = dest_path
             if root != local_dir:
@@ -102,9 +127,20 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 rel_path = relative_path_to_artifact_path(rel_path)
                 upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
+                gcs_bucket = self._get_bucket(bucket)
                 path = posixpath.join(upload_path, f)
-                gcs_bucket.blob(path, chunk_size=self._GCS_UPLOAD_CHUNK_SIZE).upload_from_filename(
-                    os.path.join(root, f), timeout=self._GCS_DEFAULT_TIMEOUT
+                # For large models, we need to speculatively retry a credential refresh
+                # and throw if it still fails.  We cannot use the built-in refresh because UC
+                # does not return a refresh token with the oauth token
+                file_name = os.path.join(root, f)
+
+                def try_func(gcs_bucket):
+                    gcs_bucket.blob(
+                        path, chunk_size=self._GCS_UPLOAD_CHUNK_SIZE
+                    ).upload_from_filename(file_name, timeout=self._GCS_DEFAULT_TIMEOUT)
+
+                _retry_with_new_creds(
+                    try_func=try_func, creds_func=self._refresh_credentials, orig_creds=gcs_bucket
                 )
 
     def list_artifacts(self, path=None):

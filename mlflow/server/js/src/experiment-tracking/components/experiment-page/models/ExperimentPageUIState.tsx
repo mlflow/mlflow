@@ -1,4 +1,3 @@
-import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/FeatureUtils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
 import type { RunsChartsLineCardConfig, SerializedRunsChartsCardConfigCard } from '../../runs-charts/runs-charts.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
@@ -11,6 +10,7 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'runsExpanded',
   'runsPinned',
   'runsHidden',
+  'runsVisibilityMap',
   'runsHiddenMode',
   'compareRunCharts',
   'compareRunSections',
@@ -42,6 +42,7 @@ export enum RUNS_VISIBILITY_MODE {
   HIDEALL = 'HIDE_ALL',
   FIRST_10_RUNS = 'FIRST_10_RUNS',
   FIRST_20_RUNS = 'FIRST_20_RUNS',
+  HIDE_FINISHED_RUNS = 'HIDE_FINISHED_RUNS',
   CUSTOM = 'CUSTOM',
 }
 
@@ -107,10 +108,20 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
 
   /**
    * List of hidden row UUIDs
+   * @deprecated Use "runsVisibilityMap" field instead which has better control over visibility
    */
   runsHidden: string[];
 
+  /**
+   * Determines default visibility mode for runs which are not explicitly specified by "runsVisibilityMap" field
+   */
   runsHiddenMode: RUNS_VISIBILITY_MODE;
+
+  /**
+   * Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
+   * a run has been hidden (its child runs are not visible).
+   */
+  runsVisibilityMap?: Record<string, boolean>;
 
   /**
    * Determines if the experiment view is maximized
@@ -151,6 +162,7 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   runsExpanded: {},
   runsPinned: [],
   runsHidden: [],
+  runsVisibilityMap: {},
   runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
   compareRunCharts: undefined,
   compareRunSections: undefined,
@@ -161,8 +173,8 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   hideEmptyCharts: true,
   groupBy: null,
   groupsExpanded: {},
-  // Auto-refresh is enabled by default only if the flag is set
-  autoRefreshEnabled: shouldEnableExperimentPageAutoRefresh(),
+  // Auto-refresh is enabled by default
+  autoRefreshEnabled: true,
   globalLineChartConfig: {
     xAxisKey: RunsChartsLineChartXAxisType.STEP,
     lineSmoothness: 0,

@@ -1,6 +1,7 @@
 import React from 'react';
 
-import RunsMetricsLegend, { LegendLabelData } from './RunsMetricsLegend';
+import type { LegendLabelData } from './RunsMetricsLegend';
+import RunsMetricsLegend from './RunsMetricsLegend';
 import { useDesignSystemTheme } from '@databricks/design-system';
 
 const RunsMetricsLegendWrapper = ({

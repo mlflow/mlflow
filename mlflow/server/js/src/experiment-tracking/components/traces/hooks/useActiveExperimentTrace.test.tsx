@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
 import { useActiveExperimentTrace } from './useActiveExperimentTrace';
 import { useSearchParams } from '../../../../common/utils/RoutingUtils';
@@ -8,7 +9,8 @@ jest.mock('../../../../common/utils/RoutingUtils', () => ({
 
 describe('useActiveExperimentTrace', () => {
   let mockSearchParams = new URLSearchParams();
-  const mockSetSearchParams = jest.fn().mockImplementation((setter) => {
+  const mockSetSearchParams = jest.fn((setter) => {
+    // @ts-expect-error 'setter' is of type 'unknown'
     mockSearchParams = setter(mockSearchParams);
   });
 

@@ -1,5 +1,6 @@
 import logging
 import sys
+import threading
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
@@ -12,6 +13,7 @@ import mlflow
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.logging_utils import eprint
 
+from tests.autologging.async_helper import asyncify, run_sync_or_async
 from tests.autologging.fixtures import (
     patch_destination,
     reset_stderr,  # noqa: F401
@@ -178,8 +180,7 @@ def test_silent_mode_is_respected_in_multithreaded_environments(
     with warnings.catch_warnings(record=True) as warnings_record:
         warnings.simplefilter("always")
         with ThreadPoolExecutor(max_workers=50) as executor:
-            for _ in range(100):
-                executions.append(executor.submit(parallel_fn))
+            executions.extend(executor.submit(parallel_fn) for _ in range(100))
 
     assert all(e.result() is True for e in executions)
 
@@ -242,8 +243,7 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
     stream = StringIO()
     sys.stderr = stream
 
-    patch_destination.fn2 = lambda *args, **kwargs: "fn2"
-
+    @asyncify(patch_destination.is_async)
     def patch_impl1(original):
         warnings.warn("patchimpl1")
         original()
@@ -253,6 +253,7 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
         logger.info("autolog1")
         safe_patch("integration1", patch_destination, "fn", patch_impl1)
 
+    @asyncify(patch_destination.is_async)
     def patch_impl2(original):
         logger.info("patchimpl2")
         original()
@@ -269,8 +270,8 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
         autolog1(silent=True)
         autolog2(silent=False)
 
-        patch_destination.fn()
-        patch_destination.fn2()
+        run_sync_or_async(patch_destination.fn)
+        run_sync_or_async(patch_destination.fn2)
 
     warning_messages = [str(w.message) for w in warnings_record]
     assert warning_messages == ["warn_autolog2"]
@@ -312,3 +313,34 @@ def test_silent_mode_and_warning_rerouting_respect_disabled_flag(
     # Verify that nothing is printed to the stderr-backed MLflow event logger, which would indicate
     # rerouting of warning content
     assert not stream.getvalue()
+
+
+def test_autolog_function_thread_safety(patch_destination):
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
+
+    def original_impl():
+        pass
+
+    patch_destination.fn = original_impl
+
+    def patch_impl(original):
+        original()
+
+    @autologging_integration("test_integration")
+    def test_autolog(disable=False, silent=False):
+        time.sleep(0.2)
+        safe_patch("test_integration", patch_destination, "fn", patch_impl)
+
+    thread1 = threading.Thread(target=test_autolog, kwargs={"disable": False})
+    thread1.start()
+    time.sleep(0.1)
+    thread2 = threading.Thread(target=test_autolog, kwargs={"disable": True})
+    thread2.start()
+
+    thread1.join()
+    thread2.join()
+
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"]["disable"]
+    assert patch_destination.fn is original_impl

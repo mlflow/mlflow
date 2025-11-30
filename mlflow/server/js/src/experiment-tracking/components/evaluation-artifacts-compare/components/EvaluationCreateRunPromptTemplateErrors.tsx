@@ -1,5 +1,5 @@
 import { Typography } from '@databricks/design-system';
-import { getPromptInputVariableNameViolations } from '../../prompt-engineering/PromptEngineering.utils';
+import type { getPromptInputVariableNameViolations } from '../../prompt-engineering/PromptEngineering.utils';
 import { FormattedMessage, defineMessage, useIntl } from 'react-intl';
 
 const whitespaceViolationMessage = defineMessage({

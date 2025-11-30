@@ -67,15 +67,27 @@ class FlavorBackend:
 
     @abstractmethod
     def build_image(
-        self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver, base_image=None
-    ):
-        raise NotImplementedError
+        self,
+        model_uri,
+        image_name,
+        install_java=False,
+        install_mlflow=False,
+        mlflow_home=None,
+        enable_mlserver=False,
+        base_image=None,
+    ): ...
 
     @abstractmethod
     def generate_dockerfile(
-        self, model_uri, output_path, install_mlflow, mlflow_home, enable_mlserver, base_image=None
-    ):
-        raise NotImplementedError
+        self,
+        model_uri,
+        output_dir,
+        install_java=False,
+        install_mlflow=False,
+        mlflow_home=None,
+        enable_mlserver=False,
+        base_image=None,
+    ): ...
 
     @abstractmethod
     def can_score_model(self):

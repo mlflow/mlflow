@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Optional
 
 from mlflow.protos.databricks_pb2 import (
     ABORTED,
@@ -186,7 +185,7 @@ class MlflowTraceDataException(MlflowTracingException):
     """Exception thrown for trace data related error"""
 
     def __init__(
-        self, error_code: str, request_id: Optional[str] = None, artifact_path: Optional[str] = None
+        self, error_code: str, request_id: str | None = None, artifact_path: str | None = None
     ):
         if request_id:
             self.ctx = f"request_id={request_id}"
@@ -202,12 +201,19 @@ class MlflowTraceDataException(MlflowTracingException):
 class MlflowTraceDataNotFound(MlflowTraceDataException):
     """Exception thrown when trace data is not found"""
 
-    def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
+    def __init__(self, request_id: str | None = None, artifact_path: str | None = None):
         super().__init__(NOT_FOUND, request_id, artifact_path)
 
 
 class MlflowTraceDataCorrupted(MlflowTraceDataException):
     """Exception thrown when trace data is corrupted"""
 
-    def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
+    def __init__(self, request_id: str | None = None, artifact_path: str | None = None):
         super().__init__(INVALID_STATE, request_id, artifact_path)
+
+
+class MlflowNotImplementedException(MlflowException):
+    """Exception thrown when a feature is not implemented"""
+
+    def __init__(self, message=""):
+        super().__init__(message, error_code=NOT_IMPLEMENTED)

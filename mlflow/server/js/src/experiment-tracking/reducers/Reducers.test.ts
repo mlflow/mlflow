@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, test, expect } from '@jest/globals';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import {
   experimentsById,
@@ -36,7 +37,6 @@ import {
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, Param, ExperimentTag } from '../sdk/MlflowMessages';
 import {
-  SEARCH_EXPERIMENTS_API,
   GET_EXPERIMENT_API,
   GET_RUN_API,
   SEARCH_RUNS_API,
@@ -55,49 +55,6 @@ import { Stages, ModelVersionStatus } from '../../model-registry/constants';
 describe('test experimentsById', () => {
   test('should set up initial state correctly', () => {
     expect(experimentsById(undefined, {})).toEqual({});
-  });
-  test('searchExperiments correctly updates empty state', () => {
-    const experimentA = mockExperiment('experiment01', 'experimentA');
-    const experimentB = mockExperiment('experiment02', 'experimentB');
-    const state = undefined;
-    const action = {
-      type: fulfilled(SEARCH_EXPERIMENTS_API),
-      payload: {
-        experiments: [experimentA, experimentB],
-      },
-    };
-    const new_state = experimentsById(state, action);
-    expect(new_state).toEqual({
-      [experimentA.experimentId]: experimentA,
-      [experimentB.experimentId]: experimentB,
-    });
-  });
-  test('searchExperiments correctly updates state', () => {
-    const newA = mockExperiment('experiment01', 'experimentA');
-    const newB = mockExperiment('experiment02', 'experimentB');
-    const preserved = mockExperiment('experiment03', 'still exists');
-    const removed = mockExperiment('experiment04', 'removed');
-    const replacedOld = mockExperiment('experiment05', 'replacedOld');
-    const replacedNew = mockExperiment('experiment05', 'replacedNew');
-    const state = deepFreeze({
-      [preserved.experimentId]: preserved,
-      [removed.experimentId]: removed,
-      [replacedOld.experimentId]: replacedOld,
-    });
-    const action = {
-      type: fulfilled(SEARCH_EXPERIMENTS_API),
-      payload: {
-        experiments: [preserved, newA, newB, replacedNew],
-      },
-    };
-    const new_state = experimentsById(state, action);
-    expect(new_state).not.toEqual(state);
-    expect(new_state).toEqual({
-      [preserved.experimentId]: preserved,
-      [newA.experimentId]: newA,
-      [newB.experimentId]: newB,
-      [replacedNew.experimentId]: replacedNew,
-    });
   });
   test('getExperiment correctly updates empty state', () => {
     const experimentA = mockExperiment('experiment01', 'experimentA');
@@ -393,7 +350,7 @@ describe('test runInfosByUuid', () => {
     expect(new_state).toEqual({});
   });
 
-  test('test load more runs', () => {
+  test('load more runs', () => {
     const preserved = mockRunInfo('still exists');
     // @ts-expect-error TS(2345): Argument of type '"old"' is not assignable to para... Remove this comment to see the full error message
     const replacedOld = mockRunInfo('replaced', 'old');
@@ -796,7 +753,7 @@ describe('test params(tags)ByRunUuid', () => {
     }
     reduceAndTest(tagsByRunUuid, undefined, newState('tags', expected_state), new_action());
   });
-  test('setTagApi updates non empty state correctly', () => {
+  test('deleteTagApi updates non empty state correctly', () => {
     const initial_state = deepFreeze({
       run01: {
         key1: val1,
@@ -1385,27 +1342,6 @@ describe('test public accessors', () => {
       payload: payload,
     };
   }
-  test('Experiments', () => {
-    const A = {
-      experimentId: 'a',
-      name: 'A',
-      tags: [{ name: 'a', value: 'A' }, 'b'],
-    };
-    const B = {
-      experimentId: 'b',
-      name: 'B',
-    };
-    const action = new_action({
-      type: fulfilled(SEARCH_EXPERIMENTS_API),
-      payload: { experiments: [A, B] },
-    });
-    const state = rootReducer(undefined, action);
-    expect(state.entities.experimentTagsByExperimentId).toEqual({});
-    expect(getExperiments(state)).toEqual([A, B]);
-    expect(getExperiment(A.experimentId, state)).toEqual(A);
-    expect(getExperimentTags(B.experimentId, state)).toEqual({});
-    expect(getExperimentTags(A.experimentId, state)).toEqual({});
-  });
   test('tags, params and runinfo', () => {
     const key1 = 'key1';
     const key2 = 'key2';

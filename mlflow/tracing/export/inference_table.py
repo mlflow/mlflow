@@ -1,20 +1,28 @@
 import logging
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Sequence
 
 from cachetools import TTLCache
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
+from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
+from mlflow.tracing.export.utils import try_link_prompts_to_trace
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import add_size_stats_to_trace_metadata
 
 _logger = logging.getLogger(__name__)
 
 
-def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
+def pop_trace(request_id: str) -> dict[str, Any] | None:
     """
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.
@@ -48,24 +56,74 @@ class InferenceTableSpanExporter(SpanExporter):
 
     def __init__(self):
         self._trace_manager = InMemoryTraceManager.get_instance()
+        if MLFLOW_EXPERIMENT_ID.get():
+            self._client = TracingClient("databricks")
+            self._async_queue = AsyncTraceExportQueue()
 
-    def export(self, root_spans: Sequence[ReadableSpan]):
+    def export(self, spans: Sequence[ReadableSpan]):
         """
         Export the spans to Inference Table via the TTLCache buffer.
 
         Args:
-            root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
-                Only root spans for each trace are passed to this method.
+            spans: A sequence of OpenTelemetry ReadableSpan objects passed from
+                a span processor. Only root spans for each trace should be exported.
         """
-        for span in root_spans:
+        for span in spans:
             if span._parent is not None:
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue
 
-            trace = self._trace_manager.pop_trace(span.context.trace_id)
-            if trace is None:
+            manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
+            if manager_trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
+            trace = manager_trace.trace
+            _set_last_active_trace_id(trace.info.trace_id)
+
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
-            _TRACE_BUFFER[trace.info.request_id] = trace.to_dict()
+            # The key is Databricks request ID.
+            _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
+
+            # Export to MLflow backend if experiment ID is set
+            if MLFLOW_EXPERIMENT_ID.get():
+                if trace.info.experiment_id is None:
+                    _logger.debug(
+                        f"{MLFLOW_EXPERIMENT_ID.name} is set, but trace {trace.info.trace_id} "
+                        "has no experiment ID. Skipping export."
+                    )
+                    continue
+
+                try:
+                    # Log the trace to the MLflow backend asynchronously
+                    self._async_queue.put(
+                        task=Task(
+                            handler=self._log_trace_to_mlflow_backend,
+                            args=(trace, manager_trace.prompts),
+                            error_msg=f"Failed to log trace {trace.info.trace_id}.",
+                        )
+                    )
+                except Exception as e:
+                    _logger.warning(
+                        f"Failed to export trace to MLflow backend. Error: {e}",
+                        stack_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
+
+    def _log_trace_to_mlflow_backend(self, trace: Trace, prompts: Sequence[PromptVersion]):
+        add_size_stats_to_trace_metadata(trace)
+
+        returned_trace_info = self._client.start_trace(trace.info)
+        self._client._upload_trace_data(returned_trace_info, trace.data)
+
+        # Link prompt versions to the trace. Prompt linking is not critical for trace export
+        # (if the prompt fails to link, the user's workflow is minorly affected), so we handle
+        # errors gracefully without failing the entire trace export
+        try_link_prompts_to_trace(
+            client=self._client,
+            trace_id=returned_trace_info.trace_id,
+            prompts=prompts,
+            synchronous=True,  # Run synchronously since we're already in an async task
+        )
+        _logger.debug(
+            f"Finished logging trace to MLflow backend. TraceInfo: {returned_trace_info.to_dict()} "
+        )

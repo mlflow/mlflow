@@ -2,21 +2,24 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse
+from tests.helper_functions import skip_if_hf_hub_unhealthy
+
+pytestmark = skip_if_hf_hub_unhealthy()
 
 
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "huggingface-text-generation-inference",
             "name": "hf-tgi",
@@ -28,7 +31,7 @@ def completions_config():
 def embedding_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "huggingface-text-generation-inference",
             "name": "hf-tgi",
@@ -40,7 +43,7 @@ def embedding_config():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "huggingface-text-generation-inference",
             "name": "hf-tgi",
@@ -65,10 +68,11 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
-        provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
             "n": 1,
@@ -111,7 +115,7 @@ async def test_completions_temperature_is_scaled_correctly():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+        provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
             "temperature": 0.5,
@@ -123,9 +127,9 @@ async def test_completions_temperature_is_scaled_correctly():
 @pytest.mark.asyncio
 async def test_completion_fails_with_multiple_candidates():
     config = chat_config()
-    provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+    provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
     payload = {"prompt": "This is a test", "n": 2}
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "'n' must be '1' for the Text Generation Inference provider." in e.value.detail
     assert e.value.status_code == 422
@@ -134,10 +138,10 @@ async def test_completion_fails_with_multiple_candidates():
 @pytest.mark.asyncio
 async def test_chat_is_not_supported_for_tgi():
     config = chat_config()
-    provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+    provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
     payload = {"messages": [{"role": "user", "content": "TGI, can you chat with me? I'm lonely."}]}
 
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
     assert (
         "The chat route is not implemented for Hugging Face Text Generation Inference models."
@@ -149,10 +153,10 @@ async def test_chat_is_not_supported_for_tgi():
 @pytest.mark.asyncio
 async def test_embeddings_are_not_supported_for_tgi():
     config = embedding_config()
-    provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+    provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
     payload = {"input": "give me that sweet, sweet vector, please."}
 
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))
     assert (
         "The embeddings route is not implemented for Hugging Face Text Generation Inference models."

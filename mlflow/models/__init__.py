@@ -5,13 +5,11 @@ The ``mlflow.models`` module provides an API for saving machine learning models 
 The built-in flavors are:
 
 - :py:mod:`mlflow.catboost`
-- :py:mod:`mlflow.diviner`
-- :py:mod:`mlflow.fastai`
-- :py:mod:`mlflow.gluon`
+- :py:mod:`mlflow.dspy`
 - :py:mod:`mlflow.h2o`
 - :py:mod:`mlflow.langchain`
 - :py:mod:`mlflow.lightgbm`
-- :py:mod:`mlflow.mleap`
+- :py:mod:`mlflow.llama_index`
 - :py:mod:`mlflow.onnx`
 - :py:mod:`mlflow.openai`
 - :py:mod:`mlflow.paddle`
@@ -28,7 +26,7 @@ The built-in flavors are:
 - :py:mod:`mlflow.transformers`
 - :py:mod:`mlflow.xgboost`
 
-For details, see `MLflow Models <../models.html>`_.
+For details, see `MLflow Models guide <https://mlflow.org/docs/latest/ml/model/>`_.
 """
 
 from mlflow.models.dependencies_schemas import set_retriever_schema
@@ -42,7 +40,7 @@ from mlflow.models.evaluation import (
     make_metric,
 )
 from mlflow.models.flavor_backend import FlavorBackend
-from mlflow.models.model import Model, get_model_info, set_model
+from mlflow.models.model import Model, get_model_info, set_model, update_model_requirements
 from mlflow.models.model_config import ModelConfig
 from mlflow.models.python_api import build_docker
 from mlflow.models.resources import Resource, ResourceType
@@ -66,6 +64,7 @@ __all__ = [
     "Resource",
     "ResourceType",
     "ModelConfig",
+    "update_model_requirements",
 ]
 
 

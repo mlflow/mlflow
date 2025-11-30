@@ -1,21 +1,19 @@
 import time
-from typing import List
 
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, StrictFloat, StrictStr, ValidationError, validator
+from pydantic import BaseModel, StrictFloat, StrictStr, ValidationError, field_validator
 
-from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, MlflowModelServingConfig
 from mlflow.gateway.constants import MLFLOW_SERVING_RESPONSE_KEY
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class ServingTextResponse(BaseModel):
-    predictions: List[StrictStr]
+    predictions: list[StrictStr]
 
-    @validator("predictions", pre=True)
+    @field_validator("predictions", mode="before")
     def extract_choices(cls, predictions):
         if isinstance(predictions, list) and not predictions:
             raise ValueError("The input list is empty")
@@ -35,9 +33,9 @@ class ServingTextResponse(BaseModel):
 
 
 class EmbeddingsResponse(BaseModel):
-    predictions: List[List[StrictFloat]]
+    predictions: list[list[StrictFloat]]
 
-    @validator("predictions", pre=True)
+    @field_validator("predictions", mode="before")
     def validate_predictions(cls, predictions):
         if isinstance(predictions, list) and not predictions:
             raise ValueError("The input list is empty")
@@ -55,7 +53,7 @@ class MlflowModelServingProvider(BaseProvider):
     NAME = "MLflow Model Serving"
     CONFIG_TYPE = MlflowModelServingConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(
             config.model.config, MlflowModelServingConfig
@@ -67,7 +65,7 @@ class MlflowModelServingProvider(BaseProvider):
     @staticmethod
     def _extract_mlflow_response_key(response):
         if MLFLOW_SERVING_RESPONSE_KEY not in response:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=502,
                 detail=f"The response is missing the required key: {MLFLOW_SERVING_RESPONSE_KEY}.",
             )
@@ -75,6 +73,8 @@ class MlflowModelServingProvider(BaseProvider):
 
     @staticmethod
     def _process_payload(payload, key):
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
 
         input_data = payload.pop(key, None)
@@ -91,7 +91,7 @@ class MlflowModelServingProvider(BaseProvider):
             validated_response = ServingTextResponse(**response)
             inference_data = validated_response.predictions
         except ValidationError as e:
-            raise HTTPException(status_code=502, detail=str(e))
+            raise AIGatewayException(status_code=502, detail=str(e))
 
         return [
             completions.Choice(index=idx, text=entry, finish_reason=None)
@@ -135,7 +135,7 @@ class MlflowModelServingProvider(BaseProvider):
             validated_response = ServingTextResponse(**response)
             inference_data = validated_response.predictions
         except ValidationError as e:
-            raise HTTPException(status_code=502, detail=str(e))
+            raise AIGatewayException(status_code=502, detail=str(e))
 
         return [
             {"message": {"role": "assistant", "content": entry}, "metadata": {}}
@@ -153,7 +153,7 @@ class MlflowModelServingProvider(BaseProvider):
 
         query_count = len(payload["inputs"])
         if query_count > 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="MLflow chat models are only capable of processing a single query at a "
                 f"time. The request submitted consists of {query_count} queries.",
@@ -196,7 +196,7 @@ class MlflowModelServingProvider(BaseProvider):
             validated_response = EmbeddingsResponse(**response)
             inference_data = validated_response.predictions
         except ValidationError as e:
-            raise HTTPException(status_code=502, detail=str(e))
+            raise AIGatewayException(status_code=502, detail=str(e))
 
         return inference_data
 

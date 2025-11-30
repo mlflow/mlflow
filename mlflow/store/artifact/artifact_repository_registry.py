@@ -1,9 +1,9 @@
 import warnings
-from typing import Dict
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.dbfs_artifact_repo import dbfs_artifact_repo_factory
 from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
@@ -54,13 +54,19 @@ class ArtifactRepositoryRegistry:
                     stacklevel=2,
                 )
 
-    def get_artifact_repository(self, artifact_uri):
+    def get_artifact_repository(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> ArtifactRepository:
         """
         Get an artifact repository from the registry based on the scheme of artifact_uri
 
         Args:
             artifact_uri: The artifact store URI. This URI is used to select which artifact
                 repository implementation to instantiate and is passed to the constructor of the
+                implementation.
+            tracking_uri: The tracking URI. This URI is passed to the constructor of the
+                implementation.
+            registry_uri: The registry URI. This URI is passed to the constructor of the
                 implementation.
 
         Returns:
@@ -74,7 +80,7 @@ class ArtifactRepositoryRegistry:
                 f"Could not find a registered artifact repository for: {artifact_uri}. "
                 f"Currently registered schemes are: {list(self._registry.keys())}"
             )
-        return repository(artifact_uri)
+        return repository(artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri)
 
     def get_registered_artifact_repositories(self):
         """
@@ -86,11 +92,13 @@ class ArtifactRepositoryRegistry:
         return self._registry
 
 
-def _dbfs_artifact_repo_factory(artifact_uri: str) -> ArtifactRepository:
+def _dbfs_artifact_repo_factory(
+    artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+) -> ArtifactRepository:
     return (
-        uc_volume_artifact_repo_factory(artifact_uri)
+        uc_volume_artifact_repo_factory(artifact_uri, tracking_uri, registry_uri)
         if is_uc_volumes_uri(artifact_uri)
-        else dbfs_artifact_repo_factory(artifact_uri)
+        else dbfs_artifact_repo_factory(artifact_uri, tracking_uri, registry_uri)
     )
 
 
@@ -112,11 +120,14 @@ _artifact_repository_registry.register("models", ModelsArtifactRepository)
 for scheme in ["http", "https"]:
     _artifact_repository_registry.register(scheme, HttpArtifactRepository)
 _artifact_repository_registry.register("mlflow-artifacts", MlflowArtifactsRepository)
+_artifact_repository_registry.register("abfss", AzureDataLakeArtifactRepository)
 
 _artifact_repository_registry.register_entrypoints()
 
 
-def get_artifact_repository(artifact_uri: str) -> ArtifactRepository:
+def get_artifact_repository(
+    artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+) -> ArtifactRepository:
     """
     Get an artifact repository from the registry based on the scheme of artifact_uri
 
@@ -124,15 +135,21 @@ def get_artifact_repository(artifact_uri: str) -> ArtifactRepository:
         artifact_uri: The artifact store URI. This URI is used to select which artifact
             repository implementation to instantiate and is passed to the constructor of the
             implementation.
+        tracking_uri: The tracking URI. This URI is passed to the constructor of the
+            implementation.
+        registry_uri: The registry URI. This URI is passed to the constructor of the
+            implementation.
 
     Returns:
         An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
         requirements.
     """
-    return _artifact_repository_registry.get_artifact_repository(artifact_uri)
+    return _artifact_repository_registry.get_artifact_repository(
+        artifact_uri, tracking_uri, registry_uri
+    )
 
 
-def get_registered_artifact_repositories() -> Dict[str, ArtifactRepository]:
+def get_registered_artifact_repositories() -> dict[str, ArtifactRepository]:
     """
     Get all registered artifact repositories.
 

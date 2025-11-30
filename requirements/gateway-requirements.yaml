@@ -3,11 +3,6 @@
 # When we release a new major/minor version, this file is automatically updated
 # as a part of the release process.
 
-pydantic:
-  pip_release: pydantic
-  minimum: "1.0"
-  max_major_version: 2
-
 fastapi:
   pip_release: fastapi
   max_major_version: 0
@@ -20,7 +15,7 @@ uvicorn:
 
 watchfiles:
   pip_release: watchfiles
-  max_major_version: 0
+  max_major_version: 1
 
 aiohttp:
   pip_release: aiohttp

@@ -25,7 +25,7 @@ import os
 import tempfile
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 from packaging.version import Version
@@ -45,6 +45,7 @@ from mlflow.sklearn import _SklearnTrainingSession
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
@@ -120,7 +121,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    model_format="xgb",
+    model_format="ubj",
     metadata=None,
 ):
     """Save an XGBoost model to a path on the local file system.
@@ -136,7 +137,9 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        model_format: File format in which the model is to be saved.
+        model_format: File format in which the model is to be saved. Defaults to "ubj" (UBJSON),
+            which is the recommended format for optimal performance and cross-platform
+            compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
     """
     import xgboost as xgb
@@ -224,7 +227,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     xgb_model,
-    artifact_path,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -233,8 +236,14 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    model_format="xgb",
+    model_format="ubj",
     metadata=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
     **kwargs,
 ):
     """Log an XGBoost model as an MLflow artifact for the current run.
@@ -242,7 +251,7 @@ def log_model(
     Args:
         xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or models that implement the
             `scikit-learn API`_) to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -255,8 +264,16 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        model_format: File format in which the model is to be saved.
+        model_format: File format in which the model is to be saved. Defaults to "ubj" (UBJSON),
+            which is the recommended format for optimal performance and cross-platform
+            compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
 
     Returns
@@ -265,6 +282,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.xgboost,
         registered_model_name=registered_model_name,
         xgb_model=xgb_model,
@@ -277,6 +295,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -353,7 +376,7 @@ class _XGBModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -380,7 +403,7 @@ def _exclude_unrecognized_kwargs(predict_fn, kwargs):
     filtered_kwargs = {}
     allowed_params = inspect.signature(predict_fn).parameters
     # avoid excluding kwargs when predict function uses args or kwargs
-    if any(p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD for p in allowed_params.values()):
+    if any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in allowed_params.values()):
         return kwargs
     invalid_params = set()
     for key, value in kwargs.items():
@@ -438,7 +461,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
-    model_format="xgb",
+    model_format="ubj",
     extra_tags=None,
 ):
     """
@@ -487,7 +510,9 @@ def autolog(
         registered_model_name: If given, each time a model is trained, it is registered as a
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
-        model_format: File format in which the model is to be saved.
+        model_format: File format in which the model is to be saved. Defaults to "ubj" (UBJSON),
+            which is the recommended format for optimal performance and cross-platform
+            compatibility. Also supports "json" and "xgb" formats.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     import numpy as np
@@ -676,12 +701,13 @@ def autolog(
         dtrain = args[1] if len(args) > 1 else kwargs.get("dtrain")
 
         # Whether to automatically log the training dataset as a dataset artifact.
+        dataset = None
         if _log_datasets and dtrain is not None:
             try:
                 context_tags = context_registry.resolve_tags()
                 source = CodeDatasetSource(context_tags)
 
-                _log_xgboost_dataset(dtrain, source, "train", autologging_client)
+                dataset = _log_xgboost_dataset(dtrain, source, "train", autologging_client)
                 evals = kwargs.get("evals")
                 if evals is not None:
                     for d, name in evals:
@@ -693,7 +719,10 @@ def autolog(
                     "Failed to log dataset information to MLflow Tracking. Reason: %s", e
                 )
 
-        with batch_metrics_logger(run_id) as metrics_logger:
+        model_id = None
+        if _log_models:
+            model_id = _initialize_logged_model("model", flavor=FLAVOR_NAME).model_id
+        with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
                 tmp_list = list(args)
@@ -706,6 +735,47 @@ def autolog(
 
             # training model
             model = original(*args, **kwargs)
+
+            # dtrain must exist as the original train function already ran successfully
+            # it is possible that the dataset was constructed before the patched
+            #   constructor was applied, so we cannot assume the input_example_info exists
+            input_example_info = getattr(dtrain, "input_example_info", None)
+
+            def get_input_example():
+                if input_example_info is None:
+                    raise Exception(ENSURE_AUTOLOGGING_ENABLED_TEXT)
+                if input_example_info.error_msg is not None:
+                    raise Exception(input_example_info.error_msg)
+                return input_example_info.input_example
+
+            def infer_model_signature(input_example):
+                model_output = model.predict(xgboost.DMatrix(input_example))
+                return infer_signature(input_example, model_output)
+
+            # Only log the model if the autolog() param log_models is set to True.
+            if _log_models:
+                # Will only resolve `input_example` and `signature` if `log_models` is `True`.
+                input_example, signature = resolve_input_example_and_signature(
+                    get_input_example,
+                    infer_model_signature,
+                    log_input_examples,
+                    log_model_signatures,
+                    _logger,
+                )
+
+                registered_model_name = get_autologging_config(
+                    FLAVOR_NAME, "registered_model_name", None
+                )
+                log_model(
+                    model,
+                    "model",
+                    signature=signature,
+                    input_example=input_example,
+                    registered_model_name=registered_model_name,
+                    model_format=model_format,
+                    params=params_to_log_for_fn,
+                    model_id=model_id,
+                )
 
             # If early_stopping_rounds is present, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
@@ -721,11 +791,15 @@ def autolog(
                         "stopped_iteration": extra_step - 1,
                         "best_iteration": model.best_iteration,
                     },
+                    dataset=dataset,
+                    model_id=model_id,
                 )
                 autologging_client.log_metrics(
                     run_id=mlflow.active_run().info.run_id,
                     metrics=eval_results[model.best_iteration],
                     step=extra_step,
+                    dataset=dataset,
+                    model_id=model_id,
                 )
                 early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
@@ -748,45 +822,6 @@ def autolog(
                     with open(filepath, "w") as f:
                         json.dump(imp, f)
                     mlflow.log_artifact(filepath)
-
-        # dtrain must exist as the original train function already ran successfully
-        # it is possible that the dataset was constructed before the patched
-        #   constructor was applied, so we cannot assume the input_example_info exists
-        input_example_info = getattr(dtrain, "input_example_info", None)
-
-        def get_input_example():
-            if input_example_info is None:
-                raise Exception(ENSURE_AUTOLOGGING_ENABLED_TEXT)
-            if input_example_info.error_msg is not None:
-                raise Exception(input_example_info.error_msg)
-            return input_example_info.input_example
-
-        def infer_model_signature(input_example):
-            model_output = model.predict(xgboost.DMatrix(input_example))
-            return infer_signature(input_example, model_output)
-
-        # Only log the model if the autolog() param log_models is set to True.
-        if _log_models:
-            # Will only resolve `input_example` and `signature` if `log_models` is `True`.
-            input_example, signature = resolve_input_example_and_signature(
-                get_input_example,
-                infer_model_signature,
-                log_input_examples,
-                log_model_signatures,
-                _logger,
-            )
-
-            registered_model_name = get_autologging_config(
-                FLAVOR_NAME, "registered_model_name", None
-            )
-            log_model(
-                model,
-                "model",
-                signature=signature,
-                input_example=input_example,
-                registered_model_name=registered_model_name,
-                model_format=model_format,
-            )
 
         param_logging_operations.await_completion()
         if early_stopping:
@@ -869,8 +904,8 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
         autologging_client.log_inputs(
             run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
         )
+        return dataset
     else:
         _logger.warning(
-            "Unable to log dataset information to MLflow Tracking."
-            "XGBoost version must be >= 1.7.0"
+            "Unable to log dataset information to MLflow Tracking.XGBoost version must be >= 1.7.0"
         )

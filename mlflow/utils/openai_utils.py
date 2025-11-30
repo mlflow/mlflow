@@ -1,7 +1,7 @@
 import os
 import time
 from enum import Enum
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import mlflow
 
@@ -90,18 +90,10 @@ class _OAITokenHolder:
     def token(self):
         return self._api_token_env or self._azure_ad_token.token
 
-    def auth_headers(self):
-        if self._api_type == "azure":
-            # For Azure OpenAI API keys, the `api-key` header must be used:
-            # https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#authentication
-            return {"api-key": self.token}
-        else:
-            return {"Authorization": f"Bearer {self.token}"}
-
     def refresh(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
 
-        if self._api_token_env:
+        if self._api_token_env is not None:
             return
 
         if self._is_azure_ad:
@@ -136,16 +128,19 @@ class _OpenAIApiConfig(NamedTuple):
     batch_size: int
     max_requests_per_minute: int
     max_tokens_per_minute: int
-    api_version: Optional[str]
+    api_version: str | None
     api_base: str
-    engine: Optional[str]
-    deployment_id: Optional[str]
+    deployment_id: str | None
+    organization: str | None = None
+    max_retries: int = 5
+    timeout: float = 60.0
 
 
 # See https://github.com/openai/openai-python/blob/cf03fe16a92cd01f2a8867537399c12e183ba58e/openai/__init__.py#L30-L38
 # for the list of environment variables that openai-python uses
 class _OpenAIEnvVar(str, Enum):
     OPENAI_API_TYPE = "OPENAI_API_TYPE"
+    OPENAI_BASE_URL = "OPENAI_BASE_URL"
     OPENAI_API_BASE = "OPENAI_API_BASE"
     OPENAI_API_KEY = "OPENAI_API_KEY"
     OPENAI_API_KEY_PATH = "OPENAI_API_KEY_PATH"

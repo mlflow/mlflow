@@ -34,9 +34,6 @@ Which returns ``[235.11371081266924]``.
 Structure of this MLflow Project
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-PIP `hash-checking mode <https://pip.pypa.io/en/latest/cli/pip_install/#hash-checking-mode>`_ is enforced by
-setting ``--require-hashes`` in the conda environment ``conda.yaml``:
-
 .. code-block:: yaml
 
   name: mlflow-supply-chain-security
@@ -66,7 +63,7 @@ That same conda environment is referenced when logging the model in ``train.py``
 
   mlflow.sklearn.log_model(
       model,
-      artifact_path="model",
+      name="model",
       signature=mlflow.models.infer_signature(X_train[:10], y_train[:10]),
       input_example=X_train[:10],
       conda_env="conda.yaml",

@@ -4,18 +4,32 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import yaml
-from langchain.callbacks.manager import AsyncCallbackManagerForChainRun, CallbackManagerForChainRun
-from langchain.chains.base import Chain
-from langchain.schema import BaseRetriever, Document
-from pydantic import Extra, Field
+from pydantic import ConfigDict, Field
 
-from mlflow.utils.annotations import experimental
+from mlflow.langchain._compat import (
+    import_async_callback_manager_for_chain_run,
+    import_base_retriever,
+    import_callback_manager_for_chain_run,
+    import_document,
+    try_import_chain,
+)
+
+AsyncCallbackManagerForChainRun = import_async_callback_manager_for_chain_run()
+CallbackManagerForChainRun = import_callback_manager_for_chain_run()
+BaseRetriever = import_base_retriever()
+Document = import_document()
+Chain = try_import_chain()
+
+if Chain is None:
+    raise ImportError(
+        "Chain class not found. MLflow's retriever_chain functionality requires langchain<1.0.0. "
+        "For langchain 1.0.0+, please use LangGraph instead."
+    )
 
 
-@experimental
 class _RetrieverChain(Chain):
     """
     Chain that wraps a retriever for use with MLflow.
@@ -28,7 +42,7 @@ class _RetrieverChain(Chain):
     In order to log the retriever object in the ``langchain`` flavor, the retriever object
     needs to be wrapped within a ``_RetrieverChain``.
 
-    See :ref:`log-retriever-chain` for how to log the ``_RetrieverChain``.
+    See ``examples/langchain/retriever_chain.py`` for how to log the ``_RetrieverChain``.
 
     Args:
         retriever: The retriever to wrap.
@@ -38,31 +52,27 @@ class _RetrieverChain(Chain):
     output_key: str = "source_documents"
     retriever: BaseRetriever = Field(exclude=True)
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra = Extra.forbid
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     @property
-    def input_keys(self) -> List[str]:
+    def input_keys(self) -> list[str]:
         """Return the input keys."""
         return [self.input_key]
 
     @property
-    def output_keys(self) -> List[str]:
+    def output_keys(self) -> list[str]:
         """Return the output keys."""
         return [self.output_key]
 
-    def _get_docs(self, question: str) -> List[Document]:
+    def _get_docs(self, question: str) -> list[Document]:
         """Get documents from the retriever."""
         return self.retriever.get_relevant_documents(question)
 
     def _call(
         self,
-        inputs: Dict[str, Any],
-        run_manager: Optional[CallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+        inputs: dict[str, Any],
+        run_manager: CallbackManagerForChainRun | None = None,
+    ) -> dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
 
@@ -79,15 +89,15 @@ class _RetrieverChain(Chain):
         list_of_str_page_content = [doc.page_content for doc in docs]
         return {self.output_key: json.dumps(list_of_str_page_content)}
 
-    async def _aget_docs(self, question: str) -> List[Document]:
+    async def _aget_docs(self, question: str) -> list[Document]:
         """Get documents from the retriever."""
         return await self.retriever.aget_relevant_documents(question)
 
     async def _acall(
         self,
-        inputs: Dict[str, Any],
-        run_manager: Optional[AsyncCallbackManagerForChainRun] = None,
-    ) -> Dict[str, Any]:
+        inputs: dict[str, Any],
+        run_manager: AsyncCallbackManagerForChainRun | None = None,
+    ) -> dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
 
@@ -110,7 +120,7 @@ class _RetrieverChain(Chain):
         return "retriever_chain"
 
     @classmethod
-    def load(cls, file: Union[str, Path], **kwargs: Any) -> _RetrieverChain:
+    def load(cls, file: str | Path, **kwargs: Any) -> _RetrieverChain:
         """Load a _RetrieverChain from a file."""
         # Convert file to Path object.
         file_path = Path(file) if isinstance(file, str) else file

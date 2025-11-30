@@ -1,176 +1,199 @@
 import json
 import logging
 import time
-from typing import Dict, List, Literal, Optional, Set
+from collections import defaultdict
+from typing import Any
 
 import pydantic
-from langchain.agents import AgentExecutor
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
-from langchain.schema import ChatMessage as LangChainChatMessage
-from packaging.version import Version
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    ChatMessage,
+    FunctionMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
+from langchain_core.outputs.generation import Generation
 
+from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN
 from mlflow.exceptions import MlflowException
-from mlflow.types.schema import Array, ColSpec, DataType, Schema
+from mlflow.tracing.constant import TokenUsageKey
+from mlflow.types.chat import (
+    ChatChoice,
+    ChatChoiceDelta,
+    ChatChunkChoice,
+    ChatCompletionChunk,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    ChatMessage,
+    ChatUsage,
+)
 
 _logger = logging.getLogger(__name__)
 
-IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
+
+_TOKEN_USAGE_KEY_MAPPING = {
+    # OpenAI
+    "prompt_tokens": TokenUsageKey.INPUT_TOKENS,
+    "completion_tokens": TokenUsageKey.OUTPUT_TOKENS,
+    "total_tokens": TokenUsageKey.TOTAL_TOKENS,
+    # OpenAI Streaming, Anthropic, etc.
+    "input_tokens": TokenUsageKey.INPUT_TOKENS,
+    "output_tokens": TokenUsageKey.OUTPUT_TOKENS,
+}
 
 
-# NB: Even though _ChatMessage is only referenced in one method within this module
-# (as of 12/27/2023), it must be defined at the module level for compatibility with
-# pydantic < 2
-class _ChatMessage(pydantic.BaseModel, extra="forbid"):
-    role: str
-    content: str
-
-    def to_langchain_message(self) -> LangChainChatMessage:
-        if self.role == "system":
-            return SystemMessage(content=self.content)
-        elif self.role == "assistant":
-            return AIMessage(content=self.content)
-        elif self.role == "user":
-            return HumanMessage(content=self.content)
-        else:
-            raise MlflowException.invalid_parameter_value(
-                f"Unrecognized chat message role: {self.role}"
+def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
+    """
+    Convert LangChain's message format to the MLflow's standard chat message format.
+    """
+    if isinstance(lc_message, AIMessage):
+        if tool_calls := _get_tool_calls_from_ai_message(lc_message):
+            content = lc_message.content
+            # For Anthropic model tool calls are returned twice so we need to filter them out
+            if isinstance(content, list):
+                content = [c for c in content if c["type"] != "tool_use"]
+            return ChatMessage(
+                role="assistant",
+                # If tool calls present, content null value should be None not empty string
+                # according to the OpenAI spec, which ChatMessage is following
+                # Ref: https://github.com/langchain-ai/langchain/blob/32917a0b98cb8edcfb8d0e84f0878434e1c3f192/libs/partners/openai/langchain_openai/chat_models/base.py#L116-L117
+                content=content or None,
+                tool_calls=tool_calls,
             )
-
-    @staticmethod
-    def get_schema():
-        return Schema([ColSpec(DataType.string, "role"), ColSpec(DataType.string, "content")])
-
-
-class _ChatDeltaMessage(pydantic.BaseModel):
-    role: str
-    content: str
-
-
-class _ChatRequest(pydantic.BaseModel, extra="forbid"):
-    messages: List[_ChatMessage]
-
-
-class _ChatChoice(pydantic.BaseModel, extra="forbid"):
-    index: int
-    message: _ChatMessage = None
-    finish_reason: Optional[str] = None
-
-    @staticmethod
-    def get_schema():
-        return Schema(
-            [
-                ColSpec(DataType.integer, "index"),
-                ColSpec(_ChatMessage.get_schema(), "message", required=False),
-                ColSpec(DataType.string, "finish_reason", required=False),
-            ]
+        else:
+            return ChatMessage(role="assistant", content=lc_message.content)
+    elif isinstance(lc_message, ChatMessage):
+        return ChatMessage(role=lc_message.role, content=lc_message.content)
+    elif isinstance(lc_message, FunctionMessage):
+        return ChatMessage(role="function", content=lc_message.content)
+    elif isinstance(lc_message, ToolMessage):
+        return ChatMessage(
+            role="tool",
+            content=lc_message.content,
+            tool_call_id=lc_message.tool_call_id,
+        )
+    elif isinstance(lc_message, HumanMessage):
+        return ChatMessage(role="user", content=lc_message.content)
+    elif isinstance(lc_message, SystemMessage):
+        return ChatMessage(role="system", content=lc_message.content)
+    else:
+        raise MlflowException.invalid_parameter_value(
+            f"Unexpected message type. Expected a BaseMessage subclass, but got: {type(lc_message)}"
         )
 
 
-class _ChatChoiceDelta(pydantic.BaseModel):
-    index: int
-    finish_reason: Optional[str] = None
-    delta: _ChatDeltaMessage
-
-
-class _ChatUsage(pydantic.BaseModel, extra="forbid"):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
-
-    @staticmethod
-    def get_schema():
-        return Schema(
-            [
-                ColSpec(DataType.integer, "prompt_tokens", required=False),
-                ColSpec(DataType.integer, "completion_tokens", required=False),
-                ColSpec(DataType.integer, "total_tokens", required=False),
-            ]
+def _chat_model_to_langchain_message(message: ChatMessage) -> BaseMessage:
+    """
+    Convert the MLflow's standard chat message format to LangChain's message format.
+    """
+    if message.role == "system":
+        return SystemMessage(content=message.content)
+    elif message.role == "assistant":
+        return AIMessage(content=message.content)
+    elif message.role == "user":
+        return HumanMessage(content=message.content)
+    elif message.role == "tool":
+        return ToolMessage(content=message.content, tool_call_id=message.tool_call_id)
+    elif message.role == "function":
+        return FunctionMessage(content=message.content)
+    else:
+        raise MlflowException.invalid_parameter_value(
+            f"Unrecognized chat message role: {message.role}"
         )
 
 
-class _ChatResponse(pydantic.BaseModel, extra="forbid"):
-    id: Optional[str] = None
-    object: Literal["chat.completion"] = "chat.completion"
-    created: int
-    # Make the model field optional since we may not be able to get a stable model identifier
-    # for an arbitrary LangChain model
-    model: Optional[str] = None
-    choices: List[_ChatChoice]
-    usage: _ChatUsage
+def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict[str, Any]]:
+    # Extract tool calls from AIMessage
+    tool_calls = [
+        {
+            "type": "function",
+            "id": tc["id"],
+            "function": {
+                "name": tc["name"],
+                "arguments": json.dumps(tc["args"]),
+            },
+        }
+        for tc in message.tool_calls
+    ]
 
-    @staticmethod
-    def get_schema():
-        return Schema(
-            [
-                ColSpec(DataType.string, "id", required=False),
-                ColSpec(DataType.string, "object"),
-                ColSpec(DataType.integer, "created"),
-                ColSpec(DataType.string, "model", required=False),
-                ColSpec(Array(_ChatChoice.get_schema()), "choices"),
-                ColSpec(_ChatUsage.get_schema(), "usage"),
-            ]
+    invalid_tool_calls = [
+        {
+            "type": "function",
+            "id": tc["id"],
+            "function": {
+                "name": tc["name"],
+                "arguments": tc["args"],
+            },
+        }
+        for tc in message.invalid_tool_calls
+    ]
+
+    if tool_calls or invalid_tool_calls:
+        return tool_calls + invalid_tool_calls
+
+    # Get tool calls from additional kwargs if present.
+    return [
+        {
+            k: v
+            for k, v in tool_call.items()  # type: ignore[union-attr]
+            if k in {"id", "type", "function"}
+        }
+        for tool_call in message.additional_kwargs.get("tool_calls", [])
+    ]
+
+
+def try_transform_response_to_chat_format(response: Any) -> dict[str, Any]:
+    """
+    Try to convert the response to the standard chat format and return its dict representation.
+
+    If the response is not one of the supported types, return the response as-is.
+    """
+    if isinstance(response, (str, AIMessage)):
+        if isinstance(response, str):
+            message_id = None
+            message = ChatMessage(role="assistant", content=response)
+        else:
+            message_id = getattr(response, "id", None)
+            message = convert_lc_message_to_chat_message(response)
+
+        transformed_response = ChatCompletionResponse(
+            id=message_id,
+            created=int(time.time()),
+            model="",
+            object="chat.completion",
+            choices=[
+                ChatChoice(
+                    index=0,
+                    message=message,
+                    finish_reason=None,
+                )
+            ],
+            usage=ChatUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
-
-
-class _ChatChunkResponse(pydantic.BaseModel):
-    id: Optional[str] = None
-    object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
-    created: int
-    # Make the model field optional since we may not be able to get a stable model identifier
-    # for an arbitrary LangChain model
-    model: Optional[str] = None
-    choices: List[_ChatChoiceDelta]
-
-
-def try_transform_response_to_chat_format(response):
-    if isinstance(response, str):
-        message_content = response
-        message_id = None
-    elif isinstance(response, AIMessage):
-        message_content = response.content
-        message_id = getattr(response, "id", None)
+        return transformed_response.model_dump(mode="json", exclude_unset=True)
     else:
         return response
-
-    transformed_response = _ChatResponse(
-        id=message_id,
-        created=int(time.time()),
-        model=None,
-        choices=[
-            _ChatChoice(
-                index=0,
-                message=_ChatMessage(
-                    role="assistant",
-                    content=message_content,
-                ),
-                finish_reason=None,
-            )
-        ],
-        usage=_ChatUsage(
-            prompt_tokens=None,
-            completion_tokens=None,
-            total_tokens=None,
-        ),
-    )
-
-    if IS_PYDANTIC_V1:
-        return json.loads(transformed_response.json())
-    else:
-        return transformed_response.model_dump(mode="json")
 
 
 def try_transform_response_iter_to_chat_format(chunk_iter):
     from langchain_core.messages.ai import AIMessageChunk
 
     def _gen_converted_chunk(message_content, message_id, finish_reason):
-        transformed_response = _ChatChunkResponse(
+        transformed_response = ChatCompletionChunk(
             id=message_id,
+            object="chat.completion.chunk",
             created=int(time.time()),
-            model=None,
+            model="",
             choices=[
-                _ChatChoiceDelta(
+                ChatChunkChoice(
                     index=0,
-                    delta=_ChatDeltaMessage(
+                    delta=ChatChoiceDelta(
                         role="assistant",
                         content=message_content,
                     ),
@@ -179,10 +202,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
             ],
         )
 
-        if IS_PYDANTIC_V1:
-            return json.loads(transformed_response.json())
-        else:
-            return transformed_response.model_dump(mode="json")
+        return transformed_response.model_dump(mode="json", exclude_unset=True)
 
     def _convert(chunk):
         if isinstance(chunk, str):
@@ -214,19 +234,24 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     return map(_convert, chunk_iter)
 
 
-def _convert_chat_request_or_throw(chat_request: Dict):
-    if IS_PYDANTIC_V1:
-        model = _ChatRequest.parse_obj(chat_request)
+def _convert_chat_request_or_throw(
+    chat_request: dict[str, Any],
+) -> list[BaseMessage]:
+    model = ChatCompletionRequest.model_validate(chat_request)
+    return [_chat_model_to_langchain_message(message) for message in model.messages]
+
+
+def _convert_chat_request(chat_request: dict[str, Any] | list[dict[str, Any]]):
+    if isinstance(chat_request, list):
+        return [_convert_chat_request_or_throw(request) for request in chat_request]
     else:
-        model = _ChatRequest.model_validate(chat_request)
-
-    return [message.to_langchain_message() for message in model.messages]
+        return _convert_chat_request_or_throw(chat_request)
 
 
-def _get_lc_model_input_fields(lc_model) -> Set[str]:
+def _get_lc_model_input_fields(lc_model) -> set[str]:
     try:
         if hasattr(lc_model, "input_schema"):
-            return set(lc_model.input_schema.__fields__)
+            return set(lc_model.input_schema.model_fields)
     except Exception as e:
         _logger.debug(
             f"Unexpected exception while checking LangChain input schema for"
@@ -236,10 +261,23 @@ def _get_lc_model_input_fields(lc_model) -> Set[str]:
     return set()
 
 
-def should_transform_requst_json_for_chat(lc_model):
+def _should_transform_request_json_for_chat(lc_model):
+    # Don't convert the request to LangChain's Message format for LangGraph models.
+    # Inputs may have key like "messages", but they are graph state fields, not OAI chat format.
+    try:
+        from langgraph.graph.state import CompiledStateGraph
+
+        if isinstance(lc_model, CompiledStateGraph):
+            return False
+    except ImportError:
+        pass
+
     # Avoid converting the request to LangChain's Message format if the chain
     # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
-    if isinstance(lc_model, AgentExecutor):
+    from mlflow.langchain._compat import try_import_agent_executor
+
+    AgentExecutor = try_import_agent_executor()
+    if AgentExecutor and isinstance(lc_model, AgentExecutor):
         return False
 
     input_fields = _get_lc_model_input_fields(lc_model)
@@ -256,8 +294,10 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
     """
     Convert the input request JSON to LangChain's Message format if the LangChain model
     accepts ChatMessage objects (e.g. AIMessage, HumanMessage, SystemMessage) as input.
-    # TODO: this function should identify if the lc_model accepts ChatMessage objects,
-    # and only converts if it does. ChatModels inputs should be converted.
+
+    Args:
+        request_json: The input request JSON.
+        lc_model: The LangChain model.
 
     Returns:
         A 2-element tuple containing:
@@ -266,10 +306,8 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             2. A boolean indicating whether or not the request was transformed from the OpenAI
             chat format.
     """
-    if not should_transform_requst_json_for_chat(lc_model):
-        return request_json, False
 
-    def json_dict_might_be_chat_request(json_message: Dict):
+    def json_dict_might_be_chat_request(json_message):
         return (
             isinstance(json_message, dict)
             and "messages" in json_message
@@ -277,22 +315,80 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             # Additional keys can't be specified when calling LangChain invoke() / batch()
             # with chat messages
             len(json_message) == 1
+            # messages field should be a list
+            and isinstance(json_message["messages"], list)
         )
 
-    if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
-        try:
-            return _convert_chat_request_or_throw(request_json), True
-        except pydantic.ValidationError:
-            return request_json, False
-    elif isinstance(request_json, list) and all(
-        json_dict_might_be_chat_request(json) for json in request_json
-    ):
-        try:
-            return (
-                [_convert_chat_request_or_throw(json_dict) for json_dict in request_json],
-                True,
+    def is_list_of_chat_messages(json_message: list[dict[str, Any]]):
+        return isinstance(json_message, list) and all(
+            json_dict_might_be_chat_request(message) for message in json_message
+        )
+
+    should_convert = MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN.get()
+    if should_convert is None:
+        should_convert = _should_transform_request_json_for_chat(lc_model) and (
+            json_dict_might_be_chat_request(request_json) or is_list_of_chat_messages(request_json)
+        )
+        if should_convert:
+            _logger.debug(
+                "Converting the request JSON to LangChain's Message format. "
+                "To disable this conversion, set the environment variable "
+                f"`{MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN}` to 'false'."
             )
+
+    if should_convert:
+        try:
+            return _convert_chat_request(request_json), True
         except pydantic.ValidationError:
+            _logger.debug(
+                "Failed to convert the request JSON to LangChain's Message format. "
+                "The request will be passed to the LangChain model as-is. ",
+                exc_info=True,
+            )
             return request_json, False
     else:
         return request_json, False
+
+
+def parse_token_usage(
+    lc_generations: list[Generation],
+) -> dict[str, int] | None:
+    """Parse the token usage from the LangChain generations."""
+    aggregated = defaultdict(int)
+    for generation in lc_generations:
+        if token_usage := _parse_token_usage_from_generation(generation):
+            for key in token_usage:
+                aggregated[key] += token_usage[key]
+
+    return dict(aggregated) if aggregated else None
+
+
+def _parse_token_usage_from_generation(
+    generation: Generation,
+) -> dict[str, int] | None:
+    message = getattr(generation, "message", None)
+    if not message:
+        return None
+
+    metadata = (
+        message.usage_metadata
+        or message.response_metadata.get("usage")
+        or message.response_metadata.get("token_usage")
+    )
+    return _parse_token_counts(metadata) if metadata else None
+
+
+def _parse_token_counts(usage_metadata: dict[str, Any]) -> dict[str, int]:
+    """Standardize token usage metadata keys to MLflow's token usage keys."""
+    usage = {}
+    for key, value in usage_metadata.items():
+        if usage_key := _TOKEN_USAGE_KEY_MAPPING.get(key):
+            usage[usage_key] = value
+
+    # If the total tokens are not present, calculate it from the input and output tokens
+    if usage and usage.get(TokenUsageKey.TOTAL_TOKENS) is None:
+        usage[TokenUsageKey.TOTAL_TOKENS] = usage.get(TokenUsageKey.INPUT_TOKENS, 0) + usage.get(
+            TokenUsageKey.OUTPUT_TOKENS, 0
+        )
+
+    return usage

@@ -6,8 +6,10 @@ import type {
   IsFullWidthRowParams,
   SuppressKeyboardEventParams,
 } from '@ag-grid-community/core';
-import { Spinner, SpinnerProps, useDesignSystemTheme } from '@databricks/design-system';
-import React, { useEffect, useMemo, useRef } from 'react';
+import type { SpinnerProps } from '@databricks/design-system';
+import { Spinner, useDesignSystemTheme } from '@databricks/design-system';
+import type React from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { isEqual } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, ATTRIBUTE_COLUMN_SORT_KEY, COLUMN_TYPES } from '../../../constants';
@@ -26,7 +28,7 @@ import {
   getQualifiedEntityName,
   makeCanonicalSortKey,
 } from './experimentPage.common-utils';
-import { RunRowType } from './experimentPage.row-types';
+import type { RunRowType } from './experimentPage.row-types';
 import {
   RowActionsCellRenderer,
   RowActionsCellRendererSuppressKeyboardEvents,
@@ -34,19 +36,20 @@ import {
 import { RowActionsHeaderCellRenderer } from '../components/runs/cells/RowActionsHeaderCellRenderer';
 import { RunNameCellRenderer } from '../components/runs/cells/RunNameCellRenderer';
 import { LoadMoreRowRenderer } from '../components/runs/cells/LoadMoreRowRenderer';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../common/utils/FeatureUtils';
 import {
   DatasetsCellRenderer,
   DatasetsCellRendererSuppressKeyboardEvents,
 } from '../components/runs/cells/DatasetsCellRenderer';
-import { RunDatasetWithTags } from '../../../types';
+import type { RunDatasetWithTags } from '../../../types';
 import { AggregateMetricValueCell } from '../components/runs/cells/AggregateMetricValueCell';
 import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { customMetricBehaviorDefs } from './customMetricBehaviorUtils';
 
-const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) =>
-  context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
+const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) => {
+  return context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
+};
+
 /**
  * Width for "run name" column.
  */
@@ -63,9 +66,6 @@ const VISIBILITY_TOGGLE_WIDTH = 32;
  * for compare runs mode when checkboxes are hidden.
  */
 const getActionsColumnWidth = (isComparingRuns?: boolean) => {
-  if (!shouldUseNewRunRowsVisibilityModel()) {
-    return BASE_RUN_ACTIONS_COLUMN_WIDTH;
-  }
   return isComparingRuns ? BASE_RUN_ACTIONS_COLUMN_WIDTH : BASE_RUN_ACTIONS_COLUMN_WIDTH - VISIBILITY_TOGGLE_WIDTH;
 };
 
@@ -76,7 +76,7 @@ export const createParamFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_
 const createMetricFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_METRIC}-${key}`;
 const createTagFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_TAG}-${key}`;
 
-const UntrackedSpinner: React.FC<SpinnerProps> = ({ loading, ...props }) => {
+const UntrackedSpinner: React.FC<React.PropsWithChildren<SpinnerProps>> = ({ loading, ...props }) => {
   return Spinner({ loading: false, ...props });
 };
 
@@ -121,7 +121,7 @@ export const getFrameworkComponents = () => ({
  * Certain columns are described as run attributes (opposed to metrics, params etc.), however
  * they actually source their data from the run tags. This objects maps tag names to column identifiers.
  */
-export const TAGS_TO_COLUMNS_MAP = {
+const TAGS_TO_COLUMNS_MAP = {
   [ATTRIBUTE_COLUMN_SORT_KEY.USER]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'User'),
   [ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Run Name'),
   [ATTRIBUTE_COLUMN_SORT_KEY.SOURCE]: makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, 'Source'),
@@ -158,6 +158,7 @@ export interface UseRunsColumnDefinitionsParams {
   onDatasetSelected?: (dataset: RunDatasetWithTags, run: RunRowType) => void;
   expandRows?: boolean;
   allRunsHidden?: boolean;
+  usingCustomVisibility?: boolean;
   runsHiddenMode?: RUNS_VISIBILITY_MODE;
 }
 
@@ -247,7 +248,6 @@ export const useRunsColumnDefinitions = ({
   onDatasetSelected,
   isComparingRuns,
   expandRows,
-  allRunsHidden,
   runsHiddenMode,
 }: UseRunsColumnDefinitionsParams) => {
   const { theme } = useDesignSystemTheme();
@@ -269,7 +269,7 @@ export const useRunsColumnDefinitions = ({
       valueGetter: ({ data: { pinned, hidden } }) => ({ pinned, hidden }),
       checkboxSelection: true,
       headerComponent: 'RowActionsHeaderCellRenderer',
-      headerComponentParams: { onToggleVisibility, allRunsHidden },
+      headerComponentParams: { onToggleVisibility },
       headerCheckboxSelection: true,
       headerName: '',
       cellClass: 'is-checkbox-cell',
@@ -465,7 +465,9 @@ export const useRunsColumnDefinitions = ({
             colId: canonicalSortKey,
             headerTooltip: tooltip,
             field: fieldName,
-            tooltipField: fieldName,
+            tooltipValueGetter: (params) => {
+              return params.data?.[fieldName];
+            },
             initialWidth: customMetricColumnDef?.initialColumnWidth ?? 100,
             initialHide: true,
             sortable: true,
@@ -542,7 +544,6 @@ export const useRunsColumnDefinitions = ({
     isComparingRuns,
     onDatasetSelected,
     expandRows,
-    allRunsHidden,
     usingCompactViewport,
   ]);
 

@@ -6,11 +6,11 @@ import uuid
 
 from py4j.java_gateway import CallbackServerParameters
 
-import mlflow
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.spark import FLAVOR_NAME
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.tracking.fluent import _get_latest_active_run
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.autologging_utils import (
     ExceptionSafeClass,
@@ -36,7 +36,6 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(
 
 # Exposed for testing
 def _get_current_listener():
-    global _spark_table_info_listener
     return _spark_table_info_listener
 
 
@@ -178,8 +177,7 @@ def _get_repl_id():
     local properties, and expect that the PythonSubscriber for the current Python process only
     receives events for datasource reads triggered by the current process.
     """
-    repl_id = get_databricks_repl_id()
-    if repl_id:
+    if repl_id := get_databricks_repl_id():
         return repl_id
     main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
     return f"PythonSubscriber[{main_file}][{uuid.uuid4().hex}]"
@@ -225,13 +223,18 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
         """
         if autologging_is_disabled(FLAVOR_NAME):
             return
-        # If there's an active run, simply set the tag on it
+        # If there are active runs, simply set the tag on the latest active run
         # Note that there's a TOCTOU race condition here - active_run() here can actually throw
         # if the main thread happens to end the run & pop from the active run stack after we check
         # the stack size but before we peek
-        active_run = mlflow.active_run()
-        if active_run:
-            _set_run_tag_async(active_run.info.run_id, path, version, data_format)
+
+        # Note Spark datasource autologging is hard to support thread-local behavior,
+        # because the spark event listener callback (jvm side) does not have the python caller
+        # thread information, therefore the tag is set to the latest active run, ignoring threading
+        # information. This way, consistent behavior is kept with existing functionality for
+        # Spark in MLflow.
+        if latest_active_run := _get_latest_active_run():
+            _set_run_tag_async(latest_active_run.info.run_id, path, version, data_format)
         else:
             add_table_info_to_context_provider(path, version, data_format)
 
@@ -245,7 +248,7 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
 class SparkAutologgingContext(RunContextProvider):
     """
     Context provider used when there's no active run. Accumulates datasource read information,
-    then logs that information to the next-created run. Note that this doesn't clear the accumlated
+    then logs that information to the next-created run. Note that this doesn't clear the accumulated
     info when logging them to the next run, so it will be logged to any successive runs as well.
     """
 
@@ -257,7 +260,6 @@ class SparkAutologgingContext(RunContextProvider):
         if autologging_is_disabled(FLAVOR_NAME):
             return {}
         with _lock:
-            global _table_infos
             seen = set()
             unique_infos = []
             for info in _table_infos:

@@ -1,29 +1,33 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   SearchIcon,
   Table,
   TableCell,
   TableHeader,
   TableRow,
-  LegacyTooltip,
+  Tooltip,
   Empty,
   PlusIcon,
   TableSkeletonRows,
   WarningIcon,
 } from '@databricks/design-system';
-import { Interpolation, Theme } from '@emotion/react';
-import { ColumnDef, flexRender, getCoreRowModel, SortingState, useReactTable } from '@tanstack/react-table';
+import type { Interpolation, Theme } from '@emotion/react';
+import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
 import { RegisteringModelDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
-import type { KeyValueEntity, ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { KeyValueEntity } from '../../../common/types';
 import { Stages } from '../../constants';
 import { ModelRegistryRoutes } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
 import { ModelsTableAliasedVersionsCell } from '../aliases/ModelsTableAliasedVersionsCell';
 import { useNextModelsUIContext } from '../../hooks/useNextModelsUI';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 
 const getLatestVersionNumberByStage = (latestVersions: ModelVersionInfoEntity[], stage: string) => {
   const modelVersion = latestVersions && latestVersions.find((v) => v.current_stage === stage);
@@ -52,7 +56,8 @@ export interface ModelListTableProps {
   onSortChange: (params: { orderByKey: string; orderByAsc: boolean }) => void;
 }
 
-type ModelsColumnDef = ColumnDef<ModelEntity> & {
+type EnrichedModelEntity = ModelEntity;
+type ModelsColumnDef = ColumnDef<EnrichedModelEntity> & {
   // Our experiments column definition houses style definitions in the metadata field
   meta?: { styles?: Interpolation<Theme> };
 };
@@ -71,6 +76,10 @@ export const ModelListTable = ({
 
   const { usingNextModelsUI } = useNextModelsUIContext();
 
+  const enrichedModelsData: EnrichedModelEntity[] = modelsData.map((model) => {
+    return model;
+  });
+
   const tableColumns = useMemo(() => {
     const columns: ModelsColumnDef[] = [
       {
@@ -83,7 +92,9 @@ export const ModelListTable = ({
         accessorKey: 'name',
         cell: ({ getValue }) => (
           <Link to={ModelRegistryRoutes.getModelPageRoute(String(getValue()))}>
-            <LegacyTooltip title={getValue()}>{getValue()}</LegacyTooltip>
+            <Tooltip componentId="mlflow.model-registry.model-list.model-name.tooltip" content={getValue()}>
+              <span>{getValue()}</span>
+            </Tooltip>
           </Link>
         ),
         meta: { styles: { minWidth: 200, flex: 1 } },
@@ -169,7 +180,9 @@ export const ModelListTable = ({
         }),
         accessorKey: 'user_id',
         enableSorting: false,
-        cell: ({ getValue }) => <span title={getValue() as string}>{getValue()}</span>,
+        cell: ({ getValue, row: { original } }) => {
+          return <span title={getValue() as string}>{getValue()}</span>;
+        },
         meta: { styles: { flex: 1 } },
       },
       {
@@ -180,7 +193,7 @@ export const ModelListTable = ({
           description: 'Column title for last modified timestamp for a model in the registered model page',
         }),
         accessorKey: 'last_updated_timestamp',
-        cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue())}</span>,
+        cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue(), intl)}</span>,
         meta: { styles: { flex: 1, maxWidth: 150 } },
       },
       {
@@ -198,11 +211,7 @@ export const ModelListTable = ({
     );
 
     return columns;
-  }, [
-    // prettier-ignore
-    intl,
-    usingNextModelsUI,
-  ]);
+  }, [intl, usingNextModelsUI]);
 
   const sorting: SortingState = [{ id: orderByKey, desc: !orderByAsc }];
 
@@ -227,7 +236,7 @@ export const ModelListTable = ({
   const emptyComponent = error ? (
     <Empty
       image={<WarningIcon />}
-      description={error.message}
+      description={error instanceof ErrorWrapper ? error.getMessageField() : error.message}
       title={
         <FormattedMessage
           defaultMessage="Error fetching models"
@@ -268,16 +277,19 @@ export const ModelListTable = ({
 
   const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
-  const table = useReactTable<ModelEntity>({
-    data: modelsData,
-    columns: tableColumns,
-    state: {
-      sorting,
+  const table = useReactTable<EnrichedModelEntity>(
+    'mlflow/server/js/src/model-registry/components/model-list/ModelListTable.tsx',
+    {
+      data: enrichedModelsData,
+      columns: tableColumns,
+      state: {
+        sorting,
+      },
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: ({ id }) => id,
+      onSortingChange: setSorting,
     },
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: ({ id }) => id,
-    onSortingChange: setSorting,
-  });
+  );
 
   return (
     <>
@@ -290,6 +302,7 @@ export const ModelListTable = ({
         <TableRow isHeader>
           {table.getLeafHeaders().map((header) => (
             <TableHeader
+              componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellisttable.tsx_412"
               ellipsis
               key={header.id}
               sortable={header.column.getCanSort()}

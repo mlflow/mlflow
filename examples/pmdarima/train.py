@@ -48,16 +48,15 @@ with mlflow.start_run():
     predictions = arima.predict(n_periods=30, return_conf_int=False)
     signature = infer_signature(train, predictions)
 
-    mlflow.pmdarima.log_model(
-        pmdarima_model=arima, artifact_path=ARTIFACT_PATH, signature=signature
+    model_info = mlflow.pmdarima.log_model(
+        pmdarima_model=arima, name=ARTIFACT_PATH, signature=signature
     )
     mlflow.log_params(parameters)
     mlflow.log_metrics(metrics)
-    model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
 
-    print(f"Model artifact logged to: {model_uri}")
+    print(f"Model artifact logged to: {model_info.model_uri}")
 
-loaded_model = mlflow.pmdarima.load_model(model_uri)
+loaded_model = mlflow.pmdarima.load_model(model_info.model_uri)
 
 forecast = loaded_model.predict(30)
 

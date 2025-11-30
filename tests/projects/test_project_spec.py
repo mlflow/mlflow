@@ -41,23 +41,25 @@ def test_project_get_unspecified_entry_point():
 
 
 @pytest.mark.parametrize(
-    ("mlproject", "conda_env_path", "conda_env_contents", "mlproject_path"),
+    (
+        # Contents of MLproject file. If None, no MLproject file will be written.
+        "mlproject",
+        # Path to conda environment file. If None, no conda environment file will be written.
+        "conda_env_path",
+        # Contents of conda environment file (written if conda_env_path is not None).
+        "conda_env_contents",
+        # Path to MLproject file. If None, the MLproject file will be written to "MLproject".
+        "mlproject_path",
+    ),
     [
         (None, None, "", None),
         ("key: value", "conda.yaml", "hi", "MLproject"),
         ("conda_env: some-env.yaml", "some-env.yaml", "hi", "mlproject"),
     ],
 )
-def test_load_project(tmp_path, mlproject, conda_env_path, conda_env_contents, mlproject_path):  # noqa: D417
+def test_load_project(tmp_path, mlproject, conda_env_path, conda_env_contents, mlproject_path):
     """
     Test that we can load a project with various combinations of an MLproject / conda.yaml file
-
-    Args:
-        mlproject: Contents of MLproject file. If None, no MLproject file will be written.
-        conda_env_path: Path to conda environment file. If None, no conda environment file will
-            be written.
-        conda_env_contents: Contents of conda environment file (written if conda_env_path is
-            not None).
     """
     if mlproject:
         tmp_path.joinpath(mlproject_path).write_text(mlproject)

@@ -1,10 +1,12 @@
-import userEvent from '@testing-library/user-event-14';
+import { jest, describe, beforeEach, beforeAll, afterAll, afterEach, it, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
 
 const testArtifactData = {
@@ -19,19 +21,26 @@ const testArtifactData = {
 };
 
 jest.mock('../../../common/utils/ArtifactUtils', () => ({
-  ...jest.requireActual('../../../common/utils/ArtifactUtils'),
+  ...jest.requireActual<typeof import('../../../common/utils/ArtifactUtils')>('../../../common/utils/ArtifactUtils'),
   getArtifactContent: jest.fn(),
 }));
 
 describe('ShowArtifactLoggedTableView', () => {
   const renderComponent = () => {
-    render(<ShowArtifactLoggedTableView runUuid="test-run-uuid" path="/path/to/artifact" />, {
-      wrapper: ({ children }) => (
-        <IntlProvider locale="en">
-          <DesignSystemProvider>{children}</DesignSystemProvider>
-        </IntlProvider>
-      ),
-    });
+    render(
+      <ShowArtifactLoggedTableView
+        runUuid="test-run-uuid"
+        experimentId="test-experiment-id"
+        path="/path/to/artifact"
+      />,
+      {
+        wrapper: ({ children }) => (
+          <IntlProvider locale="en">
+            <DesignSystemProvider>{children}</DesignSystemProvider>
+          </IntlProvider>
+        ),
+      },
+    );
   };
 
   beforeEach(() => {
@@ -49,11 +58,29 @@ describe('ShowArtifactLoggedTableView', () => {
     );
   });
 
+  let originalImageSrc: any;
+
+  beforeAll(() => {
+    // Mock <img> src setter to trigger load callback
+    originalImageSrc = Object.getOwnPropertyDescriptor(window.Image.prototype, 'src');
+    Object.defineProperty(window.Image.prototype, 'src', {
+      set() {
+        setTimeout(() => this.onload?.());
+      },
+      get() {},
+    });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(window.Image.prototype, 'src', originalImageSrc);
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
   it('renders the table and expected values in the cells', async () => {
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testArtifactData)));
 
     renderComponent();
@@ -77,6 +104,7 @@ describe('ShowArtifactLoggedTableView', () => {
   });
 
   it('renders the table with columns and allows showing/hiding them', async () => {
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testArtifactData)));
 
     renderComponent();
@@ -104,6 +132,7 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [[1], ['two'], [3.0], [null], [[1, null, 3]], [{ 1: null, 3: 5 }]],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testMixedTypes)));
 
     renderComponent();
@@ -133,6 +162,7 @@ describe('ShowArtifactLoggedTableView', () => {
       ],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testMixedColumnTypes)));
 
     renderComponent();
@@ -162,6 +192,7 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testEmptyData)));
     renderComponent();
 
@@ -183,6 +214,7 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testEmptyTable)));
     renderComponent();
 
@@ -211,6 +243,7 @@ describe('ShowArtifactLoggedTableView', () => {
       ],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testImageTable)));
     renderComponent();
 
@@ -227,6 +260,49 @@ describe('ShowArtifactLoggedTableView', () => {
         'src',
         expect.stringContaining('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
       );
+    });
+  });
+
+  it.each([
+    { artifactContent: ['definitely-not-object-with-columns-and-data'], testName: 'non-standard array' },
+    { artifactContent: { data: [] }, testName: 'object without columns' },
+    { artifactContent: { columns: [] }, testName: 'object without data' },
+  ])('renders error message when artifact contents is a $testName', async ({ artifactContent }) => {
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
+    jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(artifactContent)));
+
+    renderComponent();
+
+    // Wait for the render error message
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys.",
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('renders fallback column headers when column names are not provided', async () => {
+    jest.mocked(getArtifactContent).mockImplementation(() =>
+      // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
+      Promise.resolve(
+        JSON.stringify({
+          columns: ['guid', '', 'sentence', ''],
+          data: [
+            ['123', 'value_in_unnamed_column', 'Nostrud eu velit', 'value_in_unnamed_column'],
+            ['345', 'value_in_unnamed_column', 'Excepteur consectetur', 'value_in_unnamed_column'],
+          ],
+        }),
+      ),
+    );
+
+    renderComponent();
+
+    // Autogenerated fallback column headers should appear
+    await waitFor(() => {
+      expect(screen.getByRole('columnheader', { name: 'column-2' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'column-4' })).toBeInTheDocument();
     });
   });
 });

@@ -1,20 +1,22 @@
-import { compact, entries, isObject, isNil, isUndefined, reject, values, Dictionary, isEqual, sortBy } from 'lodash';
+import type { Dictionary } from 'lodash';
+import { compact, entries, isObject, isNil, isUndefined, reject, values } from 'lodash';
+import type { RunGroupByGroupingValue } from './experimentPage.row-types';
 import {
   type RowGroupRenderMetadata,
   type RowRenderMetadata,
   type RunGroupParentInfo,
   RunGroupingAggregateFunction,
   RunGroupingMode,
-  RunGroupByGroupingValue,
   RunRowVisibilityControl,
 } from './experimentPage.row-types';
 import type { SingleRunData } from './experimentPage.row-utils';
 import type { MetricEntity, RunDatasetWithTags } from '../../../types';
 import type { SampledMetricsByRun } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
-import { shouldEnableToggleIndividualRunsInGroups } from '../../../../common/utils/FeatureUtils';
+import { shouldUseRunRowsVisibilityMap } from '../../../../common/utils/FeatureUtils';
 import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
 import { removeOutliersFromMetricHistory } from '../../runs-charts/components/RunsCharts.common';
+import { type ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 
 type AggregableParamEntity = { key: string; value: string };
 type AggregableMetricEntity = { key: string; value: number; step: number; min?: number; max?: number };
@@ -25,6 +27,13 @@ export type RunsGroupByConfig = {
     mode: RunGroupingMode;
     groupByData: string;
   }[];
+};
+
+export const isGroupedBy = (groupBy: RunsGroupByConfig | null, mode: RunGroupingMode, groupByData: string) => {
+  if (!groupBy) {
+    return false;
+  }
+  return groupBy.groupByKeys.some((key) => key.mode === mode && key.groupByData === groupByData);
 };
 
 /**
@@ -77,7 +86,7 @@ export const normalizeRunsGroupByKey = (groupBy?: string | RunsGroupByConfig | n
   };
 };
 
-export const createGroupRenderMetadata = (
+const createGroupRenderMetadata = (
   groupId: string,
   expanded: boolean,
   runsInGroup: SingleRunData[],
@@ -133,6 +142,7 @@ const createGroupRenderMetadataV2 = ({
   groupingKeys,
   isRemainingRowsGroup,
   runsHidden,
+  runsVisibilityMap,
   runsHiddenMode,
   runsInGroup,
   rowCounter,
@@ -145,21 +155,35 @@ const createGroupRenderMetadataV2 = ({
   isRemainingRowsGroup: boolean;
   groupingKeys: RunGroupByGroupingValue[];
   runsHidden: string[];
+  runsVisibilityMap: Record<string, boolean>;
   runsHiddenMode: RUNS_VISIBILITY_MODE;
   rowCounter: { value: number };
   useGroupedValuesInCharts?: boolean;
 }): (RowRenderMetadata | RowGroupRenderMetadata)[] => {
+  const isRunVisible = (runUuid: string, runStatus: string) => {
+    if (shouldUseRunRowsVisibilityMap() && !isUndefined(runsVisibilityMap[runUuid])) {
+      return runsVisibilityMap[runUuid];
+    }
+    if (runsHidden.includes(runUuid)) {
+      return false;
+    }
+    if (runsHiddenMode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS) {
+      return !['FINISHED', 'FAILED', 'KILLED'].includes(runStatus);
+    }
+    return true;
+  };
+
   // For metric and runs calculation, include only visible runs in the group
   const metricsByRun = runsInGroup
-    .filter((run) => !runsHidden.includes(run.runInfo.runUuid))
+    .filter(({ runInfo }) => isRunVisible(runInfo.runUuid, runInfo.status))
     .map((run) => run.metrics || []);
   const paramsByRun = runsInGroup
-    .filter((run) => !runsHidden.includes(run.runInfo.runUuid))
+    .filter(({ runInfo }) => isRunVisible(runInfo.runUuid, runInfo.status))
     .map((run) => run.params || []);
 
   const isGroupHidden =
-    !isRemainingRowsGroup && determineIfRowIsHidden(runsHiddenMode, runsHidden, groupId, rowCounter.value);
-
+    !isRemainingRowsGroup &&
+    determineIfRowIsHidden(runsHiddenMode, runsHidden, groupId, rowCounter.value, runsVisibilityMap);
   // Increment the counter for "Show N first runs" only if the group is actually visible in charts
   const isGroupUsedInCharts = useGroupedValuesInCharts && !isRemainingRowsGroup;
 
@@ -169,7 +193,7 @@ const createGroupRenderMetadataV2 = ({
 
   const groupVisibilityControl = (() => {
     // If the individual run visibility selection is enabled then we should show the visibility control UI
-    if (shouldEnableToggleIndividualRunsInGroups() && useGroupedValuesInCharts === false) {
+    if (useGroupedValuesInCharts === false) {
       return RunRowVisibilityControl.Enabled;
     }
     // Otherwise, if the group is not used in charts, we should hide the visibility control UI
@@ -184,14 +208,14 @@ const createGroupRenderMetadataV2 = ({
     runUuids: runsInGroup.map((run) => run.runInfo.runUuid),
     runUuidsForAggregation: runsInGroup
       .map((run) => run.runInfo.runUuid)
-      .filter((runUuid) => !runsHidden.includes(runUuid)),
+      .filter((uuid, idx) => isRunVisible(uuid, runsInGroup[idx].runInfo.status)),
     aggregatedMetricEntities: aggregateValues(metricsByRun, aggregateFunction),
     aggregatedParamEntities: aggregateValues(paramsByRun, aggregateFunction),
     groupingValues: groupingKeys,
     visibilityControl: groupVisibilityControl,
     isRemainingRunsGroup: isRemainingRowsGroup,
     hidden: isGroupHidden,
-    allRunsHidden: runsInGroup.every((run) => runsHidden.includes(run.runInfo.runUuid)),
+    allRunsHidden: runsInGroup.every((run) => !isRunVisible(run.runInfo.runUuid, run.runInfo.status)),
   };
 
   // Create an array for resulting table rows
@@ -205,9 +229,15 @@ const createGroupRenderMetadataV2 = ({
 
         // If the group is not visible in charts, the run row has to determine its own visibility.
         const isRowHidden = !isGroupUsedInCharts
-          ? determineIfRowIsHidden(runsHiddenMode, runsHidden, runInfo.runUuid, rowCounter.value)
-          : runsHidden.includes(runInfo.runUuid);
-
+          ? determineIfRowIsHidden(
+              runsHiddenMode,
+              runsHidden,
+              runInfo.runUuid,
+              rowCounter.value,
+              runsVisibilityMap,
+              runInfo.status,
+            )
+          : !isRunVisible(runInfo.runUuid, runInfo.status);
         // Increment the counter for "Show N first runs" only if the group itself is not visible in charts
         if (!isGroupUsedInCharts) {
           rowCounter.value++;
@@ -525,14 +555,18 @@ export const getGroupedRowRenderMetadata = ({
   groupsExpanded,
   runData,
   groupBy,
+  searchFacetsState,
   runsHidden = [],
+  runsVisibilityMap = {},
   runsHiddenMode = RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
   useGroupedValuesInCharts,
 }: {
   groupsExpanded: Record<string, boolean>;
   runData: SingleRunData[];
   groupBy: null | RunsGroupByConfig | string;
+  searchFacetsState?: Readonly<ExperimentPageSearchFacetsState>;
   runsHidden?: string[];
+  runsVisibilityMap?: Record<string, boolean>;
   runsHiddenMode?: RUNS_VISIBILITY_MODE;
   useGroupedValuesInCharts?: boolean;
 }) => {
@@ -646,36 +680,23 @@ export const getGroupedRowRenderMetadata = ({
     // Determine if the group is expanded or not.
     const isGroupExpanded = isUndefined(groupsExpanded[groupId]) || groupsExpanded[groupId] === true;
 
-    if (shouldEnableToggleIndividualRunsInGroups()) {
-      // If the individual run visibility selection is enabled, use specialized version of group rows creation function.
-      result.push(
-        ...createGroupRenderMetadataV2({
-          groupId,
-          expanded: isGroupExpanded,
-          runsInGroup: group.runs,
-          aggregateFunction: groupByConfig.aggregateFunction,
-          isRemainingRowsGroup: false,
-          groupingKeys: group.groupingValues,
-          rowCounter,
-          runsHidden,
-          runsHiddenMode,
-          useGroupedValuesInCharts,
-        }),
-      );
-
-      return;
-    }
-
     result.push(
-      ...createGroupRenderMetadata(
+      ...createGroupRenderMetadataV2({
         groupId,
-        isGroupExpanded,
-        group.runs,
-        groupByConfig.aggregateFunction,
-        false,
-        group.groupingValues,
-      ),
+        expanded: isGroupExpanded,
+        runsInGroup: group.runs,
+        aggregateFunction: groupByConfig.aggregateFunction,
+        isRemainingRowsGroup: false,
+        groupingKeys: group.groupingValues,
+        rowCounter,
+        runsHidden,
+        runsVisibilityMap,
+        runsHiddenMode,
+        useGroupedValuesInCharts,
+      }),
     );
+
+    return;
   });
 
   // If there are any ungrouped runs, create a group for them as well.
@@ -683,37 +704,99 @@ export const getGroupedRowRenderMetadata = ({
     const groupId = createEmptyGroupId(groupByConfig);
     const isGroupExpanded = groupsExpanded[groupId] === true;
 
-    if (shouldEnableToggleIndividualRunsInGroups()) {
-      // If the individual run visibility selection is enabled, use specialized version of group rows creation function.
-      result.push(
-        ...createGroupRenderMetadataV2({
-          groupId,
-          expanded: isGroupExpanded,
-          runsInGroup: ungroupedRuns,
-          aggregateFunction: groupByConfig.aggregateFunction,
-          isRemainingRowsGroup: true,
-          groupingKeys: [],
-          rowCounter,
-          runsHidden,
-          runsHiddenMode,
-          useGroupedValuesInCharts,
-        }),
-      );
-    } else {
-      result.push(
-        ...createGroupRenderMetadata(
-          groupId,
-          isGroupExpanded,
-          ungroupedRuns,
-          groupByConfig.aggregateFunction,
-          true,
-          [],
-        ),
-      );
-    }
+    result.push(
+      ...createGroupRenderMetadataV2({
+        groupId,
+        expanded: isGroupExpanded,
+        runsInGroup: ungroupedRuns,
+        aggregateFunction: groupByConfig.aggregateFunction,
+        isRemainingRowsGroup: true,
+        groupingKeys: [],
+        rowCounter,
+        runsHidden,
+        runsVisibilityMap,
+        runsHiddenMode,
+        useGroupedValuesInCharts,
+      }),
+    );
   }
 
+  const [entity, sortKey] = extractSortKey(searchFacetsState);
+  if (entity && sortKey && searchFacetsState) {
+    const parentList: RowGroupRenderMetadata[] = [];
+    // key: parent groupId, value: list of parent group's children
+    const childrenMap: Map<string, RowRenderMetadata[]> = new Map();
+
+    for (const res of result) {
+      if ('groupId' in res) {
+        parentList.push(res);
+      } else {
+        const parentGroupId = res.rowUuid.replace(`.${res.runInfo.runUuid}`, ''); // dont forget .
+        const groupList = childrenMap.get(parentGroupId) ?? [];
+        groupList.push(res);
+        childrenMap.set(parentGroupId, groupList);
+      }
+    }
+
+    const orderByAscVal = searchFacetsState.orderByAsc ? 1 : -1;
+    parentList.sort((a, b) => {
+      switch (entity) {
+        case 'metrics':
+          const aMetricSoryKeyValue = a.aggregatedMetricEntities.find((agg) => agg.key === sortKey)?.value;
+          const bMetricSoryKeyValue = b.aggregatedMetricEntities.find((agg) => agg.key === sortKey)?.value;
+          if (
+            aMetricSoryKeyValue !== undefined &&
+            bMetricSoryKeyValue !== undefined &&
+            aMetricSoryKeyValue !== bMetricSoryKeyValue
+          ) {
+            return aMetricSoryKeyValue > bMetricSoryKeyValue ? orderByAscVal : -orderByAscVal;
+          }
+          return 0;
+        case 'params':
+          const aParamSortKeyValue = a.aggregatedParamEntities.find((agg) => agg.key === sortKey)?.value;
+          const bParamSortKeyValue = b.aggregatedParamEntities.find((agg) => agg.key === sortKey)?.value;
+          if (
+            aParamSortKeyValue !== undefined &&
+            bParamSortKeyValue !== undefined &&
+            aParamSortKeyValue !== bParamSortKeyValue
+          ) {
+            return aParamSortKeyValue > bParamSortKeyValue ? orderByAscVal : -orderByAscVal;
+          }
+          return 0;
+        default:
+          return 0;
+      }
+    });
+
+    const sortedResultList: (RowGroupRenderMetadata | RowRenderMetadata)[] = [];
+    for (const parent of parentList) {
+      sortedResultList.push(parent);
+      if (childrenMap.has(parent.groupId)) {
+        // no need to sort childenList because `result` is already sorted
+        const childenList = childrenMap.get(parent.groupId) ?? [];
+        sortedResultList.push(...childenList);
+      }
+    }
+    return sortedResultList;
+  }
   return result;
+};
+
+const extractSortKey = (
+  searchFacetsState?: ExperimentPageSearchFacetsState,
+): ['metrics' | 'params' | undefined, string | undefined] => {
+  if (!searchFacetsState) {
+    return [undefined, undefined];
+  }
+  const { orderByKey } = searchFacetsState;
+  const regex = /^(metrics|params)\.`(.*?)`$/;
+  const match = orderByKey.match(regex);
+  if (match && match.length === 3) {
+    const entity = match[1] === 'metrics' || match[1] === 'params' ? match[1] : undefined;
+    const sortKey = match[2];
+    return [entity, sortKey];
+  }
+  return [undefined, undefined];
 };
 
 export const createSearchFilterFromRunGroupInfo = (groupInfo: RunGroupParentInfo) =>

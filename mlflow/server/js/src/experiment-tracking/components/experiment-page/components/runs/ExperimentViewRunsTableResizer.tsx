@@ -15,10 +15,14 @@ export const ExperimentViewRunsTableResizer = ({
   width,
   onResize,
   children,
+  onHiddenChange,
+  maxWidth,
 }: React.PropsWithChildren<{
   runListHidden: boolean;
   width: number;
   onResize: React.Dispatch<React.SetStateAction<number>>;
+  onHiddenChange?: (isHidden: boolean) => void;
+  maxWidth: number | undefined;
 }>) => {
   const updateUIState = useUpdateExperimentViewUIState();
   const [dragging, setDragging] = useState(false);
@@ -32,10 +36,15 @@ export const ExperimentViewRunsTableResizer = ({
         axis="x"
         resizeHandles={['e']}
         minConstraints={[250, 0]}
+        maxConstraints={maxWidth === undefined ? undefined : [maxWidth, 0]}
         handle={
           <ExperimentViewRunsTableResizerHandle
             runListHidden={runListHidden}
             updateRunListHidden={(value) => {
+              if (onHiddenChange) {
+                onHiddenChange(value);
+                return;
+              }
               updateUIState((state) => ({ ...state, runListHidden: value }));
             }}
           />
@@ -64,10 +73,7 @@ export const ExperimentViewRunsTableResizer = ({
   );
 };
 
-/**
- * Internal use component: resizer handle for the runs table resizer
- */
-const ExperimentViewRunsTableResizerHandle = React.forwardRef<
+export const ExperimentViewRunsTableResizerHandle = React.forwardRef<
   HTMLDivElement,
   {
     updateRunListHidden: (newValue: boolean) => void;
@@ -149,7 +155,7 @@ const ExperimentViewRunsTableResizerHandle = React.forwardRef<
           bottom: 0,
           backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
         }}
-      ></div>
+      />
     </div>
   );
 });

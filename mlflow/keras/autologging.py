@@ -9,15 +9,15 @@ import mlflow
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.exceptions import MlflowException
 from mlflow.keras.callback import MlflowCallback
 from mlflow.keras.save import log_model
 from mlflow.keras.utils import get_model_signature
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils import is_iterator
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
-    PatchFunction,
     autologging_integration,
     get_autologging_config,
     log_fn_args_as_params,
@@ -38,7 +38,7 @@ def _check_existing_mlflow_callback(callbacks):
             )
 
 
-def _log_dataset(dataset, source, context, name=None, targets=None):
+def _log_dataset(dataset, source, context, name=None, targets=None, model_id=None):
     """Helper function to log the dataset information to MLflow."""
     try:
         import tensorflow as tf
@@ -66,7 +66,8 @@ def _log_dataset(dataset, source, context, name=None, targets=None):
         _logger.warning(f"Unrecognized dataset type {type(dataset)}. Dataset logging skipped.")
         return
 
-    mlflow.log_input(dataset, context)
+    model = LoggedModelInput(model_id=model_id) if model_id else None
+    mlflow.log_input(dataset, context, model=model)
 
 
 def _parse_dataset(*keras_fit_args, **keras_fit_kwargs):
@@ -87,6 +88,7 @@ def _log_keras_model(
     save_exported_model,
     log_model_signatures=True,
     save_model_kwargs=None,
+    model_id=None,
 ):
     """Helper function to log the Keras model to MLflow."""
     if log_model_signatures:
@@ -105,10 +107,10 @@ def _log_keras_model(
         signature=signature,
         registered_model_name=get_autologging_config("keras", "registered_model_name", None),
         save_model_kwargs=save_model_kwargs,
+        model_id=model_id,
     )
 
 
-@experimental
 @autologging_integration("keras")
 def autolog(
     log_every_epoch=True,
@@ -196,76 +198,83 @@ def autolog(
             model.fit(data, label, batch_size=4, epochs=2)
     """
 
-    class FitPatch(PatchFunction):
-        def __init__(self):
-            pass
+    def _patched_inference(original, inst, *args, **kwargs):
+        unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
-        def _infer_batch_size(self, inst, *args, **kwargs):
-            batch_size = None
-            if "batch_size" in kwargs:
-                batch_size = kwargs["batch_size"]
-            else:
-                training_data = kwargs["x"] if "x" in kwargs else args[0]
-                if _batch_size := getattr(training_data, "batch_size", None):
-                    batch_size = _batch_size
-                elif _batch_size := getattr(training_data, "_batch_size", None):
-                    batch_size = (
-                        _batch_size if isinstance(_batch_size, int) else _batch_size.numpy()
-                    )
-                elif is_iterator(training_data):
-                    is_single_input_model = isinstance(inst.input_shape, tuple)
-                    peek = next(training_data)
-                    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
+        batch_size, args, kwargs = _infer_batch_size(inst, *args, **kwargs)
 
-                    def origin_training_data_generator_fn():
-                        yield peek
-                        yield from training_data
+        if batch_size is not None:
+            mlflow.log_param("batch_size", batch_size)
+            unlogged_params.append("batch_size")
 
-                    origin_training_data = origin_training_data_generator_fn()
+        log_fn_args_as_params(original, [], kwargs, unlogged_params)
+        model_id = None
+        if log_models:
+            model_id = _initialize_logged_model("model", flavor="keras").model_id
 
-                    if "x" in kwargs:
-                        kwargs["x"] = origin_training_data
-                    else:
-                        args = (origin_training_data,) + args[1:]
-            return batch_size, args, kwargs
+        if log_datasets:
+            try:
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(tags=context_tags)
+                x, y = _parse_dataset(*args, **kwargs)
+                _log_dataset(x, source, "train", targets=y, model_id=model_id)
 
-        def _patch_implementation(self, original, inst, *args, **kwargs):
-            unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
+                if "validation_data" in kwargs:
+                    _log_dataset(kwargs["validation_data"], source, "eval", model_id=model_id)
 
-            batch_size, args, kwargs = self._infer_batch_size(inst, *args, **kwargs)
+            except Exception as e:
+                _logger.warning(f"Failed to log dataset information to MLflow. Reason: {e}")
 
-            if batch_size is not None:
-                mlflow.log_param("batch_size", batch_size)
-                unlogged_params.append("batch_size")
+        # Add `MlflowCallback` to the callback list.
+        callbacks = args[5] if len(args) >= 6 else kwargs.get("callbacks", [])
+        mlflow_callback = MlflowCallback(
+            log_every_epoch=log_every_epoch,
+            log_every_n_steps=log_every_n_steps,
+            model_id=model_id,
+        )
+        _check_existing_mlflow_callback(callbacks)
+        callbacks.append(mlflow_callback)
+        kwargs["callbacks"] = callbacks
+        history = original(inst, *args, **kwargs)
 
-            log_fn_args_as_params(original, [], kwargs, unlogged_params)
-
-            if log_datasets:
-                try:
-                    context_tags = context_registry.resolve_tags()
-                    source = CodeDatasetSource(tags=context_tags)
-                    x, y = _parse_dataset(*args, **kwargs)
-                    _log_dataset(x, source, "train", targets=y)
-
-                    if "validation_data" in kwargs:
-                        _log_dataset(kwargs["validation_data"], source, "eval")
-
-                except Exception as e:
-                    _logger.warning(f"Failed to log dataset information to MLflow. Reason: {e}")
-
-            # Add `MlflowCallback` to the callback list.
-            callbacks = args[5] if len(args) >= 6 else kwargs.get("callbacks", [])
-            mlflow_callback = MlflowCallback(
-                log_every_epoch=log_every_epoch,
-                log_every_n_steps=log_every_n_steps,
+        if log_models:
+            _log_keras_model(
+                inst,
+                save_exported_model,
+                log_model_signatures,
+                save_model_kwargs,
+                model_id=model_id,
             )
-            _check_existing_mlflow_callback(callbacks)
-            callbacks.append(mlflow_callback)
-            kwargs["callbacks"] = callbacks
-            history = original(inst, *args, **kwargs)
+        return history
 
-            if log_models:
-                _log_keras_model(inst, save_exported_model, log_model_signatures, save_model_kwargs)
-            return history
+    safe_patch(
+        "keras", keras.Model, "fit", _patched_inference, manage_run=True, extra_tags=extra_tags
+    )
 
-    safe_patch("keras", keras.Model, "fit", FitPatch, manage_run=True, extra_tags=extra_tags)
+
+def _infer_batch_size(inst, *args, **kwargs):
+    batch_size = None
+    if "batch_size" in kwargs:
+        batch_size = kwargs["batch_size"]
+    else:
+        training_data = kwargs["x"] if "x" in kwargs else args[0]
+        if _batch_size := getattr(training_data, "batch_size", None):
+            batch_size = _batch_size
+        elif _batch_size := getattr(training_data, "_batch_size", None):
+            batch_size = _batch_size if isinstance(_batch_size, int) else _batch_size.numpy()
+        elif is_iterator(training_data):
+            is_single_input_model = isinstance(inst.input_shape, tuple)
+            peek = next(training_data)
+            batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
+
+            def origin_training_data_generator_fn():
+                yield peek
+                yield from training_data
+
+            origin_training_data = origin_training_data_generator_fn()
+
+            if "x" in kwargs:
+                kwargs["x"] = origin_training_data
+            else:
+                args = (origin_training_data,) + args[1:]
+    return batch_size, args, kwargs

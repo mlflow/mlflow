@@ -7,6 +7,14 @@ import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import type { CellContext, ColumnDefTemplate } from '@tanstack/react-table';
 import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 import { getTraceInfoInputs, getTraceInfoOutputs, isTraceMetadataPossiblyTruncated } from './TracesView.utils';
+import { CodeSnippet } from '@databricks/web-shared/snippet';
+import { css } from '@emotion/react';
+
+const clampedLinesCss = css`
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+`;
 
 const TracesViewTablePreviewCell = ({
   value,
@@ -43,38 +51,42 @@ const TracesViewTablePreviewCell = ({
     setLoading(false);
   }, [previewFieldName, traceId]);
 
+  const valuePossiblyTruncated = isTraceMetadataPossiblyTruncated(value);
+
   const expand = useCallback(async () => {
-    if (!fullData) {
+    if (!fullData && valuePossiblyTruncated) {
       await fetchFullData();
     }
     setIsExpanded(true);
-  }, [fullData, fetchFullData]);
+  }, [fullData, fetchFullData, valuePossiblyTruncated]);
 
   const collapse = useCallback(() => {
     setIsExpanded(false);
   }, []);
 
-  const showExpander = isTraceMetadataPossiblyTruncated(value);
-
   return (
     <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-      {showExpander && (
-        <Button
-          componentId="mlflow.experiment_page.traces_table.expand_cell_preview"
-          size="small"
-          icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-          onClick={isExpanded ? collapse : expand}
-          css={{ flexShrink: 0 }}
-          loading={loading}
-          type="primary"
-        />
-      )}
+      <Button
+        // it's difficult to distinguish between run and experiment page
+        // in this component due to how the data is passed to the table,
+        // so the base component ID here is simply `mlflow.traces`
+        componentId="mlflow.traces.traces_table.expand_cell_preview"
+        size="small"
+        icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+        onClick={isExpanded ? collapse : expand}
+        css={{ flexShrink: 0 }}
+        loading={loading}
+        type="primary"
+      />
       <div
         title={value}
-        css={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}
+        css={[
+          {
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          },
+          !isExpanded && clampedLinesCss,
+        ]}
       >
         {isExpanded ? <ExpandedParamCell value={fullData ?? value} /> : value}
       </div>
@@ -83,6 +95,8 @@ const TracesViewTablePreviewCell = ({
 };
 
 const ExpandedParamCell = ({ value }: { value: string }) => {
+  const { theme } = useDesignSystemTheme();
+
   const structuredJSONValue = useMemo(() => {
     // Attempts to parse the value as JSON and returns a pretty printed version if successful.
     // If JSON structure is not found, returns null.
@@ -101,7 +115,16 @@ const ExpandedParamCell = ({ value }: { value: string }) => {
         fontFamily: structuredJSONValue ? 'monospace' : undefined,
       }}
     >
-      {structuredJSONValue || value}
+      <CodeSnippet
+        language="json"
+        wrapLongLines
+        style={{
+          padding: theme.spacing.sm,
+        }}
+        theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+      >
+        {structuredJSONValue || value}
+      </CodeSnippet>
     </div>
   );
 };

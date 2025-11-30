@@ -1,23 +1,55 @@
-from typing import List, Literal, Optional
+"""
+This module defines the schemas for the MLflow AI Gateway's chat endpoint.
 
-from pydantic import Field
+The schemas must be compatible with OpenAI's Chat Completion API.
+https://platform.openai.com/docs/api-reference/chat
+
+NB: These Pydantic models just alias the models defined in mlflow.types.chat to avoid code
+    duplication, but with the addition of RequestModel and ResponseModel base classes.
+"""
+
+from typing import Literal
+
+from pydantic import ConfigDict, Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
-from mlflow.gateway.config import IS_PYDANTIC_V2
+
+# Import marked with noqa is for backward compatibility
+from mlflow.types.chat import (
+    ChatChoice,
+    ChatChoiceDelta,
+    ChatChunkChoice,
+    ChatCompletionChunk,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    ChatMessage,
+    ChatUsage,  # noqa F401
+    Function,  # noqa F401
+    FunctionToolDefinition,
+    ToolCall,  # noqa F401
+    ToolCallDelta,  # noqa F401
+)
+
+# NB: `import x as y` does not work and will cause a Pydantic error.
+StreamDelta = ChatChoiceDelta
+StreamChoice = ChatChunkChoice
+RequestMessage = ChatMessage
 
 
-class RequestMessage(RequestModel):
-    role: str
-    content: str
+class UnityCatalogFunctionToolDefinition(RequestModel):
+    name: str
 
 
-class BaseRequestPayload(RequestModel):
-    temperature: float = Field(0.0, ge=0, le=2)
-    n: int = Field(1, ge=1)
-    stop: Optional[List[str]] = Field(None, min_items=1)
-    max_tokens: Optional[int] = Field(None, ge=1)
-    stream: Optional[bool] = None
-    model: Optional[str] = None
+class ChatToolWithUC(RequestModel):
+    """
+    A tool definition for the chat endpoint with Unity Catalog integration.
+    The Gateway request accepts a special tool type 'uc_function' for Unity Catalog integration.
+    https://mlflow.org/docs/latest/llms/deployments/uc_integration.html
+    """
+
+    type: Literal["function", "uc_function"]
+    function: FunctionToolDefinition | None = None
+    uc_function: UnityCatalogFunctionToolDefinition | None = None
 
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
@@ -33,43 +65,11 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 }
 
 
-class RequestPayload(BaseRequestPayload):
-    messages: List[RequestMessage] = Field(..., min_items=1)
+class RequestPayload(ChatCompletionRequest, RequestModel):
+    messages: list[RequestMessage] = Field(..., min_length=1)
+    tools: list[ChatToolWithUC] | None = None
 
-    class Config:
-        if IS_PYDANTIC_V2:
-            json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
-
-
-class Function(ResponseModel):
-    name: str
-    arguments: str
-
-
-class ToolCall(ResponseModel):
-    id: str
-    type: Literal["function"]
-    function: Function
-
-
-class ResponseMessage(ResponseModel):
-    role: str
-    content: Optional[str]
-    tool_calls: Optional[List[ToolCall]] = None
-
-
-class Choice(ResponseModel):
-    index: int
-    message: ResponseMessage
-    finish_reason: Optional[str] = None
-
-
-class ChatUsage(ResponseModel):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    model_config = ConfigDict(json_schema_extra=_REQUEST_PAYLOAD_EXTRA_SCHEMA)
 
 
 _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -90,30 +90,23 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 }
 
 
-class ResponsePayload(ResponseModel):
-    id: Optional[str] = None
-    object: str = "chat.completion"
-    created: int
-    model: str
-    choices: List[Choice]
-    usage: ChatUsage
-
-    class Config:
-        if IS_PYDANTIC_V2:
-            json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+class ResponseMessage(ChatMessage, ResponseModel):
+    # Override the `tool_call_id` field to be excluded from the response.
+    # This is a band-aid solution to avoid exposing the tool_call_id in the response,
+    # while we use the same ChatMessage model for both request and response.
+    tool_call_id: str | None = Field(None, exclude=True)
 
 
-class StreamDelta(ResponseModel):
-    role: Optional[str] = None
-    content: Optional[str] = None
+class Choice(ChatChoice, ResponseModel):
+    # Override the `message` field to use the ResponseMessage model.
+    message: ResponseMessage
 
 
-class StreamChoice(ResponseModel):
-    index: int
-    finish_reason: Optional[str] = None
-    delta: StreamDelta
+class ResponsePayload(ChatCompletionResponse, ResponseModel):
+    # Override the `choices` field to use the Choice model
+    choices: list[Choice]
+
+    model_config = ConfigDict(json_schema_extra=_RESPONSE_PAYLOAD_EXTRA_SCHEMA)
 
 
 _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -133,15 +126,5 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 }
 
 
-class StreamResponsePayload(ResponseModel):
-    id: Optional[str] = None
-    object: str = "chat.completion.chunk"
-    created: int
-    model: str
-    choices: List[StreamChoice]
-
-    class Config:
-        if IS_PYDANTIC_V2:
-            json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
+class StreamResponsePayload(ChatCompletionChunk, ResponseModel):
+    model_config = ConfigDict(json_schema_extra=_STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA)

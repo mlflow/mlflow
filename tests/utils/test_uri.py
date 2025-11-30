@@ -191,7 +191,7 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
 
     def create_char_case(special_char):
         def char_case(*case_args):
-            return tuple([item.format(c=special_char) for item in case_args])
+            return tuple(item.format(c=special_char) for item in case_args)
 
         return char_case
 
@@ -755,6 +755,7 @@ def test_negative_detection(uri):
         "path",
         "path/",
         "path/to/file",
+        "dog%step%100%timestamp%100",
     ],
 )
 def test_validate_path_is_safe_good(path):

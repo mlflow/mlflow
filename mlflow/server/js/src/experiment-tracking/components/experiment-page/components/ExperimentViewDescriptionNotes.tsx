@@ -1,20 +1,21 @@
-import { ExperimentEntity, KeyValueEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import {
   Button,
   ChevronDownIcon,
   ChevronUpIcon,
   Modal,
   PencilIcon,
-  LegacyTooltip,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { useFetchExperiments } from '../hooks/useFetchExperiments';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
+import 'react-mde/lib/styles/css/react-mde-all.css';
 import ReactMde, { SvgIcon } from 'react-mde';
 import {
   forceAnchorTagNewTab,
@@ -22,6 +23,8 @@ import {
   sanitizeConvertedHtml,
 } from '../../../../common/utils/MarkdownUtils';
 import { FormattedMessage } from 'react-intl';
+import { setExperimentTagApi } from '../../../actions';
+import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
@@ -47,11 +50,15 @@ export const ExperimentViewDescriptionNotes = ({
   editing,
   setEditing,
   setShowAddDescriptionButton,
+  onNoteUpdated,
+  defaultValue,
 }: {
   experiment: ExperimentEntity;
   editing: boolean;
   setEditing: (editing: boolean) => void;
   setShowAddDescriptionButton: (show: boolean) => void;
+  onNoteUpdated?: () => void;
+  defaultValue?: string;
 }) => {
   const storedNote = useSelector((state) => {
     const tags = getExperimentTags(experiment.experimentId, state);
@@ -59,7 +66,8 @@ export const ExperimentViewDescriptionNotes = ({
   });
   setShowAddDescriptionButton(!storedNote);
 
-  const [tmpNote, setTmpNote] = useState(storedNote);
+  const effectiveNote = storedNote || defaultValue;
+  const [tmpNote, setTmpNote] = useState(effectiveNote);
   const [selectedTab, setSelectedTab] = useState<'write' | 'preview' | undefined>('write');
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -71,29 +79,34 @@ export const ExperimentViewDescriptionNotes = ({
   const MAX_EDITOR_HEIGHT = 500;
   const MIN_PREVIEW_HEIGHT = 20;
 
-  const {
-    actions: { setExperimentTagApi },
-  } = useFetchExperiments();
-
   const dispatch = useDispatch<ThunkDispatch>();
 
   const handleSubmitEditNote = useCallback(
-    (updatedNote: any) => {
+    (updatedNote?: string) => {
       setEditing(false);
       setShowAddDescriptionButton(!updatedNote);
       const action = setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote);
-      dispatch(action);
+      dispatch(action).then(onNoteUpdated);
     },
-    [experiment.experimentId, setExperimentTagApi, dispatch, setEditing, setShowAddDescriptionButton],
+    [experiment.experimentId, dispatch, setEditing, setShowAddDescriptionButton, onNoteUpdated],
   );
 
   return (
-    <div>
-      {tmpNote && (
+    <div
+      css={
+        shouldEnableExperimentPageSideTabs()
+          ? {
+              paddingBottom: theme.spacing.sm,
+              borderBottom: `1px solid ${theme.colors.border}`,
+            }
+          : undefined
+      }
+    >
+      {effectiveNote && (
         <div
           style={{
-            whiteSpace: isExpanded ? 'normal' : 'pre',
-            lineHeight: theme.typography.lineHeightSm,
+            whiteSpace: isExpanded ? 'normal' : 'pre-wrap',
+            lineHeight: theme.typography.lineHeightLg,
             background: theme.colors.backgroundSecondary,
             display: 'flex',
             alignItems: 'flex-start',
@@ -108,11 +121,12 @@ export const ExperimentViewDescriptionNotes = ({
               overflowWrap: isExpanded ? 'break-word' : undefined,
               padding: `${theme.spacing.sm}px ${PADDING_HORIZONTAL}px`,
               maxHeight: isExpanded ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
+              wordBreak: 'break-word',
             }}
           >
             <div
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(tmpNote) }}
+              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(effectiveNote) }}
             />
           </div>
           <Button
@@ -158,7 +172,7 @@ export const ExperimentViewDescriptionNotes = ({
           setEditing(false);
         }}
         onCancel={() => {
-          setTmpNote(storedNote);
+          setTmpNote(effectiveNote);
           setEditing(false);
         }}
       >
@@ -174,11 +188,11 @@ export const ExperimentViewDescriptionNotes = ({
             onTabChange={(newTab) => setSelectedTab(newTab)}
             generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
             getIcon={(name) => (
-              <LegacyTooltip title={name}>
+              <Tooltip componentId="mlflow.experiment-tracking.experiment-description.edit" content={name}>
                 <span css={{ color: theme.colors.textPrimary }}>
                   <SvgIcon icon={name} />
                 </span>
-              </LegacyTooltip>
+              </Tooltip>
             )}
           />
         </React.Fragment>

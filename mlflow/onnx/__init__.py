@@ -8,10 +8,11 @@ ONNX (native) format
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
+# TEMPORARY: Trigger CI - remove this comment after CI runs
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -102,6 +103,7 @@ def save_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    **kwargs,  # pylint: disable=unused-argument
 ):
     """
     Save an ONNX model to a path on the local file system.
@@ -149,6 +151,7 @@ def save_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        kwargs: {{ kwargs }}
     """
     import onnx
 
@@ -259,8 +262,7 @@ class _OnnxModelWrapper:
             providers = ONNX_EXECUTION_PROVIDERS
 
         sess_options = onnxruntime.SessionOptions()
-        options = model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options")
-        if options:
+        if options := model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options"):
             if inter_op_num_threads := options.get("inter_op_num_threads"):
                 sess_options.inter_op_num_threads = inter_op_num_threads
             if intra_op_num_threads := options.get("intra_op_num_threads"):
@@ -325,7 +327,7 @@ class _OnnxModelWrapper:
                     feeds[input_name] = feed.astype(np.float32)
         return feeds
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
@@ -448,7 +450,7 @@ def load_model(model_uri, dst_path=None):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     onnx_model,
-    artifact_path,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -461,13 +463,20 @@ def log_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
+    **kwargs,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
     Args:
         onnx_model: ONNX model to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -513,6 +522,13 @@ def log_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
+        kwargs: {{ kwargs }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -520,6 +536,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.onnx,
         onnx_model=onnx_model,
         conda_env=conda_env,
@@ -534,4 +551,10 @@ def log_model(
         onnx_session_options=onnx_session_options,
         metadata=metadata,
         save_as_external_data=save_as_external_data,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
+        **kwargs,
     )

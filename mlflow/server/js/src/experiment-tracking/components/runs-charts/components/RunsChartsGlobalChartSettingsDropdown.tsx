@@ -1,11 +1,11 @@
 import { Button, CheckIcon, DropdownMenu, GearIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
-import { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
 import { isUndefined } from 'lodash';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
 import { useCallback } from 'react';
 import { LineSmoothSlider } from '../../LineSmoothSlider';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { RunsChartsUIConfigurationSetter } from '../hooks/useRunsChartsUIConfiguration';
+import type { RunsChartsUIConfigurationSetter } from '../hooks/useRunsChartsUIConfiguration';
 
 export const RunsChartsGlobalChartSettingsDropdown = ({
   globalLineChartConfig,
@@ -41,12 +41,16 @@ export const RunsChartsGlobalChartSettingsDropdown = ({
 
   return (
     <DropdownMenu.Root modal={false}>
-      <Tooltip content={label}>
+      <Tooltip
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsglobalchartsettingsdropdown.tsx_44"
+        content={label}
+      >
         <DropdownMenu.Trigger asChild>
           <Button
             componentId="mlflow.charts.controls.global_chart_setup_dropdown"
             icon={<GearIcon />}
             aria-label={label}
+            css={{ flexShrink: 0 }}
           />
         </DropdownMenu.Trigger>
       </Tooltip>
@@ -156,7 +160,7 @@ export const RunsChartsGlobalChartSettingsDropdown = ({
               min={0}
               max={100}
               onChange={(lineSmoothness) => updateGlobalLineChartSettings({ lineSmoothness })}
-              defaultValue={lineSmoothness ? lineSmoothness : 0}
+              value={lineSmoothness ? lineSmoothness : 0}
             />
           </div>
         </DropdownMenu.Group>

@@ -4,7 +4,6 @@ import json
 import logging
 import sys
 
-import mlflow
 from mlflow.pyfunc import scoring_server
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
 
@@ -16,7 +15,8 @@ parser.add_argument("--model-uri")
 args = parser.parse_args()
 
 _logger.info("Loading model from %s", args.model_uri)
-model = mlflow.pyfunc.load_model(args.model_uri)
+
+model = scoring_server.load_model_with_mlflow_config(args.model_uri)
 input_schema = model.metadata.get_input_schema()
 _logger.info("Loaded model")
 
@@ -31,7 +31,7 @@ for line in sys.stdin:
     data = scoring_server.infer_and_parse_data(data, input_schema)
 
     _logger.info("Making predictions")
-    if inspect.signature(model.predict).parameters.get("params"):
+    if "params" in inspect.signature(model.predict).parameters:
         preds = model.predict(data, params=params)
     else:
         _log_warning_if_params_not_in_predict_signature(_logger, params)

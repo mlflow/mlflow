@@ -1,5 +1,6 @@
+import { describe, it, expect } from '@jest/globals';
 import { getCommonArtifacts } from './getCommonArtifacts';
-import { ArtifactListFilesResponse } from '../../../types';
+import type { ArtifactListFilesResponse } from '../../../types';
 
 describe('getCommonArtifacts', () => {
   it('returns an empty array if no runs are provided', () => {
@@ -53,6 +54,20 @@ describe('getCommonArtifacts', () => {
       } as ArtifactListFilesResponse,
       run2: {
         files: [] as any,
+      } as ArtifactListFilesResponse,
+    };
+
+    const result = getCommonArtifacts(artifactsKeyedByRun);
+    expect(result).toEqual([]);
+  });
+
+  it('filters out directories', () => {
+    const artifactsKeyedByRun = {
+      run1: {
+        files: [{ path: 'artifact1', is_dir: true }],
+      } as ArtifactListFilesResponse,
+      run2: {
+        files: [{ path: 'artifact1', is_dir: true }],
       } as ArtifactListFilesResponse,
     };
 

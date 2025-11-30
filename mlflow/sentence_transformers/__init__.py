@@ -2,7 +2,7 @@ import json
 import logging
 import pathlib
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -27,7 +28,6 @@ from mlflow.types.llm import (
     EMBEDDING_MODEL_OUTPUT_SCHEMA,
 )
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import (
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
@@ -69,8 +69,7 @@ _LOCAL_SNAPSHOT_PATH_PATTERN = re.compile(r"/([0-9a-zA-Z-]+)_([^\/]+)/$")
 _logger = logging.getLogger(__name__)
 
 
-@experimental
-def get_default_pip_requirements() -> List[str]:
+def get_default_pip_requirements() -> list[str]:
     """
     Retrieves the set of minimal dependencies for the ``sentence_transformers`` flavor.
 
@@ -84,7 +83,6 @@ def get_default_pip_requirements() -> List[str]:
     return [_get_pinned_requirement(module) for module in base_reqs]
 
 
-@experimental
 def get_default_conda_env():
     """
     Returns:
@@ -94,10 +92,9 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 def _verify_task_and_update_metadata(
-    task: str, metadata: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+    task: str, metadata: dict[str, Any] | None = None
+) -> dict[str, Any]:
     if task not in [_LLM_INFERENCE_TASK_EMBEDDING]:
         raise MlflowException.invalid_parameter_value(
             f"Received invalid parameter value for `task` argument {task}. Task type could "
@@ -114,23 +111,21 @@ def _verify_task_and_update_metadata(
     return metadata
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
     path: str,
-    task: Optional[str] = None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    task: str | None = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """
     .. note::
@@ -170,7 +165,6 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
     """
     import sentence_transformers
 
@@ -185,9 +179,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(
-        mlflow_model, input_example, path, no_conversion=example_no_conversion
-    )
+    saved_example = _save_example(mlflow_model, input_example, path)
 
     if task is not None:
         signature = ModelSignature(
@@ -259,7 +251,7 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-def _get_transformers_model_metadata(model) -> Dict[str, str]:
+def _get_transformers_model_metadata(model) -> dict[str, str]:
     """
     Extract metadata about the underlying Transformers model, such as the model class name
     and the repository id.
@@ -299,24 +291,29 @@ def _get_transformers_model_name(model_name_or_path):
     return model_name_or_path
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def log_model(  # noqa: D417
+def log_model(
     model,
-    artifact_path: str,
-    task: Optional[str] = None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
-    registered_model_name: Optional[str] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
+    artifact_path: str | None = None,
+    task: str | None = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    registered_model_name: str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
+    metadata: dict[str, Any] | None = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
 ):
     """
     .. note::
@@ -343,7 +340,7 @@ def log_model(  # noqa: D417
         with mlflow.start_run():
             mlflow.sentence_transformers.log_model(
                 model=model,
-                artifact_path="sbert_model",
+                name="sbert_model",
                 signature=signature,
                 input_example=data,
             )
@@ -352,7 +349,7 @@ def log_model(  # noqa: D417
 
     Args:
         model: A trained ``sentence-transformers`` model.
-        artifact_path: Local path destination for the serialized model to be saved.
+        artifact_path: Deprecated. Use `name` instead.
         task: MLflow inference task type for ``sentence-transformers`` model. Candidate task type
             is `llm/v1/embeddings`.
         inference_config:
@@ -363,8 +360,7 @@ def log_model(  # noqa: D417
             These values are not applied to a returned model from a call to
             ``mlflow.sentence_transformers.load_model()``
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -377,17 +373,27 @@ def log_model(  # noqa: D417
             call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
             with valid model inputs and valid model outputs.
         input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
+        prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
 
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.sentence_transformers,
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
@@ -400,7 +406,12 @@ def log_model(  # noqa: D417
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        example_no_conversion=example_no_conversion,
+        prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
@@ -418,7 +429,7 @@ def _get_load_kwargs():
     return load_kwargs
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):  # noqa: D417
+def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
 
@@ -434,9 +445,8 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):  # noqa: 
     return _SentenceTransformerModelWrapper(model, task)
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: Optional[str] = None):
+def load_model(model_uri: str, dst_path: str | None = None):
     """
     Load a ``sentence_transformers`` object from a local file or a run.
 
@@ -498,7 +508,7 @@ class _SentenceTransformerModelWrapper:
         """
         return self.model
 
-    def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
+    def predict(self, sentences, params: dict[str, Any] | None = None):
         """
         Args:
             sentences: Model input data.

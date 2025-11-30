@@ -7,12 +7,12 @@ import {
   Radio,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import {
+import type {
   RunsChartsCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsLineChartExpression,
-  RunsChartsLineChartYAxisType,
 } from '../runs-charts.types';
+import { RunsChartsLineChartYAxisType } from '../runs-charts.types';
 import { RunsChartsConfigureField } from './config/RunsChartsConfigure.common';
 import { FormattedMessage } from 'react-intl';
 import { shouldEnableChartExpressions } from '@mlflow/mlflow/src/common/utils/FeatureUtils';

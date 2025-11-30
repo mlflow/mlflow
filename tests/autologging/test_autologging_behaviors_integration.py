@@ -28,7 +28,6 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.xgboost: "xgboost",
     mlflow.lightgbm: "lightgbm",
     mlflow.pytorch: "torch",
-    mlflow.fastai: "fastai",
     mlflow.statsmodels: "statsmodels",
     mlflow.spark: "pyspark",
     mlflow.pyspark.ml: "pyspark",
@@ -44,7 +43,7 @@ def import_integration_libraries():
 
 @pytest.fixture(autouse=True)
 def disable_autologging_at_test_end():
-    # The yeild statement is to insure that code below is executed as teardown code.
+    # The yield statement is to insure that code below is executed as teardown code.
     # This will avoid bleeding of an active autologging session from test suite.
     yield
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
@@ -80,9 +79,10 @@ def test_autologging_integrations_expose_configs_and_support_disablement(integra
 
 @pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
 def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration):
-    with mock.patch("mlflow.utils.gorilla.apply", wraps=gorilla.apply) as gorilla_mock, mock.patch(
-        integration.__name__ + ".safe_patch", wraps=safe_patch
-    ) as safe_patch_mock:
+    with (
+        mock.patch("mlflow.utils.gorilla.apply", wraps=gorilla.apply) as gorilla_mock,
+        mock.patch(integration.__name__ + ".safe_patch", wraps=safe_patch) as safe_patch_mock,
+    ):
         # In `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`,
         # we enable autologging for XGBoost and LightGBM sklearn models
         # using `mlflow.sklearn._autolog()`. So besides `safe_patch` calls in
@@ -133,7 +133,9 @@ def test_autolog_respects_exclusive_flag(setup_sklearn_model):
     model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
-    metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+    metrics = run_data.metrics
+    params = run_data.params
+    tags = run_data.tags
     assert not metrics
     assert not params
     assert all("mlflow." in key for key in tags)
@@ -143,7 +145,8 @@ def test_autolog_respects_exclusive_flag(setup_sklearn_model):
     model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
-    metrics, params = run_data.metrics, run_data.params
+    metrics = run_data.metrics
+    params = run_data.params
     assert metrics
     assert params
 
@@ -156,7 +159,9 @@ def test_autolog_respects_disable_flag(setup_sklearn_model):
     model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
-    metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+    metrics = run_data.metrics
+    params = run_data.params
+    tags = run_data.tags
     assert not metrics
     assert not params
     assert all("mlflow." in key for key in tags)
@@ -166,7 +171,8 @@ def test_autolog_respects_disable_flag(setup_sklearn_model):
     model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
-    metrics, params = run_data.metrics, run_data.params
+    metrics = run_data.metrics
+    params = run_data.params
     assert metrics
     assert params
 
@@ -214,7 +220,9 @@ def test_autolog_respects_disable_flag_across_import_orders():
         svc.fit(iris.data, iris.target)
         mlflow.end_run()
         run_data = MlflowClient().get_run(run.info.run_id).data
-        metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+        metrics = run_data.metrics
+        params = run_data.params
+        tags = run_data.tags
         assert not metrics
         assert not params
         assert all("mlflow." in key for key in tags)
@@ -256,13 +264,13 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
     iris = datasets.load_iris()
 
     def train_model():
-        import sklearn.utils
+        from joblib import parallel_backend
         from sklearn import svm
         from sklearn.model_selection import GridSearchCV
 
         parameters = {"kernel": ("linear", "rbf"), "C": [1, 10]}
         svc = svm.SVC()
-        with sklearn.utils.parallel_backend(backend="threading"):
+        with parallel_backend(backend="threading"):
             clf = GridSearchCV(svc, parameters)
             clf.fit(iris.data, iris.target)
 
@@ -273,11 +281,8 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
     mlflow.autolog(silent=True)
     mlflow.sklearn.autolog(silent=True, log_input_examples=True)
 
-    executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
-        for _ in range(2):
-            e = executor.submit(train_model)
-            executions.append(e)
+        executions = [executor.submit(train_model) for _ in range(2)]
 
     assert all(e.result() is True for e in executions)
     assert not stream.getvalue()
@@ -291,11 +296,8 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
 
     mlflow.sklearn.autolog(silent=False, log_input_examples=True)
 
-    executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
-        for _ in range(100):
-            e = executor.submit(train_model)
-            executions.append(e)
+        executions = [executor.submit(train_model) for _ in range(100)]
 
     assert all(e.result() is True for e in executions)
     assert stream.getvalue()

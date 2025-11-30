@@ -8,7 +8,7 @@ from watchfiles import watch
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.gateway import app
-from mlflow.gateway.config import _load_route_config
+from mlflow.gateway.config import _load_gateway_config
 from mlflow.gateway.utils import kill_child_processes
 
 _logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ def monitor_config(config_path: str) -> Generator[None, None, None]:
             continue
 
         try:
-            _load_route_config(config_path)
+            _load_gateway_config(config_path)
         except Exception as e:
             _logger.warning("Invalid configuration: %s", e)
             continue

@@ -83,8 +83,7 @@ def doctor(mask_envs=False):
     if (runtime := get_databricks_runtime_version()) is not None:
         items.append(("Databricks runtime version", runtime))
 
-    active_run = mlflow.active_run()
-    if active_run:
+    if active_run := mlflow.active_run():
         items.extend(
             [
                 ("Active experiment ID", active_run.info.experiment_id),
@@ -104,8 +103,13 @@ def doctor(mask_envs=False):
             )
         )
 
+    try:
+        requires = importlib_metadata.requires("mlflow")
+    except importlib_metadata.PackageNotFoundError:
+        requires = importlib_metadata.requires("mlflow-skinny")
+
     mlflow_dependencies = {}
-    for req in importlib_metadata.requires("mlflow"):
+    for req in requires:
         req = Requirement(req)
         try:
             dist = importlib_metadata.distribution(req.name)

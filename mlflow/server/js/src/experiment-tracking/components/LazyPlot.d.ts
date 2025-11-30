@@ -1,3 +1,3 @@
-import { PlotParams } from 'react-plotly.js';
+import type { PlotParams } from 'react-plotly.js';
 
 export const LazyPlot: (props: PlotParams) => EmotionJSX.Element;

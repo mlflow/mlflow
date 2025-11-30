@@ -92,7 +92,7 @@ if __name__ == "__main__":
     mlflow.log_metric("rmse", rmse)
     mlflow.log_metric("r2", r2)
     mlflow.log_metric("mae", mae)
-    mlflow.sklearn.log_model(lr, "model", signature=signature)
+    mlflow.sklearn.log_model(lr, name="model", signature=signature)
 
     # Compute paths
     eps = 5e-3  # the smaller it is the longer is the path

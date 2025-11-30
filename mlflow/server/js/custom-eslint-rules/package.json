@@ -1,0 +1,12 @@
+{
+  "name": "eslint-plugin-mlflow",
+  "version": "1.0.0",
+  "description": "ESLint plugin for MLflow custom rules.",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "scripts": {
+    "test": "node --test **/*.test.js"
+  }
+}

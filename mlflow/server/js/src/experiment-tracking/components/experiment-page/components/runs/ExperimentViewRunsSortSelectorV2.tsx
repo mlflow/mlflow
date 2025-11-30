@@ -123,6 +123,7 @@ const ExperimentViewRunsSortSelectorV2Body = ({
             componentId="mlflow.experiment_page.sort_select_v2.sort_desc"
             onClick={() => setOrder(false)}
             aria-label="Sort descending"
+            data-testid="sort-select-desc"
           />
           <ToggleIconButton
             pressed={orderByAsc}
@@ -130,6 +131,7 @@ const ExperimentViewRunsSortSelectorV2Body = ({
             componentId="mlflow.experiment_page.sort_select_v2.sort_asc"
             onClick={() => setOrder(true)}
             aria-label="Sort ascending"
+            data-testid="sort-select-asc"
           />
         </div>
       </div>
@@ -140,7 +142,7 @@ const ExperimentViewRunsSortSelectorV2Body = ({
             key={sortOption.value}
             onClick={() => handleChange(sortOption.value)}
             checked={sortOption.value === orderByKey}
-            data-test-id={`sort-select-${sortOption.label}`}
+            data-testid={`sort-select-${sortOption.label}`}
             ref={index === 0 ? firstElementRef : undefined}
           >
             <DropdownMenu.ItemIndicator />
@@ -249,7 +251,7 @@ export const ExperimentViewRunsSortSelectorV2 = React.memo(
 
     return (
       <DropdownMenu.Root open={open} onOpenChange={setOpen} modal={false}>
-        <DropdownMenu.Trigger data-test-id="sort-select-dropdown" asChild>
+        <DropdownMenu.Trigger data-testid="sort-select-dropdown" asChild>
           <Button
             componentId="mlflow.experiment_page.sort_select_v2.toggle"
             icon={orderByAsc ? <SortAscendingIcon /> : <SortDescendingIcon />}

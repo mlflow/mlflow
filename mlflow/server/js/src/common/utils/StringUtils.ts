@@ -1,29 +1,22 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import _ from 'lodash';
+import { takeWhile, truncate } from 'lodash';
 // Import pako lazily to reduce bundle size
 const lazyPako = () => import('pako');
 
-export const truncateToFirstLineWithMaxLength = (str: any, maxLength: any) => {
-  const truncated = _.truncate(str, {
+export const truncateToFirstLineWithMaxLength = (str: string, maxLength: number): string => {
+  const truncated = truncate(str, {
     length: maxLength,
   });
-  return _.takeWhile(truncated, (char) => char !== '\n').join('');
+  return takeWhile(truncated, (char) => char !== '\n').join('');
 };
 
-export const capitalizeFirstChar = (str: any) => {
+export const capitalizeFirstChar = (str: unknown) => {
   if (!str || typeof str !== 'string' || str.length < 1) {
     return str;
   }
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
 
-export const middleTruncateStr = (str: any, maxLen: any) => {
+export const middleTruncateStr = (str: string, maxLen: number) => {
   if (str.length > maxLen) {
     const firstPartLen = Math.floor((maxLen - 3) / 2);
     const lastPartLen = maxLen - 3 - firstPartLen;
@@ -33,7 +26,7 @@ export const middleTruncateStr = (str: any, maxLen: any) => {
   }
 };
 
-export const capitalizeFirstLetter = (string: any) => {
+const capitalizeFirstLetter = (string: string) => {
   return string.charAt(0).toUpperCase() + string.slice(1);
 };
 
@@ -46,7 +39,7 @@ const _keyStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+
  *
  * @param {string} input - Text to encode
  */
-export const btoaUtf8 = (input: any) => {
+export const btoaUtf8 = (input: string) => {
   let output = '';
   let i = 0;
 
@@ -63,7 +56,8 @@ export const btoaUtf8 = (input: any) => {
     let enc4 = chr3 & 63;
 
     if (isNaN(chr2)) {
-      enc3 = enc4 = 64;
+      enc4 = 64;
+      enc3 = enc4;
     } else if (isNaN(chr3)) {
       enc4 = 64;
     }
@@ -80,7 +74,7 @@ export const btoaUtf8 = (input: any) => {
  *
  * @param {string} input - Text to decode
  */
-export const atobUtf8 = (input: any) => {
+export const atobUtf8 = (input: string) => {
   let output = '';
   let i = 0;
 
@@ -205,7 +199,13 @@ export const textDecompressDeflate = async (compressedText: string) => {
   // Buffer-based implementation
   if (typeof Buffer !== 'undefined') {
     const binaryString = Buffer.from(compressedTextWithoutPrefix, 'base64');
-    return pako.inflate(binaryString, { to: 'string' });
+    return pako.inflate(
+      // This doesn't fail in Mlflow-Copybara-Tester-Pr. TODO: check why.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore [FEINF-4084] No overload matches this call.
+      binaryString,
+      { to: 'string' },
+    );
   }
 
   // atob-based implementation
@@ -217,3 +217,10 @@ export const textDecompressDeflate = async (compressedText: string) => {
 };
 
 export const isTextCompressedDeflate = (text: string) => text.startsWith(COMPRESSED_TEXT_DEFLATE_PREFIX);
+
+/**
+ * Sanitizes a string for use in a regular expression by escaping special characters.
+ */
+export const sanitizeStringForRegexp = (str: string) => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};

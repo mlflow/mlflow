@@ -26,27 +26,27 @@ on:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   MLFLOW_RUN_SLOW_TESTS: "true"
-  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  MLFLOW_HOME: ${{ github.workspace }}
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 jobs:
   docker-build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    permissions:
+      contents: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     strategy:
       fail-fast: false
       matrix:
@@ -54,14 +54,10 @@ jobs:
         include:
           - splits: 3
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: 3.9
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -71,7 +67,8 @@ jobs:
           source ./dev/install-common-deps.sh --ml
           # transformers requires `tf-keras` when keras 3.0 is installed.
           # See https://github.com/huggingface/transformers/issues/27377 for more details.
-          python -m pip install langchain_experimental tf-keras
+          # Installing pyarrow < 18 to prevent lightgbm test pip installation resolution conflicts.
+          python -m pip install langchain_experimental tf-keras "pyarrow<18"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests

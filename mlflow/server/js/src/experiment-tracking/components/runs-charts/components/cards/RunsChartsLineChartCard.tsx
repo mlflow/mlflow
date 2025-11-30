@@ -1,50 +1,40 @@
-import { LegacySkeleton } from '@databricks/design-system';
-import { ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RunsChartsRunData, RunsChartsLineChartXAxisType, removeOutliersFromMetricHistory } from '../RunsCharts.common';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { RunsChartsRunData } from '../RunsCharts.common';
+import { RunsChartsLineChartXAxisType, removeOutliersFromMetricHistory } from '../RunsCharts.common';
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import {
   RunsChartsLineChartYAxisType,
-  type ChartRange,
   type RunsChartsCardConfig,
   type RunsChartsLineCardConfig,
 } from '../../runs-charts.types';
+import type { RunsChartCardVisibilityProps, RunsChartCardSizeProps } from './ChartCard.common';
 import {
   type RunsChartCardReorderProps,
   RunsChartCardWrapper,
   RunsChartsChartsDragGroup,
-  ChartRunsCountIndicator,
-  RunsChartCardVisibilityProps,
-  RunsChartCardSizeProps,
+  RunsChartCardLoadingPlaceholder,
 } from './ChartCard.common';
 import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
 import { compact, intersection, isEqual, isUndefined, pick, uniq } from 'lodash';
-import { useIsInViewport } from '../../hooks/useIsInViewport';
 import {
-  shouldEnableDeepLearningUIPhase3,
-  shouldUseNewRunRowsVisibilityModel,
   shouldEnableRelativeTimeDateAxis,
-  shouldEnableManualRangeControls,
-  shouldEnableHidingChartsWithNoData,
   shouldEnableChartExpressions,
-  shouldEnableDraggableChartsGridLayout,
 } from '../../../../../common/utils/FeatureUtils';
 import { findAbsoluteTimestampRangeForRelativeRange } from '../../utils/findChartStepsByTimestamp';
-import { Figure } from 'react-plotly.js';
-import { ReduxState } from '../../../../../redux-types';
+import type { Figure } from 'react-plotly.js';
+import type { ReduxState } from '../../../../../redux-types';
 import { shallowEqual, useSelector } from 'react-redux';
 import { useCompareRunChartSelectedRange } from '../../hooks/useCompareRunChartSelectedRange';
-import { MetricHistoryByName } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { MetricHistoryByName } from '@mlflow/mlflow/src/experiment-tracking/types';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
-import {
-  ExperimentChartImageDownloadFileFormat,
-  useChartImageDownloadHandler,
-} from '../../hooks/useChartImageDownloadHandler';
+import type { ExperimentChartImageDownloadFileFormat } from '../../hooks/useChartImageDownloadHandler';
+import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartMetricHistoryCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
-import { useConfirmChartCardConfigurationFn } from '../../hooks/useRunsChartsUIConfiguration';
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
-import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 import { useLineChartGlobalConfig } from '../hooks/useLineChartGlobalConfig';
 
 const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig): string => {
@@ -106,33 +96,21 @@ export const RunsChartsLineChartCard = ({
   positionInSection,
   ...reorderProps
 }: RunsChartsLineChartCardProps) => {
-  const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
-  const usingManualRangeControls = shouldEnableManualRangeControls();
-  const usingDraggableChartsGridLayout = shouldEnableDraggableChartsGridLayout();
-
   const { xAxisKey, selectedXAxisMetricKey, lineSmoothness } = useLineChartGlobalConfig(config, globalLineChartConfig);
 
   const toggleFullScreenChart = useCallback(() => {
     setFullScreenChart?.({
       config,
       title: getV2ChartTitle(config),
-      subtitle: <ChartRunsCountIndicator runsOrGroups={chartRunData} />,
+      subtitle: null,
     });
-  }, [chartRunData, config, setFullScreenChart]);
+  }, [config, setFullScreenChart]);
 
-  const slicedRuns = useMemo(() => {
-    if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden).reverse();
-    }
-    return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
-  }, [chartRunData, config]);
+  const slicedRuns = useMemo(() => chartRunData.filter(({ hidden }) => !hidden).reverse(), [chartRunData]);
 
   const isGrouped = useMemo(() => slicedRuns.some((r) => r.groupParentInfo), [slicedRuns]);
 
   const isEmptyDataset = useMemo(() => {
-    if (!shouldEnableHidingChartsWithNoData()) {
-      return false;
-    }
     const metricKeys = config.selectedMetricKeys ?? [config.metricKey];
     const metricsInRuns = slicedRuns.flatMap(({ metrics }) => Object.keys(metrics));
     return intersection(metricKeys, uniq(metricsInRuns)).length === 0;
@@ -173,22 +151,13 @@ export const RunsChartsLineChartCard = ({
 
   const { setTooltip, resetTooltip, destroyTooltip, selectedRunUuid } = useRunsChartsTooltip(
     config,
-    usingMultipleRunsHoverTooltip ? RunsChartsTooltipMode.MultipleTracesWithScanline : RunsChartsTooltipMode.Simple,
+    RunsChartsTooltipMode.MultipleTracesWithScanline,
   );
-
-  const {
-    elementRef,
-    isInViewport: isInViewportInternal,
-    isInViewportDeferred: isInViewportDeferreed,
-  } = useIsInViewport({
-    enabled: !usingDraggableChartsGridLayout,
-  });
 
   // If the chart is in fullscreen mode, we always render its body.
   // Otherwise, we only render the chart if it is in the viewport.
-  // Viewport flag is either consumed from the prop (new approach) or calculated internally (legacy).
-  const isInViewport = fullScreen || (isInViewportProp ?? isInViewportInternal);
-  const isInViewportDeferred = fullScreen || (isInViewportDeferredProp ?? isInViewportDeferreed);
+  const isInViewport = fullScreen || isInViewportProp;
+  const isInViewportDeferred = fullScreen || isInViewportDeferredProp;
 
   const { aggregateFunction } = groupBy || {};
 
@@ -207,9 +176,6 @@ export const RunsChartsLineChartCard = ({
     }
     return undefined;
   });
-
-  // Memoizes last Y-axis range. Does't use stateful value, used only in the last immediate render dowstream.
-  const yRangeLegacy = useRef<[number, number] | undefined>(undefined);
 
   const { setOffsetTimestamp, stepRange, xRangeLocal, setXRangeLocal } = useCompareRunChartSelectedRange(
     config,
@@ -297,60 +263,6 @@ export const RunsChartsLineChartCard = ({
     }
   };
 
-  const chartLayoutUpdatedLegacy = ({ layout }: Readonly<Figure>) => {
-    const { range: newYRange } = layout.yaxis || {};
-    const yRangeChanged = !isEqual(newYRange, yRangeLegacy.current);
-    if (yRangeChanged) {
-      // When user zoomed in/out or changed the Y range manually, hide the tooltip
-      destroyTooltip();
-    }
-
-    // Save the last Y range value (copy the values since plotly works on mutable arrays)
-    yRangeLegacy.current = [...(newYRange as [number, number])];
-
-    // Make sure that the x-axis is initialized
-    if (!layout.xaxis) {
-      return;
-    }
-    const { autorange, range: newXRange } = layout.xaxis;
-    if (autorange) {
-      // Remove saved range if chart is back to default viewport
-      setXRangeLocal(undefined);
-      return;
-    }
-    if (isEqual(newXRange, xRangeLocal)) {
-      // If it's the same as previous, do nothing.
-      // Note: we're doing deep comparison here because the range has
-      // to be cloned due to plotly handling values in mutable way.
-      return;
-    }
-    // If the custom range is used, memoize it
-    if (!autorange && newXRange) {
-      const ungroupedRunUuids = compact(slicedRuns.map(({ runInfo }) => runInfo?.runUuid));
-      const groupedRunUuids = slicedRuns.flatMap(({ groupParentInfo }) => groupParentInfo?.runUuids ?? []);
-
-      if (!shouldEnableRelativeTimeDateAxis() && xAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE) {
-        const timestampRange = findAbsoluteTimestampRangeForRelativeRange(
-          resultsByRunUuid,
-          [...ungroupedRunUuids, ...groupedRunUuids],
-          newXRange as [number, number],
-        );
-        setOffsetTimestamp([...(timestampRange as [number, number])]);
-      } else if (xAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE_HOURS) {
-        const timestampRange = findAbsoluteTimestampRangeForRelativeRange(
-          resultsByRunUuid,
-          [...ungroupedRunUuids, ...groupedRunUuids],
-          newXRange as [number, number],
-          1000 * 60 * 60, // Convert hours to milliseconds
-        );
-        setOffsetTimestamp([...(timestampRange as [number, number])]);
-      } else {
-        setOffsetTimestamp(undefined);
-      }
-      setXRangeLocal([...(newXRange as [number, number])]);
-    }
-  };
-
   useEffect(() => {
     destroyTooltip();
   }, [destroyTooltip, isLoading]);
@@ -403,10 +315,9 @@ export const RunsChartsLineChartCard = ({
           height: fullScreen ? '100%' : undefined,
         },
       ]}
-      ref={elementRef}
     >
       {!renderChartBody ? null : renderSkeleton ? (
-        <LegacySkeleton />
+        <RunsChartCardLoadingPlaceholder />
       ) : (
         <RunsMetricsLinePlot
           runsData={chartData}
@@ -423,9 +334,9 @@ export const RunsChartsLineChartCard = ({
           onHover={setTooltip}
           onUnhover={resetTooltip}
           selectedRunUuid={selectedRunUuid}
-          onUpdate={usingManualRangeControls ? chartLayoutUpdated : chartLayoutUpdatedLegacy}
+          onUpdate={chartLayoutUpdated}
           xRange={xRangeLocal}
-          yRange={usingManualRangeControls ? yRangeLocal : yRangeLegacy.current}
+          yRange={yRangeLocal}
           fullScreen={fullScreen}
           displayPoints={config.displayPoints}
           onSetDownloadHandler={setImageDownloadHandler}
@@ -472,7 +383,6 @@ export const RunsChartsLineChartCard = ({
       onEdit={onEdit}
       onDelete={onDelete}
       title={getV2ChartTitle(config)}
-      subtitle={<ChartRunsCountIndicator runsOrGroups={slicedRuns} />}
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
       supportedDownloadFormats={SUPPORTED_DOWNLOAD_FORMATS}

@@ -7,23 +7,12 @@ import {
   type RunsChartsCardConfig,
   type RunsChartsDifferenceCardConfig,
 } from '../../runs-charts.types';
-import {
-  type RunsChartCardReorderProps,
-  RunsChartCardWrapper,
-  RunsChartsChartsDragGroup,
-  RunsChartCardFullScreenProps,
-  ChartRunsCountIndicator,
-} from './ChartCard.common';
-import {
-  shouldEnableHidingChartsWithNoData,
-  shouldEnableNewDifferenceViewCharts,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
-import { DifferenceViewPlot } from '../charts/DifferenceViewPlot';
+import type { RunsChartCardFullScreenProps } from './ChartCard.common';
+import { type RunsChartCardReorderProps, RunsChartCardWrapper, RunsChartsChartsDragGroup } from './ChartCard.common';
 import { useConfirmChartCardConfigurationFn } from '../../hooks/useRunsChartsUIConfiguration';
 import { useIntl, FormattedMessage } from 'react-intl';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
-import { DifferenceViewPlotV2 } from '../charts/DifferenceViewPlotV2';
+import { DifferenceViewPlot } from '../charts/DifferenceViewPlot';
 
 export interface RunsChartsDifferenceChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsDifferenceCardConfig;
@@ -84,20 +73,17 @@ export const RunsChartsDifferenceChartCard = ({
     setFullScreenChart?.({
       config,
       title: config.chartName,
-      subtitle: <ChartRunsCountIndicator runsOrGroups={chartRunData} />,
+      subtitle: null,
     });
   };
 
   const [isConfigured, slicedRuns] = useMemo(() => {
     const configured = Boolean(config.compareGroups?.length);
-    if (shouldUseNewRunRowsVisibilityModel()) {
-      return [configured, chartRunData.filter(({ hidden }) => !hidden).reverse()];
-    }
-    return [configured, chartRunData.slice(0, config.runsCountToCompare || 10).reverse()];
+    return [configured, chartRunData.filter(({ hidden }) => !hidden).reverse()];
   }, [chartRunData, config]);
 
   const isEmptyDataset = useMemo(() => {
-    return shouldEnableHidingChartsWithNoData() && !isConfigured;
+    return !isConfigured;
   }, [isConfigured]);
 
   const confirmChartCardConfiguration = useConfirmChartCardConfigurationFn();
@@ -126,13 +112,6 @@ export const RunsChartsDifferenceChartCard = ({
     <>
       {!isConfigured ? (
         <NotConfiguredDifferenceChartPlaceholder onEdit={onEdit} />
-      ) : shouldEnableNewDifferenceViewCharts() ? (
-        <DifferenceViewPlotV2
-          previewData={slicedRuns}
-          groupBy={groupBy}
-          cardConfig={config}
-          setCardConfig={setCardConfig}
-        />
       ) : (
         <DifferenceViewPlot
           previewData={slicedRuns}
@@ -165,7 +144,6 @@ export const RunsChartsDifferenceChartCard = ({
       onEdit={onEdit}
       onDelete={onDelete}
       title={config.chartName}
-      subtitle={<ChartRunsCountIndicator runsOrGroups={slicedRuns} />}
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
       toggleFullScreenChart={toggleFullScreenChart}

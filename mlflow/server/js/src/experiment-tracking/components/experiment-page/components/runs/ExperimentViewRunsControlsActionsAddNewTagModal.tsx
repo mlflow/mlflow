@@ -1,6 +1,6 @@
 import { FormUI, Input, Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { KeyValueEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { KeyValueEntity } from '../../../../../common/types';
 import { useState } from 'react';
 
 export const ExperimentViewRunsControlsActionsAddNewTagModal = ({
@@ -27,6 +27,8 @@ export const ExperimentViewRunsControlsActionsAddNewTagModal = ({
     if (isTagNonEmptyAndTagKeyValid) {
       addNewTag({ key: tagKey, value: tagValue });
       setIsOpen(false);
+      setTagKey('');
+      setTagValue('');
     }
   };
 

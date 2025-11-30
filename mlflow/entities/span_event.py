@@ -1,14 +1,13 @@
 import json
-import sys
 import time
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict
 
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 
 
 @dataclass
@@ -19,7 +18,7 @@ class SpanEvent(_MlflowObject):
 
     Args:
         name: Name of the event.
-        timestamp:  The exact time the event occurred, measured in microseconds.
+        timestamp:  The exact time the event occurred, measured in nanoseconds.
             If not provided, the current time will be used.
         attributes: A collection of key-value pairs representing detailed
             attributes of the event, such as the exception stack trace.
@@ -31,7 +30,7 @@ class SpanEvent(_MlflowObject):
     # Use current time if not provided. We need to use default factory otherwise
     # the default value will be fixed to the build time of the class.
     timestamp: int = field(default_factory=lambda: int(time.time() * 1e6))
-    attributes: Dict[str, AttributeValue] = field(default_factory=dict)
+    attributes: dict[str, AttributeValue] = field(default_factory=dict)
 
     @classmethod
     def from_exception(cls, exception: Exception):
@@ -52,11 +51,8 @@ class SpanEvent(_MlflowObject):
         """Get the stacktrace of the parent error."""
         msg = repr(error)
         try:
-            if sys.version_info < (3, 10):
-                tb = traceback.format_exception(error.__class__, error, error.__traceback__)
-            else:
-                tb = traceback.format_exception(error)
-            return (msg + "\n\n".join(tb)).strip()
+            tb = traceback.format_exception(error)
+            return "".join(tb).strip()
         except Exception:
             return msg
 
@@ -68,6 +64,27 @@ class SpanEvent(_MlflowObject):
             if self.attributes
             else None,
         }
+
+    def to_otel_proto(self):
+        """
+        Convert to OpenTelemetry protobuf event format for OTLP export.
+        This is an internal method used for logging spans via OTel protocol.
+
+        Returns:
+            An OpenTelemetry protobuf Span.Event message.
+        """
+        from opentelemetry.proto.trace.v1.trace_pb2 import Span
+
+        otel_event = Span.Event()
+        otel_event.name = self.name
+        otel_event.time_unix_nano = self.timestamp
+
+        for key, value in self.attributes.items():
+            attr = otel_event.attributes.add()
+            attr.key = key
+            _set_otel_proto_anyvalue(attr.value, value)
+
+        return otel_event
 
 
 class CustomEncoder(json.JSONEncoder):

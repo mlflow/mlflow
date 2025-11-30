@@ -1,4 +1,5 @@
-import userEvent from '@testing-library/user-event-14';
+import { jest, describe, test, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 
 import { ModelVersionViewAliasEditor } from './ModelVersionViewAliasEditor';
 import { renderWithIntl, act, screen, within, findAntdOption } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
@@ -12,6 +13,7 @@ import { useEffect, useState } from 'react';
 import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
 import { Services as ModelRegistryServices } from '../../services';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // increase timeout since it's integration testing
 
 /**
@@ -26,6 +28,7 @@ class MockDatabase {
     const initialModel: ModelEntity = {
       name: 'test_model',
       creation_timestamp: 1234,
+      last_updated_timestamp: 2345,
       current_stage: '',
       email_subscription_status: 'active',
       permission_level: '',

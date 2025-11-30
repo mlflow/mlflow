@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import posixpath
@@ -8,16 +9,20 @@ import time
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.entities import (
+    AssessmentSource,
+    AssessmentSourceType,
     Dataset,
     DatasetInput,
+    Expectation,
     ExperimentTag,
+    Feedback,
     InputTag,
     LifecycleStage,
     Metric,
@@ -25,10 +30,13 @@ from mlflow.entities import (
     RunData,
     RunStatus,
     RunTag,
+    TraceInfo,
+    TraceLocation,
+    TraceState,
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
@@ -40,16 +48,15 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
-from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.utils import insecure_hash
-from mlflow.utils.file_utils import (
-    TempDir,
-    path_to_local_file_uri,
-    read_yaml,
-    write_yaml,
+from mlflow.store.tracking.file_store import FileStore, MissingConfigException
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TRACE_SCHEMA_VERSION_KEY,
+    TraceMetadataKey,
+    TraceTagKey,
 )
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_LOGGED_MODELS,
@@ -60,8 +67,9 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import MAX_EXPERIMENT_NAME_LENGTH
+from mlflow.utils.yaml_utils import read_yaml, safe_edit_yaml, write_yaml
 
-from tests.helper_functions import random_int, random_str, safe_edit_yaml
+from tests.helper_functions import random_int, random_str
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 
@@ -75,15 +83,28 @@ def store(tmp_path):
 def store_and_trace_info(store):
     exp_id = store.create_experiment("test")
     timestamp_ms = get_current_time_millis()
-    return store, store.start_trace(exp_id, timestamp_ms, {}, {})
+    return store, store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
 
 
 class TraceInfos(NamedTuple):
-    trace_infos: List[TraceInfo]
+    trace_infos: list[TraceInfo]
     store: FileStore
     exp_id: str
-    request_ids: List[str]
-    timestamps: List[int]
+    trace_ids: list[str]
+    timestamps: list[int]
 
 
 @pytest.fixture
@@ -91,17 +112,30 @@ def generate_trace_infos(store):
     exp_id = store.create_experiment("test")
     timestamps = list(range(0, 100, 10))
     trace_infos = []
-    request_ids = []
+    trace_ids = []
     for i, timestamp in enumerate(timestamps):
-        trace_info = store.start_trace(
-            exp_id,
-            timestamp,
-            {},
-            {TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
+        if i < 5:
+            state = TraceState.OK
+            execution_duration = 10
+        else:
+            state = TraceState.ERROR
+            execution_duration = 20
+
+        metadata = {TraceMetadataKey.SOURCE_RUN: f"run_{i}"} if i >= 5 else {}
+
+        trace_info = TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp,
+            execution_duration=execution_duration,
+            state=state,
+            tags={TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
+            trace_metadata=metadata,
         )
+        trace_info = store.start_trace(trace_info)
         trace_infos.append(trace_info)
-        request_ids.append(trace_info.request_id)
-    return TraceInfos(trace_infos, store, exp_id, request_ids, timestamps)
+        trace_ids.append(trace_info.trace_id)
+    return TraceInfos(trace_infos, store, exp_id, trace_ids, timestamps)
 
 
 def create_experiments(store, experiment_names):
@@ -111,6 +145,11 @@ def create_experiments(store, experiment_names):
         time.sleep(0.001)
         ids.append(store.create_experiment(name))
     return ids
+
+
+def test_file_store_deprecation_warning(tmp_path):
+    with pytest.warns(FutureWarning, match="filesystem tracking backend.*will be deprecated"):
+        FileStore(str(tmp_path / "mlruns"))
 
 
 def test_valid_root(store):
@@ -396,7 +435,7 @@ def _verify_experiment(fs, exp_id, exp_data):
 
 def _verify_logged(store, run_id, metrics, params, tags):
     run = store.get_run(run_id)
-    all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     assert len(all_metrics) == len(metrics)
     logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
     assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
@@ -580,6 +619,25 @@ def test_record_logged_model(store):
         match="Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'",
     ):
         store.record_logged_model(run_id, m.get_tags_dict())
+
+
+def test_hard_delete_logged_model(store):
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.delete_logged_model(model.model_id)
+    model_dir = store._get_model_dir(exp_id, model.model_id)
+    assert os.path.exists(model_dir)
+    store._hard_delete_logged_model(model.model_id)
+    assert not os.path.exists(model_dir)
+
+
+def test_get_deleted_logged_models(store):
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert store._get_deleted_logged_models() == []
+    store.delete_logged_model(model.model_id)
+    assert store._get_deleted_logged_models(older_than=1000000) == []
+    assert store._get_deleted_logged_models() == [model.model_id]
 
 
 def test_get_experiment(store):
@@ -970,6 +1028,7 @@ def _verify_run(store, run_id, run_data):
     # key without actually deleting it from self.run_data
     _run_info = run_info.copy()
     _run_info.pop("deleted_time", None)
+    _run_info.pop("run_uuid", None)
     assert _run_info == dict(run.info)
 
 
@@ -1144,13 +1203,86 @@ def test_get_metric_history(store):
                     assert metric.value == metric_value
 
 
-def test_get_metric_history_paginated_request_raises(store):
-    with pytest.raises(
-        MlflowException,
-        match="The FileStore backend does not support pagination for the `get_metric_history` "
-        "API.",
-    ):
-        store.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
+def test_get_metric_history_with_max_results(store):
+    exp_id = store.create_experiment("test_max_results")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test")
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    for i in range(5):
+        metric = Metric(key=metric_key, value=float(i), timestamp=1000 + i, step=i)
+        store.log_metric(run_id, metric)
+
+    # Test without max_results - should return all 5 metrics
+    all_metrics = store.get_metric_history(run_id, metric_key)
+    assert len(all_metrics) == 5
+
+    # Test with max_results=3 - should return only first 3 metrics
+    limited_metrics = store.get_metric_history(run_id, metric_key, max_results=3)
+    assert len(limited_metrics) == 3
+
+    all_values = [m.value for m in all_metrics]
+    limited_values = [m.value for m in limited_metrics]
+    assert limited_values == all_values[:3]
+
+    # Test with max_results=0 - should return no metrics
+    no_metrics = store.get_metric_history(run_id, metric_key, max_results=0)
+    assert len(no_metrics) == 0
+
+    # Test with max_results larger than available metrics - should return all metrics
+    more_metrics = store.get_metric_history(run_id, metric_key, max_results=10)
+    assert len(more_metrics) == 5
+
+
+def test_get_metric_history_with_page_token(store):
+    exp_id = store.create_experiment("test_page_token")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test")
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    for i in range(10):
+        metric = Metric(key=metric_key, value=float(i), timestamp=1000 + i, step=i)
+        store.log_metric(run_id, metric)
+
+    page_size = 4
+
+    first_page = store.get_metric_history(
+        run_id, metric_key, max_results=page_size, page_token=None
+    )
+    assert isinstance(first_page, PagedList)
+    assert first_page.token is not None
+    assert len(first_page) == 4
+
+    second_page = store.get_metric_history(
+        run_id, metric_key, max_results=page_size, page_token=first_page.token
+    )
+    assert isinstance(first_page, PagedList)
+    assert second_page.token is not None
+    assert len(second_page) == 4
+
+    third_page = store.get_metric_history(
+        run_id, metric_key, max_results=page_size, page_token=second_page.token
+    )
+    assert isinstance(first_page, PagedList)
+    assert third_page.token is None
+    assert len(third_page) == 2
+
+    all_paginated_metrics = first_page + second_page + third_page
+    assert len(all_paginated_metrics) == 10
+
+    for i, metric in enumerate(all_paginated_metrics):
+        assert metric.value == float(i)
+        assert metric.step == i
+        assert metric.timestamp == 1000 + i
+
+    # Test with invalid page_token
+    with pytest.raises(MlflowException, match="Invalid page token"):
+        store.get_metric_history(run_id, metric_key, page_token="invalid_token")
+
+    # Test pagination without max_results (should return all in one page)
+    result = store.get_metric_history(run_id, metric_key, page_token=None)
+    assert len(result) == 10
+    assert result.token is None
 
 
 def _search(
@@ -1651,7 +1783,7 @@ def test_log_param_max_length_value(store, monkeypatch):
     run = store.get_run(run_id)
     assert run.data.params[param_name] == param_value
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_param(run_id, Param(param_name, "x" * 6001))
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -1719,6 +1851,21 @@ def test_set_experiment_tags(store):
     store.delete_experiment(exp_id)
     with pytest.raises(MlflowException, match="must be in the 'active' lifecycle_stage"):
         store.set_experiment_tag(exp_id, ExperimentTag("should", "notset"))
+
+
+def test_delete_experiment_tags(store):
+    experiments, _, _ = _create_root(store)
+    store.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag0", "value0"))
+    store.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag1", "value1"))
+    experiment = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+    assert len(experiment.tags) == 2
+    assert experiment.tags["tag0"] == "value0"
+    assert experiment.tags["tag1"] == "value1"
+    # test that deleting a tag works
+    store.delete_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, "tag0")
+    experiment = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+    assert "tag0" not in experiment.tags.keys()
+    assert len(experiment.tags) == 1
 
 
 def test_set_tags(store):
@@ -1868,13 +2015,14 @@ def test_malformed_metric(store):
         run_name="first name",
     ).info.run_id
     store.log_metric(run_id, Metric("test", 1, 0, 0))
-    with mock.patch(
-        "mlflow.store.tracking.file_store.read_file_lines", return_value=["0 1 0 2\n"]
-    ), pytest.raises(
-        MlflowException,
-        match=f"Metric 'test' is malformed; persisted metric data contained "
-        f"4 fields. Expected 2 or 3 fields. "
-        f"Experiment id: {exp_id}",
+    with (
+        mock.patch("mlflow.store.tracking.file_store.read_file_lines", return_value=["0 1 0 2\n"]),
+        pytest.raises(
+            MlflowException,
+            match=f"Metric 'test' is malformed; persisted metric data contained "
+            f"4 fields. Expected 2, 3, or 5 fields. "
+            f"Experiment id: {exp_id}",
+        ),
     ):
         store.get_metric_history(run_id, "test")
 
@@ -1961,7 +2109,7 @@ def test_log_batch_max_length_value(store, monkeypatch):
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     param_entities = [Param("long param", "x" * 6001), Param("short param", "xyz")]
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_batch(run.info.run_id, (), param_entities, ())
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -1981,11 +2129,11 @@ def test_log_batch_internal_error(store):
     def _raise_exception_fn(*args, **kwargs):
         raise Exception("Some internal error")
 
-    with mock.patch(
-        FILESTORE_PACKAGE + ".FileStore._log_run_metric"
-    ) as log_metric_mock, mock.patch(
-        FILESTORE_PACKAGE + ".FileStore._log_run_param"
-    ) as log_param_mock, mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock:
+    with (
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_metric") as log_metric_mock,
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_param") as log_param_mock,
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock,
+    ):
         log_metric_mock.side_effect = _raise_exception_fn
         log_param_mock.side_effect = _raise_exception_fn
         set_tag_mock.side_effect = _raise_exception_fn
@@ -2417,7 +2565,7 @@ def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, exp
     _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[DatasetInput]):
+def assert_dataset_inputs_equal(inputs1: list[DatasetInput], inputs2: list[DatasetInput]):
     inputs1 = sorted(inputs1, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     inputs2 = sorted(inputs2, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     assert len(inputs1) == len(inputs2)
@@ -2558,7 +2706,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         # made to the input tags
         overwrite_tags = [
             InputTag(key=f"key{i}", value=f"value{i}"),
-            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(run.info.run_id, [DatasetInput(overwrite_dataset, overwrite_tags)])
 
@@ -2611,7 +2759,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         )
         new_tags = [
             InputTag(key=f"key{i}", value=f"value{i}"),
-            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(new_run.info.run_id, [DatasetInput(dataset, new_tags)])
         new_run = store.get_run(new_run.info.run_id)
@@ -2658,7 +2806,7 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         inputs_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
         expected_input_storage_ids = []
         for dataset_storage_id in dataset_storage_ids:
-            md5 = insecure_hash.md5(dataset_storage_id.encode("utf-8"))
+            md5 = hashlib.md5(dataset_storage_id.encode("utf-8"), usedforsecurity=False)
             md5.update(run.info.run_id.encode("utf-8"))
             expected_input_storage_ids.append(md5.hexdigest())
         assert set(os.listdir(inputs_dir)) == set(expected_input_storage_ids)
@@ -2874,32 +3022,32 @@ def test_search_datasets_returns_no_more_than_max_results(store):
     assert len(results) == 1000
 
 
-def test_start_trace(store):
+def test_legacy_start_trace_v2(store):
     exp_id = store.create_experiment("test")
     timestamp_ms = get_current_time_millis()
     tags = {"some_key": "test"}
-    trace_info = store.start_trace(exp_id, timestamp_ms, {}, tags)
+    trace_info = store.deprecated_start_trace_v2(exp_id, timestamp_ms, {}, tags)
     assert trace_info.request_id is not None
     assert trace_info.experiment_id == exp_id
     assert trace_info.timestamp_ms == timestamp_ms
     assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
-    assert trace_info.request_metadata == {}
     assert trace_info.tags == tags
 
     with pytest.raises(MlflowException, match=r"Experiment fake_exp_id does not exist."):
-        store.start_trace("fake_exp_id", timestamp_ms, {}, {})
+        store.deprecated_start_trace_v2("fake_exp_id", timestamp_ms, {}, {})
 
 
-def test_end_trace(store_and_trace_info):
+def test_legacy_end_trace(store_and_trace_info):
     store, trace = store_and_trace_info
     timestamp_ms = get_current_time_millis()
     request_metadata = {
         TraceMetadataKey.INPUTS: {"query": "test"},
         TraceMetadataKey.OUTPUTS: "test",
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     tags = {TraceTagKey.TRACE_NAME: "mlflow_trace"}
-    trace_info = store.end_trace(
+    trace_info = store.deprecated_end_trace_v2(
         trace.request_id, timestamp_ms, TraceStatus.OK, request_metadata, tags
     )
     assert trace_info.request_id == trace.request_id
@@ -2909,8 +3057,36 @@ def test_end_trace(store_and_trace_info):
     assert trace_info.request_metadata == {**trace.request_metadata, **request_metadata}
     assert trace_info.tags == {**trace.tags, **tags}
 
-    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_request_id' not found"):
-        store.end_trace("fake_request_id", timestamp_ms, TraceStatus.OK, request_metadata, tags)
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_request_id' not found"):
+        store.deprecated_end_trace_v2(
+            "fake_request_id", timestamp_ms, TraceStatus.OK, request_metadata, tags
+        )
+
+
+def test_start_trace(store):
+    exp_id = store.create_experiment("test_start_trace")
+    timestamp_ms = get_current_time_millis()
+    trace_info = TraceInfo(
+        trace_id=f"tr-{uuid.uuid4()}",
+        trace_location=TraceLocation.from_experiment_id(exp_id),
+        request_time=timestamp_ms,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={},
+        trace_metadata={},
+        client_request_id=f"tr-{uuid.uuid4()}",
+        request_preview=None,
+        response_preview=None,
+    )
+    new_trace_info = store.start_trace(trace_info)
+
+    assert new_trace_info.trace_id == trace_info.trace_id
+    assert new_trace_info.experiment_id == exp_id
+    assert new_trace_info.timestamp_ms == timestamp_ms
+    assert new_trace_info.execution_time_ms == 100
+    assert new_trace_info.state == TraceState.OK
+    assert new_trace_info.tags["mlflow.artifactLocation"] is not None
+    assert new_trace_info.client_request_id == trace_info.client_request_id
 
 
 def test_get_trace_info(store_and_trace_info):
@@ -2918,62 +3094,76 @@ def test_get_trace_info(store_and_trace_info):
     trace_info = store.get_trace_info(trace.request_id)
     assert trace_info == trace
 
-    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_request_id' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_request_id' not found"):
         store.get_trace_info("fake_request_id")
 
     mock_trace_info = deepcopy(trace_info)
-    mock_trace_info.request_id = "invalid_request_id"
-    with mock.patch(
-        "mlflow.store.tracking.file_store.FileStore._get_trace_info_from_dir",
-        return_value=mock_trace_info,
-    ), pytest.raises(
-        MlflowException,
-        match=rf"Trace with request ID '{trace.request_id}' metadata is in invalid state.",
+    mock_trace_info.trace_id = "invalid_request_id"
+    with (
+        mock.patch(
+            "mlflow.store.tracking.file_store.FileStore._get_trace_info_from_dir",
+            return_value=mock_trace_info,
+        ),
+        pytest.raises(
+            MlflowException,
+            match=rf"Trace with ID '{trace.request_id}' metadata is in invalid state.",
+        ),
     ):
-        store.get_trace_info(trace.request_id)
+        store.get_trace_info(trace.trace_id)
 
 
 def test_set_trace_tag(store_and_trace_info):
     store, trace = store_and_trace_info
-    store.set_trace_tag(trace.request_id, "some_key", "a")
-    trace_info = store.get_trace_info(trace.request_id)
+    store.set_trace_tag(trace.trace_id, "some_key", "a")
+    trace_info = store.get_trace_info(trace.trace_id)
     assert trace_info.tags["some_key"] == "a"
 
     # test overwrite
-    store.set_trace_tag(trace.request_id, "some_key", "test")
-    trace_info = store.get_trace_info(trace.request_id)
+    store.set_trace_tag(trace.trace_id, "some_key", "test")
+    trace_info = store.get_trace_info(trace.trace_id)
     assert trace_info.tags["some_key"] == "test"
 
     # test value written as string
-    store.set_trace_tag(trace.request_id, "int_key", 1234)
-    trace_info = store.get_trace_info(trace.request_id)
+    store.set_trace_tag(trace.trace_id, "int_key", 1234)
+    trace_info = store.get_trace_info(trace.trace_id)
     assert trace_info.tags["int_key"] == "1234"
 
+    # test value length
+    store.set_trace_tag(trace.trace_id, "key", "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE)
+    trace_info = store.get_trace_info(trace.trace_id)
+    assert trace_info.tags["key"] == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
+
     with pytest.raises(MlflowException, match=r"Missing value for required parameter \'key\'"):
-        store.set_trace_tag(trace.request_id, None, "test")
+        store.set_trace_tag(trace.trace_id, None, "test")
 
 
 def test_delete_trace_tag(store_and_trace_info):
     store, trace = store_and_trace_info
-    store.set_trace_tag(trace.request_id, "some_key", "a")
-    store.delete_trace_tag(trace.request_id, "some_key")
-    trace_info = store.get_trace_info(trace.request_id)
+    store.set_trace_tag(trace.trace_id, "some_key", "a")
+    store.delete_trace_tag(trace.trace_id, "some_key")
+    trace_info = store.get_trace_info(trace.trace_id)
     assert "some_key" not in trace_info.tags
 
     with pytest.raises(
         MlflowException,
-        match=rf"No tag with name: invalid_key in trace with request_id {trace.request_id}.",
+        match=rf"No tag with name: invalid_key in trace with ID {trace.trace_id}.",
     ):
-        store.delete_trace_tag(trace.request_id, "invalid_key")
+        store.delete_trace_tag(trace.trace_id, "invalid_key")
 
 
 def test_delete_traces(store):
     exp_id = store.create_experiment("test")
-    request_ids = []
+    trace_ids = []
     timestamps = list(range(90, -1, -10))
     for i in range(10):
-        trace_info = store.start_trace(exp_id, timestamps[i], {}, {})
-        request_ids.append(trace_info.request_id)
+        trace_info = TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamps[i],
+            state=TraceState.OK,
+        )
+        trace_info = store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
 
     # delete with max_timestamp_millis
     # if max_traces < number of traces with timestamp < max_timestamp_millis,
@@ -2983,29 +3173,29 @@ def test_delete_traces(store):
     assert store.delete_traces(exp_id, max_timestamp_millis=50) == 4
     assert len(store.search_traces([exp_id])[0]) == 4
 
-    # delete with request_ids
-    assert store.delete_traces(exp_id, request_ids=[request_ids[3]]) == 1
+    # delete with trace_ids
+    assert store.delete_traces(exp_id, trace_ids=[trace_ids[3]]) == 1
     assert len(store.search_traces([exp_id])[0]) == 3
-    assert store.delete_traces(exp_id, request_ids=["non_existing_request_id"]) == 0
+    assert store.delete_traces(exp_id, trace_ids=["non_existing_trace_id"]) == 0
     assert len(store.search_traces([exp_id])[0]) == 3
-    assert store.delete_traces(exp_id, request_ids=request_ids) == 3
+    assert store.delete_traces(exp_id, trace_ids=trace_ids) == 3
     assert len(store.search_traces([exp_id])[0]) == 0
 
     with pytest.raises(
         MlflowException,
-        match=r"Either `max_timestamp_millis` or `request_ids` must be specified.",
+        match=r"Either `max_timestamp_millis` or `trace_ids` must be specified.",
     ):
         store.delete_traces(exp_id)
     with pytest.raises(
         MlflowException,
-        match=r"Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+        match=r"Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
     ):
-        store.delete_traces(exp_id, max_timestamp_millis=100, request_ids=request_ids)
+        store.delete_traces(exp_id, max_timestamp_millis=100, trace_ids=trace_ids)
     with pytest.raises(
         MlflowException,
-        match=r"`max_traces` can't be specified if `request_ids` is specified.",
+        match=r"`max_traces` can't be specified if `trace_ids` is specified.",
     ):
-        store.delete_traces(exp_id, max_traces=2, request_ids=request_ids)
+        store.delete_traces(exp_id, max_traces=2, trace_ids=trace_ids)
     with pytest.raises(
         MlflowException, match=r"`max_traces` must be a positive integer, received 0"
     ):
@@ -3028,8 +3218,7 @@ def test_search_traces_filter(generate_trace_infos):
     trace_infos = generate_trace_infos.trace_infos
     store = generate_trace_infos.store
     exp_id = generate_trace_infos.exp_id
-    request_ids = generate_trace_infos.request_ids
-    timestamps = generate_trace_infos.timestamps
+    trace_ids = generate_trace_infos.trace_ids
 
     # by default sort by timestamp_ms DESC, request_id ASC
     _validate_search_traces(store, [exp_id], None, trace_infos[::-1])
@@ -3040,36 +3229,27 @@ def test_search_traces_filter(generate_trace_infos):
     _validate_search_traces(store, [exp_id], "name != 'trace_0'", trace_infos[1:][::-1])
 
     # filter by status
-    _validate_search_traces(store, [exp_id], "status = 'IN_PROGRESS'", trace_infos[::-1])
-    _validate_search_traces(store, [exp_id], "status != 'IN_PROGRESS'", [])
-    for i in range(2):
-        trace_infos[i] = store.end_trace(request_ids[i], timestamps[i] + 10, TraceStatus.OK, {}, {})
-    for i in range(2, 5):
-        trace_infos[i] = store.end_trace(
-            request_ids[i], timestamps[i] + 20, TraceStatus.ERROR, {}, {}
-        )
     _validate_search_traces(
         store,
         [exp_id],
         "status IN ('IN_PROGRESS', 'OK')",
-        (trace_infos[:2] + trace_infos[5:])[::-1],
+        (trace_infos[:5])[::-1],
     )
     _validate_search_traces(
-        store, [exp_id], "status NOT IN ('IN_PROGRESS', 'OK')", trace_infos[2:5][::-1]
+        store, [exp_id], "status NOT IN ('IN_PROGRESS', 'OK')", trace_infos[5:][::-1]
     )
-
     # filter by status w/ attributes. or trace. prefix
     _validate_search_traces(
         store,
         [exp_id],
         "trace.status = 'ERROR'",
-        trace_infos[2:5][::-1],
+        trace_infos[5:][::-1],
     )
     _validate_search_traces(
         store,
         [exp_id],
         "attributes.status IN ('IN_PROGRESS', 'OK')",
-        (trace_infos[:2] + trace_infos[5:])[::-1],
+        (trace_infos[:5])[::-1],
     )
 
     # filter by timestamp
@@ -3082,49 +3262,37 @@ def test_search_traces_filter(generate_trace_infos):
         _validate_search_traces(store, [exp_id], f"{timestamp_key} != 100", trace_infos[::-1])
 
     # filter by request_id
-    _validate_search_traces(store, [exp_id], f"request_id = '{request_ids[0]}'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], f"request_id = '{trace_ids[0]}'", [trace_infos[0]])
     _validate_search_traces(
-        store, [exp_id], f"request_id != '{request_ids[0]}'", trace_infos[1:][::-1]
+        store, [exp_id], f"request_id != '{trace_ids[0]}'", trace_infos[1:][::-1]
     )
-    _validate_search_traces(
-        store, [exp_id], f"request_id IN ('{request_ids[0]}')", [trace_infos[0]]
-    )
+    _validate_search_traces(store, [exp_id], f"request_id IN ('{trace_ids[0]}')", [trace_infos[0]])
     _validate_search_traces(
         store,
         [exp_id],
-        f"request_id NOT IN ('{request_ids[0]}')",
+        f"request_id NOT IN ('{trace_ids[0]}')",
         trace_infos[1:][::-1],
     )
 
     # filter by execution_time
     for execution_time_key in ["execution_time", "execution_time_ms"]:
         _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} = 10", trace_infos[:2][::-1]
+            store, [exp_id], f"{execution_time_key} = 10", trace_infos[:5][::-1]
         )
         # value None is always seen as not-match
         _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} != 10", trace_infos[2:5][::-1]
+            store, [exp_id], f"{execution_time_key} != 10", trace_infos[5:][::-1]
         )
         _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} > 10", trace_infos[2:5][::-1]
+            store, [exp_id], f"{execution_time_key} > 10", trace_infos[5:][::-1]
         )
         _validate_search_traces(store, [exp_id], f"{execution_time_key} < 10", [])
+        _validate_search_traces(store, [exp_id], f"{execution_time_key} >= 10", trace_infos[::-1])
         _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} >= 10", trace_infos[:5][::-1]
-        )
-        _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} <= 10", trace_infos[:2][::-1]
+            store, [exp_id], f"{execution_time_key} <= 10", trace_infos[:5][::-1]
         )
 
     # filter by run_id
-    for i in range(5, 10):
-        trace_infos[i] = store.end_trace(
-            request_ids[i],
-            timestamps[i] + 30,
-            TraceStatus.ERROR,
-            {TraceMetadataKey.SOURCE_RUN: f"run_{i}"},
-            {},
-        )
     _validate_search_traces(store, [exp_id], "run_id = 'run_5'", [trace_infos[5]])
     _validate_search_traces(store, [exp_id], "run_id != 'run_5'", trace_infos[6:][::-1])
 
@@ -3147,28 +3315,34 @@ def test_search_traces_filter(generate_trace_infos):
     )
 
 
-def test_search_traces_filter_request_metadata(store):
+def test_search_traces_filter_trace_metadata(store):
     exp_id = store.create_experiment("test")
     timestamp_ms_1 = get_current_time_millis()
     trace_info_1 = store.start_trace(
-        exp_id,
-        timestamp_ms_1,
-        {
-            TraceMetadataKey.INPUTS: "inputs1",
-            TraceMetadataKey.OUTPUTS: "outputs1",
-        },
-        {},
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms_1,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.INPUTS: "inputs1",
+                TraceMetadataKey.OUTPUTS: "outputs1",
+            },
+        ),
     )
     time.sleep(0.001)  # ensure unique timestamps
     timestamp_ms_2 = get_current_time_millis()
     trace_info_2 = store.start_trace(
-        exp_id,
-        timestamp_ms_2,
-        {
-            TraceMetadataKey.INPUTS: "inputs2",
-            TraceMetadataKey.OUTPUTS: "outputs2",
-        },
-        {},
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms_2,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.INPUTS: "inputs2",
+                TraceMetadataKey.OUTPUTS: "outputs2",
+            },
+        ),
     )
 
     _validate_search_traces(
@@ -3214,6 +3388,46 @@ def test_search_traces_filter_request_metadata(store):
     )
 
 
+def test_search_traces_with_like_ilike_filters(generate_trace_infos):
+    trace_infos = generate_trace_infos.trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+
+    # Test LIKE operator for trace name (case-sensitive)
+    _validate_search_traces(store, [exp_id], "name LIKE 'trace_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "name LIKE 'trace_0'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], "name LIKE 'trace_1%'", [trace_infos[1]])
+    _validate_search_traces(store, [exp_id], "name LIKE 'TRACE_%'", [])  # case-sensitive
+
+    # Test ILIKE operator for trace name (case-insensitive)
+    _validate_search_traces(store, [exp_id], "name ILIKE 'TRACE_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "name ILIKE 'TRACE_0'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], "name ILIKE 'TrAcE_1'", [trace_infos[1]])
+
+    # Test LIKE operator for tags
+    _validate_search_traces(store, [exp_id], "tag.test_tag LIKE 'tag_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "tag.test_tag LIKE 'tag_0'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], "tag.test_tag LIKE 'TAG_%'", [])  # case-sensitive
+
+    # Test ILIKE operator for tags using both 'tag' and 'tags' prefix
+    _validate_search_traces(store, [exp_id], "tag.test_tag ILIKE 'TAG_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "tags.test_tag ILIKE 'TAG_0'", [trace_infos[0]])
+
+    # Test LIKE/ILIKE for run_id
+    _validate_search_traces(store, [exp_id], "run_id LIKE 'run_%'", trace_infos[5:][::-1])
+    _validate_search_traces(store, [exp_id], "run_id LIKE 'run_5'", [trace_infos[5]])
+    _validate_search_traces(store, [exp_id], "run_id ILIKE 'RUN_5'", [trace_infos[5]])
+    _validate_search_traces(store, [exp_id], "run_id ILIKE 'RUN_%'", trace_infos[5:][::-1])
+
+    # Test combined filters with LIKE/ILIKE
+    _validate_search_traces(
+        store, [exp_id], "name LIKE 'trace_%' AND status = 'OK'", trace_infos[:5][::-1]
+    )
+    _validate_search_traces(
+        store, [exp_id], "tag.test_tag ILIKE 'TAG_%' AND timestamp < 20", trace_infos[:2][::-1]
+    )
+
+
 @pytest.mark.parametrize(
     ("filter_string", "error"),
     [
@@ -3224,12 +3438,7 @@ def test_search_traces_filter_request_metadata(store):
         ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
         ("trace.status < 'OK'", r"Invalid comparator '<'"),
         ("name IN ('foo', 'bar')", r"Invalid comparator 'IN'"),
-        # We don't support LIKE/ILIKE operators for trace search because it may
-        # cause performance issues with large attributes and tags.
-        ("name LIKE 'trace_%'", r"Invalid comparator 'LIKE'"),
-        ("run_id ILIKE 'run_%'", r"Invalid comparator 'ILIKE'"),
-        ("tag.test_tag LIKE 'tag_%'", r"Invalid comparator 'LIKE'"),
-        ("tags.test_tag ILIKE 'tag_%'", r"Invalid comparator 'ILIKE'"),
+        ("feedback.correctness = 'true'", r"Assessment filtering requires database support"),
     ],
 )
 def test_search_traces_invalid_filter(generate_trace_infos, filter_string, error):
@@ -3245,7 +3454,6 @@ def test_search_traces_order(generate_trace_infos):
     trace_infos = generate_trace_infos.trace_infos
     store = generate_trace_infos.store
     exp_id = generate_trace_infos.exp_id
-    request_ids = generate_trace_infos.request_ids
     timestamps = generate_trace_infos.timestamps
     # order by timestamp
     for timestamp_key in ["timestamp", "timestamp_ms"]:
@@ -3255,12 +3463,6 @@ def test_search_traces_order(generate_trace_infos):
         )
 
     # order by execution time
-    for i in range(5):
-        trace_infos[i] = store.end_trace(request_ids[i], timestamps[i] + 10, TraceStatus.OK, {}, {})
-    for i in range(5, 10):
-        trace_infos[i] = store.end_trace(
-            request_ids[i], timestamps[i] + 20, TraceStatus.ERROR, {}, {}
-        )
     for execution_time_key in ["execution_time", "execution_time_ms"]:
         _validate_search_traces(
             store,
@@ -3295,7 +3497,16 @@ def test_search_traces_order(generate_trace_infos):
 
     # order by experiment_id
     exp_id2 = store.create_experiment("test2")
-    trace_infos.append(store.start_trace(exp_id2, timestamps[-1], {}, {}))
+    trace_info = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id2),
+            request_time=timestamps[-1],
+            state=TraceState.OK,
+        ),
+    )
+    trace_infos.append(trace_info)
+
     order = exp_id2 > exp_id
     _validate_search_traces(
         store,
@@ -3310,17 +3521,6 @@ def test_search_traces_order(generate_trace_infos):
         "",
         trace_infos[:10][::-1] + [trace_infos[-1]] if order else trace_infos[::-1],
         order_by=["experiment_id ASC"],
-    )
-
-    for i in range(10):
-        trace_infos.append(store.start_trace(exp_id2, timestamps[i], {}, {}))
-    # by default sort by timestamp DESC, request_id ASC
-    expected_trace_infos = sorted(trace_infos, key=lambda x: (-x.timestamp_ms, x.request_id))
-    _validate_search_traces(
-        store,
-        [exp_id, exp_id2],
-        "",
-        expected_trace_infos,
     )
 
 
@@ -3365,3 +3565,425 @@ def test_traces_not_listed_as_runs(tmp_path):
         with mock.patch("mlflow.store.tracking.file_store.logging.debug") as mock_debug:
             client.search_runs([run.info.experiment_id], "", ViewType.ALL, max_results=1)
             mock_debug.assert_not_called()
+
+
+def test_create_and_get_assessment(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="The response is correct and well-formatted",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.assessment_id is not None
+    assert created_feedback.assessment_id.startswith("a-")
+    assert created_feedback.trace_id == trace_info.request_id
+    assert created_feedback.create_time_ms is not None
+    assert created_feedback.name == "correctness"
+    assert created_feedback.value is True
+    assert created_feedback.rationale == "The response is correct and well-formatted"
+    assert created_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert created_feedback.span_id == "span-123"
+    assert created_feedback.valid
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa", "difficulty": "easy"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(expectation)
+    assert created_expectation.assessment_id != created_feedback.assessment_id
+    assert created_expectation.trace_id == trace_info.request_id
+    assert created_expectation.value == "The capital of France is Paris."
+    assert created_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert created_expectation.span_id == "span-456"
+    assert created_expectation.valid
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.name == "correctness"
+    assert retrieved_feedback.value is True
+    assert retrieved_feedback.rationale == "The response is correct and well-formatted"
+    assert retrieved_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert retrieved_feedback.span_id == "span-123"
+    assert retrieved_feedback.trace_id == trace_info.request_id
+    assert retrieved_feedback.valid
+
+    retrieved_expectation = store.get_assessment(
+        trace_info.request_id, created_expectation.assessment_id
+    )
+    assert retrieved_expectation.value == "The capital of France is Paris."
+    assert retrieved_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert retrieved_expectation.span_id == "span-456"
+    assert retrieved_expectation.trace_id == trace_info.request_id
+    assert retrieved_expectation.valid is None
+
+
+def test_get_assessment_errors(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_trace' not found"):
+        store.get_assessment("fake_trace", "fake_assessment")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Assessment with ID 'fake_assessment' not found for trace",
+    ):
+        store.get_assessment(trace_info.request_id, "fake_assessment")
+
+
+def test_update_assessment_feedback(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="Original rationale",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+    original_id = created_feedback.assessment_id
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        name="correctness_updated",
+        feedback=FeedbackValue(value=False),
+        rationale="Updated rationale",
+        metadata={"project": "test-project", "version": "2.0", "new_field": "added"},
+    )
+
+    assert updated_feedback.assessment_id == original_id
+    assert updated_feedback.name == "correctness_updated"
+    assert updated_feedback.value is False
+    assert updated_feedback.rationale == "Updated rationale"
+    assert updated_feedback.metadata == {
+        "project": "test-project",
+        "version": "2.0",
+        "new_field": "added",
+    }
+    assert updated_feedback.span_id == "span-123"
+    assert updated_feedback.source.source_id == "evaluator@company.com"
+    assert updated_feedback.valid is True
+
+    retrieved = store.get_assessment(trace_info.request_id, original_id)
+    assert retrieved.value is False
+    assert retrieved.name == "correctness_updated"
+    assert retrieved.rationale == "Updated rationale"
+
+
+def test_update_assessment_expectation(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(original_expectation)
+    original_id = created_expectation.assessment_id
+
+    updated_expectation = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        expectation=ExpectationValue(value="The capital and largest city of France is Paris."),
+        metadata={"context": "geography-qa", "updated": "true"},
+    )
+
+    assert updated_expectation.assessment_id == original_id
+    assert updated_expectation.name == "expected_response"
+    assert updated_expectation.value == "The capital and largest city of France is Paris."
+    assert updated_expectation.metadata == {"context": "geography-qa", "updated": "true"}
+    assert updated_expectation.span_id == "span-456"
+    assert updated_expectation.source.source_id == "annotator@company.com"
+
+
+def test_update_assessment_partial_fields(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value=5,
+        rationale="Original rationale",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        metadata={"scorer": "automated"},
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+    original_id = created_feedback.assessment_id
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        rationale="Updated rationale only",
+    )
+
+    assert updated_feedback.assessment_id == original_id
+    assert updated_feedback.name == "quality"
+    assert updated_feedback.value == 5
+    assert updated_feedback.rationale == "Updated rationale only"
+    assert updated_feedback.metadata == {"scorer": "automated"}
+
+
+def test_update_assessment_type_validation(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test_feedback",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+    created_feedback = store.create_assessment(feedback)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update expectation value on a Feedback assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_feedback.assessment_id,
+            expectation=ExpectationValue(value="This should fail"),
+        )
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="test_expectation",
+        value="original_expected",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    created_expectation = store.create_assessment(expectation)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update feedback value on an Expectation assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_expectation.assessment_id,
+            feedback=FeedbackValue(value="This should fail"),
+        )
+
+
+def test_update_assessment_errors(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_trace' not found"):
+        store.update_assessment(
+            trace_id="fake_trace", assessment_id="fake_assessment", rationale="This should fail"
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Assessment with ID 'fake_assessment' not found for trace",
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id="fake_assessment",
+            rationale="This should fail",
+        )
+
+
+def test_update_assessment_metadata_merging(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        metadata={"keep": "this", "override": "old_value", "remove_me": "will_stay"},
+    )
+
+    created = store.create_assessment(original)
+
+    updated = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=created.assessment_id,
+        metadata={"override": "new_value", "new_key": "new_value"},
+    )
+
+    expected_metadata = {
+        "keep": "this",
+        "override": "new_value",
+        "remove_me": "will_stay",
+        "new_key": "new_value",
+    }
+    assert updated.metadata == expected_metadata
+
+
+def test_update_assessment_timestamps(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created = store.create_assessment(original)
+    original_create_time = created.create_time_ms
+    original_update_time = created.last_update_time_ms
+
+    time.sleep(0.001)
+
+    updated = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=created.assessment_id,
+        name="updated_name",
+    )
+
+    assert updated.create_time_ms == original_create_time
+    assert updated.last_update_time_ms > original_update_time
+
+
+def test_create_assessment_with_overrides(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value="poor",
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
+    )
+
+    created_original = store.create_assessment(original_feedback)
+
+    override_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value="excellent",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        overrides=created_original.assessment_id,
+    )
+
+    created_override = store.create_assessment(override_feedback)
+
+    assert created_override.overrides == created_original.assessment_id
+    assert created_override.value == "excellent"
+    assert created_override.valid is True
+
+    retrieved_original = store.get_assessment(trace_info.request_id, created_original.assessment_id)
+    assert retrieved_original.valid is False
+    assert retrieved_original.value == "poor"
+
+
+def test_create_assessment_override_nonexistent(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    override_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value="excellent",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        overrides="nonexistent-assessment-id",
+    )
+
+    with pytest.raises(
+        MlflowException, match=r"Assessment with ID 'nonexistent-assessment-id' not found"
+    ):
+        store.create_assessment(override_feedback)
+
+
+def test_delete_assessment_idempotent(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="test_value",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created_feedback = store.create_assessment(feedback)
+
+    retrieved = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved.assessment_id == created_feedback.assessment_id
+
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Assessment with ID '{created_feedback.assessment_id}' not found for trace",
+    ):
+        store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+    store.delete_assessment(trace_info.request_id, "fake_assessment_id")
+
+
+def test_delete_assessment_override_behavior(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original = store.create_assessment(
+        Feedback(
+            trace_id=trace_info.request_id,
+            name="original",
+            value="original_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        ),
+    )
+
+    override = store.create_assessment(
+        Feedback(
+            trace_id=trace_info.request_id,
+            name="override",
+            value="override_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+            overrides=original.assessment_id,
+        ),
+    )
+
+    assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is False
+    assert store.get_assessment(trace_info.request_id, override.assessment_id).valid is True
+
+    store.delete_assessment(trace_info.request_id, override.assessment_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_assessment(trace_info.request_id, override.assessment_id)
+    assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is True
+
+
+def test_get_experiment_missing_and_empty_metadata_file(tmp_path):
+    fs = FileStore(str(tmp_path))
+
+    exp_id = "Demo_Experiment"
+    exp_dir = tmp_path / exp_id
+    exp_dir.mkdir()
+
+    # Missing meta.yaml — should raise MissingConfigException about missing file
+    with pytest.raises(
+        MissingConfigException, match=rf"Yaml file '.*{exp_id}[\\/]+meta.yaml' does not exist."
+    ):
+        fs._get_experiment(exp_id)
+
+    # Create an empty meta.yaml
+    (exp_dir / FileStore.META_DATA_FILE_NAME).write_text("")
+    # Should raise MissingConfigException about invalid metadata
+    with pytest.raises(MissingConfigException, match=rf"Experiment {exp_id} is invalid with empty"):
+        fs._get_experiment(exp_id)

@@ -1,0 +1,90 @@
+import { CardGroup, TitleCard } from "@site/src/components/Card";
+
+# LLM-based Scorers (LLM-as-a-Judge)
+
+LLM-as-a-Judge is an evaluation approach that uses Large Language Models to assess the quality of AI-generated responses. LLM judges can evaluate subjective qualities like helpfulness and safety, which are hard to measure with heuristic metrics. On the other hand, LLM-as-a-Judge scorers are more scalable and cost-effective than human evaluation.
+
+## Approaches for Creating LLM Scorers
+
+MLflow offers different approaches to use LLM-as-a-Judge, with different levels of simplicity and control. Click on the card below to see the detailed guide for each approach.
+
+<CardGroup cols={1}>
+    <TitleCard
+        title="Template-based Scorers"
+        headerRight={<span>Simplicity: ★★★☆☆ &nbsp;&nbsp; Control: ★★★★☆</span>}
+        link="/genai/eval-monitor/scorers/llm-judge/make-judge"
+    >
+      - **Best for**: Creating custom LLM judges with natural language instructions. Includes built-in versioning and human feedback alignment.
+      - **How it works**: Define evaluation criteria using template variables (`inputs`, `outputs`, `expectations`) in plain English. MLflow can automatically optimize the judge template with human feedback for improved accuracy.
+      - **Requires**: MLflow >= 3.4.0
+    </TitleCard>
+    <TitleCard
+        title="Guidelines-based Scorers"
+        headerRight={<span>Simplicity: ★★★★☆ &nbsp;&nbsp; Control: ★★★☆☆</span>}
+        link="/genai/eval-monitor/scorers/llm-judge/guidelines"
+    >
+      - **Best for**: Evaluations based on a simple set of natural language criteria, framed as pass/fail conditions. Ideal for checking compliance with rules, style guides, or information inclusion/exclusion.
+      - **How it works**: You provide a set of plain-language rules that refer to specific inputs or outputs from your app, for example 'The response must be polite'. An LLM then determines if the guideline passes or fails and provides a rationale. You can think of it as a simpler version of prompt-based judge.
+    </TitleCard>
+    <TitleCard
+        title="Predefined Scorers"
+        headerRight={<span>Simplicity: ★★★★★ &nbsp;&nbsp; Control: ★☆☆☆☆</span>}
+        link="/genai/eval-monitor/scorers/llm-judge/predefined"
+    >
+      - **Best for**: Quickly trying MLflow's LLM evaluation capabilities with a few lines of code.
+      - **How it works**: Select from a list of built-in classes such as Correctness, RetrievalGroundedness, etc. MLflow constructs inputs for the judge using predefined prompt templates.
+    </TitleCard>
+</CardGroup>
+
+## Selecting Judge Models
+
+By default, MLflow will use **OpenAI's GPT-4o-mini** model as the judge model. You can change the judge model by passing an override to the `model` argument within the scorer definition. The model must be specified in the format of `<provider>:/<model-name>`.
+
+```python
+from mlflow.genai.scorers import Correctness
+
+Correctness(model="openai:/gpt-4o-mini")
+Correctness(model="anthropic:/claude-4-opus")
+Correctness(model="google:/gemini-2.0-flash")
+```
+
+### Supported Models
+
+MLflow supports all major LLM providers:
+
+- OpenAI / Azure OpenAI
+- Anthropic
+- Amazon Bedrock
+- Cohere
+- Together AI
+- Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
+
+To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
+
+:::info
+
+In Databricks, the default model is set to <ins>[Databricks's research-backed LLM judges](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/judges/)</ins>.
+
+:::
+
+### Choosing the Right LLM for Your Judge
+
+The choice of LLM model significantly impacts judge performance and cost. Here's guidance based on your development stage and use case:
+
+**Early Development Stage (Inner Loop)**
+
+- **Recommended**: Start with powerful models like GPT-4o or Claude Opus
+- **Why**: When you're beginning your agent development journey, you typically lack:
+  - Use-case-specific grading criteria
+  - Labeled data for optimization
+- **Benefits**: More intelligent models can deeply explore traces, identify patterns, and help you understand common issues in your system
+- **Trade-off**: Higher cost, but lower evaluation volume during development makes this acceptable
+
+**Production & Scaling Stage**
+
+- **Recommended**: Transition to smaller models (GPT-4o-mini, Claude Haiku) with smarter optimizers
+- **Why**: As you move toward production:
+  - You've collected labeled data and established grading criteria
+  - Cost becomes a critical factor at scale
+  - You can align smaller judges using more powerful optimizers
+- **Approach**: Use a smaller judge model paired with a powerful optimizer model (e.g., GPT-4o-mini judge aligned using Claude Opus optimizer)

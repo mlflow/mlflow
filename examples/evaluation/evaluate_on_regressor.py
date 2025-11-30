@@ -4,8 +4,6 @@ from sklearn.model_selection import train_test_split
 
 import mlflow
 
-mlflow.sklearn.autolog()
-
 california_housing_data = fetch_california_housing()
 
 X_train, X_test, y_train, y_test = train_test_split(
@@ -14,10 +12,10 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 with mlflow.start_run() as run:
     model = LinearRegression().fit(X_train, y_train)
-    model_uri = mlflow.get_artifact_uri("model")
+    model_info = mlflow.sklearn.log_model(model, name="model")
 
     result = mlflow.evaluate(
-        model_uri,
+        model_info.model_uri,
         X_test,
         targets=y_test,
         model_type="regressor",

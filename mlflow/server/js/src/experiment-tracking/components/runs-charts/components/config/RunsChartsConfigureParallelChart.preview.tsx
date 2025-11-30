@@ -1,12 +1,13 @@
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import LazyParallelCoordinatesPlot from '../charts/LazyParallelCoordinatesPlot';
-import { processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
+import { isParallelChartConfigured, processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { RunsChartsParallelCardConfig } from '../../runs-charts.types';
+import type { RunsChartsParallelCardConfig } from '../../runs-charts.types';
 import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { Empty, NoIcon } from '@databricks/design-system';
+import { RunsChartCardLoadingPlaceholder } from '../cards/ChartCard.common';
 
 export const RunsChartsConfigureParallelChartPreview = ({
   previewData,
@@ -17,10 +18,7 @@ export const RunsChartsConfigureParallelChartPreview = ({
   cardConfig: RunsChartsParallelCardConfig;
   groupBy: RunsGroupByConfig | null;
 }) => {
-  const selectedParamsCount = cardConfig.selectedParams?.length || 0;
-  const selectedMetricsCount = cardConfig.selectedMetrics?.length || 0;
-
-  const isConfigured = selectedParamsCount + selectedMetricsCount >= 2;
+  const isConfigured = isParallelChartConfigured(cardConfig);
 
   const { setTooltip, resetTooltip } = useRunsChartsTooltip(cardConfig);
 
@@ -65,6 +63,7 @@ export const RunsChartsConfigureParallelChartPreview = ({
       axesRotateThreshold={6}
       onHover={setTooltip}
       onUnhover={resetTooltip}
+      fallback={<RunsChartCardLoadingPlaceholder />}
     />
   ) : (
     <Empty

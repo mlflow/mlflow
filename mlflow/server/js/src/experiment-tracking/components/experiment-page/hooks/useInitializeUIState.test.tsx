@@ -1,5 +1,6 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
-import { useInitializeUIState } from './useInitializeUIState';
+import { generateExperimentHash, useInitializeUIState } from './useInitializeUIState';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { loadExperimentViewState } from '../utils/persistSearchFacets';
 import {
@@ -9,13 +10,20 @@ import {
 } from '../models/ExperimentPageUIState';
 import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { RunsChartType } from '../../runs-charts/runs-charts.types';
+import { expandedEvaluationRunRowsUIStateInitializer } from '../utils/expandedRunsViewStateInitializer';
+import { createBaseExperimentEntity, createBaseRunsData, createBaseRunsInfoEntity } from '../utils/test-utils';
 
 const experimentIds = ['experiment_1'];
 
 jest.mock('../utils/persistSearchFacets');
-jest.mock('../../../../common/utils/FeatureUtils');
+jest.mock('../utils/expandedRunsViewStateInitializer', () => ({
+  expandedEvaluationRunRowsUIStateInitializer: jest.fn(),
+}));
 
 const initialUIState = createExperimentPageUIState();
+const baseRunsData = createBaseRunsData();
+const experiment1 = createBaseExperimentEntity();
+const runInfoEntity1 = createBaseRunsInfoEntity();
 
 describe('useInitializeUIState', () => {
   beforeEach(() => {
@@ -103,5 +111,181 @@ describe('useInitializeUIState', () => {
       groupsExpanded: {},
       autoRefreshEnabled: true,
     });
+  });
+
+  describe('seedInitialUIState', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    const runsData = { ...baseRunsData, runInfos: [runInfoEntity1] };
+
+    test('should not seed UI state if there are no experiments or runs', () => {
+      const { result } = renderParametrizedHook();
+      const [, , seedInitialUIState] = result.current;
+
+      act(() => {
+        seedInitialUIState([], runsData);
+      });
+
+      expect(result.current[0]).toEqual(initialUIState);
+      expect(expandedEvaluationRunRowsUIStateInitializer).not.toHaveBeenCalled();
+    });
+
+    test("should not trigger uiStateInitializers if it's not the first session", () => {
+      const persistedState = {
+        ...createExperimentPageSearchFacetsState(),
+        ...initialUIState,
+        orderByKey: 'metrics.m1',
+        orderByAsc: true,
+        viewMaximized: true,
+        runListHidden: true,
+        selectedColumns: ['metrics.m2'],
+      };
+      jest.mocked(loadExperimentViewState).mockImplementation(() => persistedState);
+
+      const { result } = renderParametrizedHook();
+      const [, , seedInitialUIState] = result.current;
+
+      act(() => {
+        seedInitialUIState([experiment1], runsData);
+      });
+
+      expect(expandedEvaluationRunRowsUIStateInitializer).not.toHaveBeenCalled();
+    });
+
+    test('should not trigger uiStateInitializers if there are no new jobs', async () => {
+      const { result } = renderParametrizedHook();
+
+      act(() => {
+        result.current[2]([experiment1], runsData);
+      });
+
+      act(() => {
+        result.current[2]([experiment1], runsData);
+      });
+
+      expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledTimes(1);
+    });
+
+    test('should trigger uiStateInitializers if there are new runs', async () => {
+      const { result } = renderParametrizedHook();
+
+      act(() => {
+        result.current[2]([experiment1], runsData);
+      });
+
+      act(() => {
+        result.current[2]([experiment1], {
+          ...runsData,
+          runInfos: [...runsData.runInfos, { ...runInfoEntity1, runUuid: 'run_2' }],
+        });
+      });
+
+      expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledTimes(2);
+    });
+
+    test('should not trigger uiStateInitializers if non-unique run ids are sorted differently', async () => {
+      const { result } = renderParametrizedHook();
+
+      act(() => {
+        result.current[2]([experiment1], {
+          ...runsData,
+          runInfos: [...runsData.runInfos, { ...runInfoEntity1, runUuid: 'run_2' }],
+        });
+      });
+
+      act(() => {
+        result.current[2]([experiment1], {
+          ...runsData,
+          runInfos: [{ ...runInfoEntity1, runUuid: 'run_2' }, ...runsData.runInfos],
+        });
+      });
+
+      expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledTimes(1);
+    });
+
+    test('should trigger uiStateInitializers', () => {
+      const { result } = renderParametrizedHook();
+      const [, , seedInitialUIState] = result.current;
+
+      act(() => {
+        seedInitialUIState([experiment1], runsData);
+      });
+
+      const initializerInput = [[experiment1], initialUIState, runsData, false];
+
+      // @ts-expect-error A spread argument must either have a tuple type or be passed to a rest parameter
+      expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledWith(...initializerInput);
+    });
+
+    test('should trigger uiStateInitializers with isSeeded = true on 2nd invocation', () => {
+      const { result } = renderParametrizedHook();
+      jest.mocked(expandedEvaluationRunRowsUIStateInitializer).mockReturnValue(initialUIState);
+
+      act(() => {
+        result.current[2]([experiment1], runsData);
+      });
+
+      expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledWith(
+        [experiment1],
+        initialUIState,
+        runsData,
+        false,
+      );
+
+      act(() => {
+        result.current[2]([experiment1], {
+          ...runsData,
+          runInfos: [...runsData.runInfos, { ...runInfoEntity1, runUuid: 'run_2' }],
+        });
+      });
+
+      expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledWith(
+        [experiment1],
+        initialUIState,
+        expect.objectContaining({ runInfos: expect.any(Array) }),
+        true,
+      );
+    });
+  });
+});
+
+describe('generateExperimentHash', () => {
+  test('it generates a hash key based on the experiment and run data', () => {
+    const runs = {
+      ...baseRunsData,
+      runInfos: [runInfoEntity1, { ...runInfoEntity1, runUuid: 'run_2' }],
+    };
+    expect(generateExperimentHash(runs, [experiment1])).toEqual('experiment_1:run_1:run_2');
+  });
+
+  test("returns null if there's no runs", () => {
+    expect(generateExperimentHash(baseRunsData, [experiment1])).toBeNull();
+  });
+
+  test("returns null if there's no experiments", () => {
+    const runs = {
+      ...baseRunsData,
+      runInfos: [runInfoEntity1],
+    };
+    expect(generateExperimentHash(runs, [])).toBeNull();
+  });
+
+  test('sorts experiments and runs before generating hash', () => {
+    const runs = {
+      ...baseRunsData,
+      runInfos: [
+        { ...runInfoEntity1, runUuid: 'run_3' },
+        { ...runInfoEntity1, runUuid: 'run_1' },
+        { ...runInfoEntity1, runUuid: 'run_2' },
+      ],
+    };
+    const experiments = [
+      { ...experiment1, experimentId: 'experiment_2' },
+      { ...experiment1, experimentId: 'experiment_1' },
+    ];
+
+    expect(generateExperimentHash(runs, experiments)).toEqual('experiment_1:experiment_2:run_1:run_2:run_3');
   });
 });

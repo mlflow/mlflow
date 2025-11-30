@@ -6,12 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TraceDataDrawer } from './TraceDataDrawer';
 import { useEditExperimentTraceTags } from './hooks/useEditExperimentTraceTags';
 import { TracesViewControls } from './TracesViewControls';
-import { SortingState } from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
 import { compact, isFunction, isNil, uniq } from 'lodash';
 import { useExperimentViewTracesUIState } from './hooks/useExperimentViewTracesUIState';
 import { ExperimentViewTracesTableColumns, getTraceInfoTotalTokens } from './TracesView.utils';
 import { useActiveExperimentTrace } from './hooks/useActiveExperimentTrace';
-import { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import { useActiveExperimentSpan } from './hooks/useActiveExperimentSpan';
+import type { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 
 export const TRACE_AUTO_REFRESH_INTERVAL = 30000;
 
@@ -20,15 +21,28 @@ const defaultSorting: SortingState = [{ id: ExperimentViewTracesTableColumns.tim
 export const TracesView = ({
   experimentIds,
   runUuid,
+  loggedModelId,
   disabledColumns,
+  baseComponentId = runUuid ? 'mlflow.run.traces' : 'mlflow.experiment_page.traces',
 }: {
   experimentIds: string[];
+  /**
+   * If `runUuid` is provided, the traces will be filtered to only show traces from that run.
+   */
   runUuid?: string;
+  /**
+   * If `loggedModelId` is provided, the traces will be filtered to only show traces from that logged model.
+   */
+  loggedModelId?: string;
   /**
    * Columns that should be disabled in the table.
    * Disabled columns are hidden and are not available to be toggled at all.
    */
   disabledColumns?: ExperimentViewTracesTableColumns[];
+  /**
+   * The base component ID for the traces view. If not provided, will be inferred from the other props.
+   */
+  baseComponentId?: string;
 }) => {
   const timeoutRef = useRef<number | undefined>(undefined);
   const [filter, setFilter] = useState<string>('');
@@ -36,9 +50,16 @@ export const TracesView = ({
   const [rowSelection, setRowSelection] = useState<{ [id: string]: boolean }>({});
 
   const [selectedTraceId, setSelectedTraceId] = useActiveExperimentTrace();
+  const [selectedSpanId, setSelectedSpanId] = useActiveExperimentSpan();
 
   const { traces, loading, error, hasNextPage, hasPreviousPage, fetchNextPage, fetchPrevPage, refreshCurrentPage } =
-    useExperimentTraces(experimentIds, sorting, filter, runUuid);
+    useExperimentTraces({
+      experimentIds,
+      sorting,
+      filter,
+      runUuid,
+      loggedModelId,
+    });
 
   const onTraceClicked = useCallback(
     ({ request_id }: ModelTraceInfo) => setSelectedTraceId(request_id),
@@ -98,11 +119,6 @@ export const TracesView = ({
     [traces],
   );
 
-  const { showEditTagsModalForTrace, EditTagsModal } = useEditExperimentTraceTags({
-    onSuccess: () => refreshCurrentPage(true),
-    existingTagKeys,
-  });
-
   const usingFilters = filter !== '';
 
   const anyTraceContainsTokenCount = traces.some((trace) => !isNil(getTraceInfoTotalTokens(trace)));
@@ -138,19 +154,20 @@ export const TracesView = ({
         experimentIds={experimentIds}
         filter={filter}
         onChangeFilter={setFilter}
-        hiddenColumns={uiState.hiddenColumns ?? []}
-        disabledColumns={allDisabledColumns}
-        toggleHiddenColumn={toggleHiddenColumn}
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         refreshTraces={refreshCurrentPage}
+        baseComponentId={baseComponentId}
+        runUuid={runUuid}
+        traces={traces}
       />
       <TracesViewTable
+        experimentIds={experimentIds}
+        runUuid={runUuid}
         traces={traces}
         loading={loading}
         error={error}
         onTraceClicked={onTraceClicked}
-        onTraceTagsEdit={showEditTagsModalForTrace}
         hasNextPage={hasNextPage}
         hasPreviousPage={hasPreviousPage}
         onPreviousPage={onPreviousPage}
@@ -160,6 +177,7 @@ export const TracesView = ({
         onResetFilters={() => setFilter('')}
         hiddenColumns={allHiddenColumns}
         disableTokenColumn={!anyTraceContainsTokenCount}
+        disabledColumns={allDisabledColumns}
         setSorting={(sortingSetter) => {
           // If header is clicked enough times, tanstack table switches to "no sort" mode.
           // In that case, we should just reverse the direction of the current sort instead.
@@ -177,6 +195,8 @@ export const TracesView = ({
         sorting={sorting}
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
+        baseComponentId={baseComponentId}
+        toggleHiddenColumn={toggleHiddenColumn}
       />
       {selectedTraceId && (
         <TraceDataDrawer
@@ -184,9 +204,10 @@ export const TracesView = ({
           loadingTraceInfo={loading}
           requestId={selectedTraceId}
           onClose={() => setSelectedTraceId(undefined)}
+          selectedSpanId={selectedSpanId}
+          onSelectSpan={setSelectedSpanId}
         />
       )}
-      {EditTagsModal}
     </div>
   );
 };

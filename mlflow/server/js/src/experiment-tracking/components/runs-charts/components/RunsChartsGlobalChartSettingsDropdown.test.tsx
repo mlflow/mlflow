@@ -1,9 +1,12 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
-import { RunsChartType, RunsChartsLineCardConfig } from '../runs-charts.types';
+import { jest, describe, beforeAll, test, expect } from '@jest/globals';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { RunsChartsLineCardConfig } from '../runs-charts.types';
+import { RunsChartType } from '../runs-charts.types';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
 import { RunsChartsGlobalChartSettingsDropdown } from './RunsChartsGlobalChartSettingsDropdown';
 import { useState } from 'react';
-import { createExperimentPageUIState, ExperimentPageUIState } from '../../experiment-page/models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../../experiment-page/models/ExperimentPageUIState';
+import { createExperimentPageUIState } from '../../experiment-page/models/ExperimentPageUIState';
 import { compact, noop } from 'lodash';
 import { RunsChartsCard } from './cards/RunsChartsCard';
 import { RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
@@ -11,25 +14,19 @@ import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { DragAndDropProvider } from '../../../../common/hooks/useDragAndDropElement';
 import { IntlProvider } from 'react-intl';
 import { RunsMetricsLinePlot } from './RunsMetricsLinePlot';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import {
   ExperimentPageUIStateContextProvider,
   useUpdateExperimentViewUIState,
 } from '../../experiment-page/contexts/ExperimentPageUIStateContext';
+import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
 
-// Enable feature shouldEnableGlobalLineChartConfig
-jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
-  shouldEnableGlobalLineChartConfig: jest.fn().mockReturnValue(true),
-}));
-
 jest.mock('../hooks/useIsInViewport', () => ({
-  useIsInViewport: jest
-    .fn()
-    .mockImplementation(() => ({ isInViewport: true, isInViewportDeferred: true, elementRef: undefined })),
+  useIsInViewport: jest.fn(() => ({ isInViewport: true, setElementRef: jest.fn() })),
 }));
 
 // mock line plot
@@ -84,10 +81,11 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
       const [uiState, setUIState] = useState<ExperimentPageUIState>({
         ...createExperimentPageUIState(),
         compareRunCharts: testCharts,
+        hideEmptyCharts: false,
       });
 
       return (
-        <div>
+        <TestApolloProvider>
           <ExperimentPageUIStateContextProvider setUIState={setUIState}>
             <RunsChartsGlobalChartSettingsDropdown
               globalLineChartConfig={uiState.globalLineChartConfig}
@@ -99,9 +97,12 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
                 <DragAndDropProvider>
                   {uiState.compareRunCharts?.map((chartConfig, index) => (
                     <RunsChartsCard
+                      canMoveToTop={false}
+                      canMoveToBottom={false}
                       key={chartConfig.uuid}
                       cardConfig={chartConfig}
-                      chartRunData={[]}
+                      // Generate one sample run so the charts can render
+                      chartRunData={[{ uuid: 'run-1', hidden: false, metrics: { alpha: {}, beta: {} } }] as any}
                       index={index}
                       onRemoveChart={noop}
                       groupBy={null}
@@ -111,13 +112,15 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
                       canMoveDown
                       canMoveUp
                       globalLineChartConfig={uiState.globalLineChartConfig}
+                      isInViewport
+                      isInViewportDeferred
                     />
                   ))}
                 </DragAndDropProvider>
               </RunsChartsTooltipWrapper>
             </div>
           </ExperimentPageUIStateContextProvider>
-        </div>
+        </TestApolloProvider>
       );
     };
     render(<TestComponent />, {
@@ -138,6 +141,7 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
   };
 
   beforeAll(() => {
+    // @ts-expect-error Property '$$typeof' is missing in type
     jest.mocked(RunsMetricsLinePlot).mockImplementation(({ selectedMetricKeys, lineSmoothness, xAxisKey }) => {
       const updateUIState = useUpdateExperimentViewUIState();
       const setUseGlobalSettings = (value: boolean) =>
@@ -202,6 +206,7 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
     await userEvent.click(screen.getByLabelText('Configure charts'));
     await userEvent.clear(screen.getByRole('spinbutton'));
     await userEvent.type(screen.getByRole('spinbutton'), '42');
+    fireEvent.blur(screen.getByRole('spinbutton'));
 
     // Expect beta chart to reflect the changes while alpha should stay the same
     expect(screen.getByTestId('chart-alpha').textContent).toContain('smoothness: 0');

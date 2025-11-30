@@ -8,24 +8,26 @@ import {
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
   FormUI,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   Modal,
   PlusIcon,
   Spinner,
-  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
+  Tooltip,
+  InfoTooltip,
 } from '@databricks/design-system';
 import { sortBy, compact } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useDispatch, useSelector } from 'react-redux';
 import Utils from '../../../common/utils/Utils';
-import { ThunkDispatch } from '../../../redux-types';
+import type { ThunkDispatch } from '../../../redux-types';
 import { createPromptLabRunApi } from '../../actions';
-import { ModelGatewayReduxState } from '../../reducers/ModelGatewayReducer';
-import { ModelGatewayResponseType, ModelGatewayService } from '../../sdk/ModelGatewayService';
+import type { ModelGatewayReduxState } from '../../reducers/ModelGatewayReducer';
+import type { ModelGatewayResponseType } from '../../sdk/ModelGatewayService';
+import { ModelGatewayService } from '../../sdk/ModelGatewayService';
 import { ModelGatewayRouteTask } from '../../sdk/MlflowEnums';
 import { generateRandomRunName, getDuplicatedRunName } from '../../utils/RunNameUtils';
 import { useExperimentIds } from '../experiment-page/hooks/useExperimentIds';
@@ -256,7 +258,8 @@ export const EvaluationCreatePromptRunModal = ({
             errorMessage,
           },
         );
-        Utils.logErrorAndNotifyUser(wrappedMessage);
+        // We treat is as a user error and we're not logging the error upstream
+        Utils.displayGlobalErrorNotification(wrappedMessage);
         setIsEvaluating(false);
         setLastEvaluationError(wrappedMessage);
         // NB: Not using .finally() due to issues with promise implementation in the Jest
@@ -443,20 +446,21 @@ export const EvaluationCreatePromptRunModal = ({
               description="Experiment page > new run modal > cancel button label"
             />
           </Button>
-          <LegacyTooltip title={createRunButtonTooltip}>
-            <Button
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_596"
-              onClick={onHandleSubmit}
-              data-testid="button-create-run"
-              type="primary"
-              disabled={!createRunButtonEnabled}
-            >
-              <FormattedMessage
-                defaultMessage="Create run"
-                description='Experiment page > new run modal > "Create run" confirm button label'
-              />
-            </Button>
-          </LegacyTooltip>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_596"
+            onClick={onHandleSubmit}
+            data-testid="button-create-run"
+            type="primary"
+            disabled={!createRunButtonEnabled}
+          >
+            <FormattedMessage
+              defaultMessage="Create run"
+              description='Experiment page > new run modal > "Create run" confirm button label'
+            />
+          </Button>
+          {createRunButtonTooltip && (
+            <InfoTooltip componentId="mlflow.run.artifact_view.create_run.tooltip" content={createRunButtonTooltip} />
+          )}
         </div>
       }
       title={

@@ -1,9 +1,12 @@
-import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
-import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import type { KeyValueEntity, MetricEntitiesByName, ChartSectionConfig, ImageEntity } from '../../types';
+import type { MetricEntitiesByName, ChartSectionConfig, ImageEntity } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import { RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
-import type { RunsChartType, SerializedRunsChartsCardConfigCard } from '../runs-charts/runs-charts.types';
+import type { RunsChartType } from '../runs-charts/runs-charts.types';
+import { type SerializedRunsChartsCardConfigCard } from '../runs-charts/runs-charts.types';
 import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';
 import { isEmptyChartCard, type RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import {
@@ -19,20 +22,12 @@ import {
   RUNS_VISIBILITY_MODE,
   type RunsChartsGlobalLineChartConfig,
 } from '../experiment-page/models/ExperimentPageUIState';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { RunsChartsSectionAccordion } from '../runs-charts/components/sections/RunsChartsSectionAccordion';
 import type { ReduxState } from '@mlflow/mlflow/src/redux-types';
 import { SearchIcon } from '@databricks/design-system';
 import { Input } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
-import {
-  shouldEnableGlobalLineChartConfig,
-  shouldEnableDraggableChartsGridLayout,
-  shouldEnableHidingChartsWithNoData,
-  shouldEnableImageGridCharts,
-  shouldUseNewRunRowsVisibilityModel,
-  shouldUseRegexpBasedChartFiltering,
-} from '../../../common/utils/FeatureUtils';
 import {
   type RunsGroupByConfig,
   getRunGroupDisplayName,
@@ -71,6 +66,8 @@ export interface RunsCompareProps {
   hideEmptyCharts?: boolean;
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
   chartsSearchFilter?: string;
+  storageKey: string;
+  minWidth: number;
 }
 
 /**
@@ -141,7 +138,7 @@ const createGroupDataTrace = (run: RunRowType, color: string) => {
  * This component extracts params/metrics from redux store by itself for quicker access. However,
  * it needs a provided list of compared run entries using same model as runs table.
  */
-export const RunsCompareImpl = ({
+const RunsCompareImpl = ({
   isLoading,
   comparedRuns,
   metricKeyList,
@@ -154,6 +151,7 @@ export const RunsCompareImpl = ({
   hideEmptyCharts,
   globalLineChartConfig,
   chartsSearchFilter,
+  minWidth,
 }: RunsCompareProps) => {
   // Updater function for the general experiment view UI state
   const updateUIState = useUpdateExperimentViewUIState();
@@ -185,7 +183,12 @@ export const RunsCompareImpl = ({
   );
 
   const [fullScreenChart, setFullScreenChart] = useState<
-    { config: RunsChartsCardConfig; title: string; subtitle: ReactNode } | undefined
+    | {
+        config: RunsChartsCardConfig;
+        title: string | ReactNode;
+        subtitle: ReactNode;
+      }
+    | undefined
   >(undefined);
 
   const addNewChartCard = (metricSectionId: string) => {
@@ -218,7 +221,6 @@ export const RunsCompareImpl = ({
     if (!groupBy) {
       return comparedRuns
         .filter((run) => run.runInfo)
-        .filter((run) => shouldUseNewRunRowsVisibilityModel() || !run.hidden)
         .map<RunsChartsRunData>((run) =>
           createRunDataTrace(
             run,
@@ -232,12 +234,10 @@ export const RunsCompareImpl = ({
     }
 
     const groupChartDataEntries = comparedRuns
-      .filter((run) => shouldUseNewRunRowsVisibilityModel() || !run.hidden)
       .filter((run) => run.groupParentInfo && !isRemainingRunsGroup(run.groupParentInfo))
       .map<RunsChartsRunData>((group) => createGroupDataTrace(group, getRunColor(group.groupParentInfo?.groupId)));
 
     const remainingRuns = comparedRuns
-      .filter((run) => shouldUseNewRunRowsVisibilityModel() || !run.hidden)
       .filter((run) => !run.groupParentInfo && !run.runDateAndNestInfo?.belongsToGroup)
       .map((run) =>
         createRunDataTrace(
@@ -257,7 +257,7 @@ export const RunsCompareImpl = ({
   usePopulateImagesByRunUuid({
     runUuids: filteredImageData.map((run) => run.uuid),
     runUuidsIsActive: filteredImageData.map((run) => run.runInfo?.status === 'RUNNING'),
-    enabled: shouldEnableImageGridCharts(),
+    enabled: true,
     autoRefreshEnabled,
   });
 
@@ -269,11 +269,14 @@ export const RunsCompareImpl = ({
         runsData: chartData,
         useParallelCoordinatesChart: true,
       });
-      updateChartsUIState((current) => ({
-        ...current,
-        compareRunCharts: resultChartSet,
-        compareRunSections: resultSectionSet,
-      }));
+      updateChartsUIState(
+        (current) => ({
+          ...current,
+          compareRunCharts: resultChartSet,
+          compareRunSections: resultSectionSet,
+        }),
+        true,
+      );
     }
   }, [compareRunCharts, compareRunSections, primaryMetricKey, chartData, updateChartsUIState]);
 
@@ -301,7 +304,7 @@ export const RunsCompareImpl = ({
         compareRunCharts: resultChartSet,
         compareRunSections: resultSectionSet,
       };
-    });
+    }, true);
   }, [chartData, updateChartsUIState]);
 
   const onTogglePin = useCallback(
@@ -319,17 +322,8 @@ export const RunsCompareImpl = ({
   const toggleRunVisibility = useToggleRowVisibilityCallback(comparedRuns);
 
   const onHideRun = useCallback(
-    (runUuid: string) => {
-      if (shouldUseNewRunRowsVisibilityModel()) {
-        toggleRunVisibility(RUNS_VISIBILITY_MODE.CUSTOM, runUuid);
-        return;
-      }
-      updateUIState((existingFacets: ExperimentPageUIState) => ({
-        ...existingFacets,
-        runsHidden: [...existingFacets.runsHidden, runUuid],
-      }));
-    },
-    [updateUIState, toggleRunVisibility],
+    (runUuid: string) => toggleRunVisibility(RUNS_VISIBILITY_MODE.CUSTOM, runUuid),
+    [toggleRunVisibility],
   );
 
   const confirmChartCardConfiguration = useConfirmChartCardConfigurationFn();
@@ -367,41 +361,15 @@ export const RunsCompareImpl = ({
 
   // If using draggable grid layout, already filter out charts that are empty or deleted
   const visibleChartCards = useMemo(() => {
-    if (!shouldEnableDraggableChartsGridLayout()) {
-      return compareRunCharts;
-    }
-    if (hideEmptyCharts && shouldEnableHidingChartsWithNoData()) {
+    if (hideEmptyCharts) {
       return compareRunCharts?.filter((chartCard) => !chartCard.deleted && !isEmptyChartCard(chartData, chartCard));
     }
     return compareRunCharts?.filter((chartCard) => !chartCard.deleted);
   }, [chartData, compareRunCharts, hideEmptyCharts]);
 
   if (!initiallyLoaded) {
-    return (
-      <div
-        css={{
-          flex: 1,
-          borderTop: `1px solid ${theme.colors.border}`,
-          borderLeft: `1px solid ${theme.colors.border}`,
-
-          // Let's cover 1 pixel of the grid's border for the sleek look
-          marginLeft: -1,
-
-          position: 'relative' as const,
-          backgroundColor: theme.colors.backgroundSecondary,
-          paddingLeft: theme.spacing.md,
-          paddingRight: theme.spacing.md,
-          paddingBottom: theme.spacing.md,
-          zIndex: 1,
-          overflowY: 'auto' as const,
-        }}
-      >
-        <LegacySkeleton />
-      </div>
-    );
+    return <RunsCompareSkeleton />;
   }
-
-  const searchChartsValue = shouldUseRegexpBasedChartFiltering() ? chartsSearchFilter ?? '' : search;
 
   return (
     <div
@@ -422,7 +390,7 @@ export const RunsCompareImpl = ({
         overflowY: 'auto' as const,
 
         // Make sure charts are visible even on small screens
-        minWidth: 320,
+        minWidth,
       }}
       data-testid="experiment-view-compare-runs-chart-area"
     >
@@ -431,8 +399,6 @@ export const RunsCompareImpl = ({
           {
             paddingTop: theme.spacing.sm,
             paddingBottom: theme.spacing.sm,
-          },
-          shouldEnableGlobalLineChartConfig() && {
             display: 'flex',
             gap: theme.spacing.xs,
             position: 'sticky',
@@ -448,29 +414,12 @@ export const RunsCompareImpl = ({
           },
         ]}
       >
-        {shouldUseRegexpBasedChartFiltering() ? (
-          <RunsChartsFilterInput chartsSearchFilter={chartsSearchFilter} />
-        ) : (
-          <Input
-            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_runscompare.tsx_454"
-            role="searchbox"
-            prefix={<SearchIcon />}
-            value={search}
-            allowClear
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={formatMessage({
-              defaultMessage: 'Search metric charts',
-              description: 'Run page > Charts tab > Filter metric charts input > placeholder',
-            })}
-          />
-        )}
-        {shouldEnableGlobalLineChartConfig() && (
-          <RunsChartsGlobalChartSettingsDropdown
-            updateUIState={updateChartsUIState}
-            metricKeyList={metricKeyList}
-            globalLineChartConfig={globalLineChartConfig}
-          />
-        )}
+        <RunsChartsFilterInput chartsSearchFilter={chartsSearchFilter} />
+        <RunsChartsGlobalChartSettingsDropdown
+          updateUIState={updateChartsUIState}
+          metricKeyList={metricKeyList}
+          globalLineChartConfig={globalLineChartConfig}
+        />
       </div>
       <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunsChartsTooltipBody}>
         <RunsChartsDraggableCardsGridContextProvider visibleChartCards={visibleChartCards}>
@@ -483,7 +432,7 @@ export const RunsCompareImpl = ({
             startEditChart={startEditChart}
             removeChart={removeChart}
             addNewChartCard={addNewChartCard}
-            search={searchChartsValue}
+            search={chartsSearchFilter ?? ''}
             groupBy={groupByNormalized}
             setFullScreenChart={setFullScreenChart}
             autoRefreshEnabled={autoRefreshEnabled}
@@ -518,6 +467,7 @@ export const RunsCompareImpl = ({
   );
 };
 
+/* eslint-disable react-hooks/rules-of-hooks */
 export const RunsCompare = (props: RunsCompareProps) => {
   // Updater function for the general experiment view UI state
   const updateUIState = useUpdateExperimentViewUIState();
@@ -537,5 +487,32 @@ export const RunsCompare = (props: RunsCompareProps) => {
     <RunsChartsUIConfigurationContextProvider updateChartsUIState={updateChartsUIState}>
       <RunsCompareImpl {...props} />
     </RunsChartsUIConfigurationContextProvider>
+  );
+};
+/* eslint-enable react-hooks/rules-of-hooks */
+
+const RunsCompareSkeleton = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        flex: 1,
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gridTemplateRows: '200px',
+        gap: theme.spacing.md,
+        borderTop: `1px solid ${theme.colors.border}`,
+        borderLeft: `1px solid ${theme.colors.border}`,
+        marginLeft: -1,
+        backgroundColor: theme.colors.backgroundSecondary,
+        padding: theme.spacing.md,
+        zIndex: 1,
+      }}
+    >
+      {new Array(6).fill(null).map((_, index) => (
+        <TableSkeleton key={index} lines={5} seed={index.toString()} />
+      ))}
+    </div>
   );
 };

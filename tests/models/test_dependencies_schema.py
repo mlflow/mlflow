@@ -1,6 +1,6 @@
-import pytest
+from unittest import mock
 
-from mlflow.exceptions import MlflowException
+from mlflow.models import dependencies_schemas
 from mlflow.models.dependencies_schemas import (
     DependenciesSchemas,
     DependenciesSchemasType,
@@ -189,7 +189,7 @@ def test_multiple_set_retriever_schema_creation_with_name():
     assert _get_retriever_schema() == []
 
 
-def test_multiple_set_retriever_schema_with_same_name():
+def test_multiple_set_retriever_schema_with_same_name_with_different_schemas():
     set_retriever_schema(
         name="my_ret_1",
         primary_key="primary-key-2",
@@ -197,10 +197,15 @@ def test_multiple_set_retriever_schema_with_same_name():
         doc_uri="doc-uri-3",
         other_columns=["column1", "column2"],
     )
+    set_retriever_schema(
+        name="my_ret_2",
+        primary_key="primary-key",
+        text_column="text-column",
+        doc_uri="doc-uri",
+        other_columns=["column1", "column2"],
+    )
 
-    with pytest.raises(
-        MlflowException, match=r"A retriever schema with the name 'my_ret_1' already exists."
-    ):
+    with mock.patch.object(dependencies_schemas, "_logger") as mock_logger:
         set_retriever_schema(
             name="my_ret_1",
             primary_key="primary-key",
@@ -208,6 +213,74 @@ def test_multiple_set_retriever_schema_with_same_name():
             doc_uri="doc-uri",
             other_columns=["column1", "column2"],
         )
+        mock_logger.warning.assert_called_once_with(
+            "A retriever schema with the name 'my_ret_1' already exists. "
+            "Overriding the existing schema."
+        )
 
-    # If there is an error, the schema is cleared
-    assert _get_retriever_schema() == []
+    with _get_dependencies_schemas() as schema:
+        assert schema.to_dict()["dependencies_schemas"] == {
+            DependenciesSchemasType.RETRIEVERS.value: [
+                {
+                    "doc_uri": "doc-uri",
+                    "name": "my_ret_1",
+                    "other_columns": ["column1", "column2"],
+                    "primary_key": "primary-key",
+                    "text_column": "text-column",
+                },
+                {
+                    "doc_uri": "doc-uri",
+                    "name": "my_ret_2",
+                    "other_columns": ["column1", "column2"],
+                    "primary_key": "primary-key",
+                    "text_column": "text-column",
+                },
+            ]
+        }
+
+
+def test_multiple_set_retriever_schema_with_same_name_with_same_schema():
+    set_retriever_schema(
+        name="my_ret_1",
+        primary_key="primary-key",
+        text_column="text-column",
+        doc_uri="doc-uri",
+        other_columns=["column1", "column2"],
+    )
+    set_retriever_schema(
+        name="my_ret_2",
+        primary_key="primary-key",
+        text_column="text-column",
+        doc_uri="doc-uri",
+        other_columns=["column1", "column2"],
+    )
+
+    with mock.patch.object(dependencies_schemas, "_logger") as mock_logger:
+        set_retriever_schema(
+            name="my_ret_1",
+            primary_key="primary-key",
+            text_column="text-column",
+            doc_uri="doc-uri",
+            other_columns=["column1", "column2"],
+        )
+        mock_logger.warning.assert_not_called()
+
+    with _get_dependencies_schemas() as schema:
+        assert schema.to_dict()["dependencies_schemas"] == {
+            DependenciesSchemasType.RETRIEVERS.value: [
+                {
+                    "doc_uri": "doc-uri",
+                    "name": "my_ret_1",
+                    "other_columns": ["column1", "column2"],
+                    "primary_key": "primary-key",
+                    "text_column": "text-column",
+                },
+                {
+                    "doc_uri": "doc-uri",
+                    "name": "my_ret_2",
+                    "other_columns": ["column1", "column2"],
+                    "primary_key": "primary-key",
+                    "text_column": "text-column",
+                },
+            ]
+        }

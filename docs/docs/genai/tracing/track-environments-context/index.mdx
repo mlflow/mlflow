@@ -1,0 +1,148 @@
+import { APILink } from "@site/src/components/APILink";
+
+# Track Versions & Environments
+
+Tracking the execution environment and application version of your GenAI application allows you to debug performance and quality issues relative to the code. This metadata enables:
+
+- **Environment-specific analysis** across `development`, `staging`, and `production`
+- **Performance/quality tracking** and regression detection across app versions
+- **Faster root cause analysis** when issues occur
+
+## Standard & Custom Metadata
+
+MLflow uses immutable metadata (key-value string pairs) to store contextual information on traces.
+
+```python
+import mlflow
+
+trace = mlflow.get_trace(trace_id="your-trace-id")
+print(trace.info.trace_metadata)
+# Output: {'environment': 'production', 'app_version': '1.0.0'}
+```
+
+### Automatically Populated Tags
+
+These standard tags are automatically captured by MLflow based on your execution environment:
+
+| Metadata Field              | Description                                            | Automatic Setting Logic                                                                                                                                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mlflow.source.name`        | The entry point or script that generated the trace.    | Automatically populated with the filename for Python scripts, notebook name for Databricks/Jupyter notebooks.                                                                                                                                                                                     |
+| `mlflow.source.git.commit`  | Git commit hash.                                       | If run from a Git repository, the commit hash is automatically detected and populated.                                                                                                                                                                                                            |
+| `mlflow.source.git.branch`  | Git branch.                                            | If run from a Git repository, the current branch name is automatically detected and populated.                                                                                                                                                                                                    |
+| `mlflow.source.git.repoURL` | Git repo URL.                                          | If run from a Git repository, the repository URL is automatically detected and populated.                                                                                                                                                                                                         |
+| `mlflow.source.type`        | Captures the execution environment.                    | Automatically set to `NOTEBOOK` if running in Jupyter or Databricks notebook, `LOCAL` if running a local Python script, else `UNKNOWN` (automatically detected). <br/><br/>_In your deployed app, we suggest updating this variable based on the environment e.g., `PRODUCTION`, `STAGING`, etc._ |
+| `mlflow.sourceRun`          | The run ID of the source run that generated the trace. | Automatically populated with the run ID of the source run that generated the trace.                                                                                                                                                                                                               |
+
+:::note
+
+There are other trace metadata fields set by MLflow, such as `mlflow.trace.sizeBytes`, `mlflow.trace.tokenUsage`, etc. They are not related to the application versioning but are useful for performance analysis.
+
+:::
+
+### Reserved Standard Metadata
+
+Some standard metadata fields have special meaning but must be set manually:
+
+| Metadata Field         | Description                                                           | Automatic Setting Logic                                                                   |
+| ---------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `mlflow.trace.session` | Groups traces from multi-turn conversations or user sessions together | Automatically populated with the session ID of the user session that generated the trace. |
+| `mlflow.trace.user`    | Associates traces with specific users for user-centric analysis       | Automatically populated with the user ID of the user that generated the trace.            |
+
+See the [Setting Metadata](#setting-metadata) section for more details on how to set these metadata from your application.
+
+### Custom Metadata
+
+You can define custom metadata or override the automatically populated metadata to capture any business-specific or application-specific context. For example, you might want to attach information such as:
+
+- `app_version`: e.g., `"1.0.0"` (from `APP_VERSION` environment variable)
+- `deployment_id`: e.g., `"deploy-abc-123"` (from `DEPLOYMENT_ID` environment variable)
+- `region`: e.g., `"us-east-1"` (from `REGION` environment variable)
+- _(Other custom tags like feature flags can also be added)_
+
+## Setting Metadata
+
+To set metadata on a trace from your application, use the <APILink fn="mlflow.update_current_trace" /> API and pass the metadata in the `metadata` parameter.
+
+```python
+mlflow.update_current_trace(metadata={"key": "value"})
+```
+
+The real application code might look like this:
+
+```python
+import mlflow
+import os
+from fastapi import FastAPI, Request
+from pydantic import BaseModel
+
+app = FastAPI()
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+@mlflow.trace  # Ensure @mlflow.trace is the outermost decorator
+@app.post("/chat")  # FastAPI decorator should be inner
+def handle_chat(request: Request, chat_request: ChatRequest):
+    # Retrieve all context from request headers
+    client_request_id = request.headers.get("X-Request-ID")
+    session_id = request.headers.get("X-Session-ID")
+    user_id = request.headers.get("X-User-ID")
+
+    # Update the current trace with all context and environment metadata
+    # The @mlflow.trace decorator ensures an active trace is available
+    mlflow.update_current_trace(
+        client_request_id=client_request_id,
+        metadata={
+            # Reserved session metadata - groups traces from multi-turn conversations
+            "mlflow.trace.session": session_id,
+            # Reserved user metadata - associates traces with specific users
+            "mlflow.trace.user": user_id,
+            # Override automatically populated environment metadata
+            "mlflow.source.type": os.getenv(
+                "APP_ENVIRONMENT", "development"
+            ),  # Override default LOCAL/NOTEBOOK
+            # Add custom environment metadata
+            "environment": "production",
+            "app_version": os.getenv("APP_VERSION", "1.0.0"),
+            "deployment_id": os.getenv("DEPLOYMENT_ID", "unknown"),
+            "region": os.getenv("REGION", "us-east-1"),
+        },
+    )
+
+    # --- Your application logic for processing the chat message ---
+    # For example, calling a language model with context
+    # response_text = my_llm_call(
+    #     message=chat_request.message,
+    #     session_id=session_id,
+    #     user_id=user_id
+    # )
+    response_text = f"Processed message: '{chat_request.message}'"
+
+    return {"response": response_text}
+
+
+# To run this example (requires uvicorn and fastapi):
+# uvicorn your_file_name:app --reload
+#
+# Example curl request with context headers:
+# curl -X POST "http://127.0.0.1:8000/chat" \
+#      -H "Content-Type: application/json" \
+#      -H "X-Request-ID: req-abc-123-xyz-789" \
+#      -H "X-Session-ID: session-def-456-uvw-012" \
+#      -H "X-User-ID: user-jane-doe-12345" \
+#      -d '{"message": "What is my account balance?"}'
+```
+
+## Querying and Analyzing Context Data
+
+### Using the MLflow UI
+
+In the MLflow UI (Traces Tab) and the <APILink fn="mlflow.search_traces" /> API, you can search for traces by context metadata using the following search queries:
+
+- `metadata.environment = 'production'`
+- `metadata.app_version = '2.1.0'`
+- ``metadata.`mlflow.trace.session` = 'session-abc-456'``
+
+View the full list of supported filter syntax in the [Search Traces](/genai/tracing/search-traces) guide.

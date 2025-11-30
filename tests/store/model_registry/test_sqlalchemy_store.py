@@ -1,15 +1,23 @@
+import shutil
 import time
 import uuid
+from pathlib import Path
 from unittest import mock
 
 import pytest
+from sqlalchemy import create_engine, text
 
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
     RegisteredModelTag,
 )
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
+from mlflow.environment_variables import (
+    _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -22,6 +30,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersionTag,
     SqlRegisteredModel,
     SqlRegisteredModelTag,
+    SqlWebhook,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 
@@ -29,26 +38,58 @@ from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock
 
+GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
+
+
+@pytest.fixture(scope="module")
+def cached_db(tmp_path_factory) -> Path:
+    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
+    tmp_path = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
+    store = SqlAlchemyStore(db_uri)
+    store.engine.dispose()
+    return db_path
+
 
 @pytest.fixture
-def store(tmp_sqlite_uri):
-    db_uri_from_env_var = MLFLOW_TRACKING_URI.get()
-    store = SqlAlchemyStore(db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri)
-    yield store
+def store(tmp_path: Path, cached_db: Path):
+    if db_uri_env := MLFLOW_TRACKING_URI.get():
+        s = SqlAlchemyStore(db_uri_env)
+        yield s
+        _cleanup_database(s)
+    else:
+        db_path = tmp_path / "mlflow.db"
+        shutil.copy(cached_db, db_path)
+        db_uri = f"sqlite:///{db_path}"
+        s = SqlAlchemyStore(db_uri)
+        yield s
 
-    if db_uri_from_env_var is not None:
-        with store.ManagedSessionMaker() as session:
-            for model in (
-                SqlModelVersionTag,
-                SqlRegisteredModelTag,
-                SqlModelVersion,
-                SqlRegisteredModel,
-            ):
-                session.query(model).delete()
+    # Dispose the engine to close all pooled connections
+    s.engine.dispose()
+
+
+def _cleanup_database(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        # Delete all rows in all tables
+        for model in (
+            SqlModelVersionTag,
+            SqlRegisteredModelTag,
+            SqlModelVersion,
+            SqlRegisteredModel,
+            SqlWebhook,
+        ):
+            session.query(model).delete()
 
 
 def _rm_maker(store, name, tags=None, description=None):
     return store.create_registered_model(name, tags, description)
+
+
+def _add_go_test_tags(tags, val):
+    if _MLFLOW_GO_STORE_TESTING.get():
+        return tags + [RegisteredModelTag(GO_MOCK_TIME_TAG, val)]
+    return tags
 
 
 def _mv_maker(
@@ -112,12 +153,12 @@ def test_create_registered_model(store):
 
     # invalid model name will fail
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         _rm_maker(store, None)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         _rm_maker(store, "")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -131,8 +172,9 @@ def test_get_registered_model(store):
     ]
     # use fake clock
     with mock.patch("time.time", return_value=1234):
-        rm = _rm_maker(store, name, tags)
+        rm = _rm_maker(store, name, _add_go_test_tags(tags, "1234000"))
         assert rm.name == name
+
     rmd = store.get_registered_model(name=name)
     assert rmd.name == name
     assert rmd.creation_timestamp == 1234000
@@ -197,12 +239,12 @@ def test_rename_registered_model(store):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
     # invalid model name will fail
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'new_name'"
     ) as exception_context:
         store.rename_registered_model(original_name, None)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'new_name'"
     ) as exception_context:
         store.rename_registered_model(original_name, "")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -368,10 +410,10 @@ def test_set_registered_model_tag(store):
         store.set_registered_model_tag(name1, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = RegisteredModelTag("longTagKey", "a" * 5001)
+    long_tag = RegisteredModelTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match=(r"Registered model value '.+' had length \d+, which exceeded length limit of 5000"),
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_registered_model_tag(name2, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -386,7 +428,7 @@ def test_set_registered_model_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.set_registered_model_tag(None, RegisteredModelTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -434,7 +476,7 @@ def test_delete_registered_model_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.delete_registered_model_tag(None, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -451,7 +493,7 @@ def test_create_model_version(store):
 
     mvd1 = store.get_model_version(mv1.name, mv1.version)
     assert mvd1.name == name
-    assert mvd1.version == 1
+    assert int(mvd1.version) == 1
     assert mvd1.current_stage == "None"
     assert mvd1.creation_timestamp == 456778000
     assert mvd1.last_updated_timestamp == 456778000
@@ -466,7 +508,7 @@ def test_create_model_version(store):
     mv2 = _mv_maker(store, name)
     mvd2 = store.get_model_version(name=mv2.name, version=mv2.version)
     assert mv2.version == 2
-    assert mvd2.version == 2
+    assert int(mvd2.version) == 2
 
     # create model version with tags return model version entity with tags
     tags = [
@@ -477,7 +519,7 @@ def test_create_model_version(store):
     mvd3 = store.get_model_version(name=mv3.name, version=mv3.version)
     assert mv3.version == 3
     assert mv3.tags == {tag.key: tag.value for tag in tags}
-    assert mvd3.version == 3
+    assert int(mvd3.version) == 3
     assert mvd3.tags == {tag.key: tag.value for tag in tags}
 
     # create model versions with runLink
@@ -486,7 +528,7 @@ def test_create_model_version(store):
     mvd4 = store.get_model_version(name, mv4.version)
     assert mv4.version == 4
     assert mv4.run_link == run_link
-    assert mvd4.version == 4
+    assert int(mvd4.version) == 4
     assert mvd4.run_link == run_link
 
     # create model version with description
@@ -495,7 +537,7 @@ def test_create_model_version(store):
     mvd5 = store.get_model_version(name, mv5.version)
     assert mv5.version == 5
     assert mv5.description == description
-    assert mvd5.version == 5
+    assert int(mvd5.version) == 5
     assert mvd5.description == description
 
     # create model version without runId
@@ -503,7 +545,7 @@ def test_create_model_version(store):
     mvd6 = store.get_model_version(name, mv6.version)
     assert mv6.version == 6
     assert mv6.run_id is None
-    assert mvd6.version == 6
+    assert int(mvd6.version) == 6
     assert mvd6.run_id is None
 
 
@@ -513,7 +555,7 @@ def test_update_model_version(store):
     mv1 = _mv_maker(store, name)
     mvd1 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd1.name == name
-    assert mvd1.version == 1
+    assert int(mvd1.version) == 1
     assert mvd1.current_stage == "None"
 
     # update stage
@@ -525,7 +567,7 @@ def test_update_model_version(store):
     )
     mvd2 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd2.name == name
-    assert mvd2.version == 1
+    assert int(mvd2.version) == 1
     assert mvd2.current_stage == "Production"
     assert mvd2.description is None
 
@@ -533,7 +575,7 @@ def test_update_model_version(store):
     store.update_model_version(name=mv1.name, version=mv1.version, description="test model version")
     mvd3 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd3.name == name
-    assert mvd3.version == 1
+    assert int(mvd3.version) == 1
     assert mvd3.current_stage == "Production"
     assert mvd3.description == "test model version"
 
@@ -1336,7 +1378,7 @@ def test_search_registered_model_order_by(store):
             "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
             return_value=i,
         ):
-            rms.append(_rm_maker(store, f"RM{i:03}").name)
+            rms.append(_rm_maker(store, f"RM{i:03}", _add_go_test_tags([], f"{i}")).name)
 
     # test flow with fixed max_results and order_by (test stable order across pages)
     returned_rms = []
@@ -1403,14 +1445,14 @@ def test_search_registered_model_order_by(store):
         "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
         return_value=1,
     ):
-        rm1 = _rm_maker(store, "MR1").name
-        rm2 = _rm_maker(store, "MR2").name
+        rm1 = _rm_maker(store, "MR1", _add_go_test_tags([], "1")).name
+        rm2 = _rm_maker(store, "MR2", _add_go_test_tags([], "1")).name
     with mock.patch(
         "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
         return_value=2,
     ):
-        rm3 = _rm_maker(store, "MR3").name
-        rm4 = _rm_maker(store, "MR4").name
+        rm3 = _rm_maker(store, "MR3", _add_go_test_tags([], "2")).name
+        rm4 = _rm_maker(store, "MR4", _add_go_test_tags([], "2")).name
     query = "name LIKE 'MR%'"
     # test with multiple clauses
     result, _ = _search_registered_models(
@@ -1554,10 +1596,10 @@ def test_set_model_version_tag(store):
         store.set_model_version_tag(name1, 2, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = ModelVersionTag("longTagKey", "a" * 5001)
+    long_tag = ModelVersionTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match=r"Model version value '.+' had length \d+, which exceeded length limit of 5000",
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_model_version_tag(name1, 1, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1572,12 +1614,12 @@ def test_set_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
         store.set_model_version_tag(None, 1, ModelVersionTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Model version must be an integer"
+        MlflowException, match=r"Parameter 'version' must be an integer, got 'I am not a version'"
     ) as exception_context:
         store.set_model_version_tag(
             name2, "I am not a version", ModelVersionTag(key="key", value="value")
@@ -1635,12 +1677,12 @@ def test_delete_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'."
     ) as exception_context:
         store.delete_model_version_tag(None, 2, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Model version must be an integer"
+        MlflowException, match=r"Parameter 'version' must be an integer, got 'I am not a version'"
     ) as exception_context:
         store.delete_model_version_tag(name1, "I am not a version", "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1733,7 +1775,7 @@ def test_copy_model_version(store, copy_to_same_model):
 
     copied_mv = store.get_model_version(dst_mv.name, dst_mv.version)
     assert copied_mv.name == copy_rm_name
-    assert copied_mv.version == copy_mv_version
+    assert int(copied_mv.version) == copy_mv_version
     assert copied_mv.current_stage == "None"
     assert copied_mv.creation_timestamp >= timestamp
     assert copied_mv.last_updated_timestamp >= timestamp
@@ -1750,3 +1792,552 @@ def test_copy_model_version(store, copy_to_same_model):
     double_copy_mv = store.copy_model_version(copied_mv, "test_for_copy_MV3")
     assert double_copy_mv.source == f"models:/{copied_mv.name}/{copied_mv.version}"
     assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+
+
+def test_search_prompts(store):
+    store.create_registered_model("model", tags=[RegisteredModelTag(key="fruit", value="apple")])
+
+    store.create_registered_model(
+        "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_registered_model(
+        "prompt_2",
+        tags=[
+            RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            RegisteredModelTag(key="fruit", value="apple"),
+        ],
+    )
+
+    # By default, should not return prompts
+    rms = store.search_registered_models(max_results=10)
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(filter_string="tags.fruit = 'apple'", max_results=10)
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(filter_string="name = 'prompt_1'", max_results=10)
+    assert len(rms) == 0
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'false'", max_results=10
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true'", max_results=10
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    # Search for prompts
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true'", max_results=10
+    )
+    assert len(rms) == 2
+    assert {rm.name for rm in rms} == {"prompt_1", "prompt_2"}
+
+    rms = store.search_registered_models(
+        filter_string="name = 'prompt_1' and tags.`mlflow.prompt.is_prompt` = 'true'",
+        max_results=10,
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "prompt_1"
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and tags.fruit = 'apple'",
+        max_results=10,
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "prompt_2"
+
+
+def test_search_prompts_versions(store):
+    # A Model
+    store.create_registered_model("model")
+    store.create_model_version(
+        "model", "1", "dummy_source", tags=[ModelVersionTag(key="fruit", value="apple")]
+    )
+
+    # A Prompt with 1 version
+    store.create_registered_model(
+        "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_model_version(
+        "prompt_1", "1", "dummy_source", tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+
+    # A Prompt with 2 versions
+    store.create_registered_model(
+        "prompt_2",
+        tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")],
+    )
+    store.create_model_version(
+        "prompt_2",
+        "1",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key="fruit", value="apple"),
+        ],
+    )
+    store.create_model_version(
+        "prompt_2",
+        "2",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key="fruit", value="orange"),
+        ],
+    )
+
+    # Searching model versions should not return prompts by default either
+    mvs = store.search_model_versions(max_results=10)
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(filter_string="tags.fruit = 'apple'", max_results=10)
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'false'", max_results=10
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true'", max_results=10
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    # Search for prompts via search_model_versions
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true'", max_results=10
+    )
+    assert len(mvs) == 3
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and name = 'prompt_2'",
+        max_results=10,
+    )
+    assert len(mvs) == 2
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and tags.fruit = 'apple'",
+        max_results=10,
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "prompt_2"
+
+
+def test_create_registered_model_handle_prompt_properly(store):
+    prompt_tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+
+    store.create_registered_model("model")
+
+    store.create_registered_model("prompt", tags=prompt_tags)
+
+    with pytest.raises(MlflowException, match=r"Registered Model \(name=model\) already exists"):
+        store.create_registered_model("model")
+
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt\) already exists"):
+        store.create_registered_model("prompt", tags=prompt_tags)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Tried to create a prompt with name 'model', "
+        r"but the name is already taken by a registered model.",
+    ):
+        store.create_registered_model("model", tags=prompt_tags)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Tried to create a registered model with name 'prompt', "
+        r"but the name is already taken by a prompt.",
+    ):
+        store.create_registered_model("prompt")
+
+
+def test_create_webhook(store):
+    events = [
+        WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
+        WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
+    ]
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=events,
+        description="Test webhook",
+        secret="secret123",
+        status=WebhookStatus.ACTIVE,
+    )
+
+    assert webhook.name == "test_webhook"
+    assert webhook.url == "https://example.com/webhook"
+    assert webhook.events == events
+    assert webhook.description == "Test webhook"
+    assert webhook.status == WebhookStatus.ACTIVE
+    assert webhook.webhook_id is not None
+    assert webhook.creation_timestamp is not None
+    assert webhook.last_updated_timestamp is not None
+    assert webhook.secret == "secret123"
+
+
+# Shared test data for invalid webhook names
+INVALID_WEBHOOK_NAMES = [
+    ("", r"is invalid"),
+    ("   ", r"is invalid"),
+    ("webhook<script>", r"is invalid"),
+    ("webhook@test", r"is invalid"),
+    ("webhook#hash", r"is invalid"),
+    ("webhook/slash", r"is invalid"),
+    ("webhook\\backslash", r"is invalid"),
+    ("-webhook", r"is invalid"),  # Must start with letter or digit
+    ("webhook-", r"is invalid"),  # Must end with letter or digit
+    ("_webhook", r"is invalid"),  # Must start with letter or digit
+    ("webhook_", r"is invalid"),  # Must end with letter or digit
+    (".webhook", r"is invalid"),  # Must start with letter or digit
+    ("webhook.", r"is invalid"),  # Must end with letter or digit
+    ("a" * 64, r"is invalid"),  # Too long (max 63 chars)
+]
+
+
+# Shared test data for valid webhook names
+VALID_WEBHOOK_NAMES = [
+    "a",  # Single character letter
+    "1",  # Single character digit
+    "a1",  # Two characters
+    "1a",  # Start with digit, end with letter
+    "webhook123",  # Alphanumeric
+    "web_hook",  # With underscore
+    "web-hook",  # With hyphen
+    "web.hook",  # With dot
+    "web_hook-123.test",  # Mixed special chars
+    "A" * 63,  # Maximum length
+    "1" + "a" * 61 + "1",  # Maximum length with digit start/end
+    "WebHook123",  # Mixed case
+]
+
+
+@pytest.mark.parametrize(("invalid_name", "expected_match"), INVALID_WEBHOOK_NAMES)
+def test_create_webhook_invalid_names(store, invalid_name, expected_match):
+    with pytest.raises(MlflowException, match=expected_match):
+        store.create_webhook(
+            name=invalid_name,
+            url="https://example.com",
+            events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+        )
+
+
+@pytest.mark.parametrize("valid_name", VALID_WEBHOOK_NAMES)
+def test_create_webhook_valid_names(store, valid_name):
+    webhook = store.create_webhook(
+        name=valid_name,
+        url="https://example.com",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+    )
+    assert webhook.name == valid_name
+
+
+@pytest.mark.parametrize(
+    ("invalid_url", "expected_match"),
+    [
+        ("", r"Webhook URL cannot be empty or just whitespace"),
+        ("   ", r"Webhook URL cannot be empty or just whitespace"),
+        ("example.com/webhook", r"Invalid webhook URL"),
+        ("ftp://example.com/webhook", r"Invalid webhook URL scheme"),
+        ("http://[invalid-url", r"Invalid webhook URL"),
+        ("invalid_url", r"Invalid webhook URL"),
+    ],
+)
+def test_create_webhook_invalid_urls(store, invalid_url, expected_match):
+    with pytest.raises(MlflowException, match=expected_match):
+        store.create_webhook(
+            name="test",
+            url=invalid_url,
+            events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+        )
+
+
+def test_create_webhook_invalid_events(store):
+    # Test empty events
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.create_webhook(name="test", url="https://example.com", events=[])
+
+    # Test non-list events
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.create_webhook(name="test", url="https://example.com", events=())
+
+    # Test list with non-WebhookEvent items
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.create_webhook(name="test", url="https://example.com", events=[1, 2, 3])
+
+
+def test_get_webhook(store):
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
+    created_webhook = store.create_webhook(
+        name="test_webhook", url="https://example.com/webhook", events=events
+    )
+
+    retrieved_webhook = store.get_webhook(created_webhook.webhook_id)
+
+    assert retrieved_webhook.webhook_id == created_webhook.webhook_id
+    assert retrieved_webhook.name == "test_webhook"
+    assert retrieved_webhook.url == "https://example.com/webhook"
+    assert retrieved_webhook.events == events
+
+
+def test_get_webhook_not_found(store):
+    with pytest.raises(MlflowException, match="Webhook with ID nonexistent not found"):
+        store.get_webhook("nonexistent")
+
+
+def test_list_webhooks(store):
+    # Create multiple webhooks
+    webhook1 = store.create_webhook(
+        name="webhook1",
+        url="https://example.com/1",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+    )
+    webhook2 = store.create_webhook(
+        name="webhook2",
+        url="https://example.com/2",
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
+    )
+
+    webhooks_page = store.list_webhooks()
+
+    assert len(webhooks_page) == 2
+    assert webhooks_page.token is None
+    webhook_ids = {w.webhook_id for w in webhooks_page}
+    assert webhook1.webhook_id in webhook_ids
+    assert webhook2.webhook_id in webhook_ids
+
+
+def test_list_webhooks_pagination(store):
+    # Create more webhooks than max_results
+    for i in range(5):
+        store.create_webhook(
+            name=f"webhook{i}",
+            url=f"https://example.com/{i}",
+            events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+        )
+
+    # Test pagination with max_results=2
+    webhooks_page = store.list_webhooks(max_results=2)
+    assert len(webhooks_page) == 2
+    assert webhooks_page.token is not None
+
+    # Get next page
+    next_webhooks_page = store.list_webhooks(max_results=2, page_token=webhooks_page.token)
+    assert len(next_webhooks_page) == 2
+    assert next_webhooks_page.token is not None
+
+    # Verify we don't get duplicates
+    first_page_ids = {w.webhook_id for w in webhooks_page}
+    second_page_ids = {w.webhook_id for w in next_webhooks_page}
+    assert first_page_ids.isdisjoint(second_page_ids)
+
+
+def test_list_webhooks_invalid_max_results(store):
+    with pytest.raises(MlflowException, match="max_results must be between 1 and 1000"):
+        store.list_webhooks(max_results=1001)
+
+
+def test_update_webhook(store):
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
+    webhook = store.create_webhook(
+        name="original_name", url="https://example.com/original", events=events
+    )
+
+    # Update webhook
+    new_events = [
+        WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
+        WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
+    ]
+    updated_webhook = store.update_webhook(
+        webhook_id=webhook.webhook_id,
+        name="updated_name",
+        url="https://example.com/updated",
+        events=new_events,
+        description="Updated description",
+        secret="new_secret",
+        status=WebhookStatus.DISABLED,
+    )
+
+    assert updated_webhook.webhook_id == webhook.webhook_id
+    assert updated_webhook.name == "updated_name"
+    assert updated_webhook.url == "https://example.com/updated"
+    assert updated_webhook.events == new_events
+    assert updated_webhook.description == "Updated description"
+    assert updated_webhook.status == WebhookStatus.DISABLED
+    assert updated_webhook.last_updated_timestamp > webhook.last_updated_timestamp
+
+
+def test_update_webhook_partial(store):
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
+    webhook = store.create_webhook(
+        name="original_name", url="https://example.com/original", events=events
+    )
+
+    # Update only name
+    updated_webhook = store.update_webhook(webhook_id=webhook.webhook_id, name="new_name")
+
+    assert updated_webhook.name == "new_name"
+    assert updated_webhook.url == "https://example.com/original"  # Should remain unchanged
+    assert updated_webhook.events == events  # Should remain unchanged
+
+
+def test_update_webhook_not_found(store):
+    with pytest.raises(MlflowException, match="Webhook with ID nonexistent not found"):
+        store.update_webhook(
+            webhook_id="nonexistent", name="new_name", url="https://example.com/new"
+        )
+
+
+def test_update_webhook_invalid_events(store):
+    # Create a valid webhook first
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+    )
+
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.update_webhook(webhook_id=webhook.webhook_id, events=[])
+
+    # Test non-list events
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.update_webhook(webhook_id=webhook.webhook_id, events=())
+
+    # Test list with non-WebhookEvent items
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.update_webhook(webhook_id=webhook.webhook_id, events=[1, 2, 3])
+
+
+@pytest.mark.parametrize(("invalid_name", "expected_match"), INVALID_WEBHOOK_NAMES)
+def test_update_webhook_invalid_names(store, invalid_name, expected_match):
+    # Create a valid webhook first
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+    )
+
+    with pytest.raises(MlflowException, match=expected_match):
+        store.update_webhook(webhook_id=webhook.webhook_id, name=invalid_name)
+
+
+@pytest.mark.parametrize(
+    ("invalid_url", "expected_match"),
+    [
+        ("   ", r"Webhook URL cannot be empty or just whitespace"),
+        ("ftp://example.com", r"Invalid webhook URL scheme"),
+        ("http://[invalid", r"Invalid webhook URL"),
+    ],
+)
+def test_update_webhook_invalid_urls(store, invalid_url, expected_match):
+    # Create a valid webhook first
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+    )
+
+    with pytest.raises(MlflowException, match=expected_match):
+        store.update_webhook(webhook_id=webhook.webhook_id, url=invalid_url)
+
+
+def test_delete_webhook(store):
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=events,
+    )
+
+    store.delete_webhook(webhook.webhook_id)
+
+    with pytest.raises(MlflowException, match=r"Webhook with ID .* not found"):
+        store.get_webhook(webhook.webhook_id)
+
+    webhooks_page = store.list_webhooks()
+    webhook_ids = {w.webhook_id for w in webhooks_page}
+    assert webhook.webhook_id not in webhook_ids
+
+
+def test_delete_webhook_not_found(store):
+    with pytest.raises(MlflowException, match="Webhook with ID nonexistent not found"):
+        store.delete_webhook("nonexistent")
+
+
+def test_webhook_status_transitions(store):
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
+
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=events,
+        status=WebhookStatus.ACTIVE,
+    )
+    assert webhook.status == WebhookStatus.ACTIVE
+
+    # Update to inactive
+    updated_webhook = store.update_webhook(
+        webhook_id=webhook.webhook_id, status=WebhookStatus.DISABLED
+    )
+    assert updated_webhook.status == WebhookStatus.DISABLED
+
+    # Update back to active
+    updated_webhook = store.update_webhook(
+        webhook_id=webhook.webhook_id, status=WebhookStatus.ACTIVE
+    )
+    assert updated_webhook.status == WebhookStatus.ACTIVE
+
+
+def test_webhook_secret_encryption(store):
+    store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+        secret="my_secret",
+    )
+    engine = create_engine(store.db_uri)
+    with engine.connect() as conn:
+        (raw_secret,) = conn.execute(text("SELECT secret FROM webhooks")).fetchone()
+        assert raw_secret is not None
+        assert raw_secret != "my_secret"  # Should be encrypted
+
+
+def test_create_model_version_with_model_id_and_no_run_id(store):
+    name = "test_model_with_model_id"
+    _rm_maker(store, name)
+
+    mock_run_id = "mock-run-id-123"
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.source_run_id = mock_run_id
+
+    with mock.patch(
+        "mlflow.store.model_registry.sqlalchemy_store.MlflowClient"
+    ) as mock_client_class:
+        mock_client = mock.MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.get_logged_model.return_value = mock_logged_model
+
+        mv = store.create_model_version(
+            name=name,
+            source="path/to/source",
+            run_id=None,
+            model_id="test-model-id-456",
+        )
+
+        mock_client.get_logged_model.assert_called_once_with("test-model-id-456")
+
+        assert mv.run_id == mock_run_id
+
+        mvd = store.get_model_version(name=mv.name, version=mv.version)
+        assert mvd.run_id == mock_run_id

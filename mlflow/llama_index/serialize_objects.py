@@ -2,7 +2,7 @@ import importlib
 import inspect
 import json
 import logging
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from llama_index.core import PromptTemplate
 from llama_index.core.base.embeddings.base import BaseEmbedding
@@ -27,7 +27,7 @@ def _get_object_import_path(o: object) -> str:
     return f"{module_name}.{class_name}"
 
 
-def _sanitize_api_key(object_as_dict: Dict[str, str]) -> Dict[str, str]:
+def _sanitize_api_key(object_as_dict: dict[str, str]) -> dict[str, str]:
     return {k: v for k, v in object_as_dict.items() if "api_key" not in k.lower()}
 
 
@@ -38,16 +38,16 @@ def object_to_dict(o: object):
     if isinstance(o, BaseComponent):
         # we can't serialize callables in the model fields
         callable_fields = set()
-        fields = o.model_fields if hasattr(o, "model_fields") else o.__fields__
+        # Access model_fields from the class to avoid pydantic deprecation warning
+        fields = (
+            o.__class__.model_fields if hasattr(o.__class__, "model_fields") else o.model_fields
+        )
         for k, v in fields.items():
             field_val = getattr(o, k, None)
-            if field_val != v.default and callable(field_val):
+            # Exclude all callable fields, including those with default values
+            # to prevent serialization issues in llama_index
+            if callable(field_val):
                 callable_fields.add(k)
-        if callable_fields:
-            _logger.warning(
-                f"Object {o} contains callable fields that are not serializable: {callable_fields},"
-                f" removing these fields and saving the object."
-            )
         # exclude default values from serialization to avoid
         # unnecessary clutter in the serialized object
         o_state_as_dict = o.to_dict(exclude=callable_fields)
@@ -67,7 +67,7 @@ def object_to_dict(o: object):
 
 
 def _construct_prompt_template_object(
-    constructor: Callable, kwargs: Dict[str, any]
+    constructor: Callable[..., PromptTemplate], kwargs: dict[str, Any]
 ) -> PromptTemplate:
     """Construct a PromptTemplate object based on the constructor and kwargs.
 
@@ -86,7 +86,7 @@ def _construct_prompt_template_object(
         )
 
 
-def dict_to_object(object_representation: Dict[str, Any]) -> object:
+def dict_to_object(object_representation: dict[str, Any]) -> object:
     if "object_constructor" not in object_representation:
         raise ValueError("'object_constructor' key not found in dict.")
     if "object_kwargs" not in object_representation:
@@ -119,7 +119,7 @@ def dict_to_object(object_representation: Dict[str, Any]) -> object:
         return object_class.from_dict(kwargs)
 
 
-def _deserialize_dict_of_objects(path: str) -> Dict[str, any]:
+def _deserialize_dict_of_objects(path: str) -> dict[str, Any]:
     with open(path) as f:
         to_deserialize = json.load(f)
 
@@ -157,7 +157,7 @@ def serialize_settings(path: str) -> None:
         def _convert(obj):
             object_json = object_to_dict(obj)
             if object_json is None:
-                prop_name = k[1:] if k.startswith("_") else k
+                prop_name = k.removeprefix("_")
                 unsupported_objects.append((prop_name, v))
             return object_json
 
@@ -188,6 +188,5 @@ def deserialize_settings(path: str):
 
     for k, v in settings_dict.items():
         # To use the property setter rather than directly setting the private attribute e.g. _llm
-        if k.startswith("_"):
-            k = k[1:]
+        k = k.removeprefix("_")
         setattr(Settings, k, v)

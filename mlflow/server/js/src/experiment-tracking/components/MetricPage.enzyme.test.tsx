@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -110,7 +111,6 @@ describe('MetricPage', () => {
       </Provider>,
     ).find(MetricPage);
 
-    instance = wrapper.find(MetricPageImpl).instance();
-    expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledWith('Error during metric page load: invalid URL');
+    expect(wrapper.find(MetricPage).html()).toContain('Error during metric page load: invalid URL');
   });
 });

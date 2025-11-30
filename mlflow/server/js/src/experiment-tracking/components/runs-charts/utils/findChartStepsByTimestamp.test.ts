@@ -1,4 +1,9 @@
-import { findAbsoluteTimestampRangeForRelativeRange, findChartStepsByTimestamp } from './findChartStepsByTimestamp';
+import { describe, test, expect } from '@jest/globals';
+import {
+  findAbsoluteTimestampRangeForRelativeRange,
+  findChartStepsByTimestamp,
+  findChartStepsByTimestampForRuns,
+} from './findChartStepsByTimestamp';
 
 const existingMetricsRangeA = [
   { key: '', step: 3, timestamp: new Date('2023-10-24 13:00:00').valueOf() },
@@ -46,7 +51,6 @@ describe('findChartStepsByTimestamp', () => {
     ).toBeUndefined();
   });
 });
-import { findChartStepsByTimestampForRuns } from './findChartStepsByTimestamp';
 
 describe('findChartStepsByTimestampForRuns', () => {
   const sampledMetrics = {
