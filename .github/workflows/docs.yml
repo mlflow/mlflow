@@ -143,7 +143,7 @@ jobs:
           python source/testcode_block.py
       - name: Run tests
         run: |
-          pytest --no-cov .examples
+          pytest .examples
 
   r:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
