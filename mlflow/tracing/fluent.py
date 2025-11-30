@@ -9,7 +9,18 @@ import logging
 import os
 import warnings
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generator,
+    Literal,
+    ParamSpec,
+    Protocol,
+    Sequence,
+    TypeVar,
+    overload,
+)
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -59,13 +70,85 @@ _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL = ContextVar("last_active_trace_id", default=
 # evaluation using the dataset row ID (evaluation request ID).
 _EVAL_REQUEST_ID_TO_TRACE_ID = TTLCache(maxsize=10000, ttl=3600)
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R", covariant=True)
+
+
+class _TraceProtocol(Protocol):
+    @overload
+    def __call__(self, f: Callable[_P, _R]) -> Callable[_P, _R]:
+        """
+        # Case 1
+        @mlflow.trace
+        def f(x: int) -> str:
+            return str(x)
+
+        # Case 2
+        mlflow.trace(math.floor)
+        """
+
+    @overload
+    def __call__(
+        self,
+        func: None = None,
+        name: str | None = None,
+        span_type: str = SpanType.UNKNOWN,
+        attributes: dict[str, Any] | None = None,
+        output_reducer: Callable[[Sequence[Any]], Any] | None = None,
+        trace_destination: TraceLocationBase | None = None,
+    ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+        """
+        @mlflow.trace(name="x")
+        def f(x: int) -> str:
+            return str(x)
+        """
+
+    @overload
+    def trace(
+        func: Callable[_P, _R],
+        name: str | None = None,
+        span_type: str = SpanType.UNKNOWN,
+        attributes: dict[str, Any] | None = None,
+        output_reducer: Callable[[Sequence[Any]], Any] | None = None,
+        trace_destination: TraceLocationBase | None = None,
+    ) -> Callable[_P, _R]:
+        """
+        mlflow.trace(func=math.floor, name="floor")
+        """
+
+
+@overload
+def trace(
+    func: None = None,
+    name: str | None = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: dict[str, Any] | None = None,
+    output_reducer: Callable[[Sequence[Any]], Any] | None = None,
+    trace_destination: TraceLocationBase | None = None,
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
+
+
+@overload
+def trace(
+    func: Callable[_P, _R],
+    name: str | None = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: dict[str, Any] | None = None,
+    output_reducer: Callable[[Sequence[Any]], Any] | None = None,
+    trace_destination: TraceLocationBase | None = None,
+) -> Callable[_P, _R]: ...
+
+
+# This is needed to support bare .trace decorator
+trace: _TraceProtocol
+
 
 def trace(
     func: Callable[..., Any] | None = None,
     name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
-    output_reducer: Callable[[list[Any]], Any] | None = None,
+    output_reducer: Callable[[Sequence[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     """
@@ -266,13 +349,13 @@ def _wrap_function(
 
 
 def _wrap_generator(
-    fn: Callable[..., Any],
+    fn: _TracedCallable,
     name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
-) -> Callable[..., Any]:
+) -> _TracedCallable:
     """
     Wrap a generator function to create a span.
     Generator functions need special handling because of its lazy evaluation nature.
