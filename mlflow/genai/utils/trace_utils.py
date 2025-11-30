@@ -184,6 +184,35 @@ def resolve_conversation_from_session(
     return conversation
 
 
+
+def resolve_expectations_from_session(
+    session: list[Trace],
+    source: AssessmentSourceType = AssessmentSourceType.HUMAN,
+) -> dict[str, Any] | None:
+    """
+    Extract expectations from traces in session.
+
+    Args:
+        session: List of traces from the same session.
+        source: Assessment source type to filter expectations by. Defaults to HUMAN.
+
+    Returns:
+        Dictionary of expectations, or None if no expectations found.
+        If multiple traces have expectations with the same name, the one from the later trace
+        (by timestamp) will overwrite the earlier one.
+    """
+    # Sort traces by creation time (timestamp_ms)
+    sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
+
+    all_expectations = {}
+    for trace in sorted_traces:
+        expectations = extract_expectations_from_trace(trace, source=source)
+        if expectations:
+            all_expectations.update(expectations)
+
+    return all_expectations if all_expectations else None
+
+
 def resolve_expectations_from_trace(
     expectations: dict[str, Any] | None,
     trace: Trace,
@@ -191,6 +220,7 @@ def resolve_expectations_from_trace(
     *,
     extract_if_none: bool = True,
 ) -> dict[str, Any] | None:
+
     """
     Extract expectations from trace if not provided.
 
