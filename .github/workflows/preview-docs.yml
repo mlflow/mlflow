@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   main:
-    if: github.repository == 'mlflow/mlflow' && github.event.workflow_run.conclusion == 'success'
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # To post comments on PRs
