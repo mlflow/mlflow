@@ -349,13 +349,13 @@ def _wrap_function(
 
 
 def _wrap_generator(
-    fn: _TracedCallable,
+    fn: Callable[..., Any],
     name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
-) -> _TracedCallable:
+) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
     Generator functions need special handling because of its lazy evaluation nature.
@@ -561,7 +561,8 @@ def start_span(
     """
     try:
         otel_span = provider.start_span_in_context(
-            name, experiment_id=trace_destination.experiment_id if trace_destination else None
+            name,
+            experiment_id=trace_destination.experiment_id if trace_destination else None,
         )
 
         # Create a new MLflow span and register it to the in-memory trace manager
