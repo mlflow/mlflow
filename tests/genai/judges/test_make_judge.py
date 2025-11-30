@@ -3420,17 +3420,6 @@ def test_instructions_judge_generate_rationale_first():
 
 
 def test_response_format_uses_generic_description_when_scorer_has_description():
-    """
-    Verify that response format uses generic field description even when scorer has
-    a custom description.
-
-    Bug: Previously the Pydantic Field description was set to self.description,
-    which caused the LLM to see the scorer's description in the JSON schema
-    and potentially echo it back as the value instead of generating an assessment.
-
-    Fix: The Field description should always be _RESULT_FIELD_DESCRIPTION
-    ("The evaluation rating/result") so the LLM understands what to return.
-    """
     scorer_description = "Evaluates the conciseness of the response"
     judge = InstructionsJudge(
         name="Conciseness",
@@ -3468,12 +3457,6 @@ def test_response_format_uses_generic_description_when_scorer_has_description():
 
 
 def test_response_format_uses_generic_description_when_scorer_has_no_description():
-    """
-    Verify that response format uses generic field description when scorer
-    has no custom description.
-
-    This ensures the fallback behavior is correct when self.description is None.
-    """
     judge = InstructionsJudge(
         name="TestJudge",
         instructions="Evaluate {{ outputs }}",
@@ -3484,6 +3467,7 @@ def test_response_format_uses_generic_description_when_scorer_has_no_description
     response_format_model = judge._create_response_format_model()
     schema = response_format_model.model_json_schema()
 
+    # The result field description should be the generic description
     result_description = schema["properties"]["result"]["description"]
     assert result_description == _RESULT_FIELD_DESCRIPTION, (
         f"Response format should use generic field description.\n"
