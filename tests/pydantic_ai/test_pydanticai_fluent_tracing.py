@@ -11,6 +11,7 @@ from pydantic_ai.usage import Usage
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
@@ -64,6 +65,17 @@ def _make_dummy_response_with_tool():
         final_resp = ModelResponse(parts=final_parts)
         yield call_resp, usage_call
         yield final_resp, usage_final
+
+
+@pytest.fixture
+def test_model_agent():
+    from pydantic_ai.models.test import TestModel
+
+    return Agent(
+        TestModel(),
+        system_prompt="Tell me the capital of {{input}}.",
+        instrument=True,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -238,3 +250,95 @@ async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool
     assert span3.name == "InstrumentedModel.request"
     assert span3.span_type == SpanType.LLM
     assert span3.parent_id == spans[0].span_id
+
+
+@pytest.mark.asyncio
+async def test_agent_run_stream_creates_trace(test_model_agent):
+    mlflow.pydantic_ai.autolog()
+
+    async with test_model_agent.run_stream("France") as result:
+        output = await result.get_output()
+        assert output is not None
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+
+    run_stream_span = next((s for s in spans if s.name == "Agent.run_stream"), None)
+    assert run_stream_span is not None
+    assert run_stream_span.span_type == SpanType.AGENT
+
+    usage = run_stream_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert usage is not None
+    assert usage.get("input_tokens") == 58
+    assert usage.get("output_tokens") == 4
+    assert usage.get("total_tokens") == 62
+
+
+@pytest.mark.asyncio
+async def test_agent_run_stream_disabled_autolog_no_trace(test_model_agent):
+    mlflow.pydantic_ai.autolog(log_traces=True)
+
+    async with test_model_agent.run_stream("France") as result:
+        await result.get_output()
+
+    traces_before = get_traces()
+    assert len(traces_before) == 1
+
+    mlflow.pydantic_ai.autolog(disable=True)
+
+    async with test_model_agent.run_stream("France") as result:
+        await result.get_output()
+
+    traces_after = get_traces()
+    assert len(traces_after) == 1
+
+
+def test_agent_run_stream_sync_creates_trace(test_model_agent):
+    mlflow.pydantic_ai.autolog(log_traces=True)
+
+    # Use run_stream_sync and consume the stream
+    result = test_model_agent.run_stream_sync("France")
+    output = ""
+    for text in result.stream_text():
+        output += text
+
+    assert output  # Should have some output
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+
+    run_stream_sync_span = next((s for s in spans if s.name == "Agent.run_stream_sync"), None)
+    assert run_stream_sync_span is not None
+    assert run_stream_sync_span.span_type == SpanType.AGENT
+    assert run_stream_sync_span.inputs is not None
+    assert "user_prompt" in run_stream_sync_span.inputs
+    assert run_stream_sync_span.outputs is not None
+
+    usage = run_stream_sync_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert usage is not None
+    assert usage.get("input_tokens") == 58
+    assert usage.get("output_tokens") == 4
+    assert usage.get("total_tokens") == 62
+
+
+def test_agent_run_stream_sync_disabled_autolog_no_trace(test_model_agent):
+    mlflow.pydantic_ai.autolog(log_traces=True)
+
+    result = test_model_agent.run_stream_sync("France")
+    for _ in result.stream_text():
+        pass
+
+    traces_before = get_traces()
+    assert len(traces_before) == 1
+
+    mlflow.pydantic_ai.autolog(disable=True)
+
+    result = test_model_agent.run_stream_sync("France")
+    for _ in result.stream_text():
+        pass
+
+    traces_after = get_traces()
+    assert len(traces_after) == 1  # No new trace added
+
