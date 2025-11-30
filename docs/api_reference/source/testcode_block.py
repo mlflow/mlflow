@@ -1,6 +1,5 @@
 """
 Standalone script to extract code blocks marked with :test: from Python docstrings.
-This script no longer depends on Sphinx and can be run independently.
 Uses AST to parse Python files and extract docstrings with test code blocks.
 """
 
@@ -10,18 +9,15 @@ import subprocess
 import textwrap
 from pathlib import Path
 
-
-def _get_indent(s: str) -> int:
-    """Get indentation level of a string."""
-    return len(s) - len(s.lstrip())
-
-
 _CODE_BLOCK_HEADER_REGEX = re.compile(r"^\.\.\s+code-block::\s*py(thon)?")
 _CODE_BLOCK_OPTION_REGEX = re.compile(r"^:\w+:")
 
 
+def _get_indent(s: str) -> int:
+    return len(s) - len(s.lstrip())
+
+
 def _get_header_indent(s: str) -> int | None:
-    """Check if line is a code-block header and return its indent level."""
     if _CODE_BLOCK_HEADER_REGEX.match(s.lstrip()):
         return _get_indent(s)
     return None
@@ -178,7 +174,7 @@ def generate_test_file(location: str, line_num: int, code: str, output_dir: Path
     return output_path
 
 
-def extract_examples(mlflow_dir: Path, output_dir: Path, repo_root: Path) -> int:
+def extract_examples(mlflow_dir: Path, output_dir: Path, repo_root: Path) -> None:
     """
     Extract test examples from Python files and generate test files.
 
@@ -186,17 +182,12 @@ def extract_examples(mlflow_dir: Path, output_dir: Path, repo_root: Path) -> int
         mlflow_dir: Directory containing Python files to scan
         output_dir: Directory to write test files to
         repo_root: Root of the repository
-
-    Returns:
-        Number of tests generated
     """
     output_dir.mkdir(exist_ok=True)
 
     # Clean up old test files
     for old_file in output_dir.glob("test_*.py"):
         old_file.unlink()
-
-    total_tests = 0
 
     print(f"Scanning Python files in: {mlflow_dir}")
     python_files = find_python_files(mlflow_dir, repo_root)
@@ -208,25 +199,13 @@ def extract_examples(mlflow_dir: Path, output_dir: Path, repo_root: Path) -> int
         for location, line_num, code in results:
             output_path = generate_test_file(location, line_num, code, output_dir)
             print(f"  Generated: {output_path.name}")
-            total_tests += 1
-
-    print(f"\nTotal tests generated: {total_tests}")
-    return total_tests
 
 
 def main() -> None:
-    """Main entry point for the script."""
-    # Get repository root
-    output = subprocess.check_output(
-        ["git", "rev-parse", "--show-toplevel"],
-        text=True,
-    )
+    output = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True)
     repo_root = Path(output.strip())
-
-    # Always scan mlflow directory
     scan_dir = repo_root / "mlflow"
     output_dir = Path(".examples")
-
     extract_examples(scan_dir, output_dir, repo_root)
 
 
