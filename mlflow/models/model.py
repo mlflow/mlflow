@@ -724,8 +724,7 @@ class Model:
     def to_dict(self) -> dict[str, Any]:
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-        databricks_runtime = get_databricks_runtime_version()
-        if databricks_runtime:
+        if databricks_runtime := get_databricks_runtime_version():
             res["databricks_runtime"] = databricks_runtime
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()

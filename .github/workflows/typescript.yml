@@ -16,6 +16,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   typescript-sdk:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

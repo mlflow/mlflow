@@ -168,15 +168,13 @@ def resolve_conversation_from_session(
     conversation = []
     for trace in sorted_traces:
         # Extract and parse input (user message)
-        inputs = extract_inputs_from_trace(trace)
-        if inputs:
+        if inputs := extract_inputs_from_trace(trace):
             user_content = parse_inputs_to_str(inputs)
             if user_content and user_content.strip():
                 conversation.append({"role": "user", "content": user_content})
 
         # Extract and parse output (assistant message)
-        outputs = extract_outputs_from_trace(trace)
-        if outputs:
+        if outputs := extract_outputs_from_trace(trace):
             assistant_content = parse_outputs_to_str(outputs)
             if assistant_content and assistant_content.strip():
                 conversation.append({"role": "assistant", "content": assistant_content})

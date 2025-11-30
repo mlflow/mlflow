@@ -948,8 +948,7 @@ def get_active_trace_id() -> str | None:
     Returns:
         The ID of the current active trace if exists, otherwise None.
     """
-    active_span = get_current_active_span()
-    if active_span:
+    if active_span := get_current_active_span():
         return active_span.trace_id
     return None
 
@@ -1122,8 +1121,7 @@ def update_current_trace(
         return
 
     def _warn_non_string_values(d: dict[str, Any], field_name: str):
-        non_string_items = {k: v for k, v in d.items() if not isinstance(v, str)}
-        if non_string_items:
+        if non_string_items := {k: v for k, v in d.items() if not isinstance(v, str)}:
             _logger.warning(
                 f"Found non-string values in {field_name}. Non-string values in {field_name} will "
                 f"automatically be stringified when the trace is logged. Non-string items: "

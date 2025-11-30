@@ -420,9 +420,7 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
     ]
 
     # Check for missing required parameters
-    missing_params = [param for param in required_params if param not in params]
-
-    if missing_params:
+    if missing_params := [param for param in required_params if param not in params]:
         raise MlflowException.invalid_parameter_value(
             f"Missing required parameters for function '{function.__name__}': {missing_params}. "
             f"Expected parameters: {list(sig.parameters.keys())}"

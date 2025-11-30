@@ -677,8 +677,7 @@ class FileStore(AbstractStore):
 
         def next_version(registered_model_name):
             path = self._get_registered_model_path(registered_model_name)
-            model_versions = self._list_file_model_versions_under_path(path)
-            if model_versions:
+            if model_versions := self._list_file_model_versions_under_path(path):
                 return max(mv.version for mv in model_versions) + 1
             else:
                 return 1

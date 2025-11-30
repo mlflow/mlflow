@@ -161,8 +161,7 @@ def main() -> None:
             continue
 
         # Remove old decorators
-        removed = remove_decorators_from_file(file_path, old_decorators, args.dry_run)
-        if removed:
+        if removed := remove_decorators_from_file(file_path, old_decorators, args.dry_run):
             for decorator in removed:
                 action = "Would remove" if args.dry_run else "Removed"
                 print(

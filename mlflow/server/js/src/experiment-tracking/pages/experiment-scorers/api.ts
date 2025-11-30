@@ -1,4 +1,4 @@
-import { fetchOrFail } from '../../../common/utils/FetchUtils';
+import { fetchOrFail, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { catchNetworkErrorIfExists } from '../../utils/NetworkUtils';
 import type { ScorerConfig } from './types';
 
@@ -42,7 +42,7 @@ export interface ListScorersResponse {
 export async function listScheduledScorers(experimentId: string): Promise<ListScorersResponse> {
   const params = new URLSearchParams();
   params.append('experiment_id', experimentId);
-  return fetchOrFail(`/ajax-api/3.0/mlflow/scorers/list?${params.toString()}`)
+  return fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/scorers/list?${params.toString()}`))
     .then((res) => res.json())
     .catch(catchNetworkErrorIfExists);
 }
@@ -57,7 +57,7 @@ export async function updateScheduledScorers(
   },
   updateMask: string = 'scheduled_scorers.scorers',
 ) {
-  return fetchOrFail(`/ajax-api/3.0/mlflow/scorers/update`, {
+  return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/scorers/update'), {
     method: 'PATCH',
     body: JSON.stringify({
       experiment_id: experimentId,
@@ -78,7 +78,7 @@ export async function createScheduledScorers(
     scorers: ScorerConfig[];
   },
 ) {
-  return fetchOrFail(`/ajax-api/3.0/mlflow/scorers/create`, {
+  return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/scorers/create'), {
     method: 'POST',
     body: JSON.stringify({
       experiment_id: experimentId,
@@ -93,7 +93,7 @@ export async function createScheduledScorers(
  * Register a single scorer for an experiment
  */
 export async function registerScorer(experimentId: string, scorer: ScorerConfig): Promise<RegisterScorerResponse> {
-  return fetchOrFail(`/ajax-api/3.0/mlflow/scorers/register`, {
+  return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/scorers/register'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -122,7 +122,7 @@ export async function deleteScheduledScorers(experimentId: string, scorerNames?:
     body.name = scorerNames[0];
   }
 
-  return fetchOrFail(`/ajax-api/3.0/mlflow/scorers/delete`, {
+  return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/scorers/delete'), {
     method: 'DELETE',
     body: JSON.stringify(body),
   })

@@ -3,6 +3,10 @@ name: Maintainer approval
 on:
   pull_request_target:
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   check:
     runs-on: ubuntu-slim

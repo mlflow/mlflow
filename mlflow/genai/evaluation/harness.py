@@ -137,9 +137,7 @@ def run(
     # Evaluate multi-turn scorers if present
     if multi_turn_scorers:
         # Group eval items by session
-        session_groups = group_traces_by_session(eval_items)
-
-        if session_groups:
+        if session_groups := group_traces_by_session(eval_items):
             # Evaluate multi-turn scorers on session groups
             multi_turn_assessments = evaluate_session_level_scorers(
                 multi_turn_scorers, session_groups

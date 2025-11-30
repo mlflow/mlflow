@@ -256,9 +256,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             ) from e
 
         context_tags = context_registry.resolve_tags()
-        user_tag = context_tags.get(MLFLOW_USER)
-
-        if user_tag:
+        if user_tag := context_tags.get(MLFLOW_USER):
             for record in record_dicts:
                 if "tags" not in record:
                     record["tags"] = {}

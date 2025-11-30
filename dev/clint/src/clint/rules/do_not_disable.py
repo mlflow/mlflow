@@ -22,8 +22,7 @@ class DoNotDisable(Rule):
         # Build message for all rules (works for single and multiple rules)
         hints = []
         for rule in sorted(self.rules):
-            hint = DoNotDisable.RULES.get(rule)
-            if hint:
+            if hint := DoNotDisable.RULES.get(rule):
                 hints.append(f"{rule}: {hint}")
             else:
                 hints.append(rule)

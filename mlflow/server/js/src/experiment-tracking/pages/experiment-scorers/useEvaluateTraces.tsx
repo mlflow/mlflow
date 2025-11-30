@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
-import { fetchOrFail } from '../../../common/utils/FetchUtils';
+import { fetchOrFail, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import type {
   ModelTraceLocationMlflowExperiment,
@@ -63,8 +63,8 @@ export interface JudgeEvaluationResult {
 
 const getMlflowTraceV3 = async (requestId: string): Promise<ModelTrace> => {
   const [traceInfoResponse, traceDataResponse] = await Promise.all([
-    fetchOrFail(`/ajax-api/3.0/mlflow/traces/${requestId}`),
-    fetchOrFail(`/ajax-api/3.0/mlflow/get-trace-artifact?request_id=${requestId}`),
+    fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${requestId}`)),
+    fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/get-trace-artifact?request_id=${requestId}`)),
   ]);
   const [traceInfo, traceData] = await Promise.all([traceInfoResponse.json(), traceDataResponse.json()]);
 
@@ -85,7 +85,7 @@ async function callChatCompletions(
     experiment_id: experimentId,
   };
 
-  const response = await fetchOrFail('/ajax-api/2.0/agents/chat-completions', {
+  const response = await fetchOrFail(getAjaxUrl('ajax-api/2.0/agents/chat-completions'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -252,7 +252,7 @@ async function callChatAssessments(
     experiment_id: experimentId,
   };
 
-  const response = await fetchOrFail('/ajax-api/2.0/agents/chat-assessments', {
+  const response = await fetchOrFail(getAjaxUrl('ajax-api/2.0/agents/chat-assessments'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

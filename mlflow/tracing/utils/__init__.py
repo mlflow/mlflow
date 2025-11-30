@@ -274,8 +274,7 @@ def maybe_get_request_id(is_evaluate=False) -> str | None:
 
 
 def maybe_get_dependencies_schemas() -> dict[str, Any] | None:
-    context = _try_get_prediction_context()
-    if context:
+    if context := _try_get_prediction_context():
         return context.dependencies_schemas
 
 

@@ -942,8 +942,7 @@ class UcModelRegistryStore(BaseRestStore):
             created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
-        logged_model = self._get_logged_model_from_model_id(model_id)
-        if logged_model:
+        if logged_model := self._get_logged_model_from_model_id(model_id):
             run_id = logged_model.source_run_id
         headers, run = self._get_run_and_headers(run_id)
         if source_workspace_id is None:

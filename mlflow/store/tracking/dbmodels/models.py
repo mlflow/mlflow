@@ -266,8 +266,7 @@ class SqlRun(Base):
             tags=tags,
         )
         if not run_info.run_name:
-            run_name = _get_run_name_from_tags(tags)
-            if run_name:
+            if run_name := _get_run_name_from_tags(tags):
                 run_info._set_run_name(run_name)
 
         return Run(run_info=run_info, run_data=run_data)

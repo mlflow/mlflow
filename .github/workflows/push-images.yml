@@ -6,6 +6,10 @@ on:
       - published
       - edited
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   push-images:
     runs-on: ubuntu-latest

@@ -190,18 +190,11 @@ def _get_tool_attributes(instance):
 
 
 def _parse_tools(tools):
-    result = []
-    for tool in tools:
-        data = tool.model_dumps(exclude_none=True)
-
-        if data:
-            result.append(
-                {
-                    "type": "function",
-                    "function": data,
-                }
-            )
-    return result
+    return [
+        {"type": "function", "function": data}
+        for tool in tools
+        if (data := tool.model_dumps(exclude_none=True))
+    ]
 
 
 def _parse_usage(result: Any) -> dict[str, int] | None:

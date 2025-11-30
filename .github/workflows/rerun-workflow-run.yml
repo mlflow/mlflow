@@ -9,6 +9,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   rerun:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}

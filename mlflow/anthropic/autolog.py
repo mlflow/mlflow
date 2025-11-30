@@ -137,8 +137,7 @@ def _set_token_usage_attribute(span: LiveSpan, output: Any):
 
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
-        usage = getattr(output, "usage", None)
-        if usage:
+        if usage := getattr(output, "usage", None):
             return {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,

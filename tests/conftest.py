@@ -407,8 +407,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         )
 
     # If there are failed tests, display a command to run them
-    failed_test_reports = terminalreporter.stats.get("failed", [])
-    if failed_test_reports:
+    if failed_test_reports := terminalreporter.stats.get("failed", []):
         if len(failed_test_reports) <= 30:
             ids = [repr(report.nodeid) for report in failed_test_reports]
         else:
@@ -862,6 +861,5 @@ def reset_active_model_context():
 @pytest.fixture(autouse=True)
 def clean_up_telemetry_threads():
     yield
-    client = get_telemetry_client()
-    if client:
+    if client := get_telemetry_client():
         client._clean_up()

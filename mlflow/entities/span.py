@@ -869,8 +869,7 @@ class _SpanAttributesRegistry:
         return {key: self.get(key) for key in self._span.attributes.keys()}
 
     def get(self, key: str):
-        serialized_value = self._span.attributes.get(key)
-        if serialized_value:
+        if serialized_value := self._span.attributes.get(key):
             try:
                 return json.loads(serialized_value)
             except Exception:

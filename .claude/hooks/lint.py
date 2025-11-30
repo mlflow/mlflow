@@ -42,8 +42,7 @@ def parse_diff_ranges(diff_output: str) -> list[DiffRange]:
     ranges: list[DiffRange] = []
     for line in diff_output.splitlines():
         if line.startswith("@@ "):
-            match = re.search(r"\+(\d+)(?:,(\d+))?", line)
-            if match:
+            if match := re.search(r"\+(\d+)(?:,(\d+))?", line):
                 start = int(match.group(1))
                 count = int(match.group(2)) if match.group(2) else 1
                 ranges.append(DiffRange(start=start, end=start + count))
