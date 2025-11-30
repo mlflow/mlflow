@@ -140,9 +140,11 @@ jobs:
         run: |
           uv pip install --system pytest pytest-cov plotly -r ../../requirements/doc-requirements.txt
           uv pip install --system -e '../..[gateway]'
-      - name: Extract and test examples
+      - name: Extract examples
         run: |
           python source/testcode_block.py
+      - name: Run tests
+        run: |
           pytest --no-cov .examples
 
   r:
