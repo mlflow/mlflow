@@ -7,6 +7,7 @@ import { Empty, TableCell, TableHeader, TableRow, TableSkeletonRows } from '@dat
 import { Table } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { JsonCell } from './ExperimentEvaluationDatasetJsonCell';
+import { SourceCell } from './ExperimentEvaluationDatasetSourceCell';
 import { ExperimentEvaluationDatasetRecordsToolbar } from './ExperimentEvaluationDatasetRecordsToolbar';
 import type { EvaluationDataset, EvaluationDatasetRecord } from '../types';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
@@ -14,6 +15,7 @@ import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 const INPUTS_COLUMN_ID = 'inputs';
 const OUTPUTS_COLUMN_ID = 'outputs';
 const EXPECTATIONS_COLUMN_ID = 'expectations';
+const SOURCE_COLUMN_ID = 'source';
 
 const columns: ColumnDef<EvaluationDatasetRecord, string>[] = [
   {
@@ -37,9 +39,22 @@ const columns: ColumnDef<EvaluationDatasetRecord, string>[] = [
     enableResizing: false,
     cell: JsonCell,
   },
+  {
+    id: SOURCE_COLUMN_ID,
+    accessorKey: 'source',
+    header: 'Source',
+    enableResizing: false,
+    cell: SourceCell,
+  },
 ];
 
-export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: EvaluationDataset }) => {
+export const ExperimentEvaluationDatasetRecordsTable = ({
+  dataset,
+  onOpenTraceModal,
+}: {
+  dataset: EvaluationDataset;
+  onOpenTraceModal?: (traceId: string) => void;
+}) => {
   const intl = useIntl();
   const datasetId = dataset.dataset_id;
 
@@ -48,6 +63,7 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
     [INPUTS_COLUMN_ID]: true,
     [OUTPUTS_COLUMN_ID]: false,
     [EXPECTATIONS_COLUMN_ID]: true,
+    [SOURCE_COLUMN_ID]: true,
   });
 
   const {
@@ -76,7 +92,7 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
       getCoreRowModel: getCoreRowModel(),
       getRowId: (row) => row.dataset_record_id,
       enableColumnResizing: false,
-      meta: { rowSize },
+      meta: { rowSize, onOpenTraceModal, datasetId },
       state: {
         columnVisibility,
       },

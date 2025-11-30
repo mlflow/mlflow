@@ -10,6 +10,7 @@ import { ExperimentEvaluationDatasetRecordsTable } from './components/Experiment
 import type { EvaluationDataset } from './types';
 import { ExperimentEvaluationDatasetsPageWrapper } from './ExperimentEvaluationDatasetsPageWrapper';
 import { ExperimentEvaluationDatasetsEmptyState } from './components/ExperimentEvaluationDatasetsEmptyState';
+import { TraceDataDrawer } from '../../components/traces/TraceDataDrawer';
 
 const ExperimentEvaluationDatasetsPageImpl = () => {
   const { experimentId } = useParams();
@@ -19,8 +20,17 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
   const [datasetListHidden, setDatasetListHidden] = useState(false);
   const [selectedDataset, setSelectedDataset] = useState<EvaluationDataset | undefined>(undefined);
   const [isDatasetsLoading, setIsDatasetsLoading] = useState(false);
+  const [openTraceId, setOpenTraceId] = useState<string | undefined>(undefined);
 
   invariant(experimentId, 'Experiment ID must be defined');
+
+  const handleOpenTraceModal = (traceId: string) => {
+    setOpenTraceId(traceId);
+  };
+
+  const handleCloseTraceModal = () => {
+    setOpenTraceId(undefined);
+  };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'row', flex: 1, minHeight: '0px' }}>
@@ -69,7 +79,12 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
         {!isDatasetsLoading && !selectedDataset && (
           <ExperimentEvaluationDatasetsEmptyState experimentId={experimentId} />
         )}
-        {selectedDataset && <ExperimentEvaluationDatasetRecordsTable dataset={selectedDataset} />}
+        {selectedDataset && (
+          <ExperimentEvaluationDatasetRecordsTable
+            dataset={selectedDataset}
+            onOpenTraceModal={handleOpenTraceModal}
+          />
+        )}
       </div>
       {dragging && (
         <Global
@@ -80,6 +95,7 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
           }}
         />
       )}
+      {openTraceId && <TraceDataDrawer requestId={openTraceId} onClose={handleCloseTraceModal} />}
     </div>
   );
 };
