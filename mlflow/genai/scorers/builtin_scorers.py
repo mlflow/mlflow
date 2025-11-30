@@ -335,8 +335,7 @@ class BuiltInScorer(Judge):
         return scorer_class(**constructor_args)
 
     def validate_columns(self, columns: set[str]) -> None:
-        missing_columns = self.required_columns - columns
-        if missing_columns:
+        if missing_columns := self.required_columns - columns:
             raise MissingColumnsException(self.name, missing_columns)
 
     @property

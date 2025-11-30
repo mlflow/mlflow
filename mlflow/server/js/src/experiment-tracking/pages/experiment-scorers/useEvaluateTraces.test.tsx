@@ -10,6 +10,7 @@ import { rest } from 'msw';
 
 // Mock fetchOrFail
 jest.mock('../../../common/utils/FetchUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FetchUtils')>('../../../common/utils/FetchUtils'),
   fetchOrFail: jest.fn(),
 }));
 
@@ -28,7 +29,7 @@ function setupMocks(
     const urlString = typeof url === 'string' ? url : url.toString();
 
     // Handle trace info endpoint
-    if (urlString.includes('/ajax-api/3.0/mlflow/traces/')) {
+    if (urlString.includes('ajax-api/3.0/mlflow/traces/')) {
       const requestId = urlString.split('/').pop() as string;
       const trace = traces.get(requestId);
       return Promise.resolve({
@@ -42,7 +43,7 @@ function setupMocks(
     }
 
     // Handle trace data endpoint
-    if (urlString.includes('/ajax-api/3.0/mlflow/get-trace-artifact')) {
+    if (urlString.includes('ajax-api/3.0/mlflow/get-trace-artifact')) {
       const match = urlString.match(/request_id=([^&]+)/);
       const requestId = match ? match[1] : '';
       const trace = traces.get(requestId);
@@ -52,7 +53,7 @@ function setupMocks(
     }
 
     // Handle chat completions endpoint
-    if (urlString.includes('/ajax-api/2.0/agents/chat-completions') && options?.method === 'POST') {
+    if (urlString.includes('ajax-api/2.0/agents/chat-completions') && options?.method === 'POST') {
       if (chatCompletionsHandler) {
         return chatCompletionsHandler(urlString, options);
       }
@@ -67,7 +68,7 @@ function setupMocks(
     }
 
     // Handle chat assessments endpoint
-    if (urlString.includes('/ajax-api/2.0/agents/chat-assessments') && options?.method === 'POST') {
+    if (urlString.includes('ajax-api/2.0/agents/chat-assessments') && options?.method === 'POST') {
       if (chatAssessmentsHandler) {
         return chatAssessmentsHandler(urlString, options);
       }
@@ -94,7 +95,7 @@ function setupSearchTracesHandler(server: ReturnType<typeof setupServer>, traces
   const traceInfos: ModelTraceInfoV3[] = Array.from(traces.values()).map((trace) => trace.info as ModelTraceInfoV3);
 
   server.use(
-    rest.post('/ajax-api/3.0/mlflow/traces/search', (req, res, ctx) => {
+    rest.post('ajax-api/3.0/mlflow/traces/search', (req, res, ctx) => {
       return res(ctx.json({ traces: traceInfos, next_page_token: undefined }));
     }),
   );
@@ -213,7 +214,7 @@ describe('useEvaluateTraces', () => {
 
       // Verify chat completions was called
       expect(mockedFetchOrFail).toHaveBeenCalledWith(
-        '/ajax-api/2.0/agents/chat-completions',
+        'ajax-api/2.0/agents/chat-completions',
         expect.objectContaining({
           method: 'POST',
           headers: {
@@ -917,7 +918,7 @@ describe('useEvaluateTraces', () => {
         });
 
         expect(mockedFetchOrFail).toHaveBeenCalledWith(
-          '/ajax-api/2.0/agents/chat-assessments',
+          'ajax-api/2.0/agents/chat-assessments',
           expect.objectContaining({
             method: 'POST',
             headers: {

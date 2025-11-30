@@ -1,14 +1,14 @@
 name: docs
 
 on:
-  # TODO: Support deploying docs on push
-  # push:
-  #   paths:
-  #     - docs/**
-  #     - .github/workflows/docs.yml
-  #   branches:
-  #     - master
-  #     - branch-[0-9]+.[0-9]+
+  push:
+    paths:
+      - pyproject.toml
+      - mlflow/**
+      - docs/**
+      - .github/workflows/docs.yml
+    branches:
+      - master
   pull_request:
     types:
       - opened
@@ -27,6 +27,7 @@ concurrency:
 
 defaults:
   run:
+    shell: bash
     working-directory: docs
 
 jobs:
@@ -109,16 +110,21 @@ jobs:
 
       # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
       # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
-      - name: Save PR number
+      - name: Save alias
         env:
+          EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo $PR_NUMBER > /tmp/pr_number.txt
-          cat /tmp/pr_number.txt
+          if [ "$EVENT_NAME" = "push" ]; then
+            echo "dev" > /tmp/alias.txt
+          else
+            echo "pr-$PR_NUMBER" > /tmp/alias.txt
+          fi
+          cat /tmp/alias.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: pr_number
-          path: /tmp/pr_number.txt
+          name: alias
+          path: /tmp/alias.txt
           retention-days: 1
           if-no-files-found: error
 
