@@ -62,8 +62,7 @@ jobs:
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
       - run: |
-          uv pip install --system pytest pytest-cov plotly -r ../requirements/doc-requirements.txt
-          uv pip install --system -e '..[gateway]'
+          uv pip install --system -r ../requirements/doc-requirements.txt '..[gateway]' pytest
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
@@ -138,8 +137,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          uv pip install --system pytest pytest-cov plotly -r ../../requirements/doc-requirements.txt
-          uv pip install --system -e '../..[gateway]'
+          uv pip install --system -r ../../requirements/doc-requirements.txt '../..[gateway]' pytest
       - name: Extract examples
         run: |
           python source/testcode_block.py
