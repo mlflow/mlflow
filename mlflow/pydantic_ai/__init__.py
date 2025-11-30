@@ -76,8 +76,20 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
         disable:   If True, disable the autologging patches.
         silent:    If True, suppress MLflow warnings/info.
     """
+    # Base methods that exist in all supported versions
+    agent_methods = ["run", "run_sync", "run_stream"]
+
+    try:
+        from pydantic_ai import Agent
+
+        # run_stream_sync was added in pydantic-ai 1.10.0
+        if hasattr(Agent, "run_stream_sync"):
+            agent_methods.append("run_stream_sync")
+    except ImportError:
+        pass
+
     class_map = {
-        "pydantic_ai.Agent": ["run", "run_sync", "run_stream", "run_stream_sync"],
+        "pydantic_ai.Agent": agent_methods,
         "pydantic_ai.models.instrumented.InstrumentedModel": ["request"],
         "pydantic_ai._tool_manager.ToolManager": ["handle_call"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
@@ -101,11 +113,11 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
             _logger.error("Error importing %s: %s", cls_path, e)
             continue
 
-        for method_name in methods:
+        for method in methods:
             try:
-                _patch_method(cls, method_name)
+                _patch_method(cls, method)
             except AttributeError as e:
-                _logger.error("Error patching %s.%s: %s", cls_path, method_name, e)
+                _logger.error("Error patching %s.%s: %s", cls_path, method, e)
 
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}

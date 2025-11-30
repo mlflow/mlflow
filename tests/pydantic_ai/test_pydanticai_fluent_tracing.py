@@ -21,6 +21,8 @@ _FINAL_ANSWER_WITH_TOOL = "winner"
 PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 # Usage was deprecated in favor of RequestUsage in 0.7.3
 IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
+# run_stream_sync was added in pydantic-ai 1.10.0
+HAS_RUN_STREAM_SYNC = hasattr(Agent, "run_stream_sync")
 
 
 def _make_dummy_response_without_tool():
@@ -294,6 +296,7 @@ async def test_agent_run_stream_disabled_autolog_no_trace(test_model_agent):
     assert len(traces_after) == 1
 
 
+@pytest.mark.skipif(not HAS_RUN_STREAM_SYNC, reason="run_stream_sync added in pydantic-ai 1.10.0")
 def test_agent_run_stream_sync_creates_trace(test_model_agent):
     mlflow.pydantic_ai.autolog(log_traces=True)
 
@@ -323,6 +326,7 @@ def test_agent_run_stream_sync_creates_trace(test_model_agent):
     assert usage.get("total_tokens") == 62
 
 
+@pytest.mark.skipif(not HAS_RUN_STREAM_SYNC, reason="run_stream_sync added in pydantic-ai 1.10.0")
 def test_agent_run_stream_sync_disabled_autolog_no_trace(test_model_agent):
     mlflow.pydantic_ai.autolog(log_traces=True)
 
@@ -341,4 +345,3 @@ def test_agent_run_stream_sync_disabled_autolog_no_trace(test_model_agent):
 
     traces_after = get_traces()
     assert len(traces_after) == 1  # No new trace added
-

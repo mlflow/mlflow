@@ -138,7 +138,6 @@ def patched_async_stream_call(original, self, *args, **kwargs):
 # (unlike run_stream which is @asynccontextmanager). We must intercept
 # iterator completion to know when streaming finishes.
 class _StreamedRunResultSyncWrapper:
-
     def __init__(self, result, span):
         self._result = result
         self._span = span
@@ -339,5 +338,3 @@ def _parse_usage(result: Any) -> dict[str, int] | None:
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")
     return None
-
-
