@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Empty,
   Table,
@@ -150,11 +150,13 @@ export const ExperimentEvaluationDatasetsListTable = ({
   selectedDataset,
   setSelectedDataset,
   setIsLoading,
+  initialDatasetIdFromUrl,
 }: {
   experimentId: string;
   selectedDataset?: EvaluationDataset;
   setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
   setIsLoading: (isLoading: boolean) => void;
+  initialDatasetIdFromUrl?: string;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -210,6 +212,9 @@ export const ExperimentEvaluationDatasetsListTable = ({
     fetchNextPage,
   });
 
+  // Track if we've done the initial URL-based selection
+  const hasInitializedFromUrlRef = useRef(false);
+
   // update loading state in parent
   useEffect(() => {
     setIsLoading(isLoading);
@@ -222,10 +227,25 @@ export const ExperimentEvaluationDatasetsListTable = ({
   // set the selected dataset to the first one if the is no selected dataset,
   // or if the selected dataset went out of scope (e.g. was deleted / not in search)
   if (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id)) {
-    // Use the sorted data from the table to respect the current sort order
-    const sortedRows = table.getRowModel().rows;
-    if (sortedRows.length > 0) {
-      setSelectedDataset(sortedRows[0].original);
+    // On initial load, try to select from URL parameter first
+    if (!hasInitializedFromUrlRef.current && initialDatasetIdFromUrl && datasets?.length) {
+      hasInitializedFromUrlRef.current = true;
+      const datasetFromUrl = datasets.find((d) => d.dataset_id === initialDatasetIdFromUrl);
+      if (datasetFromUrl) {
+        setSelectedDataset(datasetFromUrl);
+      } else {
+        // URL dataset not found, fall back to first
+        const sortedRows = table.getRowModel().rows;
+        if (sortedRows.length > 0) {
+          setSelectedDataset(sortedRows[0].original);
+        }
+      }
+    } else {
+      // Use the sorted data from the table to respect the current sort order
+      const sortedRows = table.getRowModel().rows;
+      if (sortedRows.length > 0) {
+        setSelectedDataset(sortedRows[0].original);
+      }
     }
   }
 
