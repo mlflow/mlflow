@@ -1625,8 +1625,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            previous_tag = [t for t in run.tags if t.key == MLFLOW_LOGGED_MODELS]
-            if previous_tag:
+            if previous_tag := [t for t in run.tags if t.key == MLFLOW_LOGGED_MODELS]:
                 value = json.dumps(json.loads(previous_tag[0].value) + [model_dict])
             else:
                 value = json.dumps([model_dict])
@@ -1776,14 +1775,14 @@ class SqlAlchemyStore(AbstractStore):
                         )
                     )
                     # add input tags to objs_to_write
-                    for input_tag in dataset_input.tags:
-                        objs_to_write.append(
-                            SqlInputTag(
-                                input_uuid=new_input_uuid,
-                                name=input_tag.key,
-                                value=input_tag.value,
-                            )
+                    objs_to_write.extend(
+                        SqlInputTag(
+                            input_uuid=new_input_uuid,
+                            name=input_tag.key,
+                            value=input_tag.value,
                         )
+                        for input_tag in dataset_input.tags
+                    )
 
             if models:
                 for model in models:
@@ -1963,16 +1962,13 @@ class SqlAlchemyStore(AbstractStore):
             RESOURCE_DOES_NOT_EXIST,
         )
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         with self.ManagedSessionMaker() as session:
-            logged_model = (
-                session.query(SqlLoggedModel)
-                .filter(
-                    SqlLoggedModel.model_id == model_id,
-                    SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
-                )
-                .first()
-            )
+            query = session.query(SqlLoggedModel).filter(SqlLoggedModel.model_id == model_id)
+            if not allow_deleted:
+                query = query.filter(SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED)
+
+            logged_model = query.first()
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1987,6 +1983,26 @@ class SqlAlchemyStore(AbstractStore):
             logged_model.lifecycle_stage = LifecycleStage.DELETED
             logged_model.last_updated_timestamp_ms = get_current_time_millis()
             session.commit()
+
+    def _hard_delete_logged_model(self, model_id):
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.get(SqlLoggedModel, model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+            session.delete(logged_model)
+
+    def _get_deleted_logged_models(self, older_than=0):
+        current_time = get_current_time_millis()
+        with self.ManagedSessionMaker() as session:
+            models = (
+                session.query(SqlLoggedModel)
+                .filter(
+                    SqlLoggedModel.lifecycle_stage == LifecycleStage.DELETED,
+                    SqlLoggedModel.last_updated_timestamp_ms <= (current_time - older_than),
+                )
+                .all()
+            )
+            return [m.model_id for m in models]
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         with self.ManagedSessionMaker() as session:
@@ -2149,11 +2165,9 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
 
-            scorers = []
-            for sql_scorer_version in sql_scorer_versions:
-                scorers.append(sql_scorer_version.to_mlflow_entity())
-
-            return scorers
+            return [
+                sql_scorer_version.to_mlflow_entity() for sql_scorer_version in sql_scorer_versions
+            ]
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
@@ -2334,11 +2348,9 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             # Convert to mlflow.entities.scorer.ScorerVersion objects
-            scorers = []
-            for sql_scorer_version in sql_scorer_versions:
-                scorers.append(sql_scorer_version.to_mlflow_entity())
-
-            return scorers
+            return [
+                sql_scorer_version.to_mlflow_entity() for sql_scorer_version in sql_scorer_versions
+            ]
 
     def _apply_order_by_search_logged_models(
         self,
@@ -3335,7 +3347,7 @@ class SqlAlchemyStore(AbstractStore):
 
         # Determine trace status from root span if available
         root_span_status = self._get_trace_status_from_root_span(spans)
-        trace_status = root_span_status if root_span_status else TraceState.IN_PROGRESS.value
+        trace_status = root_span_status or TraceState.IN_PROGRESS.value
 
         with self.ManagedSessionMaker() as session:
             # Try to get the trace info to check if trace exists
@@ -4009,10 +4021,7 @@ class SqlAlchemyStore(AbstractStore):
                 sql_datasets = sql_datasets[:max_results]
                 next_page_token = SearchUtils.create_page_token(offset + max_results)
 
-            datasets = []
-            for sql_dataset in sql_datasets:
-                dataset = sql_dataset.to_mlflow_entity()
-                datasets.append(dataset)
+            datasets = [sql_dataset.to_mlflow_entity() for sql_dataset in sql_datasets]
 
             return PagedList(datasets, next_page_token)
 
@@ -4496,18 +4505,17 @@ class SqlAlchemyStore(AbstractStore):
 
             existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
 
-            new_associations = []
-            for exp_id in experiment_ids:
-                if str(exp_id) not in existing_exp_ids:
-                    new_associations.append(
-                        SqlEntityAssociation(
-                            association_id=uuid.uuid4().hex,
-                            source_id=dataset_id,
-                            source_type=EntityAssociationType.EVALUATION_DATASET,
-                            destination_id=str(exp_id),
-                            destination_type=EntityAssociationType.EXPERIMENT,
-                        )
-                    )
+            new_associations = [
+                SqlEntityAssociation(
+                    association_id=uuid.uuid4().hex,
+                    source_id=dataset_id,
+                    source_type=EntityAssociationType.EVALUATION_DATASET,
+                    destination_id=str(exp_id),
+                    destination_type=EntityAssociationType.EXPERIMENT,
+                )
+                for exp_id in experiment_ids
+                if str(exp_id) not in existing_exp_ids
+            ]
 
             if new_associations:
                 session.bulk_save_objects(new_associations)

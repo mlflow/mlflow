@@ -13,6 +13,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   precheck:
     runs-on: ubuntu-slim
@@ -147,7 +151,7 @@ jobs:
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
           ARGS=("/resolve")
           [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
-          timeout 10m claude --print --verbose --output-format json "${ARGS[@]}" > "$OUTPUT_FILE" || true
+          timeout 10m claude --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" || true
 
           # Display output in workflow logs (pretty print if valid JSON)
           echo "=== Claude Output ==="

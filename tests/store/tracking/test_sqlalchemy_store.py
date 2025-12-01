@@ -7748,6 +7748,36 @@ def test_delete_logged_model(store: SqlAlchemyStore):
     assert len(models) == 0
 
 
+def test_delete_run_does_not_delete_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, "user", 0, [], "run")
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    store.delete_run(run.info.run_id)
+    retrieved = store.get_logged_model(model.model_id)
+    assert retrieved.model_id == model.model_id
+
+
+def test_hard_delete_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.delete_logged_model(model.model_id)
+    store._hard_delete_logged_model(model.model_id)
+    with store.ManagedSessionMaker() as session:
+        actual_model = (
+            session.query(models.SqlLoggedModel).filter_by(model_id=model.model_id).first()
+        )
+        assert actual_model is None
+
+
+def test_get_deleted_logged_models(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert store._get_deleted_logged_models() == []
+    store.delete_logged_model(model.model_id)
+    assert store._get_deleted_logged_models(older_than=1000000) == []
+    assert store._get_deleted_logged_models() == [model.model_id]
+
+
 def test_finalize_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model = store.create_logged_model(experiment_id=exp_id)
@@ -8950,15 +8980,14 @@ def test_dataset_records_pagination(store):
         name="pagination_test_dataset", experiment_ids=[exp_id], tags={"test": "pagination"}
     )
 
-    records = []
-    for i in range(25):
-        records.append(
-            {
-                "inputs": {"id": i, "question": f"Question {i}"},
-                "expectations": {"answer": f"Answer {i}"},
-                "tags": {"index": str(i)},
-            }
-        )
+    records = [
+        {
+            "inputs": {"id": i, "question": f"Question {i}"},
+            "expectations": {"answer": f"Answer {i}"},
+            "tags": {"index": str(i)},
+        }
+        for i in range(25)
+    ]
 
     store.upsert_dataset_records(dataset.dataset_id, records)
 
@@ -9506,6 +9535,7 @@ def test_dataset_associations_and_lazy_loading(store):
             "tags",
             "source_type",
             "source_id",
+            "source",
             "created_time",
             "dataset_record_id",
         ]
@@ -10686,7 +10716,7 @@ def test_calculate_trace_filter_correlation_independent_events(store):
         *[{"spans": [{"type": "LLM", "status": "OK"}]} for _ in range(5)],
     ]
 
-    for i, config in enumerate(configurations):
+    for config in configurations:
         _create_trace_for_correlation(store, exp_id, **config)
 
     result = store.calculate_trace_filter_correlation(

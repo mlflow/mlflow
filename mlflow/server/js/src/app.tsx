@@ -18,6 +18,7 @@ import { LegacySkeleton } from '@databricks/design-system';
 // eslint-disable-next-line no-useless-rename
 import { MlflowRouter as MlflowRouter } from './MlflowRouter';
 import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
+import { DarkThemeProvider } from './common/contexts/DarkThemeContext';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -45,9 +46,11 @@ export function MLFlowRoot() {
           <DesignSystemContainer isDarkTheme={isDarkTheme}>
             <ApplyGlobalStyles />
             <MlflowThemeGlobalStyles />
-            <QueryClientProvider client={queryClient}>
-              <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
-            </QueryClientProvider>
+            <DarkThemeProvider setIsDarkTheme={setIsDarkTheme}>
+              <QueryClientProvider client={queryClient}>
+                <MlflowRouter />
+              </QueryClientProvider>
+            </DarkThemeProvider>
           </DesignSystemContainer>
         </Provider>
       </RawIntlProvider>

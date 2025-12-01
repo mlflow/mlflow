@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.6.1.dev0"
+version = "3.7.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -116,7 +116,7 @@ mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.3.7,<=0.3.27"]
+langchain = ["langchain>=0.3.9,<=1.1.0"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -198,7 +198,6 @@ build = ["pip", "setuptools", "wheel", "build"]
 [tool.uv]
 required-version = "==0.9.8"
 constraint-dependencies = [
-  "langchain<1.0.0",
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
@@ -252,11 +251,18 @@ select = [
   "DTZ003",  # call-datetime-utcnow
   "E",       # error
   "F",       # Pyflakes
+  "FURB110", # if-exp-instead-of-or-operator
+  "FURB129", # readlines-in-for
+  "FURB142", # for-loop-set-mutations
+  "FURB148", # unnecessary-enumerate
+  "FURB167", # regex-flag-alias
   "FURB188", # slice-to-remove-prefix-or-suffix
+  "FURB192", # sorted-min-max
   "C4",      # flake8-comprehensions
   "I",       # isort
   "ISC001",  # single-line-implicit-string-concatenation
   "N804",    # invalid-first-argument-name-for-class-method
+  "PERF401", # manual-list-comprehension
   "PIE790",  # unnecessary-placeholder
   "PLR0402", # manual-from-import
   "PLR1714", # repeated-equality-comparison
@@ -287,6 +293,7 @@ select = [
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF039",  # unraw-re-pattern
   "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
   "S102",    # exec-builtin
@@ -409,6 +416,9 @@ yhat = "yhat"                      # ŷ
 iternal = "internal"               # typo of "internal"
 instumentation = "instrumentation" # typo of "instrumentation"
 selectin = "selectin"              # SQLAlchemy lazy loading strategy
+tpe = "tpe"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
+TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
+indx = "indx"                      # intentional shorthand for index
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
@@ -448,6 +458,8 @@ extend-ignore-re = [
   # Azure Kubernetes Service
   "\\(AKS\\)",
   "AKS",
+  # Song lyrics - "Don't Stop Believin'" by Journey
+  "livin'",
 ]
 
 [tool.pytest.ini_options]
