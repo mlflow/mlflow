@@ -872,8 +872,7 @@ service MlflowService {
     };
   }
 
-  // Links prompt versions to a trace by creating entity associations.
-  // This API allows associating multiple prompt versions with traces for prompt tracking workflows.
+  // Links prompt versions to a trace.
   rpc linkPromptsToTrace(LinkPromptsToTrace) returns (LinkPromptsToTrace.Response) {
     option (rpc) = {
       endpoints: [
