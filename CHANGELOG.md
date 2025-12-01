@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 3.7.0rc0 (2025-11-27)
+
+MLflow 3.7.0rc0 includes several major features and improvements!
+
+### Major Features
+
+- ⚖️ **Trace Comparison**: New UI feature allowing side-by-side comparison of traces to analyze and debug LLM application behavior across different runs. (#17138, @joelrobin18, @daniellok-db)
+- 💬 **Multi-turn conversation support for Evaluation**: Enhanced evaluation support for multi-turn conversations in `mlflow.genai.evaluate`, enabling comprehensive assessment of conversational AI applications. (#18971, #19039, @AveshCSingh)
+- 🔎 **Full Text Trace Search from UI**: Search across all trace content directly from the UI, making it easier to find specific traces by searching through inputs, outputs, and span details. (#18683, @dbczumar)
+- 🌐 **Gemini TypeScript SDK**: Auto-tracing support for Gemini in TypeScript, expanding MLflow's observability capabilities for JavaScript/TypeScript AI applications. (#18207, @joelrobin18)
+
+### Breaking Changes
+
+- **SQLite as Default Backend**: MLflow now uses SQLite as the default backend instead of file-based storage, unless existing mlruns data is detected. This improves performance and reliability for tracking experiments. (#18497, @harupy)
+- **Removed Deprecated Flavors**: The `diviner` and `promptflow` flavors have been removed from MLflow. Please migrate to supported alternatives. (#18808, #18805, @copilot-swe-agent)
+
+### Important Notice
+
+- **Installation ID for Telemetry**: MLflow now generates a unique installation ID (a randomly generated UUID) for telemetry purposes to better understand usage patterns. This ID is fully anonymous and persists across sessions. Telemetry can be disabled anytime by setting `MLFLOW_DISABLE_TELEMETRY=true` or `DO_NOT_TRACK=true`. See the [usage tracking documentation](https://mlflow.org/docs/latest/community/usage-tracking/) for details. (#18881, @B-Step62)
+
+Stay tuned for the full release, which will be packed with more features and bugfixes.
+
+To try out this release candidate, please run:
+
+`pip install mlflow==3.7.0rc0`
+
 ## 3.6.0 (2025-11-07)
 
 MLflow 3.6.0 includes several major features and improvements for AI Observability, Experiment UI, Agent Evaluation and Deployment.
@@ -2409,7 +2435,7 @@ Bug fixes:
 - [Model Registry] Fix handling of deleted model versions in FileStore (#7716, @harupy)
 - [Model Registry] Correctly initialize Model Registry SQL tables independently of MLflow Tracking (#7704, @harupy)
 - [Models] Correctly move PyTorch model outputs from GPUs to CPUs during inference with pyfunc (#7885, @ankit-db)
-- [Build] Fix compatiblility issues with Python installations compiled using `PYTHONOPTIMIZE=2` (#7791, @dbczumar)
+- [Build] Fix compatibility issues with Python installations compiled using `PYTHONOPTIMIZE=2` (#7791, @dbczumar)
 - [Build] Fix compatibility issues with the upcoming pandas 2.0 release (#7899, @harupy; #7910, @dbczumar)
 
 Documentation updates:

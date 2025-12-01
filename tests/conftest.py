@@ -407,8 +407,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         )
 
     # If there are failed tests, display a command to run them
-    failed_test_reports = terminalreporter.stats.get("failed", [])
-    if failed_test_reports:
+    if failed_test_reports := terminalreporter.stats.get("failed", []):
         if len(failed_test_reports) <= 30:
             ids = [repr(report.nodeid) for report in failed_test_reports]
         else:
@@ -699,7 +698,7 @@ def clean_up_mlruns_directory(request):
             if is_windows():
                 raise
             # `shutil.rmtree` can't remove files owned by root in a docker container.
-            subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
+            subprocess.check_call(["sudo", "rm", "-rf", mlruns_dir])
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
@@ -781,7 +780,7 @@ def serve_wheel(request, tmp_path_factory):
         # In this case, assume we're in the root of the repo.
         repo_root = "."
 
-    subprocess.run(
+    subprocess.check_call(
         [
             sys.executable,
             "-m",
@@ -792,7 +791,6 @@ def serve_wheel(request, tmp_path_factory):
             "--no-deps",
             repo_root,
         ],
-        check=True,
     )
     with subprocess.Popen(
         [
@@ -863,6 +861,5 @@ def reset_active_model_context():
 @pytest.fixture(autouse=True)
 def clean_up_telemetry_threads():
     yield
-    client = get_telemetry_client()
-    if client:
+    if client := get_telemetry_client():
         client._clean_up()

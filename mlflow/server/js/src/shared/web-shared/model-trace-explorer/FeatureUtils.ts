@@ -24,6 +24,9 @@ export const shouldEnableTracesTabLabelingSchemas = () => {
   return false;
 };
 
-export const shouldEnableChatSessionsTab = () => {
-  return false;
+/**
+ * Determines if assessments/scores should be shown in experiment chat sessions.
+ */
+export const shouldEnableAssessmentsInSessions = () => {
+  return true;
 };
