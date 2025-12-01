@@ -66,8 +66,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
     if experiment_name:
         client = tracking.MlflowClient()
-        exp = client.get_experiment_by_name(experiment_name)
-        if exp:
+        if exp := client.get_experiment_by_name(experiment_name):
             return exp.experiment_id
         else:
             _logger.info("'%s' does not exist. Creating a new experiment", experiment_name)
@@ -105,8 +104,7 @@ def _run(
     backend_config[PROJECT_DOCKER_AUTH] = docker_auth
     # TODO: remove this check once kubernetes execution has been refactored
     if backend_name not in {"databricks", "kubernetes"}:
-        backend = loader.load_backend(backend_name)
-        if backend:
+        if backend := loader.load_backend(backend_name):
             submitted_run = backend.run(
                 uri,
                 entry_point,

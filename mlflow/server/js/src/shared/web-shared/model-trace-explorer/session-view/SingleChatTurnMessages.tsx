@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
@@ -9,12 +11,8 @@ import { ModelTraceExplorerSummarySection } from '../summary-view/ModelTraceExpl
 export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
   const { theme } = useDesignSystemTheme();
 
-  const spans = trace.data?.spans;
-  if (!spans) {
-    return null;
-  }
+  const rootSpan = useMemo(() => (trace.data?.spans ? parseModelTraceToTree(trace) : null), [trace]);
 
-  const rootSpan = parseModelTraceToTree(trace);
   if (!rootSpan) {
     return null;
   }
@@ -31,7 +29,12 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
           <ModelTraceExplorerChatMessage
             key={index}
             message={message}
-            css={{ maxWidth: '80%', alignSelf: message.role === 'user' ? 'flex-start' : 'flex-end' }}
+            css={{
+              maxWidth: '80%',
+              alignSelf: message.role === 'user' ? 'flex-start' : 'flex-end',
+              borderWidth: 2,
+              borderRadius: theme.borders.borderRadiusMd,
+            }}
           />
         ))}
       </div>
@@ -55,6 +58,7 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
           gap: theme.spacing.sm,
           width: '80%',
           alignSelf: 'flex-start',
+          borderRadius: theme.borders.borderRadiusMd,
           backgroundColor: theme.colors.backgroundPrimary,
         }}
       >

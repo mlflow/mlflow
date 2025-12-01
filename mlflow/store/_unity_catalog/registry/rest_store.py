@@ -327,8 +327,9 @@ def get_model_version_dependencies(model_dir):
         index_names = _fetch_langchain_dependency_from_model_info(
             databricks_dependencies, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
         )
-        for index_name in index_names:
-            dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", "name": index_name})
+        dependencies.extend(
+            {"type": "DATABRICKS_VECTOR_INDEX", "name": index_name} for index_name in index_names
+        )
         for key in (
             _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
             _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
@@ -337,8 +338,10 @@ def get_model_version_dependencies(model_dir):
             endpoint_names = _fetch_langchain_dependency_from_model_info(
                 databricks_dependencies, key
             )
-            for endpoint_name in endpoint_names:
-                dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
+            dependencies.extend(
+                {"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name}
+                for endpoint_name in endpoint_names
+            )
     return dependencies
 
 
@@ -939,8 +942,7 @@ class UcModelRegistryStore(BaseRestStore):
             created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
-        logged_model = self._get_logged_model_from_model_id(model_id)
-        if logged_model:
+        if logged_model := self._get_logged_model_from_model_id(model_id):
             run_id = logged_model.source_run_id
         headers, run = self._get_run_and_headers(run_id)
         if source_workspace_id is None:
@@ -1349,10 +1351,11 @@ class UcModelRegistryStore(BaseRestStore):
         )
 
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
-        prompts = []
-        for prompt_info in response_proto.prompts:
-            # For UC, only use the basic prompt info without extra tag fetching
-            prompts.append(proto_info_to_mlflow_prompt_info(prompt_info, {}))
+        # For UC, only use the basic prompt info without extra tag fetching
+        prompts = [
+            proto_info_to_mlflow_prompt_info(prompt_info, {})
+            for prompt_info in response_proto.prompts
+        ]
 
         return PagedList(prompts, response_proto.next_page_token)
 

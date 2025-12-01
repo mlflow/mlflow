@@ -13,9 +13,8 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
-from mlflow.genai.evaluation.utils import (
-    _convert_to_eval_set,
-)
+from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
+from mlflow.genai.evaluation.utils import _convert_to_eval_set
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
@@ -175,6 +174,7 @@ def evaluate(
             * Pandas DataFrame
             * Spark DataFrame
             * List of dictionaries
+            * List of `Trace` objects
 
             The dataset must include either of the following columns:
 
@@ -241,15 +241,16 @@ def evaluate(
     is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     scorers = validate_scorers(scorers)
-    # convert into a pandas dataframe with expected evaluation set schema
-    df = data.to_df() if is_managed_dataset else _convert_to_eval_set(data)
+
+    # Validate session-level input if session-level scorers are present
+    validate_session_level_evaluation_inputs(scorers, predict_fn)
+
+    df = _convert_to_eval_set(data)
 
     builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
     valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
-    # "request" column must exist after conversion
-    input_key = "inputs" if is_managed_dataset else "request"
-    sample_input = df.iloc[0][input_key]
+    sample_input = df.iloc[0][InputDatasetColumn.INPUTS]
 
     # Only check 'inputs' column when it is not derived from the trace object
     if "trace" not in df.columns and not isinstance(sample_input, dict):
@@ -286,15 +287,6 @@ def _run_harness(data, scorers, predict_fn, model_id):
         mlflow_dataset = data
         df = data.to_df()
     else:
-        # Rename 'request' / 'response' column back to 'inputs' / 'outputs'.
-        # This is a temporary hack to avoid branching _convert_to_eval_set()
-        # into OSS and DBX implementation.
-        data = data.rename(
-            columns={
-                "request": InputDatasetColumn.INPUTS,
-                "response": InputDatasetColumn.OUTPUTS,
-            }
-        )
         # Use default name for evaluation dataset when converting from DataFrame
         mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
         df = data
