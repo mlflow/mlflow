@@ -74,6 +74,9 @@ const generateMockDataWithRange = (
 
     // Generate random count between 10-60 for realistic-looking data
     const count = Math.floor(Math.random() * 50) + 10;
+    // Generate error count (typically 5-15% of total)
+    const errorRate = 0.05 + Math.random() * 0.1; // 5-15%
+    const errorCount = Math.floor(count * errorRate);
     const timeBucket = formatTimeBucket(currentTimestamp, timeGranularity);
 
     dataPoints.push({
@@ -83,6 +86,7 @@ const generateMockDataWithRange = (
       metric_name: 'trace_count',
       values: {
         count: count.toString(),
+        error_count: errorCount.toString(),
       },
     });
 

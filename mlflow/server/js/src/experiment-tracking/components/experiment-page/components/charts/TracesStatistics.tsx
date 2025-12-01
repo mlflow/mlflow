@@ -29,6 +29,10 @@ interface TokenGroup {
 interface AssessmentGroup {
   name: string;
   count: number;
+  avg?: number;
+  count0?: number;
+  count1?: number;
+  type: 'boolean' | 'numeric' | 'string';
 }
 
 interface StatisticCardProps {
@@ -298,87 +302,61 @@ export const TracesStatistics = ({ experimentIds, timeRange }: TracesStatisticsP
 
   // Generate mock grouped assessment data
   const groupedAssessments = useMemo((): AssessmentGroup[] => {
-    const totalAssessments = statistics.totalAssessments;
-    
-    if (assessmentGroupBy === 'assessment_name') {
-      // Mock assessment names with realistic distribution
-      const assessmentNames = [
-        'correctness',
-        'relevance',
-        'toxicity',
-        'groundedness',
-        'coherence',
-      ];
-      
-      // Generate counts that sum to totalAssessments
-      const counts = assessmentNames.map((_, i) => {
-        const weight = Math.pow(0.75, i); // Exponential decay
-        return weight;
-      });
-      
-      const totalWeight = counts.reduce((sum, w) => sum + w, 0);
-      
-      return assessmentNames.map((name, i) => ({
-        name,
-        count: Math.floor((counts[i] / totalWeight) * totalAssessments),
-      }));
-    } else {
-      // Mock assessment types (LLM-as-judge vs human)
-      return [
-        { name: 'LLM-as-Judge', count: Math.floor(totalAssessments * 0.85) },
-        { name: 'Human', count: Math.floor(totalAssessments * 0.15) },
-      ];
-    }
-  }, [assessmentGroupBy, statistics.totalAssessments]);
-
-  // Create horizontal bar chart data for grouped assessments
-  const groupedAssessmentsPlotData: PlotlyData[] = useMemo(() => {
-    if (groupedAssessments.length === 0) return [];
-
-    return [
-      {
-        y: groupedAssessments.map((_, i) => i),
-        x: groupedAssessments.map(g => g.count),
-        type: 'bar',
-        orientation: 'h',
-        marker: {
-          color: 'rgba(1, 148, 226, 0.7)',
-        },
-        text: groupedAssessments.map(g => g.name),
-        textposition: 'inside',
-        textfont: {
-          color: 'white',
-          size: 12,
-        },
-        insidetextanchor: 'start',
-        hovertemplate: '<b>%{text}</b>: %{x} assessments<extra></extra>',
-      },
+    // Mock assessment data with MLflow's built-in scorer names
+    const assessmentData: Array<{
+      name: string;
+      type: 'boolean' | 'numeric' | 'string';
+      baseCount: number;
+    }> = [
+      { name: 'retrieval_relevance', type: 'boolean', baseCount: 14 },
+      { name: 'correctness', type: 'boolean', baseCount: 12 },
+      { name: 'relevance_to_query', type: 'boolean', baseCount: 10 },
+      { name: 'safety', type: 'boolean', baseCount: 8 },
+      { name: 'retrieval_groundedness', type: 'boolean', baseCount: 6 },
+      { name: 'equivalence', type: 'boolean', baseCount: 5 },
     ];
-  }, [groupedAssessments]);
+    
+    return assessmentData.map((assessment) => {
+      const count = assessment.baseCount;
+      
+      if (assessment.type === 'boolean') {
+        // For boolean assessments, generate avg and split between 0 and 1
+        const avg = 0.3 + Math.random() * 0.4; // Random avg between 0.3-0.7
+        const count1 = Math.floor(count * avg);
+        const count0 = count - count1;
+        
+        return {
+          name: assessment.name,
+          count,
+          avg: parseFloat(avg.toFixed(2)),
+          count0,
+          count1,
+          type: assessment.type,
+        };
+      } else if (assessment.type === 'numeric') {
+        // For numeric assessments, show avg but no 0/1 counts
+        const avg = 0.2 + Math.random() * 0.6; // Random avg between 0.2-0.8
+        
+        return {
+          name: assessment.name,
+          count,
+          avg: parseFloat(avg.toFixed(2)),
+          type: assessment.type,
+        };
+      } else {
+        // For string assessments, no avg or 0/1 counts
+        return {
+          name: assessment.name,
+          count,
+          type: assessment.type,
+        };
+      }
+    });
+  }, []);
 
-  const groupedAssessmentsLayout: Partial<Layout> = useMemo(() => ({
-    height: Math.max(200, groupedAssessments.length * 40 + 60),
-    margin: { l: 20, r: 20, t: 10, b: 40 },
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-    autosize: true,
-    xaxis: {
-      title: 'Count',
-      showgrid: true,
-      gridcolor: theme.colors.grey200,
-      color: theme.colors.textPrimary,
-    },
-    yaxis: {
-      showgrid: false,
-      color: theme.colors.textPrimary,
-      showticklabels: false,
-      automargin: true,
-    },
-    font: {
-      family: theme.typography.fontFamily,
-      color: theme.colors.textPrimary,
-    },
-  }), [groupedAssessments.length, theme]);
+  const totalAssessmentsCount = useMemo(() => {
+    return groupedAssessments.reduce((sum, a) => sum + a.count, 0);
+  }, [groupedAssessments]);
 
   return (
     <div
@@ -616,79 +594,168 @@ export const TracesStatistics = ({ experimentIds, timeRange }: TracesStatisticsP
             marginBottom: theme.spacing.md,
           }}
         >
-          <h3
-            css={{
-              margin: 0,
-              fontSize: theme.typography.fontSizeLg,
-              fontWeight: theme.typography.typographyBoldFontWeight,
-            }}
-          >
-            <FormattedMessage
-              defaultMessage="Total Assessments: {count}"
-              description="Title for the grouped assessments chart with total count"
-              values={{
-                count: statistics.totalAssessments.toLocaleString(),
-              }}
-            />
-          </h3>
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-            <span
+          <div>
+            <h3
               css={{
-                fontSize: theme.typography.fontSizeXs,
-                color: theme.colors.textSecondary,
-                whiteSpace: 'nowrap',
+                margin: 0,
+                fontSize: theme.typography.fontSizeLg,
+                fontWeight: theme.typography.typographyBoldFontWeight,
               }}
             >
-              Group by:
-            </span>
-            <select
-              value={assessmentGroupBy}
-              onChange={(e) => setAssessmentGroupBy(e.target.value as AssessmentGroupBy)}
+              <FormattedMessage
+                defaultMessage="Assessments"
+                description="Title for the assessments table"
+              />
+            </h3>
+            <div
               css={{
                 fontSize: theme.typography.fontSizeSm,
-                padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-                border: `1px solid ${theme.colors.border}`,
-                borderRadius: theme.borders.borderRadiusMd,
-                backgroundColor: theme.colors.backgroundPrimary,
-                color: theme.colors.textPrimary,
-                cursor: 'pointer',
-                '&:hover': {
-                  borderColor: theme.colors.primary,
-                },
-                '&:focus': {
-                  outline: 'none',
-                  borderColor: theme.colors.primary,
-                },
+                color: theme.colors.textSecondary,
+                marginTop: theme.spacing.xs,
               }}
             >
-              <option value="assessment_name">Name</option>
-              <option value="assessment_type">Type</option>
-            </select>
+              {totalAssessmentsCount} Total scores tracked
+            </div>
           </div>
         </div>
         
         {isLoading ? (
-          <div css={{ minHeight: 300 }}>
+          <div css={{ minHeight: 200 }}>
             <LegacySkeleton active />
           </div>
-        ) : groupedAssessmentsPlotData.length > 0 ? (
-          <LazyPlot
-            key={`grouped-assessments-${assessmentGroupBy}`}
-            data={groupedAssessmentsPlotData}
-            layout={groupedAssessmentsLayout}
-            config={{
-              displayModeBar: true,
-              displaylogo: false,
-              modeBarButtonsToRemove: ['sendDataToCloud', 'select2d', 'lasso2d', 'autoScale2d'],
-            }}
-            css={{ width: '100%' }}
-            useResizeHandler
-            style={{ width: '100%' }}
-          />
+        ) : groupedAssessments.length > 0 ? (
+          <div css={{ overflowX: 'auto' }}>
+            <table
+              css={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: theme.typography.fontSizeSm,
+                marginTop: theme.spacing.md,
+              }}
+            >
+              <thead>
+                <tr
+                  css={{
+                    borderBottom: `1px solid ${theme.colors.border}`,
+                  }}
+                >
+                  <th
+                    css={{
+                      textAlign: 'left',
+                      padding: `${theme.spacing.sm}px ${theme.spacing.xs}px`,
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                      color: theme.colors.textPrimary,
+                    }}
+                  >
+                    Name
+                  </th>
+                  <th
+                    css={{
+                      textAlign: 'right',
+                      padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                      color: theme.colors.textPrimary,
+                    }}
+                  >
+                    #
+                  </th>
+                  <th
+                    css={{
+                      textAlign: 'right',
+                      padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                      color: theme.colors.textPrimary,
+                    }}
+                  >
+                    Avg
+                  </th>
+                  <th
+                    css={{
+                      textAlign: 'right',
+                      padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                      color: theme.colors.textPrimary,
+                    }}
+                  >
+                    0
+                  </th>
+                  <th
+                    css={{
+                      textAlign: 'right',
+                      padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                      color: theme.colors.textPrimary,
+                    }}
+                  >
+                    1
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupedAssessments.map((assessment, index) => (
+                  <tr
+                    key={assessment.name}
+                    css={{
+                      borderBottom: index < groupedAssessments.length - 1 ? `1px solid ${theme.colors.grey100}` : 'none',
+                      '&:hover': {
+                        backgroundColor: theme.colors.backgroundSecondary,
+                      },
+                    }}
+                  >
+                    <td
+                      css={{
+                        padding: `${theme.spacing.sm}px ${theme.spacing.xs}px`,
+                        color: theme.colors.textSecondary,
+                      }}
+                    >
+                      {assessment.name}
+                    </td>
+                    <td
+                      css={{
+                        textAlign: 'right',
+                        padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
+                        color: theme.colors.textPrimary,
+                        fontWeight: theme.typography.typographyBoldFontWeight,
+                      }}
+                    >
+                      {assessment.count}
+                    </td>
+                    <td
+                      css={{
+                        textAlign: 'right',
+                        padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
+                        color: theme.colors.textPrimary,
+                      }}
+                    >
+                      {assessment.avg !== undefined ? assessment.avg.toFixed(2) : '-'}
+                    </td>
+                    <td
+                      css={{
+                        textAlign: 'right',
+                        padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
+                        color: theme.colors.textPrimary,
+                      }}
+                    >
+                      {assessment.count0 !== undefined ? assessment.count0 : '-'}
+                    </td>
+                    <td
+                      css={{
+                        textAlign: 'right',
+                        padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
+                        color: theme.colors.textPrimary,
+                      }}
+                    >
+                      {assessment.count1 !== undefined ? assessment.count1 : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div
             css={{
-              minHeight: 300,
+              minHeight: 200,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -697,7 +764,7 @@ export const TracesStatistics = ({ experimentIds, timeRange }: TracesStatisticsP
           >
             <FormattedMessage
               defaultMessage="No assessment data available"
-              description="Empty state for grouped assessments chart"
+              description="Empty state for assessments table"
             />
           </div>
         )}

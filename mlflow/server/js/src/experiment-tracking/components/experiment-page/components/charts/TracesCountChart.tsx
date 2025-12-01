@@ -101,6 +101,25 @@ export const TracesCountChart = ({ experimentIds, timeRange }: TracesCountChartP
     return viewType === 'spans' ? Math.floor(traceCount * 3.5) : traceCount;
   }, [metricDataPoints, viewType]);
 
+  // Calculate average error rate (only for traces view)
+  const averageErrorRate = useMemo(() => {
+    if (!metricDataPoints || metricDataPoints.length === 0 || viewType !== 'traces') {
+      return 0;
+    }
+    
+    let totalTraces = 0;
+    let totalErrors = 0;
+    
+    metricDataPoints.forEach(point => {
+      const count = parseInt(point.values?.['count'] || point.values?.['COUNT'] || '0', 10);
+      const errorCount = parseInt(point.values?.['error_count'] || '0', 10);
+      totalTraces += count;
+      totalErrors += errorCount;
+    });
+    
+    return totalTraces > 0 ? ((totalErrors / totalTraces) * 100).toFixed(1) : 0;
+  }, [metricDataPoints, viewType]);
+
   const plotData: PlotlyData[] = useMemo(() => {
     if (!metricDataPoints || metricDataPoints.length === 0) {
       return [];
@@ -121,18 +140,27 @@ export const TracesCountChart = ({ experimentIds, timeRange }: TracesCountChartP
     }
 
     if (viewType === 'traces') {
-      // Single line for traces
-      const yValues = sortedDataPoints.map(d => {
+      // Two lines for traces: total count and error rate
+      const totalValues = sortedDataPoints.map(d => {
         const count = d.values?.['count'] || d.values?.['COUNT'] || '0';
         return parseInt(count, 10);
+      });
+
+      // Calculate error rate as percentage
+      const errorRateValues = sortedDataPoints.map(d => {
+        const count = parseInt(d.values?.['count'] || d.values?.['COUNT'] || '0', 10);
+        const errorCount = parseInt(d.values?.['error_count'] || '0', 10);
+        return count > 0 ? (errorCount / count) * 100 : 0; // Convert to percentage
       });
 
       return [
         {
           x: xValues,
-          y: yValues,
+          y: totalValues,
           type: 'scatter',
           mode: 'lines+markers',
+          name: 'Total Traces',
+          yaxis: 'y',
           line: {
             color: 'rgba(1, 148, 226, 0.8)',
             width: 2,
@@ -141,7 +169,24 @@ export const TracesCountChart = ({ experimentIds, timeRange }: TracesCountChartP
             color: 'rgba(1, 148, 226, 0.8)',
             size: 6,
           },
-          hovertemplate: '<b>%{y}</b> traces<br>%{x}<extra></extra>',
+          hovertemplate: '<b>Total: %{y}</b> traces<br>%{x}<extra></extra>',
+        },
+        {
+          x: xValues,
+          y: errorRateValues,
+          type: 'scatter',
+          mode: 'lines+markers',
+          name: 'Error Rate',
+          yaxis: 'y2',
+          line: {
+            color: 'rgba(244, 67, 54, 0.8)', // Red color for errors
+            width: 2,
+          },
+          marker: {
+            color: 'rgba(244, 67, 54, 0.8)',
+            size: 6,
+          },
+          hovertemplate: '<b>Error Rate: %{y:.1f}%</b><br>%{x}<extra></extra>',
         },
       ];
     } else {
@@ -184,53 +229,70 @@ export const TracesCountChart = ({ experimentIds, timeRange }: TracesCountChartP
     }
   }, [metricDataPoints, theme, granularity, viewType]);
 
-  const layout: Partial<Layout> = useMemo(() => ({
-    height: 300,
-    margin: { l: 50, r: 20, t: 40, b: 80 },
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-    showlegend: viewType === 'spans',
-    legend: viewType === 'spans' ? {
-      orientation: 'h',
-      yanchor: 'bottom',
-      y: 1.02,
-      xanchor: 'right',
-      x: 1,
+  const layout: Partial<Layout> = useMemo(() => {
+    const baseLayout: Partial<Layout> = {
+      height: 300,
+      margin: { l: 50, r: 60, t: 40, b: 80 }, // Increased right margin for second y-axis
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      showlegend: true, // Always show legend now since both views have multiple lines
+      legend: {
+        orientation: 'h',
+        yanchor: 'bottom',
+        y: 1.02,
+        xanchor: 'right',
+        x: 1,
+        font: {
+          family: theme.typography.fontFamily,
+          color: theme.colors.textPrimary,
+        },
+      },
+      xaxis: {
+        title: 'Time Bucket',
+        showgrid: false,
+        color: theme.colors.textPrimary,
+        tickangle: -45,
+        type: 'category',
+        autorange: true,
+        showticklabels: true,
+        tickmode: 'linear',
+      },
+      yaxis: {
+        title: viewType === 'traces' ? 'Number of Traces' : 'Number of Spans',
+        showgrid: true,
+        gridcolor: theme.colors.grey200,
+        color: theme.colors.textPrimary,
+        autorange: true,
+      },
       font: {
         family: theme.typography.fontFamily,
         color: theme.colors.textPrimary,
       },
-    } : undefined,
-    xaxis: {
-      title: 'Time Bucket',
-      showgrid: false,
-      color: theme.colors.textPrimary,
-      tickangle: -45,
-      type: 'category',
-      autorange: true,
-      showticklabels: true,
-      tickmode: 'linear',
-    },
-    yaxis: {
-      title: viewType === 'traces' ? 'Number of Traces' : 'Number of Spans',
-      showgrid: true,
-      gridcolor: theme.colors.grey200,
-      color: theme.colors.textPrimary,
-      autorange: true,
-    },
-    font: {
-      family: theme.typography.fontFamily,
-      color: theme.colors.textPrimary,
-    },
-    hoverlabel: {
-      bgcolor: theme.colors.backgroundPrimary,
-      bordercolor: theme.colors.border,
-      font: {
-        color: theme.colors.textPrimary,
-        family: theme.typography.fontFamily,
+      hoverlabel: {
+        bgcolor: theme.colors.backgroundPrimary,
+        bordercolor: theme.colors.border,
+        font: {
+          color: theme.colors.textPrimary,
+          family: theme.typography.fontFamily,
+        },
       },
-    },
-  }), [theme, viewType]);
+    };
+
+    // Add second y-axis for error rate in traces view
+    if (viewType === 'traces') {
+      baseLayout.yaxis2 = {
+        title: 'Error Rate (%)',
+        overlaying: 'y',
+        side: 'right',
+        showgrid: false,
+        color: 'rgba(244, 67, 54, 0.8)',
+        range: [0, 100],
+        fixedrange: false,
+      };
+    }
+
+    return baseLayout;
+  }, [theme, viewType]);
 
   return (
     <div
@@ -304,10 +366,11 @@ export const TracesCountChart = ({ experimentIds, timeRange }: TracesCountChartP
           >
             {viewType === 'traces' ? (
               <FormattedMessage
-                defaultMessage="Total traces tracked: {count}"
-                description="Shows the total number of traces in the selected time range"
+                defaultMessage="Total traces tracked: {count} (avg error rate: {errorRate}%)"
+                description="Shows the total number of traces and average error rate in the selected time range"
                 values={{
                   count: totalCount.toLocaleString(),
+                  errorRate: averageErrorRate,
                 }}
               />
             ) : (
