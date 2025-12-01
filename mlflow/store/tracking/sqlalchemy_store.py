@@ -3700,6 +3700,7 @@ class SqlAlchemyStore(AbstractStore):
 
             if sql_trace_info:
                 trace_info = sql_trace_info.to_mlflow_entity()
+                self._populate_linked_prompts_from_associations(session, [trace_info])
                 spans = self._get_spans_with_trace_info(
                     trace_info, sql_trace_info.spans, allow_partial=allow_partial
                 )
