@@ -170,8 +170,7 @@ def _get_property_from_spark_context(key):
     try:
         from pyspark import TaskContext
 
-        task_context = TaskContext.get()
-        if task_context:
+        if task_context := TaskContext.get():
             return task_context.getLocalProperty(key)
     except Exception:
         return None
@@ -646,8 +645,7 @@ def warn_on_deprecated_cross_workspace_registry_uri(registry_uri):
 def get_workspace_info_from_databricks_secrets(tracking_uri):
     profile, key_prefix = get_db_info_from_uri(tracking_uri)
     if key_prefix:
-        dbutils = _get_dbutils()
-        if dbutils:
+        if dbutils := _get_dbutils():
             workspace_id = dbutils.secrets.get(scope=profile, key=key_prefix + "-workspace-id")
             workspace_host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
             return workspace_host, workspace_id
@@ -731,8 +729,7 @@ class TrackingURIConfigProvider(DatabricksConfigProvider):
         scope, key_prefix = get_db_info_from_uri(self.tracking_uri)
 
         if scope and key_prefix:
-            dbutils = _get_dbutils()
-            if dbutils:
+            if dbutils := _get_dbutils():
                 # Prefix differentiates users and is provided as path information in the URI
                 host = dbutils.secrets.get(scope=scope, key=key_prefix + "-host")
                 token = dbutils.secrets.get(scope=scope, key=key_prefix + "-token")
@@ -1033,8 +1030,7 @@ def get_databricks_workspace_info_from_uri(tracking_uri: str) -> DatabricksWorks
 
 
 def check_databricks_secret_scope_access(scope_name):
-    dbutils = _get_dbutils()
-    if dbutils:
+    if dbutils := _get_dbutils():
         try:
             dbutils.secrets.list(scope_name)
         except Exception as e:
@@ -1046,6 +1042,32 @@ def check_databricks_secret_scope_access(scope_name):
                 "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # noqa: E501
                 f"Error: {e}"
             )
+
+
+def get_sgc_job_run_id() -> str | None:
+    """
+    Retrieves the Serverless GPU Compute (SGC) job run ID from Databricks task values.
+
+    This function is used to enable automatic run resumption for SGC jobs by fetching
+    the job run ID from the Databricks task context. The job run ID is set by the
+    Databricks platform when running SGC jobs.
+
+    Returns:
+        str or None: The SGC job run ID if available, otherwise None. Returns None in
+        non-Databricks environments or when the task value is not set.
+    """
+    try:
+        dbutils = _get_dbutils()
+    except _NoDbutilsError:
+        return None
+
+    try:
+        job_run_id = dbutils.widgets.get("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID")
+        _logger.debug(f"SGC job run ID: {job_run_id}")
+        return job_run_id
+    except Exception as e:
+        _logger.debug(f"Failed to retrieve SGC job run ID from task values: {e}", exc_info=True)
+        return None
 
 
 def _construct_databricks_run_url(

@@ -52,6 +52,7 @@ export const useCreateAssessment = ({
         const assessment = 'assessment' in createdAssessment ? createdAssessment.assessment : createdAssessment;
         logCachedCreateAction(traceId, assessment);
       }
+      updateTraceVariables.invalidateTraceQuery?.(traceId);
       queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, traceId] });
       invalidateMlflowSearchTracesCache({ queryClient });
       onSuccess?.();

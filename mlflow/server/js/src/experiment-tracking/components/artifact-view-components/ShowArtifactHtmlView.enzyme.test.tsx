@@ -59,7 +59,7 @@ describe('ShowArtifactHtmlView', () => {
     });
   });
 
-  test('should render html content in IFrame', (done) => {
+  test('should render html content in IFrame', (done: any) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('my text');
     });

@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 
 

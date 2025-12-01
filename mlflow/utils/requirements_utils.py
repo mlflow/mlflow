@@ -573,8 +573,7 @@ def _get_pinned_requirement(req_str, version=None, module=None):
     package = req.name
     if version is None:
         version_raw = _get_installed_version(package, module)
-        local_version_label = _get_local_version_label(version_raw)
-        if local_version_label:
+        if local_version_label := _get_local_version_label(version_raw):
             version = _strip_local_version_label(version_raw)
             if not (is_in_databricks_runtime() and package in ("torch", "torchvision")):
                 msg = (
@@ -600,7 +599,7 @@ class _MismatchedPackageInfo(NamedTuple):
     requirement: str
 
     def __str__(self):
-        current_status = self.installed_version if self.installed_version else "uninstalled"
+        current_status = self.installed_version or "uninstalled"
         return f"{self.package_name} (current: {current_status}, required: {self.requirement})"
 
 

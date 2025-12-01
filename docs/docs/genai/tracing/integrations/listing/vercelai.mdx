@@ -3,14 +3,11 @@ sidebar_position: 3
 sidebar_label: Vercel AI SDK
 ---
 
-import { APILink } from "@site/src/components/APILink";
-import ImageBox from "@site/src/components/ImageBox";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Tracing Vercel AI SDK
 
-<ImageBox src="/images/llms/tracing/vercel-ai-tracing.gif" alt="Vercel AI SDK tracing via MLflow" />
+<video src={useBaseUrl("/images/llms/tracing/vercel-ai-tracing.mp4")} controls loop autoPlay muted aria-label="Vercel AI SDK tracing via MLflow" />
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing for applications built with the [Vercel AI SDK](https://ai-sdk.dev/) (the `ai` package) via OpenTelemetry, unlocking powerful observability capabilities for TypeScript and Javascript application developers.
 
