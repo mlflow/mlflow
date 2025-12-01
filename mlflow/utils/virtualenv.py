@@ -108,7 +108,7 @@ def _find_latest_installable_python_version(version_prefix):
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
     if not matched:
         raise MlflowException(f"Could not find python version that matches {version_prefix}")
-    return sorted(matched, key=Version)[-1]
+    return max(matched, key=Version)
 
 
 def _install_python(version, pyenv_root=None, capture_output=False):
@@ -161,8 +161,7 @@ def _get_conda_env_file(model_config):
 
     for flavor, config in model_config.flavors.items():
         if flavor == mlflow.pyfunc.FLAVOR_NAME:
-            env = config.get(mlflow.pyfunc.ENV)
-            if env:
+            if env := config.get(mlflow.pyfunc.ENV):
                 return _extract_conda_env(env)
     return _CONDA_ENV_FILE_NAME
 

@@ -3,8 +3,9 @@ sidebar_position: 1
 sidebar_label: Pytorch
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import ImageBox from "@site/src/components/ImageBox";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Zap, GitBranch, Package, BookOpen } from "lucide-react";
@@ -17,7 +18,7 @@ import { Zap, GitBranch, Package, BookOpen } from "lucide-react";
 
 MLflow's PyTorch integration provides experiment tracking, model versioning, and deployment capabilities for deep learning workflows.
 
-<ImageBox src="/images/deep-learning/dl-training-ui.gif" alt="Deep Learning Training" />
+<video src={useBaseUrl("/images/deep-learning/dl-training-ui.mp4")} controls loop autoPlay muted aria-label="Deep Learning Training" />
 
 ## Why MLflow + PyTorch?
 
@@ -248,6 +249,131 @@ with mlflow.start_run():
         input_example=input_example.numpy(),
     )
 ```
+
+## Checkpoint Tracking
+
+Track model checkpoints during training with MLflow 3's checkpoint versioning. Use the `step` parameter to version checkpoints and link metrics to specific model versions:
+
+```python
+import mlflow
+import torch
+import torch.nn as nn
+import pandas as pd
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+
+
+# Helper function to prepare data
+def prepare_data(df):
+    X = torch.tensor(df.iloc[:, :-1].values, dtype=torch.float32)
+    y = torch.tensor(df.iloc[:, -1].values, dtype=torch.long)
+    return X, y
+
+
+# Helper function to compute accuracy
+def compute_accuracy(model, X, y):
+    with torch.no_grad():
+        outputs = model(X)
+        _, predicted = torch.max(outputs, 1)
+        accuracy = (predicted == y).sum().item() / y.size(0)
+    return accuracy
+
+
+# Define a basic PyTorch classifier
+class IrisClassifier(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        return x
+
+
+# Load Iris dataset and prepare the DataFrame
+iris = load_iris()
+iris_df = pd.DataFrame(data=iris.data, columns=iris.feature_names)
+iris_df["target"] = iris.target
+
+# Split into training and testing datasets
+train_df, test_df = train_test_split(iris_df, test_size=0.2, random_state=42)
+
+# Prepare training data
+train_dataset = mlflow.data.from_pandas(train_df, name="iris_train")
+X_train, y_train = prepare_data(train_dataset.df)
+
+# Initialize model
+input_size = X_train.shape[1]
+hidden_size = 16
+output_size = len(iris.target_names)
+model = IrisClassifier(input_size, hidden_size, output_size)
+
+# Training configuration
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
+with mlflow.start_run() as run:
+    # Log parameters once at the start
+    mlflow.log_params(
+        {
+            "n_layers": 3,
+            "activation": "ReLU",
+            "criterion": "CrossEntropyLoss",
+            "optimizer": "Adam",
+            "learning_rate": 0.01,
+        }
+    )
+
+    for epoch in range(101):
+        # Training step
+        out = model(X_train)
+        loss = criterion(out, y_train)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Log a checkpoint every 10 epochs
+        if epoch % 10 == 0:
+            # Log model checkpoint with step parameter
+            model_info = mlflow.pytorch.log_model(
+                pytorch_model=model,
+                name=f"iris-checkpoint-{epoch}",
+                step=epoch,
+                input_example=X_train[:5].numpy(),
+            )
+
+            # Log metrics linked to this checkpoint and dataset
+            accuracy = compute_accuracy(model, X_train, y_train)
+            mlflow.log_metric(
+                key="train_accuracy",
+                value=accuracy,
+                step=epoch,
+                model_id=model_info.model_id,
+                dataset=train_dataset,
+            )
+
+# Search and rank checkpoints by performance
+ranked_checkpoints = mlflow.search_logged_models(
+    filter_string=f"source_run_id='{run.info.run_id}'",
+    order_by=[{"field_name": "metrics.train_accuracy", "ascending": False}],
+    output_format="list",
+)
+
+best_checkpoint = ranked_checkpoints[0]
+print(f"Best checkpoint: {best_checkpoint.name}")
+print(f"Accuracy: {best_checkpoint.metrics[0].value}")
+```
+
+This approach enables you to:
+
+- **Version checkpoints systematically** with the `step` parameter
+- **Link metrics to specific models** using `model_id` in `log_metric()`
+- **Associate metrics with datasets** for better tracking
+- **Rank and compare checkpoints** using `mlflow.search_logged_models()`
 
 ## Model Loading
 

@@ -533,3 +533,64 @@ def test_call_chat_completions_client_error(mock_databricks_rag_eval):
     ):
         with pytest.raises(RuntimeError, match="RAG client failed"):
             call_chat_completions("test prompt", "system prompt")
+
+
+def test_call_chat_completions_with_use_case_supported():
+    call_args = None
+
+    # Create a mock client with the real method (not a MagicMock) so inspect.signature works
+    class MockRAGClient:
+        def get_chat_completions_result(self, user_prompt, system_prompt, use_case=None):
+            nonlocal call_args
+            call_args = {
+                "user_prompt": user_prompt,
+                "system_prompt": system_prompt,
+                "use_case": use_case,
+            }
+            return AttrDict({"output": "test response", "error_message": None})
+
+    mock_context = mock.MagicMock()
+    mock_context.get_context.return_value.build_managed_rag_client.return_value = MockRAGClient()
+    mock_context.eval_context = lambda func: func
+
+    mock_env_vars = mock.MagicMock()
+
+    mock_module = mock.MagicMock()
+    mock_module.context = mock_context
+    mock_module.env_vars = mock_env_vars
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
+        ),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_module}),
+    ):
+        result = call_chat_completions("test prompt", "system prompt", use_case="judge_alignment")
+
+        # Verify use_case was passed since the method signature supports it
+        assert call_args == {
+            "user_prompt": "test prompt",
+            "system_prompt": "system prompt",
+            "use_case": "judge_alignment",
+        }
+
+        assert result.output == "test response"
+
+
+def test_call_chat_completions_with_use_case_not_supported(mock_databricks_rag_eval):
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
+        ),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
+    ):
+        # Even though we pass use_case, it won't be forwarded since the mock doesn't support it
+        result = call_chat_completions("test prompt", "system prompt", use_case="judge_alignment")
+
+        # Verify use_case was NOT passed (backward compatibility)
+        mock_databricks_rag_eval["rag_client"].get_chat_completions_result.assert_called_once_with(
+            user_prompt="test prompt",
+            system_prompt="system prompt",
+        )
+
+        assert result.output == "test response"

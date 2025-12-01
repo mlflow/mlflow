@@ -11,10 +11,9 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
-from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
@@ -87,7 +86,10 @@ def has_trace(trace):
 def _validate_assessments(traces):
     """Validate assessments are added to the traces"""
     for trace in traces:
-        assert len(trace.info.assessments) == 6  # 2 expectations + 4 feedbacks
+        assert len(trace.info.assessments) == 6, (
+            f"Expected 6 assessments, got {len(trace.info.assessments)}"
+            f"Assessments: {[a.name for a in trace.info.assessments]}"
+        )  # 2 expectations + 4 feedbacks
         assessments = {a.name: a for a in trace.info.assessments}
         a_exact_match = assessments["exact_match"]
         assert isinstance(a_exact_match, Feedback)
@@ -121,13 +123,11 @@ def _validate_assessments(traces):
         assert isinstance(a_expected_response.value, str)
         assert a_expected_response.source.source_type == AssessmentSourceType.HUMAN
         assert a_expected_response.source.source_id is not None
-        assert a_expected_response.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_max_length = assessments["max_length"]
         assert isinstance(a_max_length, Expectation)
         assert isinstance(a_max_length.value, (int, float))
         assert a_max_length.source.source_type == AssessmentSourceType.HUMAN
-        assert a_max_length.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
 
 def _validate_eval_result_df(result: EvaluationResult):
@@ -148,6 +148,9 @@ def _validate_eval_result_df(result: EvaluationResult):
         assert actual.iloc[i]["has_trace/value"] is not None
         assert actual.iloc[i]["expected_response/value"] is not None
         assert actual.iloc[i]["max_length/value"] is not None
+
+    # backwards compatibility
+    assert len(result.tables["eval_results"]) == len(result.result_df)
 
 
 @dataclass
@@ -339,62 +342,46 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
     _validate_eval_result_df(result)
 
 
-def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config):
+@pytest.mark.parametrize("return_type", ["pandas", "list"])
+def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config, return_type):
     questions = ["What is MLflow?", "What is Spark?"]
 
     @mlflow.trace(span_type=SpanType.AGENT)
     def predict(question: str) -> str:
         return TestModel().predict(question)
 
-    for question in questions:
-        predict(question)
+    predict(questions[0])
+    trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_response",
+        value="MLflow is a tool for ML",
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="max_length",
+        value=100,
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    predict(questions[1])
+    trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_response",
+        value="Spark is a fast data processing engine",
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="max_length",
+        value=1,
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
 
-    data = mlflow.search_traces()
+    data = mlflow.search_traces(return_type=return_type)
     assert len(data) == len(questions)
 
-    # OSS MLflow backend doesn't support assessment APIs now, so we need to manually add them
-    def add_assessment_to_trace_json(trace_json: str, assessments: list[Assessment]):
-        trace = Trace.from_json(trace_json)
-        trace.info.assessments = assessments
-        return trace.to_json()
-
-    data.at[0, "trace"] = add_assessment_to_trace_json(
-        data.at[0, "trace"],
-        [
-            Expectation(
-                name="expected_response",
-                trace_id="tr-123",
-                value="MLflow is a tool for ML",
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-            Expectation(
-                name="max_length",
-                trace_id="tr-123",
-                value=100,
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-        ],
-    )
-    data.at[1, "trace"] = add_assessment_to_trace_json(
-        data.at[1, "trace"],
-        [
-            Expectation(
-                name="expected_response",
-                trace_id="tr-123",
-                value="Spark is a fast data processing engine",
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-            Expectation(
-                name="max_length",
-                trace_id="tr-123",
-                value=1,
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-        ],
-    )
-
-    # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
-    monkeypatch.setenv("AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED", "false")
     result = mlflow.genai.evaluate(
         data=data,
         scorers=[exact_match, is_concise, relevance, has_trace],
@@ -859,15 +846,15 @@ def test_evaluate_with_managed_dataset_preserves_name():
 )
 def test_evaluate_with_tags(tags_data, expected_calls):
     """Test that tags from evaluation data are logged to MLflow runs."""
-    data = []
-    for i, tags in enumerate(tags_data):
-        item = {
+    data = [
+        {
             "inputs": {"question": f"What is question {i}?"},
             "outputs": f"Answer {i}",
             "expectations": {"expected_response": f"Answer {i}"},
             "tags": tags,
         }
-        data.append(item)
+        for i, tags in enumerate(tags_data)
+    ]
 
     with mock.patch("mlflow.set_trace_tag") as mock_set_trace_tag:
         mlflow.genai.evaluate(
@@ -1088,3 +1075,179 @@ def test_eval_with_traces_log_spans_correctly(diff_experiment_id):
     assert span.outputs == {"answer": "MLflow is a tool for ML"}
     child_span = traces[0].data.spans[1]
     assert child_span.inputs == "test"
+
+
+def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
+    """Test evaluation with a combination of single-turn and multi-turn scorers.
+
+    Validates that:
+    - Single-turn scorers are applied to all traces
+    - Multi-turn scorers are only applied to the first trace of each session
+    """
+
+    # Define a multi-turn scorer that counts conversation turns
+    class ConversationLengthScorer(mlflow.genai.Scorer):
+        def __init__(self):
+            super().__init__(name="conversation_length")
+
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return True
+
+        def __call__(self, session=None, **kwargs):
+            """Return the number of turns in the conversation."""
+            return len(session or [])
+
+    # Define a single-turn scorer
+    @scorer
+    def response_length(outputs) -> int:
+        """Return the length of the response."""
+        return len(outputs) if isinstance(outputs, str) else 0
+
+    # Create a traced model function
+    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to: {question}"
+
+    # Generate traces for 2 sessions (3 turns + 2 turns = 5 total traces)
+    mlflow.set_experiment("multi_turn_test")
+    with mlflow.start_run() as run:
+        # Session 1: 3 turns
+        for q in ["Q1", "Q2", "Q3"]:
+            model(q, session_id="session_1")
+
+        # Session 2: 2 turns
+        for q in ["Q4", "Q5"]:
+            model(q, session_id="session_2")
+
+        # Get traces for evaluation
+        traces = mlflow.search_traces(
+            locations=[run.info.experiment_id], filter_string=f'run_id = "{run.info.run_id}"'
+        )
+
+        # Evaluate with both single-turn and multi-turn scorers
+        result = mlflow.genai.evaluate(
+            data=traces, scorers=[response_length, ConversationLengthScorer()]
+        )
+
+    # Validate results
+    result_df = result.result_df
+
+    # Should have one row per trace
+    assert len(result_df) == 5, f"Expected 5 traces, got {len(result_df)}"
+
+    # Single-turn scorer should be applied to all traces
+    single_turn_scores = result_df["response_length/value"].notna().sum()
+    assert single_turn_scores == 5, (
+        f"Expected single-turn scores for all 5 traces, got {single_turn_scores}"
+    )
+
+    # Multi-turn scorer should only be applied to first trace of each session (2 total)
+    multi_turn_scores = result_df["conversation_length/value"].notna().sum()
+    assert multi_turn_scores == 2, (
+        f"Expected multi-turn scores for 2 sessions (first trace only), got {multi_turn_scores}"
+    )
+
+    # Validate the conversation length values
+    # Session 1 should have 3 turns, Session 2 should have 2 turns
+    conv_lengths = result_df["conversation_length/value"].dropna().sort_values().tolist()
+    assert conv_lengths == [2.0, 3.0], (
+        f"Expected conversation lengths [2.0, 3.0], got {conv_lengths}"
+    )
+
+    # Validate that all single-turn scores are the same (based on our dummy response)
+    response_lengths = result_df["response_length/value"].dropna()
+    # All responses should be "Answer to: Qx" format, so lengths should be consistent
+    assert all(length > 0 for length in response_lengths), "All response lengths should be positive"
+
+
+def test_evaluate_with_evaluation_dataset_and_session_level_scorers():
+    """Test that session-level scorers work with EvaluationDataset created from traces."""
+
+    # Define a session-level scorer
+    class ConversationLengthScorer(mlflow.genai.Scorer):
+        def __init__(self):
+            super().__init__(name="conversation_length")
+
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return True
+
+        def __call__(self, session=None, **kwargs):
+            return len(session or [])
+
+    # Create traces with session metadata (2 traces in session_1, 1 in session_2)
+    @mlflow.trace(span_type=mlflow.entities.SpanType.CHAT_MODEL)
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to {question}"
+
+    model("Q1", session_id="session_1")
+    trace_1 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q2", session_id="session_1")
+    trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q3", session_id="session_2")
+    trace_3 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    # Create dataset from traces
+    dataset = create_dataset(name="multi_turn_dataset")
+    dataset.merge_records([trace_1, trace_2, trace_3])
+
+    # Evaluate with session-level scorer
+    result = mlflow.genai.evaluate(data=dataset, scorers=[ConversationLengthScorer()])
+    result_df = result.result_df
+
+    # Session-level scorer should produce 2 scores (one per session)
+    assert "conversation_length/value" in result_df.columns
+    assert result_df["conversation_length/value"].notna().sum() == 2
+
+    # Verify conversation lengths: session_1 has 2 traces, session_2 has 1 trace
+    conv_lengths = result_df["conversation_length/value"].dropna().sort_values().tolist()
+    assert conv_lengths == [1.0, 2.0]
+
+
+def test_evaluate_dataset_mixed_traces_with_and_without_sessions():
+    class SessionScorer(mlflow.genai.Scorer):
+        def __init__(self):
+            super().__init__(name="session_length")
+
+        @property
+        def is_session_level_scorer(self):
+            return True
+
+        def __call__(self, session=None, **kwargs):
+            return len(session or [])
+
+    # Create mixed traces
+    @mlflow.trace(span_type=mlflow.entities.SpanType.CHAT_MODEL)
+    def model_with_session(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return "answer"
+
+    @mlflow.trace(span_type=mlflow.entities.SpanType.CHAT_MODEL)
+    def model_without_session(question):
+        return "answer"
+
+    model_with_session("Q1", "session_1")
+    trace_1 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model_without_session("Q2")
+    trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model_with_session("Q3", "session_1")
+    trace_3 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    # Create dataset and evaluate
+    dataset = create_dataset(name="mixed_dataset")
+    dataset.merge_records([trace_1, trace_2, trace_3])
+
+    result = mlflow.genai.evaluate(data=dataset, scorers=[SessionScorer()])
+    result_df = result.result_df
+
+    # Should have 1 session-level score (for session_1 with 2 traces)
+    # The trace without session should not be scored by session-level scorer
+    assert result_df["session_length/value"].notna().sum() == 1
+    assert result_df["session_length/value"].dropna().iloc[0] == 2.0

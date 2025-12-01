@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { graphql, rest } from 'msw';
 import { IntlProvider } from 'react-intl';
-import { setupTestRouter, TestRouter } from '../../../common/utils/RoutingTestUtils';
+import { setupTestRouter, TestRouter, waitForRoutesToBeRendered } from '../../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
@@ -120,12 +120,13 @@ describe('ExperimentLoggedModelListPage', () => {
   test('should display experiment title when fetched', async () => {
     renderTestComponent();
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('Test experiment name')).toBeInTheDocument();
-      },
-      { timeout: 20000 },
-    );
+    // Wait for lazy-loaded route components to finish loading and PageLoading skeleton to be removed.
+    // First test in suite takes longer because lazy modules haven't been cached yet.
+    await waitFor(() => waitForRoutesToBeRendered());
+
+    await waitFor(() => {
+      expect(screen.getByText('Test experiment name')).toBeInTheDocument();
+    });
   });
 
   test('integration test: should display popover about inferred experiment kind', async () => {
@@ -161,7 +162,6 @@ describe('ExperimentLoggedModelListPage', () => {
       await screen.findByText(
         "We've automatically detected the experiment type to be 'GenAI apps & agents'. You can either confirm or change the type.",
         undefined,
-        { timeout: 20000 },
       ),
     ).toBeInTheDocument();
 
@@ -179,13 +179,6 @@ describe('ExperimentLoggedModelListPage', () => {
 
   test('integration test: should display modal with information about impossible experiment type inference', async () => {
     const confirmTagApiSpy = jest.fn();
-
-    server.resetHandlers(
-      graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
-        res(ctx.data(createTestExperimentResponse(createTestExperiment('12345678', 'Test experiment name', [])))),
-      ),
-    );
-
     server.resetHandlers(
       graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
         res(ctx.data(createTestExperimentResponse(createTestExperiment('12345678', 'Test experiment name', [])))),
@@ -212,7 +205,6 @@ describe('ExperimentLoggedModelListPage', () => {
       await screen.findByText(
         "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
         undefined,
-        { timeout: 20000 },
       ),
     ).toBeInTheDocument();
 

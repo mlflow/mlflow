@@ -13,8 +13,8 @@ import { ASSESSMENT_PANE_MIN_WIDTH } from '../assessments-pane/AssessmentsPane.u
 export const ModelTraceExplorerSummaryView = () => {
   const { theme } = useDesignSystemTheme();
   const [paneWidth, setPaneWidth] = useState(500);
-  const { rootNode, nodeMap, assessmentsPaneEnabled, assessmentsPaneExpanded } = useModelTraceExplorerViewState();
-
+  const { rootNode, nodeMap, assessmentsPaneEnabled, assessmentsPaneExpanded, isInComparisonView } =
+    useModelTraceExplorerViewState();
   const allAssessments = useMemo(() => Object.values(nodeMap).flatMap((node) => node.assessments), [nodeMap]);
 
   const intermediateNodes = useIntermediateNodes(rootNode);
@@ -37,7 +37,7 @@ export const ModelTraceExplorerSummaryView = () => {
     <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
   );
 
-  return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+  return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={0.75}
       paneWidth={paneWidth}

@@ -1123,3 +1123,12 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
 #: issues with the judge's reasoning.
 #: (default: ``30``)
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
+
+
+#: Enable automatic run resumption for Serverless GPU Compute (SGC) jobs on Databricks.
+#: When enabled, MLflow will check for the SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID job
+#: parameter and automatically resume MLflow runs associated with that Databricks job run ID.
+#: (default: ``True``)
+_MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS", True
+)
