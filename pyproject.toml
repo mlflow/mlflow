@@ -218,6 +218,8 @@ docs = [
   "ipywidgets>=8.1.1",
   "keras",
   "torch>=1.11.0",
+  # TODO: Unpin once https://github.com/astral-sh/uv/issues/16386 is resolved
+  "torchvision>=0.12.0,<0.24.0",
   "lightning>=1.8.1",
   "Flask-WTF<2",
   "polars>=1",
@@ -243,10 +245,11 @@ members = ["dev/clint", "tests/resources/mlflow-test-plugin"]
 [tool.uv.sources]
 clint = { workspace = true }
 mlflow-test-plugin = { workspace = true }
-torch = { index = "pytorch" }
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
 
 [[tool.uv.index]]
-name = "pytorch"
+name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 

@@ -975,42 +975,79 @@ def autolog(
         :test:
         :caption: Example
 
+        import os
+
         import lightning as L
         import torch
-        from torch.utils.data import DataLoader, TensorDataset
+        from torch.nn import functional as F
+        from torch.utils.data import DataLoader, Subset
+        from torchmetrics import Accuracy
+        from torchvision import transforms
+        from torchvision.datasets import MNIST
 
-        import mlflow
+        import mlflow.pytorch
+        from mlflow import MlflowClient
 
 
-        class Model(L.LightningModule):
+        class MNISTModel(L.LightningModule):
             def __init__(self):
                 super().__init__()
-                self.linear = torch.nn.Linear(1, 1)
+                self.l1 = torch.nn.Linear(28 * 28, 10)
+                self.accuracy = Accuracy("multiclass", num_classes=10)
 
             def forward(self, x):
-                return self.linear(x)
+                return torch.relu(self.l1(x.view(x.size(0), -1)))
 
-            def training_step(self, batch):
+            def training_step(self, batch, batch_nb):
                 x, y = batch
-                loss = torch.nn.functional.mse_loss(self(x), y)
-                self.log("train_loss", loss)
+                logits = self(x)
+                loss = F.cross_entropy(logits, y)
+                pred = logits.argmax(dim=1)
+                acc = self.accuracy(pred, y)
+
+                # PyTorch `self.log` will be automatically captured by MLflow.
+                self.log("train_loss", loss, on_epoch=True)
+                self.log("acc", acc, on_epoch=True)
                 return loss
 
             def configure_optimizers(self):
-                return torch.optim.SGD(self.parameters(), lr=0.01)
+                return torch.optim.Adam(self.parameters(), lr=0.02)
 
 
-        # Enable autologging
+        def print_auto_logged_info(r):
+            tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
+            print(f"run_id: {r.info.run_id}")
+            print(f"artifacts: {artifacts}")
+            print(f"params: {r.data.params}")
+            print(f"metrics: {r.data.metrics}")
+            print(f"tags: {tags}")
+
+
+        # Initialize our model.
+        mnist_model = MNISTModel()
+
+        # Load MNIST dataset.
+        train_ds = MNIST(
+            os.getcwd(), train=True, download=True, transform=transforms.ToTensor()
+        )
+        # Only take a subset of the data for faster training.
+        indices = torch.arange(32)
+        train_ds = Subset(train_ds, indices)
+        train_loader = DataLoader(train_ds, batch_size=8)
+
+        # Initialize a trainer.
+        trainer = L.Trainer(max_epochs=3)
+
+        # Auto log all MLflow entities
         mlflow.pytorch.autolog()
 
-        # Prepare data (y = 2x)
-        X = torch.arange(1.0, 11.0).reshape(-1, 1)
-        y = X * 2
-        loader = DataLoader(TensorDataset(X, y), batch_size=2)
+        # Train the model.
+        with mlflow.start_run() as run:
+            trainer.fit(mnist_model, train_loader)
 
-        # Train the model
-        trainer = L.Trainer(max_epochs=5)
-        trainer.fit(Model(), loader)
+        # Fetch the auto logged parameters and metrics.
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
     """
     try:
         import pytorch_lightning as pl
