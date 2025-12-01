@@ -385,6 +385,7 @@ class Linter(ast.NodeVisitor):
         self.resolver = Resolver()
         self.index = index
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
+        self.prev_stmt: ast.stmt | None = None
 
     def _check(self, range: Range, rule: rules.Rule) -> None:
         # Skip rules that are not selected in the config
@@ -438,15 +439,11 @@ class Linter(ast.NodeVisitor):
         return not self.stack
 
     def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
-        args: list[str] = []
-        for arg in func.args.posonlyargs:
-            args.append(arg.arg)
+        args: list[str] = [arg.arg for arg in func.args.posonlyargs]
 
-        for arg in func.args.args:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.args)
 
-        for arg in func.args.kwonlyargs:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.kwonlyargs)
 
         if func.args.vararg:
             args.append(func.args.vararg.arg)
@@ -488,6 +485,11 @@ class Linter(ast.NodeVisitor):
     ) -> None:
         if rule := rules.RedundantTestDocstring.check(node, self.path.name):
             self._check(Range.from_node(node), rule)
+
+    def visit(self, node: ast.AST) -> None:
+        super().visit(node)
+        if isinstance(node, ast.stmt):
+            self.prev_stmt = node
 
     def visit_Module(self, node: ast.Module) -> None:
         if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
@@ -627,6 +629,7 @@ class Linter(ast.NodeVisitor):
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
+        self._check_walrus_operator(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -643,6 +646,7 @@ class Linter(ast.NodeVisitor):
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
+        self._check_walrus_operator(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -805,6 +809,11 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(node), rules.MajorVersionCheck())
         self.generic_visit(node)
 
+    def visit_For(self, node: ast.For) -> None:
+        if self.prev_stmt and rules.AssignBeforeAppend.check(node, self.prev_stmt):
+            self._check(Range.from_node(node), rules.AssignBeforeAppend())
+        self.generic_visit(node)
+
     def visit_type_annotation(self, node: ast.expr) -> None:
         visitor = TypeAnnotationVisitor(self)
         visitor.visit(node)
@@ -817,6 +826,12 @@ class Linter(ast.NodeVisitor):
             self.in_TYPE_CHECKING = True
         self.generic_visit(node)
         self.in_TYPE_CHECKING = False
+
+    def _check_walrus_operator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        visitor = rules.WalrusOperatorVisitor()
+        visitor.visit(node)
+        for stmt in visitor.violations:
+            self._check(Range.from_node(stmt), rules.UseWalrusOperator())
 
     def visit_With(self, node: ast.With) -> None:
         # Only check in test files

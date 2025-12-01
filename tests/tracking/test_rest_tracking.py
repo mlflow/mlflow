@@ -2404,9 +2404,8 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
     assert "Query exceeds maximum depth of 10" in response.json()["errors"][0]
 
     # Test max selections limit
-    selections = []
-    for i in range(1002):  # Exceed the 1000 selection limit
-        selections.append(f"field_{i} {{ name }}")
+    # Exceed the 1000 selection limit
+    selections = [f"field_{i} {{ name }}" for i in range(1002)]
     selections_query = (
         'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
         + " ".join(selections)

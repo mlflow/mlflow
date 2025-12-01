@@ -189,8 +189,7 @@ def test_evaluate_traces_integration():
     @scorer
     def simple_scorer(outputs):
         """Extract the digit from the output string and return it as the score"""
-        match = re.search(r"\d+", outputs)
-        if match:
+        if match := re.search(r"\d+", outputs):
             return float(match.group())
         return 0.0
 

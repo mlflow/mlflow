@@ -1403,8 +1403,7 @@ class MlflowClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-        root_span = trace_manager.get_span_from_id(trace_id, root_span_id)
-        if root_span:
+        if root_span := trace_manager.get_span_from_id(trace_id, root_span_id):
             root_span.end(outputs, attributes, status, end_time_ns)
 
     def _log_trace(self, trace: Trace) -> str:
@@ -1605,8 +1604,7 @@ class MlflowClient:
             end_time_ns: The end time of the span in nano seconds since the UNIX epoch.
                 If not provided, the current time will be used.
         """
-        span = InMemoryTraceManager.get_instance().get_span_from_id(trace_id, span_id)
-        if span:
+        if span := InMemoryTraceManager.get_instance().get_span_from_id(trace_id, span_id):
             span.end(
                 outputs=outputs,
                 attributes=attributes,

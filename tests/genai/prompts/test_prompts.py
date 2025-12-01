@@ -14,6 +14,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.prompt.registry_utils import PromptCache
+from mlflow.tracing.constant import SpanAttributeKey
 
 
 def join_thread_by_name_prefix(prefix: str):
@@ -1565,3 +1566,50 @@ def test_prompt_cache_env_variable(monkeypatch):
     prompt = mlflow.genai.load_prompt("env_var_prompt", version=1)
     assert prompt is not None
     assert prompt.template == "Hello!"
+
+
+def test_load_prompt_sets_span_attributes():
+    mlflow.genai.register_prompt(name="span_test_prompt", template="Hello, {{name}}!")
+
+    with mlflow.start_span("test_span") as span:
+        prompt = mlflow.genai.load_prompt("span_test_prompt", version=1)
+
+    linked_prompts_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+    prompt_versions = json.loads(linked_prompts_value)
+
+    assert len(prompt_versions) == 1
+    assert prompt_versions[0] == {"name": "span_test_prompt", "version": "1"}
+    assert prompt.name == "span_test_prompt"
+    assert prompt.version == 1
+
+
+def test_load_prompt_multiple_prompts_in_same_span():
+    mlflow.genai.register_prompt(name="prompt_1", template="First {{var1}}")
+    mlflow.genai.register_prompt(name="prompt_2", template="Second {{var2}}")
+
+    with mlflow.start_span("multi_prompt_span") as span:
+        prompt1 = mlflow.genai.load_prompt("prompt_1", version=1)
+        prompt2 = mlflow.genai.load_prompt("prompt_2", version=1)
+
+    linked_prompts_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+    prompt_versions = json.loads(linked_prompts_value)
+
+    assert len(prompt_versions) == 2
+    assert {"name": "prompt_1", "version": "1"} in prompt_versions
+    assert {"name": "prompt_2", "version": "1"} in prompt_versions
+    assert prompt1.name == "prompt_1"
+    assert prompt2.name == "prompt_2"
+
+
+def test_load_prompt_same_prompt_twice_in_span():
+    mlflow.genai.register_prompt(name="duplicate_test", template="Test {{var}}")
+
+    with mlflow.start_span("duplicate_span") as span:
+        mlflow.genai.load_prompt("duplicate_test", version=1)
+        mlflow.genai.load_prompt("duplicate_test", version=1)
+
+    linked_prompts_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+    prompt_versions = json.loads(linked_prompts_value)
+    assert isinstance(prompt_versions, list)
+    assert len(prompt_versions) == 1
+    assert prompt_versions[0] == {"name": "duplicate_test", "version": "1"}
