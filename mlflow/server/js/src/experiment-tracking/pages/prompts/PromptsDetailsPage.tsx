@@ -14,7 +14,6 @@ import {
   SegmentedControlButton,
   SegmentedControlGroup,
   Spacer,
-  TableIcon,
   TableSkeleton,
   useDesignSystemTheme,
   ZoomMarqueeSelection,
@@ -80,15 +79,8 @@ const PromptsDetailsPage = () => {
     onSuccess: refetch,
   });
 
-  const {
-    setCompareMode,
-    setPreviewMode,
-    setTableMode,
-    switchSides,
-    viewState,
-    setSelectedVersion,
-    setComparedVersion,
-  } = usePromptDetailsPageViewState(promptDetailsData);
+  const { setCompareMode, setPreviewMode, switchSides, viewState, setSelectedVersion, setComparedVersion } =
+    usePromptDetailsPageViewState(promptDetailsData);
 
   const { mode } = viewState;
 
@@ -213,15 +205,6 @@ const PromptsDetailsPage = () => {
                   />
                 </div>
               </SegmentedControlButton>
-              <SegmentedControlButton value={PromptVersionsTableMode.TABLE} onClick={setTableMode}>
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-                  <TableIcon />{' '}
-                  <FormattedMessage
-                    defaultMessage="List"
-                    description="Label for the list mode on the registered prompt details page"
-                  />
-                </div>
-              </SegmentedControlButton>
               <SegmentedControlButton
                 disabled={Boolean(!promptDetailsData?.versions.length || promptDetailsData?.versions.length < 2)}
                 value={PromptVersionsTableMode.COMPARE}
@@ -262,9 +245,8 @@ const PromptsDetailsPage = () => {
                     await refetch().then(({ data }) => {
                       if (!isEmpty(data?.versions) && data?.versions[0].version) {
                         setSelectedVersion(data?.versions[0].version);
-                      } else {
-                        setTableMode();
                       }
+                      // If no versions left, table will show empty state
                     });
                   }}
                   aliasesByVersion={aliasesByVersion}

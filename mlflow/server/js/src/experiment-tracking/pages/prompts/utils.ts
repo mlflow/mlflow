@@ -25,7 +25,6 @@ export type PromptsVersionsTableMetadata = {
 };
 
 export enum PromptVersionsTableMode {
-  TABLE = 'table',
   PREVIEW = 'preview',
   COMPARE = 'compare',
 }
