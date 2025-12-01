@@ -9,7 +9,7 @@ set -euo pipefail
 if ! command -v rg &> /dev/null; then
   echo "Error: ripgrep (rg) is not installed. Please install it first." >&2
   echo "  - macOS: brew install ripgrep" >&2
-  echo "  - Ubuntu: sudo apt-get install ripgrep" >&2
+  echo "  - Ubuntu: sudo apt install ripgrep" >&2
   exit 1
 fi
 
