@@ -869,7 +869,8 @@ def test_get_databricks_workspace_client_config_client_creation_error():
             get_databricks_workspace_client_config("databricks://profile")
 
 
-def test_get_sgc_job_run_id_success():
+def test_get_sgc_job_run_id_success(monkeypatch):
+    monkeypatch.delenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", raising=False)
     mock_dbutils = mock.MagicMock()
     mock_dbutils.widgets.get.return_value = "test_job_run_id_12345"
 
@@ -881,19 +882,80 @@ def test_get_sgc_job_run_id_success():
         )
 
 
-def test_get_sgc_job_run_id_no_dbutils():
+def test_get_sgc_job_run_id_no_dbutils(monkeypatch):
+    monkeypatch.delenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", raising=False)
     with mock.patch("mlflow.utils.databricks_utils._get_dbutils", side_effect=_NoDbutilsError()):
         result = get_sgc_job_run_id()
         assert result is None
 
 
-def test_get_sgc_job_run_id_value_error():
+def test_get_sgc_job_run_id_no_dbutils_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_456")
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", side_effect=_NoDbutilsError()):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_456"
+
+
+def test_get_sgc_job_run_id_value_error(monkeypatch):
+    monkeypatch.delenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", raising=False)
     mock_dbutils = mock.MagicMock()
     mock_dbutils.widgets.get.side_effect = ValueError("Widget not found")
 
     with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
         result = get_sgc_job_run_id()
         assert result is None
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_value_error_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_789")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.side_effect = ValueError("Widget not found")
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_789"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_empty_widget_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_999")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = ""
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_999"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_none_widget_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_111")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = None
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_111"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_widget_takes_precedence_over_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_222")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = "widget_job_run_id_333"
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "widget_job_run_id_333"
         mock_dbutils.widgets.get.assert_called_once_with(
             "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
         )
