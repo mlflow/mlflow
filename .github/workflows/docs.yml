@@ -71,7 +71,7 @@ jobs:
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
-          API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/docs/
+          API_REFERENCE_PREFIX: ${{ github.event_name == 'push' && 'https://dev--mlflow-docs-preview.netlify.app/docs/' || format('https://pr-{0}--mlflow-docs-preview.netlify.app/docs/', github.event.pull_request.number) }}
         run: |
           npm run build-all -- --no-r --use-npm
       - name: Check API inventory
