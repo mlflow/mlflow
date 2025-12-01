@@ -722,7 +722,7 @@ def test_capture_imported_modules_excludes_pyspark_gateway_env_vars(monkeypatch,
     Test that PYSPARK_GATEWAY_PORT and PYSPARK_GATEWAY_SECRET are excluded from the
     subprocess environment when capturing imported modules.
 
-    These env vars, if inherited by the subprocess, can cause the subprocess to connect
+    These env vars, if inherited by a subprocess, can cause the subprocess to connect
     to the parent's py4j gateway. Libraries like databricks-sdk may then corrupt the
     parent's gateway state, causing delayed py4j errors like
     "Error while obtaining a new communication channel".
@@ -751,11 +751,5 @@ def test_capture_imported_modules_excludes_pyspark_gateway_env_vars(monkeypatch,
         except MlflowException:
             pass
 
-    assert "PYSPARK_GATEWAY_PORT" not in captured_env, (
-        "PYSPARK_GATEWAY_PORT should not be passed to subprocess - "
-        "it can cause the subprocess to interfere with the parent's py4j gateway"
-    )
-    assert "PYSPARK_GATEWAY_SECRET" not in captured_env, (
-        "PYSPARK_GATEWAY_SECRET should not be passed to subprocess - "
-        "it can cause the subprocess to interfere with the parent's py4j gateway"
-    )
+    assert "PYSPARK_GATEWAY_PORT" not in captured_env
+    assert "PYSPARK_GATEWAY_SECRET" not in captured_env
