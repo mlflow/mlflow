@@ -3419,12 +3419,18 @@ def test_instructions_judge_generate_rationale_first():
     assert output_fields_rationale_first[1].value_type == Literal["good", "bad"]  # result
 
 
-def test_response_format_uses_generic_description_when_scorer_has_description():
-    scorer_description = "Evaluates the conciseness of the response"
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Evaluates the conciseness of the response",  # With custom description
+        None,  # Without description
+    ],
+)
+def test_response_format_uses_generic_field_description(description):
     judge = InstructionsJudge(
-        name="Conciseness",
+        name="Conciseness" if description else "TestJudge",
         instructions="Evaluate if the output {{ outputs }} is concise",
-        description=scorer_description,
+        description=description,
         model="openai:/gpt-4",
     )
 
@@ -3434,46 +3440,7 @@ def test_response_format_uses_generic_description_when_scorer_has_description():
     # The result field description should be the generic description,
     # NOT the scorer's description
     result_description = schema["properties"]["result"]["description"]
-    assert result_description == _RESULT_FIELD_DESCRIPTION, (
-        f"Response format should use generic field description, not scorer description.\n"
-        f"  Expected: '{_RESULT_FIELD_DESCRIPTION}'\n"
-        f"  Got: '{result_description}'\n"
-        f"Using the scorer's description causes the LLM to see it in the JSON schema "
-        f"and potentially echo it as the value instead of providing an actual assessment."
-    )
-
-    # Verify rationale field uses its own description
-    rationale_description = schema["properties"]["rationale"]["description"]
-    assert rationale_description == "Detailed explanation for the evaluation"
-
-    # Also verify get_output_fields() uses generic description (used in system prompt)
-    output_fields = judge.get_output_fields()
-    result_field = next(f for f in output_fields if f.name == "result")
-    assert result_field.description == _RESULT_FIELD_DESCRIPTION, (
-        f"Output fields should use generic description in system prompt.\n"
-        f"  Expected: '{_RESULT_FIELD_DESCRIPTION}'\n"
-        f"  Got: '{result_field.description}'"
-    )
-
-
-def test_response_format_uses_generic_description_when_scorer_has_no_description():
-    judge = InstructionsJudge(
-        name="TestJudge",
-        instructions="Evaluate {{ outputs }}",
-        model="openai:/gpt-4",
-        # No description provided
-    )
-
-    response_format_model = judge._create_response_format_model()
-    schema = response_format_model.model_json_schema()
-
-    # The result field description should be the generic description
-    result_description = schema["properties"]["result"]["description"]
-    assert result_description == _RESULT_FIELD_DESCRIPTION, (
-        f"Response format should use generic field description.\n"
-        f"  Expected: '{_RESULT_FIELD_DESCRIPTION}'\n"
-        f"  Got: '{result_description}'"
-    )
+    assert result_description == _RESULT_FIELD_DESCRIPTION
 
     # Verify rationale field uses its own description
     rationale_description = schema["properties"]["rationale"]["description"]
