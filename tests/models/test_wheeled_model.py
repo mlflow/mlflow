@@ -279,7 +279,7 @@ def test_create_pip_requirement(tmp_path):
     )
     wm._create_pip_requirement(conda_env_path, pip_reqs_path)
     with open(pip_reqs_path) as f:
-        pip_reqs = [x.strip() for x in f.readlines()]
+        pip_reqs = [x.strip() for x in f]
     assert expected_pip_deps.sort() == pip_reqs.sort()
 
 

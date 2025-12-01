@@ -70,7 +70,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   };
 
   const getTruncatedLabel = (label: string) => truncateToFirstLineWithMaxLength(label, 40);
-  const getTruncatedSessionLabel = (label: string) => (label.length > 10 ? `${label.slice(0, 10)}...` : label);
 
   const handleCopy = useCallback(() => {
     setShowNotification(true);
@@ -78,8 +77,16 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   }, []);
 
   return (
-    <>
-      <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.md, flexWrap: 'wrap' }}>
+    <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'row',
+          gap: theme.spacing.md,
+          rowGap: theme.spacing.sm,
+          flexWrap: 'wrap',
+        }}
+      >
         {modelTraceId && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="ID" description="Label for the ID section" />}
@@ -108,7 +115,12 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           />
         )}
         {sessionId && experimentId && (
-          <ModelTraceHeaderSessionIdTag handleCopy={handleCopy} experimentId={experimentId} sessionId={sessionId} />
+          <ModelTraceHeaderSessionIdTag
+            handleCopy={handleCopy}
+            experimentId={experimentId}
+            sessionId={sessionId}
+            traceId={modelTraceId}
+          />
         )}
         {userId && (
           <ModelTraceHeaderMetricSection
@@ -177,6 +189,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           <Notification.Viewport />
         </Notification.Provider>
       )}
-    </>
+    </div>
   );
 };

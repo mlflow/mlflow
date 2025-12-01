@@ -238,9 +238,15 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
 
   traceInfo.assessments?.forEach((assessment) => {
     const assessmentName = assessment.assessment_name;
+
     if (LIST_TRACES_IGNORE_ASSESSMENTS.includes(assessmentName)) {
       return;
     }
+
+    if (assessment.valid === false) {
+      return;
+    }
+
     if (isExpectationAssessment(assessment)) {
       processExpectationAssessment(assessment, targets);
     } else {

@@ -207,10 +207,11 @@ def get_released_versions(package_name: str) -> list[Version]:
             continue
 
         # Extract the earliest upload time as the release date
-        upload_times = []
-        for dist in distributions:
-            if ut := dist.get("upload_time_iso_8601"):
-                upload_times.append(datetime.fromisoformat(ut.replace("Z", "+00:00")))
+        upload_times = [
+            datetime.fromisoformat(ut.replace("Z", "+00:00"))
+            for dist in distributions
+            if (ut := dist.get("upload_time_iso_8601"))
+        ]
 
         release_date = min(upload_times) if upload_times else None
         try:
@@ -689,7 +690,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
 
             # Add tracing SDK test with the latest stable version
             if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
-                version = sorted(versions)[-1]  # Test against the latest stable version
+                version = max(versions)  # Test against the latest stable version
                 matrix.add(
                     MatrixItem(
                         name=f"{name}-tracing",
@@ -712,8 +713,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
 
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
-                requirements = get_matched_requirements(cfg.requirements or {}, DEV_VERSION)
-                if requirements:
+                if requirements := get_matched_requirements(cfg.requirements or {}, DEV_VERSION):
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev

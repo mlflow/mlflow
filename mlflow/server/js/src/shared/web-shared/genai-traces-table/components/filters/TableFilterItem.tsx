@@ -77,6 +77,7 @@ export const TableFilterItem = ({
   experimentId,
   tableFilterOptions,
   allColumns,
+  usesV4APIs,
 }: {
   tableFilter: TableFilter;
   index: number;
@@ -86,6 +87,7 @@ export const TableFilterItem = ({
   experimentId: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
+  usesV4APIs?: boolean;
 }) => {
   const { column, operator, key } = tableFilter;
   const { theme } = useDesignSystemTheme();
@@ -119,14 +121,18 @@ export const TableFilterItem = ({
     );
 
     // Add individual span filter options
-    result.push(
-      { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
-      { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
-      { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
-    );
+    if (usesV4APIs) {
+      result.push(
+        // TODO: Added via UI sync, but doesn't work in databricks yet. Uncomment
+        // these when the search API supports them
+        { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
+        { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
+        { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
+      );
+    }
 
     return result;
-  }, [allColumns]);
+  }, [allColumns, usesV4APIs]);
 
   return (
     <>

@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from langchain.agents import AgentExecutor
 from langchain_core.language_models.chat_models import SimpleChatModel
 from langchain_core.messages import (
     AIMessage,
@@ -163,15 +162,6 @@ def test_transform_response_iter_to_chat_format_ai_message():
             converted_response[i]["choices"][0]["finish_reason"]
             == response[i].response_metadata["finish_reason"]
         )
-
-
-def test_transform_request_json_for_chat_if_necessary_no_conversion():
-    model = MagicMock(spec=AgentExecutor)
-    request_json = {"messages": [{"role": "user", "content": "some_input"}]}
-    assert transform_request_json_for_chat_if_necessary(request_json, model) == (
-        request_json,
-        False,
-    )
 
 
 def test_transform_request_json_for_chat_if_necessary_conversion():

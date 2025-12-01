@@ -461,7 +461,7 @@ def _get_ordered_runs(store: SqlAlchemyStore, order_clauses, experiment_id):
 
 def _verify_logged(store, run_id, metrics, params, tags):
     run = store.get_run(run_id)
-    all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     assert len(all_metrics) == len(metrics)
     logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
     assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
@@ -2913,7 +2913,7 @@ def test_log_batch(store: SqlAlchemyStore):
     run = store.get_run(run_id)
     assert run.data.tags == {"t1": "t1val", "t2": "t2val", MLFLOW_RUN_NAME: "my_run"}
     assert run.data.params == {"p1": "p1val", "p2": "p2val"}
-    metric_histories = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    metric_histories = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
     assert set(metrics) == {("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)}
 
@@ -2927,7 +2927,7 @@ def test_log_batch_limits(store: SqlAlchemyStore):
     metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
     store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])
     run = store.get_run(run_id)
-    metric_histories = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    metric_histories = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
     assert set(metrics) == set(metric_tuples)
 
@@ -7672,6 +7672,32 @@ def test_log_logged_model_params(store: SqlAlchemyStore):
     assert loaded_model.params == {"param1": "apple"}
 
 
+def test_log_model_metrics_use_run_experiment_id(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, "user", 0, [], "test_run")
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+
+    metric = Metric(
+        key="metric",
+        value=1.0,
+        timestamp=get_current_time_millis(),
+        step=0,
+        model_id=model.model_id,
+        run_id=run.info.run_id,
+    )
+
+    store.log_metric(run.info.run_id, metric)
+
+    with store.ManagedSessionMaker() as session:
+        logged_metrics = (
+            session.query(SqlLoggedModelMetric)
+            .filter(SqlLoggedModelMetric.model_id == model.model_id)
+            .all()
+        )
+        assert len(logged_metrics) == 1
+        assert logged_metrics[0].experiment_id == int(exp_id)
+
+
 @pytest.mark.parametrize(
     "name",
     [
@@ -7720,6 +7746,36 @@ def test_delete_logged_model(store: SqlAlchemyStore):
 
     models = store.search_logged_models(experiment_ids=[exp_id])
     assert len(models) == 0
+
+
+def test_delete_run_does_not_delete_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, "user", 0, [], "run")
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    store.delete_run(run.info.run_id)
+    retrieved = store.get_logged_model(model.model_id)
+    assert retrieved.model_id == model.model_id
+
+
+def test_hard_delete_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.delete_logged_model(model.model_id)
+    store._hard_delete_logged_model(model.model_id)
+    with store.ManagedSessionMaker() as session:
+        actual_model = (
+            session.query(models.SqlLoggedModel).filter_by(model_id=model.model_id).first()
+        )
+        assert actual_model is None
+
+
+def test_get_deleted_logged_models(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert store._get_deleted_logged_models() == []
+    store.delete_logged_model(model.model_id)
+    assert store._get_deleted_logged_models(older_than=1000000) == []
+    assert store._get_deleted_logged_models() == [model.model_id]
 
 
 def test_finalize_logged_model(store: SqlAlchemyStore):
@@ -8924,15 +8980,14 @@ def test_dataset_records_pagination(store):
         name="pagination_test_dataset", experiment_ids=[exp_id], tags={"test": "pagination"}
     )
 
-    records = []
-    for i in range(25):
-        records.append(
-            {
-                "inputs": {"id": i, "question": f"Question {i}"},
-                "expectations": {"answer": f"Answer {i}"},
-                "tags": {"index": str(i)},
-            }
-        )
+    records = [
+        {
+            "inputs": {"id": i, "question": f"Question {i}"},
+            "expectations": {"answer": f"Answer {i}"},
+            "tags": {"index": str(i)},
+        }
+        for i in range(25)
+    ]
 
     store.upsert_dataset_records(dataset.dataset_id, records)
 
@@ -9480,6 +9535,7 @@ def test_dataset_associations_and_lazy_loading(store):
             "tags",
             "source_type",
             "source_id",
+            "source",
             "created_time",
             "dataset_record_id",
         ]
@@ -10660,7 +10716,7 @@ def test_calculate_trace_filter_correlation_independent_events(store):
         *[{"spans": [{"type": "LLM", "status": "OK"}]} for _ in range(5)],
     ]
 
-    for i, config in enumerate(configurations):
+    for config in configurations:
         _create_trace_for_correlation(store, exp_id, **config)
 
     result = store.calculate_trace_filter_correlation(

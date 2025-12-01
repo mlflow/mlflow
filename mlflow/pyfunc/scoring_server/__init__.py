@@ -319,8 +319,7 @@ def invocations(data, content_type, model, input_schema):
             mimetype="text/plain",
         )
 
-    unexpected_content_parameters = set(parameter_values.keys()).difference({"charset"})
-    if unexpected_content_parameters:
+    if unexpected_content_parameters := set(parameter_values.keys()).difference({"charset"}):
         return InvocationsResponse(
             response=(
                 f"Unrecognized content type parameters: "

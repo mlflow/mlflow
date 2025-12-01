@@ -58,6 +58,7 @@ export const ModelTraceExplorerDetailView = ({
     setSelectedNode,
     activeTab,
     setActiveTab,
+    isInComparisonView,
   } = useModelTraceExplorerViewState();
 
   const { expandedKeys, setExpandedKeys } = useTimelineTreeExpandedNodes({

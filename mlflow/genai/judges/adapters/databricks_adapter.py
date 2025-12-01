@@ -214,10 +214,9 @@ def _create_litellm_message_from_databricks_response(
 
     content = message_data.get("content")
     if isinstance(content, list):
-        content_parts = []
-        for block in content:
-            if isinstance(block, dict) and "text" in block:
-                content_parts.append(block["text"])
+        content_parts = [
+            block["text"] for block in content if isinstance(block, dict) and "text" in block
+        ]
         content = "\n".join(content_parts) if content_parts else None
 
     return litellm.Message(

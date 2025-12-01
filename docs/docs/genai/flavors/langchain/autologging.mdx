@@ -1,5 +1,6 @@
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # MLflow Langchain Autologging
 
@@ -31,7 +32,7 @@ mlflow.langchain.autolog()
 
 Once you have invoked the chain, you can view the logged traces and artifacts in the MLflow UI.
 
-![LangChain Tracing via autolog](/images/llms/tracing/tracing-top.gif)
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
 
 ## Configure Autologging
 

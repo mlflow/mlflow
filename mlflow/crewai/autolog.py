@@ -21,7 +21,8 @@ def patched_class_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
 
     if config.log_traces:
-        fullname = f"{self.__class__.__name__}.{original.__name__}"
+        default_name = f"{self.__class__.__name__}.{original.__name__}"
+        fullname = _get_span_name(self) or default_name
         span_type = _get_span_type(self)
         with mlflow.start_span(name=fullname, span_type=span_type) as span:
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
@@ -121,6 +122,26 @@ def _get_span_type(instance) -> str:
         _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
 
     return SpanType.UNKNOWN
+
+
+def _get_span_name(instance) -> str | None:
+    try:
+        from crewai import LLM, Agent, Crew, Task
+
+        if isinstance(instance, Crew):
+            default_name = Crew.model_fields["name"].default
+            return instance.name if instance.name != default_name else None
+        elif isinstance(instance, Task):
+            return instance.name
+        elif isinstance(instance, Agent):
+            return instance.role
+        elif isinstance(instance, LLM):
+            return instance.model
+
+    except AttributeError as e:
+        _logger.debug("An exception happens when resolving the span name. Exception: %s", e)
+
+    return None
 
 
 def _is_serializable(value):

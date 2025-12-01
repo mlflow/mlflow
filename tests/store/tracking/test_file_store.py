@@ -148,7 +148,7 @@ def create_experiments(store, experiment_names):
 
 
 def test_file_store_deprecation_warning(tmp_path):
-    with pytest.warns(FutureWarning, match="Filesystem tracking backend.* deprecated"):
+    with pytest.warns(FutureWarning, match="filesystem tracking backend.*will be deprecated"):
         FileStore(str(tmp_path / "mlruns"))
 
 
@@ -435,7 +435,7 @@ def _verify_experiment(fs, exp_id, exp_data):
 
 def _verify_logged(store, run_id, metrics, params, tags):
     run = store.get_run(run_id)
-    all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     assert len(all_metrics) == len(metrics)
     logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
     assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
@@ -619,6 +619,25 @@ def test_record_logged_model(store):
         match="Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'",
     ):
         store.record_logged_model(run_id, m.get_tags_dict())
+
+
+def test_hard_delete_logged_model(store):
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.delete_logged_model(model.model_id)
+    model_dir = store._get_model_dir(exp_id, model.model_id)
+    assert os.path.exists(model_dir)
+    store._hard_delete_logged_model(model.model_id)
+    assert not os.path.exists(model_dir)
+
+
+def test_get_deleted_logged_models(store):
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert store._get_deleted_logged_models() == []
+    store.delete_logged_model(model.model_id)
+    assert store._get_deleted_logged_models(older_than=1000000) == []
+    assert store._get_deleted_logged_models() == [model.model_id]
 
 
 def test_get_experiment(store):

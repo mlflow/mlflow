@@ -482,11 +482,10 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
         """
-        summaries = []
-        for _, endpoint in self.endpoints.items():
-            summary = EndpointSummary(endpoint=endpoint.resource, arn=endpoint.arn)
-            summaries.append(summary)
-        return summaries
+        return [
+            EndpointSummary(endpoint=endpoint.resource, arn=endpoint.arn)
+            for endpoint in self.endpoints.values()
+        ]
 
     def list_endpoint_configs(self):
         """
@@ -494,13 +493,10 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
         """
-        summaries = []
-        for _, endpoint_config in self.endpoint_configs.items():
-            summary = EndpointConfigSummary(
-                config=endpoint_config.resource, arn=endpoint_config.arn
-            )
-            summaries.append(summary)
-        return summaries
+        return [
+            EndpointConfigSummary(config=endpoint_config.resource, arn=endpoint_config.arn)
+            for endpoint_config in self.endpoint_configs.values()
+        ]
 
     def list_models(self):
         """
@@ -508,11 +504,7 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
         """
-        summaries = []
-        for _, model in self.models.items():
-            summary = ModelSummary(model=model.resource, arn=model.arn)
-            summaries.append(summary)
-        return summaries
+        return [ModelSummary(model=model.resource, arn=model.arn) for model in self.models.values()]
 
     def list_tags(self, resource_arn, region_name, resource_type):
         """
@@ -661,13 +653,10 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTransformJobs.html.
         """
-        summaries = []
-        for _, transform_job in self.transform_jobs.items():
-            summary = TransformJobSummary(
-                transform_job=transform_job.resource, arn=transform_job.arn
-            )
-            summaries.append(summary)
-        return summaries
+        return [
+            TransformJobSummary(transform_job=transform_job.resource, arn=transform_job.arn)
+            for transform_job in self.transform_jobs.values()
+        ]
 
 
 class TimestampedResource(BaseModel):
@@ -1047,7 +1036,7 @@ class ModelDescription:
             "ModelName": self.model.model_name,
             "PrimaryContainer": self.model.primary_container,
             "ExecutionRoleArn": self.model.execution_role_arn,
-            "VpcConfig": self.model.vpc_config if self.model.vpc_config else {},
+            "VpcConfig": self.model.vpc_config or {},
             "CreationTime": self.model.creation_time,
         }
 
