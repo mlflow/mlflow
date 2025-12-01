@@ -119,14 +119,9 @@ jobs:
       # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
       - name: Save alias
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ALIAS: ${{ steps.api_prefix.outputs.value }}
         run: |
-          if [ "$EVENT_NAME" = "push" ]; then
-            echo "dev" > /tmp/alias.txt
-          else
-            echo "pr-$PR_NUMBER" > /tmp/alias.txt
-          fi
+          echo "$ALIAS" > /tmp/alias.txt
           cat /tmp/alias.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
