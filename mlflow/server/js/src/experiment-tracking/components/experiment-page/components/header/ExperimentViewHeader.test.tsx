@@ -1,4 +1,4 @@
-import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import { jest, describe, beforeEach, it, expect, beforeAll } from '@jest/globals';
 import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './ExperimentViewHeader';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
@@ -34,6 +34,19 @@ describe('ExperimentViewHeader', () => {
   };
 
   const setEditing = jest.fn();
+  const clipboardWriteText = jest.fn();
+
+  beforeAll(() => {
+    Object.assign(global.navigator, {
+      clipboard: {
+        writeText: clipboardWriteText,
+      },
+    });
+  });
+
+  beforeEach(() => {
+    clipboardWriteText.mockClear();
+  });
 
   const renderComponent = (experiment = defaultExperiment) => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
@@ -67,6 +80,15 @@ describe('ExperimentViewHeader', () => {
 
     it('displays the last part of the experiment name', () => {
       expect(screen.getByText('name')).toBeInTheDocument();
+    });
+
+    it('shows the experiment id in the header', () => {
+      expect(screen.getByTestId('experiment-id-pill')).toHaveTextContent('Experiment ID: 123');
+    });
+
+    it('copies the experiment id when clicking the pill', async () => {
+      await userEvent.click(screen.getByTestId('experiment-id-pill'));
+      expect(clipboardWriteText).toHaveBeenCalledWith('123');
     });
 
     it('shows info tooltip with experiment details', async () => {

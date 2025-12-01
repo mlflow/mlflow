@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ArrowLeftIcon,
   BeakerIcon,
@@ -9,6 +9,7 @@ import {
   TitleSkeleton,
   Tooltip,
   Typography,
+  Tag,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
@@ -57,9 +58,10 @@ export const ExperimentViewHeader = React.memo(
     uiState?: ExperimentPageUIState;
     setEditing: (editing: boolean) => void;
     experimentKindSelector?: React.ReactNode;
-    refetchExperiment?: () => Promise<unknown>;
+  refetchExperiment?: () => Promise<unknown>;
   }) => {
     const { theme } = useDesignSystemTheme();
+    const [experimentIdCopied, setExperimentIdCopied] = useState(false);
     const breadcrumbs: React.ReactNode[] = useMemo(
       () => [
         // eslint-disable-next-line react/jsx-key
@@ -77,9 +79,17 @@ export const ExperimentViewHeader = React.memo(
     // Extract the last part of the experiment name
     const normalizedExperimentName = useMemo(() => experiment.name.split('/').pop(), [experiment.name]);
 
+    const handleCopyId = () => {
+      navigator.clipboard?.writeText(experiment.experimentId);
+      setExperimentIdCopied(true);
+      setTimeout(() => setExperimentIdCopied(false), 2000);
+    };
+
     const getInfoTooltip = () => {
       return (
-        <div style={{ display: 'flex', marginRight: theme.spacing.sm }}>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginRight: theme.spacing.sm }}
+        >
           <InfoPopover iconTitle="Info">
             <div
               css={{
@@ -146,12 +156,18 @@ export const ExperimentViewHeader = React.memo(
           }}
         >
           <div
-            css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', overflow: 'hidden', minWidth: 250 }}
-          >
-            {shouldEnableExperimentPageSideTabs() && (
-              <>
-                <Link to={Routes.experimentsObservatoryRoute}>
-                  <Button
+          css={{
+            display: 'flex',
+            gap: theme.spacing.sm,
+            alignItems: 'center',
+            overflow: 'hidden',
+            minWidth: 250,
+          }}
+        >
+          {shouldEnableExperimentPageSideTabs() && (
+            <>
+              <Link to={Routes.experimentsObservatoryRoute}>
+                <Button
                     componentId="mlflow.experiment-page.header.back-icon-button"
                     type="tertiary"
                     icon={<ArrowLeftIcon />}
@@ -168,29 +184,75 @@ export const ExperimentViewHeader = React.memo(
                 </div>
               </>
             )}
-            <Tooltip
-              content={normalizedExperimentName}
-              componentId="mlflow.experiment_view.header.experiment-name-tooltip"
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.sm,
+                minWidth: 0,
+                flexWrap: 'wrap',
+              }}
+              data-testid="experiment-id-header"
             >
-              <span
-                css={{
-                  maxWidth: '100%',
-                  overflow: 'hidden',
-                }}
+              <Tooltip
+                content={normalizedExperimentName}
+                componentId="mlflow.experiment_view.header.experiment-name-tooltip"
               >
-                <Typography.Title
-                  withoutMargins
-                  level={2}
+                <span
                   css={{
+                    maxWidth: '100%',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    display: 'block',
                   }}
                 >
-                  {normalizedExperimentName}
-                </Typography.Title>
-              </span>
-            </Tooltip>
+                  <Typography.Title
+                    withoutMargins
+                    level={2}
+                    css={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {normalizedExperimentName}
+                  </Typography.Title>
+                </span>
+              </Tooltip>
+              <Tooltip
+                content={
+                  experimentIdCopied ? (
+                    <FormattedMessage defaultMessage="Experiment id copied" description="Tooltip when experiment id copied" />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="Click to copy experiment id"
+                      description="Tooltip prompting to copy experiment id from header"
+                    />
+                  )
+                }
+                componentId="mlflow.experiment-page.header.experiment-id-tooltip"
+                open={experimentIdCopied || undefined}
+              >
+                <Tag
+                  componentId="mlflow.experiment-page.header.experiment-id-pill"
+                  onClick={handleCopyId}
+                  color="indigo"
+                  data-testid="experiment-id-pill"
+                  css={{ marginRight: 0, marginLeft: theme.spacing.xs }}
+                >
+                  <span css={{ display: 'flex', alignItems: 'center', color: theme.colors.indigo, marginRight: theme.spacing.xs, marginLeft: theme.spacing.xs, gap: 1 }}>
+                    <FormattedMessage
+                      defaultMessage="#"
+                      description="Experiment page header subtitle showing experiment id"
+                    />
+                    <span>
+                      {experiment.experimentId.length > 5
+                        ? `${experiment.experimentId.slice(0, 5)}...`
+                        : experiment.experimentId}
+                    </span>
+                  </span>
+                </Tag>
+              </Tooltip>
+            </div>
             {experimentKindSelector}
             {getInfoTooltip()}
           </div>
