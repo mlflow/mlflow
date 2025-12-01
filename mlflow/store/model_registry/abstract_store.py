@@ -578,12 +578,13 @@ class AbstractStore:
         remaining_filter = re.sub(r"\s+AND\s+AND\s+", " AND ", remaining_filter)
 
         # Build the tag filter clause
-        # Escape single quotes and percent signs for SQL injection protection
-        escaped_experiment_id = (
-            experiment_id.replace("'", "''").replace("%", "%%").replace("\\", "\\\\")
-        )
+        if not experiment_id.isdigit():
+            raise MlflowException(
+                f"Invalid experiment_id: {experiment_id}. Must be a numeric value.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         # Use LIKE to match the experiment ID anywhere in the comma-separated list
-        experiment_filter = f"tags.{PROMPT_EXPERIMENT_IDS_TAG_KEY} LIKE '%{escaped_experiment_id}%'"
+        experiment_filter = f"tags.{PROMPT_EXPERIMENT_IDS_TAG_KEY} LIKE '%,{experiment_id},%'"
 
         if remaining_filter:
             return f"{experiment_filter} AND {remaining_filter}"

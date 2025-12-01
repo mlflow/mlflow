@@ -196,6 +196,10 @@ def _disable_in_databricks(use_uc_message=False):
     return decorator
 
 
+# Module-level lock for thread-safe prompt-to-experiment linking
+_prompt_experiment_link_lock = threading.Lock()
+
+
 class MlflowClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
@@ -677,22 +681,23 @@ class MlflowClient:
 
         def _link_prompt_to_experiment_async() -> None:
             try:
-                prompt_info = self.get_prompt(prompt_version.name)
-                existing_ids = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
-                existing_ids = existing_ids.rstrip(",").lstrip(",")
-                exp_ids = [eid.strip() for eid in existing_ids.split(",") if eid.strip()]
-                if experiment_id not in exp_ids:
-                    exp_ids.append(experiment_id)
-                    exp_ids = ",".join(exp_ids)
-                    # Use LIKE to match the experiment ID and experiment ID is auto-incremented
-                    # integer. So add comma before and after the list of experiment IDs to
-                    # avoid false matches (e.g., "1" matches "10").
-                    exp_ids = f",{exp_ids},"
-                    self.set_prompt_tag(
-                        name=prompt_version.name,
-                        key=PROMPT_EXPERIMENT_IDS_TAG_KEY,
-                        value=exp_ids,
-                    )
+                with _prompt_experiment_link_lock:
+                    prompt_info = self.get_prompt(prompt_version.name)
+                    existing_ids = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
+                    existing_ids = existing_ids.rstrip(",").lstrip(",")
+                    exp_ids = [eid.strip() for eid in existing_ids.split(",") if eid.strip()]
+                    if experiment_id not in exp_ids:
+                        exp_ids.append(experiment_id)
+                        exp_ids = ",".join(exp_ids)
+                        # Use LIKE to match the experiment ID and experiment ID is auto-incremented
+                        # integer. So add comma before and after the list of experiment IDs to
+                        # avoid false matches (e.g., "1" matches "10").
+                        exp_ids = f",{exp_ids},"
+                        self.set_prompt_tag(
+                            name=prompt_version.name,
+                            key=PROMPT_EXPERIMENT_IDS_TAG_KEY,
+                            value=exp_ids,
+                        )
             except Exception:
                 _logger.warning(
                     f"Failed to tag prompt '{prompt_version.name}' with experiment ID "

@@ -13,7 +13,6 @@ from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.run import Run
 from mlflow.environment_variables import (
-    MLFLOW_EXPERIMENT_ID,
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
     MLFLOW_PROMPT_CACHE_MAX_SIZE,
 )
@@ -38,7 +37,7 @@ from mlflow.tracing.fluent import get_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import _get_latest_active_run, get_active_model_id
+from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
@@ -805,7 +804,7 @@ def load_prompt(
     if run := _get_latest_active_run():
         client.link_prompt_version_to_run(run.info.run_id, prompt)
 
-    if experiment_id := MLFLOW_EXPERIMENT_ID.get():
+    if experiment_id := _get_experiment_id():
         client._link_prompt_to_experiment(prompt, experiment_id)
 
     if link_to_model:

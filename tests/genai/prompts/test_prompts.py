@@ -1,7 +1,6 @@
 import importlib
 import json
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -1328,7 +1327,7 @@ def test_load_prompt_links_to_experiment():
     mlflow.genai.load_prompt("test_exp_link", version=1)
 
     # Wait for the links to be established
-    time.sleep(1)
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
 
     client = MlflowClient()
     prompt_info = client.get_prompt("test_exp_link")
@@ -1340,7 +1339,7 @@ def test_register_prompt_links_to_experiment():
     mlflow.genai.register_prompt(name="test_exp_register", template="Greetings {{name}}!")
 
     # Wait for the links to be established
-    time.sleep(1)
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
 
     client = MlflowClient()
     prompt_info = client.get_prompt("test_exp_register")
@@ -1357,7 +1356,7 @@ def test_link_prompt_to_experiment_no_duplicate():
     mlflow.genai.load_prompt("no_dup_prompt", version=1)
 
     # Wait for the links to be established
-    time.sleep(1)
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
 
     client = MlflowClient()
     prompt_info = client.get_prompt("no_dup_prompt")
@@ -1371,7 +1370,7 @@ def test_search_prompts_by_experiment_id():
     mlflow.genai.register_prompt(name="exp_prompt_2", template="Template 2: {{y}}")
 
     # Wait for the links to be established
-    time.sleep(1)
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
 
     client = MlflowClient()
     prompts = client.search_prompts(filter_string=f'experiment_id = "{experiment.experiment_id}"')
@@ -1401,13 +1400,13 @@ def test_search_prompts_same_prompt_multiple_experiments():
     mlflow.genai.load_prompt("shared_search_prompt", version=1)
 
     # Wait for the links to be established
-    time.sleep(1)
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
 
     mlflow.set_experiment(experiment_id=exp_id_2)
     mlflow.genai.load_prompt("shared_search_prompt", version=1)
 
     # Wait for the links to be established
-    time.sleep(1)
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
 
     client = MlflowClient()
     prompts_exp1 = client.search_prompts(filter_string=f'experiment_id = "{exp_id_1}"')
@@ -1430,7 +1429,7 @@ def test_search_prompts_with_combined_filters():
     client = MlflowClient()
 
     # Wait for the links to be established
-    time.sleep(1)
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
 
     # Test experiment_id filter combined with name filter
     prompts = client.search_prompts(

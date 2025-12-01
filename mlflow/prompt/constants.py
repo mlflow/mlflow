@@ -21,7 +21,7 @@ PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.associatedRunIds"
 
 # A special tag to store associated experiment IDs for prompts (comma-separated list)
 # Using underscore prefix for Unity Catalog compatibility (UC tags cannot contain dots)
-PROMPT_EXPERIMENT_IDS_TAG_KEY = "_mlflow_prompt_experiment_ids"
+PROMPT_EXPERIMENT_IDS_TAG_KEY = "_mlflow_experiment_ids"
 
 PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(
     r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}"
