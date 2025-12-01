@@ -43,7 +43,7 @@ from mlflow.environment_variables import (
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
@@ -1361,6 +1361,34 @@ def test_get_trace_with_allow_partial_false():
         call_args = mock_call.call_args
         request_body_json = json.loads(call_args[0][1])
         assert request_body_json["allow_partial"] is False
+
+
+def test_get_trace_handles_old_server_routing_conflict():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    # Simulate old server returning "Trace with ID 'get' not found"
+    error_response = MlflowException(
+        "Trace with ID 'get' not found",
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=error_response):
+        with pytest.raises(MlflowNotImplementedException):  # noqa: PT011
+            store.get_trace("some-trace-id")
+
+
+def test_get_trace_raises_other_errors():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    error_message = "Trace with ID 'abc123' not found"
+    genuine_error = MlflowException(
+        error_message,
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=genuine_error):
+        with pytest.raises(MlflowException, match=error_message):
+            store.get_trace("abc123")
 
 
 def test_log_logged_model_params():

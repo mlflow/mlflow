@@ -2931,7 +2931,7 @@ def _start_trace_v3():
 @_disable_if_artifacts_only
 def _get_trace_info_v3(trace_id):
     """
-    A request handler for `GET /mlflow/traces/{trace_id}/info` to retrieve
+    A request handler for `GET /mlflow/traces/{trace_id}` to retrieve
     an existing TraceInfo record from tracking store.
     """
     trace_info = _get_tracking_store().get_trace_info(trace_id)
