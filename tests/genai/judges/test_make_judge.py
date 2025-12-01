@@ -27,6 +27,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai import make_judge
+from mlflow.genai.judges.constants import _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.judges.utils import _NATIVE_PROVIDERS, validate_judge_model
@@ -3416,3 +3417,36 @@ def test_instructions_judge_generate_rationale_first():
     assert output_fields_default[1].value_type == str
     assert output_fields_rationale_first[0].value_type == str  # rationale
     assert output_fields_rationale_first[1].value_type == Literal["good", "bad"]  # result
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Evaluates the conciseness of the response",  # With custom description
+        None,  # Without description
+    ],
+)
+def test_response_format_uses_generic_field_description(description):
+    judge = InstructionsJudge(
+        name="Conciseness" if description else "TestJudge",
+        instructions="Evaluate if the output {{ outputs }} is concise",
+        description=description,
+        model="openai:/gpt-4",
+    )
+
+    response_format_model = judge._create_response_format_model()
+    schema = response_format_model.model_json_schema()
+
+    # The result field description should be the generic description,
+    # NOT the scorer's description
+    result_description = schema["properties"]["result"]["description"]
+    assert result_description == _RESULT_FIELD_DESCRIPTION
+
+    # Verify rationale field uses its own description
+    rationale_description = schema["properties"]["rationale"]["description"]
+    assert rationale_description == "Detailed explanation for the evaluation"
+
+    # Also verify get_output_fields() uses generic description (used in system prompt)
+    output_fields = judge.get_output_fields()
+    result_field = next(f for f in output_fields if f.name == "result")
+    assert result_field.description == _RESULT_FIELD_DESCRIPTION
