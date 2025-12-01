@@ -7,7 +7,7 @@ import { useParams } from '../../../common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { ExperimentEvaluationDatasetsListTable } from './components/ExperimentEvaluationDatasetsListTable';
 import { ExperimentEvaluationDatasetRecordsTable } from './components/ExperimentEvaluationDatasetRecordsTable';
-import { EvaluationDataset } from './types';
+import type { EvaluationDataset } from './types';
 import { ExperimentEvaluationDatasetsPageWrapper } from './ExperimentEvaluationDatasetsPageWrapper';
 import { ExperimentEvaluationDatasetsEmptyState } from './components/ExperimentEvaluationDatasetsEmptyState';
 

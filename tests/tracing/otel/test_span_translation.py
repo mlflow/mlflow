@@ -7,6 +7,7 @@ import pytest
 from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation import (
+    sanitize_attributes,
     translate_loaded_span,
     translate_span_type_from_otel,
     translate_span_when_storing,
@@ -329,3 +330,38 @@ def test_translate_inputs_outputs_edge_cases(
     assert SpanAttributeKey.OUTPUTS in result["attributes"]
     outputs = json.loads(result["attributes"][SpanAttributeKey.OUTPUTS])
     assert outputs == expected_outputs
+
+
+@pytest.mark.parametrize(
+    ("attributes", "expected_attributes"),
+    [
+        ({"some.attribute": json.dumps("value")}, {"some.attribute": json.dumps("value")}),
+        (
+            {"some.attribute": json.dumps(json.dumps("value"))},
+            {"some.attribute": json.dumps("value")},
+        ),
+        (
+            {"key": json.dumps(json.dumps({"x": "y"}))},
+            {"key": json.dumps({"x": "y"})},
+        ),
+        (
+            {"key": "string"},
+            {"key": "string"},
+        ),
+        (
+            {"key": json.dumps(True)},
+            {"key": "true"},
+        ),
+        (
+            {"key": json.dumps(123)},
+            {"key": "123"},
+        ),
+        (
+            {"key": json.dumps([1, 2, 3])},
+            {"key": "[1, 2, 3]"},
+        ),
+    ],
+)
+def test_sanitize_attributes(attributes: dict[str, Any], expected_attributes: dict[str, Any]):
+    result = sanitize_attributes(attributes)
+    assert result == expected_attributes
