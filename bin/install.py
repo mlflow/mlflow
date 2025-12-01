@@ -5,6 +5,7 @@ Install binary tools for MLflow development.
 # ruff: noqa: T201
 import argparse
 import gzip
+import json
 import platform
 import subprocess
 import tarfile
@@ -12,6 +13,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+INSTALLED_VERSIONS_FILE = ".installed_versions.json"
 
 # Type definitions
 PlatformKey = tuple[
@@ -24,6 +27,7 @@ ExtractType = Literal["gzip", "tar", "binary"]
 @dataclass
 class Tool:
     name: str
+    version: str
     urls: dict[PlatformKey, str]  # platform -> URL mapping
     version_args: list[str] | None = None  # Custom version check args (default: ["--version"])
 
@@ -31,11 +35,9 @@ class Tool:
         return self.urls.get(platform_key)
 
     def get_version_args(self) -> list[str]:
-        """Get version check arguments, defaulting to --version."""
         return self.version_args or ["--version"]
 
     def get_extract_type(self, url: str) -> ExtractType:
-        """Infer extract type from URL file extension."""
         if url.endswith(".gz") and not url.endswith(".tar.gz"):
             return "gzip"
         elif url.endswith((".tar.gz", ".tgz")):
@@ -52,6 +54,7 @@ class Tool:
 TOOLS = [
     Tool(
         name="taplo",
+        version="0.9.3",
         urls={
             (
                 "linux",
@@ -65,6 +68,7 @@ TOOLS = [
     ),
     Tool(
         name="typos",
+        version="1.39.2",
         urls={
             (
                 "linux",
@@ -78,6 +82,7 @@ TOOLS = [
     ),
     Tool(
         name="conftest",
+        version="0.63.0",
         urls={
             (
                 "linux",
@@ -91,6 +96,7 @@ TOOLS = [
     ),
     Tool(
         name="regal",
+        version="0.36.1",
         urls={
             (
                 "linux",
@@ -105,6 +111,7 @@ TOOLS = [
     ),
     Tool(
         name="buf",
+        version="1.59.0",
         urls={
             (
                 "linux",
@@ -223,6 +230,33 @@ def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
     print(f"Successfully installed {tool.name} to {binary_path}")
 
 
+def get_expected_versions() -> dict[str, str]:
+    return {tool.name: tool.version for tool in TOOLS}
+
+
+def load_installed_versions(dest_dir: Path) -> dict[str, str]:
+    versions_file = dest_dir / INSTALLED_VERSIONS_FILE
+    if versions_file.exists():
+        return json.loads(versions_file.read_text())
+    return {}
+
+
+def save_installed_versions(dest_dir: Path, versions: dict[str, str]) -> None:
+    versions_file = dest_dir / INSTALLED_VERSIONS_FILE
+    versions_file.write_text(json.dumps(versions, indent=2) + "\n")
+
+
+def get_tools_needing_update(dest_dir: Path) -> list[str]:
+    installed = load_installed_versions(dest_dir)
+    expected = get_expected_versions()
+    outdated = []
+    for name, expected_version in expected.items():
+        installed_version = installed.get(name)
+        if installed_version != expected_version:
+            outdated.append(name)
+    return outdated
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Install binary tools for MLflow development")
     parser.add_argument(
@@ -233,17 +267,33 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.force_reinstall:
-        print("Force reinstall: removing existing tools and reinstalling...")
-    else:
-        print("Installing all tools to bin/ directory...")
-
     dest_dir = Path(__file__).resolve().parent
     dest_dir.mkdir(parents=True, exist_ok=True)
 
+    # Determine which tools need to be installed/updated
+    tools_to_update = set(get_tools_needing_update(dest_dir))
+    force_all = args.force_reinstall
+
+    if force_all:
+        print("Force reinstall: removing existing tools and reinstalling...")
+    elif tools_to_update:
+        print(f"Version changes detected for: {', '.join(sorted(tools_to_update))}")
+    else:
+        print("Installing all tools to bin/ directory...")
+
+    installed_versions = load_installed_versions(dest_dir)
+
     for tool in TOOLS:
+        # Force reinstall if globally forced or if this tool's version changed
+        force = force_all or tool.name in tools_to_update
         print(f"\nInstalling {tool.name}...")
-        install_tool(tool, dest_dir, force=args.force_reinstall)
+        install_tool(tool, dest_dir, force=force)
+
+        # Update installed version after successful install
+        installed_versions[tool.name] = tool.version
+
+    # Save installed versions after successful installation
+    save_installed_versions(dest_dir, installed_versions)
 
     print("\nAll tools installed successfully!")
 
