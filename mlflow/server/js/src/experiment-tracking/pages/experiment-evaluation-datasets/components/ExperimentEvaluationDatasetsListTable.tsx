@@ -213,31 +213,36 @@ export const ExperimentEvaluationDatasetsListTable = ({
     setIsLoading(isLoading);
   }, [isLoading, setIsLoading]);
 
-  const datasetIds = datasets?.map((d) => d.dataset_id) ?? [];
+  // Sync dataset selection state with URL and available datasets
+  useEffect(() => {
+    const datasetIds = datasets?.map((d) => d.dataset_id) ?? [];
 
-  if (!datasets?.length) {
-    setSelectedDataset(undefined);
-  }
-
-  // Set the selected dataset if we don't already have one,
-  // or if the selected dataset went out of scope (e.g. was deleted / not in search)
-  if (datasets?.length && (!selectedDatasetId || !datasetIds.includes(selectedDatasetId))) {
-    // Use the sorted data from the table to respect the current sort order
-    const sortedRows = table.getRowModel().rows;
-    if (sortedRows.length > 0) {
-      const firstDataset = sortedRows[0].original;
-      setSelectedDataset(firstDataset);
-      setSelectedDatasetId(firstDataset.dataset_id);
+    // Clear selection if no datasets available
+    if (!datasets?.length) {
+      setSelectedDataset(undefined);
+      return;
     }
-  }
 
-  // Sync selectedDataset object when selectedDatasetId changes (e.g., from URL)
-  if (selectedDatasetId && selectedDataset?.dataset_id !== selectedDatasetId) {
-    const datasetFromId = datasets?.find((d) => d.dataset_id === selectedDatasetId);
-    if (datasetFromId) {
-      setSelectedDataset(datasetFromId);
+    // Set the selected dataset if we don't already have one,
+    // or if the selected dataset went out of scope (e.g. was deleted / not in search)
+    if (!selectedDatasetId || !datasetIds.includes(selectedDatasetId)) {
+      const sortedRows = table.getRowModel().rows;
+      if (sortedRows.length > 0) {
+        const firstDataset = sortedRows[0].original;
+        setSelectedDataset(firstDataset);
+        setSelectedDatasetId(firstDataset.dataset_id);
+      }
+      return;
     }
-  }
+
+    // Sync selectedDataset object when selectedDatasetId changes (e.g., from URL)
+    if (selectedDataset?.dataset_id !== selectedDatasetId) {
+      const datasetFromId = datasets?.find((d) => d.dataset_id === selectedDatasetId);
+      if (datasetFromId) {
+        setSelectedDataset(datasetFromId);
+      }
+    }
+  }, [datasets, selectedDatasetId, selectedDataset, setSelectedDataset, setSelectedDatasetId, table]);
 
   if (error) {
     return <div>Error loading datasets</div>;
