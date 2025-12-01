@@ -241,7 +241,7 @@ def load_installed_versions(dest_dir: Path) -> dict[str, str]:
 
 def save_installed_versions(dest_dir: Path, versions: dict[str, str]) -> None:
     f = dest_dir / INSTALLED_VERSIONS_FILE
-    f.write_text(json.dumps(versions, indent=2) + "\n")
+    f.write_text(json.dumps(versions, indent=2, sort_keys=True) + "\n")
 
 
 def main() -> None:
