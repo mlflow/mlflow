@@ -61,8 +61,10 @@ jobs:
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
-      - run: |
-          uv pip install --system -r ../requirements/doc-requirements.txt '..[gateway]' pytest
+      - name: Install dependencies
+        working-directory: .
+        run: |
+          uv sync --group docs --extra gateway
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
@@ -136,14 +138,15 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
+        working-directory: .
         run: |
-          uv pip install --system -r ../../requirements/doc-requirements.txt '../..[gateway]' pytest
+          uv sync --group docs --extra gateway
       - name: Extract examples
         run: |
-          python source/testcode_block.py
+          uv run source/testcode_block.py
       - name: Run tests
         run: |
-          pytest .examples
+          uv run pytest .examples
 
   r:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

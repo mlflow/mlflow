@@ -194,6 +194,42 @@ test = [
   "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
+docs = [
+  # doc-min-requirements.txt
+  "sphinx==4.2.0",
+  "jinja2==3.0.3",
+  "flask<=2.2.5",
+  "sphinx-autobuild",
+  "sphinx-click",
+  "sphinx-tabs==3.2.0",
+  "sphinx-reredirects==0.1.3",
+  "sphinxcontrib-applehelp<1.0.8",
+  "sphinxcontrib-devhelp<1.0.6",
+  "sphinxcontrib-htmlhelp<2.0.4",
+  "sphinxcontrib-serializinghtml<1.1.10",
+  "sphinxcontrib-qthelp<1.0.7",
+  "nbconvert",
+  "nbformat",
+  "nbsphinx==0.8.8",
+  # doc-requirements.txt
+  "tensorflow-cpu==2.16.2; platform_system!='Darwin' or platform_machine!='arm64'",
+  "tensorflow-macos==2.16.2; platform_system=='Darwin' and platform_machine=='arm64'",
+  "pyspark",
+  "datasets",
+  "plotly",
+  "ipython!=8.7.0",
+  "keras",
+  "torch>=1.11.0",
+  "torchvision>=0.12.0",
+  "lightning>=1.8.1",
+  "scrapy",
+  "ipywidgets>=8.1.1",
+  "incremental<24.7.0",
+  "Flask-WTF<2",
+  "polars>=1",
+  "openai",
+  "haystack-ai",
+]
 
 [tool.uv]
 required-version = "==0.9.8"
@@ -214,6 +250,7 @@ members = ["dev/clint", "tests/resources/mlflow-test-plugin"]
 clint = { workspace = true }
 mlflow-test-plugin = { workspace = true }
 torch = { index = "pytorch" }
+torchvision = { index = "pytorch" }
 
 [[tool.uv.index]]
 name = "pytorch"
