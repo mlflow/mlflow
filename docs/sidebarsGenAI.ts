@@ -186,6 +186,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/integrations/listing/vercelai',
                   label: 'Vercel AI SDK',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/voltagent',
+                  label: 'VoltAgent',
+                },
               ],
             },
             {
