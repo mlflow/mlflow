@@ -41,7 +41,6 @@ class OtelSchemaTranslator:
         Returns:
             Message format string or None if not applicable
         """
-        return None
 
     def translate_span_type(self, attributes: dict[str, Any]) -> str | None:
         """

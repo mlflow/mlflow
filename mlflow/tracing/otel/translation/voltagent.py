@@ -19,7 +19,33 @@ class VoltAgentTranslator(OtelSchemaTranslator):
     OUTPUT_VALUE_KEYS = ["output"]
 
     # Span type mapping
-    SPAN_KIND_ATTRIBUTE_KEY = "entity.type"
+    # The ordeing is important here. Child spans inherit entity.type from parent,
+    # so we must check span.type first, then fallback to entity.type
+    # (for root agent spans which don't have span.type)
+    # Example of trace data from voltagent:
+    # parent:
+    #  {
+    #    "name": "my-voltagent-app",
+    #    "span_type": null,
+    #    "attributes": {
+    #      "entity.type": "agent",
+    #      "span.type": null
+    #    }
+    #  }
+    # child:
+    #  {
+    #    name": "llm:streamText",
+    #    "span_type": "LLM",
+    #    "attributes": {
+    #      "entity.id": "my-voltagent-app",
+    #      "entity.type": "agent",
+    #      "entity.name": "my-voltagent-app",
+    #      "span.type": "llm",
+    #      "llm.operation": "streamText",
+    #      "mlflow.spanType": "LLM"
+    #    }
+    #  }
+    SPAN_KIND_ATTRIBUTE_KEYS = ["span.type", "entity.type"]
     SPAN_KIND_TO_MLFLOW_TYPE = {
         "agent": SpanType.AGENT,
         "llm": SpanType.LLM,
@@ -58,17 +84,10 @@ class VoltAgentTranslator(OtelSchemaTranslator):
         agent spans have entity.type correctly set to "agent" without span.type.
         """
         # Check span.type first (for LLM/tool/memory child spans)
-        # Child spans inherit entity.type from parent, so we must check span.type first
-        span_type = self._decode_json_value(attributes.get("span.type"))
-        if span_type and span_type in self.SPAN_KIND_TO_MLFLOW_TYPE:
-            return self.SPAN_KIND_TO_MLFLOW_TYPE[span_type]
-
-        # Fallback to entity.type (for root agent spans which don't have span.type)
-        entity_type = self._decode_json_value(attributes.get(self.SPAN_KIND_ATTRIBUTE_KEY))
-        if entity_type and entity_type in self.SPAN_KIND_TO_MLFLOW_TYPE:
-            return self.SPAN_KIND_TO_MLFLOW_TYPE[entity_type]
-
-        return None
+        for span_kind_key in self.SPAN_KIND_ATTRIBUTE_KEYS:
+            span_type = self._decode_json_value(attributes.get(span_kind_key))
+            if span_type and (mlflow_type := self.SPAN_KIND_TO_MLFLOW_TYPE.get(span_type)):
+                return mlflow_type
 
     def get_message_format(self, attributes: dict[str, Any]) -> str | None:
         """
