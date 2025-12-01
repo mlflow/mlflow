@@ -44,6 +44,31 @@ class TraceStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ERROR: _ClassVar[TraceStatus]
     IN_PROGRESS: _ClassVar[TraceStatus]
 
+class AggregationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    COUNT: _ClassVar[AggregationType]
+    SUM: _ClassVar[AggregationType]
+    AVG: _ClassVar[AggregationType]
+    P50: _ClassVar[AggregationType]
+    P75: _ClassVar[AggregationType]
+    P90: _ClassVar[AggregationType]
+    P95: _ClassVar[AggregationType]
+    P99: _ClassVar[AggregationType]
+
+class TimeGranularity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    MINUTE: _ClassVar[TimeGranularity]
+    HOUR: _ClassVar[TimeGranularity]
+    DAY: _ClassVar[TimeGranularity]
+    WEEK: _ClassVar[TimeGranularity]
+    MONTH: _ClassVar[TimeGranularity]
+
+class MetricsViewType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TRACES: _ClassVar[MetricsViewType]
+    SPANS: _ClassVar[MetricsViewType]
+    ASSESSMENTS: _ClassVar[MetricsViewType]
+
 class LoggedModelStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     LOGGED_MODEL_STATUS_UNSPECIFIED: _ClassVar[LoggedModelStatus]
@@ -67,6 +92,22 @@ TRACE_STATUS_UNSPECIFIED: TraceStatus
 OK: TraceStatus
 ERROR: TraceStatus
 IN_PROGRESS: TraceStatus
+COUNT: AggregationType
+SUM: AggregationType
+AVG: AggregationType
+P50: AggregationType
+P75: AggregationType
+P90: AggregationType
+P95: AggregationType
+P99: AggregationType
+MINUTE: TimeGranularity
+HOUR: TimeGranularity
+DAY: TimeGranularity
+WEEK: TimeGranularity
+MONTH: TimeGranularity
+TRACES: MetricsViewType
+SPANS: MetricsViewType
+ASSESSMENTS: MetricsViewType
 LOGGED_MODEL_STATUS_UNSPECIFIED: LoggedModelStatus
 LOGGED_MODEL_PENDING: LoggedModelStatus
 LOGGED_MODEL_READY: LoggedModelStatus
@@ -931,6 +972,63 @@ class CalculateTraceFilterCorrelation(_message.Message):
     filter_string2: str
     base_filter: str
     def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., filter_string1: _Optional[str] = ..., filter_string2: _Optional[str] = ..., base_filter: _Optional[str] = ...) -> None: ...
+
+class QueryTraceMetrics(_message.Message):
+    __slots__ = ("experiment_ids", "view_type", "metric_name", "aggregation_type", "dimensions", "filters", "time_granularity", "start_time_ms", "end_time_ms", "max_results", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("data_points", "next_page_token")
+        DATA_POINTS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        data_points: _containers.RepeatedCompositeFieldContainer[MetricDataPoint]
+        next_page_token: str
+        def __init__(self, data_points: _Optional[_Iterable[_Union[MetricDataPoint, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    VIEW_TYPE_FIELD_NUMBER: _ClassVar[int]
+    METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATION_TYPE_FIELD_NUMBER: _ClassVar[int]
+    DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    TIME_GRANULARITY_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_MS_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_MS_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    view_type: MetricsViewType
+    metric_name: str
+    aggregation_type: _containers.RepeatedScalarFieldContainer[AggregationType]
+    dimensions: _containers.RepeatedScalarFieldContainer[str]
+    filters: _containers.RepeatedScalarFieldContainer[str]
+    time_granularity: TimeGranularity
+    start_time_ms: int
+    end_time_ms: int
+    max_results: int
+    page_token: str
+    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., view_type: _Optional[_Union[MetricsViewType, str]] = ..., metric_name: _Optional[str] = ..., aggregation_type: _Optional[_Iterable[_Union[AggregationType, str]]] = ..., dimensions: _Optional[_Iterable[str]] = ..., filters: _Optional[_Iterable[str]] = ..., time_granularity: _Optional[_Union[TimeGranularity, str]] = ..., start_time_ms: _Optional[int] = ..., end_time_ms: _Optional[int] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class MetricDataPoint(_message.Message):
+    __slots__ = ("dimensions", "metric_name", "values")
+    class DimensionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    class ValuesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
+    METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    dimensions: _containers.ScalarMap[str, str]
+    metric_name: str
+    values: _containers.ScalarMap[str, str]
+    def __init__(self, dimensions: _Optional[_Mapping[str, str]] = ..., metric_name: _Optional[str] = ..., values: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class SetTraceTag(_message.Message):
     __slots__ = ("request_id", "key", "value")
