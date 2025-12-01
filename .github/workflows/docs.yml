@@ -69,7 +69,7 @@ jobs:
       - run: |
           npm run convert-notebooks
       - name: Set alias
-        id: api_prefix
+        id: alias
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -85,7 +85,7 @@ jobs:
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
-          API_REFERENCE_PREFIX: https://${{ steps.api_prefix.outputs.value }}--mlflow-docs-preview.netlify.app/docs/
+          API_REFERENCE_PREFIX: https://${{ steps.alias.outputs.value }}--mlflow-docs-preview.netlify.app/docs/
         run: |
           npm run build-all -- --no-r --use-npm
       - name: Check API inventory
