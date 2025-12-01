@@ -10389,6 +10389,67 @@ def test_link_traces_to_run_duplicate_trace_ids(store: SqlAlchemyStore):
     assert len(store.search_traces(**search_args)[0]) == 4
 
 
+def test_populate_linked_prompts_from_associations(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    # Create a trace without LINKED_PROMPTS tag
+    trace_id = "trace-1"
+    _create_trace(store, trace_id, exp_id)
+
+    # Link prompts via entity associations
+    store.link_prompts_to_trace(
+        trace_id,
+        [
+            PromptVersion(name="prompt1", version=1, template="template1"),
+            PromptVersion(name="prompt2", version=2, template="template2"),
+        ],
+    )
+
+    # Retrieve the trace - LINKED_PROMPTS tag should be populated
+    trace_info = store.get_trace_info(trace_id)
+
+    assert TraceTagKey.LINKED_PROMPTS in trace_info.tags
+    linked_prompts = json.loads(trace_info.tags[TraceTagKey.LINKED_PROMPTS])
+    assert len(linked_prompts) == 2
+    assert linked_prompts[0] == {"name": "prompt1", "version": "1"}
+    assert linked_prompts[1] == {"name": "prompt2", "version": "2"}
+
+
+def test_populate_linked_prompts_from_associations_search_traces(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    # Create multiple traces
+    trace1_id = "trace-1"
+    trace2_id = "trace-2"
+    trace3_id = "trace-3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Link prompts to trace1 and trace2
+    store.link_prompts_to_trace(trace1_id, [PromptVersion(name="prompt-a", version=1, template="")])
+    store.link_prompts_to_trace(trace2_id, [PromptVersion(name="prompt-b", version=2, template="")])
+    # trace3 has no linked prompts
+
+    # Search all traces
+    traces, _ = store.search_traces([exp_id])
+    traces_dict = {t.trace_id: t for t in traces}
+
+    # trace1 should have LINKED_PROMPTS tag
+    assert TraceTagKey.LINKED_PROMPTS in traces_dict[trace1_id].tags
+    linked_prompts = json.loads(traces_dict[trace1_id].tags[TraceTagKey.LINKED_PROMPTS])
+    assert linked_prompts == [{"name": "prompt-a", "version": "1"}]
+
+    # trace2 should have LINKED_PROMPTS tag
+    assert TraceTagKey.LINKED_PROMPTS in traces_dict[trace2_id].tags
+    linked_prompts = json.loads(traces_dict[trace2_id].tags[TraceTagKey.LINKED_PROMPTS])
+    assert linked_prompts == [{"name": "prompt-b", "version": "2"}]
+
+    # trace3 should not have LINKED_PROMPTS tag
+    assert TraceTagKey.LINKED_PROMPTS not in traces_dict[trace3_id].tags
+
+
 def test_scorer_operations(store: SqlAlchemyStore):
     """
     Test the scorer operations: register_scorer, list_scorers, get_scorer, and delete_scorer.

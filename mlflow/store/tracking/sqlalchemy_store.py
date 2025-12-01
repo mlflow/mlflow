@@ -2649,7 +2649,10 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_trace_info = self._get_sql_trace_info(session, trace_id)
-            return sql_trace_info.to_mlflow_entity()
+            trace_info = sql_trace_info.to_mlflow_entity()
+            # Populate LINKED_PROMPTS tag from entity associations for backward compatibility
+            self._populate_linked_prompts_from_associations(session, [trace_info])
+            return trace_info
 
     def _get_sql_trace_info(self, session, trace_id) -> SqlTraceInfo:
         sql_trace_info = (
@@ -2661,6 +2664,62 @@ class SqlAlchemyStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
         return sql_trace_info
+
+    def _populate_linked_prompts_from_associations(
+        self, session, trace_infos: list[TraceInfo]
+    ) -> None:
+        """
+        Populate LINKED_PROMPTS tag from entity associations for backward compatibility.
+
+        For traces that don't already have a LINKED_PROMPTS tag, this method queries
+        the entity_associations table to find linked prompt versions and populates
+        the tag with the prompt information.
+
+        Args:
+            session: SQLAlchemy session
+            trace_infos: List of TraceInfo objects to populate
+        """
+        if not trace_infos:
+            return
+
+        # Find trace IDs that need LINKED_PROMPTS tag populated
+        trace_ids_to_populate = [
+            trace_info.trace_id
+            for trace_info in trace_infos
+            if TraceTagKey.LINKED_PROMPTS not in trace_info.tags
+        ]
+
+        if not trace_ids_to_populate:
+            return
+
+        # Query entity associations for prompt versions linked to these traces
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                SqlEntityAssociation.source_id.in_(trace_ids_to_populate),
+                SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
+            )
+            .order_by(SqlEntityAssociation.created_time)
+            .all()
+        )
+
+        # Group associations by trace_id
+        trace_prompt_map = defaultdict(list)
+        for assoc in associations:
+            # destination_id is in format "name/version"
+            prompt_id = assoc.destination_id
+            match prompt_id.split("/"):
+                case [name, version]:
+                    trace_prompt_map[assoc.source_id].append({"name": name, "version": version})
+                case _:
+                    pass
+
+        # Update trace_infos with LINKED_PROMPTS tag
+        for trace_info in trace_infos:
+            if trace_info.trace_id in trace_prompt_map:
+                prompts = trace_prompt_map[trace_info.trace_id]
+                trace_info.tags[TraceTagKey.LINKED_PROMPTS] = json.dumps(prompts)
 
     def search_traces(
         self,
@@ -2767,6 +2826,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             queried_traces = session.execute(stmt).scalars(SqlTraceInfo).all()
             trace_infos = [t.to_mlflow_entity() for t in queried_traces]
+
+            # Populate LINKED_PROMPTS tag from entity associations for backward compatibility
+            self._populate_linked_prompts_from_associations(session, trace_infos)
 
             # Compute next search token
             if max_results == len(trace_infos):
