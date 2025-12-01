@@ -13,10 +13,10 @@ mlflow_view_url <- function(url) {
 #' \dontrun{
 #' library(mlflow)
 #'
-#' # launch mlflow server locally
-#' mlflow_server()
+#' # launch mlflow ui locally
+#' mlflow_ui()
 #'
-#' # launch UI for existing mlflow server
+#' # launch mlflow ui for existing mlflow server
 #' mlflow_set_tracking_uri("http://tracking-server:5000")
 #' mlflow_ui()
 #' }
