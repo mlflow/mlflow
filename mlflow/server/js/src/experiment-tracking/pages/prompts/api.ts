@@ -1,7 +1,12 @@
 import { matchPredefinedError, UnknownError } from '@databricks/web-shared/errors';
 import { fetchEndpoint } from '../../../common/utils/FetchUtils';
 import type { RegisteredPrompt, RegisteredPromptsListResponse, RegisteredPromptVersion } from './types';
-import { IS_PROMPT_TAG_NAME, IS_PROMPT_TAG_VALUE, REGISTERED_PROMPT_SOURCE_RUN_IDS } from './utils';
+import {
+  IS_PROMPT_TAG_NAME,
+  IS_PROMPT_TAG_VALUE,
+  REGISTERED_PROMPT_SOURCE_RUN_IDS,
+  buildSearchFilterClause,
+} from './utils';
 
 const defaultErrorHandler = async ({
   reject,
@@ -33,11 +38,10 @@ const defaultErrorHandler = async ({
 export const RegisteredPromptsApi = {
   listRegisteredPrompts: (searchFilter?: string, pageToken?: string) => {
     const params = new URLSearchParams();
-    let filter = `tags.\`${IS_PROMPT_TAG_NAME}\` = '${IS_PROMPT_TAG_VALUE}'`;
-
-    if (searchFilter) {
-      filter = `${filter} AND name ILIKE '%${searchFilter}%'`;
-    }
+    const searchClause = buildSearchFilterClause(searchFilter);
+    const filter = `tags.\`${IS_PROMPT_TAG_NAME}\` = '${IS_PROMPT_TAG_VALUE}'${
+      searchClause ? ` AND ${searchClause}` : ''
+    }`;
 
     if (pageToken) {
       params.append('page_token', pageToken);

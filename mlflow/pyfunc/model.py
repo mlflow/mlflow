@@ -55,6 +55,23 @@ from mlflow.types.llm import (
     ChatMessage,
     ChatParams,
 )
+from mlflow.types.responses import (
+    Message,
+    OutputItem,
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    ResponsesAgentStreamEvent,
+    create_annotation_added,
+    create_function_call_item,
+    create_function_call_output_item,
+    create_reasoning_item,
+    create_text_delta,
+    create_text_output_item,
+    output_to_responses_items_stream,
+    responses_agent_output_reducer,
+    responses_to_cc,
+    to_chat_completions_input,
+)
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import (
@@ -822,25 +839,6 @@ def _maybe_decompress_cloudpickle_load(path, compression):
     file_open = _COMPRESSION_INFO.get(compression, {}).get("open", open)
     with file_open(path, "rb") as f:
         return cloudpickle.load(f)
-
-
-from mlflow.types.responses import (
-    Message,
-    OutputItem,
-    ResponsesAgentRequest,
-    ResponsesAgentResponse,
-    ResponsesAgentStreamEvent,
-    create_annotation_added,
-    create_function_call_item,
-    create_function_call_output_item,
-    create_reasoning_item,
-    create_text_delta,
-    create_text_output_item,
-    output_to_responses_items_stream,
-    responses_agent_output_reducer,
-    responses_to_cc,
-    to_chat_completions_input,
-)
 
 
 @experimental(version="3.0.0")

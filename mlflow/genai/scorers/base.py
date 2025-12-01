@@ -30,9 +30,16 @@ class ScorerKind(Enum):
     CLASS = "class"
     BUILTIN = "builtin"
     DECORATOR = "decorator"
+    INSTRUCTIONS = "instructions"
+    GUIDELINES = "guidelines"
 
 
-_ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
+_ALLOWED_SCORERS_FOR_REGISTRATION = [
+    ScorerKind.BUILTIN,
+    ScorerKind.DECORATOR,
+    ScorerKind.INSTRUCTIONS,
+    ScorerKind.GUIDELINES,
+]
 
 
 class ScorerStatus(Enum):
@@ -380,7 +387,7 @@ class Scorer(BaseModel):
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
         return scorer_instance
 
-    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
+    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None, session=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
 
         merged = {
@@ -388,6 +395,7 @@ class Scorer(BaseModel):
             "outputs": outputs,
             "expectations": expectations,
             "trace": trace,
+            "session": session,
         }
         # Filter to only the parameters the function actually expects
         sig = inspect.signature(self.__call__)

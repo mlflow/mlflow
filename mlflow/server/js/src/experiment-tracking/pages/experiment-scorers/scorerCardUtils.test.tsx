@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { getFormValuesFromScorer } from './scorerCardUtils';
 import type { LLMScorer, CustomCodeScorer } from './types';
+import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
 
 describe('scorerCardUtils', () => {
   describe('getFormValuesFromScorer', () => {
@@ -27,8 +28,11 @@ describe('scorerCardUtils', () => {
           code: '',
           scorerType: 'llm',
           guidelines: 'Be objective\nConsider context\nRate consistently',
-          instructions: '',
+          instructions: TEMPLATE_INSTRUCTIONS_MAP['Correctness'],
           filterString: 'status == "success"',
+          model: '',
+          disableMonitoring: undefined,
+          isInstructionsJudge: undefined,
         });
       });
 
@@ -57,6 +61,7 @@ describe('scorerCardUtils', () => {
           guidelines: '',
           instructions: '',
           filterString: 'model_name == "gpt-4"',
+          model: '',
         });
       });
 
@@ -80,6 +85,7 @@ describe('scorerCardUtils', () => {
           guidelines: '',
           instructions: '',
           filterString: '',
+          model: '',
         });
       });
 
@@ -106,6 +112,7 @@ describe('scorerCardUtils', () => {
           guidelines: '',
           instructions: '',
           filterString: '',
+          model: '',
         });
       });
     });

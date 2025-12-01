@@ -765,8 +765,7 @@ class FileStore(AbstractStore):
         inputs: RunInputs = self._get_all_inputs(run_info)
         outputs: RunOutputs = self._get_all_outputs(run_info)
         if not run_info.run_name:
-            run_name = _get_run_name_from_tags(tags)
-            if run_name:
+            if run_name := _get_run_name_from_tags(tags):
                 run_info._set_run_name(run_name)
         return Run(run_info, RunData(metrics, params, tags), inputs, outputs)
 
@@ -852,14 +851,12 @@ class FileStore(AbstractStore):
 
     def _get_all_metrics(self, run_info):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
-        metrics = []
-        for metric_file in metric_files:
-            metrics.append(
-                self._get_metric_from_file(
-                    parent_path, metric_file, run_info.run_id, run_info.experiment_id
-                )
+        return [
+            self._get_metric_from_file(
+                parent_path, metric_file, run_info.run_id, run_info.experiment_id
             )
-        return metrics
+            for metric_file in metric_files
+        ]
 
     @staticmethod
     def _get_metric_from_line(
@@ -942,10 +939,7 @@ class FileStore(AbstractStore):
 
     def _get_all_params(self, run_info):
         parent_path, param_files = self._get_run_files(run_info, "param")
-        params = []
-        for param_file in param_files:
-            params.append(self._get_param_from_file(parent_path, param_file))
-        return params
+        return [self._get_param_from_file(parent_path, param_file) for param_file in param_files]
 
     @staticmethod
     def _get_experiment_tag_from_file(parent_path, tag_name):
@@ -955,10 +949,7 @@ class FileStore(AbstractStore):
 
     def get_all_experiment_tags(self, exp_id):
         parent_path, tag_files = self._get_experiment_files(exp_id)
-        tags = []
-        for tag_file in tag_files:
-            tags.append(self._get_experiment_tag_from_file(parent_path, tag_file))
-        return tags
+        return [self._get_experiment_tag_from_file(parent_path, tag_file) for tag_file in tag_files]
 
     @staticmethod
     def _get_tag_from_file(parent_path, tag_name):
@@ -973,10 +964,7 @@ class FileStore(AbstractStore):
 
     def _get_all_tags(self, run_info):
         parent_path, tag_files = self._get_run_files(run_info, "tag")
-        tags = []
-        for tag_file in tag_files:
-            tags.append(self._get_tag_from_file(parent_path, tag_file))
-        return tags
+        return [self._get_tag_from_file(parent_path, tag_file) for tag_file in tag_files]
 
     def _list_run_infos(self, experiment_id, view_type):
         self._check_root_dir()
@@ -2533,10 +2521,7 @@ class FileStore(AbstractStore):
 
     def _get_all_model_tags(self, model_dir: str) -> list[LoggedModelTag]:
         parent_path, tag_files = self._get_resource_files(model_dir, FileStore.TAGS_FOLDER_NAME)
-        tags = []
-        for tag_file in tag_files:
-            tags.append(self._get_tag_from_file(parent_path, tag_file))
-        return tags
+        return [self._get_tag_from_file(parent_path, tag_file) for tag_file in tag_files]
 
     def _get_all_model_params(self, model_dir: str) -> list[LoggedModelParameter]:
         parent_path, param_files = self._get_resource_files(model_dir, FileStore.PARAMS_FOLDER_NAME)

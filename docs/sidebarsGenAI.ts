@@ -20,8 +20,8 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'link',
-      href: '/genai/tracing/quickstart/python-openai',
+      type: 'doc',
+      id: 'tracing/quickstart/python-openai',
       label: 'Tracing Quickstart',
       className: 'sidebar-top-level-category',
     },
@@ -185,6 +185,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/vercelai',
                   label: 'Vercel AI SDK',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/voltagent',
+                  label: 'VoltAgent',
                 },
               ],
             },
@@ -559,6 +564,10 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
+              id: 'prompt-registry/optimize-prompts/langchain-optimization',
+            },
+            {
+              type: 'doc',
               id: 'prompt-registry/optimize-prompts/openai-agent-optimization',
             },
           ],
@@ -576,6 +585,42 @@ const sidebarsGenAI: SidebarsConfig = {
       link: {
         type: 'doc',
         id: 'prompt-registry/index',
+      },
+    },
+    {
+      type: 'category',
+      label: 'AI Gateway',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/setup',
+          label: 'Setup',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/configuration',
+          label: 'Configuration',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/usage',
+          label: 'Usage',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/integration',
+          label: 'Integration',
+        },
+        {
+          type: 'doc',
+          id: 'governance/unity-catalog',
+          label: 'Unity Catalog',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'governance/ai-gateway/index',
       },
     },
     {
@@ -808,42 +853,6 @@ const sidebarsGenAI: SidebarsConfig = {
       link: {
         type: 'doc',
         id: 'serving/index',
-      },
-    },
-    {
-      type: 'category',
-      label: 'AI Gateway',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/setup',
-          label: 'Setup',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/configuration',
-          label: 'Configuration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/usage',
-          label: 'Usage',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/integration',
-          label: 'Integration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/unity-catalog',
-          label: 'Unity Catalog',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'governance/ai-gateway/index',
       },
     },
     {

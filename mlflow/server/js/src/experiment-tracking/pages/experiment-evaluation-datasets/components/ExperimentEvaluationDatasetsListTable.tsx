@@ -24,11 +24,13 @@ import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDataset
 import { NameCell } from './ExperimentEvaluationDatasetsNameCell';
 import { LastUpdatedCell } from './ExperimentEvaluationDatasetsLastUpdatedCell';
 import { ActionsCell } from './ExperimentEvaluationDatasetsActionsCell';
+import { DatasetIdCell } from './ExperimentEvaluationDatasetsIdCell';
 import { isEqual } from 'lodash';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 
 const COLUMN_IDS = {
+  DATASET_ID: 'dataset_id',
   NAME: 'name',
   LAST_UPDATE_TIME: 'last_update_time',
   CREATED_TIME: 'created_time',
@@ -37,10 +39,22 @@ const COLUMN_IDS = {
   ACTIONS: 'actions',
 };
 
-const DEFAULT_ENABLED_COLUMN_IDS = [COLUMN_IDS.NAME, COLUMN_IDS.LAST_UPDATE_TIME, COLUMN_IDS.ACTIONS];
+const DEFAULT_ENABLED_COLUMN_IDS = [
+  COLUMN_IDS.DATASET_ID,
+  COLUMN_IDS.NAME,
+  COLUMN_IDS.LAST_UPDATE_TIME,
+  COLUMN_IDS.ACTIONS,
+];
 const UNSELECTABLE_COLUMN_IDS = [COLUMN_IDS.ACTIONS];
 
 const columns: ColumnDef<EvaluationDataset, any>[] = [
+  {
+    id: COLUMN_IDS.DATASET_ID,
+    accessorKey: 'dataset_id',
+    header: 'Dataset ID',
+    enableSorting: false,
+    cell: DatasetIdCell,
+  },
   {
     id: COLUMN_IDS.NAME,
     accessorKey: 'name',
@@ -54,8 +68,8 @@ const columns: ColumnDef<EvaluationDataset, any>[] = [
     accessorFn: (row: EvaluationDataset) => (row.last_update_time ? new Date(row.last_update_time).getTime() : 0),
     header: 'Updated At',
     enableSorting: true,
-    size: 100,
-    maxSize: 100,
+    size: 150,
+    maxSize: 150,
     cell: LastUpdatedCell,
   },
   {

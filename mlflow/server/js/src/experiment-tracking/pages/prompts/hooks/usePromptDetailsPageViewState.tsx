@@ -10,16 +10,12 @@ const promptDetailsViewStateReducer = (
     comparedVersion?: string;
   },
   action:
-    | { type: 'setTableMode' }
     | { type: 'switchSides' }
     | { type: 'setPreviewMode'; selectedVersion?: string }
     | { type: 'setCompareMode'; selectedVersion?: string; comparedVersion?: string }
     | { type: 'setSelectedVersion'; selectedVersion: string }
     | { type: 'setComparedVersion'; comparedVersion: string },
 ) => {
-  if (action.type === 'setTableMode') {
-    return { ...state, mode: PromptVersionsTableMode.TABLE };
-  }
   if (action.type === 'switchSides') {
     return { ...state, selectedVersion: state.comparedVersion, comparedVersion: state.selectedVersion };
   }
@@ -48,9 +44,6 @@ export const usePromptDetailsPageViewState = (promptDetailsData?: RegisteredProm
     mode: PromptVersionsTableMode.PREVIEW,
   });
 
-  const setTableMode = useCallback(() => {
-    dispatchViewMode({ type: 'setTableMode' });
-  }, []);
   const setPreviewMode = useCallback(
     (versionEntity?: { version: string }) => {
       const firstVersion = (versionEntity ?? first(promptDetailsData?.versions))?.version;
@@ -84,7 +77,6 @@ export const usePromptDetailsPageViewState = (promptDetailsData?: RegisteredProm
 
   return {
     viewState,
-    setTableMode,
     setPreviewMode,
     setCompareMode,
     switchSides,

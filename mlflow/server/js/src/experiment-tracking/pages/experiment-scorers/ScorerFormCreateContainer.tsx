@@ -25,10 +25,13 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ e
     mode: 'onChange', // Enable real-time validation
     defaultValues: {
       scorerType: 'llm',
-      name: 'Correctness',
+      name: '',
       sampleRate: 100,
       filterString: '',
-      llmTemplate: 'Correctness',
+      llmTemplate: 'Custom',
+      model: '',
+      disableMonitoring: true,
+      isInstructionsJudge: true, // Custom template is an instructions judge
     },
   });
 
