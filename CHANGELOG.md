@@ -2168,7 +2168,7 @@ Features:
 Bug fixes:
 
 - [Security] Improve robustness to LFI attacks on Windows by enhancing path validation (#8999, @serena-ruan)
-  - If you are using `mlflow server` or `mlflow ui` on Windows, we recommend upgrading to MLflow 2.5.0 as soon as possible.
+  - If you are using `mlflow server` or `mlflow server` on Windows, we recommend upgrading to MLflow 2.5.0 as soon as possible.
 - [Scoring] Support nullable array type values as spark_udf return values (#9014, @WeichenXu123)
 - [Models] Revert cache deletion of system modules when adding custom model code to the system path (#8722, @trungn1)
 - [Models] add micro version to mlflow version pinning (#8687, @C-K-Loan)
@@ -2225,7 +2225,7 @@ Features:
 Bug fixes:
 
 - [Security] Improve robustness to LFI attacks (#8648, @serena-ruan)
-  - If you are using `mlflow server` or `mlflow ui`, we recommend upgrading to MLflow 2.4.1 as soon as possible.
+  - If you are using `mlflow server` or `mlflow server`, we recommend upgrading to MLflow 2.4.1 as soon as possible.
 - [Models] Fix an issue with `transformers` serialization for ModelCards that contain invalid characters (#8652, @BenWilson2)
 - [Models] Fix connection pooling deadlocks that occurred during large file downloads (#8682, @dbczumar; #8660, @harupy)
 
@@ -2316,7 +2316,7 @@ MLflow 2.3.1 is a patch release containing the following bug fixes and changes:
 Bug fixes:
 
 - [Security] Fix critical LFI attack vulnerability by disabling the ability to provide relative paths in registered model sources (#8281, @BenWilson2)
-  - **If you are using `mlflow server` or `mlflow ui`, we recommend upgrading to MLflow 2.3.1 as soon as possible.** For more details, see https://github.com/mlflow/mlflow/security/advisories/GHSA-xg73-94fp-g449.
+  - **If you are using `mlflow server` or `mlflow server`, we recommend upgrading to MLflow 2.3.1 as soon as possible.** For more details, see https://github.com/mlflow/mlflow/security/advisories/GHSA-xg73-94fp-g449.
 - [Tracking] Fix an issue causing file and model uploads to hang on Databricks (#8348, @harupy)
 - [Tracking / Model Registry] Fix an issue causing file and model downloads to hang on Databricks (#8350, @dbczumar)
 - [Scoring] Fix regression in schema enforcement for model serving when using the `inputs` format for inference (#8326, @BenWilson2)
@@ -3612,7 +3612,7 @@ New Model Flavors and Flavor Updates:
 More features and improvements:
 
 - When using the `mlflow server` CLI command, you can now expose metrics on `/metrics` for Prometheus via the optional --activate-parameter argument (#2097, @t-henri)
-- The `mlflow ui` CLI command now has a `--host`/`-h` option to specify user-input IPs to bind to (#2176, @gandroz)
+- The `mlflow server` CLI command now has a `--host`/`-h` option to specify user-input IPs to bind to (#2176, @gandroz)
 - MLflow now supports pulling Git submodules while using MLflow Projects (#2103, @badc0re)
 - New `mlflow models prepare-env` command to do any preparation necessary to initialize an environment. This allows distinguishing configuration and user errors during predict/serve time (#2040, @aarondav)
 - TensorFlow.Keras and Keras parameters are now logged by `autolog()` (#2119, @juntai-zheng)
@@ -3780,7 +3780,7 @@ In MLflow Models:
 **Bug fixes and documentation updates**
 
 - [Tracking] Fix database migration for MySQL. `mlflow db upgrade` should now work for MySQL backends. (#1404, @sueann)
-- [Tracking] Make CLI `mlflow server` and `mlflow ui` commands to work with SQLAlchemy URIs that specify a database driver. (#1411, @sueann)
+- [Tracking] Make CLI `mlflow server` and `mlflow server` commands to work with SQLAlchemy URIs that specify a database driver. (#1411, @sueann)
 - [Tracking] Fix usability bugs related to FTP artifact repository. (#1398, @kafendt; #1421, @nlaille)
 - [Tracking] Return appropriate HTTP status codes for MLflowException (#1434, @max-allen-db)
 - [Tracking] Fix sorting by user ID in the experiment search view. (#1401, @andrewmchen)
@@ -3807,7 +3807,7 @@ Major features, improvements, and breaking changes
 - New `onnx` model flavor for saving, loading, and evaluating ONNX models with MLflow. ONNX flavor APIs are available in the `mlflow.onnx` module. (#1127, @avflor, @dbczumar; #1388, #1389, @dbczumar)
 - Major breaking changes:
 
-  - Some of the breaking changes involve database schema changes in the SQLAlchemy tracking store. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of `mlflow server` or `mlflow ui`. To migrate an existing database to the newest schema, you can use the `mlflow db upgrade` CLI command. (#1155, #1371, @smurching; #1360, @aarondav)
+  - Some of the breaking changes involve database schema changes in the SQLAlchemy tracking store. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of `mlflow server` or `mlflow server`. To migrate an existing database to the newest schema, you can use the `mlflow db upgrade` CLI command. (#1155, #1371, @smurching; #1360, @aarondav)
   - [Installation] The MLflow Python package no longer depends on `scikit-learn`, `mleap`, or `boto3`. If you want to use the `scikit-learn` support, the `MLeap` support, or `s3` artifact repository / `sagemaker` support, you will have to install these respective dependencies explicitly. (#1223, @aarondav)
   - [Artifacts] In the Models API, an artifact's location is now represented as a URI. See the [documentation](https://mlflow.org/docs/latest/tracking.html#artifact-locations) for the list of accepted URIs. (#1190, #1254, @dbczumar; #1174, @dbczumar, @sueann; #1206, @tomasatdatabricks; #1253, @stbof)
 
@@ -3828,8 +3828,8 @@ Other breaking changes
 
 CLI:
 
-- The `--file-store` option is deprecated in `mlflow server` and `mlflow ui` commands. (#1196, @smurching)
-- The `--host` and `--gunicorn-opts` options are removed in the `mlflow ui` command. (#1267, @aarondav)
+- The `--file-store` option is deprecated in `mlflow server` and `mlflow server` commands. (#1196, @smurching)
+- The `--host` and `--gunicorn-opts` options are removed in the `mlflow server` command. (#1267, @aarondav)
 - Arguments to `mlflow experiments` subcommands, notably `--experiment-name` and `--experiment-id` are now options (#1235, @sueann)
 - `mlflow sagemaker list-flavors` has been removed (#1233, @sueann)
 
@@ -3896,7 +3896,7 @@ Bug fixes and documentation updates
 - [Tracking] Fix bug when deserializing integer experiment ID for runs in `SQLAlchemyStore` (#1167, @smurching)
 - [Tracking] Ensure unique constraint names in MLflow tracking database (#1292, @smurching)
 - [Tracking] Fix base64 encoding for basic auth in R tracking client (#1126, @freefrag)
-- [Tracking] Correctly handle `file:` URIs for the `-—backend-store-uri` option in `mlflow server` and `mlflow ui` CLI commands (#1171, @eedeleon, @tomasatdatabricks)
+- [Tracking] Correctly handle `file:` URIs for the `-—backend-store-uri` option in `mlflow server` and `mlflow server` CLI commands (#1171, @eedeleon, @tomasatdatabricks)
 - [Artifacts] Update artifact repository download methods to return absolute paths (#1179, @dbczumar)
 - [Artifacts] Make FileStore respect the default artifact location (#1332, @dbczumar)
 - [Artifacts] Fix `log_artifact` failures due to existing directory on FTP server (#1327, @kafendt)
@@ -4348,7 +4348,7 @@ This is a patch release fixing some smaller issues after the 0.2.0 release.
 
 ## 0.2.0 (2018-06-27)
 
-- Added `mlflow server` to provide a remote tracking server. This is akin to `mlflow ui` with new options:
+- Added `mlflow server` to provide a remote tracking server. This is akin to `mlflow server` with new options:
 
   - `--host` to allow binding to any ports (#27, @mdagost)
   - `--artifact-root` to allow storing artifacts at a remote location, S3 only right now (#78, @mateiz)

@@ -49,7 +49,7 @@ _logger = logging.getLogger(__name__)
 
 class AliasedGroup(click.Group):
     def get_command(self, ctx, cmd_name):
-        # `mlflow ui` is an alias for `mlflow server`
+        # `mlflow ui` (deprecated) is an alias for `mlflow server`
         cmd_name = "server" if cmd_name == "ui" else cmd_name
         return super().get_command(ctx, cmd_name)
 
