@@ -98,6 +98,10 @@ class GenAIEvaluateEvent(Event):
         )
         record_params["scorer_kind_count"] = dict[str, int](sorted(scorer_kind_count.items()))
 
+        # Track session-level scorer counts
+        session_level_scorers = [scorer for scorer in scorers if scorer.is_session_level_scorer]
+        record_params["session_level_scorer_count"] = len(session_level_scorers)
+
         return record_params
 
 

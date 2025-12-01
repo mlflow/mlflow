@@ -15,7 +15,7 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer
-from mlflow.genai.scorers.builtin_scorers import Guidelines, RelevanceToQuery
+from mlflow.genai.scorers.builtin_scorers import Guidelines, RelevanceToQuery, UserFrustration
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
@@ -373,6 +373,7 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
             "builtin_scorers": ["RelevanceToQuery"],
             "predict_fn_provided": True,
             "scorer_kind_count": {"decorator": 1, "builtin": 1},
+            "session_level_scorer_count": 0,
         }
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
@@ -387,6 +388,7 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
             "builtin_scorers": [],
             "predict_fn_provided": False,
             "scorer_kind_count": {"decorator": 1},
+            "session_level_scorer_count": 0,
         }
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
@@ -410,6 +412,13 @@ def test_genai_evaluate_scorer_kind_count(mock_requests, mock_telemetry_client: 
         model="openai:/gpt-4",
     )
 
+    # Create a session-level instructions judge
+    session_level_instruction_judge = make_judge(
+        name="conversation_quality",
+        instructions="Evaluate if the {{ conversation }} is engaging and coherent",
+        model="openai:/gpt-4",
+    )
+
     # Create a Guidelines scorer
     guidelines_scorer = Guidelines(
         name="politeness",
@@ -419,6 +428,9 @@ def test_genai_evaluate_scorer_kind_count(mock_requests, mock_telemetry_client: 
     # Create builtin scorers
     builtin_scorer_1 = RelevanceToQuery(name="relevance1")
     builtin_scorer_2 = RelevanceToQuery(name="relevance2")
+
+    # Create a session-level builtin scorer
+    session_level_builtin_scorer = UserFrustration(name="frustration_check")
 
     data = [
         {
@@ -438,21 +450,24 @@ def test_genai_evaluate_scorer_kind_count(mock_requests, mock_telemetry_client: 
                 custom_scorer_1,
                 custom_scorer_2,
                 instructions_judge,
+                session_level_instruction_judge,
                 guidelines_scorer,
                 builtin_scorer_1,
                 builtin_scorer_2,
+                session_level_builtin_scorer,
             ],
         )
 
         expected_params = {
-            "builtin_scorers": ["Guidelines", "RelevanceToQuery"],
+            "builtin_scorers": ["Guidelines", "RelevanceToQuery", "UserFrustration"],
             "predict_fn_provided": False,
             "scorer_kind_count": {
-                "builtin": 2,
+                "builtin": 3,
                 "decorator": 2,
                 "guidelines": 1,
-                "instructions": 1,
+                "instructions": 2,
             },
+            "session_level_scorer_count": 2,
         }
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
