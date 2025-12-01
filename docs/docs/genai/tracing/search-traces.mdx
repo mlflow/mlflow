@@ -61,7 +61,7 @@ The `search_traces` API uses a SQL-like Domain Specific Language (DSL) for query
 | **Trace Timestamps** | `trace.timestamp_ms`, `trace.execution_time_ms`, `trace.end_time_ms` | `=`, `!=`, `>`, `<`, `>=`, `<=`     | trace.end_time_ms > 1762408895531         |
 | **Trace IDs**        | `trace.run_id`                                                       | `=`                                 | trace.run_id = "run_id"                   |
 | **String Fields**    | `trace.client_request_id`, `trace.name`                              | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | trace.name LIKE "%Generate%"              |
-| **Linked Prompts**   | `prompts`                                                            | `=` (format: `"name/version"`)      | prompts = "qa-system-prompt/4"            |
+| **Linked Prompts**   | `prompt`                                                            | `=` (format: `"name/version"`)      | prompt = "qa-system-prompt/4"            |
 | **Span Name/Type**   | `span.name`, `span.type`                                             | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | span.type RLIKE "^LLM"                    |
 | **Span Attributes**  | `span.attributes.<key>`                                              | `LIKE`, `ILIKE`                     | span.attributes.model RLIKE "^gpt"        |
 | **Tags**             | `tag.<key>`                                                          | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | tag.key = "value"                         |
@@ -186,11 +186,11 @@ mlflow.search_traces(filter_string="trace.run_id = 'run_id_123456'")
 
 ```python
 # Find traces using a specific prompt version
-mlflow.search_traces(filter_string='prompts = "qa-agent-system-prompt/4"')
+mlflow.search_traces(filter_string='prompt = "qa-agent-system-prompt/4"')
 ```
 
 :::note
-The `prompts` filter only supports exact match (`=`) operator with the format `"name/version"`.
+The `prompt` filter only supports exact match (`=`) operator with the format `"name/version"`.
 :::
 
 #### Filter by Span Attributes

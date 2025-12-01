@@ -4857,7 +4857,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     if comparator != "=":
                         raise MlflowException(
                             f"Invalid comparator '{comparator}' for prompts filter. "
-                            "Only '=' is supported with format: prompts = \"name/version\"",
+                            "Only '=' is supported with format: prompt = \"name/version\"",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
                     # Parse the filter value to extract name/version
@@ -4865,7 +4865,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     if "/" not in value:
                         raise MlflowException(
                             f"Invalid prompts filter value '{value}'. "
-                            'Expected format: prompts = "name/version"',
+                            'Expected format: prompt = "name/version"',
                             error_code=INVALID_PARAMETER_VALUE,
                         )
                     parts = value.rsplit("/", 1)
@@ -4873,9 +4873,12 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     prompt_version = parts[1]
                     # Search for the exact name/version combination in the JSON array
                     # We need to match: {"name": "prompt_name", "version": "prompt_version"}
+                    tag_value = json.dumps(
+                        {"name": f"{prompt_name}", "version": f"{prompt_version}"}
+                    )
                     val_filter = SearchTraceUtils.get_sql_comparison_func("LIKE", dialect)(
                         entity.value,
-                        f'%{{"name": "{prompt_name}", "version": "{prompt_version}"%',
+                        f"%{tag_value}%",
                     )
                     key_filter = SearchTraceUtils.get_sql_comparison_func("=", dialect)(
                         entity.key, key_name

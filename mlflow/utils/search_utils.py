@@ -1606,7 +1606,7 @@ class SearchTraceUtils(SearchUtils):
         # The following keys are mapped to tags or metadata
         "name",
         "run_id",
-        "prompts",
+        "prompt",
         # The following key is mapped to span attributes
         "text",
     }
@@ -1680,7 +1680,7 @@ class SearchTraceUtils(SearchUtils):
     # E.g. "name" is mapped to TraceTagKey.TRACE_NAME
     SEARCH_KEY_TO_TAG = {
         "name": TraceTagKey.TRACE_NAME,
-        "prompts": TraceTagKey.LINKED_PROMPTS,
+        "prompt": TraceTagKey.LINKED_PROMPTS,
     }
     SEARCH_KEY_TO_METADATA = {
         "run_id": TraceMetadataKey.SOURCE_RUN,

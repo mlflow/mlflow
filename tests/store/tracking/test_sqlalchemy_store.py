@@ -6841,79 +6841,66 @@ def test_search_traces_with_prompts_filter(store: SqlAlchemyStore):
     )
 
     # Test: Filter by exact prompt name/version
-    traces, _ = store.search_traces([exp_id], filter_string='prompts = "qa-agent-system-prompt/4"')
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "qa-agent-system-prompt/4"')
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {trace1_id, trace4_id}
 
     # Test: Filter by another exact prompt name/version
-    traces, _ = store.search_traces([exp_id], filter_string='prompts = "qa-agent-system-prompt/5"')
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "qa-agent-system-prompt/5"')
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
 
     # Test: Filter by chat assistant prompt
-    traces, _ = store.search_traces([exp_id], filter_string='prompts = "chat-assistant-prompt/1"')
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "chat-assistant-prompt/1"')
     assert len(traces) == 1
     assert traces[0].request_id == trace3_id
 
     # Test: Filter by prompt that appears in multiple trace
-    traces, _ = store.search_traces([exp_id], filter_string='prompts = "chat-assistant-prompt/2"')
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "chat-assistant-prompt/2"')
     assert len(traces) == 1
     assert traces[0].request_id == trace4_id
 
 
-def test_search_traces_with_prompts_filter_invalid_comparator(store: SqlAlchemyStore):
+@pytest.mark.parametrize(
+    ("comparator", "filter_string"),
+    [
+        ("LIKE", 'prompt LIKE "%qa-agent%"'),
+        ("ILIKE", 'prompt ILIKE "%CHAT%"'),
+        ("RLIKE", 'prompt RLIKE "version.*1"'),
+        ("!=", 'prompt != "test/1"'),
+    ],
+)
+def test_search_traces_with_prompts_filter_invalid_comparator(
+    store: SqlAlchemyStore, comparator: str, filter_string: str
+):
     exp_id = store.create_experiment("test_prompts_invalid")
 
-    # Test: LIKE comparator should raise error
     with pytest.raises(
         MlflowException,
-        match="Invalid comparator 'LIKE' for prompts filter. "
-        "Only '=' is supported with format: prompts = \"name/version\"",
+        match=f"Invalid comparator '{comparator}' for prompts filter. "
+        "Only '=' is supported with format: prompt = \"name/version\"",
     ):
-        store.search_traces([exp_id], filter_string='prompts LIKE "%qa-agent%"')
-
-    # Test: ILIKE comparator should raise error
-    with pytest.raises(
-        MlflowException,
-        match="Invalid comparator 'ILIKE' for prompts filter. "
-        "Only '=' is supported with format: prompts = \"name/version\"",
-    ):
-        store.search_traces([exp_id], filter_string='prompts ILIKE "%CHAT%"')
-
-    # Test: RLIKE comparator should raise error
-    with pytest.raises(
-        MlflowException,
-        match="Invalid comparator 'RLIKE' for prompts filter. "
-        "Only '=' is supported with format: prompts = \"name/version\"",
-    ):
-        store.search_traces([exp_id], filter_string='prompts RLIKE "version.*1"')
-
-    # Test: != comparator should raise error
-    with pytest.raises(
-        MlflowException,
-        match="Invalid comparator '!=' for prompts filter. "
-        "Only '=' is supported with format: prompts = \"name/version\"",
-    ):
-        store.search_traces([exp_id], filter_string='prompts != "test/1"')
+        store.search_traces([exp_id], filter_string=filter_string)
 
 
-def test_search_traces_with_prompts_filter_invalid_format(store: SqlAlchemyStore):
+@pytest.mark.parametrize(
+    ("filter_string", "invalid_value"),
+    [
+        ('prompt = "qa-agent-system-prompt"', "qa-agent-system-prompt"),
+        ('prompt = ""', ""),
+    ],
+)
+def test_search_traces_with_prompts_filter_invalid_format(
+    store: SqlAlchemyStore, filter_string: str, invalid_value: str
+):
     exp_id = store.create_experiment("test_prompts_invalid_format")
 
-    # Test: Missing "/" separator should raise error
     with pytest.raises(
         MlflowException,
-        match="Invalid prompts filter value 'qa-agent-system-prompt'. "
-        'Expected format: prompts = "name/version"',
+        match=f"Invalid prompts filter value '{invalid_value}'. "
+        'Expected format: prompt = "name/version"',
     ):
-        store.search_traces([exp_id], filter_string='prompts = "qa-agent-system-prompt"')
-
-    # Test: Empty value should raise error
-    with pytest.raises(
-        MlflowException,
-        match="Invalid prompts filter value ''. Expected format: prompts = \"name/version\"",
-    ):
-        store.search_traces([exp_id], filter_string='prompts = ""')
+        store.search_traces([exp_id], filter_string=filter_string)
 
 
 def test_search_traces_with_prompts_filter_no_matches(store: SqlAlchemyStore):
@@ -6929,13 +6916,11 @@ def test_search_traces_with_prompts_filter_no_matches(store: SqlAlchemyStore):
     )
 
     # Test: Filter by non-existent prompt
-    traces, _ = store.search_traces([exp_id], filter_string='prompts = "non-existent-prompt/999"')
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "non-existent-prompt/999"')
     assert len(traces) == 0
 
     # Test: Filter by correct name but wrong version
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='prompts = "qa-agent-system-prompt/999"'
-    )
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "qa-agent-system-prompt/999"')
     assert len(traces) == 0
 
 
@@ -6969,17 +6954,17 @@ def test_search_traces_with_prompts_filter_multiple_prompts(store: SqlAlchemySto
     )
 
     # Test: Filter by first prompt - should match both
-    traces, _ = store.search_traces([exp_id], filter_string='prompts = "prompt-a/1"')
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "prompt-a/1"')
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {trace1_id, trace2_id}
 
     # Test: Filter by second prompt - should only match trace2
-    traces, _ = store.search_traces([exp_id], filter_string='prompts = "prompt-b/2"')
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "prompt-b/2"')
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
 
     # Test: Filter by third prompt - should only match trace2
-    traces, _ = store.search_traces([exp_id], filter_string='prompts = "prompt-c/3"')
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "prompt-c/3"')
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
 
