@@ -4928,13 +4928,13 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         )
                     # Parse the filter value to extract name/version
                     # Expected format: "name/version"
-                    if "/" not in value:
+                    if value.count("/") != 1:
                         raise MlflowException(
                             f"Invalid prompts filter value '{value}'. "
                             'Expected format: prompt = "name/version"',
                             error_code=INVALID_PARAMETER_VALUE,
                         )
-                    parts = value.rsplit("/", 1)
+                    parts = value.split("/", 1)
                     prompt_name = parts[0]
                     prompt_version = parts[1]
                     # Search for the exact name/version combination in the JSON array

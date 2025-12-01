@@ -6887,6 +6887,7 @@ def test_search_traces_with_prompts_filter_invalid_comparator(
     ("filter_string", "invalid_value"),
     [
         ('prompt = "qa-agent-system-prompt"', "qa-agent-system-prompt"),
+        ('prompt = "foo/1/baz"', "foo/1/baz"),
         ('prompt = ""', ""),
     ],
 )
