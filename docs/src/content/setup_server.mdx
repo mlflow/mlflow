@@ -6,11 +6,13 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 <Tabs>
 <TabItem value="local" label="Local (pip)" default>
 
+**Python Environment**: Python 3.10+
+
 For the fastest setup, you can install the `mlflow` Python package via `pip` and start the MLflow server locally.
 
 ```bash
 pip install --upgrade mlflow
-mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+mlflow ui
 ```
 
 </TabItem>
@@ -20,7 +22,9 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 MLflow provides a Docker Compose file to start a local MLflow server with a postgres database and a minio server.
 
 ```bash
-git clone https://github.com/mlflow/mlflow.git
+git clone --depth 1 --filter=blob:none --sparse https://github.com/mlflow/mlflow.git
+cd mlflow
+git sparse-checkout set docker-compose
 cd docker-compose
 cp .env.dev.example .env
 docker compose up -d
