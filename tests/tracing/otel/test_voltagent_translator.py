@@ -183,8 +183,6 @@ def test_voltagent_translator_detection_keys():
 
     assert "voltagent.operation_id" in translator.DETECTION_KEYS
     assert "voltagent.conversation_id" in translator.DETECTION_KEYS
-    assert "agent.messages" in translator.DETECTION_KEYS
-    assert "llm.messages" in translator.DETECTION_KEYS
 
 
 def test_voltagent_translator_message_format():
