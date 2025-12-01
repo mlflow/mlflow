@@ -14,9 +14,9 @@ mlflow_view_url <- function(url) {
 #' library(mlflow)
 #'
 #' # launch mlflow server locally
-#' mlflow_ui()
+#' mlflow_server()
 #'
-#' # launch mlflow server for existing mlflow server
+#' # launch UI for existing mlflow server
 #' mlflow_set_tracking_uri("http://tracking-server:5000")
 #' mlflow_ui()
 #' }
