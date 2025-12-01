@@ -49,11 +49,11 @@ sort "$tmp_used" -o "$tmp_used"
 unused_paths="$(join -t $'\t' -v 1 "$tmp_image_map" "$tmp_used" | cut -f2)"
 
 if [[ -z "$unused_paths" ]]; then
-  echo "No unused images under docs/." >&2
+  echo "No unused media files" >&2
   exit 0
 fi
 
 echo "$unused_paths"
 echo >&2
-echo 'Unused media found. Run `./dev/find-unused-media.sh | xargs rm` to remove them.' >&2
+echo 'Unused media files found. Run `./dev/find-unused-media.sh | xargs rm` to remove them.' >&2
 exit 1
