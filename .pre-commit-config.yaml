@@ -181,12 +181,3 @@ repos:
         entry: "Please use MP4 instead of GIF for docs animations"
         files: ^docs/.*\.gif$
         stages: [pre-commit]
-
-      - id: unused-media
-        name: unused-media
-        entry: dev/find-unused-media.sh
-        language: system
-        types: [text]
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false

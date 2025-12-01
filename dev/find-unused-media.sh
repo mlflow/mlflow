@@ -6,6 +6,13 @@ set -euo pipefail
 #
 # Requires: git, ripgrep (rg)
 
+if ! command -v rg &> /dev/null; then
+  echo "Error: ripgrep (rg) is not installed. Please install it first." >&2
+  echo "  - macOS: brew install ripgrep" >&2
+  echo "  - Ubuntu: sudo apt-get install ripgrep" >&2
+  exit 1
+fi
+
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
@@ -28,7 +35,7 @@ fi
 awk -F/ '{print $NF "\t" $0}' "$tmp_images" > "$tmp_image_map"
 
 # 2) Extract used basenames from entire repo
-"$repo_root/bin/rg" -o --no-heading --no-line-number \
+rg -o --no-heading --no-line-number \
   '[^"'\''[:space:]()]+\.(png|jpe?g|gif|webp|ico|avif|mp4)\b' \
   . \
   | sed 's#.*/##' \

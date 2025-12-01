@@ -116,19 +116,6 @@ TOOLS = [
             ): "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Darwin-arm64",
         },
     ),
-    Tool(
-        name="rg",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-aarch64-apple-darwin.tar.gz",
-        },
-    ),
 ]
 
 
@@ -164,17 +151,16 @@ def extract_gzip_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
 
 def extract_tar_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
     print(f"Downloading from {url}...")
-    output_path = dest_dir / binary_name
     with (
         urllib.request.urlopen(url) as response,
         tarfile.open(fileobj=response, mode="r|*") as tar,
     ):
+        # Find and extract only the binary file we need
         for member in tar:
-            name = member.name.lstrip("./")
-            if member.isfile() and (name == binary_name or name.endswith(f"/{binary_name}")):
-                if f := tar.extractfile(member):
-                    output_path.write_bytes(f.read())
-                    return output_path
+            if member.isfile() and member.name.endswith(binary_name):
+                # Extract the file content and write directly to destination
+                tar.extract(member, dest_dir)
+                return dest_dir / binary_name
 
     raise FileNotFoundError(f"Could not find {binary_name} in archive")
 
