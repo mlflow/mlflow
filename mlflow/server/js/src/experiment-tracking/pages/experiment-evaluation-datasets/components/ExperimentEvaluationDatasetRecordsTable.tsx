@@ -91,6 +91,7 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
 
   // Auto-fetch more records when filtering reduces visible results but more pages exist.
   // This ensures we keep loading until we find matching records or exhaust all pages.
+  // TODO: Implement table virtualization to improve performance with large datasets.
   useEffect(() => {
     if (!searchFilter.trim() || isFetching || !hasNextPage) {
       return;
