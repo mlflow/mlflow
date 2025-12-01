@@ -974,7 +974,7 @@ class CalculateTraceFilterCorrelation(_message.Message):
     def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., filter_string1: _Optional[str] = ..., filter_string2: _Optional[str] = ..., base_filter: _Optional[str] = ...) -> None: ...
 
 class QueryTraceMetrics(_message.Message):
-    __slots__ = ("experiment_ids", "view_type", "metric_name", "aggregation_type", "dimensions", "filters", "time_granularity", "start_time_ms", "end_time_ms", "max_results", "page_token")
+    __slots__ = ("experiment_ids", "view_type", "metric_name", "aggregation_types", "dimensions", "filters", "time_granularity", "start_time_ms", "end_time_ms", "max_results", "page_token")
     class Response(_message.Message):
         __slots__ = ("data_points", "next_page_token")
         DATA_POINTS_FIELD_NUMBER: _ClassVar[int]
@@ -985,7 +985,7 @@ class QueryTraceMetrics(_message.Message):
     EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
     VIEW_TYPE_FIELD_NUMBER: _ClassVar[int]
     METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
-    AGGREGATION_TYPE_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATION_TYPES_FIELD_NUMBER: _ClassVar[int]
     DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
     FILTERS_FIELD_NUMBER: _ClassVar[int]
     TIME_GRANULARITY_FIELD_NUMBER: _ClassVar[int]
@@ -996,7 +996,7 @@ class QueryTraceMetrics(_message.Message):
     experiment_ids: _containers.RepeatedScalarFieldContainer[str]
     view_type: MetricsViewType
     metric_name: str
-    aggregation_type: _containers.RepeatedScalarFieldContainer[AggregationType]
+    aggregation_types: _containers.RepeatedScalarFieldContainer[AggregationType]
     dimensions: _containers.RepeatedScalarFieldContainer[str]
     filters: _containers.RepeatedScalarFieldContainer[str]
     time_granularity: TimeGranularity
@@ -1004,7 +1004,7 @@ class QueryTraceMetrics(_message.Message):
     end_time_ms: int
     max_results: int
     page_token: str
-    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., view_type: _Optional[_Union[MetricsViewType, str]] = ..., metric_name: _Optional[str] = ..., aggregation_type: _Optional[_Iterable[_Union[AggregationType, str]]] = ..., dimensions: _Optional[_Iterable[str]] = ..., filters: _Optional[_Iterable[str]] = ..., time_granularity: _Optional[_Union[TimeGranularity, str]] = ..., start_time_ms: _Optional[int] = ..., end_time_ms: _Optional[int] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., view_type: _Optional[_Union[MetricsViewType, str]] = ..., metric_name: _Optional[str] = ..., aggregation_types: _Optional[_Iterable[_Union[AggregationType, str]]] = ..., dimensions: _Optional[_Iterable[str]] = ..., filters: _Optional[_Iterable[str]] = ..., time_granularity: _Optional[_Union[TimeGranularity, str]] = ..., start_time_ms: _Optional[int] = ..., end_time_ms: _Optional[int] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
 
 class MetricDataPoint(_message.Message):
     __slots__ = ("dimensions", "metric_name", "values")

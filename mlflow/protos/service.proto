@@ -2830,7 +2830,7 @@ message QueryTraceMetrics {
   optional string metric_name = 3;
 
   // Required: The aggregation types to apply.
-  repeated AggregationType aggregation_type = 4;
+  repeated AggregationType aggregation_types = 4;
 
   // Optional: Dimensions to group metrics by.
   repeated string dimensions = 5;
