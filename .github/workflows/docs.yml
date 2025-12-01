@@ -68,18 +68,20 @@ jobs:
       - uses: ./.github/actions/show-versions
       - run: |
           npm run convert-notebooks
-      - name: Set API reference prefix
+      - name: Set alias
         id: api_prefix
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           if [ "$EVENT_NAME" = "push" ]; then
-            echo "value=dev" >> $GITHUB_OUTPUT
+            ALIAS="dev"
           else
-            echo "value=pr-$PR_NUMBER" >> $GITHUB_OUTPUT
+            ALIAS="pr-$PR_NUMBER"
           fi
-          cat $GITHUB_OUTPUT
+          echo "value=$ALIAS" >> $GITHUB_OUTPUT
+          echo "$ALIAS" > /tmp/alias.txt
+          cat /tmp/alias.txt
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
@@ -117,12 +119,6 @@ jobs:
 
       # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
       # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
-      - name: Save alias
-        env:
-          ALIAS: ${{ steps.api_prefix.outputs.value }}
-        run: |
-          echo "$ALIAS" > /tmp/alias.txt
-          cat /tmp/alias.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: alias
