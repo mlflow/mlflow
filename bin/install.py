@@ -35,9 +35,11 @@ class Tool:
         return self.urls.get(platform_key)
 
     def get_version_args(self) -> list[str]:
+        """Get version check arguments, defaulting to --version."""
         return self.version_args or ["--version"]
 
     def get_extract_type(self, url: str) -> ExtractType:
+        """Infer extract type from URL file extension."""
         if url.endswith(".gz") and not url.endswith(".tar.gz"):
             return "gzip"
         elif url.endswith((".tar.gz", ".tgz")):
@@ -230,31 +232,16 @@ def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
     print(f"Successfully installed {tool.name} to {binary_path}")
 
 
-def get_expected_versions() -> dict[str, str]:
-    return {tool.name: tool.version for tool in TOOLS}
-
-
 def load_installed_versions(dest_dir: Path) -> dict[str, str]:
-    versions_file = dest_dir / INSTALLED_VERSIONS_FILE
-    if versions_file.exists():
-        return json.loads(versions_file.read_text())
+    f = dest_dir / INSTALLED_VERSIONS_FILE
+    if f.exists():
+        return json.loads(f.read_text())
     return {}
 
 
 def save_installed_versions(dest_dir: Path, versions: dict[str, str]) -> None:
-    versions_file = dest_dir / INSTALLED_VERSIONS_FILE
-    versions_file.write_text(json.dumps(versions, indent=2) + "\n")
-
-
-def get_tools_needing_update(dest_dir: Path) -> list[str]:
-    installed = load_installed_versions(dest_dir)
-    expected = get_expected_versions()
-    outdated = []
-    for name, expected_version in expected.items():
-        installed_version = installed.get(name)
-        if installed_version != expected_version:
-            outdated.append(name)
-    return outdated
+    f = dest_dir / INSTALLED_VERSIONS_FILE
+    f.write_text(json.dumps(versions, indent=2) + "\n")
 
 
 def main() -> None:
@@ -270,29 +257,24 @@ def main() -> None:
     dest_dir = Path(__file__).resolve().parent
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    # Determine which tools need to be installed/updated
-    tools_to_update = set(get_tools_needing_update(dest_dir))
+    installed_versions = load_installed_versions(dest_dir)
+    outdated_tools = {t.name for t in TOOLS if installed_versions.get(t.name) != t.version}
     force_all = args.force_reinstall
 
     if force_all:
         print("Force reinstall: removing existing tools and reinstalling...")
-    elif tools_to_update:
-        print(f"Version changes detected for: {', '.join(sorted(tools_to_update))}")
+    elif outdated_tools:
+        print(f"Version changes detected for: {', '.join(sorted(outdated_tools))}")
     else:
         print("Installing all tools to bin/ directory...")
 
-    installed_versions = load_installed_versions(dest_dir)
-
     for tool in TOOLS:
         # Force reinstall if globally forced or if this tool's version changed
-        force = force_all or tool.name in tools_to_update
+        force = force_all or tool.name in outdated_tools
         print(f"\nInstalling {tool.name}...")
         install_tool(tool, dest_dir, force=force)
-
-        # Update installed version after successful install
         installed_versions[tool.name] = tool.version
 
-    # Save installed versions after successful installation
     save_installed_versions(dest_dir, installed_versions)
 
     print("\nAll tools installed successfully!")
