@@ -30,15 +30,6 @@ type VercelAIToolCallResult = {
 
 type VercelAIContentPart = VercelAITextContent | VercelAIImageContent | VercelAIToolCall | VercelAIToolCallResult;
 
-type VercelAIToolCallResult = {
-  type: 'tool-result';
-  toolCallId: string;
-  toolName: string;
-  output: any;
-};
-
-type VercelAIContentPart = VercelAITextContent | VercelAIImageContent | VercelAIToolCall | VercelAIToolCallResult;
-
 export type VercelAIMessage = {
   role: 'user' | 'assistant' | 'system' | 'tool' | 'function';
   content: string | VercelAIContentPart[];
