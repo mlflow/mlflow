@@ -46,12 +46,11 @@ def get_commits(branch: str):
             cwd=tmpdir,
         )
         pr_rgx = re.compile(r"([a-z0-9]+) .+\s+\(#(\d+)\)$")
-        commits = []
-        for commit in log_stdout.splitlines():
-            if m := pr_rgx.search(commit.rstrip()):
-                commits.append(Commit(sha=m.group(1), pr_num=int(m.group(2))))
-
-    return commits
+        return [
+            Commit(sha=m.group(1), pr_num=int(m.group(2)))
+            for commit in log_stdout.splitlines()
+            if (m := pr_rgx.search(commit.rstrip()))
+        ]
 
 
 @dataclass(frozen=True)

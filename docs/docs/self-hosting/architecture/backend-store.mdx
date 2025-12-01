@@ -1,4 +1,3 @@
-import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 
@@ -19,41 +18,34 @@ Large model artifacts such as model weight files are stored in the [artifact sto
 
 ## Types of Backend Stores
 
-### Relational Database (**Recommended**)
+### Relational Database (**Default**)
 
-MLflow supports different databases through SQLAlchemy, including `sqlite`, `postgresql`, `mysql`, and `mssql`. This option provides better performance through indexing and is easier to scale to larger volumes of data than the file system backend..
+MLflow supports different databases through SQLAlchemy, including `sqlite`, `postgresql`, `mysql`, and `mssql`. This option provides better performance through indexing and is easier to scale to larger volumes of data than the file system backend.
 
-SQLite is the easiest way to use to database backend. To use it, simply add `--backend-store-uri sqlite:///my.db` when starting MLflow. A database file will be created for you and it will be used to store your tracking data.
+**SQLite is the default backend store**. When you start MLflow without specifying a backend, it automatically creates and uses `sqlite:///mlflow.db` in the current directory. To use a different database such as PostgreSQL, specify `--backend-store-uri` when starting MLflow (e.g., `--backend-store-uri postgresql://...`).
 
-### Local File System (**Deprecated Soon**)
+### Local File System (**Legacy**)
 
-By default, MLflow stores metadata in local files in the `./mlruns` directory. This is for the pure sake of simplicity.
-For better performance and reliability, we always recommend using a database backend.
+The file-based backend stores metadata in local files in the `./mlruns` directory. This was the default backend in earlier versions of MLflow, but is still supported for backward compatibility.
+
+To use file-based storage, specify `--backend-store-uri ./mlruns` when starting the server, or set `MLFLOW_TRACKING_URI=./mlruns`.
 
 :::warning[TO BE DEPRECATED SOON]
 
-File system backend is in Keep-the-Light-On (KTLO) mode and will not receive most of the new features in MLflow.
-We recommend using the database backend instead. Database backend will also be the default option soon.
+File system backend is in Keep-the-Light-On (KTLO) mode and is no longer receiving new feature updates. We strongly recommend using the database backend (now the default) for better performance and reliability.
 
 :::
 
 ## Configure Backend Store
 
-By default, MLflow stores metadata in local files in the `./mlruns` directory, but MLflow can store metadata to databases as well.
-You can configure the location by passing the desired **tracking URI** to MLflow, via either of the following methods:
+You can configure a different backend store by passing the desired **tracking URI** to MLflow, via either of the following methods:
 
 - Set the `MLFLOW_TRACKING_URI` environment variable.
 - Call <APILink fn="mlflow.set_tracking_uri" /> in your code.
-- If you are running a [Tracking Server](/self-hosting/architecture/tracking-server), you can set the `tracking_uri` option when starting the server, like `mlflow server --backend-store-uri sqlite:///mydb.sqlite`
+- If you are running a [Tracking Server](/self-hosting/architecture/tracking-server), you can set the `--backend-store-uri` option when starting the server, like `mlflow server --backend-store-uri postgresql://...`
 
 Continue to the next section for the supported format of tracking URLs.
 Also visit [this guidance](/self-hosting/architecture/tracking-server) for how to set up the backend store properly for your workflow.
-
-:::warning important
-
-The default file backend works fine for small use cases where you only want to log less than 1000 runs, metrics, and traces. Otherwise, we **highly recommend using a database backend** for better performance and reliability.
-
-:::
 
 ## Supported Store Types
 

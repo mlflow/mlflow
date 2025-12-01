@@ -1,14 +1,14 @@
 name: docs
 
 on:
-  # TODO: Support deploying docs on push
-  # push:
-  #   paths:
-  #     - docs/**
-  #     - .github/workflows/docs.yml
-  #   branches:
-  #     - master
-  #     - branch-[0-9]+.[0-9]+
+  push:
+    paths:
+      - pyproject.toml
+      - mlflow/**
+      - docs/**
+      - .github/workflows/docs.yml
+    branches:
+      - master
   pull_request:
     types:
       - opened
@@ -27,6 +27,7 @@ concurrency:
 
 defaults:
   run:
+    shell: bash
     working-directory: docs
 
 jobs:
@@ -61,8 +62,7 @@ jobs:
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
       - run: |
-          uv pip install --system pytest pytest-cov plotly -r ../requirements/doc-requirements.txt
-          uv pip install --system -e '..[gateway]'
+          uv pip install --system -r ../requirements/doc-requirements.txt '..[gateway]' pytest
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
@@ -84,10 +84,6 @@ jobs:
             git diff api_reference/api_inventory.txt
             exit 1
           fi
-      - name: Test examples
-        working-directory: docs/api_reference
-        run: |
-          make test-examples
       - name: Check sitemap
         run: |
           npm run sitemap -- https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
@@ -109,18 +105,45 @@ jobs:
 
       # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
       # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
-      - name: Save PR number
+      - name: Save alias
         env:
+          EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo $PR_NUMBER > /tmp/pr_number.txt
-          cat /tmp/pr_number.txt
+          if [ "$EVENT_NAME" = "push" ]; then
+            echo "dev" > /tmp/alias.txt
+          else
+            echo "pr-$PR_NUMBER" > /tmp/alias.txt
+          fi
+          cat /tmp/alias.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: pr_number
-          path: /tmp/pr_number.txt
+          name: alias
+          path: /tmp/alias.txt
           retention-days: 1
           if-no-files-found: error
+
+  test-examples:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs/api_reference
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: |
+          uv pip install --system -r ../../requirements/doc-requirements.txt '../..[gateway]' pytest
+      - name: Extract examples
+        run: |
+          python source/testcode_block.py
+      - name: Run tests
+        run: |
+          pytest .examples
 
   r:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

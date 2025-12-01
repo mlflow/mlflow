@@ -5,6 +5,7 @@ from typing import Callable
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
+from mlflow.genai.judges.constants import USE_CASE_CUSTOM_PROMPT_JUDGE
 from mlflow.genai.judges.utils import (
     get_default_model,
     invoke_judge_model,
@@ -131,7 +132,9 @@ def custom_prompt_judge(
             prompt = _add_structured_output_instructions(prompt)
 
             # Call the judge
-            feedback = invoke_judge_model(model, prompt, name)
+            feedback = invoke_judge_model(
+                model, prompt, name, use_case=USE_CASE_CUSTOM_PROMPT_JUDGE
+            )
             feedback.source = source
 
             # Feedback value must be one of the choices

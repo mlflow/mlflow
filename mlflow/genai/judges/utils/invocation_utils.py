@@ -65,6 +65,7 @@ def invoke_judge_model(
     trace: Trace | None = None,
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
+    use_case: str | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
@@ -83,6 +84,9 @@ def invoke_judge_model(
         trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
         response_format: Optional Pydantic model class for structured output format.
+        use_case: The use case for the chat completion. Only applicable when using the
+            Databricks default judge and only used if supported by the installed
+            databricks-agents version.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -91,7 +95,7 @@ def invoke_judge_model(
         MlflowException: If the model cannot be invoked or dependencies are missing.
     """
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-        return _invoke_databricks_default_judge(prompt, assessment_name)
+        return _invoke_databricks_default_judge(prompt, assessment_name, use_case=use_case)
 
     from mlflow.metrics.genai.model_utils import _parse_model_uri
     from mlflow.types.llm import ChatMessage

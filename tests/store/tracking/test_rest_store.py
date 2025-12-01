@@ -67,6 +67,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     GetLoggedModel,
     GetScorer,
+    GetTrace,
     GetTraceInfoV3,
     ListScorers,
     ListScorerVersions,
@@ -1304,6 +1305,62 @@ def test_get_trace_info():
         assert result.assessments[1].name == "feedback_error"
         assert result.assessments[2].name == "expectation"
         assert result.assessments[3].name == "complex_expectation"
+
+
+def test_get_trace():
+    # Generate a sample trace with spans
+    with mlflow.start_span(name="root_span") as span:
+        span.set_inputs({"input": "value"})
+        span.set_outputs({"output": "value"})
+        with mlflow.start_span(name="child_span") as child:
+            child.set_inputs({"child_input": "child_value"})
+
+    trace = mlflow.get_trace(span.trace_id)
+    trace_proto = trace.to_proto()
+    mock_response = GetTrace.Response(trace=trace_proto)
+
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
+        result = store.get_trace(span.trace_id, allow_partial=True)
+
+        # Verify we get the expected object back
+        assert isinstance(result, Trace)
+        assert result.info.trace_id == span.trace_id
+        assert len(result.data.spans) == 2
+
+        # Verify the endpoint was called with correct parameters
+        mock_call.assert_called_once()
+        call_args = mock_call.call_args
+        assert call_args[0][0] == GetTrace
+        # Check the request body contains the trace_id and allow_partial
+        request_body_json = json.loads(call_args[0][1])
+        assert request_body_json["trace_id"] == span.trace_id
+        assert request_body_json["allow_partial"] is True
+
+
+def test_get_trace_with_allow_partial_false():
+    # Generate a sample trace
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"input": "value"})
+
+    trace = mlflow.get_trace(span.trace_id)
+    trace_proto = trace.to_proto()
+    mock_response = GetTrace.Response(trace=trace_proto)
+
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
+        result = store.get_trace(span.trace_id, allow_partial=False)
+
+        # Verify we get the expected object back
+        assert isinstance(result, Trace)
+        assert result.info.trace_id == span.trace_id
+
+        # Verify the endpoint was called with allow_partial=False
+        call_args = mock_call.call_args
+        request_body_json = json.loads(call_args[0][1])
+        assert request_body_json["allow_partial"] is False
 
 
 def test_log_logged_model_params():

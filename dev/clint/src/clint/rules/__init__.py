@@ -1,3 +1,4 @@
+from clint.rules.assign_before_append import AssignBeforeAppend
 from clint.rules.base import Rule
 from clint.rules.do_not_disable import DoNotDisable
 from clint.rules.docstring_param_order import DocstringParamOrder
@@ -45,6 +46,7 @@ from clint.rules.unknown_mlflow_function import UnknownMlflowFunction
 from clint.rules.unnamed_thread import UnnamedThread
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
 from clint.rules.use_sys_executable import UseSysExecutable
+from clint.rules.use_walrus_operator import UseWalrusOperator, WalrusOperatorVisitor
 from clint.rules.version_major_check import MajorVersionCheck
 
 ALL_RULES = {rule.name for rule in Rule.__subclasses__()}
@@ -96,6 +98,9 @@ __all__ = [
     "MultiAssign",
     "UnnamedThread",
     "UnparameterizedGenericType",
+    "AssignBeforeAppend",
     "UseSysExecutable",
+    "UseWalrusOperator",
+    "WalrusOperatorVisitor",
     "MajorVersionCheck",
 ]

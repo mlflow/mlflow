@@ -78,6 +78,7 @@ export const useUpdateAssessment = ({
         logCachedUpdateAction(assessment.trace_id, assessment);
       }
       queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, assessment.trace_id] });
+      updateTraceVariables.invalidateTraceQuery?.(assessment.trace_id);
       invalidateMlflowSearchTracesCache({ queryClient });
       onSuccess?.();
     },
