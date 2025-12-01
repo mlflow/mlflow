@@ -10,6 +10,7 @@ from mlflow.entities import ScorerVersion, Span, Trace, TraceData, TraceInfo, Tr
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
+    PromptVersion,
     RegisteredModel,
     RegisteredModelTag,
 )
@@ -54,6 +55,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTraceTagV3,
     GetScorer,
     GetTrace,
+    LinkPromptsToTrace,
     ListScorers,
     ListScorerVersions,
     RegisterScorer,
@@ -107,6 +109,7 @@ from mlflow.server.handlers import (
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
+    _link_prompts_to_trace,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
@@ -2415,6 +2418,44 @@ def test_set_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store)
     # Verify the store method was called with correct parameters
     # Note: Both handlers call the same store method
     mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_store):
+    """Test link_prompts_to_trace handler.
+
+    Verifies that the handler correctly parses the request and calls
+    store.link_prompts_to_trace() with the appropriate PromptVersion objects.
+    """
+    trace_id = "tr-test-123"
+    prompt_versions_refs = [
+        LinkPromptsToTrace.PromptVersionRef(name="prompt1", version="1"),
+        LinkPromptsToTrace.PromptVersionRef(name="prompt2", version="2"),
+    ]
+
+    # Create the request message
+    request_msg = LinkPromptsToTrace(trace_id=trace_id, prompt_versions=prompt_versions_refs)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the handler
+    response = _link_prompts_to_trace()
+
+    # Verify the store method was called with correct parameters
+    # The handler should convert PromptVersionRef to PromptVersion objects
+    call_args = mock_tracking_store.link_prompts_to_trace.call_args
+    assert call_args[1]["trace_id"] == trace_id
+
+    prompt_versions = call_args[1]["prompt_versions"]
+    assert len(prompt_versions) == 2
+    assert isinstance(prompt_versions[0], PromptVersion)
+    assert prompt_versions[0].name == "prompt1"
+    assert prompt_versions[0].version == 1
+    assert isinstance(prompt_versions[1], PromptVersion)
+    assert prompt_versions[1].name == "prompt2"
+    assert prompt_versions[1].version == 2
 
     # Verify response was created (200 status)
     assert response is not None

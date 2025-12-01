@@ -872,6 +872,25 @@ service MlflowService {
     };
   }
 
+  // Links prompt versions to a trace by creating entity associations.
+  // This API allows associating multiple prompt versions with traces for prompt tracking workflows.
+  rpc linkPromptsToTrace(LinkPromptsToTrace) returns (LinkPromptsToTrace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/link-prompts"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Link Prompts to Trace"
+    };
+  }
+
   // Edge endpoint used to search for online traces from an inference table.
   rpc searchUnifiedTraceHandler(SearchUnifiedTraces) returns (SearchUnifiedTraces.Response) {
     option (rpc) = {
@@ -2916,6 +2935,21 @@ message LinkTracesToRun {
 
   // ID of the run to link the traces to.
   optional string run_id = 2 [(validate_required) = true];
+
+  message Response {}
+}
+
+message LinkPromptsToTrace {
+  // ID of the trace to link prompt versions to.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Prompt version references to link to the trace.
+  // Each reference contains the prompt name and version.
+  message PromptVersionRef {
+    optional string name = 1 [(validate_required) = true];
+    optional string version = 2 [(validate_required) = true];
+  }
+  repeated PromptVersionRef prompt_versions = 2;
 
   message Response {}
 }

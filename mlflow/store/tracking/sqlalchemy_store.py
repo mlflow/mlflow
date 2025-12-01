@@ -54,6 +54,7 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
@@ -3157,6 +3158,49 @@ class SqlAlchemyStore(AbstractStore):
                 for trace_id in trace_ids_to_add
             )
 
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
+        """
+        if not prompt_versions:
+            return
+
+        with self.ManagedSessionMaker() as session:
+            # Build list of prompt version IDs (format: "name/version")
+            prompt_ids = [f"{pv.name}/{pv.version}" for pv in prompt_versions]
+
+            # Check for existing associations
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                    SqlEntityAssociation.source_id == trace_id,
+                    SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
+                    SqlEntityAssociation.destination_id.in_(prompt_ids),
+                )
+                .all()
+            )
+            existing_prompt_ids = {
+                association.destination_id for association in existing_associations
+            }
+
+            prompt_ids_to_add = [pid for pid in prompt_ids if pid not in existing_prompt_ids]
+
+            session.add_all(
+                SqlEntityAssociation(
+                    association_id=uuid.uuid4().hex,
+                    source_type=EntityAssociationType.TRACE,
+                    source_id=trace_id,
+                    destination_type=EntityAssociationType.PROMPT_VERSION,
+                    destination_id=prompt_id,
+                )
+                for prompt_id in prompt_ids_to_add
+            )
+
     def calculate_trace_filter_correlation(
         self,
         experiment_ids: list[str],
@@ -4916,8 +4960,8 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 continue
 
             if SearchTraceUtils.is_tag(key_type, comparator):
-                entity = SqlTraceTag
                 # Special handling for prompts filter: only support exact match with name/version
+                # Uses EntityAssociation table for linkage
                 if key_name == TraceTagKey.LINKED_PROMPTS:
                     # Only support = comparator for prompts filter
                     if comparator != "=":
@@ -4934,25 +4978,23 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                             'Expected format: prompt = "name/version"',
                             error_code=INVALID_PARAMETER_VALUE,
                         )
-                    parts = value.split("/", 1)
-                    prompt_name = parts[0]
-                    prompt_version = parts[1]
-                    # Search for the exact name/version combination in the JSON array
-                    # We need to match: {"name": "prompt_name", "version": "prompt_version"}
-                    tag_value = json.dumps(
-                        {"name": f"{prompt_name}", "version": f"{prompt_version}"}
+                    # Query EntityAssociation table for trace<>prompt linkage
+                    # The prompt version ID is stored as "name/version"
+                    prompt_id = value
+                    association_subquery = (
+                        session.query(SqlEntityAssociation.source_id.label("request_id"))
+                        .filter(
+                            SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                            SqlEntityAssociation.destination_type
+                            == EntityAssociationType.PROMPT_VERSION,
+                            SqlEntityAssociation.destination_id == prompt_id,
+                        )
+                        .distinct()
+                        .subquery()
                     )
-                    val_filter = SearchTraceUtils.get_sql_comparison_func("LIKE", dialect)(
-                        entity.value,
-                        f"%{tag_value}%",
-                    )
-                    key_filter = SearchTraceUtils.get_sql_comparison_func("=", dialect)(
-                        entity.key, key_name
-                    )
-                    non_attribute_filters.append(
-                        session.query(entity).filter(key_filter, val_filter).subquery()
-                    )
+                    span_filters.append(association_subquery)
                     continue
+                entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata
             elif SearchTraceUtils.is_span(key_type, key_name, comparator):

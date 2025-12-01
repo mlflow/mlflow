@@ -46,6 +46,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
@@ -6804,40 +6805,31 @@ def test_search_traces_with_prompts_filter(store: SqlAlchemyStore):
     trace4_id = "trace4"
 
     # Trace 1: linked to qa-agent-system-prompt version 4
-    _create_trace(
-        store,
-        trace1_id,
-        exp_id,
-        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "qa-agent-system-prompt", "version": "4"}]'},
+    _create_trace(store, trace1_id, exp_id)
+    store.link_prompts_to_trace(
+        trace1_id, [PromptVersion(name="qa-agent-system-prompt", version=4, template="")]
     )
 
     # Trace 2: linked to qa-agent-system-prompt version 5
-    _create_trace(
-        store,
-        trace2_id,
-        exp_id,
-        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "qa-agent-system-prompt", "version": "5"}]'},
+    _create_trace(store, trace2_id, exp_id)
+    store.link_prompts_to_trace(
+        trace2_id, [PromptVersion(name="qa-agent-system-prompt", version=5, template="")]
     )
 
     # Trace 3: linked to chat-assistant-prompt version 1
-    _create_trace(
-        store,
-        trace3_id,
-        exp_id,
-        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "chat-assistant-prompt", "version": "1"}]'},
+    _create_trace(store, trace3_id, exp_id)
+    store.link_prompts_to_trace(
+        trace3_id, [PromptVersion(name="chat-assistant-prompt", version=1, template="")]
     )
 
     # Trace 4: linked to multiple prompts
-    _create_trace(
-        store,
+    _create_trace(store, trace4_id, exp_id)
+    store.link_prompts_to_trace(
         trace4_id,
-        exp_id,
-        tags={
-            TraceTagKey.LINKED_PROMPTS: (
-                '[{"name": "qa-agent-system-prompt", "version": "4"}, '
-                '{"name": "chat-assistant-prompt", "version": "2"}]'
-            )
-        },
+        [
+            PromptVersion(name="qa-agent-system-prompt", version=4, template=""),
+            PromptVersion(name="chat-assistant-prompt", version=2, template=""),
+        ],
     )
 
     # Test: Filter by exact prompt name/version
@@ -6909,11 +6901,9 @@ def test_search_traces_with_prompts_filter_no_matches(store: SqlAlchemyStore):
 
     # Create traces with linked prompts
     trace1_id = "trace1"
-    _create_trace(
-        store,
-        trace1_id,
-        exp_id,
-        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "qa-agent-system-prompt", "version": "4"}]'},
+    _create_trace(store, trace1_id, exp_id)
+    store.link_prompts_to_trace(
+        trace1_id, [PromptVersion(name="qa-agent-system-prompt", version=4, template="")]
     )
 
     # Test: Filter by non-existent prompt
@@ -6933,25 +6923,18 @@ def test_search_traces_with_prompts_filter_multiple_prompts(store: SqlAlchemySto
     trace2_id = "trace2"
 
     # Trace 1: Single prompt
-    _create_trace(
-        store,
-        trace1_id,
-        exp_id,
-        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "prompt-a", "version": "1"}]'},
-    )
+    _create_trace(store, trace1_id, exp_id)
+    store.link_prompts_to_trace(trace1_id, [PromptVersion(name="prompt-a", version=1, template="")])
 
     # Trace 2: Multiple prompts
-    _create_trace(
-        store,
+    _create_trace(store, trace2_id, exp_id)
+    store.link_prompts_to_trace(
         trace2_id,
-        exp_id,
-        tags={
-            TraceTagKey.LINKED_PROMPTS: (
-                '[{"name": "prompt-a", "version": "1"}, '
-                '{"name": "prompt-b", "version": "2"}, '
-                '{"name": "prompt-c", "version": "3"}]'
-            )
-        },
+        [
+            PromptVersion(name="prompt-a", version=1, template=""),
+            PromptVersion(name="prompt-b", version=2, template=""),
+            PromptVersion(name="prompt-c", version=3, template=""),
+        ],
     )
 
     # Test: Filter by first prompt - should match both

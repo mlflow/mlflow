@@ -898,15 +898,18 @@ class AbstractStore:
 
     def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
         """
-        Link multiple prompt versions to a trace.
+        Link multiple prompt versions to a trace using EntityAssociation table.
 
-        Default implementation sets a tag on the trace. Stores can override with custom behavior.
+        Falls back to tag-based linking if tracking store doesn't implement the method.
 
         Args:
             prompt_versions: List of PromptVersion objects to link.
             trace_id: Trace ID to link to each prompt version.
         """
         from mlflow.tracing.client import TracingClient
+        from mlflow.tracing.constant import TraceTagKey
+        from mlflow.tracing.utils.prompt import update_linked_prompts_tag
+        from mlflow.tracking import _get_store as _get_tracking_store
 
         client = TracingClient()
         with self._prompt_link_lock:
@@ -917,17 +920,22 @@ class AbstractStore:
                     error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                 )
 
-            # Use utility function to update linked prompts tag
-            current_tag_value = trace_info.tags.get(TraceTagKey.LINKED_PROMPTS)
-            updated_tag_value = update_linked_prompts_tag(current_tag_value, prompt_versions)
+            # Try to use the tracking store's EntityAssociation-based linking
+            tracking_store = _get_tracking_store()
+            try:
+                tracking_store.link_prompts_to_trace(trace_id, prompt_versions)
+            except NotImplementedError:
+                # Fall back to tag-based linking for stores that don't support EntityAssociation
+                current_tag_value = trace_info.tags.get(TraceTagKey.LINKED_PROMPTS)
+                updated_tag_value = update_linked_prompts_tag(current_tag_value, prompt_versions)
 
-            # Only update if the tag value actually changed (avoiding redundant updates)
-            if current_tag_value != updated_tag_value:
-                client.set_trace_tag(
-                    trace_id,
-                    TraceTagKey.LINKED_PROMPTS,
-                    updated_tag_value,
-                )
+                # Only update if the tag value actually changed (avoiding redundant updates)
+                if current_tag_value != updated_tag_value:
+                    client.set_trace_tag(
+                        trace_id,
+                        TraceTagKey.LINKED_PROMPTS,
+                        updated_tag_value,
+                    )
 
     def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
