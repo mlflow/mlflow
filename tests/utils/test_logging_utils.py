@@ -10,7 +10,7 @@ import pytest
 
 import mlflow
 from mlflow.utils import logging_utils
-from mlflow.utils.logging_utils import eprint, suppress_logs
+from mlflow.utils.logging_utils import LOGGING_LINE_FORMAT, eprint, suppress_logs
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -181,15 +181,10 @@ assert logging.getLogger("mlflow").isEnabledFor({expected_level})
     )
 
 
-@pytest.mark.parametrize(
-    ("configure_logging", "expected_format"),
-    [
-        ("0", "CUSTOM: %(name)s - %(message)s"),
-        # this is default format in alembic.ini
-        ("1", "%(asctime)s %(levelname)-5.5s [%(name)s] %(message)s"),
-    ],
-)
-def test_alembic_logging_respects_configure_flag(configure_logging: str, expected_format: str):
+@pytest.mark.parametrize("configure_logging", ["0", "1"])
+def test_alembic_logging_respects_configure_flag(configure_logging: str):
+    user_specified_format = "CUSTOM: %(name)s - %(message)s"
+    actual_format = user_specified_format if configure_logging == "0" else LOGGING_LINE_FORMAT
     code = f"""
 import logging
 import os
@@ -197,7 +192,7 @@ import tempfile
 import shutil
 
 # user-specified format, this should only take effect if configure_logging is 0
-logging.basicConfig(level=logging.INFO, format="CUSTOM: %(name)s - %(message)s")
+logging.basicConfig(level=logging.INFO, format={user_specified_format!r})
 os.environ["MLFLOW_CONFIGURE_LOGGING"] = {configure_logging!r}
 
 temp_dir = tempfile.mkdtemp()
@@ -208,10 +203,19 @@ import mlflow
 with mlflow.start_run():
     pass
 
-root_logger = logging.getLogger()
-actual_format = root_logger.handlers[0].formatter._fmt
+# Check the alembic logger format, which is now configured in _configure_mlflow_loggers
+alembic_logger = logging.getLogger("alembic")
+if {configure_logging!r} == "1":
+    # When MLFLOW_CONFIGURE_LOGGING is enabled, alembic logger has its own handler
+    assert len(alembic_logger.handlers) > 0
+    actual_format = alembic_logger.handlers[0].formatter._fmt
+else:
+    # When MLFLOW_CONFIGURE_LOGGING is disabled, alembic logger propagates to root
+    assert alembic_logger.propagate
+    root_logger = logging.getLogger()
+    actual_format = root_logger.handlers[0].formatter._fmt
 
-assert actual_format == {expected_format!r}
+assert actual_format == {actual_format!r}
 
 shutil.rmtree(temp_dir)
 """
