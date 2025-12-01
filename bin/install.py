@@ -258,13 +258,13 @@ def main() -> None:
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     installed_versions = load_installed_versions(dest_dir)
-    outdated_tools = {t.name for t in TOOLS if installed_versions.get(t.name) != t.version}
+    outdated_tools = sorted(t.name for t in TOOLS if installed_versions.get(t.name) != t.version)
     force_all = args.force_reinstall
 
     if force_all:
         print("Force reinstall: removing existing tools and reinstalling...")
     elif outdated_tools:
-        print(f"Version changes detected for: {', '.join(sorted(outdated_tools))}")
+        print(f"Version changes detected for: {', '.join(outdated_tools)}")
     else:
         print("Installing all tools to bin/ directory...")
 
@@ -276,7 +276,6 @@ def main() -> None:
         installed_versions[tool.name] = tool.version
 
     save_installed_versions(dest_dir, installed_versions)
-
     print("\nAll tools installed successfully!")
 
 
