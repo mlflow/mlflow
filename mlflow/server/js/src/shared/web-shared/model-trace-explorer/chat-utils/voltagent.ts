@@ -239,7 +239,7 @@ export const synthesizeVoltAgentChatMessages = (
 
   messages.push(...inputMessages);
 
-  const toolSpans = children.filter((child) => child.type === 'TOOL' || child.attributes?.['span.type'] === 'tool');
+  const toolSpans = children.filter((child) => child.attributes?.['span.type'] === 'tool');
 
   if (toolSpans.length > 0) {
     const toolCalls: ModelTraceToolCall[] = toolSpans.map((toolSpan) => {

@@ -142,12 +142,8 @@ def _get_message_format(attributes: dict[str, Any]) -> str | None:
         Message format string or None if not found
     """
     for translator in _TRANSLATORS:
-        if hasattr(translator, "MESSAGE_FORMAT") and translator.MESSAGE_FORMAT:
-            # Check if this translator has detection keys defined
-            if hasattr(translator, "DETECTION_KEYS"):
-                for key in translator.DETECTION_KEYS:
-                    if key in attributes:
-                        return translator.MESSAGE_FORMAT
+        if message_format := translator.get_message_format(attributes):
+            return message_format
     return None
 
 

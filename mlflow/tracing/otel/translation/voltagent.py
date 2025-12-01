@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from mlflow.entities.span import SpanType
@@ -18,7 +19,7 @@ class VoltAgentTranslator(OtelSchemaTranslator):
     OUTPUT_VALUE_KEYS = ["output"]
 
     # Span type mapping
-    SPAN_KIND_ATTRIBUTE_KEY = "span.type"
+    SPAN_KIND_ATTRIBUTE_KEY = "entity.type"
     SPAN_KIND_TO_MLFLOW_TYPE = {
         "agent": SpanType.AGENT,
         "llm": SpanType.LLM,
@@ -33,26 +34,57 @@ class VoltAgentTranslator(OtelSchemaTranslator):
     DETECTION_KEYS = [
         "voltagent.operation_id",
         "voltagent.conversation_id",
-        "agent.messages",
-        "llm.messages",
     ]
+
+    def _decode_json_value(self, value: Any) -> Any:
+        """Decode JSON-serialized string values."""
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return value
 
     def translate_span_type(self, attributes: dict[str, Any]) -> str | None:
         """
         Translate VoltAgent span type to MLflow span type.
 
-        Checks both `span.type` (for LLM/tool spans) and `entity.type` (for agent spans).
-        """
-        # Check span.type first
-        span_type = super().translate_span_type(attributes)
-        if span_type:
-            return span_type
+        VoltAgent uses different attributes for different span types:
+        - Child spans (LLM/tool/memory): span.type attribute
+        - Root agent spans: entity.type attribute (no span.type set)
 
-        # Fallback to entity.type for agent spans
-        entity_type = attributes.get("entity.type")
+        We check span.type FIRST because child spans have entity.type set to
+        their parent agent's type ("agent"), not their own type. Only root
+        agent spans have entity.type correctly set to "agent" without span.type.
+        """
+        # Check span.type first (for LLM/tool/memory child spans)
+        # Child spans inherit entity.type from parent, so we must check span.type first
+        span_type = self._decode_json_value(attributes.get("span.type"))
+        if span_type and span_type in self.SPAN_KIND_TO_MLFLOW_TYPE:
+            return self.SPAN_KIND_TO_MLFLOW_TYPE[span_type]
+
+        # Fallback to entity.type (for root agent spans which don't have span.type)
+        entity_type = self._decode_json_value(attributes.get(self.SPAN_KIND_ATTRIBUTE_KEY))
         if entity_type and entity_type in self.SPAN_KIND_TO_MLFLOW_TYPE:
             return self.SPAN_KIND_TO_MLFLOW_TYPE[entity_type]
 
+        return None
+
+    def get_message_format(self, attributes: dict[str, Any]) -> str | None:
+        """
+        Get message format identifier for VoltAgent traces.
+
+        Returns 'voltagent' if VoltAgent-specific attributes are detected.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            'voltagent' if VoltAgent attributes detected, None otherwise
+        """
+        for key in self.DETECTION_KEYS:
+            if key in attributes:
+                return self.MESSAGE_FORMAT
         return None
 
     def get_input_tokens(self, attributes: dict[str, Any]) -> int | None:

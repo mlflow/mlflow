@@ -28,6 +28,21 @@ class OtelSchemaTranslator:
     INPUT_VALUE_KEYS: list[str] | None = None
     OUTPUT_VALUE_KEYS: list[str] | None = None
 
+    def get_message_format(self, attributes: dict[str, Any]) -> str | None:
+        """
+        Get message format identifier for chat UI rendering.
+
+        Subclasses should override this method to return their format identifier
+        when they can handle the given attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Message format string or None if not applicable
+        """
+        return None
+
     def translate_span_type(self, attributes: dict[str, Any]) -> str | None:
         """
         Translate OTEL span kind attribute to MLflow span type.
