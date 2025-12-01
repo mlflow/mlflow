@@ -163,6 +163,7 @@
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-jest": "^26.5.3",
     "eslint-plugin-jsx-a11y": "^6.7.1",
+    "eslint-plugin-mlflow": "link:./custom-eslint-rules/",
     "eslint-plugin-no-lookahead-lookbehind-regexp": "^0.1.0",
     "eslint-plugin-no-only-tests": "^2.6.0",
     "eslint-plugin-node": "5.2.1",
@@ -228,6 +229,5 @@
         ]
       }
     }
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  }
 }
