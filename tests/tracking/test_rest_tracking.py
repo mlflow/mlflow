@@ -13,7 +13,6 @@ import subprocess
 import sys
 import time
 import urllib.parse
-from io import StringIO
 from pathlib import Path
 from unittest import mock
 
