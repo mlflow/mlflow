@@ -197,8 +197,6 @@ build = ["pip", "setuptools", "wheel", "build"]
 docs = [
   # doc-min-requirements.txt
   "sphinx==4.2.0",
-  "jinja2==3.0.3",
-  "flask<=2.2.5",
   "sphinx-autobuild",
   "sphinx-click",
   "sphinx-tabs==3.2.0",
@@ -212,8 +210,7 @@ docs = [
   "nbformat",
   "nbsphinx==0.8.8",
   # doc-requirements.txt
-  "tensorflow-cpu==2.16.2; platform_system!='Darwin' or platform_machine!='arm64'",
-  "tensorflow-macos==2.16.2; platform_system=='Darwin' and platform_machine=='arm64'",
+  "tensorflow",
   "pyspark",
   "datasets",
   "plotly",
