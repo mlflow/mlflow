@@ -804,9 +804,6 @@ def load_prompt(
     if run := _get_latest_active_run():
         client.link_prompt_version_to_run(run.info.run_id, prompt)
 
-    if experiment_id := _get_experiment_id():
-        client._link_prompt_to_experiment(prompt, experiment_id)
-
     if link_to_model:
         model_id = model_id or get_active_model_id()
         if model_id is not None:
@@ -868,7 +865,14 @@ def _load_prompt_not_cached(
     """
     client = MlflowClient()
     prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
-    return client.load_prompt(prompt_uri, allow_missing=allow_missing)
+    prompt = client.load_prompt(prompt_uri, allow_missing=allow_missing)
+
+    # Link the prompt to the active experiment. This is called only when
+    # the prompt is loaded from the registry to avoid performance overhead.
+    if experiment_id := _get_experiment_id():
+        client._link_prompt_to_experiment(prompt, experiment_id)
+
+    return prompt
 
 
 @require_prompt_registry

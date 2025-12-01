@@ -23,6 +23,13 @@ def join_thread_by_name_prefix(prefix: str):
             t.join()
 
 
+@pytest.fixture(autouse=True)
+def wait_for_linkage_threads_to_complete():
+    yield
+    join_thread_by_name_prefix("link_prompt_thread")
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+
 def test_prompt_api_migration_warning():
     with pytest.warns(FutureWarning, match="The `mlflow.register_prompt` API is"):
         mlflow.register_prompt("test_prompt", "test_template")
@@ -1394,13 +1401,8 @@ def test_search_prompts_same_prompt_multiple_experiments():
     exp_id_1 = mlflow.create_experiment("test_multi_exp_1")
     exp_id_2 = mlflow.create_experiment("test_multi_exp_2")
 
-    mlflow.genai.register_prompt(name="shared_search_prompt", template="Shared: {{x}}")
-
     mlflow.set_experiment(experiment_id=exp_id_1)
-    mlflow.genai.load_prompt("shared_search_prompt", version=1)
-
-    # Wait for the links to be established
-    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+    mlflow.genai.register_prompt(name="shared_search_prompt", template="Shared: {{x}}")
 
     mlflow.set_experiment(experiment_id=exp_id_2)
     mlflow.genai.load_prompt("shared_search_prompt", version=1)

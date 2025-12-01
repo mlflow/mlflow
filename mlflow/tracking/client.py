@@ -698,11 +698,10 @@ class MlflowClient:
                             key=PROMPT_EXPERIMENT_IDS_TAG_KEY,
                             value=exp_ids,
                         )
-            except Exception:
+            except Exception as e:
                 _logger.warning(
                     f"Failed to tag prompt '{prompt_version.name}' with experiment ID "
-                    f"{experiment_id}.",
-                    exc_info=True,
+                    f"{experiment_id}. Error: {e}",
                 )
 
         threading.Thread(
