@@ -1061,12 +1061,9 @@ def get_sgc_job_run_id() -> str | None:
         str or None: The SGC job run ID if available, otherwise None. Returns None
         when neither the widget nor environment variable is set.
     """
-    job_run_id = None
-
     try:
         dbutils = _get_dbutils()
-        job_run_id = dbutils.widgets.get("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID")
-        if job_run_id:
+        if job_run_id := dbutils.widgets.get("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"):
             _logger.debug(f"SGC job run ID from dbutils widget: {job_run_id}")
             return job_run_id
     except _NoDbutilsError:
@@ -1074,8 +1071,7 @@ def get_sgc_job_run_id() -> str | None:
     except Exception as e:
         _logger.debug(f"Failed to retrieve SGC job run ID from dbutils widget: {e}", exc_info=True)
 
-    job_run_id = _SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID.get()
-    if job_run_id:
+    if job_run_id := _SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID.get():
         _logger.debug(f"SGC job run ID from environment variable: {job_run_id}")
         return job_run_id
 
