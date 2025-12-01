@@ -68,10 +68,22 @@ jobs:
       - uses: ./.github/actions/show-versions
       - run: |
           npm run convert-notebooks
+      - name: Set API reference prefix
+        id: api_prefix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ]; then
+            echo "value=https://dev--mlflow-docs-preview.netlify.app/docs/" >> $GITHUB_OUTPUT
+          else
+            echo "value=https://pr-$PR_NUMBER--mlflow-docs-preview.netlify.app/docs/" >> $GITHUB_OUTPUT
+          fi
+          cat $GITHUB_OUTPUT
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
-          API_REFERENCE_PREFIX: ${{ github.event_name == 'push' && 'https://dev--mlflow-docs-preview.netlify.app/docs/' || format('https://pr-{0}--mlflow-docs-preview.netlify.app/docs/', github.event.pull_request.number) }}
+          API_REFERENCE_PREFIX: ${{ steps.api_prefix.outputs.value }}
         run: |
           npm run build-all -- --no-r --use-npm
       - name: Check API inventory
