@@ -7,36 +7,29 @@ import {
   SpanExporter
 } from '@opentelemetry/sdk-trace-base';
 import { Context } from '@opentelemetry/api';
-import { createAndRegisterMlflowSpan } from '../core/api';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import { InMemoryTraceManager } from '../core/trace_manager';
 import { TraceInfo } from '../core/entities/trace_info';
-import { createTraceLocationFromExperimentId } from '../core/entities/trace_location';
+import { createTraceLocationFromUCSchema, getFullTableName } from '../core/entities/trace_location';
 import { fromOtelStatus, TraceState } from '../core/entities/trace_state';
-import {
-  SpanAttributeKey,
-  TRACE_ID_PREFIX,
-  TRACE_SCHEMA_VERSION,
-  TraceMetadataKey
-} from '../core/constants';
-import {
-  convertHrTimeToMs,
-  deduplicateSpanNamesInPlace,
-  aggregateUsageFromSpans
-} from '../core/utils';
-import { getConfig, getExperimentIdFromConfig } from '../core/config';
+import { SpanAttributeKey, TraceMetadataKey } from '../core/constants';
+import { convertHrTimeToMs, aggregateUsageFromSpans } from '../core/utils';
+import { getConfig, getUCSchemaLocationFromConfig } from '../core/config';
 import { MlflowClient } from '../clients';
-import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
+import { LogSpans } from '../clients/spec';
+
+const TRACE_ID_V4_PREFIX = 'trace:/';
 
 /**
  * Generate a MLflow-compatible trace ID for the given span.
  * @param span The span to generate the trace ID for
  */
-function generateTraceId(span: OTelSpan): string {
-  // NB: trace Id is already hex string in Typescript OpenTelemetry SDK
-  return TRACE_ID_PREFIX + span.spanContext().traceId;
+function generateTraceIdV4(span: OTelSpan, ucSchema: string): string {
+  // NB: the OTLP span traceId is already a hex string in the OpenTelemetry SDK
+  return `${TRACE_ID_V4_PREFIX}${ucSchema}/${span.spanContext().traceId}`;
 }
 
-export class MlflowSpanProcessor implements SpanProcessor {
+export class UCSchemaSpanProcessor implements SpanProcessor {
   private _exporter: SpanExporter;
 
   constructor(exporter: SpanExporter) {
@@ -52,24 +45,24 @@ export class MlflowSpanProcessor implements SpanProcessor {
     const otelTraceId = span.spanContext().traceId;
 
     let traceId: string;
-    const experimentId = getExperimentIdFromConfig(getConfig());
+    const location = getUCSchemaLocationFromConfig(getConfig());
 
-    if (!experimentId) {
-      console.warn(`No experiment ID found. Skipping.`);
+    if (!location) {
+      console.warn(`No Unity Catalog schema found. Skipping.`);
       return;
     }
 
     if (!span.parentSpanContext?.spanId) {
       // This is a root span
-      traceId = generateTraceId(span);
+      traceId = generateTraceIdV4(span, `${location.catalog_name}.${location.schema_name}`);
       const trace_info = new TraceInfo({
         traceId: traceId,
-        traceLocation: createTraceLocationFromExperimentId(experimentId),
+        traceLocation: createTraceLocationFromUCSchema(location.catalog_name, location.schema_name),
         requestTime: convertHrTimeToMs(span.startTime),
         executionDuration: 0,
         state: TraceState.IN_PROGRESS,
         traceMetadata: {
-          [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION
+          [TraceMetadataKey.SCHEMA_VERSION]: '4'
         },
         tags: {},
         assessments: []
@@ -85,10 +78,7 @@ export class MlflowSpanProcessor implements SpanProcessor {
     }
 
     // Set trace ID to the span
-    span.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify(traceId));
-
-    createAndRegisterMlflowSpan(span);
-    executeOnSpanStartHooks(span);
+    span.setAttribute(SpanAttributeKey.TRACE_ID, traceId);
   }
 
   /**
@@ -97,17 +87,14 @@ export class MlflowSpanProcessor implements SpanProcessor {
    * @param span the Span that just ended.
    */
   onEnd(span: OTelReadableSpan): void {
-    const traceManager = InMemoryTraceManager.getInstance();
-
-    executeOnSpanEndHooks(span);
-
     // Only trigger trace export for root span completion
     if (span.parentSpanContext?.spanId) {
       return;
     }
 
     // Update trace info
-    const traceId = traceManager.getMlflowTraceIdFromOtelId(span.spanContext().traceId);
+    const otelTraceId = span.spanContext().traceId;
+    const traceId = InMemoryTraceManager.getInstance().getMlflowTraceIdFromOtelId(otelTraceId);
     if (!traceId) {
       console.warn(`No trace ID found for span ${span.name}. Skipping.`);
       return;
@@ -120,7 +107,6 @@ export class MlflowSpanProcessor implements SpanProcessor {
     }
 
     this.updateTraceInfo(trace.info, span);
-    deduplicateSpanNamesInPlace(Array.from(trace.spanDict.values()));
 
     // Aggregate token usage from all spans and add to trace metadata
     const allSpans = Array.from(trace.spanDict.values());
@@ -139,16 +125,7 @@ export class MlflowSpanProcessor implements SpanProcessor {
    */
   updateTraceInfo(traceInfo: TraceInfo, span: OTelReadableSpan): void {
     traceInfo.executionDuration = convertHrTimeToMs(span.endTime) - traceInfo.requestTime;
-
-    let state = fromOtelStatus(span.status.code);
-    // NB: In OpenTelemetry, status code remains UNSET if not explicitly set
-    // by the user. However, there is no way to set the status when using
-    // `trace` function wrapper. Therefore, we just automatically set the status
-    // to OK if it is not ERROR.
-    if (state === TraceState.STATE_UNSPECIFIED) {
-      state = TraceState.OK;
-    }
-    traceInfo.state = state;
+    traceInfo.state = fromOtelStatus(span.status.code);
   }
 
   /**
@@ -168,66 +145,66 @@ export class MlflowSpanProcessor implements SpanProcessor {
   }
 }
 
-export class MlflowSpanExporter implements SpanExporter {
+export class UCSchemaSpanExporter extends OTLPTraceExporter {
   private _client: MlflowClient;
-  private _pendingExports: Record<string, Promise<void>> = {}; // traceId -> export promise
+  private _pendingExports: Set<Promise<unknown>> = new Set();
 
   constructor(client: MlflowClient) {
+    const config = getConfig();
+    const location = getUCSchemaLocationFromConfig(config);
+    if (!location) {
+      throw new Error('No Unity Catalog schema found.');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const url = LogSpans.getEndpoint(config.host!);
+    const tableName = getFullTableName(location);
+    const headers = LogSpans.getHeaders(tableName, config.databricksToken);
+    super({ url, headers });
+
     this._client = client;
   }
 
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
+    // Export spans to Databricks OTLP endpoint
+    super.export(spans, (_) => {});
+
     for (const span of spans) {
-      // Only export root spans
+      // Only export TraceInfo when the root span is ended
       if (span.parentSpanContext?.spanId) {
         continue;
       }
 
-      const traceManager = InMemoryTraceManager.getInstance();
-      const trace = traceManager.popTrace(span.spanContext().traceId);
+      // Export trace info to the MLflow backend
+      const trace = InMemoryTraceManager.getInstance().popTrace(span.spanContext().traceId);
       if (!trace) {
         console.warn(`No trace found for span ${span.name}. Skipping.`);
         continue;
       }
-
-      // Set the last active trace ID
-      traceManager.lastActiveTraceId = trace.info.traceId;
-
-      // Export trace to backend and track the promise
-      const exportPromise = this.exportTraceToBackend(trace).catch((error) => {
-        console.error(`Failed to export trace ${trace.info.traceId}:`, error);
-      });
-      this._pendingExports[trace.info.traceId] = exportPromise;
+      // Fire and track the async export; do not block span export
+      void this.logTraceInfo(trace);
     }
   }
 
-  /**
-   * Export a complete trace to the MLflow backend
-   * Step 1: Create trace metadata via StartTraceV3 endpoint
-   * Step 2: Upload trace data (spans) via artifact repository pattern
-   */
-  private async exportTraceToBackend(trace: Trace): Promise<void> {
+  private async logTraceInfo(trace: Trace): Promise<void> {
+    // Export trace to backend and track the promise
+    const exportPromise = this._client.createTraceV4(trace.info);
+    this._pendingExports.add(exportPromise);
     try {
-      // Step 1: Create trace metadata in backend
-      const traceInfo = await this._client.createTrace(trace.info);
-      // Step 2: Upload trace data (spans) to artifact storage
-      await this._client.uploadTraceData(traceInfo, trace.data);
-    } catch (error) {
+      await exportPromise;
+    } catch (error: unknown) {
       console.error(`Failed to export trace ${trace.info.traceId}:`, error);
-      throw error;
     } finally {
-      // Remove the promise from the pending exports
-      delete this._pendingExports[trace.info.traceId];
+      this._pendingExports.delete(exportPromise);
     }
   }
 
   /**
-   * Force flush all pending trace exports.
+   * Force flush all pending exports (both trace info and spans).
    * Waits for all async export operations to complete.
    */
   async forceFlush(): Promise<void> {
-    await Promise.all(Object.values(this._pendingExports));
-    this._pendingExports = {};
+    await Promise.all(Array.from(this._pendingExports));
+    this._pendingExports.clear();
   }
 
   /**
