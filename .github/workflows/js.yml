@@ -84,7 +84,7 @@ jobs:
           yarn type-check
       - name: Run tests
         run: |
-          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
+          yarn test ${{ runner.os == 'Windows' && '--testTimeout=10000' || '' }} --silent ${{ matrix.option }} src/experiment-tracking/components
       - name: Run build
         if: runner.os == 'Linux'
         env:
