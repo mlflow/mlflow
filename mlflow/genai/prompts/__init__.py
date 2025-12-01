@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import mlflow.tracking._model_registry.fluent as registry_api
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.prompt.registry_utils import PromptCache as PromptCache
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
@@ -278,11 +279,8 @@ def set_prompt_tag(name: str, key: str, value: str) -> None:
         key: The key of the tag
         value: The value of the tag for the key
     """
-    from mlflow.prompt.registry_utils import PromptCache
-
     with suppress_genai_migration_warning():
         MlflowClient().set_prompt_tag(name=name, key=key, value=value)
-        PromptCache.get_instance().clear()
 
 
 @experimental(version="3.5.0")
@@ -294,11 +292,8 @@ def delete_prompt_tag(name: str, key: str) -> None:
         name: The name of the prompt.
         key: The key of the tag
     """
-    from mlflow.prompt.registry_utils import PromptCache
-
     with suppress_genai_migration_warning():
         MlflowClient().delete_prompt_tag(name=name, key=key)
-        PromptCache.get_instance().clear()
 
 
 @experimental(version="3.5.0")
@@ -312,11 +307,8 @@ def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) 
         key: The key of the tag
         value: The value of the tag for the key
     """
-    from mlflow.prompt.registry_utils import PromptCache
-
     with suppress_genai_migration_warning():
         MlflowClient().set_prompt_version_tag(name=name, version=version, key=key, value=value)
-        PromptCache.get_instance().clear()
 
 
 @experimental(version="3.5.0")
@@ -329,8 +321,5 @@ def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
         version: The version of the prompt.
         key: The key of the tag
     """
-    from mlflow.prompt.registry_utils import PromptCache
-
     with suppress_genai_migration_warning():
         MlflowClient().delete_prompt_version_tag(name=name, version=version, key=key)
-        PromptCache.get_instance().clear()

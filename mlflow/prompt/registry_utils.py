@@ -5,7 +5,7 @@ import re
 import threading
 import time
 from textwrap import dedent
-from typing import Any
+from typing import Any, NamedTuple
 
 import mlflow
 from mlflow.entities.model_registry.model_version import ModelVersion
@@ -23,6 +23,20 @@ from mlflow.prompt.constants import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
 
 _logger = logging.getLogger(__name__)
+
+
+class PromptCacheKey(NamedTuple):
+    """Cache key for prompt lookups.
+
+    Attributes:
+        name: Prompt name
+        version: Prompt version (None for non-version lookups)
+        alias: Prompt alias (None for non-alias lookups)
+    """
+
+    name: str
+    version: int | None
+    alias: str | None
 
 
 def model_version_to_prompt_version(
@@ -271,7 +285,7 @@ class PromptCache:
     Thread-safe singleton cache for prompts with TTL support.
 
     This cache stores prompts to avoid repeated API calls when fetching
-    prompts by name/version/label. Items expire after a configurable TTL.
+    prompts by name/version/alias. Items expire after a configurable TTL.
 
     Usage:
         cache = PromptCache.get_instance()
@@ -281,7 +295,7 @@ class PromptCache:
     """
 
     _instance_lock = threading.RLock()
-    _instance: "PromptCache | None" = None  # clint: disable=implicit-optional
+    _instance: "PromptCache | None" = None
 
     @classmethod
     def get_instance(cls) -> "PromptCache":
@@ -302,10 +316,10 @@ class PromptCache:
 
     def __init__(self):
         # key -> (value, expiry_timestamp)
-        self._cache: dict[str, tuple[PromptVersion, float | None]] = {}
+        self._cache: dict[PromptCacheKey, tuple[PromptVersion, float]] = {}
         self._lock = threading.RLock()
 
-    def get(self, key: str) -> PromptVersion | None:
+    def get(self, key: PromptCacheKey) -> PromptVersion | None:
         """
         Get a prompt from the cache.
 
@@ -317,14 +331,14 @@ class PromptCache:
             if item is None:
                 return None
             value, expiry = item
-            if expiry and time.time() > expiry:
+            if time.time() > expiry:
                 self._cache.pop(key, None)
                 return None
             return value
 
     def set(
         self,
-        key: str,
+        key: PromptCacheKey,
         value: PromptVersion,
         ttl_seconds: float | None = None,
     ) -> None:
@@ -337,7 +351,8 @@ class PromptCache:
             ttl_seconds: Time-to-live in seconds (default None, no TTL)
         """
         with self._lock:
-            self._cache[key] = (value, None if ttl_seconds is None else time.time() + ttl_seconds)
+            expiry = float("inf") if ttl_seconds is None else time.time() + ttl_seconds
+            self._cache[key] = (value, expiry)
 
     def delete(
         self,
@@ -360,7 +375,7 @@ class PromptCache:
         name: str,
         version: int | None = None,
         alias: str | None = None,
-    ) -> str:
+    ) -> PromptCacheKey:
         """
         Generate a cache key for a prompt.
 
@@ -370,7 +385,7 @@ class PromptCache:
             alias: Prompt alias (mutually exclusive with version)
 
         Returns:
-            A unique cache key string
+            A PromptCacheKey instance
 
         Raises:
             ValueError: If both version and alias are provided
@@ -378,15 +393,10 @@ class PromptCache:
         if version is not None and alias is not None:
             raise ValueError("Cannot specify both version and alias")
 
-        if version is not None:
-            return f"{name}-version:{version}"
-        elif alias is not None:
-            return f"{name}-alias:{alias}"
-        else:
-            return f"{name}-latest"
+        return PromptCacheKey(name=name, version=version, alias=alias)
 
     @staticmethod
-    def generate_cache_key_from_uri(prompt_uri: str) -> str:
+    def generate_cache_key_from_uri(prompt_uri: str) -> PromptCacheKey:
         """
         Generate cache key from a parsed prompt URI.
 
@@ -394,7 +404,7 @@ class PromptCache:
             prompt_uri: A prompt URI in format "prompts:/name/version" or "prompts:/name@alias"
 
         Returns:
-            A unique cache key string
+            A PromptCacheKey instance
         """
         uri_path = prompt_uri.replace("prompts:/", "")
 

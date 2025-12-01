@@ -780,17 +780,16 @@ class MlflowClient:
                 if "@" in prompt_uri
                 else MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.get()
             )
-        if cache_ttl_seconds is not None and cache_ttl_seconds < 0:
+        if cache_ttl_seconds < 0:
             raise MlflowException.invalid_parameter_value(
                 "`cache_ttl_seconds` argument must be greater than or equal to 0.",
             )
 
-        # Check cache if cache_ttl_seconds != 0 (None means cache with no TTL, 0 means no caching)
+        # Check cache if cache_ttl_seconds != 0 (0 means no caching)
         if cache_ttl_seconds != 0:
             cache = PromptCache.get_instance()
             cache_key = PromptCache.generate_cache_key_from_uri(prompt_uri)
-            cached_prompt = cache.get(cache_key)
-            if cached_prompt:
+            if cached_prompt := cache.get(cache_key):
                 return cached_prompt
 
         # Fetch from server
@@ -1033,6 +1032,13 @@ class MlflowClient:
         """
         self._get_registry_client().delete_prompt_alias(name, alias)
 
+        # Invalidate cache for this alias
+        try:
+            PromptCache.get_instance().delete(name, alias=alias)
+        except KeyError:
+            # It's safe to ignore if the cache entry does not exist
+            pass
+
     @experimental(version="3.0.0")
     @require_prompt_registry
     @translate_prompt_exception
@@ -1068,6 +1074,13 @@ class MlflowClient:
             key: The tag key to delete.
         """
         self._get_registry_client().delete_prompt_version_tag(name, version, key)
+
+        # Invalidate cache for this specific version
+        try:
+            PromptCache.get_instance().delete(name, version=int(version))
+        except KeyError:
+            # It's safe to ignore if the cache entry does not exist
+            pass
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()

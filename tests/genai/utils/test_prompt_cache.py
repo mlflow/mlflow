@@ -89,17 +89,23 @@ def test_clear():
 
 def test_generate_cache_key_with_version():
     key = PromptCache.generate_cache_key("my-prompt", version=1)
-    assert key == "my-prompt-version:1"
+    assert key.name == "my-prompt"
+    assert key.version == 1
+    assert key.alias is None
 
 
 def test_generate_cache_key_with_alias():
     key = PromptCache.generate_cache_key("my-prompt", alias="production")
-    assert key == "my-prompt-alias:production"
+    assert key.name == "my-prompt"
+    assert key.version is None
+    assert key.alias == "production"
 
 
 def test_generate_cache_key_with_neither():
     key = PromptCache.generate_cache_key("my-prompt")
-    assert key == "my-prompt-latest"
+    assert key.name == "my-prompt"
+    assert key.version is None
+    assert key.alias is None
 
 
 def test_generate_cache_key_with_both_raises_error():
@@ -109,7 +115,9 @@ def test_generate_cache_key_with_both_raises_error():
 
 def test_generate_cache_key_version_zero():
     key = PromptCache.generate_cache_key("my-prompt", version=0)
-    assert key == "my-prompt-version:0"
+    assert key.name == "my-prompt"
+    assert key.version == 0
+    assert key.alias is None
 
 
 def test_concurrent_get_instance():

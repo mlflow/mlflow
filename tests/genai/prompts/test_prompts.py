@@ -87,8 +87,6 @@ def test_crud_prompts(tmp_path):
 
 
 def test_prompt_alias(tmp_path):
-    from mlflow.prompt.registry_utils import PromptCache
-
     # Reset cache to ensure clean state
     PromptCache._reset_instance()
 
@@ -826,7 +824,6 @@ def test_load_prompt_with_tracing_nested_spans():
 
 def test_load_prompt_caching_works():
     """Test that prompt caching works and improves performance."""
-    from mlflow.prompt.registry_utils import PromptCache
 
     # Reset cache
     PromptCache._reset_instance()
@@ -868,19 +865,21 @@ def test_load_prompt_caching_respects_ttl_env_var():
     mlflow.genai.register_prompt(name="ttl_test_prompt", template="Hello!")
 
     # Load with very short TTL
-    mlflow.genai.load_prompt("ttl_test_prompt", version=1, cache_ttl_seconds=1, link_to_model=False)
+    mlflow.genai.load_prompt(
+        "ttl_test_prompt", version=1, cache_ttl_seconds=0.2, link_to_model=False
+    )
 
     # Immediate second load should hit cache
     with mock.patch(
         "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
     ) as mock_load:
         mlflow.genai.load_prompt(
-            "ttl_test_prompt", version=1, cache_ttl_seconds=1, link_to_model=False
+            "ttl_test_prompt", version=1, cache_ttl_seconds=0.2, link_to_model=False
         )
         assert mock_load.call_count == 0  # Cache hit
 
     # Wait for TTL to expire
-    time.sleep(1.1)
+    time.sleep(0.2)
 
     # Load after expiration should miss cache
     prompt = mlflow.genai.load_prompt(
@@ -892,7 +891,6 @@ def test_load_prompt_caching_respects_ttl_env_var():
 
 def test_load_prompt_skip_cache_for_allow_missing_none():
     """Test behavior when loading non-existent prompts with allow_missing=True."""
-    from mlflow.prompt.registry_utils import PromptCache
 
     # Reset cache
     PromptCache._reset_instance()
@@ -979,7 +977,6 @@ def test_load_prompt_none_result_no_linking():
 
 def test_load_prompt_caching_with_different_parameters():
     """Test that caching works correctly with different parameter combinations."""
-    from mlflow.prompt.registry_utils import PromptCache
 
     # Reset cache
     PromptCache._reset_instance()
@@ -1290,7 +1287,6 @@ def test_register_prompt_with_nested_variables():
 
 
 def test_register_prompt_invalidates_latest_cache():
-    """Test that registering a new version invalidates the @latest cache entry."""
     PromptCache._reset_instance()
 
     # Register first version
@@ -1318,7 +1314,6 @@ def test_register_prompt_invalidates_latest_cache():
 
 
 def test_set_prompt_alias_invalidates_alias_cache():
-    """Test that setting an alias invalidates the cache for that alias."""
     PromptCache._reset_instance()
 
     # Register two versions
@@ -1350,7 +1345,6 @@ def test_set_prompt_alias_invalidates_alias_cache():
 
 
 def test_prompt_cache_hit():
-    """Test that loading the same prompt twice uses the cache."""
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="cached_prompt", template="Hello {{name}}!")
 
@@ -1369,7 +1363,6 @@ def test_prompt_cache_hit():
 
 
 def test_prompt_cache_ttl_expiration():
-    """Test that cached prompts expire after TTL."""
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="expiring_prompt", template="Hello {{name}}!")
 
@@ -1393,7 +1386,6 @@ def test_prompt_cache_ttl_expiration():
 
 
 def test_prompt_cache_bypass_with_zero_ttl():
-    """Test that setting `cache_ttl_seconds=0` bypasses the cache."""
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="bypass_prompt", template="Hello {{name}}!")
 
@@ -1421,7 +1413,6 @@ def test_prompt_cache_bypass_with_zero_ttl():
 
 
 def test_prompt_cache_alias_cached():
-    """Test that prompts loaded by alias are cached."""
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="alias_prompt", template="Version 1")
     mlflow.genai.set_prompt_alias("alias_prompt", alias="production", version=1)
@@ -1438,7 +1429,6 @@ def test_prompt_cache_alias_cached():
 
 
 def test_prompt_cache_different_versions():
-    """Test that different versions are cached separately."""
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="multi_version", template="Version 1")
     mlflow.genai.register_prompt(name="multi_version", template="Version 2")
@@ -1485,7 +1475,6 @@ def test_prompt_cache_custom_ttl():
 
 
 def test_prompt_cache_invalidation():
-    """Test that cache invalidation works correctly."""
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="invalidate_prompt", template="Hello!")
 
@@ -1510,7 +1499,6 @@ def test_prompt_cache_invalidation():
 
 
 def test_prompt_cache_uri_format():
-    """Test caching works with URI format."""
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="uri_prompt", template="Hello!")
 
@@ -1528,7 +1516,6 @@ def test_prompt_cache_uri_format():
 
 
 def test_prompt_cache_clear():
-    """Test clearing the entire cache."""
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="clear_test_1", template="Hello 1!")
     mlflow.genai.register_prompt(name="clear_test_2", template="Hello 2!")
@@ -1549,7 +1536,6 @@ def test_prompt_cache_clear():
 
 
 def test_prompt_cache_env_variable(monkeypatch):
-    """Test that MLFLOW_PROMPT_CACHE_TTL_SECONDS environment variable is respected."""
     PromptCache._reset_instance()
     mlflow.genai.register_prompt(name="env_var_prompt", template="Hello!")
 

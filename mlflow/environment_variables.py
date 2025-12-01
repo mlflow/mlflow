@@ -653,9 +653,9 @@ MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
 
 #: Time-to-live in seconds for cached version-based prompts, e.g., "prompts:/name/version", in the
 #: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
-#: access. Set to 0 to disable caching entirely. (default: ``None``, no TTL)
+#: access. Set to 0 to disable caching entirely. (default: ``float("inf")``, infinite TTL)
 MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
-    "MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS", float, None
+    "MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS", float, float("inf")
 )
 
 
