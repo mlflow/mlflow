@@ -100,7 +100,7 @@ export const buildSearchFilterClause = (searchFilter?: string): string => {
 
   // Check if the search filter looks like a SQL-like query
   // If so, treat it as a raw filter query; otherwise, treat it as a simple name search
-  const sqlKeywordPattern = /(\s+ILIKE\s+)|(\s+LIKE\s+)|=|!=/i;
+  const sqlKeywordPattern = /(\s+(ILIKE|LIKE)\s+)|=|!=/i;
 
   if (sqlKeywordPattern.test(searchFilter)) {
     // User provided a SQL-like filter, use it directly
