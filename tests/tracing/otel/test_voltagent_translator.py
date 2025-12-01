@@ -201,15 +201,27 @@ def test_voltagent_translator_input_output_keys():
 
 
 @pytest.mark.parametrize(
-    ("attr_key", "attr_value", "expected_type"),
+    ("attributes", "expected_type"),
     [
-        (VoltAgentTranslator.SPAN_KIND_ATTRIBUTE_KEY, "agent", SpanType.AGENT),
-        (VoltAgentTranslator.SPAN_KIND_ATTRIBUTE_KEY, "llm", SpanType.LLM),
-        (VoltAgentTranslator.SPAN_KIND_ATTRIBUTE_KEY, "tool", SpanType.TOOL),
-        (VoltAgentTranslator.SPAN_KIND_ATTRIBUTE_KEY, "memory", SpanType.MEMORY),
+        # Test span.type attribute (used by child spans)
+        ({"span.type": "agent"}, SpanType.AGENT),
+        ({"span.type": "llm"}, SpanType.LLM),
+        ({"span.type": "tool"}, SpanType.TOOL),
+        ({"span.type": "memory"}, SpanType.MEMORY),
+        # Test entity.type attribute (used by root agent spans)
+        ({"entity.type": "agent"}, SpanType.AGENT),
+        ({"entity.type": "llm"}, SpanType.LLM),
+        ({"entity.type": "tool"}, SpanType.TOOL),
+        ({"entity.type": "memory"}, SpanType.MEMORY),
+        # Test span.type takes precedence over entity.type (child span scenario)
+        ({"span.type": "llm", "entity.type": "agent"}, SpanType.LLM),
+        ({"span.type": "tool", "entity.type": "agent"}, SpanType.TOOL),
+        ({"span.type": "memory", "entity.type": "agent"}, SpanType.MEMORY),
+        # Test with JSON-encoded values
+        ({"span.type": '"llm"', "entity.type": '"agent"'}, SpanType.LLM),
+        ({"entity.type": '"agent"'}, SpanType.AGENT),
     ],
 )
-def test_voltagent_span_type_from_otel(attr_key, attr_value, expected_type):
-    attributes = {attr_key: attr_value}
+def test_voltagent_span_type_from_otel(attributes, expected_type):
     result = translate_span_type_from_otel(attributes)
     assert result == expected_type
