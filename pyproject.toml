@@ -247,7 +247,6 @@ members = ["dev/clint", "tests/resources/mlflow-test-plugin"]
 clint = { workspace = true }
 mlflow-test-plugin = { workspace = true }
 torch = { index = "pytorch" }
-torchvision = { index = "pytorch" }
 
 [[tool.uv.index]]
 name = "pytorch"
