@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Empty,
   Table,
@@ -106,23 +106,17 @@ interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<EvaluationDataset>;
   columnVisibility: { [key: string]: boolean };
   isActive: boolean;
-  setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
+  onSelectDataset: (dataset: EvaluationDataset) => void;
 }
 
 const ExperimentEvaluationDatasetsTableRow: React.FC<
   React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>
 > = React.memo(
-  ({ row, isActive, setSelectedDataset }) => {
+  ({ row, isActive, onSelectDataset }) => {
     const { theme } = useDesignSystemTheme();
 
     return (
-      <TableRow
-        key={row.id}
-        className="eval-datasets-table-row"
-        onClick={() => {
-          setSelectedDataset(row.original);
-        }}
-      >
+      <TableRow key={row.id} className="eval-datasets-table-row" onClick={() => onSelectDataset(row.original)}>
         {row.getVisibleCells().map((cell) => (
           <TableCell
             key={cell.id}
@@ -150,13 +144,15 @@ export const ExperimentEvaluationDatasetsListTable = ({
   selectedDataset,
   setSelectedDataset,
   setIsLoading,
-  initialDatasetIdFromUrl,
+  selectedDatasetId,
+  setSelectedDatasetId,
 }: {
   experimentId: string;
   selectedDataset?: EvaluationDataset;
   setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
   setIsLoading: (isLoading: boolean) => void;
-  initialDatasetIdFromUrl?: string;
+  selectedDatasetId?: string;
+  setSelectedDatasetId: (datasetId: string | undefined) => void;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -212,40 +208,34 @@ export const ExperimentEvaluationDatasetsListTable = ({
     fetchNextPage,
   });
 
-  // Track if we've done the initial URL-based selection
-  const hasInitializedFromUrlRef = useRef(false);
-
   // update loading state in parent
   useEffect(() => {
     setIsLoading(isLoading);
   }, [isLoading, setIsLoading]);
 
+  const datasetIds = datasets?.map((d) => d.dataset_id) ?? [];
+
   if (!datasets?.length) {
     setSelectedDataset(undefined);
   }
 
-  // set the selected dataset to the first one if the is no selected dataset,
+  // Set the selected dataset if we don't already have one,
   // or if the selected dataset went out of scope (e.g. was deleted / not in search)
-  if (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id)) {
-    // On initial load, try to select from URL parameter first
-    if (!hasInitializedFromUrlRef.current && initialDatasetIdFromUrl && datasets?.length) {
-      hasInitializedFromUrlRef.current = true;
-      const datasetFromUrl = datasets.find((d) => d.dataset_id === initialDatasetIdFromUrl);
-      if (datasetFromUrl) {
-        setSelectedDataset(datasetFromUrl);
-      } else {
-        // URL dataset not found, fall back to first
-        const sortedRows = table.getRowModel().rows;
-        if (sortedRows.length > 0) {
-          setSelectedDataset(sortedRows[0].original);
-        }
-      }
-    } else {
-      // Use the sorted data from the table to respect the current sort order
-      const sortedRows = table.getRowModel().rows;
-      if (sortedRows.length > 0) {
-        setSelectedDataset(sortedRows[0].original);
-      }
+  if (datasets?.length && (!selectedDatasetId || !datasetIds.includes(selectedDatasetId))) {
+    // Use the sorted data from the table to respect the current sort order
+    const sortedRows = table.getRowModel().rows;
+    if (sortedRows.length > 0) {
+      const firstDataset = sortedRows[0].original;
+      setSelectedDataset(firstDataset);
+      setSelectedDatasetId(firstDataset.dataset_id);
+    }
+  }
+
+  // Sync selectedDataset object when selectedDatasetId changes (e.g., from URL)
+  if (selectedDatasetId && selectedDataset?.dataset_id !== selectedDatasetId) {
+    const datasetFromId = datasets?.find((d) => d.dataset_id === selectedDatasetId);
+    if (datasetFromId) {
+      setSelectedDataset(datasetFromId);
     }
   }
 
@@ -350,17 +340,18 @@ export const ExperimentEvaluationDatasetsListTable = ({
           </TableRow>
 
           {!isLoading &&
-            table
-              .getRowModel()
-              .rows.map((row) => (
-                <ExperimentEvaluationDatasetsTableRow
-                  key={row.id}
-                  row={row}
-                  columnVisibility={columnVisibility}
-                  isActive={row.original.dataset_id === selectedDataset?.dataset_id}
-                  setSelectedDataset={setSelectedDataset}
-                />
-              ))}
+            table.getRowModel().rows.map((row) => (
+              <ExperimentEvaluationDatasetsTableRow
+                key={row.id}
+                row={row}
+                columnVisibility={columnVisibility}
+                isActive={row.original.dataset_id === selectedDataset?.dataset_id}
+                onSelectDataset={(dataset) => {
+                  setSelectedDataset(dataset);
+                  setSelectedDatasetId(dataset.dataset_id);
+                }}
+              />
+            ))}
 
           {(isLoading || isFetching) && <TableSkeletonRows table={table} />}
         </Table>

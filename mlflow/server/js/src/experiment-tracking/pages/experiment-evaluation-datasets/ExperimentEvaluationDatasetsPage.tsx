@@ -2,7 +2,7 @@ import { Global } from '@emotion/react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { ResizableBox } from 'react-resizable';
 import { ExperimentViewRunsTableResizerHandle } from '../../components/experiment-page/components/runs/ExperimentViewRunsTableResizer';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { ExperimentEvaluationDatasetsListTable } from './components/ExperimentEvaluationDatasetsListTable';
@@ -18,27 +18,9 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
   const [tableWidth, setTableWidth] = useState(400);
   const [dragging, setDragging] = useState(false);
   const [datasetListHidden, setDatasetListHidden] = useState(false);
-  const [selectedDataset, setSelectedDatasetInternal] = useState<EvaluationDataset | undefined>(undefined);
+  const [selectedDataset, setSelectedDataset] = useState<EvaluationDataset | undefined>(undefined);
   const [isDatasetsLoading, setIsDatasetsLoading] = useState(false);
-  const [selectedDatasetIdFromUrl, setSelectedDatasetIdInUrl] = useSelectedDatasetBySearchParam();
-
-  // Track whether selection was triggered by user click (vs auto-selection)
-  const isUserSelectionRef = useRef(false);
-
-  // Wrapper that tracks user selections and updates URL
-  const setSelectedDataset = useCallback((dataset: EvaluationDataset | undefined) => {
-    setSelectedDatasetInternal(dataset);
-    // Mark this as a user selection so the effect knows to update the URL
-    isUserSelectionRef.current = true;
-  }, []);
-
-  // Sync URL when user selects a dataset
-  useEffect(() => {
-    if (isUserSelectionRef.current && selectedDataset) {
-      setSelectedDatasetIdInUrl(selectedDataset.dataset_id);
-      isUserSelectionRef.current = false;
-    }
-  }, [selectedDataset, setSelectedDatasetIdInUrl]);
+  const [selectedDatasetId, setSelectedDatasetId] = useSelectedDatasetBySearchParam();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -74,7 +56,8 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
             experimentId={experimentId}
             selectedDataset={selectedDataset}
             setSelectedDataset={setSelectedDataset}
-            initialDatasetIdFromUrl={selectedDatasetIdFromUrl}
+            selectedDatasetId={selectedDatasetId}
+            setSelectedDatasetId={setSelectedDatasetId}
           />
         </div>
       </ResizableBox>
