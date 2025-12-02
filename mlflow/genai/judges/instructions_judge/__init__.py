@@ -73,6 +73,7 @@ class InstructionsJudge(Judge):
     _ordered_template_variables: list[str] = PrivateAttr()
     _feedback_value_type: Any = PrivateAttr()
     _generate_rationale_first: bool = PrivateAttr(default=False)
+    _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -82,6 +83,7 @@ class InstructionsJudge(Judge):
         description: str | None = None,
         feedback_value_type: Any = str,
         generate_rationale_first: bool = False,
+        inference_params: dict[str, Any] | None = None,
         **kwargs,
     ):
         """
@@ -95,6 +97,9 @@ class InstructionsJudge(Judge):
             feedback_value_type: Optional type for the 'value' field in the Feedback response.
                            Default is str. Supported types (FeedbackValueType): int, float,
                            str, bool, Literal types, as well as a dict and list of these types.
+            inference_params: Optional dictionary of inference parameters to pass to the
+                           model (e.g., temperature, top_p, max_tokens). These parameters
+                           allow fine-grained control over the model's behavior.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -114,6 +119,7 @@ class InstructionsJudge(Judge):
         self._model = model or get_default_model()
         self._feedback_value_type = feedback_value_type
         self._generate_rationale_first = generate_rationale_first
+        self._inference_params = inference_params
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -172,6 +178,11 @@ class InstructionsJudge(Judge):
     def instructions(self) -> str:
         """Get the instructions of this judge."""
         return self._instructions
+
+    @property
+    def inference_params(self) -> dict[str, Any] | None:
+        """Get the inference parameters for this judge."""
+        return self._inference_params
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -546,6 +557,7 @@ class InstructionsJudge(Judge):
             trace=trace if is_trace_based else None,
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
+            inference_params=self._inference_params,
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
@@ -604,10 +616,13 @@ class InstructionsJudge(Judge):
             if len(self._instructions) > PROMPT_TEXT_DISPLAY_LIMIT
             else self._instructions
         )
+        inference_params_str = (
+            f", inference_params={self._inference_params}" if self._inference_params else ""
+        )
         return (
             f"InstructionsJudge(name='{self.name}', model='{self._model}', "
             f"instructions='{instructions_preview}', "
-            f"template_variables={sorted(self.template_variables)})"
+            f"template_variables={sorted(self.template_variables)}{inference_params_str})"
         )
 
     @staticmethod
@@ -720,6 +735,8 @@ class InstructionsJudge(Judge):
             pydantic_data["feedback_value_type"] = self._serialize_feedback_value_type(
                 self._feedback_value_type
             )
+        if self._inference_params is not None:
+            pydantic_data["inference_params"] = self._inference_params
 
         serialized_scorer = SerializedScorer(
             name=self.name,

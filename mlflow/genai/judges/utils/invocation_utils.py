@@ -6,7 +6,7 @@ import json
 import logging
 import traceback
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pydantic
 
@@ -66,6 +66,7 @@ def invoke_judge_model(
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
     use_case: str | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
@@ -87,6 +88,9 @@ def invoke_judge_model(
         use_case: The use case for the chat completion. Only applicable when using the
             Databricks default judge and only used if supported by the installed
             databricks-agents version.
+        inference_params: Optional dictionary of inference parameters to pass to the
+            model (e.g., temperature, top_p, max_tokens). These parameters allow
+            fine-grained control over the model's behavior during evaluation.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -172,6 +176,7 @@ def invoke_judge_model(
             trace=trace,
             num_retries=num_retries,
             response_format=response_format,
+            inference_params=inference_params,
         )
     elif trace is not None:
         raise MlflowException(
@@ -230,6 +235,7 @@ def get_chat_completions_with_structured_output(
     output_schema: type[pydantic.BaseModel],
     trace: Trace | None = None,
     num_retries: int = 10,
+    inference_params: dict[str, Any] | None = None,
 ) -> pydantic.BaseModel:
     """
     Get chat completions from an LLM with structured output conforming to a Pydantic schema.
@@ -246,6 +252,8 @@ def get_chat_completions_with_structured_output(
                calling to examine trace spans.
         num_retries: Number of retries on transient failures. Defaults to 10 with
                      exponential backoff.
+        inference_params: Optional dictionary of inference parameters to pass to the
+                       model (e.g., temperature, top_p, max_tokens).
 
     Returns:
         Instance of output_schema with the structured data from the LLM.
@@ -297,6 +305,7 @@ def get_chat_completions_with_structured_output(
         trace=trace,
         num_retries=num_retries,
         response_format=output_schema,
+        inference_params=inference_params,
     )
 
     cleaned_response = _strip_markdown_code_blocks(response)
