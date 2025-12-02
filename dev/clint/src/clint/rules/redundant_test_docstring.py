@@ -51,7 +51,7 @@ class RedundantTestDocstring(Rule):
             if "\n" in raw_docstring:
                 return None
 
-            # All single-line docstrings in test functions/classes are redundant
+            # Single-line docstrings in test functions/classes rarely provide meaningful context
             return cls(node.name, has_class_docstring=is_class)
 
         return None

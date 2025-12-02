@@ -32,7 +32,8 @@ def test_feature_d():
 
     config = Config(select={RedundantTestDocstring.name})
     violations = lint_file(Path("test_something.py"), code, config, index_path)
-    # All single-line docstrings should be flagged (3 functions have single-line docstrings)
+    # All single-line docstrings should be flagged
+    # (test_feature_behavior, test_c, and test_validation_logic)
     assert len(violations) == 3
     assert all(isinstance(v.rule, RedundantTestDocstring) for v in violations)
 
@@ -63,7 +64,8 @@ def test_foo_bar_baz():
 
     config = Config(select={RedundantTestDocstring.name})
     violations = lint_file(Path("test_length.py"), code, config, index_path)
-    # All single-line docstrings should be flagged (4 functions have single-line docstrings)
+    # All single-line docstrings should be flagged
+    # (test_very_long_function_name, test_short, test_data_validation, test_foo_bar_baz)
     assert len(violations) == 4
 
 
