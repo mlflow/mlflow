@@ -172,8 +172,11 @@ class ErroringStreamTestModel:
 
 
 @pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path | None:
     """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
+    if IS_TRACING_SDK_ONLY:
+        return None
+
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
     tmp_path = tmp_path_factory.mktemp("sqlite_db")
@@ -189,6 +192,10 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(autouse=True)
 def tracking_uri(tmp_path: Path, cached_db: Path):
     """Copies the cached database and sets the tracking URI for each test."""
+    if IS_TRACING_SDK_ONLY:
+        yield
+        return
+
     db_path = tmp_path / "mlflow.db"
     shutil.copy(cached_db, db_path)
     uri = f"sqlite:///{db_path}"
