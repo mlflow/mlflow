@@ -155,8 +155,7 @@ class Metric(_MlflowObject):
             Metric: The Metric object created from the dictionary.
         """
         required_keys = ["key", "value", "timestamp", "step"]
-        missing_keys = [key for key in required_keys if key not in metric_dict]
-        if missing_keys:
+        if missing_keys := [key for key in required_keys if key not in metric_dict]:
             raise MlflowException(
                 f"Missing required keys {missing_keys} in metric dictionary",
                 INVALID_PARAMETER_VALUE,

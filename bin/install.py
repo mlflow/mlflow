@@ -5,6 +5,7 @@ Install binary tools for MLflow development.
 # ruff: noqa: T201
 import argparse
 import gzip
+import json
 import platform
 import subprocess
 import tarfile
@@ -12,6 +13,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+INSTALLED_VERSIONS_FILE = ".installed_versions.json"
 
 # Type definitions
 PlatformKey = tuple[
@@ -24,6 +27,7 @@ ExtractType = Literal["gzip", "tar", "binary"]
 @dataclass
 class Tool:
     name: str
+    version: str
     urls: dict[PlatformKey, str]  # platform -> URL mapping
     version_args: list[str] | None = None  # Custom version check args (default: ["--version"])
 
@@ -52,6 +56,7 @@ class Tool:
 TOOLS = [
     Tool(
         name="taplo",
+        version="0.9.3",
         urls={
             (
                 "linux",
@@ -65,19 +70,21 @@ TOOLS = [
     ),
     Tool(
         name="typos",
+        version="1.39.2",
         urls={
             (
                 "linux",
                 "x86_64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.28.0/typos-v1.28.0-x86_64-unknown-linux-musl.tar.gz",
+            ): "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-x86_64-unknown-linux-musl.tar.gz",
             (
                 "darwin",
                 "arm64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.28.0/typos-v1.28.0-aarch64-apple-darwin.tar.gz",
+            ): "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-aarch64-apple-darwin.tar.gz",
         },
     ),
     Tool(
         name="conftest",
+        version="0.63.0",
         urls={
             (
                 "linux",
@@ -91,6 +98,7 @@ TOOLS = [
     ),
     Tool(
         name="regal",
+        version="0.36.1",
         urls={
             (
                 "linux",
@@ -105,6 +113,7 @@ TOOLS = [
     ),
     Tool(
         name="buf",
+        version="1.59.0",
         urls={
             (
                 "linux",
@@ -223,6 +232,18 @@ def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
     print(f"Successfully installed {tool.name} to {binary_path}")
 
 
+def load_installed_versions(dest_dir: Path) -> dict[str, str]:
+    f = dest_dir / INSTALLED_VERSIONS_FILE
+    if f.exists():
+        return json.loads(f.read_text())
+    return {}
+
+
+def save_installed_versions(dest_dir: Path, versions: dict[str, str]) -> None:
+    f = dest_dir / INSTALLED_VERSIONS_FILE
+    f.write_text(json.dumps(versions, indent=2, sort_keys=True) + "\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Install binary tools for MLflow development")
     parser.add_argument(
@@ -233,18 +254,28 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.force_reinstall:
-        print("Force reinstall: removing existing tools and reinstalling...")
-    else:
-        print("Installing all tools to bin/ directory...")
-
     dest_dir = Path(__file__).resolve().parent
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    for tool in TOOLS:
-        print(f"\nInstalling {tool.name}...")
-        install_tool(tool, dest_dir, force=args.force_reinstall)
+    installed_versions = load_installed_versions(dest_dir)
+    outdated_tools = sorted(t.name for t in TOOLS if installed_versions.get(t.name) != t.version)
+    force_all = args.force_reinstall
 
+    if force_all:
+        print("Force reinstall: removing existing tools and reinstalling...")
+    elif outdated_tools:
+        print(f"Version changes detected for: {', '.join(outdated_tools)}")
+    else:
+        print("Installing all tools to bin/ directory...")
+
+    for tool in TOOLS:
+        # Force reinstall if globally forced or if this tool's version changed
+        force = force_all or tool.name in outdated_tools
+        print(f"\nInstalling {tool.name}...")
+        install_tool(tool, dest_dir, force=force)
+        installed_versions[tool.name] = tool.version
+
+    save_installed_versions(dest_dir, installed_versions)
     print("\nAll tools installed successfully!")
 
 

@@ -35,6 +35,11 @@ const config: Config = {
   onBrokenAnchors: 'throw',
   onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
 
+  future: {
+    v4: true, // opt-in for Docusaurus v4 planned changes
+    experimental_faster: true, // turns Docusaurus Faster on globally
+  },
+
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
@@ -81,6 +86,11 @@ const config: Config = {
   clientModules: [require.resolve('./src/docusaurus.theme.js')],
 
   themeConfig: {
+    docs: {
+      sidebar: {
+        autoCollapseCategories: true,
+      },
+    },
     mermaid: {
       theme: { light: 'neutral', dark: 'dark' },
       options: {
@@ -365,6 +375,10 @@ const config: Config = {
           {
             to: '/genai/tracing',
             from: ['/llms/llm-tracking', '/tracing', '/llms/tracing', '/tracing/api/how-to'],
+          },
+          {
+            to: '/genai/tracing/quickstart/python-openai',
+            from: ['/genai/tracing/quickstart'],
           },
           {
             to: '/genai/tracing/faq',
@@ -704,19 +718,31 @@ const config: Config = {
           // Governance and Deployments Redirects
           {
             to: '/genai/governance/ai-gateway',
-            from: ['/llms/deployments/', '/llms/gateway/index', '/llms/gateway'],
+            from: [
+              '/llms/deployments/',
+              '/llms/gateway/index',
+              '/llms/gateway',
+              '/llms/deployments/guides',
+              '/llms/gateway/guides/index',
+              '/llms/gateway/guide',
+              '/genai/governance/ai-gateway/guides',
+            ],
           },
           {
-            to: '/genai/governance/ai-gateway/guides',
-            from: ['/llms/deployments/guides', '/llms/gateway/guides/index', '/llms/gateway/guide'],
+            to: '/genai/governance/ai-gateway/setup',
+            from: [
+              '/llms/deployments/guides/step1-create-deployments',
+              '/llms/gateway/guides/step1-create-gateway',
+              '/genai/governance/ai-gateway/guides/step1-create-deployments',
+            ],
           },
           {
-            to: '/genai/governance/ai-gateway/guides/step1-create-deployments',
-            from: ['/llms/deployments/guides/step1-create-deployments', '/llms/gateway/guides/step1-create-gateway'],
-          },
-          {
-            to: '/genai/governance/ai-gateway/guides/step2-query-deployments',
-            from: ['/llms/deployments/guides/step2-query-deployments', '/llms/gateway/guides/step2-query-gateway'],
+            to: '/genai/governance/ai-gateway/usage',
+            from: [
+              '/llms/deployments/guides/step2-query-deployments',
+              '/llms/gateway/guides/step2-query-gateway',
+              '/genai/governance/ai-gateway/guides/step2-query-deployments',
+            ],
           },
           {
             to: '/genai/governance/unity-catalog',
@@ -813,13 +839,15 @@ const config: Config = {
             to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow'],
           },
+          // Redirect consolidated tensorflow guide and quickstart to index
           {
             to: '/ml/deep-learning/tensorflow',
-            from: ['/deep-learning/tensorflow/guide'],
-          },
-          {
-            to: '/ml/deep-learning/tensorflow',
-            from: ['/deep-learning/tensorflow/quickstart/quickstart_tensorflow'],
+            from: [
+              '/deep-learning/tensorflow/guide',
+              '/ml/deep-learning/tensorflow/guide',
+              '/deep-learning/tensorflow/quickstart/quickstart_tensorflow',
+              '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
+            ],
           },
           {
             to: '/ml/deep-learning/transformers',
@@ -1108,6 +1136,16 @@ const config: Config = {
           {
             to: '/ml/tutorials-and-examples',
             from: ['/tutorials-and-examples'],
+          },
+          // Redirect removed sklearn subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/sklearn/',
+            from: ['/ml/traditional-ml/sklearn/guide', '/ml/traditional-ml/sklearn/quickstart/quickstart-sklearn'],
+          },
+          // Redirect removed XGBoost subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/xgboost/',
+            from: ['/ml/traditional-ml/xgboost/guide', '/ml/traditional-ml/xgboost/quickstart/quickstart-xgboost'],
           },
         ],
       },

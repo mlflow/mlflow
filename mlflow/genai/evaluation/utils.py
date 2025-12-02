@@ -379,10 +379,11 @@ def validate_tags(tags: Any) -> None:
             f"Tags must be a dictionary, got {type(tags).__name__}. "
         )
 
-    errors = []
-    for key in tags.keys():
-        if not isinstance(key, str):
-            errors.append(f"Key {key!r} has type {type(key).__name__}; expected str.")
+    errors = [
+        f"Key {key!r} has type {type(key).__name__}; expected str."
+        for key in tags.keys()
+        if not isinstance(key, str)
+    ]
 
     if errors:
         raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))

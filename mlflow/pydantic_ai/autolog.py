@@ -1,5 +1,6 @@
 import inspect
 import logging
+from dataclasses import asdict
 from typing import Any
 
 import mlflow
@@ -71,7 +72,7 @@ async def patched_async_class_call(original, self, *args, **kwargs):
         _set_span_attributes(span, self)
 
         result = await original(self, *args, **kwargs)
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _serialize_output(result)
         span.set_outputs(outputs)
         if usage_dict := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
@@ -91,7 +92,7 @@ def patched_class_call(original, self, *args, **kwargs):
         _set_span_attributes(span, self)
 
         result = original(self, *args, **kwargs)
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _serialize_output(result)
         span.set_outputs(outputs)
         if usage_dict := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
@@ -137,8 +138,25 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
     }
 
 
+def _serialize_output(result: Any) -> Any:
+    if result is None:
+        return None
+
+    if hasattr(result, "new_messages") and callable(result.new_messages):
+        try:
+            new_messages = result.new_messages()
+            serialized_messages = [asdict(msg) for msg in new_messages]
+            serialized_result = asdict(result)
+            serialized_result["_new_messages_serialized"] = serialized_messages
+            return serialized_result
+        except Exception as e:
+            _logger.debug(f"Failed to serialize new_messages: {e}")
+
+    return result.__dict__ if hasattr(result, "__dict__") else result
+
+
 def _get_agent_attributes(instance):
-    agent = {}
+    agent = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
     for key, value in instance.__dict__.items():
         if key == "tools":
             value = _parse_tools(value)
@@ -172,18 +190,11 @@ def _get_tool_attributes(instance):
 
 
 def _parse_tools(tools):
-    result = []
-    for tool in tools:
-        data = tool.model_dumps(exclude_none=True)
-
-        if data:
-            result.append(
-                {
-                    "type": "function",
-                    "function": data,
-                }
-            )
-    return result
+    return [
+        {"type": "function", "function": data}
+        for tool in tools
+        if (data := tool.model_dumps(exclude_none=True))
+    ]
 
 
 def _parse_usage(result: Any) -> dict[str, int] | None:

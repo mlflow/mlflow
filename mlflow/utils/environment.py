@@ -241,7 +241,7 @@ def _mlflow_conda_env(
         else []
     )
     pip_deps = mlflow_deps + additional_pip_deps
-    conda_deps = additional_conda_deps if additional_conda_deps else []
+    conda_deps = additional_conda_deps or []
     if pip_deps:
         pip_version = _get_package_version("pip")
         if pip_version is not None:
@@ -918,8 +918,7 @@ def _get_pip_install_mlflow():
     returns "pip install -e {MLFLOW_HOME} 1>&2", otherwise
     "pip install mlflow=={mlflow.__version__} 1>&2".
     """
-    mlflow_home = os.getenv("MLFLOW_HOME")
-    if mlflow_home:  # dev version
+    if mlflow_home := os.getenv("MLFLOW_HOME"):  # dev version
         return f"pip install -e {mlflow_home} 1>&2"
     else:
         return f"pip install mlflow=={VERSION} 1>&2"

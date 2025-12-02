@@ -1,8 +1,8 @@
 import { APILink } from "@site/src/components/APILink";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import ImageBox from "@site/src/components/ImageBox";
-import { BarChart3, Target, FileText, Search } from "lucide-react";
+import { BarChart3, Target, Search } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Collect User Feedback
 
@@ -10,7 +10,7 @@ Capturing user feedback is critical for understanding the real-world quality of 
 
 ## Adding Feedback with MLflow UI
 
-<ImageBox src="/images/llms/tracing/logging-feedback.gif" alt="Add Feedback" />
+<video src={useBaseUrl("/images/llms/tracing/logging-feedback.mp4")} controls loop autoPlay muted aria-label="Add Feedback" />
 
 ## Adding Feedback with API
 
