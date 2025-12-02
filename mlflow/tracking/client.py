@@ -1882,7 +1882,7 @@ class MlflowClient:
         Args:
             name: The experiment name, which must be a unique string.
             artifact_location: The location to store run artifacts. If not provided, the server
-                picks anappropriate default.
+                picks an appropriate default.
             tags: A dictionary of key-value pairs that are converted into
                 :py:class:`mlflow.entities.ExperimentTag` objects, set as
                 experiment tags upon experiment creation.

@@ -476,9 +476,8 @@ def _validate_static_prefix(ctx, param, value):
     ),
 )
 @click.option(
-    "--enable-workspaces",
+    "--enable-workspaces/--disable-workspaces",
     envvar=MLFLOW_ENABLE_WORKSPACES.name,
-    is_flag=True,
     default=False,
     show_default=True,
     help="Enable backwards compatible workspace-aware multi-tenancy mode.",
@@ -552,16 +551,17 @@ def server(
         disable_security_middleware=disable_security_middleware,
     )
 
-    if enable_workspaces:
-        os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true"
-        if workspace_store_uri:
-            os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
+    # Keep environment flag in sync with the resolved boolean so server-side gating
+    # (which reads MLFLOW_ENABLE_WORKSPACES.get()) has a single source of truth.
+    os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true" if enable_workspaces else "false"
+    if enable_workspaces and workspace_store_uri:
+        os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
     elif workspace_store_uri:
-        click.echo(
-            "Ignoring --workspace-store-uri because workspaces are not enabled. "
-            "Use --enable-workspaces to activate workspace mode.",
-            err=True,
+        warning_msg = (
+            "--workspace-store-uri was provided but workspaces are not enabled. "
+            "Workspace APIs will remain disabled unless you pass --enable-workspaces."
         )
+        _logger.warning(warning_msg)
 
     if disable_security_middleware:
         os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"
@@ -586,6 +586,7 @@ def server(
         if x_frame_options:
             os.environ["MLFLOW_SERVER_X_FRAME_OPTIONS"] = x_frame_options
 
+    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
         backend_store_uri = _get_default_tracking_uri()
         click.echo(f"Backend store URI not provided. Using {backend_store_uri}")
@@ -597,11 +598,16 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
-    artifacts_only_config_validation(artifacts_only, backend_store_uri)
+    artifacts_only_config_validation(artifacts_only, backend_store_uri, enable_workspaces)
 
     if not artifacts_only:
         try:
-            initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
+            initialize_backend_stores(
+                backend_store_uri,
+                registry_store_uri,
+                default_artifact_root,
+                workspace_store_uri=workspace_store_uri,
+            )
         except Exception as e:
             _logger.error("Error initializing backend store")
             _logger.exception(e)
