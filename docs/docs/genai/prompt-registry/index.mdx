@@ -246,6 +246,7 @@ Key attributes of a Prompt object:
 - `Alias`: An mutable named reference to the prompt. For example, you can create an alias named `production` to refer to the version used in your production system. See [Aliases](/genai/prompt-registry/manage-prompt-lifecycles-with-aliases) for more details.
 - `is_text_prompt`: A boolean property indicating whether the prompt is a text prompt (True) or chat prompt (False).
 - `response_format`: An optional property containing the expected response structure specification, which can be used to validate or structure outputs from LLM calls.
+- `model_config`: An optional dictionary containing model-specific configuration such as model name, temperature, max_tokens, and other inference parameters. See [Model Configuration](#model-configuration) for more details.
 
 ### Prompt Types
 
@@ -311,6 +312,243 @@ mlflow.genai.set_prompt_version_tag("summarization-prompt", 1, "author", "alice"
 mlflow.genai.load_prompt("prompts:/summarization-prompt/1").tags
 mlflow.genai.delete_prompt_version_tag("summarization-prompt", 1, "author")
 ```
+
+## Model Configuration
+
+MLflow Prompt Registry allows you to store model-specific configuration alongside your prompts, ensuring reproducibility and clarity about which model and parameters were used with a particular prompt version. This is especially useful when you want to:
+
+- Version both prompt templates and model parameters together
+- Share prompts with recommended model settings across your team
+- Reproduce exact inference configurations from previous experiments
+- Maintain different model configurations for different prompt versions
+
+### Basic Usage
+
+You can attach model configuration to a prompt by passing a `model_config` parameter when registering:
+
+```python
+import mlflow
+
+# Using a dictionary
+model_config = {
+    "model_name": "gpt-4",
+    "temperature": 0.7,
+    "max_tokens": 1000,
+    "top_p": 0.9,
+}
+
+mlflow.genai.register_prompt(
+    name="qa-prompt",
+    template="Answer the following question: {{question}}",
+    model_config=model_config,
+    commit_message="QA prompt with model config",
+)
+
+# Load and access the model config
+prompt = mlflow.genai.load_prompt("qa-prompt")
+print(f"Model: {prompt.model_config['model_name']}")
+print(f"Temperature: {prompt.model_config['temperature']}")
+```
+
+### Using PromptModelConfig Class
+
+For better type safety and validation, you can use the <APILink fn="mlflow.entities.model_registry.PromptModelConfig" /> class:
+
+```python
+import mlflow
+from mlflow.entities.model_registry import PromptModelConfig
+
+# Create a validated config object
+config = PromptModelConfig(
+    model_name="gpt-4-turbo",
+    temperature=0.5,
+    max_tokens=2000,
+    top_p=0.95,
+    frequency_penalty=0.2,
+    presence_penalty=0.1,
+    stop_sequences=["END", "\n\n"],
+)
+
+mlflow.genai.register_prompt(
+    name="creative-prompt",
+    template="Write a creative story about {{topic}}",
+    model_config=config,
+)
+```
+
+The `PromptModelConfig` class provides validation to catch errors early:
+
+```python
+# This will raise a ValueError
+config = PromptModelConfig(temperature=-1.0)  # temperature must be non-negative
+
+# This will raise a ValueError
+config = PromptModelConfig(max_tokens=-100)  # max_tokens must be positive
+```
+
+### Supported Configuration Parameters
+
+The following standard parameters are supported in `PromptModelConfig`:
+
+- `model_name` (str): The name or identifier of the model (e.g., "gpt-4", "claude-3-opus")
+- `temperature` (float): Sampling temperature for controlling randomness (typically 0.0-2.0)
+- `max_tokens` (int): Maximum number of tokens to generate in the response
+- `top_p` (float): Nucleus sampling parameter (typically 0.0-1.0)
+- `top_k` (int): Top-k sampling parameter
+- `frequency_penalty` (float): Penalty for token frequency (typically -2.0 to 2.0)
+- `presence_penalty` (float): Penalty for token presence (typically -2.0 to 2.0)
+- `stop_sequences` (list[str]): List of sequences that will cause the model to stop generating
+- `extra_params` (dict): Additional provider-specific or experimental parameters
+
+### Provider-Specific Parameters
+
+You can include provider-specific parameters using the `extra_params` field:
+
+```python
+# Anthropic-specific configuration
+anthropic_config = PromptModelConfig(
+    model_name="claude-3-opus",
+    temperature=0.7,
+    max_tokens=4000,
+    extra_params={
+        "anthropic_version": "2023-06-01",
+        "top_k": 40,
+    },
+)
+
+# OpenAI-specific configuration
+openai_config = PromptModelConfig(
+    model_name="gpt-4",
+    temperature=0.8,
+    max_tokens=1500,
+    extra_params={
+        "n": 1,  # Number of completions to generate
+        "stream": True,  # Enable streaming
+        "logprobs": True,  # Include log probabilities
+    },
+)
+```
+
+### Model Config with Chat Prompts
+
+Model configuration works seamlessly with both text and chat prompts:
+
+```python
+chat_template = [
+    {"role": "system", "content": "You are a {{style}} assistant."},
+    {"role": "user", "content": "{{question}}"},
+]
+
+model_config = {
+    "model_name": "gpt-4-turbo",
+    "temperature": 0.3,
+    "max_tokens": 2000,
+}
+
+mlflow.genai.register_prompt(
+    name="chat-assistant",
+    template=chat_template,
+    model_config=model_config,
+)
+
+# Use the prompt with its configured model
+prompt = mlflow.genai.load_prompt("chat-assistant")
+formatted_messages = prompt.format(style="helpful", question="What is MLflow?")
+
+# Access the model config when making LLM calls
+import openai
+
+client = openai.OpenAI()
+response = client.chat.completions.create(
+    messages=formatted_messages,
+    model=prompt.model_config["model_name"],
+    temperature=prompt.model_config["temperature"],
+    max_tokens=prompt.model_config["max_tokens"],
+)
+```
+
+### Combining with Response Format
+
+Model configuration can be combined with response format specifications for complete prompt management:
+
+```python
+from pydantic import BaseModel
+from mlflow.entities.model_registry import PromptModelConfig
+
+class AnalysisResult(BaseModel):
+    summary: str
+    sentiment: str
+    key_points: list[str]
+
+model_config = PromptModelConfig(
+    model_name="gpt-4",
+    temperature=0.3,  # Lower temperature for more structured output
+    max_tokens=1500,
+)
+
+mlflow.genai.register_prompt(
+    name="structured-analysis",
+    template="Analyze the following text: {{text}}",
+    model_config=model_config,
+    response_format=AnalysisResult,
+)
+
+prompt = mlflow.genai.load_prompt("structured-analysis")
+# Access both model config and response format
+print(f"Model: {prompt.model_config['model_name']}")
+print(f"Schema: {prompt.response_format}")
+```
+
+### Version-Specific Configuration
+
+Model configuration is version-specific, allowing you to evolve both your prompt template and model settings together:
+
+```python
+# Version 1: Conservative settings for production
+mlflow.genai.register_prompt(
+    name="content-generator",
+    template="Generate content about: {{topic}}",
+    model_config={"model_name": "gpt-4", "temperature": 0.5},
+    commit_message="Conservative settings for production",
+)
+
+# Version 2: More creative settings
+mlflow.genai.register_prompt(
+    name="content-generator",
+    template="Generate creative content about: {{topic}}",
+    model_config={"model_name": "gpt-4-turbo", "temperature": 0.9},
+    commit_message="Higher temperature for more creativity",
+)
+
+# Version 3: Different model entirely
+mlflow.genai.register_prompt(
+    name="content-generator",
+    template="Generate creative content about: {{topic}}",
+    model_config={"model_name": "claude-3-opus", "temperature": 0.8},
+    commit_message="Switching to Claude",
+)
+
+# Each version maintains its own configuration
+v1 = mlflow.genai.load_prompt("content-generator", version=1)
+v2 = mlflow.genai.load_prompt("content-generator", version=2)
+v3 = mlflow.genai.load_prompt("content-generator", version=3)
+
+print(f"V1: {v1.model_config['model_name']} @ {v1.model_config['temperature']}")
+print(f"V2: {v2.model_config['model_name']} @ {v2.model_config['temperature']}")
+print(f"V3: {v3.model_config['model_name']} @ {v3.model_config['temperature']}")
+```
+
+### Best Practices
+
+1. **Version Together**: When you change your prompt template in a way that requires different model parameters, create a new version with updated model config.
+
+2. **Use Validation**: Prefer `PromptModelConfig` over plain dictionaries to catch configuration errors early during development.
+
+3. **Document Decisions**: Use commit messages to explain why specific model settings were chosen for a particular prompt version.
+
+4. **Start Conservative**: Begin with conservative settings (lower temperature, reasonable token limits) and iterate based on evaluation results.
+
+5. **Provider Consistency**: Keep provider-specific parameters in `extra_params` to maintain clarity about which settings are standard vs. provider-specific.
 
 ## FAQ
 
