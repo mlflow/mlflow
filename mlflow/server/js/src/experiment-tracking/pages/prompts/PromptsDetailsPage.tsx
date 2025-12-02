@@ -38,6 +38,7 @@ import { PromptNotFoundView } from './components/PromptNotFoundView';
 import { useUpdatePromptVersionMetadataModal } from './hooks/useUpdatePromptVersionMetadataModal';
 import type { ThunkDispatch } from '../../../redux-types';
 import { setModelVersionAliasesApi } from '../../../model-registry/actions';
+import { ExperimentPageTabName } from '../../constants';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -75,7 +76,9 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
     registeredPrompt: promptDetailsData?.prompt,
     onSuccess: () =>
       navigate(
-        experimentId ? Routes.getExperimentPageTabRoute(experimentId, 'prompts' as any) : Routes.promptsPageRoute,
+        experimentId
+          ? Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Prompts)
+          : Routes.promptsPageRoute,
       ),
   });
 
