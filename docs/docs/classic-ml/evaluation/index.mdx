@@ -12,15 +12,15 @@ import TabItem from "@theme/TabItem";
 
 :::warning Classic ML Evaluation System
 
-This documentation covers MLflow's **classic evaluation system** (`mlflow.evaluate`) which uses `EvaluationMetric` and `make_metric` for custom metrics.
+This documentation covers MLflow's **classic evaluation system** (`mlflow.models.evaluate`) which uses `EvaluationMetric` and `make_metric` for custom metrics.
 
 **For GenAI/LLM evaluation**, please use the system at [GenAI Evaluation](/genai/eval-monitor) which uses:
 
-- `mlflow.genai.evaluate()` instead of `mlflow.evaluate()`
+- `mlflow.genai.evaluate()` instead of `mlflow.models.evaluate()`
 - `Scorer` objects instead of `EvaluationMetric`
 - Built-in LLM judges and scorers
 
-**Important**: These two systems are **not interoperable**. `EvaluationMetric` objects cannot be used with `mlflow.genai.evaluate()`, and `Scorer` objects cannot be used with `mlflow.evaluate()`.
+**Important**: These two systems are **not interoperable**. `EvaluationMetric` objects cannot be used with `mlflow.genai.evaluate()`, and `Scorer` objects cannot be used with `mlflow.models.evaluate()`.
 :::
 
 ## Introduction
@@ -32,7 +32,7 @@ MLflow's evaluation framework provides automated model assessment for classifica
     {
       icon: Zap,
       title: "Unified Evaluation API",
-      description: "Evaluate models, Python functions, or static datasets with mlflow.evaluate() using a consistent interface across different evaluation modes.",
+      description: "Evaluate models, Python functions, or static datasets with mlflow.models.evaluate() using a consistent interface across different evaluation modes.",
     },
     {
       icon: BarChart,
@@ -85,7 +85,7 @@ with mlflow.start_run():
     model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     # Evaluate
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         model_info.model_uri,
         eval_data,
         targets="label",
@@ -107,7 +107,7 @@ This automatically generates performance metrics (accuracy, precision, recall, F
 For classification tasks:
 
 ```python
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model_uri,
     eval_data,
     targets="label",
@@ -149,7 +149,7 @@ with mlflow.start_run():
     signature = infer_signature(X_train, model.predict(X_train))
     model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         model_info.model_uri,
         eval_data,
         targets="target",
@@ -172,7 +172,7 @@ Control evaluator behavior with the `evaluator_config` parameter:
 
 ```python
 # Include SHAP explainer for feature importance
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model_uri,
     eval_data,
     targets="label",
@@ -192,7 +192,9 @@ Access metrics, artifacts, and evaluation data:
 
 ```python
 # Run evaluation
-result = mlflow.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
+result = mlflow.models.evaluate(
+    model_uri, eval_data, targets="label", model_type="classifier"
+)
 
 # Access metrics
 for metric_name, value in result.metrics.items():
@@ -219,7 +221,9 @@ Validate evaluation metrics against thresholds:
 from mlflow.models import MetricThreshold
 
 # Evaluate model
-result = mlflow.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
+result = mlflow.models.evaluate(
+    model_uri, eval_data, targets="label", model_type="classifier"
+)
 
 # Define thresholds
 thresholds = {
@@ -273,7 +277,7 @@ eval_dataset = pd.DataFrame(
 )
 
 with mlflow.start_run():
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         data=eval_dataset,
         predictions="prediction",
         targets="target",
@@ -337,7 +341,7 @@ eval_data = pd.DataFrame(X_test)
 eval_data["target"] = y_test
 
 with mlflow.start_run():
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         predict_function,
         eval_data,
         targets="target",
@@ -403,7 +407,7 @@ custom_metric = make_metric(
 )
 
 with mlflow.start_run():
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         model_uri,
         eval_data,
         targets="target",
@@ -449,7 +453,7 @@ def create_custom_plot(eval_df, builtin_metrics, artifacts_dir):
 
 # Use custom artifact
 with mlflow.start_run():
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         model_uri,
         eval_data,
         targets="target",
@@ -499,7 +503,7 @@ with mlflow.start_run():
     model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     # Evaluate with SHAP enabled
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         model_info.model_uri,
         eval_data,
         targets="label",
@@ -520,7 +524,7 @@ This generates feature importance plots, SHAP summary plots, and saves a SHAP ex
 Control SHAP behavior with evaluator config options:
 
 ```python
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model_uri,
     eval_data,
     targets="label",
@@ -583,7 +587,7 @@ The [Trubrics](https://github.com/trubrics/trubrics-sdk) plugin provides a valid
 
 ## API Reference
 
-- <APILink fn="mlflow.evaluate" /> - Main evaluation API
+- <APILink fn="mlflow.models.evaluate" /> - Main evaluation API
 - <APILink fn="mlflow.validate_evaluation_results" /> - Validate evaluation results
 - <APILink fn="mlflow.models.make_metric" /> - Create custom metrics
 - <APILink fn="mlflow.metrics.base.MetricValue" /> - Metric return value
