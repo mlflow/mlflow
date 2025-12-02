@@ -1,17 +1,34 @@
+import { AuthProvider } from '../../auth/types';
+import { NoAuthProvider, PersonalAccessTokenProvider } from '../../auth/providers';
 import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
 import { TraceInfo } from '../../core/entities/trace_info';
 import { JSONBig } from '../../core/utils/json';
 import { GetCredentialsForTraceDataDownload, GetCredentialsForTraceDataUpload } from '../spec';
-import { getRequestHeaders, makeRequest } from '../utils';
+import { makeAuthenticatedRequest } from '../utils';
 import { ArtifactsClient } from './base';
 
 export class DatabricksArtifactsClient implements ArtifactsClient {
   private host: string;
-  private databricksToken?: string;
+  private authProvider: AuthProvider;
 
-  constructor(options: { host: string; databricksToken?: string }) {
+  constructor(options: {
+    host: string;
+    authProvider?: AuthProvider;
+    /** @deprecated Use authProvider instead */
+    databricksToken?: string;
+  }) {
     this.host = options.host;
-    this.databricksToken = options.databricksToken;
+
+    // Initialize auth provider
+    if (options.authProvider) {
+      this.authProvider = options.authProvider;
+    } else if (options.databricksToken) {
+      // Legacy: create PAT provider from token
+      this.authProvider = new PersonalAccessTokenProvider(options.databricksToken);
+    } else {
+      // No auth
+      this.authProvider = new NoAuthProvider();
+    }
   }
 
   /**
@@ -56,10 +73,10 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
    */
   private async getCredentialsForTraceDataUpload(traceId: string): Promise<ArtifactCredentialInfo> {
     const url = GetCredentialsForTraceDataUpload.getEndpoint(this.host, traceId);
-    const response = await makeRequest<GetCredentialsForTraceDataUpload.Response>(
+    const response = await makeAuthenticatedRequest<GetCredentialsForTraceDataUpload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      this.authProvider
     );
     return response.credential_info;
   }
@@ -72,10 +89,10 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     traceId: string
   ): Promise<ArtifactCredentialInfo> {
     const url = GetCredentialsForTraceDataDownload.getEndpoint(this.host, traceId);
-    const response = await makeRequest<GetCredentialsForTraceDataDownload.Response>(
+    const response = await makeAuthenticatedRequest<GetCredentialsForTraceDataDownload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      this.authProvider
     );
 
     if (response.credential_info) {

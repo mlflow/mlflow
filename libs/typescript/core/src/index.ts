@@ -22,6 +22,9 @@ export {
   MlflowClient
 };
 
+// Export auth module
+export * from './auth';
+
 // Export entities
 export * from './core/constants';
 export type { LiveSpan, Span } from './core/entities/span';

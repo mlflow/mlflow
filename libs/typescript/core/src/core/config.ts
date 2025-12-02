@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { parse as parseIni } from 'ini';
+import { AuthProvider } from '../auth/types';
 import { initializeSDK } from './provider';
 
 /**
@@ -52,17 +53,26 @@ export interface MLflowTracingConfig {
   host?: string;
 
   /**
+   * Authentication provider for API requests.
+   * If not provided, falls back to legacy auth (databricksToken or Basic Auth).
+   */
+  authProvider?: AuthProvider;
+
+  /**
    * The Databricks token. If not provided, the token will be read from the Databricks config file.
+   * @deprecated Use authProvider with PersonalAccessTokenProvider instead.
    */
   databricksToken?: string;
 
   /**
    * The tracking server username for basic auth.
+   * @deprecated Use authProvider with BasicAuthProvider instead.
    */
   trackingServerUsername?: string;
 
   /**
    * The tracking server password for basic auth.
+   * @deprecated Use authProvider with BasicAuthProvider instead.
    */
   trackingServerPassword?: string;
 }

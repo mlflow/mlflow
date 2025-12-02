@@ -77,6 +77,160 @@ import * as mlflow from 'mlflow-tracing';
 mlflow.init(); // Uses the values from the environment
 ```
 
+## Authentication
+
+The SDK provides a flexible authentication provider system that supports various authentication methods. You can use built-in providers or implement your own custom provider.
+
+### Authentication Providers
+
+| Provider | Use Case |
+| -------- | -------- |
+| `NoAuthProvider` | Self-hosted MLflow without authentication (default) |
+| `PersonalAccessTokenProvider` | Databricks Personal Access Token (PAT) authentication |
+| `BasicAuthProvider` | Username/password authentication for MLflow tracking server |
+| `DatabricksOAuthProvider` | OAuth client credentials flow with automatic token refresh |
+
+### How Authentication Providers Work
+
+Authentication providers implement a simple interface that returns an authorization header for HTTP requests:
+
+```typescript
+interface AuthProvider {
+  authenticate(): Promise<AuthResult>;
+}
+
+interface AuthResult {
+  authorizationHeader: string;  // e.g., "Bearer <token>" or "Basic <credentials>"
+}
+```
+
+When you call `mlflow.init({ authProvider: ... })`, the SDK uses your provider to authenticate all requests to the MLflow tracking server. This happens automatically - you don't need to manage tokens or headers manually.
+
+### Using Built-in Providers
+
+#### No Authentication (Default)
+
+For self-hosted MLflow servers without authentication:
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+
+mlflow.init({
+  trackingUri: 'http://localhost:5000',
+  experimentId: '<experiment-id>'
+  // No authProvider needed - defaults to NoAuthProvider
+});
+```
+
+#### Personal Access Token (PAT)
+
+For Databricks-hosted MLflow using a Personal Access Token:
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+import { PersonalAccessTokenProvider } from 'mlflow-tracing';
+
+mlflow.init({
+  trackingUri: 'databricks',
+  experimentId: '<experiment-id>',
+  authProvider: new PersonalAccessTokenProvider(process.env.DATABRICKS_TOKEN!)
+});
+```
+
+#### Basic Authentication
+
+For MLflow tracking servers with username/password authentication:
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+import { BasicAuthProvider } from 'mlflow-tracing';
+
+mlflow.init({
+  trackingUri: 'http://my-mlflow-server:5000',
+  experimentId: '<experiment-id>',
+  authProvider: new BasicAuthProvider('username', 'password')
+});
+```
+
+#### Databricks OAuth (Recommended for Production)
+
+For production applications, `DatabricksOAuthProvider` is recommended. It uses the OAuth client credentials flow and automatically handles token refresh:
+
+- **Proactive refresh**: Tokens are refreshed 5 minutes before expiry
+- **Immediate refresh**: Expired tokens are refreshed before the request
+- **Request deduplication**: Concurrent requests share a single token refresh
+- **Automatic retry**: Network errors are retried with exponential backoff
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+import { DatabricksOAuthProvider } from 'mlflow-tracing';
+
+mlflow.init({
+  trackingUri: 'databricks',
+  experimentId: '<experiment-id>',
+  authProvider: new DatabricksOAuthProvider({
+    host: 'https://<workspace-name>.cloud.databricks.com',
+    clientId: process.env.DATABRICKS_CLIENT_ID!,
+    clientSecret: process.env.DATABRICKS_CLIENT_SECRET!,
+    scopes: ['all-apis'] // Optional, defaults to ['all-apis']
+  })
+});
+```
+
+To create a service principal with client credentials in Databricks, see the [Databricks documentation on OAuth M2M authentication](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html).
+
+### Creating a Custom Authentication Provider
+
+You can implement your own authentication provider for custom authentication needs:
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+import { AuthProvider, AuthResult } from 'mlflow-tracing';
+
+class VaultAuthProvider implements AuthProvider {
+  private readonly vaultUrl: string;
+
+  constructor(vaultUrl: string) {
+    this.vaultUrl = vaultUrl;
+  }
+
+  async authenticate(): Promise<AuthResult> {
+    // Fetch token from your secret management system
+    const response = await fetch(`${this.vaultUrl}/v1/secrets/mlflow-token`);
+    const { token } = await response.json();
+    return { authorizationHeader: `Bearer ${token}` };
+  }
+}
+
+mlflow.init({
+  trackingUri: 'databricks',
+  experimentId: '<experiment-id>',
+  authProvider: new VaultAuthProvider('https://vault.example.com')
+});
+```
+
+### Databricks Environment Variables
+
+For Databricks authentication, you can also use environment variables. Set `DATABRICKS_HOST` and `DATABRICKS_TOKEN`:
+
+```bash
+export DATABRICKS_HOST=https://<workspace-name>.cloud.databricks.com
+export DATABRICKS_TOKEN=<your-personal-access-token>
+```
+
+Then initialize with the `databricks` tracking URI:
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+
+mlflow.init({
+  trackingUri: 'databricks',
+  experimentId: '<experiment-id>'
+});
+```
+
+This approach is backwards compatible with existing configurations.
+
 Create a trace:
 
 ```typescript

@@ -1,3 +1,4 @@
+import { AuthProvider } from '../auth/types';
 import { JSONBig } from '../core/utils/json';
 
 /**
@@ -83,4 +84,36 @@ function getDefaultTimeout(): number {
     }
   }
   return 30000; // Default 30 seconds
+}
+
+/**
+ * Make an authenticated request using the provided auth provider.
+ * The auth provider handles token refresh automatically.
+ *
+ * @param method - The HTTP method to use.
+ * @param url - The URL to send the request to.
+ * @param authProvider - The authentication provider to use.
+ * @param body - Optional request body.
+ * @param timeout - Optional timeout in milliseconds.
+ * @returns The parsed response body.
+ */
+export async function makeAuthenticatedRequest<T>(
+  method: string,
+  url: string,
+  authProvider: AuthProvider,
+  body?: any,
+  timeout?: number
+): Promise<T> {
+  // Get fresh auth credentials (provider handles refresh if needed)
+  const authResult = await authProvider.authenticate();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+
+  if (authResult.authorizationHeader) {
+    headers['Authorization'] = authResult.authorizationHeader;
+  }
+
+  return makeRequest<T>(method, url, headers, body, timeout);
 }
