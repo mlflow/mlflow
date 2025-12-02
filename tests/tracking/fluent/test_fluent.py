@@ -60,7 +60,6 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
     _ACTIVE_MODEL_CONTEXT,
@@ -383,7 +382,13 @@ def test_get_experiment_by_name():
     assert experiment.experiment_id == exp_id
 
 
-def test_search_experiments(tmp_path):
+def test_search_experiments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    # Reduce max results to a small number to speed up test execution
+    MAX_RESULTS = 50
+    monkeypatch.setattr(
+        "mlflow.store.tracking.sqlalchemy_store.SEARCH_MAX_RESULTS_DEFAULT", MAX_RESULTS
+    )
+
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
     # Why do we need this line? If we didn't have this line, the first `mlflow.create_experiment`
@@ -392,9 +397,9 @@ def test_search_experiments(tmp_path):
     # creation time, which makes the search order non-deterministic and this test flaky.
     mlflow.search_experiments()
 
-    num_all_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1  # +1 for the default experiment
-    num_active_experiments = SEARCH_MAX_RESULTS_DEFAULT // 2
-    num_deleted_experiments = SEARCH_MAX_RESULTS_DEFAULT - num_active_experiments
+    num_all_experiments = MAX_RESULTS + 1  # +1 for the default experiment
+    num_active_experiments = MAX_RESULTS // 2
+    num_deleted_experiments = MAX_RESULTS - num_active_experiments
 
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
