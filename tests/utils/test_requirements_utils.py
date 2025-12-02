@@ -740,16 +740,16 @@ def test_capture_imported_modules_excludes_pyspark_gateway_env_vars(monkeypatch,
         mock.patch(
             "mlflow.utils.requirements_utils._run_command",
             side_effect=mock_run_command,
-        ),
+        ) as mock_run,
         mock.patch(
             "mlflow.utils.requirements_utils._download_artifact_from_uri",
             return_value=str(tmp_path),
-        ),
+        ) as mock_download,
     ):
-        try:
+        with pytest.raises(MlflowException, match="Mocked"):
             _capture_imported_modules("fake/model/path", "pyfunc")
-        except MlflowException:
-            pass
 
+    mock_download.assert_called_once()
+    mock_run.assert_called_once()
     assert "PYSPARK_GATEWAY_PORT" not in captured_env
     assert "PYSPARK_GATEWAY_SECRET" not in captured_env
