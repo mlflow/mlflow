@@ -182,7 +182,7 @@ assert logging.getLogger("mlflow").isEnabledFor({expected_level})
 
 
 @pytest.mark.parametrize("configure_logging", ["0", "1"])
-def test_alembic_logging_respects_configure_flag(configure_logging: str):
+def test_alembic_logging_respects_configure_flag(configure_logging: str, tmp_sqlite_uri: str):
     user_specified_format = "CUSTOM: %(name)s - %(message)s"
     actual_format = user_specified_format if configure_logging == "0" else LOGGING_LINE_FORMAT
     code = f"""
@@ -194,9 +194,6 @@ import shutil
 # user-specified format, this should only take effect if configure_logging is 0
 logging.basicConfig(level=logging.INFO, format={user_specified_format!r})
 os.environ["MLFLOW_CONFIGURE_LOGGING"] = {configure_logging!r}
-
-temp_dir = tempfile.mkdtemp()
-os.environ["MLFLOW_TRACKING_URI"] = f"sqlite:///{{temp_dir}}/mlflow.db"
 
 import mlflow
 
@@ -215,17 +212,6 @@ else:
     root_logger = logging.getLogger()
     actual_format = root_logger.handlers[0].formatter._fmt
 
-assert actual_format == {actual_format!r}
-
-shutil.rmtree(temp_dir)
+assert actual_format == {actual_format!r}, actual_format
 """
-
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, (
-        f"Test failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-    )
+    subprocess.check_call([sys.executable, "-c", code], env={"MLFLOW_TRACKING_URI": tmp_sqlite_uri})
