@@ -46,6 +46,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import (
@@ -575,8 +576,9 @@ class MlflowClient:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
-            model_config: Optional PromptModelConfig instance or dictionary containing model-specific
-                configuration. Using PromptModelConfig provides validation and type safety.
+            model_config: Optional PromptModelConfig instance or dictionary containing
+                model-specific  configuration. Using PromptModelConfig provides validation and type
+                safety.
 
         Returns:
             A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -654,8 +656,10 @@ class MlflowClient:
                 }
             )
         if model_config:
-            from mlflow.entities.model_registry.prompt_version import PromptModelConfig
-            from mlflow.entities.model_registry.prompt_version import MODEL_CONFIG_TAG_KEY
+            from mlflow.entities.model_registry.prompt_version import (
+                MODEL_CONFIG_TAG_KEY,
+                PromptModelConfig,
+            )
 
             # Convert ModelConfig to dict if needed
             if isinstance(model_config, PromptModelConfig):

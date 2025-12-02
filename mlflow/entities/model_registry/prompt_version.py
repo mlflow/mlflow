@@ -100,13 +100,16 @@ class PromptModelConfig:
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Convert the PromptModelConfig to a dictionary, excluding None values and merging extra_params.
+        Convert the PromptModelConfig to a dictionary, excluding None values and merging
+        extra_params.
 
         Returns:
             A dictionary representation of the config with None values filtered out and
             extra_params merged at the top level.
         """
-        config_dict = {k: v for k, v in asdict(self).items() if v is not None and k != "extra_params"}
+        config_dict = {
+            k: v for k, v in asdict(self).items() if v is not None and k != "extra_params"
+        }
         if self.extra_params:
             config_dict.update(self.extra_params)
         return config_dict
@@ -120,7 +123,8 @@ class PromptModelConfig:
             config_dict: Dictionary containing model configuration.
 
         Returns:
-            A PromptModelConfig instance with known fields populated and unknown fields in extra_params.
+            A PromptModelConfig instance with known fields populated and unknown fields in
+            extra_params.
         """
         known_fields = {
             "model_name",
@@ -184,9 +188,7 @@ class PromptModelConfig:
 
         if self.stop_sequences is not None:
             if not isinstance(self.stop_sequences, list):
-                raise TypeError(
-                    f"stop_sequences must be a list, got {type(self.stop_sequences)}"
-                )
+                raise TypeError(f"stop_sequences must be a list, got {type(self.stop_sequences)}")
             if not all(isinstance(s, str) for s in self.stop_sequences):
                 raise TypeError("All stop_sequences must be strings")
 
@@ -223,8 +225,9 @@ class PromptVersion(_ModelRegistryEntity):
         response_format: Optional Pydantic class or dictionary defining the expected response
             structure. This can be used to specify the schema for structured outputs.
         model_config: Optional PromptModelConfig instance or dictionary containing model-specific
-            configuration including model name and settings like temperature, top_p, max_tokens, etc.
-            Using a PromptModelConfig instance provides validation and type safety for common parameters.
+            configuration including model name and settings like temperature, top_p, max_tokens.
+            Using a PromptModelConfig instance provides validation and type safety for common
+            parameters.
             Example (dict): {"model_name": "gpt-4", "temperature": 0.7}
             Example (PromptModelConfig): PromptModelConfig(model_name="gpt-4", temperature=0.7)
         commit_message: The commit message for the prompt version. Optional.

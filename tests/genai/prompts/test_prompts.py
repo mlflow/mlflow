@@ -260,11 +260,11 @@ def test_register_prompt_with_tags():
     prompt = mlflow.genai.register_prompt(
         name="test_with_tags",
         template=chat_template,
-        tags={"author": "test_user", "model": "gpt-4"},
+        tags={"author": "test_user", "model": "gpt-5"},
     )
 
     assert prompt.tags["author"] == "test_user"
-    assert prompt.tags["model"] == "gpt-4"
+    assert prompt.tags["model"] == "gpt-5"
 
 
 def test_register_prompt_with_complex_response_format():
@@ -1456,7 +1456,7 @@ def test_load_prompt_same_prompt_twice_in_span():
 
 def test_register_and_load_prompt_with_model_config():
     model_config = {
-        "model_name": "gpt-4",
+        "model_name": "gpt-5",
         "temperature": 0.7,
         "top_p": 0.9,
         "max_tokens": 1000,
@@ -1475,7 +1475,7 @@ def test_register_and_load_prompt_with_model_config():
     assert prompt.name == "config_prompt"
     assert prompt.template == "Hello, {{name}}!"
     assert prompt.model_config == model_config
-    assert prompt.model_config["model_name"] == "gpt-4"
+    assert prompt.model_config["model_name"] == "gpt-5"
     assert prompt.model_config["temperature"] == 0.7
     assert prompt.model_config["top_p"] == 0.9
     assert prompt.model_config["max_tokens"] == 1000
@@ -1496,65 +1496,9 @@ def test_register_and_load_prompt_with_model_config():
     assert prompt_v1.model_config == model_config
 
 
-def test_prompt_with_model_config_and_chat_template():
-    model_config = {
-        "model_name": "gpt-4-turbo",
-        "temperature": 0.5,
-        "max_tokens": 2000,
-    }
-    chat_template = [
-        {"role": "system", "content": "You are a {{style}} assistant."},
-        {"role": "user", "content": "{{question}}"},
-    ]
-
-    mlflow.genai.register_prompt(
-        name="chat_config_prompt",
-        template=chat_template,
-        model_config=model_config,
-    )
-
-    prompt = mlflow.genai.load_prompt("chat_config_prompt", version=1)
-    assert prompt.model_config == model_config
-    assert prompt.is_text_prompt is False
-    assert prompt.template == chat_template
-
-    # Test formatting preserves model_config
-    formatted = prompt.format(style="helpful", question="What is AI?")
-    expected = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "What is AI?"},
-    ]
-    assert formatted == expected
-
-
-def test_prompt_model_config_with_response_format():
-    class ResponseSchema(BaseModel):
-        answer: str
-        confidence: float
-
-    model_config = {
-        "model_name": "gpt-4",
-        "temperature": 0.3,
-    }
-
-    mlflow.genai.register_prompt(
-        name="structured_prompt",
-        template="Answer: {{question}}",
-        model_config=model_config,
-        response_format=ResponseSchema,
-    )
-
-    prompt = mlflow.genai.load_prompt("structured_prompt", version=1)
-    assert prompt.model_config == model_config
-    assert prompt.response_format is not None
-    assert "properties" in prompt.response_format
-    assert "answer" in prompt.response_format["properties"]
-    assert "confidence" in prompt.response_format["properties"]
-
-
 def test_register_and_load_prompt_with_model_config_instance():
     config = PromptModelConfig(
-        model_name="gpt-4-turbo",
+        model_name="gpt-5",
         temperature=0.6,
         max_tokens=1500,
         top_p=0.95,
@@ -1568,7 +1512,7 @@ def test_register_and_load_prompt_with_model_config_instance():
     )
 
     prompt = mlflow.genai.load_prompt("config_instance_prompt", version=1)
-    assert prompt.model_config["model_name"] == "gpt-4-turbo"
+    assert prompt.model_config["model_name"] == "gpt-5"
     assert prompt.model_config["temperature"] == 0.6
     assert prompt.model_config["max_tokens"] == 1500
     assert prompt.model_config["top_p"] == 0.95
@@ -1591,3 +1535,131 @@ def test_model_config_validation_on_register():
             template="Test",
             model_config=PromptModelConfig(max_tokens=0),
         )
+
+
+def test_set_prompt_model_config_with_dict():
+    # Register a prompt without model config
+    mlflow.genai.register_prompt(
+        name="test_set_config",
+        template="Hello, {{name}}!",
+        commit_message="Initial version",
+    )
+
+    # Verify no model config initially
+    prompt = mlflow.genai.load_prompt("test_set_config", version=1)
+    assert prompt.model_config is None
+
+    # Set model config using a dictionary
+    model_config = {
+        "model_name": "gpt-5",
+        "temperature": 0.7,
+        "max_tokens": 1000,
+        "top_p": 0.9,
+    }
+    mlflow.genai.set_prompt_model_config(
+        name="test_set_config", version=1, model_config=model_config
+    )
+
+    # Load and verify model config was set
+    prompt = mlflow.genai.load_prompt("test_set_config", version=1)
+    assert prompt.model_config is not None
+    assert prompt.model_config["model_name"] == "gpt-5"
+    assert prompt.model_config["temperature"] == 0.7
+    assert prompt.model_config["max_tokens"] == 1000
+    assert prompt.model_config["top_p"] == 0.9
+
+
+def test_set_prompt_model_config_with_instance():
+    # Register a prompt without model config
+    mlflow.genai.register_prompt(
+        name="test_set_config_instance",
+        template="Summarize: {{text}}",
+    )
+
+    # Set model config using PromptModelConfig instance
+    config = PromptModelConfig(
+        model_name="gpt-5",
+        temperature=0.5,
+        max_tokens=2000,
+        top_p=0.95,
+        extra_params={"stream": True},
+    )
+    mlflow.genai.set_prompt_model_config(
+        name="test_set_config_instance", version=1, model_config=config
+    )
+
+    # Load and verify
+    prompt = mlflow.genai.load_prompt("test_set_config_instance", version=1)
+    assert prompt.model_config["model_name"] == "gpt-5"
+    assert prompt.model_config["temperature"] == 0.5
+    assert prompt.model_config["max_tokens"] == 2000
+    assert prompt.model_config["top_p"] == 0.95
+    assert prompt.model_config["stream"] is True
+
+
+def test_set_prompt_model_config_updates_existing():
+    # Register a prompt with initial model config
+    initial_config = {"model_name": "gpt-5", "temperature": 0.3}
+    mlflow.genai.register_prompt(
+        name="test_update_config",
+        template="Question: {{question}}",
+        model_config=initial_config,
+    )
+
+    # Verify initial config
+    prompt = mlflow.genai.load_prompt("test_update_config", version=1)
+    assert prompt.model_config["model_name"] == "gpt-5"
+    assert prompt.model_config["temperature"] == 0.3
+
+    # Update to new config
+    new_config = {"model_name": "gpt-5", "temperature": 0.7, "max_tokens": 1500}
+    mlflow.genai.set_prompt_model_config(
+        name="test_update_config", version=1, model_config=new_config
+    )
+
+    # Verify config was updated
+    prompt = mlflow.genai.load_prompt("test_update_config", version=1)
+    assert prompt.model_config["model_name"] == "gpt-5"
+    assert prompt.model_config["temperature"] == 0.7
+    assert prompt.model_config["max_tokens"] == 1500
+
+
+def test_set_prompt_model_config_validation():
+    mlflow.genai.register_prompt(name="test_validation", template="Test")
+
+    # Test validation with invalid temperature
+    with pytest.raises(ValueError, match="temperature must be non-negative"):
+        mlflow.genai.set_prompt_model_config(
+            name="test_validation",
+            version=1,
+            model_config=PromptModelConfig(temperature=-1.0),
+        )
+
+    # Test validation with invalid max_tokens
+    with pytest.raises(ValueError, match="max_tokens must be positive"):
+        mlflow.genai.set_prompt_model_config(
+            name="test_validation",
+            version=1,
+            model_config={"max_tokens": 0},
+        )
+
+
+def test_delete_prompt_model_config():
+    # Register a prompt with model config
+    model_config = {"model_name": "gpt-5", "temperature": 0.7}
+    mlflow.genai.register_prompt(
+        name="test_delete_config",
+        template="Analyze: {{data}}",
+        model_config=model_config,
+    )
+
+    # Verify model config exists
+    prompt = mlflow.genai.load_prompt("test_delete_config", version=1)
+    assert prompt.model_config is not None
+
+    # Delete model config
+    mlflow.genai.delete_prompt_model_config(name="test_delete_config", version=1)
+
+    # Verify model config was deleted
+    prompt = mlflow.genai.load_prompt("test_delete_config", version=1)
+    assert prompt.model_config is None

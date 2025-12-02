@@ -13,7 +13,7 @@ from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig, PromptVersion
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
@@ -765,8 +765,9 @@ class AbstractStore:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
-            model_config: Optional PromptModelConfig instance or dictionary containing model-specific
-                configuration. Using PromptModelConfig provides validation and type safety.
+            model_config: Optional PromptModelConfig instance or dictionary containing
+                model-specific configuration. Using PromptModelConfig provides validation and type
+                safety.
 
         Returns:
             A PromptVersion object representing the created version.
@@ -793,8 +794,10 @@ class AbstractStore:
                 )
             )
         if model_config:
-            from mlflow.entities.model_registry.prompt_version import PromptModelConfig
-            from mlflow.entities.model_registry.prompt_version import MODEL_CONFIG_TAG_KEY
+            from mlflow.entities.model_registry.prompt_version import (
+                MODEL_CONFIG_TAG_KEY,
+                PromptModelConfig,
+            )
 
             # Convert ModelConfig to dict if needed
             if isinstance(model_config, PromptModelConfig):
