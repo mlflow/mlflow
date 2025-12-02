@@ -38,6 +38,7 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
         disabled={disabled || !filteredSecrets?.length}
         placeholder={filteredSecrets?.length ? 'Select a secret' : 'No secrets available for this provider'}
         validationState={error ? 'error' : undefined}
+        css={{ width: '100%' }}
         contentProps={{
           matchTriggerWidth: true,
           maxHeight: 300,

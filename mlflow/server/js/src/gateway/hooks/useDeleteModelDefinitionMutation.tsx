@@ -1,15 +1,15 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { GatewayApi } from '../api';
 import { GatewayQueryKeys } from './queryKeys';
-import type { CreateModelDefinitionRequest } from '../types';
 
-export const useCreateModelDefinitionMutation = () => {
+export const useDeleteModelDefinitionMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (request: CreateModelDefinitionRequest) => GatewayApi.createModelDefinition(request),
+    mutationFn: (modelDefinitionId: string) => GatewayApi.deleteModelDefinition(modelDefinitionId),
     onSuccess: () => {
       queryClient.invalidateQueries([GatewayQueryKeys.modelDefinitions]);
+      queryClient.invalidateQueries([GatewayQueryKeys.endpoints]);
     },
   });
 };

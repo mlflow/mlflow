@@ -14,6 +14,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { useDebounce } from 'use-debounce';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useDeleteEndpointMutation } from '../../hooks/useDeleteEndpointMutation';
@@ -36,6 +37,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
   const { mutate: deleteEndpoint, isLoading: isDeleting } = useDeleteEndpointMutation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
+  const [debouncedSearchFilter] = useDebounce(searchFilter, 250);
   const [filter, setFilter] = useState<EndpointsFilter>({ providers: [] });
 
   // Get all unique providers from all endpoints' model mappings
@@ -56,9 +58,9 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     if (!endpoints) return [];
     let filtered = endpoints;
 
-    // Apply search filter
-    if (searchFilter.trim()) {
-      const lowerFilter = searchFilter.toLowerCase();
+    // Apply search filter (using debounced value for performance)
+    if (debouncedSearchFilter.trim()) {
+      const lowerFilter = debouncedSearchFilter.toLowerCase();
       filtered = filtered.filter((endpoint) =>
         (endpoint.name ?? endpoint.endpoint_id).toLowerCase().includes(lowerFilter),
       );
@@ -75,7 +77,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     }
 
     return filtered;
-  }, [endpoints, searchFilter, filter]);
+  }, [endpoints, debouncedSearchFilter, filter]);
 
   const handleDelete = (endpoint: Endpoint) => {
     setDeletingId(endpoint.endpoint_id);

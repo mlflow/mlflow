@@ -19,6 +19,21 @@ export const getGatewayRouteDefs = () => {
           pageId: GatewayPageId.apiKeysPage,
         },
         {
+          path: 'models',
+          element: createLazyRouteElement(() => import('./pages/ModelDefinitionsPage')),
+          pageId: GatewayPageId.modelDefinitionsPage,
+        },
+        {
+          path: 'models/:modelDefinitionId',
+          element: createLazyRouteElement(() => import('./pages/ModelDefinitionDetailsPage')),
+          pageId: GatewayPageId.modelDefinitionDetailsPage,
+        },
+        {
+          path: 'models/:modelDefinitionId/edit',
+          element: createLazyRouteElement(() => import('./pages/EditModelDefinitionPage')),
+          pageId: GatewayPageId.editModelDefinitionPage,
+        },
+        {
           path: 'endpoints/create',
           element: createLazyRouteElement(() => import('./pages/CreateEndpointPage')),
           pageId: GatewayPageId.createEndpointPage,

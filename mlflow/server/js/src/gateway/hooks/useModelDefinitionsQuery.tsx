@@ -1,8 +1,9 @@
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { GatewayApi } from '../api';
+import { GatewayQueryKeys } from './queryKeys';
 import type { ListModelDefinitionsResponse } from '../types';
 
-type ModelDefinitionsQueryKey = ['gateway_model_definitions'];
+type ModelDefinitionsQueryKey = ReturnType<typeof GatewayQueryKeys.modelDefinitionsList>;
 
 export const useModelDefinitionsQuery = () => {
   const queryResult = useQuery<
@@ -10,7 +11,7 @@ export const useModelDefinitionsQuery = () => {
     Error,
     ListModelDefinitionsResponse,
     ModelDefinitionsQueryKey
-  >(['gateway_model_definitions'], {
+  >(GatewayQueryKeys.modelDefinitionsList(), {
     queryFn: () => GatewayApi.listModelDefinitions(),
     retry: false,
   });

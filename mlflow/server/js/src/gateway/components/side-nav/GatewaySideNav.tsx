@@ -1,4 +1,11 @@
-import { CloudModelIcon, KeyIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  CloudModelIcon,
+  KeyIcon,
+  LayerIcon,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link, useLocation } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
@@ -8,7 +15,7 @@ const SIDE_NAV_COLLAPSED_WIDTH = 32;
 const FULL_WIDTH_CLASS_NAME = 'mlflow-gateway-side-nav-full';
 const COLLAPSED_CLASS_NAME = 'mlflow-gateway-side-nav-collapsed';
 
-export type GatewayTabName = 'endpoints' | 'api-keys';
+export type GatewayTabName = 'endpoints' | 'models' | 'api-keys';
 
 interface NavItem {
   label: React.ReactNode;
@@ -25,6 +32,12 @@ const navItems: NavItem[] = [
     icon: <CloudModelIcon />,
     tabName: 'endpoints',
     to: GatewayRoutes.gatewayPageRoute,
+  },
+  {
+    label: <FormattedMessage defaultMessage="Models" description="Label for the models tab in the Gateway sidebar" />,
+    icon: <LayerIcon />,
+    tabName: 'models',
+    to: GatewayRoutes.modelDefinitionsPageRoute,
   },
   {
     label: (

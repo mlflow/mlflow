@@ -268,9 +268,20 @@ const ModelCard = ({
       }}
     >
       {/* Model definition name as title */}
-      <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
-        {modelDefinition.name}
-      </Typography.Title>
+      <div css={{ marginBottom: theme.spacing.sm }}>
+        <Link
+          to={GatewayRoutes.getModelDefinitionDetailsRoute(modelDefinition.model_definition_id)}
+          css={{
+            color: theme.colors.actionPrimaryBackgroundDefault,
+            textDecoration: 'none',
+            fontSize: theme.typography.fontSizeMd,
+            fontWeight: theme.typography.typographyBoldFontWeight,
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          {modelDefinition.name}
+        </Link>
+      </div>
 
       {/* Properties grid */}
       <div

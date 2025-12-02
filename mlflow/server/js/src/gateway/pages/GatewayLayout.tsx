@@ -41,6 +41,9 @@ const GatewayLayout = () => {
     if (location.pathname.includes('/api-keys')) {
       return 'api-keys';
     }
+    if (location.pathname.includes('/models')) {
+      return 'models';
+    }
     return 'endpoints';
   };
 
