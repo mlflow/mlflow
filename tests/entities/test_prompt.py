@@ -115,7 +115,6 @@ def test_prompt_format_backslash_escape(path_value: str, unicode_value: str, exp
     ],
 )
 def test_prompt_format_chat_backslash_escape(style: str, question: str, expected_content: str):
-    """Test that PromptVersion.format correctly handles backslashes in chat prompts."""
     chat_template = [
         {"role": "system", "content": "You are a {{style}} assistant."},
         {"role": "user", "content": "{{question}}"},

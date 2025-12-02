@@ -2759,6 +2759,32 @@ def test_make_judge_serialization_with_feedback_value_type():
     assert typing.get_args(restored_list._feedback_value_type) == (str,)
 
 
+def test_judge_with_literal_type_serialization():
+    literal_type = Literal["good", "bad"]
+    judge = make_judge(
+        name="test_judge",
+        instructions="Rate the response as {{ inputs }}",
+        feedback_value_type=literal_type,
+        model="databricks:/databricks-meta-llama-3-1-70b-instruct",
+    )
+
+    # Test serialization
+    serialized = InstructionsJudge._serialize_feedback_value_type(literal_type)
+    assert "enum" in serialized
+    assert serialized["enum"] == ["good", "bad"]
+
+    # Test model validate
+    dumped = judge.model_dump()
+    restored = Scorer.model_validate(dumped)
+    assert restored.name == "test_judge"
+    assert restored._feedback_value_type is not None
+
+    # Test register
+    registered = judge.register()
+    assert registered.name == "test_judge"
+    assert registered._feedback_value_type is not None
+
+
 def test_make_judge_validates_feedback_value_type():
     # Valid types should work
     make_judge(
@@ -2877,7 +2903,6 @@ def test_make_judge_with_default_feedback_value_type(monkeypatch):
 
 
 def test_conversation_template_variable_extraction():
-    """Test that conversation template variable is correctly extracted."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate the {{ conversation }} for quality",
@@ -2912,7 +2937,6 @@ def test_is_session_level_scorer_property():
 
 
 def test_conversation_with_expectations_allowed():
-    """Test that conversation can be used with expectations."""
     judge = make_judge(
         name="conversation_expectations_judge",
         instructions="Evaluate {{ conversation }} against {{ expectations }}",
@@ -2924,7 +2948,6 @@ def test_conversation_with_expectations_allowed():
 
 
 def test_conversation_with_other_variables_rejected():
-    """Test that conversation cannot be used with inputs, outputs, or trace."""
     with pytest.raises(
         MlflowException,
         match=(
@@ -2969,7 +2992,6 @@ def test_conversation_with_other_variables_rejected():
 
 
 def test_session_validation_type_error():
-    """Test that session must be a list."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -2982,7 +3004,6 @@ def test_session_validation_type_error():
 
 
 def test_session_validation_not_all_traces():
-    """Test that all elements in session must be Trace objects."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3038,7 +3059,6 @@ def create_trace_with_session(
 
 
 def test_validate_session_missing_session_id():
-    """Test that _validate_session raises error when trace is missing session_id."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3097,7 +3117,6 @@ def test_validate_session_different_sessions():
 
 
 def test_validate_session_same_session():
-    """Test that _validate_session passes when all traces belong to the same session."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3113,7 +3132,6 @@ def test_validate_session_same_session():
 
 
 def test_conversation_extraction_from_session(mock_invoke_judge_model):
-    """Test that conversation is correctly extracted from session traces."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }} for quality",
@@ -3166,7 +3184,6 @@ def test_conversation_extraction_from_session(mock_invoke_judge_model):
 
 
 def test_conversation_extraction_chronological_order(mock_invoke_judge_model):
-    """Test that conversation messages are extracted in chronological order."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3203,7 +3220,6 @@ def test_conversation_extraction_chronological_order(mock_invoke_judge_model):
 
 
 def test_conversation_with_expectations(mock_invoke_judge_model):
-    """Test that conversation can be used with expectations."""
     judge = make_judge(
         name="conversation_expectations_judge",
         instructions="Evaluate {{ conversation }} against {{ expectations }}",
@@ -3244,7 +3260,6 @@ expectations: {
 
 
 def test_conversation_missing_session():
-    """Test that missing session raises error when conversation is required."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3259,7 +3274,6 @@ def test_conversation_missing_session():
 
 
 def test_conversation_empty_session():
-    """Test that empty session list is handled."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3274,7 +3288,6 @@ def test_conversation_empty_session():
 
 
 def test_conversation_with_empty_inputs_or_outputs(mock_invoke_judge_model):
-    """Test that empty inputs/outputs are filtered out from conversation."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3317,7 +3330,6 @@ def test_conversation_with_empty_inputs_or_outputs(mock_invoke_judge_model):
 
 
 def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
-    """Test that unused conversation parameter triggers warning."""
     judge = make_judge(
         name="outputs_judge",
         instructions="Evaluate {{ outputs }}",
@@ -3342,7 +3354,6 @@ def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
 
 
 def test_conversation_no_warning_when_used(mock_invoke_judge_model):
-    """Test that no warning is shown when conversation is used."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
