@@ -1,7 +1,7 @@
 import { trace, Tracer } from '@opentelemetry/api';
 import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getConfig } from './config';
+import { NodeSDK } from '@opentelemetry/sdk-node/build/src/sdk';
+import { getConfig, getDatabricksAuthProvider } from './config';
 import { MlflowClient } from '../clients';
 import { tryEnableOptionalIntegrations } from './integration_loader';
 
@@ -11,7 +11,7 @@ let processor: MlflowSpanProcessor | null = null;
 
 export function initializeSDK(): void {
   if (sdk) {
-    sdk.shutdown().catch((error) => {
+    sdk.shutdown().catch((error: unknown) => {
       console.error('Error shutting down existing SDK:', error);
     });
   }
@@ -27,6 +27,7 @@ export function initializeSDK(): void {
       trackingUri: hostConfig.trackingUri,
       host: hostConfig.host,
       databricksToken: hostConfig.databricksToken,
+      databricksAuthProvider: getDatabricksAuthProvider() ?? undefined,
       trackingServerUsername: hostConfig.trackingServerUsername,
       trackingServerPassword: hostConfig.trackingServerPassword
     });
@@ -38,7 +39,7 @@ export function initializeSDK(): void {
 
     sdk = new NodeSDK({ spanProcessors: [processor] });
     sdk.start();
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to initialize MLflow tracing:', error);
   }
 }
