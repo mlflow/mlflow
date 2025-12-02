@@ -60,9 +60,10 @@ jobs:
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
-      - run: |
-          uv pip install --system pytest pytest-cov plotly -r ../requirements/doc-requirements.txt
-          uv pip install --system -e '..[gateway]'
+      - name: Install dependencies
+        working-directory: .
+        run: |
+          uv sync --group docs --extra gateway
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
@@ -121,6 +122,29 @@ jobs:
           path: /tmp/pr_number.txt
           retention-days: 1
           if-no-files-found: error
+
+  test-examples:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs/api_reference
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        working-directory: .
+        run: |
+          uv sync --group docs --extra gateway
+      - name: Extract examples
+        run: |
+          uv run source/testcode_block.py
+      - name: Run tests
+        run: |
+          uv run pytest .examples
 
   r:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
