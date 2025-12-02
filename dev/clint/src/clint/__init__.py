@@ -79,6 +79,10 @@ def main() -> None:
                 count = len(violations)
                 label = "error" if count == 1 else "errors"
                 print(f"Found {count} {label}", file=sys.stderr)
+                print(
+                    "See dev/clint/README.md for instructions on ignoring these rules.",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             else:
                 print("No errors found!", file=sys.stderr)
