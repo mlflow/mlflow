@@ -185,7 +185,6 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
 
     if artifact_uri is None:
         artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-
     store_cls = WorkspaceAwareSqlAlchemyStore if MLFLOW_ENABLE_WORKSPACES.get() else SqlAlchemyStore
     return store_cls(store_uri, artifact_uri)
 
