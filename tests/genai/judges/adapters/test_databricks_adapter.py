@@ -491,7 +491,6 @@ def test_call_chat_completions_success(user_prompt, system_prompt, mock_databric
 
 
 def test_call_chat_completions_with_custom_session_name(mock_databricks_rag_eval):
-    """Test that custom session name is used when provided."""
     with (
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"

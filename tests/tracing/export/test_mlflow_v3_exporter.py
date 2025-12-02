@@ -231,7 +231,6 @@ def test_async_bulk_export(monkeypatch):
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
-    """Test that prompts are correctly linked when using MLflow v3 exporter."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
@@ -337,7 +336,6 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
-    """Test that empty prompts list doesn't cause issues with MLflow v3 exporter."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
@@ -406,7 +404,6 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
 
 
 def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
-    """Test that MLflow v3 exporter handles prompt linking errors gracefully."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "False")  # Use sync for easier testing
