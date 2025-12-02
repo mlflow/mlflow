@@ -54,6 +54,8 @@ Carefully examine **only the changed lines** (added or modified) in the diff for
 - Potential bugs and code quality issues
 - Common mistakes
 
+**Workspace awareness reminder**: If the diff touches the SQLAlchemy tracking store or other tracking persistence layers, verify that workspace-aware behavior remains intact and that new functionality includes matching workspace-aware tests (for example, additions in `tests/store/tracking/test_sqlalchemy_store_workspace.py`).
+
 **Important**: Ignore unchanged/context lines and pre-existing code.
 
 ### 4. Decision Point

@@ -300,8 +300,19 @@ def test_evaluation_dataset_complex_tags():
     assert dataset3.tags == complex_tags
 
 
-def test_evaluation_dataset_to_df():
+def test_evaluation_dataset_to_df(monkeypatch):
     """Test that to_df method returns a DataFrame with outputs column."""
+
+    class DummyTrackingStore:
+        def _load_dataset_records(self, dataset_id, max_results=None):
+            return [], None
+
+    dummy_store = DummyTrackingStore()
+    monkeypatch.setattr(
+        "mlflow.tracking._tracking_service.utils._get_store",
+        lambda: dummy_store,
+    )
+
     dataset = EvaluationDataset(
         dataset_id="dataset123",
         name="test_dataset",

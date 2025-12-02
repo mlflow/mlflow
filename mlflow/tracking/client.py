@@ -107,13 +107,12 @@ from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
-from mlflow.tracking._workspace import utils as workspace_utils
 from mlflow.tracking._workspace.client import WorkspaceProviderClient
 from mlflow.tracking._workspace.registry import UnsupportedWorkspaceStoreURIException
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils import is_uuid
+from mlflow.utils import is_uuid, workspace_utils
 from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (

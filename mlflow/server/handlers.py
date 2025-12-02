@@ -269,9 +269,15 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
     @classmethod
     def _get_sqlalchemy_store(cls, store_uri, artifact_uri):
-        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+        from mlflow.store.tracking.sqlalchemy_store import (
+            SqlAlchemyStore,
+            WorkspaceAwareSqlAlchemyStore,
+        )
 
-        return SqlAlchemyStore(store_uri, artifact_uri)
+        store_cls = (
+            WorkspaceAwareSqlAlchemyStore if MLFLOW_ENABLE_WORKSPACES.get() else SqlAlchemyStore
+        )
+        return store_cls(store_uri, artifact_uri)
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri, artifact_uri):
