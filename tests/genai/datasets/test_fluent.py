@@ -1673,7 +1673,6 @@ def test_dataset_schema_evolution_and_log_input(tracking_uri, experiments):
 
     consistent_profile = json.loads(consistent_dataset.profile)
     assert consistent_profile["num_records"] == 4
-    delete_dataset_tag(dataset_id="test", key="key")
 
 
 def test_deprecated_parameter_substitution(experiment):
