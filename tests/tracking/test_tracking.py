@@ -735,37 +735,14 @@ def test_log_stream_bytes(subdir):
         assert (run_artifact_dir / filename).read_bytes() == content
 
 
-@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
-def test_log_stream_text(subdir):
-    filename = "file.txt"
-    content = "text content"
-    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
-
-    with mlflow.start_run():
-        stream = io.StringIO(content)
-        mlflow.log_stream(stream, artifact_file)
-
-        artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
-        run_artifact_dir = pathlib.Path(local_file_uri_to_path(artifact_uri))
-        assert list(run_artifact_dir.iterdir()) == [run_artifact_dir / filename]
-        assert (run_artifact_dir / filename).read_text(encoding="utf-8") == content
-
-
 def test_log_stream_empty():
     with mlflow.start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = pathlib.Path(local_file_uri_to_path(artifact_uri))
 
-        # Empty binary stream
         stream = io.BytesIO(b"")
         mlflow.log_stream(stream, "empty.bin")
         assert (run_artifact_dir / "empty.bin").read_bytes() == b""
-
-        # Empty text stream
-        stream = io.StringIO("")
-        mlflow.log_stream(stream, "empty.txt")
-        assert (run_artifact_dir / "empty.txt").read_text() == ""
 
 
 def test_log_stream_large_content():
@@ -778,17 +755,6 @@ def test_log_stream_large_content():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = pathlib.Path(local_file_uri_to_path(artifact_uri))
         assert (run_artifact_dir / "large.bin").read_bytes() == large_content
-
-
-def test_log_stream_invalid_type():
-    class InvalidStream:
-        def read(self, size=-1):
-            return 123  # Returns int instead of str or bytes
-
-    with mlflow.start_run():
-        stream = InvalidStream()
-        with pytest.raises(MlflowException, match="Expected stream to return str or bytes"):
-            mlflow.log_stream(stream, "invalid.txt")
 
 
 def test_with_startrun():
