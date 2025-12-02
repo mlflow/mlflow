@@ -172,21 +172,53 @@ def test_server_gunicorn_options():
     assert "Cannot specify multiple server options" in result.output
 
 
+def test_server_initializes_backend_store_when_tracking_enabled():
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with (
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+        ):
+            result = runner.invoke(server)
+    assert result.exit_code == 0
+    init_backend_mock.assert_called_once_with(mock.ANY, mock.ANY, mock.ANY)
+    run_server_mock.assert_called_once()
+
+
+def test_server_skips_backend_store_init_in_artifacts_only_mode():
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with (
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+        ):
+            result = runner.invoke(server, ["--artifacts-only"])
+    assert result.exit_code == 0
+    init_backend_mock.assert_not_called()
+    run_server_mock.assert_called_once()
+
+
 def test_server_mlflow_artifacts_options():
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only"])
-        run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--serve-artifacts"])
-        run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--no-serve-artifacts"])
-        run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only"])
-        run_server_mock.assert_called_once()
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--artifacts-only"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--serve-artifacts"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--no-serve-artifacts"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--artifacts-only"])
+            run_server_mock.assert_called_once()
 
 
 @pytest.mark.parametrize("command", [server])
@@ -644,10 +676,10 @@ def test_mlflow_models_serve(enable_mlserver):
     np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
 
 
-def test_mlflow_tracking_disabled_in_artifacts_only_mode():
+def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    process = subprocess.Popen(cmd)
+    process = subprocess.Popen(cmd, cwd=tmp_path)
     _await_server_up_or_die(port)
     resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
     assert (
