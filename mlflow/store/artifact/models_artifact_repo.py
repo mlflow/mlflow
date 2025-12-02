@@ -6,7 +6,9 @@ from pathlib import Path
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from mlflow.store.artifact.databricks_models_artifact_repo import (
+    DatabricksModelsArtifactRepository,
+)
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
@@ -42,14 +44,23 @@ class ModelsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(
-        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+        self,
+        artifact_uri: str,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
-        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+        from mlflow.store.artifact.artifact_repository_registry import (
+            get_artifact_repository,
+        )
 
+        _logger.info("ModelsArtifactRepository __init__")
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         registry_uri = registry_uri or mlflow.get_registry_uri()
         self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)
-        if is_databricks_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
+        if (
+            is_databricks_unity_catalog_uri(uri=registry_uri)
+            and not self.is_logged_model_uri
+        ):
             self.repo = UnityCatalogModelsArtifactRepository(
                 artifact_uri=artifact_uri,
                 registry_uri=registry_uri,
@@ -57,7 +68,9 @@ class ModelsArtifactRepository(ArtifactRepository):
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
-        elif is_oss_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
+        elif (
+            is_oss_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri
+        ):
             self.repo = UnityCatalogOSSModelsArtifactRepository(
                 artifact_uri=artifact_uri,
                 registry_uri=registry_uri,
@@ -130,7 +143,8 @@ class ModelsArtifactRepository(ArtifactRepository):
         from mlflow import MlflowClient
 
         databricks_profile_uri = (
-            get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
+            get_databricks_profile_uri_from_artifact_uri(uri)
+            or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
         name_and_version_or_id = get_model_name_and_version(client, uri)
@@ -146,7 +160,9 @@ class ModelsArtifactRepository(ArtifactRepository):
         return (
             name,
             version,
-            add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri),
+            add_databricks_profile_info_to_artifact_uri(
+                download_uri, databricks_profile_uri
+            ),
         )
 
     @staticmethod
@@ -217,7 +233,9 @@ class ModelsArtifactRepository(ArtifactRepository):
             ensure_yaml_extension=False,
         )
 
-    def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
+    def download_artifacts(
+        self, artifact_path, dst_path=None, lineage_header_info=None
+    ):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
