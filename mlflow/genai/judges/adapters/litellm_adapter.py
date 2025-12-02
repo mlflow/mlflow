@@ -111,6 +111,7 @@ def _invoke_litellm(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None,
     include_response_format: bool,
+    inference_params: dict[str, Any] | None = None,
 ) -> "litellm.ModelResponse":
     """
     Invoke litellm completion with retry support.
@@ -122,6 +123,8 @@ def _invoke_litellm(
         num_retries: Number of retries with exponential backoff.
         response_format: Optional Pydantic model class for structured output.
         include_response_format: Whether to include response_format in the request.
+        inference_params: Optional dictionary of additional inference parameters to pass
+            to the model (e.g., temperature, top_p, max_tokens).
 
     Returns:
         The litellm ModelResponse object.
@@ -149,6 +152,11 @@ def _invoke_litellm(
     if include_response_format:
         # LiteLLM supports passing Pydantic models directly for response_format
         kwargs["response_format"] = response_format or _get_default_judge_response_schema()
+
+    # Apply any additional inference parameters (e.g., temperature, top_p, max_tokens)
+    if inference_params:
+        kwargs.update(inference_params)
+
     return litellm.completion(**kwargs)
 
 
@@ -160,6 +168,7 @@ def _invoke_litellm_and_handle_tools(
     trace: Trace | None,
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> tuple[str, float | None]:
     """
     Invoke litellm with retry support and handle tool calling loop.
@@ -173,6 +182,8 @@ def _invoke_litellm_and_handle_tools(
         response_format: Optional Pydantic model class for structured output format.
                        Used by get_chat_completions_with_structured_output for
                        schema-based extraction.
+        inference_params: Optional dictionary of additional inference parameters to pass
+                       to the model (e.g., temperature, top_p, max_tokens).
 
     Returns:
         Tuple of the model's response content and the total cost.
@@ -232,6 +243,7 @@ def _invoke_litellm_and_handle_tools(
                     num_retries=num_retries,
                     response_format=response_format,
                     include_response_format=include_response_format,
+                    inference_params=inference_params,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):

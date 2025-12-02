@@ -123,6 +123,7 @@ def mock_invoke_judge_model(monkeypatch):
         num_retries=10,
         response_format=None,
         use_case=None,
+        inference_params=None,
     ):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
@@ -137,6 +138,7 @@ def mock_invoke_judge_model(monkeypatch):
                 "num_retries": num_retries,
                 "response_format": response_format,
                 "use_case": use_case,
+                "inference_params": inference_params,
             }
         )
 
@@ -3509,3 +3511,130 @@ def test_response_format_uses_generic_field_description(description):
     output_fields = judge.get_output_fields()
     result_field = next(f for f in output_fields if f.name == "result")
     assert result_field.description == _RESULT_FIELD_DESCRIPTION
+
+
+class TestInferenceParams:
+    """Tests for inference_params feature in LLM judges."""
+
+    def test_make_judge_with_inference_params(self):
+        """Test that make_judge accepts and stores inference_params."""
+        inference_params = {"temperature": 0.0, "max_tokens": 100}
+        judge = make_judge(
+            name="test_judge",
+            instructions="Check if {{ outputs }} is formal",
+            model="openai:/gpt-4",
+            inference_params=inference_params,
+        )
+
+        assert judge.inference_params == inference_params
+        assert judge._inference_params == inference_params
+
+    def test_make_judge_without_inference_params(self):
+        """Test that inference_params defaults to None."""
+        judge = make_judge(
+            name="test_judge",
+            instructions="Check if {{ outputs }} is formal",
+            model="openai:/gpt-4",
+        )
+
+        assert judge.inference_params is None
+        assert judge._inference_params is None
+
+    def test_instructions_judge_with_inference_params(self):
+        """Test InstructionsJudge directly with inference_params."""
+        inference_params = {"temperature": 0.5, "top_p": 0.9}
+        judge = InstructionsJudge(
+            name="test_judge",
+            instructions="Check if {{ outputs }} is accurate",
+            model="openai:/gpt-4",
+            inference_params=inference_params,
+        )
+
+        assert judge.inference_params == inference_params
+
+    def test_inference_params_passed_to_invoke_judge_model(self, mock_invoke_judge_model):
+        """Test that inference_params are passed through to invoke_judge_model."""
+        inference_params = {"temperature": 0.1}
+        judge = make_judge(
+            name="test_judge",
+            instructions="Check if {{ outputs }} is good",
+            model="openai:/gpt-4",
+            inference_params=inference_params,
+        )
+
+        judge(outputs="test output")
+
+        # Verify inference_params was passed to invoke_judge_model
+        assert mock_invoke_judge_model.captured_args.get("inference_params") == inference_params
+
+    def test_inference_params_in_repr(self):
+        """Test that inference_params appears in repr when set."""
+        inference_params = {"temperature": 0.2}
+        judge = make_judge(
+            name="test_judge",
+            instructions="Check {{ outputs }}",
+            model="openai:/gpt-4",
+            inference_params=inference_params,
+        )
+
+        repr_str = repr(judge)
+        assert "inference_params=" in repr_str
+        assert "temperature" in repr_str
+
+    def test_inference_params_not_in_repr_when_none(self):
+        """Test that inference_params does not appear in repr when None."""
+        judge = make_judge(
+            name="test_judge",
+            instructions="Check {{ outputs }}",
+            model="openai:/gpt-4",
+        )
+
+        repr_str = repr(judge)
+        assert "inference_params" not in repr_str
+
+    def test_inference_params_serialization(self):
+        """Test that inference_params is serialized in model_dump."""
+        inference_params = {"temperature": 0.3, "max_tokens": 500}
+        judge = make_judge(
+            name="test_judge",
+            instructions="Check {{ outputs }}",
+            model="openai:/gpt-4",
+            inference_params=inference_params,
+        )
+
+        dumped = judge.model_dump()
+        pydantic_data = dumped["instructions_judge_pydantic_data"]
+        assert pydantic_data["inference_params"] == inference_params
+
+    def test_inference_params_not_serialized_when_none(self):
+        """Test that inference_params is not included in serialization when None."""
+        judge = make_judge(
+            name="test_judge",
+            instructions="Check {{ outputs }}",
+            model="openai:/gpt-4",
+        )
+
+        dumped = judge.model_dump()
+        pydantic_data = dumped["instructions_judge_pydantic_data"]
+        assert "inference_params" not in pydantic_data
+
+    @pytest.mark.parametrize(
+        "inference_params",
+        [
+            {"temperature": 0.0},
+            {"temperature": 1.0},
+            {"max_tokens": 100},
+            {"top_p": 0.95},
+            {"temperature": 0.5, "max_tokens": 200, "top_p": 0.9},
+        ],
+    )
+    def test_various_inference_params(self, inference_params):
+        """Test that various inference parameters can be set."""
+        judge = make_judge(
+            name="test_judge",
+            instructions="Check {{ outputs }}",
+            model="openai:/gpt-4",
+            inference_params=inference_params,
+        )
+
+        assert judge.inference_params == inference_params
