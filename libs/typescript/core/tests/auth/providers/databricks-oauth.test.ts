@@ -31,37 +31,24 @@ describe('DatabricksOAuthProvider', () => {
   };
 
   describe('constructor', () => {
-    it('should throw error when host is missing', () => {
-      expect(
-        () =>
-          new DatabricksOAuthProvider({
-            host: '',
-            clientId: 'id',
-            clientSecret: 'secret'
-          })
-      ).toThrow('Databricks host is required for OAuth');
-    });
-
-    it('should throw error when clientId is missing', () => {
-      expect(
-        () =>
-          new DatabricksOAuthProvider({
-            host: 'https://example.com',
-            clientId: '',
-            clientSecret: 'secret'
-          })
-      ).toThrow('OAuth client ID is required');
-    });
-
-    it('should throw error when clientSecret is missing', () => {
-      expect(
-        () =>
-          new DatabricksOAuthProvider({
-            host: 'https://example.com',
-            clientId: 'id',
-            clientSecret: ''
-          })
-      ).toThrow('OAuth client secret is required');
+    it.each([
+      [
+        'host',
+        { host: '', clientId: 'id', clientSecret: 'secret' },
+        'Databricks host is required for OAuth'
+      ],
+      [
+        'clientId',
+        { host: 'https://example.com', clientId: '', clientSecret: 'secret' },
+        'OAuth client ID is required'
+      ],
+      [
+        'clientSecret',
+        { host: 'https://example.com', clientId: 'id', clientSecret: '' },
+        'OAuth client secret is required'
+      ]
+    ])('should throw error when %s is missing', (_, config, expectedError) => {
+      expect(() => new DatabricksOAuthProvider(config)).toThrow(expectedError);
     });
 
     it('should strip trailing slash from host', async () => {

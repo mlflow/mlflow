@@ -22,6 +22,11 @@ const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 const MAX_REFRESH_RETRIES = 3;
 
 /**
+ * Request timeout for OAuth token requests (30 seconds).
+ */
+const OAUTH_REQUEST_TIMEOUT_MS = 30000;
+
+/**
  * Authentication provider using Databricks OAuth client credentials flow.
  * Handles automatic token refresh before expiry.
  */
@@ -110,6 +115,10 @@ export class DatabricksOAuthProvider implements AuthProvider {
       'base64'
     );
 
+    // Set up request timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), OAUTH_REQUEST_TIMEOUT_MS);
+
     try {
       const response = await fetch(tokenEndpoint, {
         method: 'POST',
@@ -117,8 +126,11 @@ export class DatabricksOAuthProvider implements AuthProvider {
           'Content-Type': 'application/x-www-form-urlencoded',
           Authorization: `Basic ${basicAuth}`
         },
-        body: body.toString()
+        body: body.toString(),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -141,9 +153,16 @@ export class DatabricksOAuthProvider implements AuthProvider {
 
       return this.cachedToken;
     } catch (error) {
+      clearTimeout(timeoutId);
+
       // Don't retry on OAuth errors (authentication/authorization failures)
       if (error instanceof OAuthError) {
         throw error;
+      }
+
+      // Handle timeout errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`OAuth token request timed out after ${OAUTH_REQUEST_TIMEOUT_MS}ms`);
       }
 
       // Retry on transient network errors

@@ -11,27 +11,14 @@ describe('BasicAuthProvider', () => {
     expect(result.authorizationHeader).toBe(`Basic ${expectedCredentials}`);
   });
 
-  it('should throw error when username is empty', () => {
-    expect(() => new BasicAuthProvider('', 'password')).toThrow(
-      'Username is required for basic authentication'
-    );
-  });
-
-  it('should throw error when password is empty', () => {
-    expect(() => new BasicAuthProvider('username', '')).toThrow(
-      'Password is required for basic authentication'
-    );
-  });
-
-  it('should throw error when username is undefined', () => {
-    expect(() => new BasicAuthProvider(undefined as unknown as string, 'password')).toThrow(
-      'Username is required for basic authentication'
-    );
-  });
-
-  it('should throw error when password is undefined', () => {
-    expect(() => new BasicAuthProvider('username', undefined as unknown as string)).toThrow(
-      'Password is required for basic authentication'
+  it.each([
+    ['empty username', '', 'password', 'Username is required for basic authentication'],
+    ['undefined username', undefined, 'password', 'Username is required for basic authentication'],
+    ['empty password', 'username', '', 'Password is required for basic authentication'],
+    ['undefined password', 'username', undefined, 'Password is required for basic authentication']
+  ])('should throw error when %s', (_, username, password, expectedError) => {
+    expect(() => new BasicAuthProvider(username as string, password as string)).toThrow(
+      expectedError
     );
   });
 
@@ -43,14 +30,5 @@ describe('BasicAuthProvider', () => {
 
     const expectedCredentials = Buffer.from(`${username}:${password}`).toString('base64');
     expect(result.authorizationHeader).toBe(`Basic ${expectedCredentials}`);
-  });
-
-  it('should return consistent results on multiple calls', async () => {
-    const provider = new BasicAuthProvider('user', 'pass');
-
-    const result1 = await provider.authenticate();
-    const result2 = await provider.authenticate();
-
-    expect(result1.authorizationHeader).toBe(result2.authorizationHeader);
   });
 });

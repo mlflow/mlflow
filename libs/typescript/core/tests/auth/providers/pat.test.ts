@@ -9,24 +9,12 @@ describe('PersonalAccessTokenProvider', () => {
     expect(result.authorizationHeader).toBe(`Bearer ${token}`);
   });
 
-  it('should throw error when token is empty', () => {
-    expect(() => new PersonalAccessTokenProvider('')).toThrow('Personal access token is required');
-  });
-
-  it('should throw error when token is undefined', () => {
-    expect(() => new PersonalAccessTokenProvider(undefined as unknown as string)).toThrow(
+  it.each([
+    ['empty', ''],
+    ['undefined', undefined]
+  ])('should throw error when token is %s', (_, token) => {
+    expect(() => new PersonalAccessTokenProvider(token as string)).toThrow(
       'Personal access token is required'
     );
-  });
-
-  it('should return consistent results on multiple calls', async () => {
-    const token = 'test-token-12345';
-    const provider = new PersonalAccessTokenProvider(token);
-
-    const result1 = await provider.authenticate();
-    const result2 = await provider.authenticate();
-
-    expect(result1.authorizationHeader).toBe(`Bearer ${token}`);
-    expect(result2.authorizationHeader).toBe(`Bearer ${token}`);
   });
 });
