@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from mlflow.prompt.registry_utils import PromptCache
+from mlflow.prompt.registry_utils import PromptCache, PromptCacheKey
 
 
 @pytest.fixture(autouse=True)
@@ -22,20 +22,20 @@ def test_singleton_pattern():
 
 def test_set_and_get():
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("test-prompt", version=1)
+    key = PromptCacheKey.from_parts("test-prompt", version=1)
     cache.set(key, {"template": "Hello {{name}}"})
     assert cache.get(key) == {"template": "Hello {{name}}"}
 
 
 def test_get_nonexistent():
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("nonexistent", version=1)
+    key = PromptCacheKey.from_parts("nonexistent", version=1)
     assert cache.get(key) is None
 
 
 def test_ttl_expiration():
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("test-prompt", version=1)
+    key = PromptCacheKey.from_parts("test-prompt", version=1)
     cache.set(key, "value", ttl_seconds=0.01)
     time.sleep(0.02)
     assert cache.get(key) is None
@@ -43,9 +43,9 @@ def test_ttl_expiration():
 
 def test_delete_prompt():
     cache = PromptCache.get_instance()
-    key1 = PromptCache.generate_cache_key("my-prompt", version=1)
-    key2 = PromptCache.generate_cache_key("my-prompt", version=2)
-    key3 = PromptCache.generate_cache_key("other-prompt", version=1)
+    key1 = PromptCacheKey.from_parts("my-prompt", version=1)
+    key2 = PromptCacheKey.from_parts("my-prompt", version=2)
+    key3 = PromptCacheKey.from_parts("other-prompt", version=1)
 
     cache.set(key1, "value1")
     cache.set(key2, "value2")
@@ -61,8 +61,8 @@ def test_delete_prompt():
 
 def test_delete_prompt_by_alias():
     cache = PromptCache.get_instance()
-    key1 = PromptCache.generate_cache_key("my-prompt", alias="production")
-    key2 = PromptCache.generate_cache_key("my-prompt", alias="staging")
+    key1 = PromptCacheKey.from_parts("my-prompt", alias="production")
+    key2 = PromptCacheKey.from_parts("my-prompt", alias="staging")
 
     cache.set(key1, "value1")
     cache.set(key2, "value2")
@@ -76,8 +76,8 @@ def test_delete_prompt_by_alias():
 
 def test_clear():
     cache = PromptCache.get_instance()
-    key1 = PromptCache.generate_cache_key("prompt1", version=1)
-    key2 = PromptCache.generate_cache_key("prompt2", version=1)
+    key1 = PromptCacheKey.from_parts("prompt1", version=1)
+    key2 = PromptCacheKey.from_parts("prompt2", version=1)
 
     cache.set(key1, "value1")
     cache.set(key2, "value2")
@@ -88,21 +88,21 @@ def test_clear():
 
 
 def test_generate_cache_key_with_version():
-    key = PromptCache.generate_cache_key("my-prompt", version=1)
+    key = PromptCacheKey.from_parts("my-prompt", version=1)
     assert key.name == "my-prompt"
     assert key.version == 1
     assert key.alias is None
 
 
 def test_generate_cache_key_with_alias():
-    key = PromptCache.generate_cache_key("my-prompt", alias="production")
+    key = PromptCacheKey.from_parts("my-prompt", alias="production")
     assert key.name == "my-prompt"
     assert key.version is None
     assert key.alias == "production"
 
 
 def test_generate_cache_key_with_neither():
-    key = PromptCache.generate_cache_key("my-prompt")
+    key = PromptCacheKey.from_parts("my-prompt")
     assert key.name == "my-prompt"
     assert key.version is None
     assert key.alias is None
@@ -110,11 +110,11 @@ def test_generate_cache_key_with_neither():
 
 def test_generate_cache_key_with_both_raises_error():
     with pytest.raises(ValueError, match="Cannot specify both version and alias"):
-        PromptCache.generate_cache_key("my-prompt", version=1, alias="production")
+        PromptCacheKey.from_parts("my-prompt", version=1, alias="production")
 
 
 def test_generate_cache_key_version_zero():
-    key = PromptCache.generate_cache_key("my-prompt", version=0)
+    key = PromptCacheKey.from_parts("my-prompt", version=0)
     assert key.name == "my-prompt"
     assert key.version == 0
     assert key.alias is None
@@ -148,7 +148,7 @@ def test_concurrent_operations():
     def writer(thread_id):
         try:
             for i in range(50):
-                key = PromptCache.generate_cache_key(f"prompt-{thread_id}-{i}", version=1)
+                key = PromptCacheKey.from_parts(f"prompt-{thread_id}-{i}", version=1)
                 cache.set(key, f"value-{thread_id}-{i}")
         except Exception as e:
             errors.append(e)
@@ -156,7 +156,7 @@ def test_concurrent_operations():
     def reader(thread_id):
         try:
             for i in range(50):
-                key = PromptCache.generate_cache_key(f"prompt-{thread_id}-{i}", version=1)
+                key = PromptCacheKey.from_parts(f"prompt-{thread_id}-{i}", version=1)
                 cache.get(key)
         except Exception as e:
             errors.append(e)
@@ -176,6 +176,6 @@ def test_concurrent_operations():
 
 def test_set_uses_default_ttl():
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("test", version=1)
+    key = PromptCacheKey.from_parts("test", version=1)
     cache.set(key, "value")
     assert cache.get(key) == "value"

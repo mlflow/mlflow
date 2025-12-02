@@ -71,6 +71,7 @@ from mlflow.prompt.constants import (
 )
 from mlflow.prompt.registry_utils import (
     PromptCache,
+    PromptCacheKey,
     has_prompt_tag,
     model_version_to_prompt_version,
     parse_prompt_name_or_uri,
@@ -788,7 +789,7 @@ class MlflowClient:
         # Check cache if cache_ttl_seconds != 0 (0 means no caching)
         if cache_ttl_seconds != 0:
             cache = PromptCache.get_instance()
-            cache_key = PromptCache.generate_cache_key_from_uri(prompt_uri)
+            cache_key = PromptCacheKey.from_uri(prompt_uri)
             if cached_prompt := cache.get(cache_key):
                 return cached_prompt
 

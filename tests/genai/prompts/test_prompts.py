@@ -13,7 +13,7 @@ from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
-from mlflow.prompt.registry_utils import PromptCache
+from mlflow.prompt.registry_utils import PromptCache, PromptCacheKey
 from mlflow.tracing.constant import SpanAttributeKey
 
 
@@ -1298,7 +1298,7 @@ def test_register_prompt_invalidates_latest_cache():
 
     # Verify it's cached
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("latest_cache_test", alias="latest")
+    key = PromptCacheKey.from_parts("latest_cache_test", alias="latest")
     assert cache.get(key) is not None
 
     # Register a new version - should invalidate @latest cache
@@ -1329,7 +1329,7 @@ def test_set_prompt_alias_invalidates_alias_cache():
 
     # Verify it's cached
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("alias_cache_test", alias="production")
+    key = PromptCacheKey.from_parts("alias_cache_test", alias="production")
     assert cache.get(key) is not None
 
     # Update alias to point to version 2 - should invalidate cache
@@ -1458,7 +1458,7 @@ def test_prompt_cache_custom_ttl():
 
     # Should be cached
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("custom_ttl_prompt", version=1)
+    key = PromptCacheKey.from_parts("custom_ttl_prompt", version=1)
     cached = cache.get(key)
     assert cached is not None
     assert cached.template == "Hello!"
@@ -1468,7 +1468,7 @@ def test_prompt_cache_custom_ttl():
     mlflow.genai.load_prompt("custom_ttl_prompt_float", version=1, cache_ttl_seconds=300.5)
 
     # Should be cached
-    key_float = PromptCache.generate_cache_key("custom_ttl_prompt_float", version=1)
+    key_float = PromptCacheKey.from_parts("custom_ttl_prompt_float", version=1)
     cached_float = cache.get(key_float)
     assert cached_float is not None
     assert cached_float.template == "Hello float!"
@@ -1483,7 +1483,7 @@ def test_prompt_cache_invalidation():
 
     # Verify it's cached
     cache = PromptCache.get_instance()
-    key = PromptCache.generate_cache_key("invalidate_prompt", version=1)
+    key = PromptCacheKey.from_parts("invalidate_prompt", version=1)
     assert cache.get(key) is not None
 
     # Delete specific version from cache
