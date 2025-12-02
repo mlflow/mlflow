@@ -47,7 +47,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
     "sphinx_tabs.tabs",
-    "nbsphinx",
     "sphinx_reredirects",
 ]
 
