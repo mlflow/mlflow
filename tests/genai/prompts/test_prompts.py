@@ -13,7 +13,8 @@ from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_PROMPT_CACHE_MAX_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
+from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
 
 
 def join_thread_by_name_prefix(prefix: str):
@@ -21,6 +22,13 @@ def join_thread_by_name_prefix(prefix: str):
     for t in threading.enumerate():
         if t.name.startswith(prefix):
             t.join()
+
+
+@pytest.fixture(autouse=True)
+def wait_for_linkage_threads_to_complete():
+    yield
+    join_thread_by_name_prefix("link_prompt_thread")
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
 
 
 def test_prompt_api_migration_warning():
@@ -1345,3 +1353,175 @@ def test_register_prompt_with_nested_variables():
         "user.preferences.greeting",
     }
     assert prompt.variables == expected_variables
+
+
+def test_load_prompt_links_to_experiment():
+    mlflow.genai.register_prompt(name="test_exp_link", template="Hello {{name}}!")
+    experiment = mlflow.set_experiment("test_experiment_link")
+    mlflow.genai.load_prompt("test_exp_link", version=1)
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompt_info = client.get_prompt("test_exp_link")
+    assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
+
+
+def test_register_prompt_links_to_experiment():
+    experiment = mlflow.set_experiment("test_experiment_register")
+    mlflow.genai.register_prompt(name="test_exp_register", template="Greetings {{name}}!")
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompt_info = client.get_prompt("test_exp_register")
+    assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
+
+
+def test_link_prompt_to_experiment_no_duplicate():
+    mlflow.genai.register_prompt(name="no_dup_prompt", template="Test {{x}}!")
+
+    experiment = mlflow.set_experiment("test_no_dup")
+
+    mlflow.genai.load_prompt("no_dup_prompt", version=1)
+    mlflow.genai.load_prompt("no_dup_prompt", version=1)
+    mlflow.genai.load_prompt("no_dup_prompt", version=1)
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompt_info = client.get_prompt("no_dup_prompt")
+    assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
+
+
+def test_search_prompts_by_experiment_id():
+    experiment = mlflow.set_experiment("test_search_by_exp")
+
+    mlflow.genai.register_prompt(name="exp_prompt_1", template="Template 1: {{x}}")
+    mlflow.genai.register_prompt(name="exp_prompt_2", template="Template 2: {{y}}")
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompts = client.search_prompts(filter_string=f'experiment_id = "{experiment.experiment_id}"')
+
+    assert len(prompts) == 2
+    prompt_names = {p.name for p in prompts}
+    assert "exp_prompt_1" in prompt_names
+    assert "exp_prompt_2" in prompt_names
+
+
+def test_search_prompts_by_experiment_id_empty():
+    experiment = mlflow.set_experiment("test_empty_exp")
+
+    client = MlflowClient()
+    prompts = client.search_prompts(filter_string=f'experiment_id = "{experiment.experiment_id}"')
+
+    assert len(prompts) == 0
+
+
+def test_search_prompts_same_prompt_multiple_experiments():
+    exp_id_1 = mlflow.create_experiment("test_multi_exp_1")
+    exp_id_2 = mlflow.create_experiment("test_multi_exp_2")
+
+    mlflow.set_experiment(experiment_id=exp_id_1)
+    mlflow.genai.register_prompt(name="shared_search_prompt", template="Shared: {{x}}")
+
+    mlflow.set_experiment(experiment_id=exp_id_2)
+    mlflow.genai.load_prompt("shared_search_prompt", version=1)
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompts_exp1 = client.search_prompts(filter_string=f'experiment_id = "{exp_id_1}"')
+    prompts_exp2 = client.search_prompts(filter_string=f'experiment_id = "{exp_id_2}"')
+
+    assert len(prompts_exp1) == 1
+    assert prompts_exp1[0].name == "shared_search_prompt"
+
+    assert len(prompts_exp2) == 1
+    assert prompts_exp2[0].name == "shared_search_prompt"
+
+
+def test_search_prompts_with_combined_filters():
+    experiment = mlflow.set_experiment("test_combined_filters")
+
+    mlflow.genai.register_prompt(name="alpha_prompt", template="Alpha: {{x}}")
+    mlflow.genai.register_prompt(name="beta_prompt", template="Beta: {{y}}")
+    mlflow.genai.register_prompt(name="gamma_prompt", template="Gamma: {{z}}")
+
+    client = MlflowClient()
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    # Test experiment_id filter combined with name filter
+    prompts = client.search_prompts(
+        filter_string=f'experiment_id = "{experiment.experiment_id}" AND name = "alpha_prompt"'
+    )
+    assert len(prompts) == 1
+    assert prompts[0].name == "alpha_prompt"
+
+    # Test experiment_id filter combined with name LIKE filter
+    prompts = client.search_prompts(
+        filter_string=f'experiment_id = "{experiment.experiment_id}" AND name LIKE "a%"'
+    )
+    assert len(prompts) == 1
+    assert prompts[0].name == "alpha_prompt"
+
+    # Test that name filter without experiment_id returns correct results
+    prompts = client.search_prompts(filter_string='name = "gamma_prompt"')
+    assert len(prompts) == 1
+    assert prompts[0].name == "gamma_prompt"
+
+
+def test_load_prompt_sets_span_attributes():
+    mlflow.genai.register_prompt(name="span_test_prompt", template="Hello, {{name}}!")
+
+    with mlflow.start_span("test_span") as span:
+        prompt = mlflow.genai.load_prompt("span_test_prompt", version=1)
+
+    linked_prompts_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+    prompt_versions = json.loads(linked_prompts_value)
+
+    assert len(prompt_versions) == 1
+    assert prompt_versions[0] == {"name": "span_test_prompt", "version": "1"}
+    assert prompt.name == "span_test_prompt"
+    assert prompt.version == 1
+
+
+def test_load_prompt_multiple_prompts_in_same_span():
+    mlflow.genai.register_prompt(name="prompt_1", template="First {{var1}}")
+    mlflow.genai.register_prompt(name="prompt_2", template="Second {{var2}}")
+
+    with mlflow.start_span("multi_prompt_span") as span:
+        prompt1 = mlflow.genai.load_prompt("prompt_1", version=1)
+        prompt2 = mlflow.genai.load_prompt("prompt_2", version=1)
+
+    linked_prompts_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+    prompt_versions = json.loads(linked_prompts_value)
+
+    assert len(prompt_versions) == 2
+    assert {"name": "prompt_1", "version": "1"} in prompt_versions
+    assert {"name": "prompt_2", "version": "1"} in prompt_versions
+    assert prompt1.name == "prompt_1"
+    assert prompt2.name == "prompt_2"
+
+
+def test_load_prompt_same_prompt_twice_in_span():
+    mlflow.genai.register_prompt(name="duplicate_test", template="Test {{var}}")
+
+    with mlflow.start_span("duplicate_span") as span:
+        mlflow.genai.load_prompt("duplicate_test", version=1)
+        mlflow.genai.load_prompt("duplicate_test", version=1)
+
+    linked_prompts_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+    prompt_versions = json.loads(linked_prompts_value)
+    assert isinstance(prompt_versions, list)
+    assert len(prompt_versions) == 1
+    assert prompt_versions[0] == {"name": "duplicate_test", "version": "1"}
