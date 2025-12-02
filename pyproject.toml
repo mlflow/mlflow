@@ -195,7 +195,6 @@ test = [
 ]
 build = ["pip", "setuptools", "wheel", "build"]
 docs = [
-  # doc-min-requirements.txt
   "sphinx==4.2.0",
   "sphinx-autobuild",
   "sphinx-click",
@@ -209,7 +208,6 @@ docs = [
   "nbconvert",
   "nbformat",
   "nbsphinx==0.8.8",
-  # doc-requirements.txt
   "tensorflow",
   "pyspark",
   "datasets",
