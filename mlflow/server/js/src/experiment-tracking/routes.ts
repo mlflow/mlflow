@@ -22,6 +22,8 @@ export enum PageId {
   experimentPageTabChatSessions = 'mlflow.experiment.tab.chat-sessions',
   experimentPageTabSingleChatSession = 'mlflow.experiment.tab.single-chat-session',
   experimentPageTabScorers = 'mlflow.experiment.tab.scorers',
+  experimentPromptsList = 'mlflow.experiment.prompts.list',
+  experimentPromptDetails = 'mlflow.experiment.prompt.details',
   // Child routes for experiment page - end
   experimentPageSearch = 'mlflow.experiment.details.search',
   compareExperimentsSearch = 'mlflow.experiment.compare',
@@ -29,7 +31,6 @@ export enum PageId {
   runPageDirect = 'mlflow.experiment.run.details.direct',
   compareRuns = 'mlflow.experiment.run.compare',
   metricPage = 'mlflow.metric.details',
-  experimentPrompt = 'mlflow.experiment.prompt',
 }
 
 // Route path definitions (used in defining route elements)
@@ -294,7 +295,10 @@ class Routes {
     return RoutePaths.promptsPage;
   }
 
-  static getPromptDetailsPageRoute(promptName: string) {
+  static getPromptDetailsPageRoute(promptName: string, experimentId?: string) {
+    if (experimentId) {
+      return generatePath(RoutePaths.experimentPrompt, { experimentId, promptName });
+    }
     return generatePath(RoutePaths.promptDetailsPage, { promptName });
   }
 }

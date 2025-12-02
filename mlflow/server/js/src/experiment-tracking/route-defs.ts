@@ -81,6 +81,16 @@ const getExperimentPageRouteDefs = () => {
             return import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage');
           }),
         },
+        {
+          path: RoutePaths.experimentPromptsList,
+          pageId: PageId.experimentPromptsList,
+          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
+        },
+        {
+          path: RoutePaths.experimentPrompt,
+          pageId: PageId.experimentPromptDetails,
+          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptDetailsPage')),
+        },
       ],
     },
   ];
