@@ -1329,7 +1329,7 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
 
     dataset.merge_records(large_records)
 
-    all_records = dataset.records
+    all_records = dataset._mlflow_dataset.records
     assert len(all_records) == 150
 
     record_indices = {record.inputs["index"] for record in all_records}
@@ -1350,11 +1350,11 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
     assert not hasattr(dataset, "next_page_token")
     assert not hasattr(dataset, "max_results")
 
-    second_access = dataset.records
+    second_access = dataset._mlflow_dataset.records
     assert second_access is all_records
 
-    dataset._records = None
-    refreshed_records = dataset.records
+    dataset._mlflow_dataset._records = None
+    refreshed_records = dataset._mlflow_dataset.records
     assert len(refreshed_records) == 150
 
 
@@ -1375,18 +1375,18 @@ def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
 
     dataset.merge_records(records)
 
-    dataset._records = None
+    dataset._mlflow_dataset._records = None
 
     store = _get_store()
     with mock.patch.object(
         store, "_load_dataset_records", wraps=store._load_dataset_records
     ) as mock_load:
-        accessed_records = dataset.records
+        accessed_records = dataset._mlflow_dataset.records
 
         mock_load.assert_called_once_with(dataset.dataset_id, max_results=None)
         assert len(accessed_records) == 75
 
-    dataset._records = None
+    dataset._mlflow_dataset._records = None
 
     with mock.patch.object(
         store, "_load_dataset_records", wraps=store._load_dataset_records
