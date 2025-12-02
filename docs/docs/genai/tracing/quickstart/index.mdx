@@ -41,7 +41,7 @@ pip install --upgrade mlflow openai>=1.0.0
 ```
 </TabItem>
 
-<TabItem value="typescript" label="Typescript(OpenAI)" default>
+<TabItem value="typescript" label="TypeScript(OpenAI)" default>
 ```bash
 npm install mlflow-openai
 ```
@@ -91,7 +91,7 @@ client.chat.completions.create(
 
 </TabItem>
 
-<TabItem value="typescript" label="Typescript(OpenAI)">
+<TabItem value="typescript" label="TypeScript(OpenAI)">
 
 ```typescript
 import { init } from "mlflow-tracing";
@@ -100,7 +100,7 @@ import { OpenAI } from "openai";
 
 init({
     trackingUri: "http://localhost:5000",
-    // NOTE: specifying experiment name is not yet supported in Typescript SDK.
+    // NOTE: specifying experiment name is not yet supported in TypeScript SDK.
     // You can copy the experiment id from the experiment details on the MLflow UI.
     experimentId: "<experiment-id>",
 });
