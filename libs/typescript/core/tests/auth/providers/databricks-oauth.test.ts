@@ -1,10 +1,20 @@
 import { DatabricksOAuthProvider } from '../../../src/auth/providers/databricks-oauth';
 
-// Mock fetch globally
+// Store original fetch to restore after tests
+const originalFetch = global.fetch;
 const mockFetch = jest.fn();
-global.fetch = mockFetch;
 
 describe('DatabricksOAuthProvider', () => {
+  beforeAll(() => {
+    // Replace global fetch with mock
+    global.fetch = mockFetch;
+  });
+
+  afterAll(() => {
+    // Restore original fetch after all tests
+    global.fetch = originalFetch;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
@@ -330,17 +340,19 @@ describe('DatabricksOAuthProvider', () => {
       // Use real timers for this test since we need to actually wait for retries
       jest.useRealTimers();
 
-      const networkError = new Error('Network error');
-      mockFetch.mockRejectedValue(networkError);
+      try {
+        const networkError = new Error('Network error');
+        mockFetch.mockRejectedValue(networkError);
 
-      const provider = new DatabricksOAuthProvider(defaultConfig);
+        const provider = new DatabricksOAuthProvider(defaultConfig);
 
-      // Verify it throws after exhausting retries
-      await expect(provider.authenticate()).rejects.toThrow('Network error');
-      expect(mockFetch).toHaveBeenCalledTimes(3);
-
-      // Restore fake timers for other tests
-      jest.useFakeTimers();
+        // Verify it throws after exhausting retries
+        await expect(provider.authenticate()).rejects.toThrow('Network error');
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+      } finally {
+        // Always restore fake timers, even if test fails
+        jest.useFakeTimers();
+      }
     });
   });
 
