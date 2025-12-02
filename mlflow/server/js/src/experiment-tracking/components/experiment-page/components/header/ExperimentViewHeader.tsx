@@ -58,7 +58,7 @@ export const ExperimentViewHeader = React.memo(
     uiState?: ExperimentPageUIState;
     setEditing: (editing: boolean) => void;
     experimentKindSelector?: React.ReactNode;
-  refetchExperiment?: () => Promise<unknown>;
+    refetchExperiment?: () => Promise<unknown>;
   }) => {
     const { theme } = useDesignSystemTheme();
     const [experimentIdCopied, setExperimentIdCopied] = useState(false);
@@ -87,9 +87,7 @@ export const ExperimentViewHeader = React.memo(
 
     const getInfoTooltip = () => {
       return (
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginRight: theme.spacing.sm }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginRight: theme.spacing.sm }}>
           <InfoPopover iconTitle="Info">
             <div
               css={{
@@ -156,18 +154,18 @@ export const ExperimentViewHeader = React.memo(
           }}
         >
           <div
-          css={{
-            display: 'flex',
-            gap: theme.spacing.sm,
-            alignItems: 'center',
-            overflow: 'hidden',
-            minWidth: 250,
-          }}
-        >
-          {shouldEnableExperimentPageSideTabs() && (
-            <>
-              <Link to={Routes.experimentsObservatoryRoute}>
-                <Button
+            css={{
+              display: 'flex',
+              gap: theme.spacing.sm,
+              alignItems: 'center',
+              overflow: 'hidden',
+              minWidth: 250,
+            }}
+          >
+            {shouldEnableExperimentPageSideTabs() && (
+              <>
+                <Link to={Routes.experimentsObservatoryRoute}>
+                  <Button
                     componentId="mlflow.experiment-page.header.back-icon-button"
                     type="tertiary"
                     icon={<ArrowLeftIcon />}
@@ -221,7 +219,10 @@ export const ExperimentViewHeader = React.memo(
               <Tooltip
                 content={
                   experimentIdCopied ? (
-                    <FormattedMessage defaultMessage="Experiment id copied" description="Tooltip when experiment id copied" />
+                    <FormattedMessage
+                      defaultMessage="Experiment id copied"
+                      description="Tooltip when experiment id copied"
+                    />
                   ) : (
                     <FormattedMessage
                       defaultMessage="Click to copy experiment id"
@@ -239,7 +240,16 @@ export const ExperimentViewHeader = React.memo(
                   data-testid="experiment-id-pill"
                   css={{ marginRight: 0, marginLeft: theme.spacing.xs }}
                 >
-                  <span css={{ display: 'flex', alignItems: 'center', color: theme.colors.indigo, marginRight: theme.spacing.xs, marginLeft: theme.spacing.xs, gap: 1 }}>
+                  <span
+                    css={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: theme.colors.indigo,
+                      marginRight: theme.spacing.xs,
+                      marginLeft: theme.spacing.xs,
+                      gap: 1,
+                    }}
+                  >
                     <FormattedMessage
                       defaultMessage="#"
                       description="Experiment page header subtitle showing experiment id"
