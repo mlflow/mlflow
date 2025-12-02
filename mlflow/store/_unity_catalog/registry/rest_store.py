@@ -1027,6 +1027,7 @@ class UcModelRegistryStore(BaseRestStore):
             ).model_version
 
             store = self._get_artifact_repo(model_version, full_name)
+            _logger.info(f"[UcModelRegistryStore] store = {store}")
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             finalized_mv = self._finalize_model_version(
                 name=full_name, version=model_version.version
