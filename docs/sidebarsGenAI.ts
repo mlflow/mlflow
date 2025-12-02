@@ -41,20 +41,9 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
+          type: 'doc',
+          id: 'tracing/quickstart/index',
           label: 'Quickstart',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/python-openai',
-              label: 'Getting Started (Python)',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/typescript-openai',
-              label: 'Getting Started (TS/JS)',
-            },
-          ],
         },
         {
           type: 'category',
