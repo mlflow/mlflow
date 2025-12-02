@@ -187,18 +187,11 @@ def test_alembic_logging_respects_configure_flag(configure_logging: str, tmp_sql
     actual_format = user_specified_format if configure_logging == "0" else LOGGING_LINE_FORMAT
     code = f"""
 import logging
-import os
-import tempfile
-import shutil
 
 # user-specified format, this should only take effect if configure_logging is 0
 logging.basicConfig(level=logging.INFO, format={user_specified_format!r})
-os.environ["MLFLOW_CONFIGURE_LOGGING"] = {configure_logging!r}
 
 import mlflow
-
-with mlflow.start_run():
-    pass
 
 # Check the alembic logger format, which is now configured in _configure_mlflow_loggers
 alembic_logger = logging.getLogger("alembic")
@@ -214,4 +207,7 @@ else:
 
 assert actual_format == {actual_format!r}, actual_format
 """
-    subprocess.check_call([sys.executable, "-c", code], env={"MLFLOW_TRACKING_URI": tmp_sqlite_uri})
+    subprocess.check_call(
+        [sys.executable, "-c", code],
+        env={"MLFLOW_TRACKING_URI": tmp_sqlite_uri, "MLFLOW_CONFIGURE_LOGGING": configure_logging},
+    )
