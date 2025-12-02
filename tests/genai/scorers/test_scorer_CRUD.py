@@ -86,7 +86,6 @@ def test_mlflow_backend_scorer_operations():
 
 
 def test_databricks_backend_scorer_operations():
-    """Test all scorer operations with Databricks backend"""
     from mlflow.genai.scorers.registry import DatabricksStore
 
     # Mock the scheduled scorer responses

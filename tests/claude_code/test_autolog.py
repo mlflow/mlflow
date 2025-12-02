@@ -52,7 +52,6 @@ def test_patched_claude_sdk_init_with_options():
 
 @pytest.mark.asyncio
 async def test_sdk_hook_handler_when_disabled():
-    """Test that SDK hook handler doesn't process traces when autologging is disabled."""
     from mlflow.claude_code.hooks import sdk_stop_hook_handler
 
     with (

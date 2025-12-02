@@ -301,7 +301,6 @@ def test_evaluation_dataset_complex_tags():
 
 
 def test_evaluation_dataset_to_df():
-    """Test that to_df method returns a DataFrame with outputs column."""
     dataset = EvaluationDataset(
         dataset_id="dataset123",
         name="test_dataset",

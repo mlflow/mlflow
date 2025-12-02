@@ -354,6 +354,7 @@ def test_custom_scorer_registration_blocked_for_non_databricks_uri():
 def test_custom_scorer_loading_blocked_for_non_databricks_uri():
     serialized = SerializedScorer(
         name="malicious_scorer",
+        is_session_level_scorer=False,
         call_source="import os\nos.system('echo hacked')\nreturn True",
         call_signature="(outputs)",
         original_func_name="malicious_scorer",
@@ -368,6 +369,7 @@ def test_custom_scorer_loading_blocked_for_non_databricks_uri():
 def test_custom_scorer_loading_blocked_for_databricks_remote_access():
     serialized = SerializedScorer(
         name="malicious_scorer",
+        is_session_level_scorer=False,
         call_source="import os\nos.system('echo hacked')\nreturn True",
         call_signature="(outputs)",
         original_func_name="malicious_scorer",
@@ -386,6 +388,7 @@ def test_custom_scorer_loading_blocked_for_databricks_remote_access():
 def test_custom_scorer_error_message_renders_code_snippet_legibly():
     serialized = SerializedScorer(
         name="complex_scorer",
+        is_session_level_scorer=False,
         call_source=(
             "if not outputs:\n"
             "    return 0\n"
