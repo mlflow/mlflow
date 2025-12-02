@@ -16,7 +16,11 @@ import mlflow
 from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.model_registry.prompt_version import (
+    MODEL_CONFIG_TAG_KEY,
+    PromptModelConfig,
+    PromptVersion,
+)
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.prompt.constants import (
     PROMPT_TYPE_CHAT,
@@ -1486,6 +1490,7 @@ class UcModelRegistryStore(BaseRestStore):
         description: str | None = None,
         tags: dict[str, str] | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Create a new prompt version in Unity Catalog.
@@ -1506,6 +1511,14 @@ class UcModelRegistryStore(BaseRestStore):
             final_tags[RESPONSE_FORMAT_TAG_KEY] = json.dumps(
                 PromptVersion.convert_response_format_to_dict(response_format)
             )
+        if model_config:
+            # Convert ModelConfig to dict if needed
+            if isinstance(model_config, PromptModelConfig):
+                config_dict = model_config.to_dict()
+            else:
+                config_dict = model_config
+
+            final_tags[MODEL_CONFIG_TAG_KEY] = json.dumps(config_dict)
         if isinstance(template, str):
             final_tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
         else:

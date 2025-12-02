@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -24,12 +25,182 @@ from mlflow.prompt.constants import (
 PromptVersionTag = ModelVersionTag
 
 
+MODEL_CONFIG_TAG_KEY = "_mlflow_prompt_model_config"
+
+
+@dataclass
+class PromptModelConfig:
+    """
+    Configuration for a model associated with a prompt, including model name and inference
+    parameters.
+
+    This class provides a structured way to store model-specific settings alongside prompts,
+    ensuring reproducibility and clarity about which model and parameters were used with a
+    particular prompt version.
+
+    Args:
+        model_name: The name or identifier of the model (e.g., "gpt-4", "claude-3-opus").
+        temperature: Sampling temperature for controlling randomness (typically 0.0-2.0).
+            Lower values make output more deterministic, higher values more random.
+        max_tokens: Maximum number of tokens to generate in the response.
+        top_p: Nucleus sampling parameter (typically 0.0-1.0). The model considers tokens
+            with top_p cumulative probability mass.
+        top_k: Top-k sampling parameter. The model considers only the k most likely tokens.
+        frequency_penalty: Penalty for token frequency (typically -2.0 to 2.0). Positive
+            values reduce repetition of tokens based on their frequency in the text so far.
+        presence_penalty: Penalty for token presence (typically -2.0 to 2.0). Positive
+            values increase likelihood of introducing new topics.
+        stop_sequences: List of sequences that will cause the model to stop generating.
+        extra_params: Additional model-specific parameters not covered by the standard fields.
+            This allows for flexibility with provider-specific or experimental parameters.
+
+    Example:
+
+    .. code-block:: python
+
+        from mlflow.entities.model_registry import PromptModelConfig
+
+        # Basic configuration
+        config = PromptModelConfig(
+            model_name="gpt-4",
+            temperature=0.7,
+            max_tokens=1000,
+        )
+
+        # Configuration with extra provider-specific params
+        config = PromptModelConfig(
+            model_name="claude-3-opus",
+            temperature=0.5,
+            max_tokens=2000,
+            extra_params={
+                "anthropic_version": "2023-06-01",
+                "response_metadata": {"cache_control": True},
+            },
+        )
+
+        # Use with prompt registration
+        import mlflow
+
+        mlflow.genai.register_prompt(
+            name="my_prompt",
+            template="Analyze this: {{text}}",
+            model_config=config,
+        )
+    """
+
+    model_name: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    top_p: float | None = None
+    top_k: int | None = None
+    frequency_penalty: float | None = None
+    presence_penalty: float | None = None
+    stop_sequences: list[str] | None = None
+    extra_params: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert the PromptModelConfig to a dictionary, excluding None values and merging extra_params.
+
+        Returns:
+            A dictionary representation of the config with None values filtered out and
+            extra_params merged at the top level.
+        """
+        config_dict = {k: v for k, v in asdict(self).items() if v is not None and k != "extra_params"}
+        if self.extra_params:
+            config_dict.update(self.extra_params)
+        return config_dict
+
+    @classmethod
+    def from_dict(cls, config_dict: dict[str, Any]) -> PromptModelConfig:
+        """
+        Create a PromptModelConfig from a dictionary, separating known fields from extra params.
+
+        Args:
+            config_dict: Dictionary containing model configuration.
+
+        Returns:
+            A PromptModelConfig instance with known fields populated and unknown fields in extra_params.
+        """
+        known_fields = {
+            "model_name",
+            "temperature",
+            "max_tokens",
+            "top_p",
+            "top_k",
+            "frequency_penalty",
+            "presence_penalty",
+            "stop_sequences",
+        }
+
+        known_params = {}
+        extra_params = {}
+
+        for key, value in config_dict.items():
+            if key in known_fields:
+                known_params[key] = value
+            else:
+                extra_params[key] = value
+
+        return cls(**known_params, extra_params=extra_params)
+
+    def __post_init__(self):
+        """Validate field types and ranges."""
+        if self.temperature is not None:
+            if not isinstance(self.temperature, (int, float)):
+                raise TypeError(f"temperature must be a number, got {type(self.temperature)}")
+            if self.temperature < 0:
+                raise ValueError(f"temperature must be non-negative, got {self.temperature}")
+
+        if self.max_tokens is not None:
+            if not isinstance(self.max_tokens, int):
+                raise TypeError(f"max_tokens must be an integer, got {type(self.max_tokens)}")
+            if self.max_tokens <= 0:
+                raise ValueError(f"max_tokens must be positive, got {self.max_tokens}")
+
+        if self.top_p is not None:
+            if not isinstance(self.top_p, (int, float)):
+                raise TypeError(f"top_p must be a number, got {type(self.top_p)}")
+            if not 0 <= self.top_p <= 1:
+                raise ValueError(f"top_p must be between 0 and 1, got {self.top_p}")
+
+        if self.top_k is not None:
+            if not isinstance(self.top_k, int):
+                raise TypeError(f"top_k must be an integer, got {type(self.top_k)}")
+            if self.top_k <= 0:
+                raise ValueError(f"top_k must be positive, got {self.top_k}")
+
+        if self.frequency_penalty is not None:
+            if not isinstance(self.frequency_penalty, (int, float)):
+                raise TypeError(
+                    f"frequency_penalty must be a number, got {type(self.frequency_penalty)}"
+                )
+
+        if self.presence_penalty is not None:
+            if not isinstance(self.presence_penalty, (int, float)):
+                raise TypeError(
+                    f"presence_penalty must be a number, got {type(self.presence_penalty)}"
+                )
+
+        if self.stop_sequences is not None:
+            if not isinstance(self.stop_sequences, list):
+                raise TypeError(
+                    f"stop_sequences must be a list, got {type(self.stop_sequences)}"
+                )
+            if not all(isinstance(s, str) for s in self.stop_sequences):
+                raise TypeError("All stop_sequences must be strings")
+
+        if not isinstance(self.extra_params, dict):
+            raise TypeError(f"extra_params must be a dict, got {type(self.extra_params)}")
+
+
 def _is_reserved_tag(key: str) -> bool:
     return key in {
         IS_PROMPT_TAG_KEY,
         PROMPT_TEXT_TAG_KEY,
         PROMPT_TYPE_TAG_KEY,
         RESPONSE_FORMAT_TAG_KEY,
+        MODEL_CONFIG_TAG_KEY,
     }
 
 
@@ -51,6 +222,11 @@ class PromptVersion(_ModelRegistryEntity):
 
         response_format: Optional Pydantic class or dictionary defining the expected response
             structure. This can be used to specify the schema for structured outputs.
+        model_config: Optional PromptModelConfig instance or dictionary containing model-specific
+            configuration including model name and settings like temperature, top_p, max_tokens, etc.
+            Using a PromptModelConfig instance provides validation and type safety for common parameters.
+            Example (dict): {"model_name": "gpt-4", "temperature": 0.7}
+            Example (PromptModelConfig): PromptModelConfig(model_name="gpt-4", temperature=0.7)
         commit_message: The commit message for the prompt version. Optional.
         creation_timestamp: Timestamp of the prompt creation. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
@@ -74,6 +250,7 @@ class PromptVersion(_ModelRegistryEntity):
         last_updated_timestamp: int | None = None,
         user_id: str | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: PromptModelConfig | dict[str, Any] | None = None,
     ):
         from mlflow.types.chat import ChatMessage
 
@@ -108,6 +285,14 @@ class PromptVersion(_ModelRegistryEntity):
             tags[RESPONSE_FORMAT_TAG_KEY] = json.dumps(
                 self.convert_response_format_to_dict(response_format)
             )
+
+        if model_config:
+            # Convert PromptModelConfig to dict if needed
+            if isinstance(model_config, PromptModelConfig):
+                config_dict = model_config.to_dict()
+            else:
+                config_dict = model_config
+            tags[MODEL_CONFIG_TAG_KEY] = json.dumps(config_dict)
 
         # Store the tags dict
         self._tags: dict[str, str] = tags
@@ -173,6 +358,20 @@ class PromptVersion(_ModelRegistryEntity):
         if RESPONSE_FORMAT_TAG_KEY not in self._tags:
             return None
         return json.loads(self._tags[RESPONSE_FORMAT_TAG_KEY])
+
+    @property
+    def model_config(self) -> dict[str, Any] | None:
+        """
+        Return the model configuration for the prompt.
+
+        Returns:
+            A dictionary containing model-specific configuration including model name
+            and settings like temperature, top_p, max_tokens, etc., or None if no
+            model config is specified.
+        """
+        if MODEL_CONFIG_TAG_KEY not in self._tags:
+            return None
+        return json.loads(self._tags[MODEL_CONFIG_TAG_KEY])
 
     def to_single_brace_format(self) -> str | list[dict[str, Any]]:
         """
@@ -368,6 +567,7 @@ class PromptVersion(_ModelRegistryEntity):
                     version=int(self.version),
                     template=template,
                     response_format=self.response_format,
+                    model_config=self.model_config,
                     commit_message=self.commit_message,
                     creation_timestamp=self.creation_timestamp,
                     tags=self.tags,

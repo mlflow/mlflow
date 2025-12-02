@@ -489,6 +489,7 @@ class MlflowClient:
         commit_message: str | None = None,
         tags: dict[str, str] | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -568,6 +569,8 @@ class MlflowClient:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
+            model_config: Optional PromptModelConfig instance or dictionary containing model-specific
+                configuration. Using PromptModelConfig provides validation and type safety.
 
         Returns:
             A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -595,6 +598,7 @@ class MlflowClient:
                 description=commit_message,
                 tags=tags or {},
                 response_format=response_format,
+                model_config=model_config,
             )
 
             return registry_client.get_prompt_version(name, str(prompt_version.version))
@@ -643,6 +647,17 @@ class MlflowClient:
                     ),
                 }
             )
+        if model_config:
+            from mlflow.entities.model_registry.prompt_version import PromptModelConfig
+            from mlflow.entities.model_registry.prompt_version import MODEL_CONFIG_TAG_KEY
+
+            # Convert ModelConfig to dict if needed
+            if isinstance(model_config, PromptModelConfig):
+                config_dict = model_config.to_dict()
+            else:
+                config_dict = model_config
+
+            tags.update({MODEL_CONFIG_TAG_KEY: json.dumps(config_dict)})
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
