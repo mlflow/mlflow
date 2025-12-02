@@ -32,7 +32,8 @@ def test_feature_d():
 
     config = Config(select={RedundantTestDocstring.name})
     violations = lint_file(Path("test_something.py"), code, config, index_path)
-    assert len(violations) == 2
+    # All single-line docstrings should be flagged (3 functions have single-line docstrings)
+    assert len(violations) == 3
     assert all(isinstance(v.rule, RedundantTestDocstring) for v in violations)
 
 
@@ -62,7 +63,8 @@ def test_foo_bar_baz():
 
     config = Config(select={RedundantTestDocstring.name})
     violations = lint_file(Path("test_length.py"), code, config, index_path)
-    assert len(violations) == 1
+    # All single-line docstrings should be flagged (4 functions have single-line docstrings)
+    assert len(violations) == 4
 
 
 def test_class_docstrings_follow_same_rules(index_path: Path) -> None:
@@ -86,7 +88,8 @@ class TestShort:
 
     config = Config(select={RedundantTestDocstring.name})
     violations = lint_file(Path("test_classes.py"), code, config, index_path)
-    assert len(violations) == 1
+    # Both classes with single-line docstrings should be flagged
+    assert len(violations) == 2
 
 
 def test_non_test_files_are_ignored(index_path: Path) -> None:
@@ -167,8 +170,8 @@ class TestDataProcessingValidation:
 
     func_violation = violations[0]
     assert "test_data_processing_validation" in func_violation.rule.message
-    assert "redundant docstring" in func_violation.rule.message
-    assert "don't add value" in func_violation.rule.message
+    assert "single-line docstring" in func_violation.rule.message
+    assert "rarely provide meaningful context" in func_violation.rule.message
 
     class_violation = violations[1]
     assert "TestDataProcessingValidation" in class_violation.rule.message
