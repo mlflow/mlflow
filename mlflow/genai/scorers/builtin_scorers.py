@@ -294,6 +294,7 @@ class BuiltInScorer(Judge):
             name=self.name,
             description=self.description,
             aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             builtin_scorer_class=self.__class__.__name__,
