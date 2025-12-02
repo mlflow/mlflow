@@ -1452,7 +1452,8 @@ def test_search_prompts_with_combined_filters():
     prompts = client.search_prompts(filter_string='name = "gamma_prompt"')
     assert len(prompts) == 1
     assert prompts[0].name == "gamma_prompt"
-=======
+
+
 def test_load_prompt_sets_span_attributes():
     mlflow.genai.register_prompt(name="span_test_prompt", template="Hello, {{name}}!")
 
