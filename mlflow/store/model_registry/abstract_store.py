@@ -950,9 +950,9 @@ class AbstractStore:
 
     def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
         """
-        Link multiple prompt versions to a trace using EntityAssociation table.
+        Link multiple prompt versions to a trace.
 
-        Falls back to tag-based linking if tracking store doesn't implement the method.
+        Default implementation sets a tag on the trace. Stores can override with custom behavior.
 
         Args:
             prompt_versions: List of PromptVersion objects to link.
@@ -979,6 +979,18 @@ class AbstractStore:
                     f"Linking prompts to trace {trace_id} failed. "
                     "Tracking store does not support `link_prompts_to_trace` method."
                 )
+            finally:
+                # Use utility function to update linked prompts tag
+                current_tag_value = trace_info.tags.get(TraceTagKey.LINKED_PROMPTS)
+                updated_tag_value = update_linked_prompts_tag(current_tag_value, prompt_versions)
+
+                # Only update if the tag value actually changed (avoiding redundant updates)
+                if current_tag_value != updated_tag_value:
+                    client.set_trace_tag(
+                        trace_id,
+                        TraceTagKey.LINKED_PROMPTS,
+                        updated_tag_value,
+                    )
 
     def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
