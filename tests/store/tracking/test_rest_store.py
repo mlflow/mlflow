@@ -4,6 +4,7 @@ import time
 from unittest import mock
 
 import pytest
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities import (
@@ -98,9 +99,12 @@ from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracking.context import git_context
+from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
+from mlflow.utils.credentials import MlflowCreds
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
@@ -169,6 +173,65 @@ def test_failed_http_request_custom_handler():
     with mock.patch("requests.Session.request", return_value=response):
         store = CustomErrorHandlingRestStore(lambda: MlflowHostCreds("https://hello"))
         with pytest.raises(MyCoolException, match="cool"):
+            store.search_experiments()
+
+
+def test_supports_workspaces_queries_endpoint():
+    creds = MlflowHostCreds("https://example")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"workspaces_enabled": True}
+
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request", return_value=response
+    ) as mock_http:
+        assert store.supports_workspaces() is True
+        # Cached result prevents additional requests
+        assert store.supports_workspaces() is True
+
+    mock_http.assert_called_once()
+    _, kwargs = mock_http.call_args
+    assert kwargs["host_creds"] is creds
+    assert kwargs["endpoint"] == "/api/2.0/mlflow/server-features"
+    assert kwargs["method"] == "GET"
+    assert kwargs["timeout"] == 3
+    assert kwargs["max_retries"] == 0
+    assert kwargs["raise_on_status"] is False
+
+
+def test_supports_workspaces_returns_false_on_failure():
+    response = mock.MagicMock()
+    response.status_code = 404
+    response.text = "not found"
+
+    with mock.patch("mlflow.store.tracking.rest_store.http_request", return_value=response):
+        store = RestStore(lambda: MlflowHostCreds("https://example"))
+        assert store.supports_workspaces() is False
+
+
+def test_supports_workspaces_handles_missing_json_keys():
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.json.return_value = {}
+
+    with mock.patch("mlflow.store.tracking.rest_store.http_request", return_value=response):
+        store = RestStore(lambda: MlflowHostCreds("https://example"))
+        assert store.supports_workspaces() is False
+
+
+def test_rest_store_errors_when_workspace_not_supported():
+    store = RestStore(lambda: MlflowHostCreds("https://example"))
+    store._workspace_support = False
+
+    with mock.patch(
+        "mlflow.utils.rest_utils._resolve_active_workspace",
+        return_value="team-a",
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="Active workspace 'team-a' cannot be used because the remote tracking server",
+        ):
             store.search_experiments()
 
 
@@ -244,10 +307,23 @@ def test_requestor():
         "mlflow.tracking.context.default_context._get_source_type",
         return_value=SourceType.LOCAL,
     )
+    # Clear cached git context to avoid values patched in other tests
+    for provider in context_registry._run_context_provider_registry:
+        if isinstance(provider, git_context.GitRunContext):
+            provider._cache = {}
+
     with (
         mock_http_request() as mock_http,
         mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
         mock.patch("mlflow.tracking.context.default_context._get_user", return_value=user_name),
+        mock.patch(
+            "mlflow.tracking.context.default_context.read_mlflow_creds",
+            return_value=MlflowCreds(None, None),
+        ),
+        mock.patch(
+            "mlflow.tracking.context.git_context._get_source_version",
+            return_value=None,
+        ),
         mock.patch("time.time", return_value=13579),
         source_name_patch,
         source_type_patch,
@@ -2954,3 +3030,18 @@ def test_server_version_check_caching():
             data=mock.ANY,
             extra_headers=mock.ANY,
         )
+
+
+def test_log_spans_raises_when_workspace_not_supported(monkeypatch):
+    spans = _create_test_spans()
+    store = RestStore(lambda: MlflowHostCreds("https://workspace-host"))
+
+    monkeypatch.setattr(RestStore, "_get_server_version", lambda self, _: Version("3.5.0"))
+    monkeypatch.setattr(
+        "mlflow.utils.rest_utils._resolve_active_workspace",
+        lambda: "team-a",
+    )
+    monkeypatch.setattr(RestStore, "supports_workspaces", lambda self: False)
+
+    with pytest.raises(MlflowException, match="does not support workspaces"):
+        store.log_spans("exp-1", spans)

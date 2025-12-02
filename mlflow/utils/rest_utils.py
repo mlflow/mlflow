@@ -20,6 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
+    MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import (
     CUSTOMER_UNAUTHORIZED,
@@ -40,6 +41,8 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
+from mlflow.utils.workspace_context import get_request_workspace
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -55,6 +58,37 @@ _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
 )
+
+
+def _resolve_active_workspace() -> str | None:
+    workspace = get_request_workspace()
+    if workspace is None:
+        workspace = MLFLOW_WORKSPACE.get()
+
+    if workspace is None:
+        return None
+
+    workspace = workspace.strip()
+    if not workspace:
+        return None
+
+    return workspace
+
+
+def _should_include_workspace_header(endpoint: str) -> bool:
+    """
+    Determine whether to attach the workspace header for a given endpoint.
+
+    Workspace administration endpoints encode the workspace in the path, so the header is redundant
+    (and ignored) for those calls. Other endpoints derive isolation from this header when
+    workspaces are enabled.
+    """
+
+    if not endpoint:
+        return True
+
+    normalized = endpoint if endpoint.startswith("/") else f"/{endpoint}"
+    return "/mlflow/workspaces" not in normalized
 
 
 def http_request(
@@ -118,6 +152,10 @@ def http_request(
     headers = dict(**resolve_request_headers())
     if extra_headers:
         headers = dict(**headers, **extra_headers)
+
+    workspace = _resolve_active_workspace()
+    if workspace and _should_include_workspace_header(endpoint):
+        headers.setdefault(WORKSPACE_HEADER_NAME, workspace)
 
     if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
         headers["x-databricks-traffic-id"] = traffic_id

@@ -35,6 +35,10 @@ from mlflow.server.handlers import (
     get_trace_artifact_handler,
     upload_artifact_handler,
 )
+from mlflow.server.workspace_helpers import (
+    workspace_before_request_handler,
+    workspace_teardown_request_handler,
+)
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -69,6 +73,9 @@ if is_running_as_server:
     from mlflow.server import security
 
     security.init_security_middleware(app)
+
+app.before_request(workspace_before_request_handler)
+app.teardown_request(workspace_teardown_request_handler)
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)

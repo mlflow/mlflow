@@ -61,6 +61,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
+    INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
@@ -201,6 +202,7 @@ from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRes
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
+from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -210,6 +212,7 @@ from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils import workspace_context
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -222,6 +225,7 @@ from mlflow.utils.validation import (
     invalid_value,
     missing_value,
 )
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 from mlflow.webhooks.delivery import deliver_webhook, test_webhook
 from mlflow.webhooks.types import (
     ModelVersionAliasCreatedPayload,
@@ -531,12 +535,29 @@ def initialize_backend_stores(
     backend_store_uri: str | None = None,
     registry_store_uri: str | None = None,
     default_artifact_root: str | None = None,
+    workspace_store_uri: str | None = None,
 ) -> None:
-    _get_tracking_store(backend_store_uri, default_artifact_root)
+    tracking_store = _get_tracking_store(backend_store_uri, default_artifact_root)
+
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        workspace_store = _get_workspace_store(workspace_store_uri, tracking_uri=backend_store_uri)
+        get_default_workspace_optional(workspace_store)
+        _verify_tracking_store_workspace_support(tracking_store)
+
     try:
         _get_model_registry_store(registry_store_uri)
     except UnsupportedModelRegistryStoreURIException:
         pass
+
+
+def _verify_tracking_store_workspace_support(tracking_store: AbstractTrackingStore) -> None:
+    supports_fn = getattr(tracking_store, "supports_workspaces", None)
+    if not callable(supports_fn) or not supports_fn():
+        raise MlflowException(
+            "The configured tracking store does not support workspace-aware operations. "
+            "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
+            error_code=INVALID_STATE,
+        )
 
 
 def _assert_string(x):
@@ -817,6 +838,24 @@ def _workspace_not_supported(message: str) -> MlflowException:
 
 
 @catch_mlflow_exception
+def _server_features_handler():
+    """
+    Returns a dictionary containing the server features state.
+
+    This helps clients determine if workspaces are enabled.
+    """
+    response = Response(mimetype="application/json")
+    response.set_data(
+        json.dumps(
+            {
+                "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
+            }
+        )
+    )
+    return response
+
+
+@catch_mlflow_exception
 @_disable_if_workspaces_disabled
 def _list_workspaces_handler():
     _get_request_message(ListWorkspaces())
@@ -914,6 +953,7 @@ def get_artifact_handler():
             proxied_artifact_root=run.info.artifact_uri,
             relative_path=path,
         )
+        artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     else:
         artifact_repo = _get_artifact_repo(run)
         artifact_path = path
@@ -1436,6 +1476,9 @@ def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relativ
         proxied_artifact_root=proxied_artifact_root,
         relative_path=relative_path,
     )
+    artifact_destination_path = _get_workspace_scoped_repo_path_if_enabled(
+        artifact_destination_path
+    )
 
     artifact_entities = []
     for file_info in artifact_destination_repo.list_artifacts(artifact_destination_path):
@@ -1826,6 +1869,7 @@ def upload_artifact_handler():
                 if dirname
                 else os.path.join(run.info.experiment_id, run.info.run_id, "artifacts")
             )
+            path_to_log = _get_workspace_scoped_repo_path_if_enabled(path_to_log)
         else:
             artifact_repo = get_artifact_repository(artifact_dir)
             path_to_log = dirname
@@ -2377,6 +2421,7 @@ def get_model_version_artifact_handler():
             proxied_artifact_root=artifact_uri,
             relative_path=path,
         )
+        artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     else:
         artifact_repo = get_artifact_repository(artifact_uri)
         artifact_path = path
@@ -2810,6 +2855,63 @@ def _test_webhook(webhook_id: str):
 # MLflow Artifacts APIs
 
 
+def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str | None:
+    """
+    Normalize artifact paths for proxied (served) artifacts so they remain workspace-isolated.
+
+    When ``mlflow-artifacts`` proxying is enabled and workspaces are on, every path under the HTTP
+    artifact endpoint must be rooted at ``workspaces/<workspace>/...``. Direct artifact repositories
+    (e.g., S3, GCS, local URIs) already encode their own isolation, so they bypass this logic by
+    calling the underlying store directly. Only the proxied repos need to be rewritten/validated
+    here.
+
+    Returns:
+        The workspace-scoped path. May return the original path in the following cases:
+        - Workspaces are disabled (returns ``artifact_path`` unchanged).
+        - Default workspace with no path (returns ``artifact_path`` unchanged to preserve legacy
+          root behavior, where artifacts live at the root rather than under ``workspaces/default``).
+        For non-default workspaces, always returns a string (``workspaces/<workspace>/...``).
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return artifact_path
+
+    workspace = workspace_context.get_request_workspace()
+    if not workspace:
+        raise MlflowException.invalid_parameter_value(
+            "Active workspace is required for artifact operations. "
+            "Ensure X-MLFLOW-WORKSPACE is set or call mlflow.set_workspace()."
+        )
+
+    normalized = artifact_path.lstrip("/") if artifact_path else ""
+    base = posixpath.join("workspaces", workspace)
+
+    if not normalized:
+        # For the default workspace, preserve the legacy root behavior (no prefix),
+        # so root operations continue to see the existing layout.
+        return base if workspace != DEFAULT_WORKSPACE_NAME else artifact_path
+
+    if workspace == DEFAULT_WORKSPACE_NAME and not normalized.startswith("workspaces/"):
+        # Legacy default-workspace artifacts never had the workspace prefix; allow them to be served
+        # without rewriting as long as the path isn't trying to opt into the reserved namespace.
+        return artifact_path
+
+    leading_segments = normalized.split("/", 2)
+    if leading_segments and leading_segments[0] == "workspaces":
+        if len(leading_segments) == 1 or not leading_segments[1]:
+            raise MlflowException.invalid_parameter_value(
+                "Artifact paths prefixed with 'workspaces/' must include a workspace name."
+            )
+        requested_workspace = leading_segments[1]
+        if requested_workspace != workspace:
+            raise MlflowException.invalid_parameter_value(
+                f"Artifact path targets workspace '{requested_workspace}' "
+                f"but the workspace specified in the request is '{workspace}'."
+            )
+        return normalized
+
+    return posixpath.join(base, normalized)
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _download_artifact(artifact_path):
@@ -2818,6 +2920,7 @@ def _download_artifact(artifact_path):
     from `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
@@ -2843,6 +2946,7 @@ def _upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     head, tail = posixpath.split(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
@@ -2869,6 +2973,7 @@ def _list_artifacts_mlflow_artifacts():
     """
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
     path = validate_path_is_safe(request_message.path) if request_message.HasField("path") else None
+    path = _get_workspace_scoped_repo_path_if_enabled(path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
     for file_info in artifact_repo.list_artifacts(path):
@@ -2890,6 +2995,7 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     `path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     artifact_repo.delete_artifacts(artifact_path)
@@ -2942,6 +3048,7 @@ def _create_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
         CreateMultipartUpload(),
@@ -2975,6 +3082,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
         CompleteMultipartUpload(),
@@ -3008,6 +3116,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
         AbortMultipartUpload(),
@@ -3563,6 +3672,7 @@ def get_logged_model_artifact_handler(model_id: str):
             proxied_artifact_root=logged_model.artifact_location,
             relative_path=artifact_file_path,
         )
+        artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     else:
         artifact_repo = get_artifact_repository(logged_model.artifact_location)
         artifact_path = artifact_file_path
@@ -3946,11 +4056,16 @@ def get_endpoints(get_handler=get_handler):
     Returns:
         List of tuples (path, handler, methods)
     """
+    server_feature_paths = [
+        (_path, _server_features_handler, ["GET"])
+        for _path in _get_paths("/mlflow/server-features")
+    ]
     return (
         get_service_endpoints(MlflowService, get_handler)
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
+        + server_feature_paths
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
     )
 

@@ -15,6 +15,7 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -101,6 +102,8 @@ from mlflow.server.handlers import (
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
+    _get_workspace_scoped_repo_path_if_enabled,
+    _list_artifacts_for_proxied_run_artifact_root,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
@@ -124,8 +127,12 @@ from mlflow.server.handlers import (
     _upsert_dataset_records_handler,
     _validate_source_run,
     catch_mlflow_exception,
+    get_artifact_handler,
     get_endpoints,
+    get_logged_model_artifact_handler,
+    get_model_version_artifact_handler,
     get_trace_artifact_handler,
+    upload_artifact_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -143,6 +150,8 @@ from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 @pytest.fixture
@@ -2309,3 +2318,191 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     assert response is not None
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+
+def test_get_workspace_scoped_repo_path_if_enabled_allows_legacy_default_artifacts(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        assert (
+            _get_workspace_scoped_repo_path_if_enabled("1/legacy/artifact") == "1/legacy/artifact"
+        )
+
+
+def test_get_workspace_scoped_repo_path_if_enabled_still_scopes_non_default(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    with WorkspaceContext("team-blue"):
+        scoped = _get_workspace_scoped_repo_path_if_enabled("2/new/artifact")
+    assert scoped.startswith("workspaces/team-blue/2/new/artifact")
+
+
+def test_get_artifact_handler_applies_workspace_scoping(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "mlflow-artifacts:/exp1/run1/artifacts"
+
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.download_artifacts.return_value = "/tmp/artifact.txt"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        mock_repo.return_value = mock_artifact_repo
+
+        with WorkspaceContext("team-blue"):
+            with app.test_request_context(
+                method="GET", query_string={"run_id": "run1", "path": "model/weights.bin"}
+            ):
+                get_artifact_handler()
+
+        mock_send.assert_called_once()
+        artifact_path = mock_send.call_args[0][1]
+        assert artifact_path.startswith("workspaces/team-blue/")
+
+
+def test_get_artifact_handler_no_scoping_when_workspaces_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "mlflow-artifacts:/exp1/run1/artifacts"
+
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        mock_repo.return_value = mock_artifact_repo
+
+        with app.test_request_context(
+            method="GET", query_string={"run_id": "run1", "path": "model/weights.bin"}
+        ):
+            get_artifact_handler()
+
+        mock_send.assert_called_once()
+        artifact_path = mock_send.call_args[0][1]
+        assert not artifact_path.startswith("workspaces/")
+
+
+def test_get_model_version_artifact_handler_applies_workspace_scoping(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_model_version_download_uri.return_value = (
+            "mlflow-artifacts:/models/MyModel/1"
+        )
+        mock_repo.return_value = mock_artifact_repo
+
+        with WorkspaceContext("team-red"):
+            with app.test_request_context(
+                method="GET", query_string={"name": "MyModel", "version": "1", "path": "model.pkl"}
+            ):
+                get_model_version_artifact_handler()
+
+        mock_send.assert_called_once()
+        artifact_path = mock_send.call_args[0][1]
+        assert artifact_path.startswith("workspaces/team-red/")
+
+
+def test_get_logged_model_artifact_handler_applies_workspace_scoping(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.artifact_location = "mlflow-artifacts:/exp1/run1/artifacts/model"
+
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_logged_model.return_value = mock_logged_model
+        mock_repo.return_value = mock_artifact_repo
+
+        with WorkspaceContext("team-green"):
+            with app.test_request_context(
+                method="GET", query_string={"artifact_file_path": "MLmodel"}
+            ):
+                get_logged_model_artifact_handler("model123")
+
+        mock_send.assert_called_once()
+        artifact_path = mock_send.call_args[0][1]
+        assert artifact_path.startswith("workspaces/team-green/")
+
+
+def test_upload_artifact_handler_applies_workspace_scoping(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "mlflow-artifacts:/exp1/run1/artifacts"
+    mock_run.info.experiment_id = "exp1"
+    mock_run.info.run_id = "run1"
+
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        mock_repo.return_value = mock_artifact_repo
+
+        with WorkspaceContext("team-purple"):
+            with app.test_request_context(
+                method="POST",
+                query_string={"run_uuid": "run1", "path": "output.txt"},
+                data=b"test data",
+            ):
+                upload_artifact_handler()
+
+        mock_artifact_repo.log_artifact.assert_called_once()
+        logged_path = mock_artifact_repo.log_artifact.call_args[0][1]
+        assert logged_path.startswith("workspaces/team-purple/")
+
+
+def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(monkeypatch):
+    from mlflow.store.artifact.artifact_repo import ArtifactRepository
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_artifact_repo = mock.MagicMock(spec=ArtifactRepository)
+    mock_artifact_repo.list_artifacts.return_value = []
+
+    with (
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        WorkspaceContext("team-orange"),
+    ):
+        mock_repo.return_value = mock_artifact_repo
+
+        _list_artifacts_for_proxied_run_artifact_root(
+            proxied_artifact_root="mlflow-artifacts:/exp1/run1/artifacts",
+            relative_path="model",
+        )
+
+        mock_artifact_repo.list_artifacts.assert_called_once()
+        listed_path = mock_artifact_repo.list_artifacts.call_args[0][0]
+        assert listed_path.startswith("workspaces/team-orange/")
