@@ -856,6 +856,11 @@ class MlflowClient:
             else:
                 prompt = registry_client.get_prompt_version(name, version_or_alias)
 
+            # Link the prompt to the active experiment. This is called only when
+            # the prompt is loaded from the registry to avoid performance overhead.
+            if prompt and (experiment_id := MLFLOW_EXPERIMENT_ID.get()):
+                self._link_prompt_to_experiment(prompt, experiment_id)
+
             # Cache the result if cache_ttl_seconds != 0
             # `ttl_seconds=None` means cache with no TTL
             if prompt and cache_ttl_seconds != 0:

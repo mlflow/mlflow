@@ -960,8 +960,6 @@ def test_load_prompt_none_result_no_linking():
 
 
 def test_load_prompt_caching_with_different_parameters():
-    """Test that caching works correctly with different parameter combinations."""
-
     # Reset cache
     PromptCache._reset_instance()
 
