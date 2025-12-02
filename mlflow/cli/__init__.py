@@ -599,12 +599,13 @@ def server(
     )
     artifacts_only_config_validation(artifacts_only, backend_store_uri)
 
-    try:
-        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
-    except Exception as e:
-        _logger.error("Error initializing backend store")
-        _logger.exception(e)
-        sys.exit(1)
+    if not artifacts_only:
+        try:
+            initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
+        except Exception as e:
+            _logger.error("Error initializing backend store")
+            _logger.exception(e)
+            sys.exit(1)
 
     if disable_security_middleware:
         click.echo(
