@@ -414,7 +414,6 @@ def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config, re
 
 
 def test_evaluate_with_managed_dataset(is_in_databricks):
-    """Test evaluation with both managed (Databricks) and OSS datasets."""
     if is_in_databricks:
         # Databricks path: Use managed dataset with mocks
         class MockDatasetClient:
@@ -845,7 +844,6 @@ def test_evaluate_with_managed_dataset_preserves_name():
     ],
 )
 def test_evaluate_with_tags(tags_data, expected_calls):
-    """Test that tags from evaluation data are logged to MLflow runs."""
     data = [
         {
             "inputs": {"question": f"What is question {i}?"},
@@ -889,7 +887,6 @@ def test_evaluate_with_traces_tags_no_warnings():
 
 
 def test_evaluate_with_tags_error_handling(is_in_databricks):
-    """Test that tag logging errors don't fail the evaluation."""
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -912,7 +909,6 @@ def test_evaluate_with_tags_error_handling(is_in_databricks):
 
 
 def test_evaluate_with_invalid_tags_type():
-    """Test that invalid tag types raise appropriate validation errors."""
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -1163,8 +1159,6 @@ def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
 
 
 def test_evaluate_with_evaluation_dataset_and_session_level_scorers():
-    """Test that session-level scorers work with EvaluationDataset created from traces."""
-
     # Define a session-level scorer
     class ConversationLengthScorer(mlflow.genai.Scorer):
         def __init__(self):

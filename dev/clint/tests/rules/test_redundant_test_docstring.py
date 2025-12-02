@@ -176,7 +176,7 @@ class TestDataProcessingValidation:
     class_violation = violations[1]
     assert "TestDataProcessingValidation" in class_violation.rule.message
     assert "Test class" in class_violation.rule.message
-    assert "Consider removing it or expanding it" in class_violation.rule.message
+    assert "Consider removing it" in class_violation.rule.message
 
 
 def test_module_single_line_docstrings_are_flagged(index_path: Path) -> None:

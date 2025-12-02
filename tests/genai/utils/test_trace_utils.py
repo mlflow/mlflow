@@ -381,7 +381,6 @@ def create_span(
     ],
 )
 def test_get_retrieval_context_from_trace(spans, expected_retrieval_context):
-    """Test traces.extract_retrieval_context_from_trace."""
     trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=spans))
     assert extract_retrieval_context_from_trace(trace) == expected_retrieval_context
 

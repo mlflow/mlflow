@@ -134,7 +134,6 @@ def test_get_invoke_function_returns_registered():
 def test_decorator_preserves_function_metadata():
     @invoke()
     def test_function_with_metadata(request):
-        """This is a test function with documentation."""
         return {"result": "success"}
 
     # Get the wrapper function
@@ -146,7 +145,6 @@ def test_decorator_preserves_function_metadata():
 
     @stream()
     async def test_stream_with_metadata(request):
-        """This is a test stream function."""
         yield {"delta": {"content": "hello"}}
 
     stream_wrapper = get_stream_function()

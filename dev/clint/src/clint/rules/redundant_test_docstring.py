@@ -81,12 +81,12 @@ class RedundantTestDocstring(Rule):
             return (
                 "Test module has a single-line docstring. "
                 "Single-line module docstrings don't provide enough context. "
-                "Consider removing it or expanding it with meaningful details."
+                "Consider removing it."
             )
 
         entity_type = "Test class" if self.has_class_docstring else "Test function"
         return (
             f"{entity_type} '{self.function_name}' has a single-line docstring. "
             f"Single-line docstrings in tests rarely provide meaningful context. "
-            f"Consider removing it or expanding it with meaningful details."
+            f"Consider removing it."
         )
