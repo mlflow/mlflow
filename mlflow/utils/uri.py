@@ -533,9 +533,7 @@ def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
     real_base_dir = pathlib.Path(base_dir).resolve()
     real_constructed_path = pathlib.Path(constructed_path).resolve()
 
-    try:
-        real_constructed_path.relative_to(real_base_dir)
-    except ValueError:
+    if not real_constructed_path.is_relative_to(real_base_dir):
         raise MlflowException(
             "Invalid path: resolved path is outside the artifact directory",
             error_code=INVALID_PARAMETER_VALUE,
