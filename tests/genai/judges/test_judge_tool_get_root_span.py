@@ -222,7 +222,6 @@ def test_get_root_span_tool_invoke_with_pagination():
 
 
 def test_get_root_span_tool_invoke_invalid_page_token():
-    """Test that invalid page tokens raise MlflowException."""
     from mlflow.exceptions import MlflowException
 
     tool = GetRootSpanTool()

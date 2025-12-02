@@ -404,39 +404,10 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
     },
     {
-      type: 'category',
+      type: 'doc',
+      id: 'evaluation/index',
       label: 'Evaluate',
       className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'evaluation/function-eval',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/dataset-eval',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/model-eval',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/metrics-visualizations',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/shap',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/plugin-evaluators',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'evaluation/index',
-      },
     },
     {
       type: 'category',
