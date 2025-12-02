@@ -2759,6 +2759,32 @@ def test_make_judge_serialization_with_feedback_value_type():
     assert typing.get_args(restored_list._feedback_value_type) == (str,)
 
 
+def test_judge_with_literal_type_serialization():
+    literal_type = Literal["good", "bad"]
+    judge = make_judge(
+        name="test_judge",
+        instructions="Rate the response as {{ inputs }}",
+        feedback_value_type=literal_type,
+        model="databricks:/databricks-meta-llama-3-1-70b-instruct",
+    )
+
+    # Test serialization
+    serialized = InstructionsJudge._serialize_feedback_value_type(literal_type)
+    assert "enum" in serialized
+    assert serialized["enum"] == ["good", "bad"]
+
+    # Test model validate
+    dumped = judge.model_dump()
+    restored = Scorer.model_validate(dumped)
+    assert restored.name == "test_judge"
+    assert restored._feedback_value_type is not None
+
+    # Test register
+    registered = judge.register()
+    assert registered.name == "test_judge"
+    assert registered._feedback_value_type is not None
+
+
 def test_make_judge_validates_feedback_value_type():
     # Valid types should work
     make_judge(

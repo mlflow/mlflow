@@ -625,7 +625,7 @@ class InstructionsJudge(Judge):
         """
         model = pydantic.create_model(
             "FeedbackValueSchema",
-            result=feedback_value_type,
+            result=(feedback_value_type, ...),
         )
         return model.model_json_schema()["properties"]["result"]
 
