@@ -55,7 +55,6 @@ def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
 
 
 def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
-    """Test upgrading from a pre-3.6.0 database that has auth tables but no alembic_version_auth."""
     runner = CliRunner()
     db = tmp_path / "test.db"
     db_url = f"sqlite:///{db}"

@@ -169,7 +169,6 @@ def test_subclass_hasattr():
 
 
 def test_setattr():
-    """Test that AttrDict supports setting attributes."""
     d = AttrDict({"a": 1, "b": 2})
 
     # Set existing attribute
@@ -185,7 +184,6 @@ def test_setattr():
 
 
 def test_delattr():
-    """Test that AttrDict supports deleting attributes."""
     d = AttrDict({"a": 1, "b": 2, "c": 3})
 
     # Delete existing attribute

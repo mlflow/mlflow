@@ -711,7 +711,6 @@ def test_logged_model_status():
 
 
 def test_model_log_links_prompts_to_logged_model():
-    """Test that Model.log links prompts to the run when prompts are provided."""
     client = mlflow.MlflowClient()
 
     # Create actual prompts in the registry

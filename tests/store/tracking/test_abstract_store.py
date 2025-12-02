@@ -35,20 +35,17 @@ def mock_tracking_store():
 
 
 def test_get_metric_history_bulk_interval_empty_run_ids(store):
-    """Test with empty run_ids list."""
     result = store.get_metric_history_bulk_interval([], "accuracy", 10, 0, 100)
     assert result == []
 
 
 def test_get_metric_history_bulk_interval_single_run_no_metrics(store):
-    """Test with single run that has no metrics."""
     store.metrics = []
     result = store.get_metric_history_bulk_interval(["run1"], "accuracy", 10, 0, 100)
     assert result == []
 
 
 def test_get_metric_history_bulk_interval_single_run_single_metric(store):
-    """Test with single run and single metric."""
     store.metrics = [Metric("accuracy", 0.8, 1000, 5, run_id="run1")]
 
     result = store.get_metric_history_bulk_interval(["run1"], "accuracy", 10, 0, 100)
@@ -72,7 +69,6 @@ def test_get_metric_history_bulk_interval_single_run_multiple_metrics_within_ran
 
 
 def test_get_metric_history_bulk_interval_multiple_runs_same_steps(store):
-    """Test multiple runs with same step values."""
     store.metrics = [
         Metric("accuracy", 0.7, 1000, 5, run_id="run1"),
         Metric("accuracy", 0.8, 1000, 5, run_id="run2"),
@@ -89,7 +85,6 @@ def test_get_metric_history_bulk_interval_multiple_runs_same_steps(store):
 
 
 def test_get_metric_history_bulk_interval_sampling_when_exceeds_max_results(store):
-    """Test sampling behavior when steps exceed max_results."""
     store.metrics = []
     for step in range(0, 100, 2):  # 50 steps: 0, 2, 4, ..., 98
         store.metrics.append(
@@ -106,7 +101,6 @@ def test_get_metric_history_bulk_interval_sampling_when_exceeds_max_results(stor
 
 
 def test_get_metric_history_bulk_interval_none_start_end_steps(store):
-    """Test with None start_step and end_step (should use full range)."""
     store.metrics = [
         Metric("accuracy", 0.7, 1000, 5, run_id="run1"),
         Metric("accuracy", 0.8, 2000, 15, run_id="run1"),
@@ -118,7 +112,6 @@ def test_get_metric_history_bulk_interval_none_start_end_steps(store):
 
 
 def test_get_metric_history_bulk_interval_different_metric_keys(store):
-    """Test that only metrics with matching key are returned."""
     store.metrics = [
         Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
         Metric("loss", 0.2, 1000, 5, run_id="run1"),
@@ -131,7 +124,6 @@ def test_get_metric_history_bulk_interval_different_metric_keys(store):
 
 
 def test_get_metric_history_bulk_interval_metric_sorting_by_step_and_timestamp(store):
-    """Test that metrics are properly sorted by step, then timestamp."""
     store.metrics = [
         Metric("accuracy", 0.8, 3000, 5, run_id="run1"),  # Same step, later timestamp
         Metric("accuracy", 0.7, 1000, 5, run_id="run1"),  # Same step, earlier timestamp
@@ -167,7 +159,6 @@ def test_get_metric_history_bulk_interval_bisect_boundary_conditions(store):
     ],
 )
 def test_get_metric_history_bulk_interval_edge_cases(store, start_step, end_step, expected_count):
-    """Test edge cases with different step ranges."""
     if start_step == 10 and end_step == 20 and expected_count == 1:
         # Single step in range case
         store.metrics = [
@@ -211,7 +202,6 @@ def test_get_metric_history_bulk_interval_edge_cases(store, start_step, end_step
 def test_get_metric_history_bulk_interval_sampling_algorithm(
     store, start_step, end_step, max_results, steps, should_include_min, should_include_max_or_near
 ):
-    """Test the internal sampling algorithm covers key edge cases."""
     store.metrics = [Metric("accuracy", 0.5, 1000 + s, s, run_id="run1") for s in steps]
 
     result = store.get_metric_history_bulk_interval(
@@ -269,7 +259,6 @@ def test_get_metric_history_bulk_interval_from_steps_empty_steps(store):
 
 
 def test_get_metric_history_bulk_interval_from_steps_no_matching_steps(store):
-    """Test with steps that don't match any metrics."""
     store.metrics = [
         Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
         Metric("accuracy", 0.9, 2000, 10, run_id="run1"),
@@ -322,7 +311,6 @@ def test_get_metric_history_bulk_interval_from_steps_max_results_limit(store):
 
 
 def test_get_metric_history_bulk_interval_from_steps_sorting_by_step_and_timestamp(store):
-    """Test sorting by step first, then timestamp."""
     store.metrics = [
         Metric("accuracy", 0.8, 2000, 5, run_id="run1"),  # Later timestamp
         Metric("accuracy", 0.7, 1000, 5, run_id="run1"),  # Earlier timestamp, same step
@@ -340,7 +328,6 @@ def test_get_metric_history_bulk_interval_from_steps_sorting_by_step_and_timesta
 
 
 def test_get_metric_history_bulk_interval_from_steps_different_run_id(store):
-    """Test that only metrics from specified run_id are returned."""
     store.metrics = [
         Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
         Metric("accuracy", 0.9, 2000, 5, run_id="run2"),
@@ -353,7 +340,6 @@ def test_get_metric_history_bulk_interval_from_steps_different_run_id(store):
 
 
 def test_get_metric_history_bulk_interval_from_steps_different_metric_key(store):
-    """Test that only metrics with matching key are returned."""
     store.metrics = [
         Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
         Metric("loss", 0.2, 1000, 5, run_id="run1"),
