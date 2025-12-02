@@ -1642,6 +1642,10 @@
     "defaultMessage": "Request",
     "description": "Column label for request"
   },
+  "F/VdVK": {
+    "defaultMessage": "Delete",
+    "description": "Label for the delete experiments action on the projects list page"
+  },
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
@@ -1733,6 +1737,10 @@
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
+  },
+  "FxxI/f": {
+    "defaultMessage": "Create Project",
+    "description": "Label for the create project action on the GenAI projects list page"
   },
   "G/zTTY": {
     "defaultMessage": "Error",
@@ -2534,6 +2542,10 @@
     "defaultMessage": "Running",
     "description": "Run page > Overview > Run status cell > Value for running state"
   },
+  "Ov2MZH": {
+    "defaultMessage": "Compare",
+    "description": "Label for the compare experiments action on the projects list page"
+  },
   "OzyPl3": {
     "defaultMessage": "Please select parameters",
     "description": "Placeholder text for parameters in parallel coordinates plot in MLflow"
@@ -2541,6 +2553,10 @@
   "P/Uvf4": {
     "defaultMessage": "Classification",
     "description": "Label for experiments focused on classification modeling"
+  },
+  "P6hz/A": {
+    "defaultMessage": "Time",
+    "description": "Label for the request time section"
   },
   "PBeZnP": {
     "defaultMessage": "You can start logging traces to this logged model by calling {code} first:",
@@ -3959,6 +3975,10 @@
     "defaultMessage": "No results match this search.",
     "description": "No results message in datasets drawer table"
   },
+  "dpwDqC": {
+    "defaultMessage": "Tag filter",
+    "description": "Button to open the tags filter popover in the projects page"
+  },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
     "description": "Tab text for contour plot on the model comparison page"
@@ -4723,6 +4743,10 @@
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the experiments table"
   },
+  "l7MCfv": {
+    "defaultMessage": "Filter projects by name",
+    "description": "Placeholder text inside GenAI projects search bar"
+  },
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
     "description": "Button to remove a filter in the tags filter popover for experiments page search by tags"
@@ -5414,6 +5438,10 @@
   "rs7Iic": {
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
+  },
+  "rsJIMO": {
+    "defaultMessage": "Projects",
+    "description": "Header title for the GenAI projects experiments page"
   },
   "rxMHgr": {
     "defaultMessage": "Stage transition",
