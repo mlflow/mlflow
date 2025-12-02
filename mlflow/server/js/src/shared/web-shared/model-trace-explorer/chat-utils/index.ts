@@ -16,3 +16,8 @@ export { normalizeDspyChatInput, normalizeDspyChatOutput } from './dspy';
 export { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from './vercelai';
 export { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './otel';
 export { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './pydanticai';
+export {
+  normalizeVoltAgentChatInput,
+  normalizeVoltAgentChatOutput,
+  synthesizeVoltAgentChatMessages,
+} from './voltagent';

@@ -86,6 +86,11 @@ const config: Config = {
   clientModules: [require.resolve('./src/docusaurus.theme.js')],
 
   themeConfig: {
+    docs: {
+      sidebar: {
+        autoCollapseCategories: true,
+      },
+    },
     mermaid: {
       theme: { light: 'neutral', dark: 'dark' },
       options: {
@@ -370,6 +375,10 @@ const config: Config = {
           {
             to: '/genai/tracing',
             from: ['/llms/llm-tracking', '/tracing', '/llms/tracing', '/tracing/api/how-to'],
+          },
+          {
+            to: '/genai/tracing/quickstart/python-openai',
+            from: ['/genai/tracing/quickstart'],
           },
           {
             to: '/genai/tracing/faq',
@@ -709,19 +718,31 @@ const config: Config = {
           // Governance and Deployments Redirects
           {
             to: '/genai/governance/ai-gateway',
-            from: ['/llms/deployments/', '/llms/gateway/index', '/llms/gateway'],
+            from: [
+              '/llms/deployments/',
+              '/llms/gateway/index',
+              '/llms/gateway',
+              '/llms/deployments/guides',
+              '/llms/gateway/guides/index',
+              '/llms/gateway/guide',
+              '/genai/governance/ai-gateway/guides',
+            ],
           },
           {
-            to: '/genai/governance/ai-gateway/guides',
-            from: ['/llms/deployments/guides', '/llms/gateway/guides/index', '/llms/gateway/guide'],
+            to: '/genai/governance/ai-gateway/setup',
+            from: [
+              '/llms/deployments/guides/step1-create-deployments',
+              '/llms/gateway/guides/step1-create-gateway',
+              '/genai/governance/ai-gateway/guides/step1-create-deployments',
+            ],
           },
           {
-            to: '/genai/governance/ai-gateway/guides/step1-create-deployments',
-            from: ['/llms/deployments/guides/step1-create-deployments', '/llms/gateway/guides/step1-create-gateway'],
-          },
-          {
-            to: '/genai/governance/ai-gateway/guides/step2-query-deployments',
-            from: ['/llms/deployments/guides/step2-query-deployments', '/llms/gateway/guides/step2-query-gateway'],
+            to: '/genai/governance/ai-gateway/usage',
+            from: [
+              '/llms/deployments/guides/step2-query-deployments',
+              '/llms/gateway/guides/step2-query-gateway',
+              '/genai/governance/ai-gateway/guides/step2-query-deployments',
+            ],
           },
           {
             to: '/genai/governance/unity-catalog',

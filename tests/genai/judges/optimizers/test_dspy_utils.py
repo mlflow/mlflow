@@ -350,4 +350,5 @@ def test_agent_eval_lm_uses_optimizer_session_name():
             user_prompt="test prompt",
             system_prompt=None,
             session_name="mlflow-judge-optimizer-v1.0.0",
+            use_case="judge_alignment",
         )

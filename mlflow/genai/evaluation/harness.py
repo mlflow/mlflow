@@ -22,6 +22,11 @@ from mlflow.environment_variables import (
 )
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
+from mlflow.genai.evaluation.session_utils import (
+    classify_scorers,
+    evaluate_session_level_scorers,
+    group_traces_by_session,
+)
 from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
 from mlflow.genai.evaluation.utils import (
     complete_eval_futures_with_progress_base,
@@ -48,6 +53,39 @@ from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 _logger = logging.getLogger(__name__)
 
 
+def _log_multi_turn_assessments_to_traces(
+    multi_turn_assessments: dict[str, list[Feedback]],
+    eval_results: list[EvalResult],
+    run_id: str,
+) -> None:
+    """
+    Log multi-turn assessments to the first trace of each session.
+
+    Args:
+        multi_turn_assessments: Dictionary mapping trace_id to list of assessments
+        eval_results: List of EvalResult objects to update with multi-turn assessments
+        run_id: MLflow run ID for logging
+    """
+    for eval_result in eval_results:
+        if eval_result.eval_item.trace is None:
+            continue
+
+        trace_id = eval_result.eval_item.trace.info.trace_id
+        if trace_id not in multi_turn_assessments:
+            continue
+
+        assessments_list = multi_turn_assessments[trace_id]
+        try:
+            _log_assessments(
+                run_id=run_id,
+                trace=eval_result.eval_item.trace,
+                assessments=assessments_list,
+            )
+            eval_result.assessments.extend(assessments_list)
+        except Exception as e:
+            _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
+
+
 @context.eval_context
 def run(
     *,
@@ -62,18 +100,24 @@ def run(
     The overall flow is:
 
     1. Convert the dataset to a list of EvalItem objects
-    2. Run the prediction and scoring for each EvalItem in parallel
+    2. Classify scorers into single-turn and multi-turn
+    3. Run the prediction and single-turn scoring for each EvalItem in parallel
         a. If predict_fn is provided, invoke the predict_fn for the EvalItem
         b. If predict_fn is not provided, create a dummy trace for the EvalItem
-        c. Execute the scorers to compute assessments.
+        c. Execute the single-turn scorers to compute assessments.
         d. Log the assessments to the trace.
-    3. Compute the aggregated metrics from the assessments.
+    4. If multi-turn scorers exist, evaluate them on session groups
+    5. Compute the aggregated metrics from the assessments.
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)
 
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
 
+    # Classify scorers into single-turn and multi-turn
+    single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
+
+    # Run single-turn evaluation
     with ThreadPoolExecutor(
         max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
         thread_name_prefix="MlflowGenAIEvalHarness",
@@ -82,7 +126,7 @@ def run(
             executor.submit(
                 _run_single,
                 eval_item=eval_item,
-                scorers=scorers,
+                scorers=single_turn_scorers,
                 predict_fn=predict_fn,
                 run_id=run_id,
             )
@@ -90,8 +134,28 @@ def run(
         ]
         eval_results = complete_eval_futures_with_progress_base(futures)
 
+    # Evaluate multi-turn scorers if present
+    if multi_turn_scorers:
+        # Group eval items by session
+        if session_groups := group_traces_by_session(eval_items):
+            # Evaluate multi-turn scorers on session groups
+            multi_turn_assessments = evaluate_session_level_scorers(
+                multi_turn_scorers, session_groups
+            )
+
+            # Log multi-turn assessments to the first trace of each session
+            _log_multi_turn_assessments_to_traces(
+                multi_turn_assessments=multi_turn_assessments,
+                eval_results=eval_results,
+                run_id=run_id,
+            )
+
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
+
+    # Refresh traces on eval_results to include all logged assessments.
+    # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
+    _refresh_eval_result_traces(eval_results)
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
@@ -174,12 +238,11 @@ def _run_single(
             _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
 
     try:
-        logged_trace = _log_assessments(
+        _log_assessments(
             run_id=run_id,
             trace=eval_item.trace,
             assessments=eval_result.assessments,
         )
-        eval_result.eval_item.trace = logged_trace
     except Exception as e:
         # Failures in logging to MLflow should not fail the entire harness run
         _logger.warning(f"Failed to log trace and assessments to MLflow: {e}")
@@ -276,7 +339,10 @@ def _log_assessments(
     run_id: str | None,
     trace: Trace,
     assessments: list[Assessment],
-) -> Trace:
+) -> None:
+    """
+    Log assessments to a trace.
+    """
     for assessment in assessments:
         # Ensure that if we created a new trace, that the updated trace_id is reflected in
         # the assessments.
@@ -295,8 +361,35 @@ def _log_assessments(
 
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 
-    # Get the trace to fetch newly created assessments.
-    return mlflow.get_trace(trace.info.trace_id)
+
+def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:
+    """
+    Refresh traces on eval_results to include logged assessments.
+
+    This function fetches the updated traces from the backend after all assessments
+    (both single-turn and multi-turn) have been logged.
+    """
+
+    def _fetch_trace(eval_result: EvalResult):
+        if eval_result.eval_item.trace is None:
+            return None
+        trace_id = eval_result.eval_item.trace.info.trace_id
+        try:
+            return eval_result, mlflow.get_trace(trace_id)
+        except Exception as e:
+            _logger.warning(f"Failed to refresh trace {trace_id}: {e}")
+            return None
+
+    with ThreadPoolExecutor(
+        max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+        thread_name_prefix="GenAIEvaluationTraceRefresh",
+    ) as executor:
+        futures = [executor.submit(_fetch_trace, er) for er in eval_results]
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                eval_result, refreshed_trace = result
+                eval_result.eval_item.trace = refreshed_trace
 
 
 def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:

@@ -232,16 +232,16 @@ def check_signature_compatibility(
             )
 
     # new required keyword-only params
-    for param in new_sig.keyword_only:
-        if param.is_required and param.name not in old_kw_names:
-            errors.append(
-                ParameterError(
-                    message=f"New required keyword-only param '{param.name}' added.",
-                    param_name=param.name,
-                    lineno=param.lineno,
-                    col_offset=param.col_offset,
-                )
-            )
+    errors.extend(
+        ParameterError(
+            message=f"New required keyword-only param '{param.name}' added.",
+            param_name=param.name,
+            lineno=param.lineno,
+            col_offset=param.col_offset,
+        )
+        for param in new_sig.keyword_only
+        if param.is_required and param.name not in old_kw_names
+    )
 
     return errors
 
@@ -339,20 +339,20 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
             current_func = current_functions[func_name]
             if param_errors := check_signature_compatibility(base_func, current_func):
                 # Create individual errors for each problematic parameter
-                for param_error in param_errors:
-                    errors.append(
-                        Error(
-                            file_path=file_path,
-                            line=param_error.lineno,
-                            column=param_error.col_offset + 1,
-                            lines=[
-                                "[Non-blocking | Ignore if not public API]",
-                                param_error.message,
-                                f"This change will break existing `{func_name}` calls.",
-                                "If this is not intended, please fix it.",
-                            ],
-                        )
+                errors.extend(
+                    Error(
+                        file_path=file_path,
+                        line=param_error.lineno,
+                        column=param_error.col_offset + 1,
+                        lines=[
+                            "[Non-blocking | Ignore if not public API]",
+                            param_error.message,
+                            f"This change will break existing `{func_name}` calls.",
+                            "If this is not intended, please fix it.",
+                        ],
                     )
+                    for param_error in param_errors
+                )
 
     return errors
 

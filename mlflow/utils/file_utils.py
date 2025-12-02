@@ -402,7 +402,7 @@ def _copy_project(src_path, dst_path=""):
         patterns = []
         if os.path.exists(docker_ignore):
             with open(docker_ignore) as f:
-                patterns = [x.strip() for x in f.readlines()]
+                patterns = [x.strip() for x in f]
 
         def ignore(_, names):
             res = set()
@@ -526,8 +526,7 @@ def yield_file_in_chunks(file, chunk_size=100000000):
     """
     with open(file, "rb") as f:
         while True:
-            chunk = f.read(chunk_size)
-            if chunk:
+            if chunk := f.read(chunk_size):
                 yield chunk
             else:
                 break
