@@ -373,7 +373,6 @@ def test_delete_trace_tag(monkeypatch):
 
 
 def test_delete_trace_tag_with_special_characters(monkeypatch):
-    """Test that trace tag keys with special characters like '/' are URL-encoded."""
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()

@@ -408,7 +408,6 @@ def test_sampling_ratio(monkeypatch):
 
 
 def test_otlp_exclusive_vs_dual_export(monkeypatch):
-    """Test OTLP exclusive mode vs dual export mode."""
     from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
     from mlflow.tracing.processor.otel import OtelSpanProcessor
     from mlflow.tracing.provider import _get_tracer
@@ -452,7 +451,6 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
 @skip_when_testing_trace_sdk
 @pytest.mark.parametrize("dual_export", [False, True])
 def test_metrics_export_with_otlp_trace_export(monkeypatch, dual_export):
-    """Test metrics export configuration when OTLP is enabled."""
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
 
@@ -480,7 +478,6 @@ def test_metrics_export_with_otlp_trace_export(monkeypatch, dual_export):
 
 @skip_when_testing_trace_sdk
 def test_metrics_export_without_otlp_trace_export(monkeypatch):
-    """Test metrics export configuration when OTLP is disabled."""
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
 
     # No OTLP tracing endpoints set

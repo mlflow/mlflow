@@ -296,7 +296,9 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
     return <div>-</div>;
   }
   const runUuid = row.original.info.runUuid;
-  const Icon = isRowHidden(runUuid) ? VisibleOffIcon : VisibleIcon;
+  const rowIndex = row.index;
+  const runStatus = row.original.info.status;
+  const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
-  return <Icon onClick={() => toggleRowVisibility(runUuid)} />;
+  return <Icon onClick={() => toggleRowVisibility(runUuid)} css={{ cursor: 'pointer' }} />;
 };

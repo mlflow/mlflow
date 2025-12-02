@@ -74,7 +74,6 @@ def test_sqlalchemystore_idempotently_generates_up_to_date_schema(
 
 
 def test_running_migrations_generates_expected_schema(tmp_path, expected_schema_file, db_url):
-    """Test that migrating an existing database generates the desired schema."""
     engine = sqlalchemy.create_engine(db_url)
     InitialBase.metadata.create_all(engine)
     invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])

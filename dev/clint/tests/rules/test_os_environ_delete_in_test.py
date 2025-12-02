@@ -83,7 +83,6 @@ def test_something():
 
 
 def test_os_environ_pop_not_in_test(index_path: Path) -> None:
-    """Should not flag os.environ.pop() in non-test files"""
     code = """
 import os
 

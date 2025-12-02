@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
@@ -18,6 +19,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     LINKED_PROMPTS_TAG_KEY,
+    PROMPT_EXPERIMENT_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
@@ -540,6 +542,54 @@ class AbstractStore:
             tags=tags or {},
         )
 
+    @staticmethod
+    def _parse_experiment_id_filter(filter_string: str | None) -> str | None:
+        """
+        Parse and transform experiment_id filter to tag-based filter.
+
+        This helper extracts the special 'experiment_id = "xxx"' syntax from the filter
+        string, converts it to the appropriate tag filter clause, and combines it with
+        any remaining filters.
+
+        Args:
+            filter_string: Original filter string that may contain experiment_id clause
+
+        Returns:
+            Transformed filter string with experiment_id converted to tag filter, or None
+        """
+        if not filter_string:
+            return None
+
+        # Match experiment_id = 'xxx' or experiment_id = "xxx"
+        exp_id_pattern = r"experiment_id\s*=\s*['\"]([^'\"]+)['\"]"
+        match = re.search(exp_id_pattern, filter_string)
+
+        if not match:
+            return filter_string
+
+        experiment_id = match.group(1)
+
+        # Remove the experiment_id clause from the filter string
+        remaining_filter = re.sub(exp_id_pattern, "", filter_string).strip()
+
+        # Clean up any leading/trailing AND operators
+        remaining_filter = re.sub(r"^\s*AND\s+", "", remaining_filter)
+        remaining_filter = re.sub(r"\s+AND\s*$", "", remaining_filter)
+        remaining_filter = re.sub(r"\s+AND\s+AND\s+", " AND ", remaining_filter)
+
+        # Build the tag filter clause
+        if not experiment_id.isdigit():
+            raise MlflowException(
+                f"Invalid experiment_id: {experiment_id}. Must be a numeric value.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        # Use LIKE to match the experiment ID anywhere in the comma-separated list
+        experiment_filter = f"tags.{PROMPT_EXPERIMENT_IDS_TAG_KEY} LIKE '%,{experiment_id},%'"
+
+        if remaining_filter:
+            return f"{experiment_filter} AND {remaining_filter}"
+        return experiment_filter
+
     def search_prompts(
         self,
         filter_string: str | None = None,
@@ -567,7 +617,9 @@ class AbstractStore:
 
         # Build filter to only include prompts (use backticks for tag key with dots)
         prompt_filter = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+
         if filter_string:
+            filter_string = self._parse_experiment_id_filter(filter_string)
             prompt_filter = f"{prompt_filter} AND {filter_string}"
 
         # Search registered models with prompt filter

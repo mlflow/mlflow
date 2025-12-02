@@ -15,6 +15,7 @@ import re
 import string
 import sys
 import tempfile
+import threading
 import urllib
 import uuid
 import warnings
@@ -54,11 +55,12 @@ from mlflow.entities.webhook import (
     WebhookStatus,
     WebhookTestResult,
 )
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING, MLFLOW_EXPERIMENT_ID
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
+    PROMPT_EXPERIMENT_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
@@ -192,6 +194,10 @@ def _disable_in_databricks(use_uc_message=False):
         return wrapper
 
     return decorator
+
+
+# Module-level lock for thread-safe prompt-to-experiment linking
+_prompt_experiment_link_lock = threading.Lock()
 
 
 class MlflowClient:
@@ -661,7 +667,47 @@ class MlflowClient:
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 
-        return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+        prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+
+        if experiment_id := MLFLOW_EXPERIMENT_ID.get():
+            self._link_prompt_to_experiment(prompt_version, experiment_id)
+
+        return prompt_version
+
+    def _link_prompt_to_experiment(self, prompt_version: PromptVersion, experiment_id: str) -> None:
+        """
+        Update the experiment IDs for a prompt version.
+        """
+
+        def _link_prompt_to_experiment_async() -> None:
+            try:
+                with _prompt_experiment_link_lock:
+                    prompt_info = self.get_prompt(prompt_version.name)
+                    existing_ids = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
+                    existing_ids = existing_ids.rstrip(",").lstrip(",")
+                    exp_ids = [eid.strip() for eid in existing_ids.split(",") if eid.strip()]
+                    if experiment_id not in exp_ids:
+                        exp_ids.append(experiment_id)
+                        exp_ids = ",".join(exp_ids)
+                        # Use LIKE to match the experiment ID and experiment ID is auto-incremented
+                        # integer. So add comma before and after the list of experiment IDs to
+                        # avoid false matches (e.g., "1" matches "10").
+                        exp_ids = f",{exp_ids},"
+                        self.set_prompt_tag(
+                            name=prompt_version.name,
+                            key=PROMPT_EXPERIMENT_IDS_TAG_KEY,
+                            value=exp_ids,
+                        )
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to tag prompt '{prompt_version.name}' with experiment ID "
+                    f"{experiment_id}. Error: {e}",
+                )
+
+        threading.Thread(
+            target=_link_prompt_to_experiment_async,
+            name=f"link_prompt_to_experiment_thread-{uuid.uuid4().hex[:8]}",
+        ).start()
 
     @translate_prompt_exception
     @require_prompt_registry
@@ -691,24 +737,34 @@ class MlflowClient:
                 to retrieve the next page of results.  Defaults to `None`.
 
         Returns:
-            A pageable list of Prompt objects representing prompt metadata:
+            A pageable list of :py:class:`Prompt <mlflow.entities.Prompt>` objects
+            representing prompt metadata:
 
             - name: The prompt name
             - description: The prompt description
             - tags: Prompt-level tags
             - creation_timestamp: When the prompt was created
 
-            To get the actual prompt template content, use get_prompt() with a specific version:
+            To get the actual prompt template content,
+            use get_prompt_version() with a specific version:
 
             .. code-block:: python
+
+                from mlflow import MlflowClient
+
+                # Your prompt registry URI
+                client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
 
                 # Search for prompts
                 prompts = client.search_prompts(filter_string="name LIKE 'greeting%'")
 
+                # Get prompts by experiment
+                prompts = client.search_prompts(filter_string='experiment_id = "1"')
+
                 # Get specific version content
                 for prompt in prompts:
                     prompt_version = client.get_prompt_version(prompt.name, version="1")
-                    print(f"Template: {prompt.template}")
+                    print(f"Template: {prompt_version.template}")
 
             Inspect the returned object's `.token` attribute to fetch subsequent pages.
         """

@@ -45,7 +45,7 @@ The `Dataset` abstraction is a metadata tracking object that holds comprehensive
 
 **Special Dataset Types:**
 
-- `EvaluationDataset` - Internal dataset type used specifically with `mlflow.evaluate()` for model evaluation workflows
+- `EvaluationDataset` - Internal dataset type used specifically with `mlflow.models.evaluate()` for model evaluation workflows
 
 ### DatasetSource
 
@@ -205,8 +205,8 @@ eval_dataset = mlflow.data.from_pandas(
 with mlflow.start_run():
     mlflow.log_input(eval_dataset, context="evaluation")
 
-    # This dataset can now be used directly with mlflow.evaluate()
-    result = mlflow.evaluate(data=eval_dataset, model_type="classifier")
+    # This dataset can now be used directly with mlflow.models.evaluate()
+    result = mlflow.models.evaluate(data=eval_dataset, model_type="classifier")
 ```
 
   </TabItem>
@@ -336,10 +336,10 @@ The UI displays:
 
 ## Integration with MLflow Evaluate
 
-One of the most powerful features of MLflow datasets is their seamless integration with MLflow's evaluation capabilities. MLflow automatically converts various data types to `EvaluationDataset` objects internally when using `mlflow.evaluate()`.
+One of the most powerful features of MLflow datasets is their seamless integration with MLflow's evaluation capabilities. MLflow automatically converts various data types to `EvaluationDataset` objects internally when using `mlflow.models.evaluate()`.
 
 :::info EvaluationDataset
-MLflow uses an internal `EvaluationDataset` class when working with `mlflow.evaluate()`. This dataset type is automatically created from your input data and provides optimized hashing and metadata tracking specifically for evaluation workflows.
+MLflow uses an internal `EvaluationDataset` class when working with `mlflow.models.evaluate()`. This dataset type is automatically created from your input data and provides optimized hashing and metadata tracking specifically for evaluation workflows.
 :::
 
 <Tabs>
@@ -376,7 +376,7 @@ with mlflow.start_run():
     mlflow.sklearn.log_model(model, name="model", input_example=X_test)
 
     # Evaluate using the dataset
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         model="runs:/{}/model".format(mlflow.active_run().info.run_id),
         data=eval_dataset,
         model_type="classifier",
@@ -405,7 +405,7 @@ prediction_dataset = mlflow.data.from_pandas(
 
 with mlflow.start_run():
     # Evaluate static predictions (no model needed!)
-    result = mlflow.evaluate(data=prediction_dataset, model_type="classifier")
+    result = mlflow.models.evaluate(data=prediction_dataset, model_type="classifier")
 
     # Dataset is automatically logged to the run
     print("Evaluation completed on static predictions")
@@ -417,7 +417,7 @@ with mlflow.start_run():
 Compare multiple models or datasets:
 
 ```python
-def compare_model_performance(datasets_dict):
+def compare_model_performance(model_uri, datasets_dict):
     """Compare model performance across multiple evaluation datasets."""
 
     results = {}
@@ -425,8 +425,11 @@ def compare_model_performance(datasets_dict):
     with mlflow.start_run(run_name="Model_Comparison"):
         for dataset_name, dataset in datasets_dict.items():
             with mlflow.start_run(run_name=f"Eval_{dataset_name}", nested=True):
-                result = mlflow.evaluate(
-                    model=model, data=dataset, model_type="classifier"
+                result = mlflow.models.evaluate(
+                    model=model_uri,
+                    data=dataset,
+                    targets="target",
+                    model_type="classifier",
                 )
                 results[dataset_name] = result.metrics
 
@@ -445,7 +448,7 @@ evaluation_datasets = {
     "holdout": holdout_dataset,
 }
 
-comparison_results = compare_model_performance(evaluation_datasets)
+comparison_results = compare_model_performance(model_uri, evaluation_datasets)
 ```
 
   </TabItem>
@@ -695,7 +698,7 @@ def monitor_batch_predictions(batch_data, model_version, date):
 
         # Evaluate if ground truth is available
         if all(col in batch_data.columns for col in ["prediction", "true_label"]):
-            result = mlflow.evaluate(data=batch_dataset, model_type="classifier")
+            result = mlflow.models.evaluate(data=batch_dataset, model_type="classifier")
             print(f"Batch accuracy: {result.metrics.get('accuracy_score', 'N/A')}")
 
     return batch_dataset

@@ -468,7 +468,6 @@ def test_convert_scorer_to_legacy_metric_aggregations_attribute(monkeypatch):
 
 @databricks_only
 def test_convert_scorer_to_legacy_metric():
-    """Test that _convert_scorer_to_legacy_metric correctly sets _is_builtin_scorer attribute."""
     # Test with a built-in scorer
     builtin_scorer = RelevanceToQuery()
     legacy_metric = _convert_scorer_to_legacy_metric(builtin_scorer)

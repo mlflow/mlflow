@@ -78,7 +78,12 @@ def main() -> None:
                     sys.stderr.write("\n".join(map(str, violations)) + "\n")
                 count = len(violations)
                 label = "error" if count == 1 else "errors"
-                print(f"Found {count} {label}", file=sys.stderr)
+                rule_label = "this rule" if count == 1 else "these rules"
+                print(
+                    f"Found {count} {label}\n"
+                    f"See dev/clint/README.md for instructions on ignoring {rule_label}.",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             else:
                 print("No errors found!", file=sys.stderr)
