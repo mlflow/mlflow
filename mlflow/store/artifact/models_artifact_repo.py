@@ -53,7 +53,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             get_artifact_repository,
         )
 
-        _logger.info("ModelsArtifactRepository __init__")
+        _logger.info("ModelsArtifactRepository(2) __init__")
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         registry_uri = registry_uri or mlflow.get_registry_uri()
         self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)

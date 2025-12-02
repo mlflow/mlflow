@@ -383,6 +383,7 @@ class UcModelRegistryStore(BaseRestStore):
         super().__init__(
             get_host_creds=functools.partial(get_databricks_host_creds, store_uri)
         )
+        _logger.info("UcModelRegistryStore __init__")
         self.tracking_uri = tracking_uri
         self.get_tracking_host_creds = functools.partial(
             get_databricks_host_creds, tracking_uri
@@ -466,6 +467,7 @@ class UcModelRegistryStore(BaseRestStore):
             created in the backend.
 
         """
+        _logger.info(f"[UcModelRegistryStore] create_registered_model, name = {name}")
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateRegisteredModelRequest(
