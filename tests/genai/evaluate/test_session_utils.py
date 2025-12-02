@@ -11,8 +11,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.session_utils import (
+    _evaluate_session_scorers,
     classify_scorers,
-    evaluate_session_level_scorers,
     get_first_trace_in_session,
     group_traces_by_session,
     validate_session_level_evaluation_inputs,
@@ -317,7 +317,7 @@ def test_validate_session_level_evaluation_inputs_mixed_scorers():
     )
 
 
-# ==================== Tests for evaluate_session_level_scorers ====================
+# ==================== Tests for _evaluate_session_scorers ====================
 
 
 def _create_test_trace(trace_id: str, request_time: int = 0) -> Trace:
@@ -348,21 +348,18 @@ def _create_eval_item(trace_id: str, request_time: int = 0) -> EvalItem:
     )
 
 
-def test_evaluate_session_level_scorers_success():
+def test_evaluate_session_scorers_success():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "test_scorer"
     mock_scorer.run.return_value = 0.8
 
-    # Test with multiple sessions to verify scorer is called for each
-    session_groups = {
-        "session1": [
-            _create_eval_item("trace1", request_time=100),
-            _create_eval_item("trace2", request_time=200),
-        ],
-        "session2": [_create_eval_item("trace3", 150)],
-    }
+    # Test with a single session containing multiple traces
+    session_items = [
+        _create_eval_item("trace1", request_time=100),
+        _create_eval_item("trace2", request_time=200),
+    ]
 
-    with patch("mlflow.genai.evaluation.utils.standardize_scorer_value") as mock_standardize:
+    with patch("mlflow.genai.evaluation.session_utils.standardize_scorer_value") as mock_standardize:
         # Return a new Feedback object each time to avoid metadata overwriting
         def create_feedback(*args, **kwargs):
             return [
@@ -377,43 +374,35 @@ def test_evaluate_session_level_scorers_success():
 
         mock_standardize.side_effect = create_feedback
 
-        result = evaluate_session_level_scorers([mock_scorer], session_groups)
+        result = _evaluate_session_scorers("session1", session_items, [mock_scorer])
 
-        # Verify scorer was called for each session
-        assert mock_scorer.run.call_count == 2
+        # Verify scorer was called once (for the single session)
+        assert mock_scorer.run.call_count == 1
 
         # Verify scorer received session traces
-        call_args = mock_scorer.run.call_args_list
-        assert "session" in call_args[0].kwargs
-        assert len(call_args[0].kwargs["session"]) == 2  # session1 has 2 traces
-        assert len(call_args[1].kwargs["session"]) == 1  # session2 has 1 trace
+        call_args = mock_scorer.run.call_args
+        assert "session" in call_args.kwargs
+        assert len(call_args.kwargs["session"]) == 2  # session has 2 traces
 
-        # Verify results for both sessions (assessments on first trace of each)
-        assert "trace1" in result  # First trace of session1
-        assert "trace3" in result  # First trace of session2
+        # Verify result contains assessments for first trace
+        assert "trace1" in result  # First trace (earliest timestamp)
         assert len(result["trace1"]) == 1
-        assert len(result["trace3"]) == 1
         assert result["trace1"][0].name == "test_scorer"
         assert result["trace1"][0].value == 0.8
-        assert result["trace3"][0].name == "test_scorer"
-        assert result["trace3"][0].value == 0.8
 
         # Verify session_id was added to metadata
         assert result["trace1"][0].metadata is not None
         assert result["trace1"][0].metadata[TraceMetadataKey.TRACE_SESSION] == "session1"
-        assert result["trace3"][0].metadata[TraceMetadataKey.TRACE_SESSION] == "session2"
 
 
-def test_evaluate_session_level_scorers_handles_scorer_error():
+def test_evaluate_session_scorers_handles_scorer_error():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "failing_scorer"
     mock_scorer.run.side_effect = ValueError("Scorer failed!")
 
-    session_groups = {
-        "session1": [_create_eval_item("trace1", 100)],
-    }
+    session_items = [_create_eval_item("trace1", 100)]
 
-    result = evaluate_session_level_scorers([mock_scorer], session_groups)
+    result = _evaluate_session_scorers("session1", session_items, [mock_scorer])
 
     # Verify error feedback was created
     assert "trace1" in result
@@ -426,16 +415,14 @@ def test_evaluate_session_level_scorers_handles_scorer_error():
     assert feedback.error.stack_trace is not None
 
 
-def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
+def test_evaluate_session_scorers_multiple_feedbacks_per_scorer():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "multi_feedback_scorer"
     mock_scorer.run.return_value = {"metric1": 0.7, "metric2": 0.9}
 
-    session_groups = {
-        "session1": [_create_eval_item("trace1", 100)],
-    }
+    session_items = [_create_eval_item("trace1", 100)]
 
-    with patch("mlflow.genai.evaluation.utils.standardize_scorer_value") as mock_standardize:
+    with patch("mlflow.genai.evaluation.session_utils.standardize_scorer_value") as mock_standardize:
         feedbacks = [
             Feedback(
                 name="multi_feedback_scorer/metric1",
@@ -450,7 +437,7 @@ def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
         ]
         mock_standardize.return_value = feedbacks
 
-        result = evaluate_session_level_scorers([mock_scorer], session_groups)
+        result = _evaluate_session_scorers("session1", session_items, [mock_scorer])
 
         # Verify both feedbacks are stored
         assert "trace1" in result
@@ -463,21 +450,19 @@ def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
         assert feedback_by_name["multi_feedback_scorer/metric2"].value == 0.9
 
 
-def test_evaluate_session_level_scorers_first_trace_selection():
+def test_evaluate_session_scorers_first_trace_selection():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "first_trace_scorer"
     mock_scorer.run.return_value = 1.0
 
     # Create session with traces in non-chronological order
-    session_groups = {
-        "session1": [
-            _create_eval_item("trace2", request_time=200),  # Second chronologically
-            _create_eval_item("trace1", request_time=100),  # First chronologically
-            _create_eval_item("trace3", request_time=300),  # Third chronologically
-        ]
-    }
+    session_items = [
+        _create_eval_item("trace2", request_time=200),  # Second chronologically
+        _create_eval_item("trace1", request_time=100),  # First chronologically
+        _create_eval_item("trace3", request_time=300),  # Third chronologically
+    ]
 
-    with patch("mlflow.genai.evaluation.utils.standardize_scorer_value") as mock_standardize:
+    with patch("mlflow.genai.evaluation.session_utils.standardize_scorer_value") as mock_standardize:
         feedback = Feedback(
             name="first_trace_scorer",
             source=AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="test"),
@@ -485,7 +470,7 @@ def test_evaluate_session_level_scorers_first_trace_selection():
         )
         mock_standardize.return_value = [feedback]
 
-        result = evaluate_session_level_scorers([mock_scorer], session_groups)
+        result = _evaluate_session_scorers("session1", session_items, [mock_scorer])
 
         # Verify assessment is stored on trace1 (earliest request_time)
         assert "trace1" in result
@@ -496,7 +481,7 @@ def test_evaluate_session_level_scorers_first_trace_selection():
         assert result["trace1"][0].value == 1.0
 
 
-def test_evaluate_session_level_scorers_multiple_scorers():
+def test_evaluate_session_scorers_multiple_scorers():
     mock_scorer1 = Mock(spec=mlflow.genai.Scorer)
     mock_scorer1.name = "scorer1"
     mock_scorer1.run.return_value = 0.6
@@ -505,11 +490,9 @@ def test_evaluate_session_level_scorers_multiple_scorers():
     mock_scorer2.name = "scorer2"
     mock_scorer2.run.return_value = 0.8
 
-    session_groups = {
-        "session1": [_create_eval_item("trace1", 100)],
-    }
+    session_items = [_create_eval_item("trace1", 100)]
 
-    with patch("mlflow.genai.evaluation.utils.standardize_scorer_value") as mock_standardize:
+    with patch("mlflow.genai.evaluation.session_utils.standardize_scorer_value") as mock_standardize:
 
         def create_feedback(name, value):
             return [
@@ -527,9 +510,13 @@ def test_evaluate_session_level_scorers_multiple_scorers():
             create_feedback("scorer2", 0.8),
         ]
 
-        result = evaluate_session_level_scorers([mock_scorer1, mock_scorer2], session_groups)
+        result = _evaluate_session_scorers("session1", session_items, [mock_scorer1, mock_scorer2])
 
-        # Verify both scorers were evaluated
+        # Verify both scorers were evaluated (runs in parallel)
+        assert mock_scorer1.run.call_count == 1
+        assert mock_scorer2.run.call_count == 1
+
+        # Verify result contains assessments from both scorers
         assert "trace1" in result
         assert len(result["trace1"]) == 2
         # Find feedbacks by name
@@ -538,14 +525,3 @@ def test_evaluate_session_level_scorers_multiple_scorers():
         assert "scorer2" in feedback_by_name
         assert feedback_by_name["scorer1"].value == 0.6
         assert feedback_by_name["scorer2"].value == 0.8
-
-
-def test_evaluate_session_level_scorers_empty_session_groups():
-    mock_scorer = Mock(spec=mlflow.genai.Scorer)
-    mock_scorer.name = "test_scorer"
-
-    result = evaluate_session_level_scorers([mock_scorer], {})
-
-    # Should return empty result
-    assert result == {}
-    mock_scorer.run.assert_not_called()

@@ -11,6 +11,12 @@ from typing import Any, Callable
 
 import pandas as pd
 
+# Add tqdm with fallback
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    tqdm = None
+
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -23,13 +29,13 @@ from mlflow.environment_variables import (
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.session_utils import (
+    _evaluate_session_scorers,
     classify_scorers,
-    evaluate_session_level_scorers,
     group_traces_by_session,
 )
 from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
 from mlflow.genai.evaluation.utils import (
-    complete_eval_futures_with_progress_base,
+    PGBAR_FORMAT,
     is_none_or_nan,
     make_code_type_assessment_source,
     standardize_scorer_value,
@@ -117,38 +123,80 @@ def run(
     # Classify scorers into single-turn and multi-turn
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
 
-    # Run single-turn evaluation
+    # Pre-compute session groups if multi-turn scorers exist
+    session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
+
+    # Calculate total work units for progress bar
+    total_tasks = len(eval_items) + len(session_groups)
+
     with ThreadPoolExecutor(
         max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
         thread_name_prefix="MlflowGenAIEvalHarness",
     ) as executor:
-        futures = [
+        # Submit single-turn tasks
+        single_turn_futures = {
             executor.submit(
                 _run_single,
                 eval_item=eval_item,
                 scorers=single_turn_scorers,
                 predict_fn=predict_fn,
                 run_id=run_id,
-            )
-            for eval_item in eval_items
-        ]
-        eval_results = complete_eval_futures_with_progress_base(futures)
+            ): i
+            for i, eval_item in enumerate(eval_items)
+        }
 
-    # Evaluate multi-turn scorers if present
-    if multi_turn_scorers:
-        # Group eval items by session
-        if session_groups := group_traces_by_session(eval_items):
-            # Evaluate multi-turn scorers on session groups
-            multi_turn_assessments = evaluate_session_level_scorers(
-                multi_turn_scorers, session_groups
-            )
+        # Collect results with unified progress bar
+        eval_results = [None] * len(eval_items)
+        multi_turn_assessments = {}
 
-            # Log multi-turn assessments to the first trace of each session
-            _log_multi_turn_assessments_to_traces(
-                multi_turn_assessments=multi_turn_assessments,
-                eval_results=eval_results,
-                run_id=run_id,
+        # Create progress bar for all tasks (tqdm imported at module level)
+        progress_bar = (
+            tqdm(
+                total=total_tasks,
+                desc="Evaluating",
+                smoothing=0,
+                bar_format=PGBAR_FORMAT,
             )
+            if tqdm is not None
+            else None
+        )
+
+        try:
+            # Phase 1: Complete single-turn tasks
+            for future in as_completed(single_turn_futures):
+                idx = single_turn_futures[future]
+                eval_results[idx] = future.result()
+                if progress_bar:
+                    progress_bar.update(1)
+
+            # Phase 2: Submit and complete multi-turn tasks (after single-turn)
+            if multi_turn_scorers and session_groups:
+                multi_turn_futures = [
+                    executor.submit(
+                        _evaluate_session_scorers,
+                        session_id=session_id,
+                        session_items=session_items,
+                        multi_turn_scorers=multi_turn_scorers,
+                    )
+                    for session_id, session_items in session_groups.items()
+                ]
+
+                for future in as_completed(multi_turn_futures):
+                    session_result = future.result()
+                    multi_turn_assessments.update(session_result)
+                    if progress_bar:
+                        progress_bar.update(1)
+        finally:
+            if progress_bar:
+                progress_bar.close()
+
+    # Log multi-turn assessments to traces
+    if multi_turn_assessments:
+        _log_multi_turn_assessments_to_traces(
+            multi_turn_assessments=multi_turn_assessments,
+            eval_results=eval_results,
+            run_id=run_id,
+        )
 
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
