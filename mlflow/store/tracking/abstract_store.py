@@ -52,6 +52,11 @@ class AbstractStore:
         """
         self._async_logging_queue = AsyncLoggingQueue(logging_func=self.log_batch)
 
+    def supports_workspaces(self) -> bool:
+        """Return whether workspaces are supported by this tracking store."""
+
+        return False
+
     @abstractmethod
     def search_experiments(
         self,

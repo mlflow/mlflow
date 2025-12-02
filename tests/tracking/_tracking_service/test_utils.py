@@ -11,6 +11,7 @@ import pytest
 
 import mlflow
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_TOKEN,
@@ -179,6 +180,7 @@ def test_get_store_rest_store_with_no_insecure(monkeypatch):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
@@ -193,6 +195,10 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
             # Accordingly, we mock `SqlAlchemyStore.search_experiments`
             "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
             return_value=[],
+        ),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._initialize_store_state",
+            return_value=None,
         ),
     ):
         store = _get_store()
@@ -213,6 +219,7 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     artifact_uri = "file:artifact/path"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
@@ -225,6 +232,10 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
         mock.patch(
             "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
             return_value=[],
+        ),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._initialize_store_state",
+            return_value=None,
         ),
     ):
         store = _get_store(artifact_uri=artifact_uri)

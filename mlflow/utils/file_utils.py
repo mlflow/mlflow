@@ -499,14 +499,18 @@ def local_file_uri_to_path(uri):
     Convert URI to local filesystem path.
     No-op if the uri does not have the expected scheme.
     """
-    path = uri
     if uri.startswith("file:"):
         parsed_path = urllib.parse.urlparse(uri)
         path = parsed_path.path
         # Fix for retaining server name in UNC path.
         if is_windows() and parsed_path.netloc:
             return urllib.request.url2pathname(rf"\\{parsed_path.netloc}{path}")
-    return urllib.request.url2pathname(path)
+        return urllib.request.url2pathname(path)
+    # For non-file:// URIs (local paths), only do percent-decoding.
+    # Using url2pathname here would break on Python 3.14+ because it now parses
+    # the input as a URL, which incorrectly treats characters like # and ? as
+    # fragment/query markers instead of literal path characters.
+    return urllib.parse.unquote(uri)
 
 
 def get_local_path_or_none(path_or_uri):
