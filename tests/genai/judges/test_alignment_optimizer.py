@@ -40,14 +40,11 @@ class MockOptimizer(AlignmentOptimizer):
 
 
 def test_alignment_optimizer_abstract():
-    """Test that AlignmentOptimizer cannot be instantiated directly."""
     with pytest.raises(TypeError, match="Can't instantiate abstract class AlignmentOptimizer"):
         AlignmentOptimizer()
 
 
 def test_alignment_optimizer_align_method_required():
-    """Test that concrete classes must implement align method."""
-
     class IncompleteOptimizer(AlignmentOptimizer):
         pass
 
@@ -56,7 +53,6 @@ def test_alignment_optimizer_align_method_required():
 
 
 def test_concrete_optimizer_implementation():
-    """Test that concrete optimizer can be instantiated and used."""
     optimizer = MockOptimizer()
     judge = MockJudge(name="test_judge")
     traces = []  # Empty traces for testing
@@ -91,7 +87,6 @@ def create_mock_traces():
 
 
 def test_judge_align_method():
-    """Test the Judge.align convenience method."""
     judge = MockJudge(name="test_judge")
     optimizer = MockOptimizerWithTracking()
     # Replace the align method with a Mock to use built-in mechanisms
@@ -109,7 +104,6 @@ def test_judge_align_method():
 
 
 def test_judge_align_method_delegation():
-    """Test that Judge.align properly delegates to optimizer.align."""
     judge = MockJudge()
 
     # Create a spy optimizer that records calls
@@ -127,7 +121,6 @@ def test_judge_align_method_delegation():
 
 
 def test_judge_align_with_default_optimizer():
-    """Test that Judge.align uses default SIMBA optimizer when optimizer=None."""
     judge = MockJudge()
     traces = create_mock_traces()
 

@@ -203,7 +203,6 @@ def test_create_registered_model(mock_http, store):
 
 
 def test_create_registered_model_three_level_name_hint(store):
-    """Test that creating a registered model with invalid name provides legacy registry hint."""
     # Mock the _call_endpoint method to raise a RestException with
     # "specify all three levels" message
     original_error_message = "Model name must specify all three levels"
@@ -226,7 +225,6 @@ def test_create_registered_model_three_level_name_hint(store):
 
 
 def test_create_registered_model_three_level_name_hint_with_period(store):
-    """Test the hint works correctly when original error message ends with a period."""
     original_error_message = "Model name must specify all three levels."
     rest_exception = RestException(
         {"error_code": "INVALID_PARAMETER_VALUE", "message": original_error_message}
@@ -2643,8 +2641,6 @@ def test_get_prompt_version_by_alias_uc(mock_http, store, monkeypatch):
 
 
 def test_link_prompt_version_to_model_success(store):
-    """Test successful Unity Catalog linking with API call."""
-
     with (
         mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
         mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
@@ -2677,8 +2673,6 @@ def test_link_prompt_version_to_model_success(store):
 
 
 def test_link_prompt_version_to_model_sets_tag(store):
-    """Test that linking a prompt version to a model sets the appropriate tag."""
-
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
         name="test_prompt",
@@ -2734,8 +2728,6 @@ def test_link_prompt_version_to_model_sets_tag(store):
 
 
 def test_link_prompts_to_trace_success(store):
-    """Test successful Unity Catalog linking prompts to a trace with API call."""
-
     with (
         mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
         mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
@@ -2762,8 +2754,6 @@ def test_link_prompts_to_trace_success(store):
 
 
 def test_link_prompt_version_to_run_success(store):
-    """Test successful Unity Catalog linking prompt version to run with API call."""
-
     with (
         mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
         mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
@@ -2804,8 +2794,6 @@ def test_link_prompt_version_to_run_success(store):
 
 
 def test_link_prompt_version_to_run_sets_tag(store):
-    """Test that linking a prompt version to a run sets the appropriate tag."""
-
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
         name="test_prompt",

@@ -38,7 +38,6 @@ def setup_experiment():
 
 
 def test_copy_trace_with_metadata():
-    """Test copying trace metadata"""
     trace_dict = {
         "info": {
             "request_id": "test-trace-789",
@@ -67,7 +66,6 @@ def test_copy_trace_with_metadata():
 
 
 def test_copy_trace_missing_info():
-    """Test copying when info field is missing"""
     trace_dict = {"data": {"spans": [_create_test_span_dict("test-trace-no-info")]}}
 
     # Should not raise an error, just skip tag/metadata copying
@@ -79,7 +77,6 @@ def test_copy_trace_missing_info():
 
 
 def test_copy_trace_missing_metadata():
-    """Test copying when trace_metadata field is missing"""
     trace_dict = {
         "info": {
             "request_id": "test-trace-no-metadata",
@@ -103,7 +100,6 @@ def test_copy_trace_missing_metadata():
 
 
 def test_copy_trace_empty_metadata_dict():
-    """Test copying when trace_metadata is an empty dictionary"""
     trace_dict = {
         "info": {
             "request_id": "test-trace-empty-metadata",
