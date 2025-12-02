@@ -23,14 +23,12 @@ def _compute_span_name(instance, original) -> str:
         if isinstance(instance, FunctionCall):
             tool_name = None
             for attr in ["function_name", "name", "tool_name"]:
-                val = getattr(instance, attr, None)
-                if val:
+                if val := getattr(instance, attr, None):
                     return val
             if not tool_name and hasattr(instance, "function"):
                 underlying_fn = getattr(instance, "function")
                 for attr in ["name", "__name__", "function_name"]:
-                    val = getattr(underlying_fn, attr, None)
-                    if val:
+                    if val := getattr(underlying_fn, attr, None):
                         return val
             if not tool_name:
                 return "AgnoToolCall"
@@ -45,8 +43,7 @@ def _parse_tools(tools) -> list[dict[str, Any]]:
     result = []
     for tool in tools or []:
         try:
-            data = tool.model_dumps(exclude_none=True)
-            if data:
+            if data := tool.model_dumps(exclude_none=True):
                 result.append({"type": "function", "function": data})
         except Exception:
             # Fallback to string representation

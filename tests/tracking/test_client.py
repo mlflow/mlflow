@@ -2420,7 +2420,6 @@ def test_search_prompt(tracking_uri):
 
 
 def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
-    """Test that delete_prompt_version no longer automatically deletes prompts"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt and version
@@ -2449,7 +2448,6 @@ def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
 
 
 def test_delete_prompt_with_no_versions(tracking_uri):
-    """Test that delete_prompt works when prompt has no versions"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt and version, then delete version
@@ -2469,7 +2467,6 @@ def test_delete_prompt_with_no_versions(tracking_uri):
 
 
 def test_delete_prompt_complete_workflow(tracking_uri):
-    """Test the complete workflow: create, add versions, delete versions, delete prompt"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt with multiple versions
@@ -2503,7 +2500,6 @@ def test_delete_prompt_complete_workflow(tracking_uri):
 
 
 def test_delete_prompt_error_handling(tracking_uri):
-    """Test error handling for delete_prompt operations"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Test deleting non-existent prompt
@@ -2517,7 +2513,6 @@ def test_delete_prompt_error_handling(tracking_uri):
 
 
 def test_delete_prompt_version_behavior_consistency(tracking_uri):
-    """Test that delete_prompt_version behavior is consistent across registry types"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create multiple prompts with versions
@@ -2546,8 +2541,6 @@ def test_delete_prompt_version_behavior_consistency(tracking_uri):
 
 @pytest.mark.parametrize("registry_uri", ["databricks-uc"])
 def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
-    """Test that Unity Catalog throws error when deleting prompt with existing versions"""
-
     # Mock Unity Catalog behavior
     client = MlflowClient(registry_uri=registry_uri)
 
@@ -2566,7 +2559,6 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
 
 
 def test_link_prompt_version_to_model_smoke_test(tracking_uri):
-    """Smoke test for linking a prompt version to a model - just verify the method can be called."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create an experiment and a run to have a proper context
@@ -2586,7 +2578,6 @@ def test_link_prompt_version_to_model_smoke_test(tracking_uri):
 
 
 def test_link_prompts_to_trace_smoke_test(tracking_uri):
-    """Smoke test for linking prompt versions to a trace - just verify the method can be called."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create an experiment and a run to have a proper context
@@ -2831,7 +2822,6 @@ def test_create_prompt_chat_format_client_integration():
 
 
 def test_link_chat_prompt_version_to_run():
-    """Test linking chat prompts to runs via client."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -2879,7 +2869,6 @@ def test_create_prompt_with_pydantic_response_format_client():
 
 
 def test_create_prompt_with_dict_response_format_client():
-    """Test client-level integration with dictionary response format."""
     response_format = {
         "type": "object",
         "properties": {
@@ -2905,7 +2894,6 @@ def test_create_prompt_with_dict_response_format_client():
 
 
 def test_create_prompt_text_backward_compatibility_client():
-    """Test that text prompt creation continues to work via client."""
     client = MlflowClient()
     prompt = client.register_prompt(
         name="test_text_backward_client",
@@ -2924,7 +2912,6 @@ def test_create_prompt_text_backward_compatibility_client():
 
 
 def test_create_prompt_complex_chat_template_client():
-    """Test client-level integration with complex chat templates."""
     chat_template = [
         {
             "role": "system",
@@ -2969,7 +2956,6 @@ def test_create_prompt_with_none_response_format_client():
 
 
 def test_create_prompt_with_empty_chat_template_client():
-    """Test client-level integration with empty chat template list."""
     client = MlflowClient()
     prompt = client.register_prompt(name="test_empty_chat_client", template=[])
 
@@ -2982,7 +2968,6 @@ def test_create_prompt_with_empty_chat_template_client():
 
 
 def test_create_prompt_with_single_message_chat_client():
-    """Test client-level integration with single message chat template."""
     chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
 
     client = MlflowClient()
@@ -3022,7 +3007,6 @@ def test_create_prompt_with_multiple_variables_in_chat_client():
 
 
 def test_create_prompt_with_mixed_content_types_client():
-    """Test client-level integration with mixed content types in chat messages."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -3042,7 +3026,6 @@ def test_create_prompt_with_mixed_content_types_client():
 
 
 def test_create_prompt_with_nested_variables_client():
-    """Test client-level integration with nested variable names."""
     chat_template = [
         {
             "role": "system",
@@ -3070,7 +3053,6 @@ def test_create_prompt_with_nested_variables_client():
 
 
 def test_link_prompt_with_response_format_to_run():
-    """Test linking prompts with response format to runs via client."""
     response_format = {
         "type": "object",
         "properties": {"answer": {"type": "string"}},
@@ -3098,7 +3080,6 @@ def test_link_prompt_with_response_format_to_run():
 
 
 def test_link_multiple_prompt_types_to_run():
-    """Test linking both text and chat prompts to the same run via client."""
     client = MlflowClient()
 
     # Create text prompt

@@ -385,6 +385,7 @@ mlflow.entities.LoggedModelInput.from_proto
 mlflow.entities.LoggedModelInput.to_proto
 mlflow.entities.LoggedModelOutput
 mlflow.entities.LoggedModelOutput.from_proto
+mlflow.entities.LoggedModelOutput.to_dictionary
 mlflow.entities.LoggedModelOutput.to_proto
 mlflow.entities.LoggedModelParameter
 mlflow.entities.LoggedModelParameter.from_proto
@@ -814,7 +815,6 @@ mlflow.genai.scorers.Completeness
 mlflow.genai.scorers.Completeness.get_input_fields
 mlflow.genai.scorers.Completeness.model_post_init
 mlflow.genai.scorers.ConversationCompleteness
-mlflow.genai.scorers.ConversationCompleteness.get_input_fields
 mlflow.genai.scorers.ConversationCompleteness.model_post_init
 mlflow.genai.scorers.Correctness
 mlflow.genai.scorers.Correctness.get_input_fields
@@ -849,7 +849,6 @@ mlflow.genai.scorers.Safety.get_input_fields
 mlflow.genai.scorers.Safety.model_post_init
 mlflow.genai.scorers.ScorerSamplingConfig
 mlflow.genai.scorers.UserFrustration
-mlflow.genai.scorers.UserFrustration.get_input_fields
 mlflow.genai.scorers.UserFrustration.model_post_init
 mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig

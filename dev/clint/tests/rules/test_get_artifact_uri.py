@@ -66,7 +66,6 @@ with mlflow.start_run():
 
 
 def test_get_artifact_uri_without_log_model_allowed(index_path: Path) -> None:
-    """Test that mlflow.get_artifact_uri is allowed when no log_model is present."""
     code = """
 Documentation
 =============

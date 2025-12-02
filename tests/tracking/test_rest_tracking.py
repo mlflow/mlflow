@@ -2404,9 +2404,8 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
     assert "Query exceeds maximum depth of 10" in response.json()["errors"][0]
 
     # Test max selections limit
-    selections = []
-    for i in range(1002):  # Exceed the 1000 selection limit
-        selections.append(f"field_{i} {{ name }}")
+    # Exceed the 1000 selection limit
+    selections = [f"field_{i} {{ name }}" for i in range(1002)]
     selections_query = (
         'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
         + " ".join(selections)
@@ -2890,7 +2889,6 @@ def test_get_trace_artifact_handler(mlflow_client):
 
 
 def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
-    """Test linking traces to runs and searching traces with run_id filter."""
     # Skip file store because it doesn't support linking traces to runs
     if store_type == "file":
         pytest.skip("File store doesn't support linking traces to runs")
@@ -3324,7 +3322,6 @@ def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
 
 
 def test_assessments_end_to_end(mlflow_client):
-    """Test complete assessment CRUD workflow using REST API."""
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
     # Set up experiment and trace
@@ -3475,7 +3472,6 @@ def test_assessments_end_to_end(mlflow_client):
 
 
 def test_graphql_nan_metric_handling(mlflow_client):
-    """Test that NaN metric values are correctly handled by returning null in GraphQL responses."""
     experiment_id = mlflow_client.create_experiment("test_graphql_nan_metrics")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id

@@ -79,7 +79,6 @@ def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
 
 
 def test_invalid_run_mode():
-    """Verify that we raise an exception given an invalid run mode"""
     with pytest.raises(
         ExecutionException, match="Got unsupported execution mode some unsupported mode"
     ):
@@ -215,7 +214,6 @@ def test_run(use_start_run):
 
 
 def test_run_with_parent():
-    """Verify that if we are in a nested run, mlflow.projects.run() will have a parent_run_id."""
     with mlflow.start_run():
         parent_run_id = mlflow.active_run().info.run_id
         submitted_run = mlflow.projects.run(
@@ -287,7 +285,6 @@ def test_run_async():
     ],
 )
 def test_conda_path(mock_env, expected_conda, expected_activate, monkeypatch):
-    """Verify that we correctly determine the path to conda executables"""
     for name in [CONDA_EXE, MLFLOW_CONDA_HOME.name]:
         monkeypatch.delenv(name, raising=False)
     for name, value in mock_env.items():

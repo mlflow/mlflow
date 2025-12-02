@@ -1083,7 +1083,6 @@ def test_search_runs_by_non_existing_experiment_name():
 
 
 def test_search_runs_by_experiment_id_and_name():
-    """When both experiment_ids and experiment_names are used, it should throw an exception"""
     err_msg = "Only experiment_ids or experiment_names can be used, but not both"
     with pytest.raises(MlflowException, match=err_msg):
         search_runs(experiment_ids=["id"], experiment_names=["name"])
@@ -1449,10 +1448,10 @@ def test_log_metric_async():
     run_operations = []
 
     with mlflow.start_run() as parent:
-        for num in range(100):
-            run_operations.append(
-                mlflow.log_metric("async single metric", step=num, value=num, synchronous=False)
-            )
+        run_operations.extend(
+            mlflow.log_metric("async single metric", step=num, value=num, synchronous=False)
+            for num in range(100)
+        )
         metrics = {f"async batch metric {num}": num for num in range(100)}
         run_operations.append(mlflow.log_metrics(metrics=metrics, step=1, synchronous=False))
 
@@ -2118,7 +2117,6 @@ def test_set_active_model_env_var(monkeypatch):
 
 @pytest.mark.parametrize("is_in_databricks_serving", [False, True])
 def test_set_active_model_public_env_var(monkeypatch, is_in_databricks_serving):
-    """Test that MLFLOW_ACTIVE_MODEL_ID (public env var) works correctly."""
     with mock.patch(
         "mlflow.tracking.fluent.is_in_databricks_model_serving_environment",
         return_value=is_in_databricks_serving,
@@ -2149,7 +2147,6 @@ def test_set_active_model_public_env_var(monkeypatch, is_in_databricks_serving):
 
 
 def test_set_active_model_env_var_precedence(monkeypatch):
-    """Test that MLFLOW_ACTIVE_MODEL_ID takes precedence over _MLFLOW_ACTIVE_MODEL_ID."""
     # Set both environment variables
     monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")
@@ -2172,7 +2169,6 @@ def test_set_active_model_env_var_precedence(monkeypatch):
 
 
 def test_clear_active_model_clears_env_vars(monkeypatch):
-    """Test that clear_active_model() properly clears environment variables."""
     # Set both environment variables
     monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")

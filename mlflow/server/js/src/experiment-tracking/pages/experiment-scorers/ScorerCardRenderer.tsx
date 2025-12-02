@@ -45,7 +45,7 @@ const ScorerCardOverflowMenu: React.FC<ScorerCardOverflowMenuProps> = ({ onDelet
           <DropdownMenu.IconWrapper>
             <TrashIcon />
           </DropdownMenu.IconWrapper>
-          <FormattedMessage defaultMessage="Delete" description="Delete scorer button" />
+          <FormattedMessage defaultMessage="Delete" description="Delete judge button" />
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu.Root>
@@ -123,8 +123,8 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
               {getTypeDisplayName(scorer, intl)}
             </Tag>
           </div>
-          {/* Sample rate and filter - only show when collapsed */}
-          {!isExpanded && (!isNil(scorer.sampleRate) || scorer.filterString) ? (
+          {/* Metadata such as sample rate, filter string and version - only show when collapsed */}
+          {!isExpanded && (!isNil(scorer.sampleRate) || scorer.filterString || !isNil(scorer.version)) ? (
             <div
               css={{
                 display: 'flex',
@@ -132,7 +132,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
                 alignItems: 'center',
               }}
             >
-              {!isNil(scorer.sampleRate) && (
+              {!scorer.disableMonitoring && !isNil(scorer.sampleRate) && (
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                   <Typography.Hint>
                     <FormattedMessage defaultMessage="Sample rate:" description="Sample rate label for scorer" />
@@ -146,10 +146,10 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
                   </Typography.Hint>
                 </div>
               )}
-              {!isNil(scorer.sampleRate) && scorer.filterString && (
+              {!scorer.disableMonitoring && !isNil(scorer.sampleRate) && scorer.filterString && (
                 <CircleIcon css={{ color: theme.colors.textSecondary, fontSize: '6px' }} />
               )}
-              {scorer.filterString && (
+              {!scorer.disableMonitoring && scorer.filterString && (
                 <Typography.Hint>
                   <FormattedMessage
                     defaultMessage="Filter: {filterString}"
@@ -158,24 +158,35 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
                   />
                 </Typography.Hint>
               )}
+              {!isNil(scorer.version) && (
+                <Typography.Hint>
+                  <FormattedMessage
+                    defaultMessage="Version {version}"
+                    description="Version display for judge"
+                    values={{ version: scorer.version }}
+                  />
+                </Typography.Hint>
+              )}
             </div>
           ) : null}
         </div>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <Tag
-            componentId={`${COMPONENT_ID_PREFIX}.scorer-status-tag`}
-            color={getStatusTag(scorer, intl).color}
-            icon={getStatusTag(scorer, intl).icon}
-          >
-            {getStatusTag(scorer, intl).text}
-          </Tag>
+          {!scorer.disableMonitoring && (
+            <Tag
+              componentId={`${COMPONENT_ID_PREFIX}.scorer-status-tag`}
+              color={getStatusTag(scorer, intl).color}
+              icon={getStatusTag(scorer, intl).icon}
+            >
+              {getStatusTag(scorer, intl).text}
+            </Tag>
+          )}
           <Button
             componentId={`${COMPONENT_ID_PREFIX}.edit-button`}
             size="small"
             icon={<PencilIcon />}
             onClick={onEditClick}
           >
-            <FormattedMessage defaultMessage="Edit" description="Edit button for scorer" />
+            <FormattedMessage defaultMessage="Edit" description="Edit button for judge" />
           </Button>
           <ScorerCardOverflowMenu onDelete={onDeleteClick} />
         </div>

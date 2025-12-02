@@ -27,6 +27,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai import make_judge
+from mlflow.genai.judges.constants import _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.judges.utils import _NATIVE_PROVIDERS, validate_judge_model
@@ -2876,7 +2877,6 @@ def test_make_judge_with_default_feedback_value_type(monkeypatch):
 
 
 def test_conversation_template_variable_extraction():
-    """Test that conversation template variable is correctly extracted."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate the {{ conversation }} for quality",
@@ -2911,7 +2911,6 @@ def test_is_session_level_scorer_property():
 
 
 def test_conversation_with_expectations_allowed():
-    """Test that conversation can be used with expectations."""
     judge = make_judge(
         name="conversation_expectations_judge",
         instructions="Evaluate {{ conversation }} against {{ expectations }}",
@@ -2923,7 +2922,6 @@ def test_conversation_with_expectations_allowed():
 
 
 def test_conversation_with_other_variables_rejected():
-    """Test that conversation cannot be used with inputs, outputs, or trace."""
     with pytest.raises(
         MlflowException,
         match=(
@@ -2968,7 +2966,6 @@ def test_conversation_with_other_variables_rejected():
 
 
 def test_session_validation_type_error():
-    """Test that session must be a list."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -2981,7 +2978,6 @@ def test_session_validation_type_error():
 
 
 def test_session_validation_not_all_traces():
-    """Test that all elements in session must be Trace objects."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3037,7 +3033,6 @@ def create_trace_with_session(
 
 
 def test_validate_session_missing_session_id():
-    """Test that _validate_session raises error when trace is missing session_id."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3096,7 +3091,6 @@ def test_validate_session_different_sessions():
 
 
 def test_validate_session_same_session():
-    """Test that _validate_session passes when all traces belong to the same session."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3112,7 +3106,6 @@ def test_validate_session_same_session():
 
 
 def test_conversation_extraction_from_session(mock_invoke_judge_model):
-    """Test that conversation is correctly extracted from session traces."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }} for quality",
@@ -3165,7 +3158,6 @@ def test_conversation_extraction_from_session(mock_invoke_judge_model):
 
 
 def test_conversation_extraction_chronological_order(mock_invoke_judge_model):
-    """Test that conversation messages are extracted in chronological order."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3202,7 +3194,6 @@ def test_conversation_extraction_chronological_order(mock_invoke_judge_model):
 
 
 def test_conversation_with_expectations(mock_invoke_judge_model):
-    """Test that conversation can be used with expectations."""
     judge = make_judge(
         name="conversation_expectations_judge",
         instructions="Evaluate {{ conversation }} against {{ expectations }}",
@@ -3243,7 +3234,6 @@ expectations: {
 
 
 def test_conversation_missing_session():
-    """Test that missing session raises error when conversation is required."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3258,7 +3248,6 @@ def test_conversation_missing_session():
 
 
 def test_conversation_empty_session():
-    """Test that empty session list is handled."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3273,7 +3262,6 @@ def test_conversation_empty_session():
 
 
 def test_conversation_with_empty_inputs_or_outputs(mock_invoke_judge_model):
-    """Test that empty inputs/outputs are filtered out from conversation."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3316,7 +3304,6 @@ def test_conversation_with_empty_inputs_or_outputs(mock_invoke_judge_model):
 
 
 def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
-    """Test that unused conversation parameter triggers warning."""
     judge = make_judge(
         name="outputs_judge",
         instructions="Evaluate {{ outputs }}",
@@ -3341,7 +3328,6 @@ def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
 
 
 def test_conversation_no_warning_when_used(mock_invoke_judge_model):
-    """Test that no warning is shown when conversation is used."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3416,3 +3402,36 @@ def test_instructions_judge_generate_rationale_first():
     assert output_fields_default[1].value_type == str
     assert output_fields_rationale_first[0].value_type == str  # rationale
     assert output_fields_rationale_first[1].value_type == Literal["good", "bad"]  # result
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Evaluates the conciseness of the response",  # With custom description
+        None,  # Without description
+    ],
+)
+def test_response_format_uses_generic_field_description(description):
+    judge = InstructionsJudge(
+        name="Conciseness" if description else "TestJudge",
+        instructions="Evaluate if the output {{ outputs }} is concise",
+        description=description,
+        model="openai:/gpt-4",
+    )
+
+    response_format_model = judge._create_response_format_model()
+    schema = response_format_model.model_json_schema()
+
+    # The result field description should be the generic description,
+    # NOT the scorer's description
+    result_description = schema["properties"]["result"]["description"]
+    assert result_description == _RESULT_FIELD_DESCRIPTION
+
+    # Verify rationale field uses its own description
+    rationale_description = schema["properties"]["rationale"]["description"]
+    assert rationale_description == "Detailed explanation for the evaluation"
+
+    # Also verify get_output_fields() uses generic description (used in system prompt)
+    output_fields = judge.get_output_fields()
+    result_field = next(f for f in output_fields if f.name == "result")
+    assert result_field.description == _RESULT_FIELD_DESCRIPTION

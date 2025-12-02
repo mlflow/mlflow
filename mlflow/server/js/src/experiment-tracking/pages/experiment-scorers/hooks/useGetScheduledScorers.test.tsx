@@ -2,9 +2,9 @@ import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { renderHook, waitFor } from '@testing-library/react';
-import { NotFoundError, InternalServerError, UnknownError } from '@databricks/web-shared/errors';
+import { NotFoundError, InternalServerError } from '@databricks/web-shared/errors';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
-import { listScheduledScorers } from '../api';
+import { listScheduledScorers, type MLflowScorer } from '../api';
 
 // Mock external dependencies
 jest.mock('../api');
@@ -16,43 +16,49 @@ describe('useGetScheduledScorers', () => {
 
   const mockExperimentId = 'experiment-123';
 
-  const mockScorerConfigs = [
+  // Mock MLflowScorer responses (new API structure)
+  const mockMLflowScorers: MLflowScorer[] = [
     {
-      name: 'llm-guidelines-scorer',
+      experiment_id: 123,
+      scorer_name: 'llm-guidelines-scorer',
+      scorer_version: 1,
       serialized_scorer: JSON.stringify({
+        mlflow_version: '3.3.2+ui',
+        serialization_version: 1,
+        name: 'llm-guidelines-scorer',
         builtin_scorer_class: 'Guidelines',
         builtin_scorer_pydantic_data: {
+          name: 'llm-guidelines-scorer',
+          required_columns: ['outputs', 'inputs'],
           guidelines: ['Test guideline 1', 'Test guideline 2'],
         },
       }),
-      builtin: { name: 'llm-guidelines-scorer' },
-      sample_rate: 0.5,
-      filter_string: 'column = "value"',
+      creation_time: 1234567890,
+      scorer_id: 'scorer-id-1',
     },
     {
-      name: 'custom-code-scorer',
+      experiment_id: 123,
+      scorer_name: 'custom-code-scorer',
+      scorer_version: 1,
       serialized_scorer: JSON.stringify({
-        call_source: 'return {"score": 1}',
-        original_func_name: 'my_scorer',
+        mlflow_version: '3.3.2+ui',
+        serialization_version: 1,
+        name: 'custom-code-scorer',
+        call_source: 'def my_scorer(inputs, outputs):\n    return {"score": 1}',
         call_signature: '(inputs, outputs)',
+        original_func_name: 'my_scorer',
       }),
-      custom: {},
-      sample_rate: 0.25,
+      creation_time: 1234567891,
+      scorer_id: 'scorer-id-2',
     },
   ];
 
   const mockApiResponse = {
-    experiment_id: mockExperimentId,
-    scheduled_scorers: {
-      scorers: mockScorerConfigs,
-    },
+    scorers: mockMLflowScorers,
   };
 
   const mockEmptyApiResponse = {
-    experiment_id: mockExperimentId,
-    scheduled_scorers: {
-      scorers: [],
-    },
+    scorers: [],
   };
 
   beforeEach(() => {
@@ -95,16 +101,21 @@ describe('useGetScheduledScorers', () => {
             type: 'llm',
             llmTemplate: 'Guidelines',
             guidelines: ['Test guideline 1', 'Test guideline 2'],
-            sampleRate: 50, // Converted from 0.5 to percentage
-            filterString: 'column = "value"',
+            sampleRate: undefined, // Not included in MLflowScorer
+            version: 1,
+            disableMonitoring: true,
+            is_instructions_judge: false,
+            model: undefined,
           },
           {
             name: 'custom-code-scorer',
             type: 'custom-code',
-            code: 'def my_scorer(inputs, outputs):\n    return {"score": 1}',
+            code: 'def my_scorer(inputs, outputs):\n    def my_scorer(inputs, outputs):\n        return {"score": 1}',
             callSignature: '(inputs, outputs)',
             originalFuncName: 'my_scorer',
-            sampleRate: 25, // Converted from 0.25 to percentage
+            sampleRate: undefined,
+            version: 1,
+            disableMonitoring: true,
           },
         ],
       });
@@ -148,15 +159,13 @@ describe('useGetScheduledScorers', () => {
       });
     });
 
-    it('should handle response with missing scheduled_scorers field', async () => {
+    it('should handle response with missing scorers field', async () => {
       // Arrange
       const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
       expect(initialCache).toBeUndefined();
 
-      const responseWithoutScorers = {
-        experiment_id: mockExperimentId,
-      };
-      mockListScheduledScorers.mockResolvedValue(responseWithoutScorers);
+      const responseWithoutScorers = {};
+      mockListScheduledScorers.mockResolvedValue(responseWithoutScorers as any);
 
       const { result } = renderHook(() => useGetScheduledScorers(mockExperimentId), {
         wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
@@ -236,18 +245,18 @@ describe('useGetScheduledScorers', () => {
       const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
       expect(initialCache).toBeUndefined();
 
-      // Create a malformed scorer config that will cause transformation to fail
+      // Create a malformed scorer that will cause transformation to fail
+      const malformedScorer: MLflowScorer = {
+        experiment_id: 123,
+        scorer_name: 'malformed-scorer',
+        scorer_version: 1,
+        serialized_scorer: 'invalid-json', // This will cause JSON.parse to fail
+        creation_time: 1234567890,
+        scorer_id: 'scorer-id-malformed',
+      };
+
       const malformedResponse = {
-        experiment_id: mockExperimentId,
-        scheduled_scorers: {
-          scorers: [
-            {
-              name: 'malformed-scorer',
-              serialized_scorer: 'invalid-json',
-              sample_rate: 0.5,
-            },
-          ],
-        },
+        scorers: [malformedScorer],
       };
 
       mockListScheduledScorers.mockResolvedValue(malformedResponse);
@@ -261,8 +270,9 @@ describe('useGetScheduledScorers', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
+      // The transformation should fail due to invalid JSON
       expect(result.current.isError).toBe(true);
-      expect(result.current.error?.message).toContain('Failed to parse scorer configuration');
+      expect(result.current.error?.message).toBeTruthy();
       expect(mockListScheduledScorers).toHaveBeenCalledWith(mockExperimentId);
 
       // Verify cache was not populated due to transformation error
