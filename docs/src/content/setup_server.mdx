@@ -9,7 +9,8 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 For the fastest setup, you can install the [mlflow](https://pypi.org/project/mlflow/) Python package and run MLflow locally:
 
 ```bash
-mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+pip install --upgrade mlflow
+mlflow server
 ```
 
 This will start the server at port 5000 on your local machine. Connect your notebook/IDE to the server by setting the tracking URI. You can also access to the MLflow UI at http://localhost:5000.
