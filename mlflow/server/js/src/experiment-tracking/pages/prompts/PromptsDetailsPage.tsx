@@ -38,6 +38,7 @@ import { PromptNotFoundView } from './components/PromptNotFoundView';
 import { useUpdatePromptVersionMetadataModal } from './hooks/useUpdatePromptVersionMetadataModal';
 import type { ThunkDispatch } from '../../../redux-types';
 import { setModelVersionAliasesApi } from '../../../model-registry/actions';
+import { ExperimentPageTabName } from '../../constants';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -47,7 +48,7 @@ const getAliasesModalTitle = (version: string) => (
   />
 );
 
-const PromptsDetailsPage = () => {
+const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) => {
   const { promptName } = useParams<{ promptName: string }>();
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
@@ -62,6 +63,7 @@ const PromptsDetailsPage = () => {
     mode: CreatePromptModalMode.CreatePromptVersion,
     registeredPrompt: promptDetailsData?.prompt,
     latestVersion: first(promptDetailsData?.versions),
+    experimentId,
     onSuccess: async ({ promptVersion }) => {
       await refetch();
       if (promptVersion) {
@@ -72,7 +74,12 @@ const PromptsDetailsPage = () => {
 
   const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptModal({
     registeredPrompt: promptDetailsData?.prompt,
-    onSuccess: () => navigate(Routes.promptsPageRoute),
+    onSuccess: () =>
+      navigate(
+        experimentId
+          ? Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Prompts)
+          : Routes.promptsPageRoute,
+      ),
   });
 
   const { EditPromptVersionMetadataModal, showEditPromptVersionMetadataModal } = useUpdatePromptVersionMetadataModal({
@@ -135,13 +142,13 @@ const PromptsDetailsPage = () => {
     return <PromptNotFoundView promptName={promptName} />;
   }
 
-  const breadcrumbs = (
+  const breadcrumbs = !experimentId ? (
     <Breadcrumb>
       <Breadcrumb.Item>
         <Link to={Routes.promptsPageRoute}>Prompts</Link>
       </Breadcrumb.Item>
     </Breadcrumb>
-  );
+  ) : undefined;
 
   if (isLoading) {
     return (
