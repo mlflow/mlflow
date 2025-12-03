@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-c
 
 import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
 import {
+  createMlflowSearchFilter,
   invalidateMlflowSearchTracesCache,
   useMlflowTraces,
   useMlflowTracesTableMetadata,
@@ -16,11 +17,13 @@ import {
 } from './useMlflowTraces';
 import {
   EXECUTION_DURATION_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   SESSION_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
+  STATE_COLUMN_ID,
 } from './useTableColumns';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import type { RunEvaluationTracesDataEntry } from '../types';
@@ -1881,13 +1884,10 @@ describe('invalidateMlflowSearchTracesCache', () => {
 
 describe('createMlflowSearchFilter with prompt filter', () => {
   test('creates correct filter string for linked prompts', () => {
-    const { createMlflowSearchFilter } = require('./useMlflowTraces');
-    const { LINKED_PROMPTS_COLUMN_ID } = require('./useTableColumns');
-
     const networkFilters = [
       {
         column: LINKED_PROMPTS_COLUMN_ID,
-        operator: '=',
+        operator: FilterOperator.EQUALS,
         value: 'qa-agent-system-prompt/4',
       },
     ];
@@ -1898,18 +1898,15 @@ describe('createMlflowSearchFilter with prompt filter', () => {
   });
 
   test('combines prompt filter with other filters', () => {
-    const { createMlflowSearchFilter } = require('./useMlflowTraces');
-    const { LINKED_PROMPTS_COLUMN_ID, STATE_COLUMN_ID } = require('./useTableColumns');
-
     const networkFilters = [
       {
         column: LINKED_PROMPTS_COLUMN_ID,
-        operator: '=',
+        operator: FilterOperator.EQUALS,
         value: 'my-prompt/1',
       },
       {
         column: STATE_COLUMN_ID,
-        operator: '=',
+        operator: FilterOperator.EQUALS,
         value: 'OK',
       },
     ];

@@ -194,7 +194,7 @@ export const TableFilterItemValueInput = ({
         }}
         placeholder="Select prompt"
         width={200}
-        canSearchCustomValue={true}
+        canSearchCustomValue
       />
     );
   }
