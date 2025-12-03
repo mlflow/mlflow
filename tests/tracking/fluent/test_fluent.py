@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import random
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -12,6 +13,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from importlib import reload
 from itertools import zip_longest
+from pathlib import Path
 from unittest import mock
 
 import pandas as pd
@@ -58,7 +60,6 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
     _ACTIVE_MODEL_CONTEXT,
@@ -171,6 +172,17 @@ def create_experiment(
     tags=None,
 ):
     return mlflow.entities.Experiment(experiment_id, name, artifact_location, lifecycle_stage, tags)
+
+
+@pytest.fixture(autouse=True)
+def tracking_uri(tmp_path: Path, cached_db: Path):
+    """Copies the cached database and sets the tracking URI for each test."""
+    db_path = tmp_path / "mlflow.db"
+    shutil.copy(cached_db, db_path)
+    uri = f"sqlite:///{db_path}"
+    mlflow.set_tracking_uri(uri)
+    yield
+    mlflow.set_tracking_uri(None)
 
 
 @pytest.fixture(autouse=True)
@@ -355,7 +367,13 @@ def test_get_experiment_by_name():
     assert experiment.experiment_id == exp_id
 
 
-def test_search_experiments(tmp_path):
+def test_search_experiments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    # Reduce max results to a small number to speed up test execution
+    MAX_RESULTS = 50
+    monkeypatch.setattr(
+        "mlflow.store.tracking.sqlalchemy_store.SEARCH_MAX_RESULTS_DEFAULT", MAX_RESULTS
+    )
+
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
     # Why do we need this line? If we didn't have this line, the first `mlflow.create_experiment`
@@ -364,9 +382,9 @@ def test_search_experiments(tmp_path):
     # creation time, which makes the search order non-deterministic and this test flaky.
     mlflow.search_experiments()
 
-    num_all_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1  # +1 for the default experiment
-    num_active_experiments = SEARCH_MAX_RESULTS_DEFAULT // 2
-    num_deleted_experiments = SEARCH_MAX_RESULTS_DEFAULT - num_active_experiments
+    num_all_experiments = MAX_RESULTS + 1  # +1 for the default experiment
+    num_active_experiments = MAX_RESULTS // 2
+    num_deleted_experiments = MAX_RESULTS - num_active_experiments
 
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
@@ -1083,7 +1101,6 @@ def test_search_runs_by_non_existing_experiment_name():
 
 
 def test_search_runs_by_experiment_id_and_name():
-    """When both experiment_ids and experiment_names are used, it should throw an exception"""
     err_msg = "Only experiment_ids or experiment_names can be used, but not both"
     with pytest.raises(MlflowException, match=err_msg):
         search_runs(experiment_ids=["id"], experiment_names=["name"])
@@ -2118,7 +2135,6 @@ def test_set_active_model_env_var(monkeypatch):
 
 @pytest.mark.parametrize("is_in_databricks_serving", [False, True])
 def test_set_active_model_public_env_var(monkeypatch, is_in_databricks_serving):
-    """Test that MLFLOW_ACTIVE_MODEL_ID (public env var) works correctly."""
     with mock.patch(
         "mlflow.tracking.fluent.is_in_databricks_model_serving_environment",
         return_value=is_in_databricks_serving,
@@ -2149,7 +2165,6 @@ def test_set_active_model_public_env_var(monkeypatch, is_in_databricks_serving):
 
 
 def test_set_active_model_env_var_precedence(monkeypatch):
-    """Test that MLFLOW_ACTIVE_MODEL_ID takes precedence over _MLFLOW_ACTIVE_MODEL_ID."""
     # Set both environment variables
     monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")
@@ -2172,7 +2187,6 @@ def test_set_active_model_env_var_precedence(monkeypatch):
 
 
 def test_clear_active_model_clears_env_vars(monkeypatch):
-    """Test that clear_active_model() properly clears environment variables."""
     # Set both environment variables
     monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")

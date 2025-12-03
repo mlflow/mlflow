@@ -221,7 +221,6 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
 
 
 def test_prompt_linking_with_experiment_id(monkeypatch):
-    """Test that prompts are correctly linked when experiment ID is set."""
     # Set experiment ID to enable MLflow backend export
     experiment_id = "test-experiment-id"
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
@@ -306,7 +305,6 @@ def test_prompt_linking_with_experiment_id(monkeypatch):
 
 
 def test_prompt_linking_disabled_without_experiment_id(monkeypatch):
-    """Test that prompt linking is not attempted when experiment ID is not set."""
     # Don't set MLFLOW_EXPERIMENT_ID to disable MLflow backend export
 
     # Create span and trace
@@ -358,7 +356,6 @@ def test_prompt_linking_disabled_without_experiment_id(monkeypatch):
 
 
 def test_prompt_linking_with_empty_prompts(monkeypatch):
-    """Test that empty prompts list doesn't cause issues when exporting to MLflow backend."""
     # Set experiment ID to enable MLflow backend export
     experiment_id = "test-experiment-id"
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
@@ -414,7 +411,6 @@ def test_prompt_linking_with_empty_prompts(monkeypatch):
 
 
 def test_prompt_linking_error_handling_with_experiment_id(monkeypatch):
-    """Test that prompt linking errors are handled gracefully when exporting to MLflow backend."""
     # Set experiment ID to enable MLflow backend export
     experiment_id = "test-experiment-id"
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)

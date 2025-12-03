@@ -30,6 +30,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -69,6 +70,7 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTrace,
     GetTraceInfoV3,
+    LinkPromptsToTrace,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -751,7 +753,6 @@ def test_deprecated_end_trace_v2():
 
 
 def test_search_traces():
-    """Test the search_traces method with default behavior using SearchTracesV3Request."""
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -843,7 +844,6 @@ def test_search_traces_errors():
 
 
 def test_get_artifact_uri_for_trace_compatibility():
-    """Test that get_artifact_uri_for_trace works with both TraceInfo and TraceInfoV3 objects."""
     from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
     # Create a TraceInfo (v2) object
@@ -912,7 +912,6 @@ def test_delete_traces(delete_traces_kwargs):
 
 
 def test_delete_traces_with_batching():
-    """Test that delete_traces batches requests when trace_ids exceed the batch size limit."""
     from mlflow.environment_variables import _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE
 
     creds = MlflowHostCreds("https://hello")
@@ -2464,7 +2463,6 @@ def test_remove_dataset_from_experiments():
 
 
 def test_register_scorer():
-    """Test register_scorer method."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2502,7 +2500,6 @@ def test_register_scorer():
 
 
 def test_list_scorers():
-    """Test list_scorers method."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2546,7 +2543,6 @@ def test_list_scorers():
 
 
 def test_list_scorer_versions():
-    """Test list_scorer_versions method."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2589,7 +2585,6 @@ def test_list_scorer_versions():
 
 
 def test_get_scorer_with_version():
-    """Test get_scorer method with specific version."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2625,7 +2620,6 @@ def test_get_scorer_with_version():
 
 
 def test_get_scorer_without_version():
-    """Test get_scorer method without version (should return latest)."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2660,7 +2654,6 @@ def test_get_scorer_without_version():
 
 
 def test_delete_scorer_with_version():
-    """Test delete_scorer method with specific version."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2684,7 +2677,6 @@ def test_delete_scorer_with_version():
 
 
 def test_delete_scorer_without_version():
-    """Test delete_scorer method without version (should delete all versions)."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2816,7 +2808,6 @@ def _create_test_spans() -> list[LiveSpan]:
 
 
 def test_log_spans_with_version_check():
-    """Test that log_spans raises NotImplementedError for old server versions."""
     spans = _create_test_spans()
     experiment_id = "exp-123"
 
@@ -2883,7 +2874,6 @@ def test_log_spans_with_version_check():
 
 
 def test_server_version_check_caching():
-    """Test that server version is cached and not fetched multiple times."""
     spans = _create_test_spans()
     experiment_id = "exp-123"
 
@@ -2953,4 +2943,36 @@ def test_server_version_check_caching():
             method="POST",
             data=mock.ANY,
             extra_headers=mock.ANY,
+        )
+
+
+def test_link_prompts_to_trace():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    trace_id = "tr-1234"
+    prompt_versions = [
+        PromptVersion(name="prompt1", version=1, template="template1"),
+        PromptVersion(name="prompt2", version=2, template="template2"),
+    ]
+
+    request = LinkPromptsToTrace(
+        trace_id=trace_id,
+        prompt_versions=[
+            LinkPromptsToTrace.PromptVersionRef(name=pv.name, version=str(pv.version))
+            for pv in prompt_versions
+        ],
+    )
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.link_prompts_to_trace(trace_id=trace_id, prompt_versions=prompt_versions)
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/link-prompts",
+            "POST",
+            message_to_json(request),
         )

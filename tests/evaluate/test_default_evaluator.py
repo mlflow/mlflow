@@ -4372,7 +4372,6 @@ def test_regressor_returning_pandas_object(model_output, predictions):
 def test_classifier_evaluation_scenarios(
     data, evaluator_config, expected_metrics, expected_artifacts, description
 ):
-    """Test various classifier evaluation scenarios with different data types and configurations."""
     result = mlflow.evaluate(
         data=data,
         targets="target",
@@ -4523,7 +4522,6 @@ def test_classifier_evaluation_error_conditions(
 def test_label_validation_and_classification_type(
     data, evaluator_config, expected_binary_metrics, expected_classes, description
 ):
-    """Test label validation and binary vs multiclass classification detection."""
     result = mlflow.evaluate(
         data=data,
         targets="target",

@@ -1,7 +1,7 @@
 import json
 import os
 import pickle
-import sys
+import shutil
 import time
 import uuid
 from pathlib import Path
@@ -50,7 +50,6 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
@@ -673,7 +672,7 @@ def test_client_delete_traces(mock_store):
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def tracking_uri(request, tmp_path, monkeypatch):
+def tracking_uri(request, tmp_path, cached_db):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -683,10 +682,10 @@ def tracking_uri(request, tmp_path, monkeypatch):
     if request.param == "file":
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        # Copy the cached database for this test
+        db_path = tmp_path / "sqlalchemy.db"
+        shutil.copy(cached_db, db_path)
+        tracking_uri = f"sqlite:///{db_path}"
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.
@@ -2056,7 +2055,7 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id():
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def registry_uri(request, tmp_path):
+def registry_uri(request, tmp_path, cached_db):
     """Set an MLflow Model Registry URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -2064,14 +2063,14 @@ def registry_uri(request, tmp_path):
     original_registry_uri = mlflow.get_registry_uri()
 
     if request.param == "file":
-        tracking_uri = tmp_path.joinpath("file").as_uri()
+        registry_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        # Copy the cached database for this test
+        db_path = tmp_path / "sqlalchemy.db"
+        shutil.copy(cached_db, db_path)
+        registry_uri = f"sqlite:///{db_path}"
 
-    yield tracking_uri
+    yield registry_uri
 
     # Reset tracking URI
     mlflow.set_tracking_uri(original_registry_uri)
@@ -2371,12 +2370,12 @@ def test_log_and_detach_prompt(tracking_uri):
 
     # Check that initially no prompts are linked to the run
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is None
 
     client.link_prompt_version_to_run(run_id, "prompts:/p1/1")
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
     prompts = json.loads(linked_prompts_tag)
     assert len(prompts) == 1
@@ -2384,7 +2383,7 @@ def test_log_and_detach_prompt(tracking_uri):
 
     client.link_prompt_version_to_run(run_id, "prompts:/p2/1")
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     prompts = json.loads(linked_prompts_tag)
     assert len(prompts) == 2
     prompt_names = [p["name"] for p in prompts]
@@ -2420,7 +2419,6 @@ def test_search_prompt(tracking_uri):
 
 
 def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
-    """Test that delete_prompt_version no longer automatically deletes prompts"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt and version
@@ -2449,7 +2447,6 @@ def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
 
 
 def test_delete_prompt_with_no_versions(tracking_uri):
-    """Test that delete_prompt works when prompt has no versions"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt and version, then delete version
@@ -2469,7 +2466,6 @@ def test_delete_prompt_with_no_versions(tracking_uri):
 
 
 def test_delete_prompt_complete_workflow(tracking_uri):
-    """Test the complete workflow: create, add versions, delete versions, delete prompt"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt with multiple versions
@@ -2503,7 +2499,6 @@ def test_delete_prompt_complete_workflow(tracking_uri):
 
 
 def test_delete_prompt_error_handling(tracking_uri):
-    """Test error handling for delete_prompt operations"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Test deleting non-existent prompt
@@ -2517,7 +2512,6 @@ def test_delete_prompt_error_handling(tracking_uri):
 
 
 def test_delete_prompt_version_behavior_consistency(tracking_uri):
-    """Test that delete_prompt_version behavior is consistent across registry types"""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create multiple prompts with versions
@@ -2546,8 +2540,6 @@ def test_delete_prompt_version_behavior_consistency(tracking_uri):
 
 @pytest.mark.parametrize("registry_uri", ["databricks-uc"])
 def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
-    """Test that Unity Catalog throws error when deleting prompt with existing versions"""
-
     # Mock Unity Catalog behavior
     client = MlflowClient(registry_uri=registry_uri)
 
@@ -2566,7 +2558,6 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
 
 
 def test_link_prompt_version_to_model_smoke_test(tracking_uri):
-    """Smoke test for linking a prompt version to a model - just verify the method can be called."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create an experiment and a run to have a proper context
@@ -2586,7 +2577,6 @@ def test_link_prompt_version_to_model_smoke_test(tracking_uri):
 
 
 def test_link_prompts_to_trace_smoke_test(tracking_uri):
-    """Smoke test for linking prompt versions to a trace - just verify the method can be called."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create an experiment and a run to have a proper context
@@ -2831,7 +2821,6 @@ def test_create_prompt_chat_format_client_integration():
 
 
 def test_link_chat_prompt_version_to_run():
-    """Test linking chat prompts to runs via client."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -2846,7 +2835,7 @@ def test_link_chat_prompt_version_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -2879,7 +2868,6 @@ def test_create_prompt_with_pydantic_response_format_client():
 
 
 def test_create_prompt_with_dict_response_format_client():
-    """Test client-level integration with dictionary response format."""
     response_format = {
         "type": "object",
         "properties": {
@@ -2905,7 +2893,6 @@ def test_create_prompt_with_dict_response_format_client():
 
 
 def test_create_prompt_text_backward_compatibility_client():
-    """Test that text prompt creation continues to work via client."""
     client = MlflowClient()
     prompt = client.register_prompt(
         name="test_text_backward_client",
@@ -2924,7 +2911,6 @@ def test_create_prompt_text_backward_compatibility_client():
 
 
 def test_create_prompt_complex_chat_template_client():
-    """Test client-level integration with complex chat templates."""
     chat_template = [
         {
             "role": "system",
@@ -2969,7 +2955,6 @@ def test_create_prompt_with_none_response_format_client():
 
 
 def test_create_prompt_with_empty_chat_template_client():
-    """Test client-level integration with empty chat template list."""
     client = MlflowClient()
     prompt = client.register_prompt(name="test_empty_chat_client", template=[])
 
@@ -2982,7 +2967,6 @@ def test_create_prompt_with_empty_chat_template_client():
 
 
 def test_create_prompt_with_single_message_chat_client():
-    """Test client-level integration with single message chat template."""
     chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
 
     client = MlflowClient()
@@ -3022,7 +3006,6 @@ def test_create_prompt_with_multiple_variables_in_chat_client():
 
 
 def test_create_prompt_with_mixed_content_types_client():
-    """Test client-level integration with mixed content types in chat messages."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -3042,7 +3025,6 @@ def test_create_prompt_with_mixed_content_types_client():
 
 
 def test_create_prompt_with_nested_variables_client():
-    """Test client-level integration with nested variable names."""
     chat_template = [
         {
             "role": "system",
@@ -3070,7 +3052,6 @@ def test_create_prompt_with_nested_variables_client():
 
 
 def test_link_prompt_with_response_format_to_run():
-    """Test linking prompts with response format to runs via client."""
     response_format = {
         "type": "object",
         "properties": {"answer": {"type": "string"}},
@@ -3088,7 +3069,7 @@ def test_link_prompt_with_response_format_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -3098,7 +3079,6 @@ def test_link_prompt_with_response_format_to_run():
 
 
 def test_link_multiple_prompt_types_to_run():
-    """Test linking both text and chat prompts to the same run via client."""
     client = MlflowClient()
 
     # Create text prompt
@@ -3118,7 +3098,7 @@ def test_link_multiple_prompt_types_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
