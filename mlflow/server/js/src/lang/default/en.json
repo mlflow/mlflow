@@ -1162,6 +1162,10 @@
     "defaultMessage": "Train models",
     "description": "Home page quick action title for training models"
   },
+  "9/KT56": {
+    "defaultMessage": "Prompts",
+    "description": "Label for the prompts tab in the MLflow experiment navbar"
+  },
   "93BFzC": {
     "defaultMessage": "Outputs",
     "description": "Label for outputs variable option"
@@ -1710,6 +1714,10 @@
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
   },
+  "ED1+Xu": {
+    "defaultMessage": "Prompts & versions",
+    "description": "Label for the versions section in the MLflow experiment navbar"
+  },
   "EI7moF": {
     "defaultMessage": "Last year",
     "description": "Option for the start select dropdown to filter runs since the last 1 year"
@@ -1849,10 +1857,6 @@
   "Fg/zU/": {
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments focused on generative AI app and agent development"
-  },
-  "Fhrgrc": {
-    "defaultMessage": "Versions",
-    "description": "Label for the versions section in the MLflow experiment navbar"
   },
   "FiKsFK": {
     "defaultMessage": "Last modified",
@@ -2398,6 +2402,10 @@
     "defaultMessage": "Retrieval Relevance",
     "description": "LLM template option"
   },
+  "LK+UHk": {
+    "defaultMessage": "Show first 20",
+    "description": "Menu option for showing only 20 first runs in the evaluation runs table"
+  },
   "LKAZ2n": {
     "defaultMessage": "Disable grouped runs to compare",
     "description": "Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"
@@ -2833,6 +2841,10 @@
     "defaultMessage": "No params",
     "description": "Experiment page > group by runs control > no params to group by"
   },
+  "Q7MSrQ": {
+    "defaultMessage": "Hide finished runs",
+    "description": "Menu option for hiding all finished runs in the evaluation runs table"
+  },
   "QAyzA3": {
     "defaultMessage": "Delete",
     "description": "Experiment page > traces view controls > Delete button"
@@ -2856,6 +2868,10 @@
   "QGiy9C": {
     "defaultMessage": "About this run",
     "description": "Title for the details/metadata section on the run details page"
+  },
+  "QH2RJZ": {
+    "defaultMessage": "Hide all runs",
+    "description": "Menu option for hiding all runs in the evaluation runs table"
   },
   "QHTLV9": {
     "defaultMessage": "Models",
@@ -3407,6 +3423,10 @@
   "W8bOkn": {
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "WDqWWa": {
+    "defaultMessage": "Show all runs",
+    "description": "Menu option for revealing all hidden runs in the evaluation runs table"
   },
   "WELl8J": {
     "defaultMessage": "+{count} more",
@@ -6103,6 +6123,10 @@
     "defaultMessage": "Suggested actions",
     "description": "Evaluation review > assessments > suggested actions > title"
   },
+  "vEuvEt": {
+    "defaultMessage": "Show first 10",
+    "description": "Menu option for showing only 10 first runs in the evaluation runs table"
+  },
   "vHNP+J": {
     "defaultMessage": "Add tags",
     "description": "Button text to add tags to a trace in the experiment traces table"
@@ -6218,6 +6242,10 @@
   "wFvyI1": {
     "defaultMessage": "Registered at:",
     "description": "A label for the registration timestamp in the prompt details page"
+  },
+  "wKXJ6U": {
+    "defaultMessage": "Toggle visibility of evaluation runs",
+    "description": "Evaluation runs table > toggle visibility of runs > accessible label"
   },
   "wMG8+P": {
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",

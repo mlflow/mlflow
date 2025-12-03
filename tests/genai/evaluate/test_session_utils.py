@@ -39,8 +39,6 @@ class _MultiTurnTestScorer:
 
 
 def test_classify_scorers_all_single_turn():
-    """Test that all scorers are classified as single-turn when none are multi-turn."""
-
     @scorer
     def custom_scorer1(outputs):
         return 1.0
