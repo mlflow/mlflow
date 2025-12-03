@@ -223,7 +223,7 @@ export const useTableColumns = (
         {
           id: LINKED_PROMPTS_COLUMN_ID,
           label: intl.formatMessage({
-            defaultMessage: 'Linked prompt',
+            defaultMessage: 'Prompt',
             description: 'Column label for linked prompts',
           }),
           type: TracesTableColumnType.TRACE_INFO,
