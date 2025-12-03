@@ -3,6 +3,7 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { ChartsToolbar } from './ChartsToolbar';
 import { TracesCountChart } from './TracesCountChart';
 import { TokensCountChart } from './TokensCountChart';
+import { TokenStatisticsChart } from './TokenStatisticsChart';
 import { TraceLatencyChart } from './TraceLatencyChart';
 import { AssessmentAnalysisChart } from './AssessmentAnalysisChart';
 import { TracesStatistics } from './TracesStatistics';
@@ -44,11 +45,12 @@ export const ChartsView = ({ experimentIds }: { experimentIds: string[] }) => {
           gap: theme.spacing.lg,
         }}
       >
-        <TracesStatistics experimentIds={experimentIds} timeRange={timeRange} />
-        <TracesCountChart experimentIds={experimentIds} timeRange={timeRange} />
-        <TokensCountChart experimentIds={experimentIds} timeRange={timeRange} />
-        <TraceLatencyChart experimentIds={experimentIds} timeRange={timeRange} />
-        <AssessmentAnalysisChart experimentIds={experimentIds} timeRange={timeRange} />
+                <TracesStatistics experimentIds={experimentIds} timeRange={timeRange} />
+                <TracesCountChart experimentIds={experimentIds} timeRange={timeRange} />
+                <TokensCountChart experimentIds={experimentIds} timeRange={timeRange} />
+                <TokenStatisticsChart experimentIds={experimentIds} timeRange={timeRange} />
+                <TraceLatencyChart experimentIds={experimentIds} timeRange={timeRange} />
+                <AssessmentAnalysisChart experimentIds={experimentIds} timeRange={timeRange} />
       </div>
     </div>
   );
