@@ -1,4 +1,4 @@
-import { ChainIcon, KeyIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { CloudModelIcon, KeyIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link, useLocation } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
@@ -22,7 +22,7 @@ const navItems: NavItem[] = [
     label: (
       <FormattedMessage defaultMessage="Endpoints" description="Label for the endpoints tab in the Gateway sidebar" />
     ),
-    icon: <ChainIcon />,
+    icon: <CloudModelIcon />,
     tabName: 'endpoints',
     to: GatewayRoutes.gatewayPageRoute,
   },

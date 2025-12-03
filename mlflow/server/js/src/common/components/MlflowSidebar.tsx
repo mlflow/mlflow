@@ -1,7 +1,7 @@
 import {
   BeakerIcon,
   Button,
-  DatabaseIcon,
+  CloudModelIcon,
   DropdownMenu,
   HomeIcon,
   ModelsIcon,
@@ -115,7 +115,7 @@ export function MlflowSidebar() {
     },
     {
       key: 'gateway',
-      icon: <DatabaseIcon />,
+      icon: <CloudModelIcon />,
       linkProps: {
         to: GatewayRoutes.gatewayPageRoute,
         isActive: isGatewayActive,
