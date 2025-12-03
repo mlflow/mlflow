@@ -421,3 +421,100 @@ def test_endpoint_config_decrypted_secrets():
     assert all(hasattr(m, "secret_value") for m in endpoint_config.models)
     assert endpoint_config.models[0].secret_value == "sk-proj-decrypted-value-123"
     assert endpoint_config.models[1].secret_value == "co-decrypted-value-456"
+
+
+def test_model_definition_proto_round_trip():
+    model_def = GatewayModelDefinition(
+        model_definition_id="model-def-proto",
+        name="Proto Test Model",
+        secret_id="secret-proto",
+        secret_name="proto_key",
+        provider="openai",
+        model_name="gpt-4o",
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        created_by="proto_user",
+        last_updated_by="proto_user_2",
+    )
+
+    proto = model_def.to_proto()
+    restored = GatewayModelDefinition.from_proto(proto)
+
+    assert restored.model_definition_id == model_def.model_definition_id
+    assert restored.name == model_def.name
+    assert restored.secret_id == model_def.secret_id
+    assert restored.secret_name == model_def.secret_name
+    assert restored.provider == model_def.provider
+    assert restored.model_name == model_def.model_name
+    assert restored.created_at == model_def.created_at
+    assert restored.last_updated_at == model_def.last_updated_at
+    assert restored.created_by == model_def.created_by
+    assert restored.last_updated_by == model_def.last_updated_by
+
+
+def test_endpoint_model_mapping_proto_round_trip():
+    mapping = GatewayEndpointModelMapping(
+        mapping_id="mapping-proto",
+        endpoint_id="endpoint-proto",
+        model_definition_id="model-def-proto",
+        model_definition=None,
+        weight=2,
+        created_at=1234567890000,
+        created_by="mapping_user",
+    )
+
+    proto = mapping.to_proto()
+    restored = GatewayEndpointModelMapping.from_proto(proto)
+
+    assert restored.mapping_id == mapping.mapping_id
+    assert restored.endpoint_id == mapping.endpoint_id
+    assert restored.model_definition_id == mapping.model_definition_id
+    assert restored.weight == mapping.weight
+    assert restored.created_at == mapping.created_at
+    assert restored.created_by == mapping.created_by
+
+
+def test_endpoint_proto_round_trip():
+    endpoint = GatewayEndpoint(
+        endpoint_id="endpoint-proto",
+        name="Proto Test Endpoint",
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        model_mappings=[],
+        created_by="endpoint_user",
+        last_updated_by="endpoint_user_2",
+    )
+
+    proto = endpoint.to_proto()
+    restored = GatewayEndpoint.from_proto(proto)
+
+    assert restored.endpoint_id == endpoint.endpoint_id
+    assert restored.name == endpoint.name
+    assert restored.created_at == endpoint.created_at
+    assert restored.last_updated_at == endpoint.last_updated_at
+    assert restored.created_by == endpoint.created_by
+    assert restored.last_updated_by == endpoint.last_updated_by
+    assert len(restored.model_mappings) == 0
+
+
+def test_endpoint_binding_proto_round_trip():
+    binding = GatewayEndpointBinding(
+        endpoint_id="endpoint-proto",
+        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_id="job-proto",
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        created_by="binding_user",
+        last_updated_by="binding_user_2",
+    )
+
+    proto = binding.to_proto()
+    restored = GatewayEndpointBinding.from_proto(proto)
+
+    assert restored.endpoint_id == binding.endpoint_id
+    assert restored.resource_type == binding.resource_type
+    assert restored.resource_id == binding.resource_id
+    assert restored.created_at == binding.created_at
+    assert restored.last_updated_at == binding.last_updated_at
+    assert restored.created_by == binding.created_by
+    assert restored.last_updated_by == binding.last_updated_by

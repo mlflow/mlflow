@@ -1631,6 +1631,386 @@ class Scorer(_message.Message):
     scorer_id: str
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
+class GatewaySecret(_message.Message):
+    __slots__ = ("secret_id", "secret_name", "masked_value", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by")
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    MASKED_VALUE_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    secret_name: str
+    masked_value: str
+    created_at: int
+    last_updated_at: int
+    provider: str
+    created_by: str
+    last_updated_by: str
+    def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., masked_value: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., provider: _Optional[str] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+
+class GatewayModelDefinition(_message.Message):
+    __slots__ = ("model_definition_id", "name", "secret_id", "secret_name", "provider", "model_name", "created_at", "last_updated_at", "created_by", "last_updated_by")
+    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    model_definition_id: str
+    name: str
+    secret_id: str
+    secret_name: str
+    provider: str
+    model_name: str
+    created_at: int
+    last_updated_at: int
+    created_by: str
+    last_updated_by: str
+    def __init__(self, model_definition_id: _Optional[str] = ..., name: _Optional[str] = ..., secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., provider: _Optional[str] = ..., model_name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+
+class GatewayEndpointModelMapping(_message.Message):
+    __slots__ = ("mapping_id", "endpoint_id", "model_definition_id", "model_definition", "weight", "created_at", "created_by")
+    MAPPING_ID_FIELD_NUMBER: _ClassVar[int]
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_DEFINITION_FIELD_NUMBER: _ClassVar[int]
+    WEIGHT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    mapping_id: str
+    endpoint_id: str
+    model_definition_id: str
+    model_definition: GatewayModelDefinition
+    weight: int
+    created_at: int
+    created_by: str
+    def __init__(self, mapping_id: _Optional[str] = ..., endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ..., weight: _Optional[int] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class GatewayEndpoint(_message.Message):
+    __slots__ = ("endpoint_id", "name", "created_at", "last_updated_at", "model_mappings", "created_by", "last_updated_by")
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    MODEL_MAPPINGS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    name: str
+    created_at: int
+    last_updated_at: int
+    model_mappings: _containers.RepeatedCompositeFieldContainer[GatewayEndpointModelMapping]
+    created_by: str
+    last_updated_by: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., model_mappings: _Optional[_Iterable[_Union[GatewayEndpointModelMapping, _Mapping]]] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+
+class GatewayEndpointBinding(_message.Message):
+    __slots__ = ("endpoint_id", "resource_type", "resource_id", "created_at", "last_updated_at", "created_by", "last_updated_by")
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    resource_type: str
+    resource_id: str
+    created_at: int
+    last_updated_at: int
+    created_by: str
+    last_updated_by: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+
+class CreateSecret(_message.Message):
+    __slots__ = ("secret_name", "secret_value", "provider", "credential_name", "auth_config_json", "created_by")
+    class Response(_message.Message):
+        __slots__ = ("secret",)
+        SECRET_FIELD_NUMBER: _ClassVar[int]
+        secret: GatewaySecret
+        def __init__(self, secret: _Optional[_Union[GatewaySecret, _Mapping]] = ...) -> None: ...
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRET_VALUE_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    CREDENTIAL_NAME_FIELD_NUMBER: _ClassVar[int]
+    AUTH_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    secret_name: str
+    secret_value: str
+    provider: str
+    credential_name: str
+    auth_config_json: str
+    created_by: str
+    def __init__(self, secret_name: _Optional[str] = ..., secret_value: _Optional[str] = ..., provider: _Optional[str] = ..., credential_name: _Optional[str] = ..., auth_config_json: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class GetSecretInfo(_message.Message):
+    __slots__ = ("secret_id", "secret_name")
+    class Response(_message.Message):
+        __slots__ = ("secret",)
+        SECRET_FIELD_NUMBER: _ClassVar[int]
+        secret: GatewaySecret
+        def __init__(self, secret: _Optional[_Union[GatewaySecret, _Mapping]] = ...) -> None: ...
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    secret_name: str
+    def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ...) -> None: ...
+
+class UpdateSecret(_message.Message):
+    __slots__ = ("secret_id", "secret_value", "credential_name", "auth_config_json", "updated_by")
+    class Response(_message.Message):
+        __slots__ = ("secret",)
+        SECRET_FIELD_NUMBER: _ClassVar[int]
+        secret: GatewaySecret
+        def __init__(self, secret: _Optional[_Union[GatewaySecret, _Mapping]] = ...) -> None: ...
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_VALUE_FIELD_NUMBER: _ClassVar[int]
+    CREDENTIAL_NAME_FIELD_NUMBER: _ClassVar[int]
+    AUTH_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    secret_value: str
+    credential_name: str
+    auth_config_json: str
+    updated_by: str
+    def __init__(self, secret_id: _Optional[str] = ..., secret_value: _Optional[str] = ..., credential_name: _Optional[str] = ..., auth_config_json: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+
+class DeleteSecret(_message.Message):
+    __slots__ = ("secret_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    def __init__(self, secret_id: _Optional[str] = ...) -> None: ...
+
+class ListSecrets(_message.Message):
+    __slots__ = ("provider",)
+    class Response(_message.Message):
+        __slots__ = ("secrets",)
+        SECRETS_FIELD_NUMBER: _ClassVar[int]
+        secrets: _containers.RepeatedCompositeFieldContainer[GatewaySecret]
+        def __init__(self, secrets: _Optional[_Iterable[_Union[GatewaySecret, _Mapping]]] = ...) -> None: ...
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    provider: str
+    def __init__(self, provider: _Optional[str] = ...) -> None: ...
+
+class CreateModelDefinition(_message.Message):
+    __slots__ = ("name", "secret_id", "provider", "model_name", "created_by")
+    class Response(_message.Message):
+        __slots__ = ("model_definition",)
+        MODEL_DEFINITION_FIELD_NUMBER: _ClassVar[int]
+        model_definition: GatewayModelDefinition
+        def __init__(self, model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    secret_id: str
+    provider: str
+    model_name: str
+    created_by: str
+    def __init__(self, name: _Optional[str] = ..., secret_id: _Optional[str] = ..., provider: _Optional[str] = ..., model_name: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class GetModelDefinition(_message.Message):
+    __slots__ = ("model_definition_id",)
+    class Response(_message.Message):
+        __slots__ = ("model_definition",)
+        MODEL_DEFINITION_FIELD_NUMBER: _ClassVar[int]
+        model_definition: GatewayModelDefinition
+        def __init__(self, model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ...) -> None: ...
+    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
+    model_definition_id: str
+    def __init__(self, model_definition_id: _Optional[str] = ...) -> None: ...
+
+class ListModelDefinitions(_message.Message):
+    __slots__ = ("provider", "secret_id")
+    class Response(_message.Message):
+        __slots__ = ("model_definitions",)
+        MODEL_DEFINITIONS_FIELD_NUMBER: _ClassVar[int]
+        model_definitions: _containers.RepeatedCompositeFieldContainer[GatewayModelDefinition]
+        def __init__(self, model_definitions: _Optional[_Iterable[_Union[GatewayModelDefinition, _Mapping]]] = ...) -> None: ...
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    provider: str
+    secret_id: str
+    def __init__(self, provider: _Optional[str] = ..., secret_id: _Optional[str] = ...) -> None: ...
+
+class UpdateModelDefinition(_message.Message):
+    __slots__ = ("model_definition_id", "name", "secret_id", "model_name", "updated_by")
+    class Response(_message.Message):
+        __slots__ = ("model_definition",)
+        MODEL_DEFINITION_FIELD_NUMBER: _ClassVar[int]
+        model_definition: GatewayModelDefinition
+        def __init__(self, model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ...) -> None: ...
+    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    model_definition_id: str
+    name: str
+    secret_id: str
+    model_name: str
+    updated_by: str
+    def __init__(self, model_definition_id: _Optional[str] = ..., name: _Optional[str] = ..., secret_id: _Optional[str] = ..., model_name: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+
+class DeleteModelDefinition(_message.Message):
+    __slots__ = ("model_definition_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
+    model_definition_id: str
+    def __init__(self, model_definition_id: _Optional[str] = ...) -> None: ...
+
+class CreateEndpoint(_message.Message):
+    __slots__ = ("name", "model_definition_ids", "created_by")
+    class Response(_message.Message):
+        __slots__ = ("endpoint",)
+        ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+        endpoint: GatewayEndpoint
+        def __init__(self, endpoint: _Optional[_Union[GatewayEndpoint, _Mapping]] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    MODEL_DEFINITION_IDS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    model_definition_ids: _containers.RepeatedScalarFieldContainer[str]
+    created_by: str
+    def __init__(self, name: _Optional[str] = ..., model_definition_ids: _Optional[_Iterable[str]] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class GetEndpoint(_message.Message):
+    __slots__ = ("endpoint_id", "name")
+    class Response(_message.Message):
+        __slots__ = ("endpoint",)
+        ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+        endpoint: GatewayEndpoint
+        def __init__(self, endpoint: _Optional[_Union[GatewayEndpoint, _Mapping]] = ...) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    name: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class UpdateEndpoint(_message.Message):
+    __slots__ = ("endpoint_id", "name", "updated_by")
+    class Response(_message.Message):
+        __slots__ = ("endpoint",)
+        ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+        endpoint: GatewayEndpoint
+        def __init__(self, endpoint: _Optional[_Union[GatewayEndpoint, _Mapping]] = ...) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    name: str
+    updated_by: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+
+class DeleteEndpoint(_message.Message):
+    __slots__ = ("endpoint_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    def __init__(self, endpoint_id: _Optional[str] = ...) -> None: ...
+
+class ListEndpoints(_message.Message):
+    __slots__ = ("provider", "secret_id")
+    class Response(_message.Message):
+        __slots__ = ("endpoints",)
+        ENDPOINTS_FIELD_NUMBER: _ClassVar[int]
+        endpoints: _containers.RepeatedCompositeFieldContainer[GatewayEndpoint]
+        def __init__(self, endpoints: _Optional[_Iterable[_Union[GatewayEndpoint, _Mapping]]] = ...) -> None: ...
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    provider: str
+    secret_id: str
+    def __init__(self, provider: _Optional[str] = ..., secret_id: _Optional[str] = ...) -> None: ...
+
+class AttachModelToEndpoint(_message.Message):
+    __slots__ = ("endpoint_id", "model_definition_id", "weight", "created_by")
+    class Response(_message.Message):
+        __slots__ = ("mapping",)
+        MAPPING_FIELD_NUMBER: _ClassVar[int]
+        mapping: GatewayEndpointModelMapping
+        def __init__(self, mapping: _Optional[_Union[GatewayEndpointModelMapping, _Mapping]] = ...) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
+    WEIGHT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    model_definition_id: str
+    weight: int
+    created_by: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., weight: _Optional[int] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class DetachModelFromEndpoint(_message.Message):
+    __slots__ = ("endpoint_id", "model_definition_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    model_definition_id: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ...) -> None: ...
+
+class CreateEndpointBinding(_message.Message):
+    __slots__ = ("endpoint_id", "resource_type", "resource_id", "created_by")
+    class Response(_message.Message):
+        __slots__ = ("binding",)
+        BINDING_FIELD_NUMBER: _ClassVar[int]
+        binding: GatewayEndpointBinding
+        def __init__(self, binding: _Optional[_Union[GatewayEndpointBinding, _Mapping]] = ...) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    resource_type: str
+    resource_id: str
+    created_by: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class DeleteEndpointBinding(_message.Message):
+    __slots__ = ("endpoint_id", "resource_type", "resource_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    resource_type: str
+    resource_id: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ...) -> None: ...
+
+class ListEndpointBindings(_message.Message):
+    __slots__ = ("endpoint_id", "resource_type", "resource_id")
+    class Response(_message.Message):
+        __slots__ = ("bindings",)
+        BINDINGS_FIELD_NUMBER: _ClassVar[int]
+        bindings: _containers.RepeatedCompositeFieldContainer[GatewayEndpointBinding]
+        def __init__(self, bindings: _Optional[_Iterable[_Union[GatewayEndpointBinding, _Mapping]]] = ...) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    resource_type: str
+    resource_id: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...

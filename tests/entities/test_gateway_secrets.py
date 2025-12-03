@@ -94,3 +94,28 @@ def test_secret_audit_fields():
     assert secret.last_updated_at == 9876543210000
     assert secret.created_by == "user_1"
     assert secret.last_updated_by == "user_2"
+
+
+def test_secret_proto_round_trip():
+    secret = GatewaySecret(
+        secret_id="secret-proto",
+        secret_name="proto_api_key",
+        masked_value="sk-...proto",
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        provider="openai",
+        created_by="proto_user",
+        last_updated_by="proto_user_2",
+    )
+
+    proto = secret.to_proto()
+    restored = GatewaySecret.from_proto(proto)
+
+    assert restored.secret_id == secret.secret_id
+    assert restored.secret_name == secret.secret_name
+    assert restored.masked_value == secret.masked_value
+    assert restored.created_at == secret.created_at
+    assert restored.last_updated_at == secret.last_updated_at
+    assert restored.provider == secret.provider
+    assert restored.created_by == secret.created_by
+    assert restored.last_updated_by == secret.last_updated_by

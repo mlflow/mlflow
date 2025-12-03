@@ -3,6 +3,18 @@ from enum import Enum
 from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import (
+    GatewayEndpoint as ProtoGatewayEndpoint,
+)
+from mlflow.protos.service_pb2 import (
+    GatewayEndpointBinding as ProtoGatewayEndpointBinding,
+)
+from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelMapping as ProtoGatewayEndpointModelMapping,
+)
+from mlflow.protos.service_pb2 import (
+    GatewayModelDefinition as ProtoGatewayModelDefinition,
+)
 
 
 class GatewayResourceType(str, Enum):
@@ -43,6 +55,37 @@ class GatewayModelDefinition(_MlflowObject):
     created_by: str | None = None
     last_updated_by: str | None = None
 
+    def to_proto(self):
+        proto = ProtoGatewayModelDefinition()
+        proto.model_definition_id = self.model_definition_id
+        proto.name = self.name
+        proto.secret_id = self.secret_id
+        proto.secret_name = self.secret_name
+        proto.provider = self.provider
+        proto.model_name = self.model_name
+        proto.created_at = self.created_at
+        proto.last_updated_at = self.last_updated_at
+        if self.created_by is not None:
+            proto.created_by = self.created_by
+        if self.last_updated_by is not None:
+            proto.last_updated_by = self.last_updated_by
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            model_definition_id=proto.model_definition_id,
+            name=proto.name,
+            secret_id=proto.secret_id,
+            secret_name=proto.secret_name,
+            provider=proto.provider,
+            model_name=proto.model_name,
+            created_at=proto.created_at,
+            last_updated_at=proto.last_updated_at,
+            created_by=proto.created_by or None,
+            last_updated_by=proto.last_updated_by or None,
+        )
+
 
 @dataclass
 class GatewayEndpointModelMapping(_MlflowObject):
@@ -70,6 +113,34 @@ class GatewayEndpointModelMapping(_MlflowObject):
     created_at: int
     created_by: str | None = None
 
+    def to_proto(self):
+        proto = ProtoGatewayEndpointModelMapping()
+        proto.mapping_id = self.mapping_id
+        proto.endpoint_id = self.endpoint_id
+        proto.model_definition_id = self.model_definition_id
+        if self.model_definition is not None:
+            proto.model_definition.CopyFrom(self.model_definition.to_proto())
+        proto.weight = self.weight
+        proto.created_at = self.created_at
+        if self.created_by is not None:
+            proto.created_by = self.created_by
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        model_def = None
+        if proto.HasField("model_definition"):
+            model_def = GatewayModelDefinition.from_proto(proto.model_definition)
+        return cls(
+            mapping_id=proto.mapping_id,
+            endpoint_id=proto.endpoint_id,
+            model_definition_id=proto.model_definition_id,
+            model_definition=model_def,
+            weight=proto.weight,
+            created_at=proto.created_at,
+            created_by=proto.created_by or None,
+        )
+
 
 @dataclass
 class GatewayEndpoint(_MlflowObject):
@@ -78,7 +149,7 @@ class GatewayEndpoint(_MlflowObject):
 
     Args:
         endpoint_id: Unique identifier for this endpoint.
-        name: User-friendly name for the endpoint.
+        name: User-friendly name for the endpoint (optional).
         created_at: Timestamp (milliseconds) when the endpoint was created.
         last_updated_at: Timestamp (milliseconds) when the endpoint was last updated.
         model_mappings: List of model mappings bound to this endpoint.
@@ -87,12 +158,37 @@ class GatewayEndpoint(_MlflowObject):
     """
 
     endpoint_id: str
-    name: str
+    name: str | None
     created_at: int
     last_updated_at: int
     model_mappings: list[GatewayEndpointModelMapping] = field(default_factory=list)
     created_by: str | None = None
     last_updated_by: str | None = None
+
+    def to_proto(self):
+        proto = ProtoGatewayEndpoint()
+        proto.endpoint_id = self.endpoint_id
+        proto.name = self.name or ""
+        proto.created_at = self.created_at
+        proto.last_updated_at = self.last_updated_at
+        proto.model_mappings.extend([m.to_proto() for m in self.model_mappings])
+        proto.created_by = self.created_by or ""
+        proto.last_updated_by = self.last_updated_by or ""
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            endpoint_id=proto.endpoint_id,
+            name=proto.name or None,
+            created_at=proto.created_at,
+            last_updated_at=proto.last_updated_at,
+            model_mappings=[
+                GatewayEndpointModelMapping.from_proto(m) for m in proto.model_mappings
+            ],
+            created_by=proto.created_by or None,
+            last_updated_by=proto.last_updated_by or None,
+        )
 
 
 @dataclass
@@ -121,6 +217,31 @@ class GatewayEndpointBinding(_MlflowObject):
     last_updated_at: int
     created_by: str | None = None
     last_updated_by: str | None = None
+
+    def to_proto(self):
+        proto = ProtoGatewayEndpointBinding()
+        proto.endpoint_id = self.endpoint_id
+        proto.resource_type = self.resource_type.value
+        proto.resource_id = self.resource_id
+        proto.created_at = self.created_at
+        proto.last_updated_at = self.last_updated_at
+        if self.created_by is not None:
+            proto.created_by = self.created_by
+        if self.last_updated_by is not None:
+            proto.last_updated_by = self.last_updated_by
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            endpoint_id=proto.endpoint_id,
+            resource_type=GatewayResourceType(proto.resource_type),
+            resource_id=proto.resource_id,
+            created_at=proto.created_at,
+            last_updated_at=proto.last_updated_at,
+            created_by=proto.created_by or None,
+            last_updated_by=proto.last_updated_by or None,
+        )
 
 
 @dataclass
