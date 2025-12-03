@@ -55,7 +55,9 @@ class PromptModelConfig(BaseModel):
             This allows for flexibility with provider-specific or experimental parameters.
 
     Example:
+
     .. code-block:: python
+
         from mlflow.entities.model_registry import PromptModelConfig
 
         # Basic configuration
