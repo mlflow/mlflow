@@ -863,3 +863,25 @@ def clean_up_telemetry_threads():
     yield
     if client := get_telemetry_client():
         client._clean_up()
+
+
+@pytest.fixture(scope="session")
+def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path | None:
+    """
+    Creates and caches a SQLite database to avoid repeated migrations for each test run.
+
+    This is a session-scoped fixture that creates the database once per test session.
+    Individual tests should copy this database to their own tmp_path to avoid conflicts.
+    """
+    if IS_TRACING_SDK_ONLY:
+        return None
+
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_dir / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
+    artifact_uri = (tmp_dir / "artifacts").as_uri()
+    store = SqlAlchemyStore(db_uri, artifact_uri)
+    store.engine.dispose()
+    return db_path

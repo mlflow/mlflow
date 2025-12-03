@@ -1,6 +1,5 @@
 import os
 import shutil
-from pathlib import Path
 
 import pytest
 
@@ -24,24 +23,6 @@ _LLM_ASSESSMENT_SOURCE = AssessmentSource(
     source_type=AssessmentSourceType.LLM_JUDGE,
     source_id="gpt-4o-mini",
 )
-
-
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path | None:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    if "MLFLOW_SKINNY" in os.environ or IS_TRACING_SDK_ONLY:
-        return None
-
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    artifact_uri = tmp_path / "artifacts"
-    artifact_uri.mkdir(exist_ok=True)
-    store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-    store.engine.dispose()
-    return db_path
 
 
 @pytest.fixture
