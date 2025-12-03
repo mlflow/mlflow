@@ -37,6 +37,11 @@ from mlflow.entities import (
     Experiment,
     ExperimentTag,
     Feedback,
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointModelMapping,
+    GatewayModelDefinition,
+    GatewaySecret,
     InputTag,
     Metric,
     Param,
@@ -2121,6 +2126,18 @@ class SqlSecret(Base):
     def __repr__(self):
         return f"<SqlSecret ({self.secret_id}, {self.secret_name})>"
 
+    def to_mlflow_entity(self):
+        return GatewaySecret(
+            secret_id=self.secret_id,
+            secret_name=self.secret_name,
+            masked_value=self.masked_value,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            provider=self.provider,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
+
 
 class SqlEndpoint(Base):
     """
@@ -2163,6 +2180,17 @@ class SqlEndpoint(Base):
 
     def __repr__(self):
         return f"<SqlEndpoint ({self.endpoint_id}, {self.name})>"
+
+    def to_mlflow_entity(self):
+        return GatewayEndpoint(
+            endpoint_id=self.endpoint_id,
+            name=self.name,
+            model_mappings=[mapping.to_mlflow_entity() for mapping in self.model_mappings],
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
 
 
 class SqlModelDefinition(Base):
@@ -2230,6 +2258,20 @@ class SqlModelDefinition(Base):
 
     def __repr__(self):
         return f"<SqlModelDefinition ({self.model_definition_id}, {self.name})>"
+
+    def to_mlflow_entity(self):
+        return GatewayModelDefinition(
+            model_definition_id=self.model_definition_id,
+            name=self.name,
+            secret_id=self.secret_id,
+            secret_name=self.secret.secret_name if self.secret else None,
+            provider=self.provider,
+            model_name=self.model_name,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
 
 
 class SqlEndpointModelMapping(Base):
@@ -2304,6 +2346,20 @@ class SqlEndpointModelMapping(Base):
             f"endpoint={self.endpoint_id}, model={self.model_definition_id})>"
         )
 
+    def to_mlflow_entity(self):
+        model_def = None
+        if self.model_definition:
+            model_def = self.model_definition.to_mlflow_entity()
+        return GatewayEndpointModelMapping(
+            mapping_id=self.mapping_id,
+            endpoint_id=self.endpoint_id,
+            model_definition_id=self.model_definition_id,
+            model_definition=model_def,
+            weight=self.weight,
+            created_at=self.created_at,
+            created_by=self.created_by,
+        )
+
 
 class SqlEndpointBinding(Base):
     """
@@ -2362,4 +2418,15 @@ class SqlEndpointBinding(Base):
     def __repr__(self):
         return (
             f"<SqlEndpointBinding ({self.endpoint_id}, {self.resource_type}, {self.resource_id})>"
+        )
+
+    def to_mlflow_entity(self):
+        return GatewayEndpointBinding(
+            endpoint_id=self.endpoint_id,
+            resource_type=self.resource_type,
+            resource_id=self.resource_id,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
         )

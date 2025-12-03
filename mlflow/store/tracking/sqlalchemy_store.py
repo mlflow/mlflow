@@ -27,22 +27,23 @@ from mlflow.entities import (
     DatasetInput,
     DatasetRecord,
     DatasetRecordSource,
-    Endpoint,
-    EndpointBinding,
-    EndpointConfig,
-    EndpointModel,
     EvaluationDataset,
     Expectation,
     Experiment,
     Feedback,
-    ModelConfig,
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointConfig,
+    GatewayEndpointModelMapping,
+    GatewayModelConfig,
+    GatewayModelDefinition,
+    GatewaySecret,
     Run,
     RunInputs,
     RunOutputs,
     RunStatus,
     RunTag,
     ScorerVersion,
-    Secret,
     SourceType,
     Trace,
     TraceData,
@@ -89,7 +90,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
     SqlEndpoint,
     SqlEndpointBinding,
-    SqlEndpointModel,
+    SqlEndpointModelMapping,
     SqlEntityAssociation,
     SqlEvaluationDataset,
     SqlEvaluationDatasetRecord,
@@ -104,6 +105,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelParam,
     SqlLoggedModelTag,
     SqlMetric,
+    SqlModelDefinition,
     SqlParam,
     SqlRun,
     SqlScorer,
@@ -133,7 +135,12 @@ from mlflow.tracing.utils import (
     generate_request_id_v2,
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
-from mlflow.utils.crypto import KEKManager, decrypt_secret, encrypt_secret, mask_secret_value
+from mlflow.utils.cryptography import (
+    KEKManager,
+    decrypt_secret,
+    encrypt_secret,
+    mask_secret_value,
+)
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -4660,6 +4667,22 @@ class SqlAlchemyStore(AbstractStore):
             )
         return obj
 
+    def _cleanup_endpoint_bindings(self, session, resource_type: str, resource_id: str):
+        """
+        Delete all endpoint bindings for a resource.
+
+        This should be called before deleting any resource that may have endpoint bindings
+        to ensure orphaned bindings are cleaned up.
+
+        Args:
+            session: Database session.
+            resource_type: Type of resource (e.g., "scorer", "experiment").
+            resource_id: ID of the resource being deleted.
+        """
+        session.query(SqlEndpointBinding).filter_by(
+            resource_type=resource_type, resource_id=resource_id
+        ).delete()
+
     # ===================================================================================
     # Secrets Management
     # ===================================================================================
@@ -4669,11 +4692,10 @@ class SqlAlchemyStore(AbstractStore):
         secret_name: str,
         secret_value: str,
         provider: str | None = None,
-        description: str | None = None,
         credential_name: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
-    ) -> Secret:
+    ) -> GatewaySecret:
         """
         Create a new encrypted secret using envelope encryption.
 
@@ -4681,7 +4703,6 @@ class SqlAlchemyStore(AbstractStore):
             secret_name: Unique user-friendly name for the secret.
             secret_value: The secret value to encrypt (e.g., API key).
             provider: Optional LLM provider (e.g., "openai", "anthropic").
-            description: Optional description of the secret's purpose.
             credential_name: Optional credential identifier (e.g., "ANTHROPIC_API_KEY").
             auth_config: Optional provider-specific auth configuration dict.
             created_by: Username of the creator.
@@ -4733,7 +4754,6 @@ class SqlAlchemyStore(AbstractStore):
                 encrypted_auth_config=encrypted_auth.encrypted_value if encrypted_auth else None,
                 wrapped_auth_config_dek=encrypted_auth.wrapped_dek if encrypted_auth else None,
                 provider=provider,
-                description=description,
                 credential_name=credential_name,
                 created_at=current_time,
                 last_updated_at=current_time,
@@ -4748,7 +4768,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def get_secret_info(
         self, secret_id: str | None = None, secret_name: str | None = None
-    ) -> Secret:
+    ) -> GatewaySecret:
         """
         Retrieve secret metadata by ID or name (does not decrypt the value).
 
@@ -4787,7 +4807,7 @@ class SqlAlchemyStore(AbstractStore):
         secret_value: str,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
-    ) -> Secret:
+    ) -> GatewaySecret:
         """
         Update an existing secret's value (key rotation).
 
@@ -4864,7 +4884,7 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(sql_secret)
             session.commit()
 
-    def list_secrets(self, provider: str | None = None) -> list[Secret]:
+    def list_secrets(self, provider: str | None = None) -> list[GatewaySecret]:
         """
         List all secrets with optional filtering.
 
@@ -4884,60 +4904,276 @@ class SqlAlchemyStore(AbstractStore):
             return [secret.to_mlflow_entity() for secret in sql_secrets]
 
     # ===================================================================================
+    # Model Definitions Management
+    # ===================================================================================
+
+    def create_model_definition(
+        self,
+        name: str,
+        secret_id: str,
+        provider: str,
+        model_name: str,
+        created_by: str | None = None,
+    ) -> GatewayModelDefinition:
+        """
+        Create a reusable model definition.
+
+        Args:
+            name: User-friendly name for identification and reuse.
+            secret_id: ID of the secret containing authentication credentials.
+            provider: LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
+            model_name: Provider-specific model identifier (e.g., "gpt-4o").
+            created_by: Username of the creator.
+
+        Returns:
+            ModelDefinition entity with metadata.
+
+        Raises:
+            MlflowException: If the secret does not exist (RESOURCE_DOES_NOT_EXIST),
+                or if a model definition with the same name already exists
+                (RESOURCE_ALREADY_EXISTS).
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_secret = self._get_entity_or_404(
+                session, SqlSecret, {"secret_id": secret_id}, "Secret"
+            )
+
+            model_definition_id = uuid.uuid4().hex
+            current_time = get_current_time_millis()
+
+            sql_model_def = SqlModelDefinition(
+                model_definition_id=model_definition_id,
+                name=name,
+                secret_id=secret_id,
+                provider=provider,
+                model_name=model_name,
+                created_at=current_time,
+                last_updated_at=current_time,
+                created_by=created_by,
+                last_updated_by=created_by,
+            )
+
+            try:
+                session.add(sql_model_def)
+                session.commit()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Model definition with name '{name}' already exists",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+            session.refresh(sql_model_def)
+
+            return GatewayModelDefinition(
+                model_definition_id=sql_model_def.model_definition_id,
+                name=sql_model_def.name,
+                secret_id=sql_model_def.secret_id,
+                secret_name=sql_secret.secret_name,
+                provider=sql_model_def.provider,
+                model_name=sql_model_def.model_name,
+                created_at=sql_model_def.created_at,
+                last_updated_at=sql_model_def.last_updated_at,
+                created_by=sql_model_def.created_by,
+                last_updated_by=sql_model_def.last_updated_by,
+            )
+
+    def get_model_definition(
+        self, model_definition_id: str | None = None, name: str | None = None
+    ) -> GatewayModelDefinition:
+        """
+        Retrieve a model definition by ID or name.
+
+        Args:
+            model_definition_id: ID of the model definition to retrieve.
+            name: Name of the model definition to retrieve.
+
+        Returns:
+            ModelDefinition entity with metadata.
+
+        Raises:
+            MlflowException: If exactly one of model_definition_id or name is not provided
+                (INVALID_PARAMETER_VALUE), or if the model definition is not found
+                (RESOURCE_DOES_NOT_EXIST).
+        """
+        if (model_definition_id is None) == (name is None):
+            raise MlflowException(
+                "Exactly one of model_definition_id or name must be provided",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        with self.ManagedSessionMaker() as session:
+            if model_definition_id:
+                sql_model_def = self._get_entity_or_404(
+                    session,
+                    SqlModelDefinition,
+                    {"model_definition_id": model_definition_id},
+                    "ModelDefinition",
+                )
+            else:
+                sql_model_def = self._get_entity_or_404(
+                    session, SqlModelDefinition, {"name": name}, "ModelDefinition"
+                )
+
+            return sql_model_def.to_mlflow_entity()
+
+    def list_model_definitions(
+        self,
+        provider: str | None = None,
+        secret_id: str | None = None,
+    ) -> list[GatewayModelDefinition]:
+        """
+        List all model definitions with optional filtering.
+
+        Args:
+            provider: Optional filter by LLM provider.
+            secret_id: Optional filter by secret ID.
+
+        Returns:
+            List of ModelDefinition entities with metadata.
+        """
+        with self.ManagedSessionMaker() as session:
+            query = session.query(SqlModelDefinition)
+
+            if provider is not None:
+                query = query.filter(SqlModelDefinition.provider == provider)
+            if secret_id is not None:
+                query = query.filter(SqlModelDefinition.secret_id == secret_id)
+
+            sql_model_defs = query.all()
+            return [model_def.to_mlflow_entity() for model_def in sql_model_defs]
+
+    def update_model_definition(
+        self,
+        model_definition_id: str,
+        name: str | None = None,
+        secret_id: str | None = None,
+        model_name: str | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayModelDefinition:
+        """
+        Update a model definition.
+
+        Args:
+            model_definition_id: ID of the model definition to update.
+            name: Optional new name.
+            secret_id: Optional new secret ID.
+            model_name: Optional new model name.
+            updated_by: Username of the updater.
+
+        Returns:
+            Updated ModelDefinition entity.
+
+        Raises:
+            MlflowException: If the model definition or secret is not found
+                (RESOURCE_DOES_NOT_EXIST), or if the new name conflicts with an existing
+                model definition (RESOURCE_ALREADY_EXISTS).
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_model_def = self._get_entity_or_404(
+                session,
+                SqlModelDefinition,
+                {"model_definition_id": model_definition_id},
+                "ModelDefinition",
+            )
+
+            if name is not None:
+                sql_model_def.name = name
+            if secret_id is not None:
+                _ = self._get_entity_or_404(session, SqlSecret, {"secret_id": secret_id}, "Secret")
+                sql_model_def.secret_id = secret_id
+            if model_name is not None:
+                sql_model_def.model_name = model_name
+
+            sql_model_def.last_updated_at = get_current_time_millis()
+            if updated_by:
+                sql_model_def.last_updated_by = updated_by
+
+            try:
+                session.commit()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Model definition with name '{name}' already exists",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+            session.refresh(sql_model_def)
+
+            return sql_model_def.to_mlflow_entity()
+
+    def delete_model_definition(self, model_definition_id: str) -> None:
+        """
+        Delete a model definition.
+
+        Fails with an error if the model definition is currently attached to any
+        endpoints (RESTRICT behavior enforced by database constraint).
+
+        Args:
+            model_definition_id: ID of the model definition to delete.
+
+        Raises:
+            MlflowException: If the model definition is not found (RESOURCE_DOES_NOT_EXIST),
+                or if it is currently in use by endpoints (INVALID_STATE).
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_model_def = self._get_entity_or_404(
+                session,
+                SqlModelDefinition,
+                {"model_definition_id": model_definition_id},
+                "ModelDefinition",
+            )
+
+            try:
+                session.delete(sql_model_def)
+                session.commit()
+            except IntegrityError as e:
+                raise MlflowException(
+                    "Cannot delete model definition that is currently in use by endpoints. "
+                    "Detach it from all endpoints first.",
+                    error_code=INVALID_STATE,
+                ) from e
+
+    # ===================================================================================
     # Endpoints Management
     # ===================================================================================
 
     def create_endpoint(
         self,
         name: str,
-        models: list[dict[str, Any]],
+        model_definition_ids: list[str],
         created_by: str | None = None,
-    ) -> Endpoint:
+    ) -> GatewayEndpoint:
         """
-        Create a new endpoint with model configurations.
+        Create a new endpoint with references to existing model definitions.
 
         Args:
             name: User-friendly name for the endpoint.
-            models: List of model configurations. Each dict must contain:
-                - secret_id: ID of the secret for authentication
-                - provider: LLM provider (e.g., "openai", "anthropic")
-                - model_name: Provider-specific model identifier
-                At least one model is required.
+            model_definition_ids: List of model definition IDs to attach to the endpoint.
+                                  At least one model definition is required.
             created_by: Username of the creator.
 
         Returns:
-            Endpoint entity with models populated.
+            Endpoint entity with model_mappings populated.
 
         Raises:
-            MlflowException: If models list is empty (INVALID_PARAMETER_VALUE), if any model
-                is missing required keys (INVALID_PARAMETER_VALUE), or if any referenced secret
-                does not exist (RESOURCE_DOES_NOT_EXIST).
+            MlflowException: If model_definition_ids list is empty (INVALID_PARAMETER_VALUE),
+                or if any referenced model definition does not exist (RESOURCE_DOES_NOT_EXIST).
         """
-        if not models:
+        if not model_definition_ids:
             raise MlflowException(
-                "Endpoint must have at least one model",
+                "Endpoint must have at least one model definition",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        required_keys = {"secret_id", "provider", "model_name"}
-        for i, model in enumerate(models):
-            missing = required_keys - set(model.keys())
-            if missing:
-                raise MlflowException(
-                    f"Model {i} missing required keys: {', '.join(missing)}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
         with self.ManagedSessionMaker() as session:
-            secret_ids = [m["secret_id"] for m in models]
-            existing_secrets = (
-                session.query(SqlSecret.secret_id).filter(SqlSecret.secret_id.in_(secret_ids)).all()
+            existing_model_defs = (
+                session.query(SqlModelDefinition.model_definition_id)
+                .filter(SqlModelDefinition.model_definition_id.in_(model_definition_ids))
+                .all()
             )
-            existing_ids = {s.secret_id for s in existing_secrets}
-            missing = set(secret_ids) - existing_ids
-            if missing:
+            existing_ids = {m.model_definition_id for m in existing_model_defs}
+            if missing := set(model_definition_ids) - existing_ids:
                 raise MlflowException(
-                    f"Secrets not found: {', '.join(missing)}",
+                    f"Model definitions not found: {', '.join(missing)}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
@@ -4954,36 +5190,35 @@ class SqlAlchemyStore(AbstractStore):
             )
             session.add(sql_endpoint)
 
-            for model_spec in models:
-                model_id = uuid.uuid4().hex
-                sql_model = SqlEndpointModel(
-                    model_id=model_id,
+            for model_def_id in model_definition_ids:
+                mapping_id = uuid.uuid4().hex
+                sql_mapping = SqlEndpointModelMapping(
+                    mapping_id=mapping_id,
                     endpoint_id=endpoint_id,
-                    secret_id=model_spec["secret_id"],
-                    provider=model_spec["provider"],
-                    model_name=model_spec["model_name"],
+                    model_definition_id=model_def_id,
+                    weight=1,
                     created_at=current_time,
-                    last_updated_at=current_time,
                     created_by=created_by,
-                    last_updated_by=created_by,
                 )
-                session.add(sql_model)
+                session.add(sql_mapping)
 
             session.commit()
             session.refresh(sql_endpoint)
 
             return sql_endpoint.to_mlflow_entity()
 
-    def get_endpoint(self, endpoint_id: str | None = None, name: str | None = None) -> Endpoint:
+    def get_endpoint(
+        self, endpoint_id: str | None = None, name: str | None = None
+    ) -> GatewayEndpoint:
         """
-        Retrieve an endpoint by ID or name with its models populated.
+        Retrieve an endpoint by ID or name with its model mappings populated.
 
         Args:
             endpoint_id: ID of the endpoint to retrieve.
             name: Name of the endpoint to retrieve.
 
         Returns:
-            Endpoint entity with models list populated.
+            Endpoint entity with model_mappings list populated.
 
         Raises:
             MlflowException: If exactly one of endpoint_id or name is not provided
@@ -5013,7 +5248,7 @@ class SqlAlchemyStore(AbstractStore):
         endpoint_id: str,
         name: str,
         updated_by: str | None = None,
-    ) -> Endpoint:
+    ) -> GatewayEndpoint:
         """
         Update an endpoint's name.
 
@@ -5042,7 +5277,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_endpoint(self, endpoint_id: str) -> None:
         """
-        Delete an endpoint (CASCADE deletes bindings and endpoint_models).
+        Delete an endpoint (CASCADE deletes bindings and model mappings).
 
         Args:
             endpoint_id: ID of the endpoint to delete.
@@ -5059,9 +5294,9 @@ class SqlAlchemyStore(AbstractStore):
         self,
         provider: str | None = None,
         secret_id: str | None = None,
-    ) -> list[Endpoint]:
+    ) -> list[GatewayEndpoint]:
         """
-        List all endpoints with their models populated.
+        List all endpoints with their model mappings populated.
 
         Args:
             provider: Optional filter by LLM provider (e.g., "openai", "anthropic").
@@ -5070,138 +5305,136 @@ class SqlAlchemyStore(AbstractStore):
                 Useful for showing which endpoints would be affected by secret deletion.
 
         Returns:
-            List of Endpoint entities with models.
+            List of Endpoint entities with model_mappings.
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlEndpoint).join(SqlEndpointModel)
+            query = session.query(SqlEndpoint).join(SqlEndpointModelMapping)
 
             if provider or secret_id:
-                query = query.join(SqlSecret, SqlEndpointModel.secret_id == SqlSecret.secret_id)
+                query = query.join(
+                    SqlModelDefinition,
+                    SqlEndpointModelMapping.model_definition_id
+                    == SqlModelDefinition.model_definition_id,
+                )
 
                 if provider:
-                    query = query.filter(SqlSecret.provider == provider)
+                    query = query.filter(SqlModelDefinition.provider == provider)
                 if secret_id:
-                    query = query.filter(SqlSecret.secret_id == secret_id)
+                    query = query.filter(SqlModelDefinition.secret_id == secret_id)
 
             endpoints = query.distinct().all()
             return [endpoint.to_mlflow_entity() for endpoint in endpoints]
 
     # ===================================================================================
-    # Endpoint Models Management
+    # Endpoint Model Mappings Management
     # ===================================================================================
 
-    def add_endpoint_model(
+    def attach_model_to_endpoint(
         self,
         endpoint_id: str,
-        secret_id: str,
-        provider: str,
-        model_name: str,
+        model_definition_id: str,
+        weight: int = 1,
         created_by: str | None = None,
-    ) -> EndpointModel:
+    ) -> GatewayEndpointModelMapping:
         """
-        Add a model configuration to an endpoint.
+        Attach an existing model definition to an endpoint.
 
         Args:
-            endpoint_id: ID of the endpoint to add the model to.
-            secret_id: ID of the secret containing authentication credentials.
-            provider: LLM provider (e.g., "openai", "anthropic").
-            model_name: Provider-specific model identifier (e.g., "gpt-4o").
+            endpoint_id: ID of the endpoint to attach the model to.
+            model_definition_id: ID of the model definition to attach.
+            weight: Routing weight for traffic distribution (default 1).
             created_by: Username of the creator.
 
         Returns:
-            EndpointModel entity.
+            EndpointModelMapping entity.
+
+        Raises:
+            MlflowException: If the endpoint or model definition is not found
+                (RESOURCE_DOES_NOT_EXIST), or if the model definition is already
+                attached to this endpoint (RESOURCE_ALREADY_EXISTS).
         """
         with self.ManagedSessionMaker() as session:
-            # Validate endpoint and secret exist
             sql_endpoint = self._get_entity_or_404(
                 session, SqlEndpoint, {"endpoint_id": endpoint_id}, "Endpoint"
             )
-            _ = self._get_entity_or_404(session, SqlSecret, {"secret_id": secret_id}, "Secret")
+            _ = self._get_entity_or_404(
+                session,
+                SqlModelDefinition,
+                {"model_definition_id": model_definition_id},
+                "ModelDefinition",
+            )
 
-            model_id = uuid.uuid4().hex
+            existing_mapping = (
+                session.query(SqlEndpointModelMapping)
+                .filter(
+                    SqlEndpointModelMapping.endpoint_id == endpoint_id,
+                    SqlEndpointModelMapping.model_definition_id == model_definition_id,
+                )
+                .first()
+            )
+            if existing_mapping:
+                raise MlflowException(
+                    f"Model definition '{model_definition_id}' is already attached to "
+                    f"endpoint '{endpoint_id}'",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
+
+            mapping_id = uuid.uuid4().hex
             current_time = get_current_time_millis()
 
-            sql_model = SqlEndpointModel(
-                model_id=model_id,
+            sql_mapping = SqlEndpointModelMapping(
+                mapping_id=mapping_id,
                 endpoint_id=endpoint_id,
-                secret_id=secret_id,
-                provider=provider,
-                model_name=model_name,
+                model_definition_id=model_definition_id,
+                weight=weight,
                 created_at=current_time,
-                last_updated_at=current_time,
                 created_by=created_by,
-                last_updated_by=created_by,
             )
 
             sql_endpoint.last_updated_at = current_time
             if created_by:
                 sql_endpoint.last_updated_by = created_by
 
-            session.add(sql_model)
+            session.add(sql_mapping)
             session.commit()
-            session.refresh(sql_model)
+            session.refresh(sql_mapping)
 
-            return sql_model.to_mlflow_entity()
+            return sql_mapping.to_mlflow_entity()
 
-    def update_endpoint_model(
+    def detach_model_from_endpoint(
         self,
-        model_id: str,
-        secret_id: str | None = None,
-        model_name: str | None = None,
-        updated_by: str | None = None,
-    ) -> EndpointModel:
+        endpoint_id: str,
+        model_definition_id: str,
+    ) -> None:
         """
-        Update an endpoint model's configuration.
+        Detach a model definition from an endpoint.
+
+        This removes the mapping but does not delete the model definition itself.
 
         Args:
-            model_id: ID of the model to update.
-            secret_id: Optional new secret ID.
-            model_name: Optional new model name.
-            updated_by: Username of the updater.
-
-        Returns:
-            Updated EndpointModel entity.
+            endpoint_id: ID of the endpoint.
+            model_definition_id: ID of the model definition to detach.
 
         Raises:
-            MlflowException: If the model or secret is not found (RESOURCE_DOES_NOT_EXIST).
+            MlflowException: If the mapping is not found (RESOURCE_DOES_NOT_EXIST).
         """
         with self.ManagedSessionMaker() as session:
-            sql_model = self._get_entity_or_404(
-                session, SqlEndpointModel, {"model_id": model_id}, "EndpointModel"
+            sql_mapping = (
+                session.query(SqlEndpointModelMapping)
+                .filter(
+                    SqlEndpointModelMapping.endpoint_id == endpoint_id,
+                    SqlEndpointModelMapping.model_definition_id == model_definition_id,
+                )
+                .first()
             )
+            if not sql_mapping:
+                raise MlflowException(
+                    f"Model definition '{model_definition_id}' is not attached to "
+                    f"endpoint '{endpoint_id}'",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
 
-            if secret_id is not None:
-                _ = self._get_entity_or_404(session, SqlSecret, {"secret_id": secret_id}, "Secret")
-                sql_model.secret_id = secret_id
-
-            if model_name is not None:
-                sql_model.model_name = model_name
-
-            sql_model.last_updated_at = get_current_time_millis()
-            if updated_by:
-                sql_model.last_updated_by = updated_by
-
-            session.commit()
-            session.refresh(sql_model)
-
-            return sql_model.to_mlflow_entity()
-
-    def delete_endpoint_model(self, model_id: str) -> None:
-        """
-        Delete a model configuration from an endpoint.
-
-        Args:
-            model_id: ID of the model to delete.
-
-        Raises:
-            MlflowException: If the model is not found (RESOURCE_DOES_NOT_EXIST).
-        """
-        with self.ManagedSessionMaker() as session:
-            sql_model = self._get_entity_or_404(
-                session, SqlEndpointModel, {"model_id": model_id}, "EndpointModel"
-            )
-
-            session.delete(sql_model)
+            session.delete(sql_mapping)
             session.commit()
 
     # ===================================================================================
@@ -5214,7 +5447,7 @@ class SqlAlchemyStore(AbstractStore):
         resource_type: str,
         resource_id: str,
         created_by: str | None = None,
-    ) -> EndpointBinding:
+    ) -> GatewayEndpointBinding:
         """
         Bind an endpoint to an MLflow resource.
 
@@ -5235,11 +5468,9 @@ class SqlAlchemyStore(AbstractStore):
                 session, SqlEndpoint, {"endpoint_id": endpoint_id}, "Endpoint"
             )
 
-            binding_id = uuid.uuid4().hex
             current_time = get_current_time_millis()
 
             sql_binding = SqlEndpointBinding(
-                binding_id=binding_id,
                 endpoint_id=endpoint_id,
                 resource_type=resource_type,
                 resource_id=resource_id,
@@ -5255,19 +5486,30 @@ class SqlAlchemyStore(AbstractStore):
 
             return sql_binding.to_mlflow_entity()
 
-    def delete_endpoint_binding(self, binding_id: str) -> None:
+    def delete_endpoint_binding(
+        self, endpoint_id: str, resource_type: str, resource_id: str
+    ) -> None:
         """
         Delete an endpoint binding.
 
         Args:
-            binding_id: ID of the binding to delete.
+            endpoint_id: ID of the endpoint.
+            resource_type: Type of resource bound to the endpoint.
+            resource_id: ID of the resource.
 
         Raises:
             MlflowException: If the binding is not found (RESOURCE_DOES_NOT_EXIST).
         """
         with self.ManagedSessionMaker() as session:
             sql_binding = self._get_entity_or_404(
-                session, SqlEndpointBinding, {"binding_id": binding_id}, "EndpointBinding"
+                session,
+                SqlEndpointBinding,
+                {
+                    "endpoint_id": endpoint_id,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                },
+                "EndpointBinding",
             )
 
             session.delete(sql_binding)
@@ -5278,7 +5520,7 @@ class SqlAlchemyStore(AbstractStore):
         endpoint_id: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
-    ) -> list[EndpointBinding]:
+    ) -> list[GatewayEndpointBinding]:
         """
         List endpoint bindings with optional filtering.
 
@@ -5288,11 +5530,11 @@ class SqlAlchemyStore(AbstractStore):
             resource_id: Optional filter by resource ID.
 
         Returns:
-            List of EndpointBinding entities (with endpoint_name and models populated).
+            List of EndpointBinding entities (with endpoint_name and model_mappings populated).
         """
         with self.ManagedSessionMaker() as session:
             query = session.query(SqlEndpointBinding).options(
-                joinedload(SqlEndpointBinding.endpoint).joinedload(SqlEndpoint.models)
+                joinedload(SqlEndpointBinding.endpoint).joinedload(SqlEndpoint.model_mappings)
             )
 
             if endpoint_id is not None:
@@ -5313,7 +5555,7 @@ class SqlAlchemyStore(AbstractStore):
         self,
         resource_type: str,
         resource_id: str,
-    ) -> EndpointConfig:
+    ) -> GatewayEndpointConfig:
         """
         Get complete endpoint configuration for a resource (server-side only).
 
@@ -5331,7 +5573,7 @@ class SqlAlchemyStore(AbstractStore):
         Raises:
             MlflowException: If no binding exists for the resource (RESOURCE_DOES_NOT_EXIST),
                 if the endpoint is not found (RESOURCE_DOES_NOT_EXIST), or if any referenced
-                secret is not found (RESOURCE_DOES_NOT_EXIST).
+                model definition or secret is not found (RESOURCE_DOES_NOT_EXIST).
         """
         with self.ManagedSessionMaker() as session:
             sql_binding = self._get_entity_or_404(
@@ -5348,16 +5590,24 @@ class SqlAlchemyStore(AbstractStore):
             kek_manager = KEKManager()
             model_configs = []
 
-            for sql_model in sql_endpoint.models:
+            for sql_mapping in sql_endpoint.model_mappings:
+                sql_model_def = self._get_entity_or_404(
+                    session,
+                    SqlModelDefinition,
+                    {"model_definition_id": sql_mapping.model_definition_id},
+                    "ModelDefinition",
+                )
+
                 sql_secret = self._get_entity_or_404(
-                    session, SqlSecret, {"secret_id": sql_model.secret_id}, "Secret"
+                    session, SqlSecret, {"secret_id": sql_model_def.secret_id}, "Secret"
                 )
 
                 decrypted_value = decrypt_secret(
                     encrypted_value=sql_secret.encrypted_value,
                     wrapped_dek=sql_secret.wrapped_dek,
                     kek_manager=kek_manager,
-                    kek_version=sql_secret.kek_version,
+                    secret_id=sql_secret.secret_id,
+                    secret_name=sql_secret.secret_name,
                 )
 
                 decrypted_auth = None
@@ -5366,21 +5616,22 @@ class SqlAlchemyStore(AbstractStore):
                         encrypted_value=sql_secret.encrypted_auth_config,
                         wrapped_dek=sql_secret.wrapped_auth_config_dek,
                         kek_manager=kek_manager,
-                        kek_version=sql_secret.kek_version,
+                        secret_id=sql_secret.secret_id,
+                        secret_name=f"{sql_secret.secret_name}_auth_config",
                     )
 
                 model_configs.append(
-                    ModelConfig(
-                        model_id=sql_model.model_id,
-                        provider=sql_model.provider,
-                        model_name=sql_model.model_name,
+                    GatewayModelConfig(
+                        model_definition_id=sql_model_def.model_definition_id,
+                        provider=sql_model_def.provider,
+                        model_name=sql_model_def.model_name,
                         secret_value=decrypted_value,
                         credential_name=sql_secret.credential_name,
                         auth_config=decrypted_auth,
                     )
                 )
 
-            return EndpointConfig(
+            return GatewayEndpointConfig(
                 endpoint_id=sql_endpoint.endpoint_id,
                 endpoint_name=sql_endpoint.name,
                 models=model_configs,

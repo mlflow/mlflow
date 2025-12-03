@@ -76,6 +76,9 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
+    SqlEndpoint,
+    SqlEndpointBinding,
+    SqlEndpointModelMapping,
     SqlEntityAssociation,
     SqlEvaluationDataset,
     SqlEvaluationDatasetRecord,
@@ -89,8 +92,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelParam,
     SqlLoggedModelTag,
     SqlMetric,
+    SqlModelDefinition,
     SqlParam,
     SqlRun,
+    SqlSecret,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -382,6 +387,11 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlEvaluationDataset,
             SqlExperimentTag,
             SqlExperiment,
+            SqlEndpointBinding,
+            SqlEndpointModelMapping,
+            SqlEndpoint,
+            SqlModelDefinition,
+            SqlSecret,
         ):
             session.query(model).delete()
 
@@ -551,7 +561,7 @@ def test_delete_experiment(store: SqlAlchemyStore):
     experiments = _create_experiments(store, ["morty", "rick", "rick and morty"])
 
     all_experiments = store.search_experiments()
-    assert len(all_experiments) == len(experiments) + 1  # default
+    assert len(all_experiments) == len(experiments) + 1
 
     exp_id = experiments[0]
     exp = store.get_experiment(exp_id)
@@ -1152,9 +1162,7 @@ def test_delete_run(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
         assert actual.lifecycle_stage == entities.LifecycleStage.DELETED
-        assert (
-            actual.deleted_time is not None
-        )  # deleted time should be updated and thus not None anymore
+        assert actual.deleted_time is not None
 
         deleted_run = store.get_run(run.info.run_id)
         assert actual.run_uuid == deleted_run.info.run_id
@@ -1677,7 +1685,7 @@ def test_get_metric_history_with_page_token(store: SqlAlchemyStore):
     # Test pagination without max_results (should return all in one page)
     result = store.get_metric_history(run_id, metric_key, page_token=None)
     assert len(result) == 10
-    assert result.token is None  # No next page
+    assert result.token is None
 
 
 def test_rename_experiment(store: SqlAlchemyStore):
@@ -1825,7 +1833,7 @@ def test_error_logging_to_deleted_run(store: SqlAlchemyStore):
     store.restore_run(run_id)
     assert store.get_run(run_id).info.lifecycle_stage == entities.LifecycleStage.ACTIVE
     store.log_param(run_id, entities.Param("p1345", "v22"))
-    store.log_metric(run_id, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
+    store.log_metric(run_id, entities.Metric("m1345", 34.0, 85, 1))
     store.set_tag(run_id, entities.RunTag("t1345", "tv44"))
 
     run = store.get_run(run_id)
@@ -2162,7 +2170,7 @@ def test_search_metrics(store: SqlAlchemyStore):
 
     store.log_metric(r1, entities.Metric("m_a", 2.0, 2, 0))
     store.log_metric(r2, entities.Metric("m_b", 3.0, 2, 0))
-    store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))  # this is last timestamp
+    store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))
     store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
     filter_string = "metrics.common = 1.0"
@@ -3365,7 +3373,7 @@ def test_search_runs_correctly_filters_large_data(store: SqlAlchemyStore):
         ViewType.ALL,
         max_results=10,
     )
-    assert len(run_results) == 2  # 20 runs between 9 and 26, 2 of which have a 0 tkey_0 value
+    assert len(run_results) == 2
 
     run_results = store.search_runs(
         [experiment_id],
@@ -3375,7 +3383,7 @@ def test_search_runs_correctly_filters_large_data(store: SqlAlchemyStore):
         ViewType.ALL,
         max_results=5,
     )
-    assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
+    assert len(run_results) == 1
 
 
 def test_search_runs_keep_all_runs_when_sorting(store: SqlAlchemyStore):
@@ -3440,8 +3448,8 @@ def test_get_metric_history_on_non_existent_metric_key(store: SqlAlchemyStore):
 def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
     with store.engine.begin() as conn:
         # cursor = conn.cursor()
-        dataset_source = "a" * 65535  # 65535 is the max size for a TEXT column
-        dataset_profile = "a" * 16777215  # 16777215 is the max size for a MEDIUMTEXT column
+        dataset_source = "a" * 65535
+        dataset_profile = "a" * 16777215
         conn.execute(
             sqlalchemy.sql.text(
                 f"""
@@ -5208,7 +5216,7 @@ def test_search_traces_with_span_content_filter(store: SqlAlchemyStore):
 
     # Test LIKE with wildcard patterns
     traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%model%"')
-    assert len(traces) == 2  # Both LLM spans have "model" in their attributes
+    assert len(traces) == 2
     assert {t.request_id for t in traces} == {trace1_id, trace2_id}
 
     # Test searching for array content
@@ -5940,7 +5948,7 @@ def test_search_traces_with_name_ilike_variations(store: SqlAlchemyStore):
     # Test: LIKE is case-sensitive (should not match)
     traces, _ = store.search_traces([exp_id], filter_string='trace.name LIKE "user%"')
     trace_ids = {t.request_id for t in traces}
-    assert trace_ids == {trace2_id}  # Only lowercase match
+    assert trace_ids == {trace2_id}
 
     # Test: Exact match with !=
     traces, _ = store.search_traces([exp_id], filter_string='trace.name != "USER_LOGIN"')
@@ -6461,7 +6469,7 @@ def test_search_traces_with_timestamp_ms_filters(store: SqlAlchemyStore):
     trace3_id = "trace3"
     trace4_id = "trace4"
 
-    base_time = 1000000  # Use a fixed base time for consistency
+    base_time = 1000000
 
     _create_trace(store, trace1_id, exp_id, request_time=base_time)
     _create_trace(store, trace2_id, exp_id, request_time=base_time + 5000)
@@ -7057,7 +7065,7 @@ def test_delete_traces_with_max_timestamp(store):
         _create_trace(store, f"tr-{i}", exp1, request_time=i)
 
     deleted = store.delete_traces(exp1, max_timestamp_millis=3)
-    assert deleted == 4  # inclusive (0, 1, 2, 3)
+    assert deleted == 4
     traces, _ = store.search_traces([exp1])
     assert len(traces) == 6
     for trace in traces:
@@ -7146,14 +7154,14 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
     mock_context.span_id = 222 if not is_async else 333
     mock_context.is_remote = False
     mock_context.trace_flags = trace_api.TraceFlags(1)
-    mock_context.trace_state = trace_api.TraceState()  # Empty TraceState
+    mock_context.trace_state = trace_api.TraceState()
 
     parent_mock_context = mock.Mock()
     parent_mock_context.trace_id = 12345
     parent_mock_context.span_id = 111
     parent_mock_context.is_remote = False
     parent_mock_context.trace_flags = trace_api.TraceFlags(1)
-    parent_mock_context.trace_state = trace_api.TraceState()  # Empty TraceState
+    parent_mock_context.trace_state = trace_api.TraceState()
 
     readable_span = OTelReadableSpan(
         name="test_span",
@@ -7198,7 +7206,7 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         assert saved_span is not None
         assert saved_span.experiment_id == int(experiment_id)
         assert saved_span.parent_span_id == span.parent_id
-        assert saved_span.status == "UNSET"  # Default OpenTelemetry status
+        assert saved_span.status == "UNSET"
         assert saved_span.status == span.status.status_code
         assert saved_span.start_time_unix_nano == span.start_time_ns
         assert saved_span.end_time_unix_nano == span.end_time_ns
@@ -7445,8 +7453,8 @@ async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_asy
             ),
             parent=None,
             attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
-            start_time=1_000_000_000,  # 1 second in nanoseconds
-            end_time=2_000_000_000,  # 2 seconds
+            start_time=1_000_000_000,
+            end_time=2_000_000_000,
             resource=_OTelResource.get_empty(),
         ),
         trace_id,
@@ -7461,8 +7469,8 @@ async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_asy
     # Verify initial trace times
     with store.ManagedSessionMaker() as session:
         trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
-        assert trace.timestamp_ms == 1_000  # 1 second
-        assert trace.execution_time_ms == 1_000  # 1 second duration
+        assert trace.timestamp_ms == 1_000
+        assert trace.execution_time_ms == 1_000
 
     # Create second span that starts earlier (0.5s) and ends later (3s)
     span2 = create_mlflow_span(
@@ -7476,8 +7484,8 @@ async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_asy
             ),
             parent=None,
             attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
-            start_time=500_000_000,  # 0.5 seconds
-            end_time=3_000_000_000,  # 3 seconds
+            start_time=500_000_000,
+            end_time=3_000_000_000,
             resource=_OTelResource.get_empty(),
         ),
         trace_id,
@@ -7492,8 +7500,8 @@ async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_asy
     # Verify trace times were updated
     with store.ManagedSessionMaker() as session:
         trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
-        assert trace.timestamp_ms == 500  # 0.5 seconds (earlier start)
-        assert trace.execution_time_ms == 2_500  # 2.5 seconds duration (0.5s to 3s)
+        assert trace.timestamp_ms == 500
+        assert trace.execution_time_ms == 2_500
 
     # Create third span that only extends the end time (2.5s to 4s)
     span3 = create_mlflow_span(
@@ -7507,8 +7515,8 @@ async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_asy
             ),
             parent=None,
             attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
-            start_time=2_500_000_000,  # 2.5 seconds
-            end_time=4_000_000_000,  # 4 seconds
+            start_time=2_500_000_000,
+            end_time=4_000_000_000,
             resource=_OTelResource.get_empty(),
         ),
         trace_id,
@@ -7523,8 +7531,8 @@ async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_asy
     # Verify trace times were updated again
     with store.ManagedSessionMaker() as session:
         trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
-        assert trace.timestamp_ms == 500  # Still 0.5 seconds (no earlier start)
-        assert trace.execution_time_ms == 3_500  # 3.5 seconds duration (0.5s to 4s)
+        assert trace.timestamp_ms == 500
+        assert trace.execution_time_ms == 3_500
 
 
 @pytest.mark.asyncio
@@ -7545,8 +7553,8 @@ async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
             ),
             parent=None,
             attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
-            start_time=1_000_000_000,  # 1 second in nanoseconds
-            end_time=None,  # No end time - span still in progress
+            start_time=1_000_000_000,
+            end_time=None,
             resource=_OTelResource.get_empty(),
         ),
         trace_id,
@@ -7561,8 +7569,8 @@ async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
     # Verify trace has timestamp but no execution_time
     with store.ManagedSessionMaker() as session:
         trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
-        assert trace.timestamp_ms == 1_000  # 1 second
-        assert trace.execution_time_ms is None  # No execution time since span not ended
+        assert trace.timestamp_ms == 1_000
+        assert trace.execution_time_ms is None
 
     # Add a second span that also has no end time
     span2 = create_mlflow_span(
@@ -7576,8 +7584,8 @@ async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
             ),
             parent=None,
             attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
-            start_time=500_000_000,  # 0.5 seconds - earlier start
-            end_time=None,  # No end time
+            start_time=500_000_000,
+            end_time=None,
             resource=_OTelResource.get_empty(),
         ),
         trace_id,
@@ -7592,8 +7600,8 @@ async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
     # Verify trace timestamp updated but execution_time still None
     with store.ManagedSessionMaker() as session:
         trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
-        assert trace.timestamp_ms == 500  # Updated to earlier time
-        assert trace.execution_time_ms is None  # Still no execution time
+        assert trace.timestamp_ms == 500
+        assert trace.execution_time_ms is None
 
     # Now add a span with an end time
     span3 = create_mlflow_span(
@@ -7607,8 +7615,8 @@ async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
             ),
             parent=None,
             attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
-            start_time=2_000_000_000,  # 2 seconds
-            end_time=3_000_000_000,  # 3 seconds
+            start_time=2_000_000_000,
+            end_time=3_000_000_000,
             resource=_OTelResource.get_empty(),
         ),
         trace_id,
@@ -7623,8 +7631,8 @@ async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
     # Verify trace now has execution_time
     with store.ManagedSessionMaker() as session:
         trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
-        assert trace.timestamp_ms == 500  # Still earliest start
-        assert trace.execution_time_ms == 2_500  # 3s - 0.5s = 2.5s
+        assert trace.timestamp_ms == 500
+        assert trace.execution_time_ms == 2_500
 
 
 def test_log_outputs(store: SqlAlchemyStore):
@@ -7980,7 +7988,7 @@ def test_search_logged_models(store: SqlAlchemyStore):
     exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
 
     model_1 = store.create_logged_model(experiment_id=exp_id_1)
-    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    time.sleep(0.001)
     models = store.search_logged_models(experiment_ids=[exp_id_1])
     assert [m.name for m in models] == [model_1.name]
 
@@ -8001,7 +8009,7 @@ def test_search_logged_models(store: SqlAlchemyStore):
 def test_search_logged_models_filter_string(store: SqlAlchemyStore):
     exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
     model_1 = store.create_logged_model(experiment_id=exp_id_1)
-    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    time.sleep(0.001)
     models = store.search_logged_models(experiment_ids=[exp_id_1])
 
     # Search by string attribute
@@ -8207,9 +8215,9 @@ def test_search_logged_models_invalid_filter_string(store: SqlAlchemyStore):
 def test_search_logged_models_order_by(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model_1 = store.create_logged_model(name="model_1", experiment_id=exp_id)
-    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    time.sleep(0.001)
     model_2 = store.create_logged_model(name="model_2", experiment_id=exp_id)
-    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    time.sleep(0.001)
     run = store.create_run(
         experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
     )
@@ -8325,9 +8333,9 @@ class DummyDataset:
 def test_search_logged_models_order_by_dataset(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model_1 = store.create_logged_model(experiment_id=exp_id)
-    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    time.sleep(0.001)
     model_2 = store.create_logged_model(experiment_id=exp_id)
-    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    time.sleep(0.001)
     run = store.create_run(
         experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
     )
@@ -8446,7 +8454,7 @@ def test_search_logged_models_pagination(store: SqlAlchemyStore):
     exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
 
     model_1 = store.create_logged_model(experiment_id=exp_id_1)
-    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    time.sleep(0.001)
     model_2 = store.create_logged_model(experiment_id=exp_id_1)
 
     page = store.search_logged_models(experiment_ids=[exp_id_1], max_results=3)
@@ -9090,9 +9098,9 @@ def test_dataset_crud_operations(store):
         assert created_dataset.created_time > 0
         assert created_dataset.last_update_time > 0
         assert created_dataset.created_time == created_dataset.last_update_time
-        assert created_dataset.schema is None  # Schema is computed when data is added
-        assert created_dataset.profile is None  # Profile is computed when data is added
-        assert created_dataset.created_by == "test_user"  # Extracted from mlflow.user tag
+        assert created_dataset.schema is None
+        assert created_dataset.profile is None
+        assert created_dataset.created_by == "test_user"
 
         retrieved_dataset = store.get_dataset(dataset_id=created_dataset.dataset_id)
         assert retrieved_dataset.dataset_id == created_dataset.dataset_id
@@ -9135,34 +9143,34 @@ def test_dataset_records_pagination(store):
 
     page1, next_token1 = store._load_dataset_records(dataset.dataset_id, max_results=10)
     assert len(page1) == 10
-    assert next_token1 is not None  # Token should exist for more pages
+    assert next_token1 is not None
 
     # Collect all IDs from page1
     page1_ids = {r.inputs["id"] for r in page1}
-    assert len(page1_ids) == 10  # All IDs should be unique
+    assert len(page1_ids) == 10
 
     page2, next_token2 = store._load_dataset_records(
         dataset.dataset_id, max_results=10, page_token=next_token1
     )
     assert len(page2) == 10
-    assert next_token2 is not None  # Token should exist for more pages
+    assert next_token2 is not None
 
     # Collect all IDs from page2
     page2_ids = {r.inputs["id"] for r in page2}
-    assert len(page2_ids) == 10  # All IDs should be unique
-    assert page1_ids.isdisjoint(page2_ids)  # No overlap between pages
+    assert len(page2_ids) == 10
+    assert page1_ids.isdisjoint(page2_ids)
 
     page3, next_token3 = store._load_dataset_records(
         dataset.dataset_id, max_results=10, page_token=next_token2
     )
     assert len(page3) == 5
-    assert next_token3 is None  # No more pages
+    assert next_token3 is None
 
     # Collect all IDs from page3
     page3_ids = {r.inputs["id"] for r in page3}
-    assert len(page3_ids) == 5  # All IDs should be unique
-    assert page1_ids.isdisjoint(page3_ids)  # No overlap
-    assert page2_ids.isdisjoint(page3_ids)  # No overlap
+    assert len(page3_ids) == 5
+    assert page1_ids.isdisjoint(page3_ids)
+    assert page2_ids.isdisjoint(page3_ids)
 
     # Verify we got all 25 records across all pages
     all_ids = page1_ids | page2_ids | page3_ids
@@ -9751,16 +9759,16 @@ def test_dataset_update_tags(store):
     update_tags = {
         "environment": "production",
         "team": "ml-ops",
-        "deprecated": None,  # This will be ignored, not delete the tag
+        "deprecated": None,
     }
     store.set_dataset_tags(created.dataset_id, update_tags)
 
     updated = store.get_dataset(created.dataset_id)
     expected_tags = {
-        "environment": "production",  # Updated
-        "version": "1.0",  # Preserved
-        "deprecated": "true",  # Preserved (None didn't delete it)
-        "team": "ml-ops",  # Added
+        "environment": "production",
+        "version": "1.0",
+        "deprecated": "true",
+        "team": "ml-ops",
     }
     assert updated.tags == expected_tags
     assert updated.last_update_time == created.last_update_time
@@ -9794,7 +9802,7 @@ def test_dataset_digest_updates_with_changes(store):
     initial_digest = dataset.digest
     assert initial_digest is not None
 
-    time.sleep(0.01)  # Ensure time difference
+    time.sleep(0.01)
 
     records = [
         {
@@ -9810,7 +9818,7 @@ def test_dataset_digest_updates_with_changes(store):
     assert updated_dataset.digest != initial_digest
 
     prev_digest = updated_dataset.digest
-    time.sleep(0.01)  # Ensure time difference
+    time.sleep(0.01)
 
     more_records = [
         {
@@ -9852,21 +9860,21 @@ def test_sql_dataset_record_merge():
         record.merge(new_data)
 
         assert record.expectations == {
-            "accuracy": 0.9,  # Updated
-            "relevance": 0.7,  # Preserved
-            "completeness": 0.95,  # Added
+            "accuracy": 0.9,
+            "relevance": 0.7,
+            "completeness": 0.95,
         }
 
         assert record.tags == {
-            "env": "test",  # Preserved
-            "version": "2.0",  # Added
+            "env": "test",
+            "version": "2.0",
         }
 
-        assert record.created_time == 1000  # Preserved
-        assert record.last_update_time == 2000  # Updated
+        assert record.created_time == 1000
+        assert record.last_update_time == 2000
 
-        assert record.created_by == "user1"  # Preserved
-        assert record.last_updated_by == "user1"  # No mlflow.user in tags
+        assert record.created_by == "user1"
+        assert record.last_updated_by == "user1"
 
         record2 = SqlEvaluationDatasetRecord()
         record2.expectations = None
@@ -9888,8 +9896,8 @@ def test_sql_dataset_record_merge():
 
         record3.merge(new_data3)
 
-        assert record3.created_by == "user1"  # Preserved
-        assert record3.last_updated_by == "user2"  # Updated from mlflow.user tag
+        assert record3.created_by == "user1"
+        assert record3.last_updated_by == "user2"
 
         record4 = SqlEvaluationDatasetRecord()
         record4.expectations = {"accuracy": 0.8}
@@ -9909,7 +9917,7 @@ def test_sql_dataset_record_merge():
         record5.merge({"expectations": {"relevance": 0.9}})
 
         assert record5.expectations == {"accuracy": 0.8, "relevance": 0.9}
-        assert record5.tags == {"env": "test"}  # Unchanged
+        assert record5.tags == {"env": "test"}
 
         record6 = SqlEvaluationDatasetRecord()
         record6.expectations = {"accuracy": 0.8}
@@ -9917,7 +9925,7 @@ def test_sql_dataset_record_merge():
 
         record6.merge({"tags": {"version": "1.0"}})
 
-        assert record6.expectations == {"accuracy": 0.8}  # Unchanged
+        assert record6.expectations == {"accuracy": 0.8}
         assert record6.tags == {"env": "test", "version": "1.0"}
 
 
@@ -10030,7 +10038,7 @@ async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore
 
     parent_context = mock.Mock()
     parent_context.trace_id = 56789
-    parent_context.span_id = 888  # Parent span not included in log
+    parent_context.span_id = 888
     parent_context.is_remote = False
     parent_context.trace_flags = trace_api.TraceFlags(1)
     parent_context.trace_state = trace_api.TraceState()
@@ -10038,7 +10046,7 @@ async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore
     child_otel_span = OTelReadableSpan(
         name="child_span_only",
         context=child_context,
-        parent=parent_context,  # Has parent, not a root span
+        parent=parent_context,
         attributes={
             "mlflow.traceRequestId": json.dumps(trace_id),
             "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
@@ -11598,7 +11606,7 @@ def test_get_trace_with_partial_trace(store: SqlAlchemyStore, allow_partial: boo
             trace_metadata={
                 TraceMetadataKey.SIZE_STATS: json.dumps(
                     {
-                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                        TraceSizeStatsKey.NUM_SPANS: 2,
                     }
                 ),
             },
@@ -11653,7 +11661,7 @@ def test_get_trace_with_complete_trace(store: SqlAlchemyStore, allow_partial: bo
             trace_metadata={
                 TraceMetadataKey.SIZE_STATS: json.dumps(
                     {
-                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                        TraceSizeStatsKey.NUM_SPANS: 2,
                     }
                 ),
             },
@@ -11664,3 +11672,1014 @@ def test_get_trace_with_complete_trace(store: SqlAlchemyStore, allow_partial: bo
     trace = store.get_trace(trace_id, allow_partial=allow_partial)
     assert trace is not None
     assert len(trace.data.spans) == 2
+
+
+@pytest.fixture
+def kek_passphrase(monkeypatch):
+    passphrase = "test-kek-passphrase-for-testing"
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", passphrase)
+    return passphrase
+
+
+@pytest.fixture
+def create_secret(store):
+    def _create(
+        secret_name=None,
+        secret_value="sk-test-value-12345",
+        provider=None,
+        credential_name=None,
+        auth_config=None,
+        created_by=None,
+        **kwargs,
+    ):
+        if secret_name is None:
+            secret_name = f"test_secret_{uuid.uuid4().hex[:8]}"
+        return store.create_secret(
+            secret_name=secret_name,
+            secret_value=secret_value,
+            provider=provider,
+            credential_name=credential_name,
+            auth_config=auth_config,
+            created_by=created_by,
+        )
+
+    return _create
+
+
+@pytest.fixture
+def create_model_definition(store):
+    def _create(secret_id, provider, model_name, name=None, created_by=None, **kwargs):
+        return store.create_model_definition(
+            name=name if name is not None else f"model_def_{uuid.uuid4().hex[:8]}",
+            secret_id=secret_id,
+            provider=provider,
+            model_name=model_name,
+            created_by=created_by,
+        )
+
+    return _create
+
+
+@pytest.fixture
+def create_endpoint(store):
+    def _create(model_definition_ids, name=None, created_by=None, **kwargs):
+        return store.create_endpoint(
+            name=name if name is not None else f"test_endpoint_{uuid.uuid4().hex[:8]}",
+            model_definition_ids=model_definition_ids,
+            created_by=created_by,
+        )
+
+    return _create
+
+
+def test_create_secret_basic(store, kek_passphrase, create_secret):
+    secret = create_secret(secret_name="my_api_key", created_by="user@example.com")
+
+    assert secret.secret_id is not None
+    assert secret.secret_name == "my_api_key"
+    assert secret.created_by == "user@example.com"
+    assert secret.last_updated_by == "user@example.com"
+    assert secret.provider is None
+    assert secret.masked_value == "sk-...2345"
+    assert not hasattr(secret, "secret_value")
+
+
+@pytest.mark.parametrize(
+    ("provider", "secret_value"),
+    [
+        ("openai", "sk-openai-test-key"),
+        ("anthropic", "sk-ant-test-key"),
+        ("google", "gemini-test-key"),
+        ("azure_openai", "azure-key-123"),
+    ],
+)
+def test_create_secret_with_provider(store, kek_passphrase, create_secret, provider, secret_value):
+    secret = create_secret(
+        secret_name=f"{provider}_key",
+        secret_value=secret_value,
+        provider=provider,
+        created_by="user@example.com",
+    )
+
+    assert secret.provider == provider
+    assert secret.secret_name == f"{provider}_key"
+    retrieved = store.get_secret_info(secret_id=secret.secret_id)
+    assert retrieved.provider == provider
+
+
+def test_create_secret_with_auth_config(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    auth_config = {
+        "azure_endpoint": "https://my-resource.openai.azure.com",
+        "api_version": "2024-02-01",
+    }
+    secret = create_secret(
+        secret_name="azure_key",
+        secret_value="azure-api-key-12345",
+        provider="azure_openai",
+        auth_config=auth_config,
+        created_by="user@example.com",
+    )
+
+    assert secret.secret_id is not None
+    assert secret.provider == "azure_openai"
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id,
+        provider="azure_openai",
+        model_name="gpt-4-azure",
+    )
+
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    _ = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer",
+        resource_id="azure_scorer",
+    )
+
+    config = store.get_resource_endpoint_config(resource_type="scorer", resource_id="azure_scorer")
+    assert config.models[0].secret_value == "azure-api-key-12345"
+    assert config.models[0].auth_config == auth_config
+
+
+def test_create_secret_duplicate_name_fails(store, kek_passphrase, create_secret):
+    create_secret(secret_name="duplicate_name")
+
+    with pytest.raises(MlflowException, match="already exists"):
+        create_secret(secret_name="duplicate_name")
+
+
+def test_get_secret_by_id(store, kek_passphrase, create_secret):
+    secret = create_secret(secret_name="test_get_by_id", provider="openai")
+
+    retrieved = store.get_secret_info(secret_id=secret.secret_id)
+
+    assert retrieved.secret_id == secret.secret_id
+    assert retrieved.secret_name == "test_get_by_id"
+    assert retrieved.provider == "openai"
+
+
+def test_get_secret_by_name(store, kek_passphrase, create_secret):
+    secret = create_secret(secret_name="test_get_by_name", provider="anthropic")
+
+    retrieved = store.get_secret_info(secret_name="test_get_by_name")
+
+    assert retrieved.secret_id == secret.secret_id
+    assert retrieved.secret_name == "test_get_by_name"
+    assert retrieved.provider == "anthropic"
+
+
+def test_get_secret_nonexistent_fails(store, kek_passphrase):
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_secret_info(secret_id="nonexistent_id")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_secret_info(secret_name="nonexistent_name")
+
+
+def test_update_secret_value(store, kek_passphrase, create_secret):
+    secret = create_secret(
+        secret_name="updatable_key", secret_value="old-value-123", created_by="user1"
+    )
+
+    updated = store.update_secret(
+        secret_id=secret.secret_id,
+        secret_value="new-value-456",
+        updated_by="admin",
+    )
+
+    assert updated.secret_id == secret.secret_id
+    assert updated.secret_name == secret.secret_name
+    assert updated.last_updated_by == "admin"
+    assert updated.masked_value == "new...-456"
+
+
+def test_update_secret_auth_config(store, kek_passphrase, create_secret):
+    secret = create_secret(
+        secret_name="azure_key_updatable",
+        secret_value="azure-api-key-original",
+        provider="azure_openai",
+        auth_config={"azure_endpoint": "https://original.openai.azure.com"},
+    )
+
+    updated = store.update_secret(
+        secret_id=secret.secret_id,
+        secret_value="azure-api-key-rotated",
+        auth_config={
+            "azure_endpoint": "https://new.openai.azure.com",
+            "api_version": "2024-02-01",
+        },
+        updated_by="admin",
+    )
+
+    assert updated.secret_id == secret.secret_id
+
+
+def test_update_nonexistent_secret_fails(store, kek_passphrase):
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_secret(secret_id="nonexistent_id", secret_value="new-value")
+
+
+def test_delete_secret(store, kek_passphrase, create_secret):
+    secret = create_secret(secret_name="deletable_secret")
+
+    store.delete_secret(secret_id=secret.secret_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_secret_info(secret_id=secret.secret_id)
+
+
+def test_delete_nonexistent_secret_fails(store, kek_passphrase):
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_secret(secret_id="nonexistent_id")
+
+
+def test_list_secrets_basic(store, kek_passphrase, create_secret):
+    secrets_before = store.list_secrets()
+    count_before = len(secrets_before)
+
+    create_secret(secret_name="secret1", provider="openai")
+    create_secret(secret_name="secret2", provider="anthropic")
+
+    secrets_after = store.list_secrets()
+    assert len(secrets_after) == count_before + 2
+
+
+def test_list_secrets_filter_by_provider(store, kek_passphrase, create_secret):
+    create_secret(secret_name="openai_key", provider="openai")
+    create_secret(secret_name="anthropic_key", provider="anthropic")
+    create_secret(secret_name="google_key", provider="google")
+
+    openai_secrets = store.list_secrets(provider="openai")
+    assert len(openai_secrets) == 1
+    assert openai_secrets[0].secret_name == "openai_key"
+
+    anthropic_secrets = store.list_secrets(provider="anthropic")
+    assert len(anthropic_secrets) == 1
+    assert anthropic_secrets[0].secret_name == "anthropic_key"
+
+
+def test_create_model_definition_basic(
+    store, kek_passphrase, create_secret, create_model_definition
+):
+    secret = create_secret(provider="openai")
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+        name="GPT-4 Model",
+        created_by="user@example.com",
+    )
+
+    assert model_def.model_definition_id is not None
+    assert model_def.name == "GPT-4 Model"
+    assert model_def.provider == "openai"
+    assert model_def.model_name == "gpt-4"
+    assert model_def.secret_id == secret.secret_id
+    assert model_def.created_by == "user@example.com"
+
+
+def test_create_model_definition_duplicate_name_fails(
+    store, kek_passphrase, create_secret, create_model_definition
+):
+    secret = create_secret(provider="openai")
+
+    create_model_definition(
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+        name="duplicate_model_name",
+    )
+
+    with pytest.raises(MlflowException, match="already exists"):
+        create_model_definition(
+            secret_id=secret.secret_id,
+            provider="openai",
+            model_name="gpt-3.5",
+            name="duplicate_model_name",
+        )
+
+
+def test_get_model_definition(store, kek_passphrase, create_secret, create_model_definition):
+    secret = create_secret(provider="openai")
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+        name="test_get_model_def",
+    )
+
+    retrieved_by_id = store.get_model_definition(model_definition_id=model_def.model_definition_id)
+    assert retrieved_by_id.name == "test_get_model_def"
+
+    retrieved_by_name = store.get_model_definition(name="test_get_model_def")
+    assert retrieved_by_name.model_definition_id == model_def.model_definition_id
+
+
+def test_list_model_definitions(store, kek_passphrase, create_secret, create_model_definition):
+    secret_openai = create_secret(secret_name="openai_key", provider="openai")
+    secret_anthropic = create_secret(secret_name="anthropic_key", provider="anthropic")
+
+    create_model_definition(
+        secret_id=secret_openai.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    create_model_definition(
+        secret_id=secret_anthropic.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+
+    all_defs = store.list_model_definitions()
+    assert len(all_defs) >= 2
+
+    openai_defs = store.list_model_definitions(provider="openai")
+    assert all(d.provider == "openai" for d in openai_defs)
+
+
+def test_update_model_definition(store, kek_passphrase, create_secret, create_model_definition):
+    secret1 = create_secret(secret_name="secret1", provider="openai")
+    secret2 = create_secret(secret_name="secret2", provider="openai")
+
+    model_def = create_model_definition(
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+        name="original_name",
+    )
+
+    updated = store.update_model_definition(
+        model_definition_id=model_def.model_definition_id,
+        name="updated_name",
+        secret_id=secret2.secret_id,
+        model_name="gpt-4-turbo",
+        updated_by="admin",
+    )
+
+    assert updated.name == "updated_name"
+    assert updated.secret_id == secret2.secret_id
+    assert updated.model_name == "gpt-4-turbo"
+    assert updated.last_updated_by == "admin"
+
+
+def test_delete_model_definition(store, kek_passphrase, create_secret, create_model_definition):
+    secret = create_secret(provider="openai")
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    store.delete_model_definition(model_definition_id=model_def.model_definition_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_model_definition(model_definition_id=model_def.model_definition_id)
+
+
+def test_delete_model_definition_in_use_fails(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    with pytest.raises(MlflowException, match="(?i)(in use|restrict|foreign key)"):
+        store.delete_model_definition(model_definition_id=model_def.model_definition_id)
+
+
+def test_create_endpoint_basic(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = create_endpoint(
+        model_definition_ids=[model_def.model_definition_id],
+        name="Test Endpoint",
+        created_by="user@example.com",
+    )
+
+    assert endpoint.endpoint_id is not None
+    assert endpoint.name == "Test Endpoint"
+    assert len(endpoint.model_mappings) == 1
+    assert endpoint.model_mappings[0].model_definition_id == model_def.model_definition_id
+
+
+def test_create_endpoint_multiple_models(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret1 = create_secret(secret_name="secret1", provider="openai")
+    secret2 = create_secret(secret_name="secret2", provider="openai")
+
+    model_def1 = create_model_definition(
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = create_model_definition(
+        secret_id=secret2.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    endpoint = create_endpoint(
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        name="Multi-model Endpoint",
+    )
+
+    assert len(endpoint.model_mappings) == 2
+    model_def_ids = {m.model_definition_id for m in endpoint.model_mappings}
+    assert model_def_ids == {model_def1.model_definition_id, model_def2.model_definition_id}
+
+
+def test_create_endpoint_with_nonexistent_model_definition_fails(
+    store, kek_passphrase, create_endpoint
+):
+    with pytest.raises(MlflowException, match="not found"):
+        create_endpoint(model_definition_ids=["nonexistent_id"])
+
+
+def test_create_endpoint_duplicate_name_fails(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    create_endpoint(
+        model_definition_ids=[model_def.model_definition_id],
+        name="duplicate_endpoint_name",
+    )
+
+    with pytest.raises(
+        MlflowException, match="(?i)(unique constraint|duplicate entry|duplicate key)"
+    ):
+        create_endpoint(
+            model_definition_ids=[model_def.model_definition_id],
+            name="duplicate_endpoint_name",
+        )
+
+
+def test_get_endpoint_by_id(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(
+        model_definition_ids=[model_def.model_definition_id],
+        name="test_get_endpoint",
+    )
+
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+
+    assert retrieved.endpoint_id == endpoint.endpoint_id
+    assert retrieved.name == "test_get_endpoint"
+    assert len(retrieved.model_mappings) == 1
+
+
+def test_get_endpoint_by_name(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(
+        model_definition_ids=[model_def.model_definition_id],
+        name="test_get_by_name",
+    )
+
+    retrieved = store.get_endpoint(name="test_get_by_name")
+
+    assert retrieved.endpoint_id == endpoint.endpoint_id
+    assert retrieved.name == "test_get_by_name"
+
+
+def test_get_endpoint_nonexistent_fails(store, kek_passphrase):
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_endpoint(endpoint_id="nonexistent_id")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_endpoint(name="nonexistent_name")
+
+
+def test_update_endpoint_name(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(
+        model_definition_ids=[model_def.model_definition_id],
+        name="original_name",
+    )
+
+    updated = store.update_endpoint(
+        endpoint_id=endpoint.endpoint_id, name="updated_name", updated_by="admin"
+    )
+
+    assert updated.endpoint_id == endpoint.endpoint_id
+    assert updated.name == "updated_name"
+    assert updated.last_updated_by == "admin"
+
+
+def test_delete_endpoint(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    store.delete_endpoint(endpoint_id=endpoint.endpoint_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+
+
+def test_delete_endpoint_cascades_to_bindings(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    binding = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer",
+        resource_id="scorer_1",
+    )
+
+    store.delete_endpoint(endpoint_id=endpoint.endpoint_id)
+
+    with store.ManagedSessionMaker() as session:
+        remaining_binding = (
+            session.query(SqlEndpointBinding)
+            .filter_by(
+                endpoint_id=binding.endpoint_id,
+                resource_type=binding.resource_type,
+                resource_id=binding.resource_id,
+            )
+            .first()
+        )
+        assert remaining_binding is None
+
+
+def test_list_endpoints_basic(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret1 = create_secret(secret_name="secret1", provider="openai")
+    secret2 = create_secret(secret_name="secret2", provider="anthropic")
+
+    model_def1 = create_model_definition(
+        secret_id=secret1.secret_id, provider="openai", model_name="gpt-4"
+    )
+    model_def2 = create_model_definition(
+        secret_id=secret2.secret_id, provider="anthropic", model_name="claude-3-5-sonnet-20241022"
+    )
+
+    create_endpoint(
+        model_definition_ids=[model_def1.model_definition_id],
+        name="endpoint1",
+    )
+    create_endpoint(
+        model_definition_ids=[model_def2.model_definition_id],
+        name="endpoint2",
+    )
+
+    endpoints = store.list_endpoints()
+    assert len(endpoints) >= 2
+
+
+def test_list_endpoints_filter_by_provider(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret_openai = create_secret(secret_name="openai_key", provider="openai")
+    secret_anthropic = create_secret(secret_name="anthropic_key", provider="anthropic")
+
+    model_def_openai = create_model_definition(
+        secret_id=secret_openai.secret_id, provider="openai", model_name="gpt-4"
+    )
+    model_def_anthropic = create_model_definition(
+        secret_id=secret_anthropic.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+
+    create_endpoint(
+        model_definition_ids=[model_def_openai.model_definition_id],
+        name="openai_endpoint",
+    )
+    create_endpoint(
+        model_definition_ids=[model_def_anthropic.model_definition_id],
+        name="anthropic_endpoint",
+    )
+
+    openai_endpoints = store.list_endpoints(provider="openai")
+    assert len(openai_endpoints) >= 1
+
+
+def test_list_endpoints_filter_by_secret_id(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+
+    model_def1 = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    model_def2 = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-3.5-turbo"
+    )
+
+    create_endpoint(
+        model_definition_ids=[model_def1.model_definition_id],
+        name="gpt4_endpoint",
+    )
+    create_endpoint(
+        model_definition_ids=[model_def2.model_definition_id],
+        name="gpt35_endpoint",
+    )
+
+    endpoints = store.list_endpoints(secret_id=secret.secret_id)
+    assert len(endpoints) == 2
+
+
+def test_attach_model_to_endpoint(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret1 = create_secret(secret_name="secret1", provider="openai")
+    secret2 = create_secret(secret_name="secret2", provider="openai")
+
+    model_def1 = create_model_definition(
+        secret_id=secret1.secret_id, provider="openai", model_name="gpt-4"
+    )
+    model_def2 = create_model_definition(
+        secret_id=secret2.secret_id, provider="openai", model_name="gpt-3.5-turbo"
+    )
+
+    endpoint = create_endpoint(model_definition_ids=[model_def1.model_definition_id])
+
+    new_mapping = store.attach_model_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def2.model_definition_id,
+        weight=1,
+        created_by="admin",
+    )
+
+    assert new_mapping.model_definition_id == model_def2.model_definition_id
+    assert new_mapping.endpoint_id == endpoint.endpoint_id
+
+    updated_endpoint = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(updated_endpoint.model_mappings) == 2
+    model_def_ids = {m.model_definition_id for m in updated_endpoint.model_mappings}
+    assert model_def_ids == {model_def1.model_definition_id, model_def2.model_definition_id}
+
+
+def test_attach_model_to_endpoint_duplicate_fails(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    with pytest.raises(MlflowException, match="already attached"):
+        store.attach_model_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            model_definition_id=model_def.model_definition_id,
+        )
+
+
+def test_attach_model_with_nonexistent_model_definition_fails(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.attach_model_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            model_definition_id="nonexistent_id",
+        )
+
+
+def test_detach_model_from_endpoint(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+
+    model_def1 = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    model_def2 = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-3.5-turbo"
+    )
+
+    endpoint = create_endpoint(
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id]
+    )
+
+    store.detach_model_from_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def2.model_definition_id,
+    )
+
+    updated_endpoint = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(updated_endpoint.model_mappings) == 1
+    assert updated_endpoint.model_mappings[0].model_definition_id == model_def1.model_definition_id
+
+
+def test_detach_model_not_attached_fails(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+
+    model_def1 = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    model_def2 = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-3.5-turbo"
+    )
+
+    endpoint = create_endpoint(model_definition_ids=[model_def1.model_definition_id])
+
+    with pytest.raises(MlflowException, match="not attached"):
+        store.detach_model_from_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            model_definition_id=model_def2.model_definition_id,
+        )
+
+
+def test_create_binding(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    binding = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer",
+        resource_id="scorer_123",
+        created_by="user@example.com",
+    )
+
+    assert binding.endpoint_id == endpoint.endpoint_id
+    assert binding.resource_type == "scorer"
+    assert binding.resource_id == "scorer_123"
+    assert binding.created_by == "user@example.com"
+
+
+def test_create_binding_with_nonexistent_endpoint_fails(store, kek_passphrase):
+    with pytest.raises(MlflowException, match="not found"):
+        store.create_endpoint_binding(
+            endpoint_id="nonexistent_id",
+            resource_type="scorer",
+            resource_id="scorer_123",
+        )
+
+
+def test_delete_binding(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    binding = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer",
+        resource_id="scorer_123",
+    )
+
+    store.delete_endpoint_binding(
+        endpoint_id=binding.endpoint_id,
+        resource_type=binding.resource_type,
+        resource_id=binding.resource_id,
+    )
+
+    bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    assert len(bindings) == 0
+
+
+def test_delete_nonexistent_binding_fails(store, kek_passphrase):
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_endpoint_binding(
+            endpoint_id="nonexistent_id",
+            resource_type="scorer",
+            resource_id="nonexistent_resource",
+        )
+
+
+def test_list_bindings_by_endpoint(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(provider="openai")
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer",
+        resource_id="scorer_1",
+    )
+    store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer",
+        resource_id="scorer_2",
+    )
+
+    bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    assert len(bindings) == 2
+    resource_ids = {b.resource_id for b in bindings}
+    assert resource_ids == {"scorer_1", "scorer_2"}
+
+
+def test_get_resource_endpoint_config(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(
+        secret_name="test_secret",
+        secret_value="sk-test-api-key-value",
+        provider="openai",
+    )
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    _ = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer",
+        resource_id="scorer_999",
+    )
+
+    config = store.get_resource_endpoint_config(resource_type="scorer", resource_id="scorer_999")
+
+    assert config is not None
+    assert config.endpoint_id == endpoint.endpoint_id
+    assert len(config.models) == 1
+    assert config.models[0].model_name == "gpt-4"
+    assert config.models[0].provider == "openai"
+    assert config.models[0].secret_value == "sk-test-api-key-value"
+    assert config.models[0].auth_config is None
+
+
+def test_complete_lifecycle(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(
+        secret_name="company_openai_key",
+        secret_value="sk-test-key",
+        provider="openai",
+    )
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    endpoint = create_endpoint(
+        model_definition_ids=[model_def.model_definition_id],
+        name="Production GPT-4",
+    )
+
+    binding = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer",
+        resource_id="scorer_1",
+    )
+
+    config = store.get_resource_endpoint_config(resource_type="scorer", resource_id="scorer_1")
+    assert config.models[0].secret_value == "sk-test-key"
+    assert config.models[0].provider == "openai"
+
+    openai_secrets = store.list_secrets(provider="openai")
+    assert any(s.secret_name == "company_openai_key" for s in openai_secrets)
+
+    openai_endpoints = store.list_endpoints(provider="openai")
+    assert any(e.name == "Production GPT-4" for e in openai_endpoints)
+
+    store.delete_endpoint_binding(
+        endpoint_id=binding.endpoint_id,
+        resource_type=binding.resource_type,
+        resource_id=binding.resource_id,
+    )
+    store.delete_endpoint(endpoint_id=endpoint.endpoint_id)
+    store.delete_model_definition(model_definition_id=model_def.model_definition_id)
+    store.delete_secret(secret_id=secret.secret_id)
+
+    openai_secrets = store.list_secrets(provider="openai")
+    assert not any(s.secret_name == "company_openai_key" for s in openai_secrets)
+
+
+@pytest.mark.parametrize(
+    ("provider", "model_name"),
+    [
+        ("openai", "gpt-4"),
+        ("anthropic", "claude-3-5-sonnet-20241022"),
+        ("google", "gemini-2.0-flash"),
+    ],
+)
+def test_multi_provider_workflow(
+    store,
+    kek_passphrase,
+    create_secret,
+    create_model_definition,
+    create_endpoint,
+    provider,
+    model_name,
+):
+    secret = create_secret(
+        secret_name=f"{provider}_key",
+        secret_value=f"sk-{provider}-test",
+        provider=provider,
+    )
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider=provider, model_name=model_name
+    )
+
+    endpoint = create_endpoint(model_definition_ids=[model_def.model_definition_id])
+
+    _ = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer",
+        resource_id=f"{provider}_scorer",
+    )
+
+    provider_secrets = store.list_secrets(provider=provider)
+    assert len(provider_secrets) >= 1
+    assert any(s.secret_name == f"{provider}_key" for s in provider_secrets)
+
+    provider_endpoints = store.list_endpoints(provider=provider)
+    assert len(provider_endpoints) >= 1
+
+
+def test_model_definition_reuse_across_endpoints(
+    store, kek_passphrase, create_secret, create_model_definition, create_endpoint
+):
+    secret = create_secret(
+        secret_name="shared_openai_key", secret_value="sk-shared-key", provider="openai"
+    )
+
+    model_def = create_model_definition(
+        secret_id=secret.secret_id, provider="openai", model_name="gpt-4", name="Shared GPT-4"
+    )
+
+    endpoint1 = create_endpoint(
+        model_definition_ids=[model_def.model_definition_id],
+        name="GPT-4 Endpoint 1",
+    )
+
+    endpoint2 = create_endpoint(
+        model_definition_ids=[model_def.model_definition_id],
+        name="GPT-4 Endpoint 2",
+    )
+
+    endpoints = store.list_endpoints(secret_id=secret.secret_id)
+    assert len(endpoints) == 2
+    assert {e.name for e in endpoints} == {"GPT-4 Endpoint 1", "GPT-4 Endpoint 2"}
+
+    store.delete_endpoint(endpoint_id=endpoint1.endpoint_id)
+    store.delete_endpoint(endpoint_id=endpoint2.endpoint_id)
+    store.delete_model_definition(model_definition_id=model_def.model_definition_id)
+    store.delete_secret(secret_id=secret.secret_id)
