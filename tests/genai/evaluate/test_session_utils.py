@@ -425,6 +425,9 @@ def test_evaluate_session_level_scorers_handles_scorer_error():
     assert "Scorer failed!" in str(feedback.error.error_message)
     assert feedback.error.stack_trace is not None
 
+    proto = feedback.to_proto()
+    assert proto.feedback.error.error_message == "Scorer failed!"
+
 
 def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
