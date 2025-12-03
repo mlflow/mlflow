@@ -46,7 +46,10 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.model_registry.prompt_version import PromptModelConfig
+from mlflow.entities.model_registry.prompt_version import (
+    MODEL_CONFIG_TAG_KEY,
+    PromptModelConfig,
+)
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import (
@@ -656,11 +659,6 @@ class MlflowClient:
                 }
             )
         if model_config:
-            from mlflow.entities.model_registry.prompt_version import (
-                MODEL_CONFIG_TAG_KEY,
-                PromptModelConfig,
-            )
-
             # Convert ModelConfig to dict if needed
             if isinstance(model_config, PromptModelConfig):
                 config_dict = model_config.to_dict()

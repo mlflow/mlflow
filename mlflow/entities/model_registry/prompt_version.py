@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -28,12 +27,13 @@ PromptVersionTag = ModelVersionTag
 MODEL_CONFIG_TAG_KEY = "_mlflow_prompt_model_config"
 
 
-@dataclass
-class PromptModelConfig:
+from pydantic import BaseModel, Field
+
+
+class PromptModelConfig(BaseModel):
     """
     Configuration for a model associated with a prompt, including model name and inference
     parameters.
-
     This class provides a structured way to store model-specific settings alongside prompts,
     ensuring reproducibility and clarity about which model and parameters were used with a
     particular prompt version.
@@ -55,9 +55,7 @@ class PromptModelConfig:
             This allows for flexibility with provider-specific or experimental parameters.
 
     Example:
-
     .. code-block:: python
-
         from mlflow.entities.model_registry import PromptModelConfig
 
         # Basic configuration
@@ -66,7 +64,6 @@ class PromptModelConfig:
             temperature=0.7,
             max_tokens=1000,
         )
-
         # Configuration with extra provider-specific params
         config = PromptModelConfig(
             model_name="claude-3-opus",
@@ -77,7 +74,6 @@ class PromptModelConfig:
                 "response_metadata": {"cache_control": True},
             },
         )
-
         # Use with prompt registration
         import mlflow
 
@@ -89,14 +85,14 @@ class PromptModelConfig:
     """
 
     model_name: str | None = None
-    temperature: float | None = None
-    max_tokens: int | None = None
-    top_p: float | None = None
-    top_k: int | None = None
+    temperature: float | None = Field(None, ge=0)
+    max_tokens: int | None = Field(None, gt=0)
+    top_p: float | None = Field(None, ge=0, le=1)
+    top_k: int | None = Field(None, gt=0)
     frequency_penalty: float | None = None
     presence_penalty: float | None = None
     stop_sequences: list[str] | None = None
-    extra_params: dict[str, Any] = field(default_factory=dict)
+    extra_params: dict[str, Any] = Field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -108,7 +104,7 @@ class PromptModelConfig:
             extra_params merged at the top level.
         """
         config_dict = {
-            k: v for k, v in asdict(self).items() if v is not None and k != "extra_params"
+            k: v for k, v in self.model_dump(exclude_none=True).items() if k != "extra_params"
         }
         if self.extra_params:
             config_dict.update(self.extra_params)
@@ -136,64 +132,14 @@ class PromptModelConfig:
             "presence_penalty",
             "stop_sequences",
         }
-
         known_params = {}
         extra_params = {}
-
         for key, value in config_dict.items():
             if key in known_fields:
                 known_params[key] = value
             else:
                 extra_params[key] = value
-
         return cls(**known_params, extra_params=extra_params)
-
-    def __post_init__(self):
-        """Validate field types and ranges."""
-        if self.temperature is not None:
-            if not isinstance(self.temperature, (int, float)):
-                raise TypeError(f"temperature must be a number, got {type(self.temperature)}")
-            if self.temperature < 0:
-                raise ValueError(f"temperature must be non-negative, got {self.temperature}")
-
-        if self.max_tokens is not None:
-            if not isinstance(self.max_tokens, int):
-                raise TypeError(f"max_tokens must be an integer, got {type(self.max_tokens)}")
-            if self.max_tokens <= 0:
-                raise ValueError(f"max_tokens must be positive, got {self.max_tokens}")
-
-        if self.top_p is not None:
-            if not isinstance(self.top_p, (int, float)):
-                raise TypeError(f"top_p must be a number, got {type(self.top_p)}")
-            if not 0 <= self.top_p <= 1:
-                raise ValueError(f"top_p must be between 0 and 1, got {self.top_p}")
-
-        if self.top_k is not None:
-            if not isinstance(self.top_k, int):
-                raise TypeError(f"top_k must be an integer, got {type(self.top_k)}")
-            if self.top_k <= 0:
-                raise ValueError(f"top_k must be positive, got {self.top_k}")
-
-        if self.frequency_penalty is not None:
-            if not isinstance(self.frequency_penalty, (int, float)):
-                raise TypeError(
-                    f"frequency_penalty must be a number, got {type(self.frequency_penalty)}"
-                )
-
-        if self.presence_penalty is not None:
-            if not isinstance(self.presence_penalty, (int, float)):
-                raise TypeError(
-                    f"presence_penalty must be a number, got {type(self.presence_penalty)}"
-                )
-
-        if self.stop_sequences is not None:
-            if not isinstance(self.stop_sequences, list):
-                raise TypeError(f"stop_sequences must be a list, got {type(self.stop_sequences)}")
-            if not all(isinstance(s, str) for s in self.stop_sequences):
-                raise TypeError("All stop_sequences must be strings")
-
-        if not isinstance(self.extra_params, dict):
-            raise TypeError(f"extra_params must be a dict, got {type(self.extra_params)}")
 
 
 def _is_reserved_tag(key: str) -> bool:

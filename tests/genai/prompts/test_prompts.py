@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 import mlflow
 from mlflow import MlflowClient
@@ -1522,14 +1522,14 @@ def test_register_and_load_prompt_with_model_config_instance():
 
 
 def test_model_config_validation_on_register():
-    with pytest.raises(ValueError, match="temperature must be non-negative"):
+    with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
         mlflow.genai.register_prompt(
             name="invalid_prompt",
             template="Test",
             model_config=PromptModelConfig(temperature=-1.0),
         )
 
-    with pytest.raises(ValueError, match="max_tokens must be positive"):
+    with pytest.raises(ValidationError, match="Input should be greater than 0"):
         mlflow.genai.register_prompt(
             name="invalid_prompt",
             template="Test",
@@ -1628,7 +1628,7 @@ def test_set_prompt_model_config_validation():
     mlflow.genai.register_prompt(name="test_validation", template="Test")
 
     # Test validation with invalid temperature
-    with pytest.raises(ValueError, match="temperature must be non-negative"):
+    with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
         mlflow.genai.set_prompt_model_config(
             name="test_validation",
             version=1,
@@ -1636,7 +1636,7 @@ def test_set_prompt_model_config_validation():
         )
 
     # Test validation with invalid max_tokens
-    with pytest.raises(ValueError, match="max_tokens must be positive"):
+    with pytest.raises(ValidationError, match="Input should be greater than 0"):
         mlflow.genai.set_prompt_model_config(
             name="test_validation",
             version=1,

@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from mlflow.entities.model_registry import PromptModelConfig
 from mlflow.entities.model_registry.model_version import ModelVersion
@@ -236,10 +237,10 @@ def test_prompt_with_model_config_instance_and_extra_params():
 
 
 def test_prompt_model_config_instance_validates():
-    with pytest.raises(ValueError, match="temperature must be non-negative"):
+    with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
         PromptModelConfig(temperature=-0.5)
 
-    with pytest.raises(ValueError, match="max_tokens must be positive"):
+    with pytest.raises(ValidationError, match="Input should be greater than 0"):
         PromptModelConfig(max_tokens=0)
 
     # This should not raise during PromptVersion construction
@@ -314,37 +315,37 @@ def test_prompt_model_config_from_dict_with_unknown_fields():
 
 
 def test_prompt_model_config_validation():
-    with pytest.raises(TypeError, match="temperature must be a number"):
+    with pytest.raises(ValidationError, match="Input should be a valid number"):
         PromptModelConfig(temperature="invalid")
-    with pytest.raises(ValueError, match="temperature must be non-negative"):
+    with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
         PromptModelConfig(temperature=-0.5)
 
-    with pytest.raises(TypeError, match="max_tokens must be an integer"):
+    with pytest.raises(ValidationError, match="Input should be a valid integer"):
         PromptModelConfig(max_tokens=100.5)
-    with pytest.raises(ValueError, match="max_tokens must be positive"):
+    with pytest.raises(ValidationError, match="Input should be greater than 0"):
         PromptModelConfig(max_tokens=0)
 
-    with pytest.raises(TypeError, match="top_p must be a number"):
+    with pytest.raises(ValidationError, match="Input should be a valid number"):
         PromptModelConfig(top_p="invalid")
-    with pytest.raises(ValueError, match="top_p must be between 0 and 1"):
+    with pytest.raises(ValidationError, match="Input should be less than or equal to 1"):
         PromptModelConfig(top_p=1.5)
 
-    with pytest.raises(TypeError, match="top_k must be an integer"):
+    with pytest.raises(ValidationError, match="Input should be a valid integer"):
         PromptModelConfig(top_k=10.5)
-    with pytest.raises(ValueError, match="top_k must be positive"):
+    with pytest.raises(ValidationError, match="Input should be greater than 0"):
         PromptModelConfig(top_k=0)
 
-    with pytest.raises(TypeError, match="frequency_penalty must be a number"):
+    with pytest.raises(ValidationError, match="Input should be a valid number"):
         PromptModelConfig(frequency_penalty="invalid")
-    with pytest.raises(TypeError, match="presence_penalty must be a number"):
+    with pytest.raises(ValidationError, match="Input should be a valid number"):
         PromptModelConfig(presence_penalty="invalid")
 
-    with pytest.raises(TypeError, match="stop_sequences must be a list"):
+    with pytest.raises(ValidationError, match="Input should be a valid list"):
         PromptModelConfig(stop_sequences="not a list")
-    with pytest.raises(TypeError, match="All stop_sequences must be strings"):
+    with pytest.raises(ValidationError, match="Input should be a valid string"):
         PromptModelConfig(stop_sequences=["valid", 123])
 
-    with pytest.raises(TypeError, match="extra_params must be a dict"):
+    with pytest.raises(ValidationError, match="Input should be a valid dictionary"):
         PromptModelConfig(extra_params="not a dict")
 
     PromptModelConfig(temperature=0.0, max_tokens=1000, top_p=0.9, top_k=50)

@@ -13,7 +13,11 @@ from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.model_registry.prompt_version import PromptModelConfig, PromptVersion
+from mlflow.entities.model_registry.prompt_version import (
+    MODEL_CONFIG_TAG_KEY,
+    PromptModelConfig,
+    PromptVersion,
+)
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
@@ -794,11 +798,6 @@ class AbstractStore:
                 )
             )
         if model_config:
-            from mlflow.entities.model_registry.prompt_version import (
-                MODEL_CONFIG_TAG_KEY,
-                PromptModelConfig,
-            )
-
             # Convert PromptModelConfig to dict if needed
             if isinstance(model_config, PromptModelConfig):
                 config_dict = model_config.to_dict()
