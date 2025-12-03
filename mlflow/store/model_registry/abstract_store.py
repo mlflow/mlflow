@@ -799,11 +799,12 @@ class AbstractStore:
                 PromptModelConfig,
             )
 
-            # Convert ModelConfig to dict if needed
+            # Convert PromptModelConfig to dict if needed
             if isinstance(model_config, PromptModelConfig):
                 config_dict = model_config.to_dict()
             else:
-                config_dict = model_config
+                # Validate dict by converting through PromptModelConfig
+                config_dict = PromptModelConfig.from_dict(model_config).to_dict()
 
             version_tags.append(
                 ModelVersionTag(key=MODEL_CONFIG_TAG_KEY, value=json.dumps(config_dict))

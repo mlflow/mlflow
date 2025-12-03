@@ -82,7 +82,7 @@ def register_prompt(
             configuration including model name and settings like temperature, top_p, max_tokens.
             Using PromptModelConfig provides validation and type safety for common parameters.
             Example (dict): {"model_name": "gpt-4", "temperature": 0.7}
-            Example (ModelConfig): ModelConfig(model_name="gpt-4", temperature=0.7, max_tokens=1000)
+            Example (PromptModelConfig): PromptModelConfig(model_name="gpt-4", temperature=0.7)
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.

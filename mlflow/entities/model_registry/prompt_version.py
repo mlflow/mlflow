@@ -294,7 +294,8 @@ class PromptVersion(_ModelRegistryEntity):
             if isinstance(model_config, PromptModelConfig):
                 config_dict = model_config.to_dict()
             else:
-                config_dict = model_config
+                # Validate dict by converting through PromptModelConfig
+                config_dict = PromptModelConfig.from_dict(model_config).to_dict()
             tags[MODEL_CONFIG_TAG_KEY] = json.dumps(config_dict)
 
         # Store the tags dict
