@@ -11504,6 +11504,7 @@ def test_concurrent_log_spans_spans_location_tag(store: SqlAlchemyStore):
             trace_id=trace_id,
             name=f"concurrent_span_{span_id}",
             span_id=span_id,
+            parent_id=111 if span_id != 111 else None,
             status=trace_api.StatusCode.OK,
             start_ns=1_000_000_000 + span_id * 1000,
             end_ns=2_000_000_000 + span_id * 1000,
