@@ -15,8 +15,9 @@ const ExperimentPageRoutePathToTabNameMap = map(
     [RoutePaths.experimentPageTabChatSessions]: ExperimentPageTabName.ChatSessions,
     [RoutePaths.experimentPageTabSingleChatSession]: ExperimentPageTabName.SingleChatSession,
     [RoutePaths.experimentPageTabScorers]: ExperimentPageTabName.Judges,
-    [RoutePaths.experimentPromptsList]: ExperimentPageTabName.Prompts,
-    [RoutePaths.experimentPrompt]: ExperimentPageTabName.Prompts,
+    // OSS experiment prompt page routes
+    [RoutePaths.experimentPageTabPrompts]: ExperimentPageTabName.Prompts,
+    [RoutePaths.experimentPromptDetails]: ExperimentPageTabName.Prompts,
   },
   (tabName, routePath) => ({ routePath, tabName }),
 );

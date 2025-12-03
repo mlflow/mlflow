@@ -82,12 +82,12 @@ const getExperimentPageRouteDefs = () => {
           }),
         },
         {
-          path: RoutePaths.experimentPromptsList,
-          pageId: PageId.experimentPromptsList,
+          path: RoutePaths.experimentPageTabPrompts,
+          pageId: PageId.experimentPageTabPrompts,
           element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
         },
         {
-          path: RoutePaths.experimentPrompt,
+          path: RoutePaths.experimentPromptDetails,
           pageId: PageId.experimentPromptDetails,
           element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptDetailsPage')),
         },
