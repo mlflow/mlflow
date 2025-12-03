@@ -168,14 +168,18 @@ from mlflow.utils.rest_utils import (
 )
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
-_TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
+_TRACKING_METHOD_TO_INFO = extract_api_info_for_service(
+    MlflowService, _REST_API_PATH_PREFIX
+)
 _METHOD_TO_INFO = {
     **extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX),
     **extract_api_info_for_service(UnityCatalogPromptService, _REST_API_PATH_PREFIX),
 }
 _METHOD_TO_ALL_INFO = {
     **extract_all_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX),
-    **extract_all_api_info_for_service(UnityCatalogPromptService, _REST_API_PATH_PREFIX),
+    **extract_all_api_info_for_service(
+        UnityCatalogPromptService, _REST_API_PATH_PREFIX
+    ),
 }
 
 _logger = logging.getLogger(__name__)
@@ -270,7 +274,9 @@ def get_model_version_dependencies(model_dir):
     # Try to get model.auth_policy.system_auth_policy.resources. If that is not found or empty,
     # then use model.resources.
     if model.auth_policy:
-        databricks_resources = model.auth_policy.get("system_auth_policy", {}).get("resources", {})
+        databricks_resources = model.auth_policy.get("system_auth_policy", {}).get(
+            "resources", {}
+        )
     else:
         databricks_resources = model.resources
 
@@ -328,7 +334,8 @@ def get_model_version_dependencies(model_dir):
             databricks_dependencies, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
         )
         dependencies.extend(
-            {"type": "DATABRICKS_VECTOR_INDEX", "name": index_name} for index_name in index_names
+            {"type": "DATABRICKS_VECTOR_INDEX", "name": index_name}
+            for index_name in index_names
         )
         for key in (
             _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
@@ -345,7 +352,9 @@ def get_model_version_dependencies(model_dir):
     return dependencies
 
 
-def _fetch_langchain_dependency_from_model_resources(databricks_dependencies, key, resource_type):
+def _fetch_langchain_dependency_from_model_resources(
+    databricks_dependencies, key, resource_type
+):
     dependencies = databricks_dependencies.get(key, [])
     deps = []
     for dependency in dependencies:
@@ -371,9 +380,14 @@ class UcModelRegistryStore(BaseRestStore):
     """
 
     def __init__(self, store_uri, tracking_uri):
-        super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, store_uri))
+        super().__init__(
+            get_host_creds=functools.partial(get_databricks_host_creds, store_uri)
+        )
+        _logger.info("UcModelRegistryStore __init__")
         self.tracking_uri = tracking_uri
-        self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
+        self.get_tracking_host_creds = functools.partial(
+            get_databricks_host_creds, tracking_uri
+        )
         try:
             self.spark = _get_active_spark_session()
         except Exception:
@@ -435,7 +449,9 @@ class UcModelRegistryStore(BaseRestStore):
 
     # CRUD API for RegisteredModel objects
 
-    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
+    def create_registered_model(
+        self, name, tags=None, description=None, deployment_job_id=None
+    ):
         """
         Create a new registered model in backend store.
 
@@ -518,7 +534,9 @@ class UcModelRegistryStore(BaseRestStore):
             UpdateRegisteredModelRequest(
                 name=full_name,
                 description=description,
-                deployment_job_id=str(deployment_job_id) if deployment_job_id is not None else None,
+                deployment_job_id=str(deployment_job_id)
+                if deployment_job_id is not None
+                else None,
             )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
@@ -541,7 +559,9 @@ class UcModelRegistryStore(BaseRestStore):
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         full_name = get_full_name_from_sc(name, self.spark)
-        req_body = message_to_json(UpdateRegisteredModelRequest(name=full_name, new_name=new_name))
+        req_body = message_to_json(
+            UpdateRegisteredModelRequest(name=full_name, new_name=new_name)
+        )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
 
@@ -678,7 +698,9 @@ class UcModelRegistryStore(BaseRestStore):
             None
         """
         full_name = get_full_name_from_sc(name, self.spark)
-        req_body = message_to_json(DeleteRegisteredModelTagRequest(name=full_name, key=key))
+        req_body = message_to_json(
+            DeleteRegisteredModelTagRequest(name=full_name, key=key)
+        )
         self._call_endpoint(DeleteRegisteredModelTagRequest, req_body)
 
     # CRUD API for ModelVersion objects
@@ -694,10 +716,14 @@ class UcModelRegistryStore(BaseRestStore):
         Returns:
             Protobuf ModelVersion describing the finalized model version
         """
-        req_body = message_to_json(FinalizeModelVersionRequest(name=name, version=version))
+        req_body = message_to_json(
+            FinalizeModelVersionRequest(name=name, version=version)
+        )
         return self._call_endpoint(FinalizeModelVersionRequest, req_body).model_version
 
-    def _get_temporary_model_version_write_credentials(self, name, version) -> TemporaryCredentials:
+    def _get_temporary_model_version_write_credentials(
+        self, name, version
+    ) -> TemporaryCredentials:
         """
         Get temporary credentials for uploading model version files
 
@@ -783,7 +809,10 @@ class UcModelRegistryStore(BaseRestStore):
                     and dataset_source._get_source_type() == _DELTA_TABLE
                 ):
                     # check if dataset is a uc table and then append
-                    if dataset_source.delta_table_name and dataset_source.delta_table_id:
+                    if (
+                        dataset_source.delta_table_name
+                        and dataset_source.delta_table_id
+                    ):
                         table_entity = Table(
                             name=dataset_source.delta_table_name,
                             table_id=dataset_source.delta_table_id,
@@ -888,7 +917,9 @@ class UcModelRegistryStore(BaseRestStore):
                 # paths is important as mlflow.artifacts.download_artifacts() can return
                 # a FUSE mounted path equivalent to the (remote) source path in some cases,
                 # e.g. return /dbfs/some/path for source dbfs:/some/path.
-                if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
+                if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(
+                    local_model_dir
+                ):
                     shutil.rmtree(local_model_dir)
 
     def _get_logged_model_from_model_id(self, model_id) -> LoggedModel | None:
@@ -963,7 +994,9 @@ class UcModelRegistryStore(BaseRestStore):
                 entity_list.append(Entity(job=job_entity))
             if lineage_securable_list is not None:
                 lineage_list = [Lineage(source_securables=lineage_securable_list)]
-            lineage_header_info = LineageHeaderInfo(entities=entity_list, lineages=lineage_list)
+            lineage_header_info = LineageHeaderInfo(
+                entities=entity_list, lineages=lineage_list
+            )
             # Base64-encode the header value to ensure it's valid ASCII,
             # similar to JWT (see https://stackoverflow.com/a/40347926)
             header_json = message_to_json(lineage_header_info)
@@ -994,6 +1027,7 @@ class UcModelRegistryStore(BaseRestStore):
             ).model_version
 
             store = self._get_artifact_repo(model_version, full_name)
+            _logger.info(f"[UcModelRegistryStore] store = {store}")
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             finalized_mv = self._finalize_model_version(
                 name=full_name, version=model_version.version
@@ -1052,8 +1086,13 @@ class UcModelRegistryStore(BaseRestStore):
                 name=model_version.name, version=model_version.version
             )
 
+        _logger.info(
+            f"[UcModelRegistryStore] _get_artifact_repo, model_version = {model_version}, model_name = {model_name}"
+        )
         if is_databricks_sdk_models_artifact_repository_enabled(self.get_host_creds()):
-            return DatabricksSDKModelsArtifactRepository(model_name, model_version.version)
+            return DatabricksSDKModelsArtifactRepository(
+                model_name, model_version.version
+            )
 
         scoped_token = base_credential_refresh_def()
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
@@ -1067,7 +1106,9 @@ class UcModelRegistryStore(BaseRestStore):
             base_credential_refresh_def=base_credential_refresh_def,
         )
 
-    def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
+    def transition_model_version_stage(
+        self, name, version, stage, archive_existing_versions
+    ):
         """
         Update model version stage.
 
@@ -1104,7 +1145,9 @@ class UcModelRegistryStore(BaseRestStore):
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            UpdateModelVersionRequest(name=full_name, version=str(version), description=description)
+            UpdateModelVersionRequest(
+                name=full_name, version=str(version), description=description
+            )
         )
         response_proto = self._call_endpoint(UpdateModelVersionRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)
@@ -1121,7 +1164,9 @@ class UcModelRegistryStore(BaseRestStore):
             None
         """
         full_name = get_full_name_from_sc(name, self.spark)
-        req_body = message_to_json(DeleteModelVersionRequest(name=full_name, version=str(version)))
+        req_body = message_to_json(
+            DeleteModelVersionRequest(name=full_name, version=str(version))
+        )
         self._call_endpoint(DeleteModelVersionRequest, req_body)
 
     def get_model_version(self, name, version):
@@ -1136,7 +1181,9 @@ class UcModelRegistryStore(BaseRestStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         full_name = get_full_name_from_sc(name, self.spark)
-        req_body = message_to_json(GetModelVersionRequest(name=full_name, version=str(version)))
+        req_body = message_to_json(
+            GetModelVersionRequest(name=full_name, version=str(version))
+        )
         response_proto = self._call_endpoint(GetModelVersionRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)
 
@@ -1157,7 +1204,9 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(
             GetModelVersionDownloadUriRequest(name=full_name, version=str(version))
         )
-        response_proto = self._call_endpoint(GetModelVersionDownloadUriRequest, req_body)
+        response_proto = self._call_endpoint(
+            GetModelVersionDownloadUriRequest, req_body
+        )
         return response_proto.artifact_uri
 
     def search_model_versions(
@@ -1190,7 +1239,8 @@ class UcModelRegistryStore(BaseRestStore):
         )
         response_proto = self._call_endpoint(SearchModelVersionsRequest, req_body)
         model_versions = [
-            model_version_search_from_uc_proto(mvd) for mvd in response_proto.model_versions
+            model_version_search_from_uc_proto(mvd)
+            for mvd in response_proto.model_versions
         ]
         return PagedList(model_versions, response_proto.next_page_token)
 
@@ -1240,7 +1290,9 @@ class UcModelRegistryStore(BaseRestStore):
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            SetRegisteredModelAliasRequest(name=full_name, alias=alias, version=str(version))
+            SetRegisteredModelAliasRequest(
+                name=full_name, alias=alias, version=str(version)
+            )
         )
         self._call_endpoint(SetRegisteredModelAliasRequest, req_body)
 
@@ -1256,7 +1308,9 @@ class UcModelRegistryStore(BaseRestStore):
             None
         """
         full_name = get_full_name_from_sc(name, self.spark)
-        req_body = message_to_json(DeleteRegisteredModelAliasRequest(name=full_name, alias=alias))
+        req_body = message_to_json(
+            DeleteRegisteredModelAliasRequest(name=full_name, alias=alias)
+        )
         self._call_endpoint(DeleteRegisteredModelAliasRequest, req_body)
 
     def get_model_version_by_alias(self, name, alias):
@@ -1271,7 +1325,9 @@ class UcModelRegistryStore(BaseRestStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         full_name = get_full_name_from_sc(name, self.spark)
-        req_body = message_to_json(GetModelVersionByAliasRequest(name=full_name, alias=alias))
+        req_body = message_to_json(
+            GetModelVersionByAliasRequest(name=full_name, alias=alias)
+        )
         response_proto = self._call_endpoint(GetModelVersionByAliasRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)
 
@@ -1339,7 +1395,8 @@ class UcModelRegistryStore(BaseRestStore):
 
         # Build the request with Unity Catalog schema
         unity_catalog_schema = UnityCatalogSchema(
-            catalog_name=parsed_filter.catalog_name, schema_name=parsed_filter.schema_name
+            catalog_name=parsed_filter.catalog_name,
+            schema_name=parsed_filter.schema_name,
         )
         req_body = message_to_json(
             SearchPromptsRequest(
@@ -1359,7 +1416,9 @@ class UcModelRegistryStore(BaseRestStore):
 
         return PagedList(prompts, response_proto.next_page_token)
 
-    def _parse_catalog_schema_from_filter(self, filter_string: str | None) -> _CatalogSchemaFilter:
+    def _parse_catalog_schema_from_filter(
+        self, filter_string: str | None
+    ) -> _CatalogSchemaFilter:
         """
         Parse catalog and schema from filter string for Unity Catalog using regex.
 
@@ -1513,7 +1572,9 @@ class UcModelRegistryStore(BaseRestStore):
             final_tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_CHAT
 
         if final_tags:
-            prompt_version_proto.tags.extend(mlflow_tags_to_proto_version_tags(final_tags))
+            prompt_version_proto.tags.extend(
+                mlflow_tags_to_proto_version_tags(final_tags)
+            )
 
         req_body = message_to_json(
             CreatePromptVersionRequest(
@@ -1536,7 +1597,9 @@ class UcModelRegistryStore(BaseRestStore):
         Get a specific prompt version from Unity Catalog.
         """
         try:
-            req_body = message_to_json(GetPromptVersionRequest(name=name, version=str(version)))
+            req_body = message_to_json(
+                GetPromptVersionRequest(name=name, version=str(version))
+            )
             endpoint, method = self._get_endpoint_from_method(GetPromptVersionRequest)
             response_proto = self._edit_endpoint_and_call(
                 endpoint=endpoint,
@@ -1561,7 +1624,9 @@ class UcModelRegistryStore(BaseRestStore):
         Delete a prompt version from Unity Catalog.
         """
         # Delete the specific version only
-        req_body = message_to_json(DeletePromptVersionRequest(name=name, version=str(version)))
+        req_body = message_to_json(
+            DeletePromptVersionRequest(name=name, version=str(version))
+        )
         endpoint, method = self._get_endpoint_from_method(DeletePromptVersionRequest)
         self._edit_endpoint_and_call(
             endpoint=endpoint,
@@ -1589,7 +1654,9 @@ class UcModelRegistryStore(BaseRestStore):
             SearchPromptVersionsResponse containing the list of versions
         """
         req_body = message_to_json(
-            SearchPromptVersionsRequest(name=name, max_results=max_results, page_token=page_token)
+            SearchPromptVersionsRequest(
+                name=name, max_results=max_results, page_token=page_token
+            )
         )
         endpoint, method = self._get_endpoint_from_method(SearchPromptVersionsRequest)
         return self._edit_endpoint_and_call(
@@ -1600,12 +1667,16 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=SearchPromptVersionsRequest,
         )
 
-    def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
+    def set_prompt_version_tag(
+        self, name: str, version: str | int, key: str, value: str
+    ) -> None:
         """
         Set a tag on a prompt version in Unity Catalog.
         """
         req_body = message_to_json(
-            SetPromptVersionTagRequest(name=name, version=str(version), key=key, value=value)
+            SetPromptVersionTagRequest(
+                name=name, version=str(version), key=key, value=value
+            )
         )
         endpoint, method = self._get_endpoint_from_method(SetPromptVersionTagRequest)
         self._edit_endpoint_and_call(
@@ -1618,7 +1689,9 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=SetPromptVersionTagRequest,
         )
 
-    def delete_prompt_version_tag(self, name: str, version: str | int, key: str) -> None:
+    def delete_prompt_version_tag(
+        self, name: str, version: str | int, key: str
+    ) -> None:
         """
         Delete a tag from a prompt version in Unity Catalog.
         """
@@ -1636,13 +1709,19 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=DeletePromptVersionTagRequest,
         )
 
-    def get_prompt_version_by_alias(self, name: str, alias: str) -> PromptVersion | None:
+    def get_prompt_version_by_alias(
+        self, name: str, alias: str
+    ) -> PromptVersion | None:
         """
         Get a prompt version by alias from Unity Catalog.
         """
         try:
-            req_body = message_to_json(GetPromptVersionByAliasRequest(name=name, alias=alias))
-            endpoint, method = self._get_endpoint_from_method(GetPromptVersionByAliasRequest)
+            req_body = message_to_json(
+                GetPromptVersionByAliasRequest(name=name, alias=alias)
+            )
+            endpoint, method = self._get_endpoint_from_method(
+                GetPromptVersionByAliasRequest
+            )
             response_proto = self._edit_endpoint_and_call(
                 endpoint=endpoint,
                 method=method,
@@ -1694,7 +1773,9 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=DeletePromptAliasRequest,
         )
 
-    def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
+    def link_prompt_version_to_model(
+        self, name: str, version: str, model_id: str
+    ) -> None:
         """
         Link a prompt version to a model in Unity Catalog.
 
@@ -1705,7 +1786,9 @@ class UcModelRegistryStore(BaseRestStore):
         """
         # Call the default implementation, since the LinkPromptVersionsToModels API
         # will initially be a no-op until the Databricks backend supports it
-        super().link_prompt_version_to_model(name=name, version=version, model_id=model_id)
+        super().link_prompt_version_to_model(
+            name=name, version=version, model_id=model_id
+        )
 
         prompt_version_entry = PromptVersionLinkEntry(name=name, version=version)
         req_body = message_to_json(
@@ -1713,7 +1796,9 @@ class UcModelRegistryStore(BaseRestStore):
                 prompt_versions=[prompt_version_entry], model_ids=[model_id]
             )
         )
-        endpoint, method = self._get_endpoint_from_method(LinkPromptVersionsToModelsRequest)
+        endpoint, method = self._get_endpoint_from_method(
+            LinkPromptVersionsToModelsRequest
+        )
         try:
             # NB: This will not raise an exception if the backend does not support linking.
             # We do this to prioritize reduction in errors and log spam while the prompt
@@ -1728,9 +1813,13 @@ class UcModelRegistryStore(BaseRestStore):
                 proto_name=LinkPromptVersionsToModelsRequest,
             )
         except Exception:
-            _logger.debug("Failed to link prompt version to model in unity catalog", exc_info=True)
+            _logger.debug(
+                "Failed to link prompt version to model in unity catalog", exc_info=True
+            )
 
-    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+    def link_prompts_to_trace(
+        self, prompt_versions: list[PromptVersion], trace_id: str
+    ) -> None:
         """
         Link multiple prompt versions to a trace in Unity Catalog.
 
@@ -1739,7 +1828,8 @@ class UcModelRegistryStore(BaseRestStore):
             trace_id: Trace ID to link to each prompt version.
         """
         prompt_version_entries = [
-            PromptVersionLinkEntry(name=pv.name, version=str(pv.version)) for pv in prompt_versions
+            PromptVersionLinkEntry(name=pv.name, version=str(pv.version))
+            for pv in prompt_versions
         ]
 
         batch_size = 25
@@ -1758,7 +1848,9 @@ class UcModelRegistryStore(BaseRestStore):
                     proto_name=LinkPromptsToTracesRequest,
                 )
             except Exception:
-                _logger.debug("Failed to link prompts to traces in unity catalog", exc_info=True)
+                _logger.debug(
+                    "Failed to link prompts to traces in unity catalog", exc_info=True
+                )
 
     def link_prompt_version_to_run(self, name: str, version: str, run_id: str) -> None:
         """
@@ -1772,7 +1864,9 @@ class UcModelRegistryStore(BaseRestStore):
         super().link_prompt_version_to_run(name=name, version=version, run_id=run_id)
 
         prompt_version_entry = PromptVersionLinkEntry(name=name, version=version)
-        endpoint, method = self._get_endpoint_from_method(LinkPromptVersionsToRunsRequest)
+        endpoint, method = self._get_endpoint_from_method(
+            LinkPromptVersionsToRunsRequest
+        )
 
         req_body = message_to_json(
             LinkPromptVersionsToRunsRequest(
@@ -1787,7 +1881,9 @@ class UcModelRegistryStore(BaseRestStore):
                 proto_name=LinkPromptVersionsToRunsRequest,
             )
         except Exception:
-            _logger.debug("Failed to link prompt version to run in unity catalog", exc_info=True)
+            _logger.debug(
+                "Failed to link prompt version to run in unity catalog", exc_info=True
+            )
 
     def _edit_endpoint_and_call(self, endpoint, method, req_body, proto_name, **kwargs):
         """

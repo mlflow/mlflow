@@ -28,11 +28,17 @@ _logger = logging.getLogger(__name__)
 #   - databricks_sdk_models_artifact_repo.py
 class DatabricksSdkArtifactRepository(ArtifactRepository):
     def __init__(
-        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+        self,
+        artifact_uri: str,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
         from databricks.sdk import WorkspaceClient
         from databricks.sdk.config import Config
 
+        _logger.info(
+            f"[DatabricksSdkArtifactRepository] __init__, artifact_uri = {artifact_uri}"
+        )
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         supports_large_file_uploads = _sdk_supports_large_file_uploads()
         wc = WorkspaceClient(
@@ -53,7 +59,9 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
                     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 )
             except AttributeError:
-                _logger.debug("Failed to set multipart_upload_chunk_size in Config", exc_info=True)
+                _logger.debug(
+                    "Failed to set multipart_upload_chunk_size in Config", exc_info=True
+                )
         self.wc = wc
 
     @property
@@ -70,10 +78,17 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         return True
 
     def full_path(self, artifact_path: str | None) -> str:
-        return f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
+        return (
+            f"{self.artifact_uri}/{artifact_path}"
+            if artifact_path
+            else self.artifact_uri
+        )
 
     def log_artifact(self, local_file: str, artifact_path: str | None = None) -> None:
-        if Path(local_file).stat().st_size > 5 * (1024**3) and not _sdk_supports_large_file_uploads:
+        if (
+            Path(local_file).stat().st_size > 5 * (1024**3)
+            and not _sdk_supports_large_file_uploads
+        ):
             raise MlflowException.invalid_parameter_value(
                 "Databricks SDK version < 0.41.0 does not support uploading files larger than 5GB. "
                 "Please upgrade the databricks-sdk package to version >= 0.41.0."
@@ -81,8 +96,17 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
 
         with open(local_file, "rb") as f:
             name = Path(local_file).name
+            _logger.info(
+                f"[DatabricksSdkArtifactRepository] log_artifact, full_path = {
+                    self.full_path(
+                        posixpath.join(artifact_path, name) if artifact_path else name
+                    )
+                }"
+            )
             self.files_api.upload(
-                self.full_path(posixpath.join(artifact_path, name) if artifact_path else name),
+                self.full_path(
+                    posixpath.join(artifact_path, name) if artifact_path else name
+                ),
                 f,
                 overwrite=True,
             )

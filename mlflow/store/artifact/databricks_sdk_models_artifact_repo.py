@@ -1,3 +1,4 @@
+import logging
 import posixpath
 
 from mlflow.entities import FileInfo
@@ -11,6 +12,9 @@ def _get_databricks_workspace_client():
     from databricks.sdk import WorkspaceClient
 
     return WorkspaceClient()
+
+
+_logger = logging.getLogger(__name__)
 
 
 class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
@@ -45,7 +49,9 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
 
         resp = self.client.files.list_directory_contents(dest_path)
         for directory_entry in resp:
-            relative_path = posixpath.relpath(directory_entry.path, self.model_base_path)
+            relative_path = posixpath.relpath(
+                directory_entry.path, self.model_base_path
+            )
             file_infos.append(
                 FileInfo(
                     path=relative_path,
@@ -65,12 +71,17 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
             return False
         return True
 
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path=None):
+    def _upload_to_cloud(
+        self, cloud_credential_info, src_file_path, artifact_file_path=None
+    ):
         dest_path = self.model_base_path
         if artifact_file_path:
             dest_path = posixpath.join(dest_path, artifact_file_path)
 
         with open(src_file_path, "rb") as f:
+            _logger.info(
+                f"[DatabricksSdkModelsArtifactRepository] _upload_to_cloud, dest_path = {dest_path}"
+            )
             self.client.files.upload(dest_path, f, overwrite=True)
 
     def log_artifact(self, local_file, artifact_path=None):

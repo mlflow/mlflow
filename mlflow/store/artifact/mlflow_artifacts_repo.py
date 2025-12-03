@@ -22,7 +22,11 @@ def _validate_port_mapped_to_hostname(uri_parse):
     # hostname specified. `urllib.parse.urlparse` will treat such a uri as a filesystem
     # definition, mapping the provided port as a hostname value if this condition is not
     # validated.
-    if uri_parse.hostname and _check_if_host_is_numeric(uri_parse.hostname) and not uri_parse.port:
+    if (
+        uri_parse.hostname
+        and _check_if_host_is_numeric(uri_parse.hostname)
+        and not uri_parse.port
+    ):
         raise MlflowException(
             "The mlflow-artifacts uri was supplied with a port number: "
             f"{uri_parse.hostname}, but no host was defined."
@@ -48,11 +52,19 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
     """Scheme wrapper around HttpArtifactRepository for mlflow-artifacts server functionality"""
 
     def __init__(
-        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+        self,
+        artifact_uri: str,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
         effective_tracking_uri = tracking_uri or get_tracking_uri()
         super().__init__(
-            self.resolve_uri(artifact_uri, effective_tracking_uri), tracking_uri, registry_uri
+            self.resolve_uri(artifact_uri, effective_tracking_uri),
+            tracking_uri,
+            registry_uri,
+        )
+        _logger.info(
+            f"[MlflowArtifactsRepository] __init__, self.artifact_uri = {self.artifact_uri}"
         )
 
     @classmethod

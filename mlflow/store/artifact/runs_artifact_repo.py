@@ -30,10 +30,18 @@ class RunsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(
-        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+        self,
+        artifact_uri: str,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
-        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+        from mlflow.store.artifact.artifact_repository_registry import (
+            get_artifact_repository,
+        )
 
+        _logger.info(
+            f"[RunsArtifactRepository] __init__, artifact_uri = {artifact_uri}"
+        )
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         uri = RunsArtifactRepository.get_underlying_uri(artifact_uri, tracking_uri)
         self.repo = get_artifact_repository(
@@ -57,7 +65,8 @@ class RunsArtifactRepository(ArtifactRepository):
         )
         assert not RunsArtifactRepository.is_runs_uri(uri)  # avoid an infinite loop
         return add_databricks_profile_info_to_artifact_uri(
-            artifact_uri=uri, databricks_profile_uri=databricks_profile_uri or tracking_uri
+            artifact_uri=uri,
+            databricks_profile_uri=databricks_profile_uri or tracking_uri,
         )
 
     @staticmethod
@@ -135,12 +144,16 @@ class RunsArtifactRepository(ArtifactRepository):
     def _list_run_artifacts(self, path: str | None = None) -> list[FileInfo]:
         return self.repo.list_artifacts(path)
 
-    def _get_logged_model_artifact_repo(self, run_id: str, name: str) -> ArtifactRepository | None:
+    def _get_logged_model_artifact_repo(
+        self, run_id: str, name: str
+    ) -> ArtifactRepository | None:
         """
         Get the artifact repository for a logged model with the given name and run ID.
         Returns None if no such model exists.
         """
-        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+        from mlflow.store.artifact.artifact_repository_registry import (
+            get_artifact_repository,
+        )
 
         client = mlflow.tracking.MlflowClient(self.tracking_uri)
         experiment_id = client.get_run(run_id).info.experiment_id
@@ -159,7 +172,9 @@ class RunsArtifactRepository(ArtifactRepository):
                     break
                 page_token = page.token
 
-        if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
+        if matched := next(
+            (m for m in iter_models() if m.source_run_id == run_id), None
+        ):
             return get_artifact_repository(
                 matched.artifact_location, tracking_uri=self.tracking_uri
             )
@@ -180,13 +195,19 @@ class RunsArtifactRepository(ArtifactRepository):
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
             artifacts = repo.list_artifacts(path=rel_path)
             return [
-                FileInfo(path=f"{model_name}/{a.path}", is_dir=a.is_dir, file_size=a.file_size)
+                FileInfo(
+                    path=f"{model_name}/{a.path}",
+                    is_dir=a.is_dir,
+                    file_size=a.file_size,
+                )
                 for a in artifacts
             ]
 
         return []
 
-    def download_artifacts(self, artifact_path: str, dst_path: str | None = None) -> str:
+    def download_artifacts(
+        self, artifact_path: str, dst_path: str | None = None
+    ) -> str:
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it. When the run has an associated model, the artifacts of the model are also
@@ -219,7 +240,9 @@ class RunsArtifactRepository(ArtifactRepository):
         # will overwrite the run artifacts.
         model_out_path: str | None = None
         try:
-            model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+            model_out_path = self._download_model_artifacts(
+                artifact_path, dst_path=dst_path
+            )
         except Exception:
             _logger.debug(
                 f"Failed to download model artifacts from {self.artifact_uri}/{artifact_path}.",
@@ -234,11 +257,17 @@ class RunsArtifactRepository(ArtifactRepository):
             )
         return path
 
-    def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> str | None:
+    def _download_model_artifacts(
+        self, artifact_path: str, dst_path: str
+    ) -> str | None:
         """
         A run can have an associated model. If so, this method downloads the artifacts of the model.
         """
-        full_path = f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
+        full_path = (
+            f"{self.artifact_uri}/{artifact_path}"
+            if artifact_path
+            else self.artifact_uri
+        )
         run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
         if not rel_path:
             # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
