@@ -840,8 +840,8 @@ class MlflowClient:
                 "`cache_ttl_seconds` argument must be greater than or equal to 0.",
             )
 
-        # Check cache if cache_ttl_seconds != 0 (0 means no caching)
-        if cache_ttl_seconds != 0:
+        # Check cache if cache_ttl_seconds > 0 (0 means no caching)
+        if cache_ttl_seconds > 0:
             cache = PromptCache.get_instance()
             cache_key = PromptCacheKey.from_uri(prompt_uri)
             if cached_prompt := cache.get(cache_key):
@@ -861,9 +861,9 @@ class MlflowClient:
             if prompt and (experiment_id := MLFLOW_EXPERIMENT_ID.get()):
                 self._link_prompt_to_experiment(prompt, experiment_id)
 
-            # Cache the result if cache_ttl_seconds != 0
+            # Cache the result if cache_ttl_seconds > 0
             # `ttl_seconds=None` means cache with no TTL
-            if prompt and cache_ttl_seconds != 0:
+            if prompt and cache_ttl_seconds > 0:
                 cache.set(cache_key, prompt, ttl_seconds=cache_ttl_seconds)
 
             return prompt
