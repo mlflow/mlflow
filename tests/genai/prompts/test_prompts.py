@@ -13,8 +13,8 @@ from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_PROMPT_CACHE_MAX_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY, PROMPT_EXPERIMENT_IDS_TAG_KEY
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
+from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
 
 
 def join_thread_by_name_prefix(prefix: str):
@@ -127,7 +127,7 @@ def test_prompt_associate_with_run(tmp_path):
     # Check that the prompt was linked to the run via the linkedPrompts tag
     client = MlflowClient()
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
     assert len(json.loads(linked_prompts_tag)) == 1
     assert json.loads(linked_prompts_tag)[0] == {
@@ -153,7 +153,7 @@ def test_prompt_associate_with_run(tmp_path):
                 future.result()
 
     run_data = client.get_run(run_id_2)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
     assert len(json.loads(linked_prompts_tag)) == 1
     assert json.loads(linked_prompts_tag)[0] == {
@@ -632,19 +632,30 @@ def test_load_prompt_with_tracing_single_prompt():
     )
     client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompt_versions=[prompt_version])
 
-    # Verify the prompt was linked to the trace by checking the actual trace
+    # Verify the prompt was linked to the trace by checking EntityAssociation
     trace = mlflow.get_trace(span.trace_id)
     assert trace is not None
 
-    # Check the linked prompts tag
-    linked_prompts_tag = trace.info.tags.get("mlflow.linkedPrompts")
-    assert linked_prompts_tag is not None
+    # Query EntityAssociation to verify the linkage
+    from mlflow.tracking import _get_store
 
-    # Parse the JSON tag value
-    linked_prompts = json.loads(linked_prompts_tag)
-    assert len(linked_prompts) == 1
-    assert linked_prompts[0]["name"] == "test_prompt"
-    assert linked_prompts[0]["version"] == "1"
+    store = _get_store()
+    with store.ManagedSessionMaker() as session:
+        from mlflow.entities.entity_type import EntityAssociationType
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
+
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                SqlEntityAssociation.source_id == span.trace_id,
+                SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
+            )
+            .all()
+        )
+
+        assert len(associations) == 1
+        assert associations[0].destination_id == "test_prompt/1"
 
 
 def test_load_prompt_with_tracing_multiple_prompts():
@@ -687,27 +698,34 @@ def test_load_prompt_with_tracing_multiple_prompts():
     ]
     client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompt_versions=prompt_versions)
 
-    # Verify both versions were linked to the same trace by checking the actual trace
+    # Verify both versions were linked to the same trace by checking EntityAssociation
     trace = mlflow.get_trace(span.trace_id)
     assert trace is not None
 
-    # Check the linked prompts tag
-    linked_prompts_tag = trace.info.tags.get("mlflow.linkedPrompts")
-    assert linked_prompts_tag is not None
+    # Query EntityAssociation to verify the linkages
+    from mlflow.tracking import _get_store
 
-    # Parse the JSON tag value
-    linked_prompts = json.loads(linked_prompts_tag)
-    assert len(linked_prompts) == 2
+    store = _get_store()
+    with store.ManagedSessionMaker() as session:
+        from mlflow.entities.entity_type import EntityAssociationType
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
-    # Check that both versions of the same prompt are present
-    prompt_entries = {(p["name"], p["version"]) for p in linked_prompts}
-    expected_entries = {("my_prompt", "1"), ("my_prompt", "2")}
-    assert prompt_entries == expected_entries
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                SqlEntityAssociation.source_id == span.trace_id,
+                SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
+            )
+            .all()
+        )
 
-    # Verify we have the same prompt name but different versions
-    assert all(p["name"] == "my_prompt" for p in linked_prompts)
-    versions = {p["version"] for p in linked_prompts}
-    assert versions == {"1", "2"}
+        assert len(associations) == 2
+
+        # Check that both versions of the same prompt are present
+        prompt_ids = {assoc.destination_id for assoc in associations}
+        expected_ids = {"my_prompt/1", "my_prompt/2"}
+        assert prompt_ids == expected_ids
 
 
 def test_load_prompt_with_tracing_no_active_trace():
@@ -769,22 +787,30 @@ def test_load_prompt_with_tracing_nested_spans():
     trace = mlflow.get_trace(outer_span.trace_id)
     assert trace is not None
 
-    # Check the linked prompts tag
-    linked_prompts_tag = trace.info.tags.get("mlflow.linkedPrompts")
-    assert linked_prompts_tag is not None
+    # Query EntityAssociation to verify both prompts are linked
+    from mlflow.tracking import _get_store
 
-    # Parse the JSON tag value
-    linked_prompts = json.loads(linked_prompts_tag)
-    assert len(linked_prompts) == 2
+    store = _get_store()
+    with store.ManagedSessionMaker() as session:
+        from mlflow.entities.entity_type import EntityAssociationType
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
-    # Check that both prompts are present (order may vary)
-    prompt_names = {p["name"] for p in linked_prompts}
-    expected_names = {"outer_prompt", "inner_prompt"}
-    assert prompt_names == expected_names
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                SqlEntityAssociation.source_id == outer_span.trace_id,
+                SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
+            )
+            .all()
+        )
 
-    # Verify all prompts have correct versions
-    for prompt in linked_prompts:
-        assert prompt["version"] == "1"
+        assert len(associations) == 2
+
+        # Check that both prompts are present (order may vary)
+        prompt_ids = {assoc.destination_id for assoc in associations}
+        expected_ids = {"outer_prompt/1", "inner_prompt/1"}
+        assert prompt_ids == expected_ids
 
 
 def test_load_prompt_caching_works():
@@ -1067,7 +1093,7 @@ def test_prompt_associate_with_run_chat_format():
     # Verify linking
     client = MlflowClient()
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)

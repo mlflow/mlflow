@@ -5,7 +5,7 @@ from threading import Thread
 from mlflow.entities import LiveSpan, Span
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager, ManagerTrace
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
@@ -227,7 +227,7 @@ def test_register_prompt():
 
     trace = trace_manager._traces[request_id_1]
     assert trace.prompts == [prompt_version]
-    assert json.loads(trace.info.tags[LINKED_PROMPTS_TAG_KEY]) == [
+    assert json.loads(trace.info.tags[TraceTagKey.LINKED_PROMPTS]) == [
         {"name": "test_prompt", "version": "1"}
     ]
 
@@ -236,7 +236,7 @@ def test_register_prompt():
 
     trace_manager.register_prompt(request_id_1, prompt_version_2)
     assert trace.prompts == [prompt_version, prompt_version_2]
-    assert json.loads(trace.info.tags[LINKED_PROMPTS_TAG_KEY]) == [
+    assert json.loads(trace.info.tags[TraceTagKey.LINKED_PROMPTS]) == [
         {"name": "test_prompt", "version": "1"},
         {"name": "test_prompt_2", "version": "2"},
     ]
@@ -244,7 +244,7 @@ def test_register_prompt():
     # Registering the same prompt should not add it again
     trace_manager.register_prompt(request_id_1, prompt_version)
     assert trace.prompts == [prompt_version, prompt_version_2]
-    assert json.loads(trace.info.tags[LINKED_PROMPTS_TAG_KEY]) == [
+    assert json.loads(trace.info.tags[TraceTagKey.LINKED_PROMPTS]) == [
         {"name": "test_prompt", "version": "1"},
         {"name": "test_prompt_2", "version": "2"},
     ]
@@ -270,7 +270,7 @@ def test_register_prompt_thread_safety():
 
     trace = trace_manager._traces[request_id_1]
     assert len(trace.prompts) == len(prompt_versions)
-    assert len(json.loads(trace.info.tags[LINKED_PROMPTS_TAG_KEY])) == len(prompt_versions)
+    assert len(json.loads(trace.info.tags[TraceTagKey.LINKED_PROMPTS])) == len(prompt_versions)
 
 
 def _create_test_span(
