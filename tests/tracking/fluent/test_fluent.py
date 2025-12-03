@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import random
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -171,6 +172,17 @@ def create_experiment(
     tags=None,
 ):
     return mlflow.entities.Experiment(experiment_id, name, artifact_location, lifecycle_stage, tags)
+
+
+@pytest.fixture(autouse=True)
+def tracking_uri(tmp_path: Path, cached_db: Path):
+    """Copies the cached database and sets the tracking URI for each test."""
+    db_path = tmp_path / "mlflow.db"
+    shutil.copy(cached_db, db_path)
+    uri = f"sqlite:///{db_path}"
+    mlflow.set_tracking_uri(uri)
+    yield
+    mlflow.set_tracking_uri(None)
 
 
 @pytest.fixture(autouse=True)

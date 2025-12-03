@@ -2,7 +2,7 @@ import json
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+from mlflow.tracing.constant import TraceTagKey
 
 
 # TODO: Remove tag based linking once we migrate to LinkPromptsToTraces endpoint
@@ -25,11 +25,11 @@ def update_linked_prompts_tag(current_tag_value: str | None, prompt_versions: li
             parsed_prompts_tag_value = json.loads(current_tag_value)
             if not isinstance(parsed_prompts_tag_value, list):
                 raise MlflowException(
-                    f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                    f"Invalid format for '{TraceTagKey.LINKED_PROMPTS}' tag: {current_tag_value}"
                 )
         except json.JSONDecodeError:
             raise MlflowException(
-                f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                f"Invalid JSON format for '{TraceTagKey.LINKED_PROMPTS}' tag: {current_tag_value}"
             )
     else:
         parsed_prompts_tag_value = []
