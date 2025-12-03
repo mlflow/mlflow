@@ -209,5 +209,9 @@ assert actual_format == {actual_format!r}, actual_format
 """
     subprocess.check_call(
         [sys.executable, "-c", code],
-        env={"MLFLOW_TRACKING_URI": tmp_sqlite_uri, "MLFLOW_CONFIGURE_LOGGING": configure_logging},
+        env={
+            **os.environ,
+            "MLFLOW_TRACKING_URI": tmp_sqlite_uri,
+            "MLFLOW_CONFIGURE_LOGGING": configure_logging,
+        },
     )
