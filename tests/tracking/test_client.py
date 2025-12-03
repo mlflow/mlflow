@@ -2,7 +2,6 @@ import json
 import os
 import pickle
 import shutil
-import sys
 import time
 import uuid
 from pathlib import Path
@@ -686,10 +685,7 @@ def tracking_uri(request, tmp_path, cached_db):
         # Copy the cached database for this test
         db_path = tmp_path / "sqlalchemy.db"
         shutil.copy(cached_db, db_path)
-        path = db_path.as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        tracking_uri = f"sqlite:///{db_path}"
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.
@@ -2072,10 +2068,7 @@ def registry_uri(request, tmp_path, cached_db):
         # Copy the cached database for this test
         db_path = tmp_path / "sqlalchemy.db"
         shutil.copy(cached_db, db_path)
-        path = db_path.as_uri()
-        registry_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        registry_uri = f"sqlite:///{db_path}"
 
     yield registry_uri
 
