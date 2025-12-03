@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+import shutil
 import sys
 import time
 import uuid
@@ -672,7 +673,7 @@ def test_client_delete_traces(mock_store):
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def tracking_uri(request, tmp_path, monkeypatch):
+def tracking_uri(request, tmp_path, monkeypatch, cached_db):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -682,7 +683,10 @@ def tracking_uri(request, tmp_path, monkeypatch):
     if request.param == "file":
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+        # Copy the cached database for this test
+        db_path = tmp_path / "sqlalchemy.db"
+        shutil.copy(cached_db, db_path)
+        path = db_path.as_uri()
         tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
             len("file://") :
         ]
@@ -2055,7 +2059,7 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id():
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def registry_uri(request, tmp_path):
+def registry_uri(request, tmp_path, cached_db):
     """Set an MLflow Model Registry URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -2065,7 +2069,10 @@ def registry_uri(request, tmp_path):
     if request.param == "file":
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+        # Copy the cached database for this test
+        db_path = tmp_path / "sqlalchemy.db"
+        shutil.copy(cached_db, db_path)
+        path = db_path.as_uri()
         tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
             len("file://") :
         ]
