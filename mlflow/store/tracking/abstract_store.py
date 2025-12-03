@@ -7,9 +7,12 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     DatasetRecord,
-    Endpoint,
-    EndpointBinding,
-    EndpointModel,
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointConfig,
+    GatewayEndpointModelMapping,
+    GatewayModelDefinition,
+    GatewaySecret,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -17,7 +20,6 @@ from mlflow.entities import (
     LoggedModelStatus,
     LoggedModelTag,
     ScorerVersion,
-    Secret,
     ViewType,
 )
 from mlflow.entities.model_registry import PromptVersion
@@ -1408,10 +1410,10 @@ class AbstractStore:
         secret_name: str,
         secret_value: str,
         provider: str | None = None,
-        description: str | None = None,
         credential_name: str | None = None,
+        auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
-    ) -> Secret:
+    ) -> GatewaySecret:
         """
         Create a new encrypted secret.
 
@@ -1419,8 +1421,9 @@ class AbstractStore:
             secret_name: Unique user-friendly name for the secret.
             secret_value: The secret value to encrypt (e.g., API key).
             provider: LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
-            description: Optional description of the secret's purpose.
             credential_name: Optional credential identifier (e.g., "ANTHROPIC_API_KEY").
+            auth_config: Optional provider-specific auth configuration (e.g.,
+              {"project_id": "...", "region": "..."}).
             created_by: Username of the creator.
 
         Returns:
@@ -1428,23 +1431,14 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_secret(self, secret_id: str) -> Secret:
+    def get_secret_info(
+        self, secret_id: str | None = None, secret_name: str | None = None
+    ) -> GatewaySecret:
         """
-        Retrieve secret metadata by ID (does not decrypt the value).
+        Retrieve secret metadata by ID or name (does not decrypt the value).
 
         Args:
             secret_id: ID of the secret to retrieve.
-
-        Returns:
-            Secret entity with metadata (encrypted value not included).
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def get_secret_by_name(self, secret_name: str) -> Secret:
-        """
-        Retrieve secret metadata by name (does not decrypt the value).
-
-        Args:
             secret_name: Name of the secret to retrieve.
 
         Returns:
@@ -1452,30 +1446,22 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_secret_value(self, secret_id: str) -> str:
-        """
-        Decrypt and retrieve the actual secret value.
-
-        Args:
-            secret_id: ID of the secret to decrypt.
-
-        Returns:
-            Decrypted secret value as a string.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
     def update_secret(
         self,
         secret_id: str,
         secret_value: str,
+        auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
-    ) -> Secret:
+    ) -> GatewaySecret:
         """
         Update an existing secret's value (key rotation).
 
         Args:
             secret_id: ID of the secret to update.
             secret_value: New secret value to encrypt.
+            auth_config: Optional updated provider-specific auth configuration.
+                         If provided, replaces existing auth_config. If None,
+                         auth_config is unchanged.
             updated_by: Username of the updater.
 
         Returns:
@@ -1485,14 +1471,14 @@ class AbstractStore:
 
     def delete_secret(self, secret_id: str) -> None:
         """
-        Permanently delete a secret (CASCADE deletes endpoint_models using it).
+        Permanently delete a secret (CASCADE deletes model_definitions using it).
 
         Args:
             secret_id: ID of the secret to delete.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_secrets(self, provider: str | None = None) -> list[Secret]:
+    def list_secrets(self, provider: str | None = None) -> list[GatewaySecret]:
         """
         List all secrets with optional filtering.
 
@@ -1505,47 +1491,138 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     # ===================================================================================
+    # Model Definitions Management
+    # ===================================================================================
+
+    def create_model_definition(
+        self,
+        name: str,
+        secret_id: str,
+        provider: str,
+        model_name: str,
+        created_by: str | None = None,
+    ) -> GatewayModelDefinition:
+        """
+        Create a reusable model definition.
+
+        Model definitions can be shared across multiple endpoints, enabling centralized
+        management of model configurations and API credentials.
+
+        Args:
+            name: User-friendly name for identification and reuse.
+            secret_id: ID of the secret containing authentication credentials.
+            provider: LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
+            model_name: Provider-specific model identifier (e.g., "gpt-4o", "claude-3-5-sonnet").
+            created_by: Username of the creator.
+
+        Returns:
+            ModelDefinition entity with metadata.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_model_definition(
+        self, model_definition_id: str | None = None, name: str | None = None
+    ) -> GatewayModelDefinition:
+        """
+        Retrieve a model definition by ID or name.
+
+        Args:
+            model_definition_id: ID of the model definition to retrieve.
+            name: Name of the model definition to retrieve.
+
+        Returns:
+            ModelDefinition entity with metadata.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_model_definitions(
+        self,
+        provider: str | None = None,
+        secret_id: str | None = None,
+    ) -> list[GatewayModelDefinition]:
+        """
+        List all model definitions with optional filtering.
+
+        Args:
+            provider: Optional filter by LLM provider.
+            secret_id: Optional filter by secret ID.
+
+        Returns:
+            List of ModelDefinition entities with metadata.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def update_model_definition(
+        self,
+        model_definition_id: str,
+        name: str | None = None,
+        secret_id: str | None = None,
+        model_name: str | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayModelDefinition:
+        """
+        Update a model definition.
+
+        Args:
+            model_definition_id: ID of the model definition to update.
+            name: Optional new name.
+            secret_id: Optional new secret ID.
+            model_name: Optional new model name.
+            updated_by: Username of the updater.
+
+        Returns:
+            Updated ModelDefinition entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_model_definition(self, model_definition_id: str) -> None:
+        """
+        Delete a model definition.
+
+        Fails with an error if the model definition is currently attached to any
+        endpoints (RESTRICT behavior).
+
+        Args:
+            model_definition_id: ID of the model definition to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # ===================================================================================
     # Endpoints Management
     # ===================================================================================
 
     def create_endpoint(
         self,
         name: str,
+        model_definition_ids: list[str],
         created_by: str | None = None,
-    ) -> Endpoint:
+    ) -> GatewayEndpoint:
         """
-        Create a new endpoint.
+        Create a new endpoint with references to existing model definitions.
 
         Args:
             name: User-friendly name for the endpoint.
+            model_definition_ids: List of model definition IDs to attach to the endpoint.
+                                  At least one model definition is required.
             created_by: Username of the creator.
 
         Returns:
-            Endpoint entity.
+            Endpoint entity with model_mappings populated.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_endpoint(self, endpoint_id: str) -> Endpoint:
+    def get_endpoint(
+        self, endpoint_id: str | None = None, name: str | None = None
+    ) -> GatewayEndpoint:
         """
-        Retrieve an endpoint by ID with its models populated.
+        Retrieve an endpoint by ID or name with its model mappings populated.
 
         Args:
             endpoint_id: ID of the endpoint to retrieve.
-
-        Returns:
-            Endpoint entity with models list populated.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def get_endpoint_by_name(self, name: str) -> Endpoint:
-        """
-        Retrieve an endpoint by name with its models populated.
-
-        Args:
             name: Name of the endpoint to retrieve.
 
         Returns:
-            Endpoint entity with models list populated.
+            Endpoint entity with model_mappings list populated.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1554,7 +1631,7 @@ class AbstractStore:
         endpoint_id: str,
         name: str,
         updated_by: str | None = None,
-    ) -> Endpoint:
+    ) -> GatewayEndpoint:
         """
         Update an endpoint's name.
 
@@ -1570,100 +1647,70 @@ class AbstractStore:
 
     def delete_endpoint(self, endpoint_id: str) -> None:
         """
-        Delete an endpoint (CASCADE deletes bindings and endpoint_models).
+        Delete an endpoint (CASCADE deletes bindings and model mappings).
 
         Args:
             endpoint_id: ID of the endpoint to delete.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_endpoints(self) -> list[Endpoint]:
+    def list_endpoints(
+        self,
+        provider: str | None = None,
+        secret_id: str | None = None,
+    ) -> list[GatewayEndpoint]:
         """
-        List all endpoints with their models populated.
+        List all endpoints with their model mappings populated.
+
+        Args:
+            provider: Optional filter by LLM provider (e.g., "openai", "anthropic").
+                      Returns only endpoints that have at least one model from this provider.
+            secret_id: Optional filter by secret ID. Returns only endpoints using this secret.
+                       Useful for showing which endpoints would be affected by secret deletion.
 
         Returns:
-            List of Endpoint entities with models.
+            List of Endpoint entities with model_mappings.
         """
         raise NotImplementedError(self.__class__.__name__)
 
     # ===================================================================================
-    # Endpoint Models Management
+    # Endpoint Model Mappings Management
     # ===================================================================================
 
-    def add_endpoint_model(
+    def attach_model_to_endpoint(
         self,
         endpoint_id: str,
-        secret_id: str,
-        provider: str,
-        model_name: str,
+        model_definition_id: str,
+        weight: int = 1,
         created_by: str | None = None,
-    ) -> EndpointModel:
+    ) -> GatewayEndpointModelMapping:
         """
-        Add a model configuration to an endpoint.
+        Attach an existing model definition to an endpoint.
 
         Args:
-            endpoint_id: ID of the endpoint to add the model to.
-            secret_id: ID of the secret containing authentication credentials.
-            provider: LLM provider (e.g., "openai", "anthropic").
-            model_name: Provider-specific model identifier (e.g., "gpt-4o").
+            endpoint_id: ID of the endpoint to attach the model to.
+            model_definition_id: ID of the model definition to attach.
+            weight: Routing weight for traffic distribution (default 1).
             created_by: Username of the creator.
 
         Returns:
-            EndpointModel entity.
+            EndpointModelMapping entity.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_endpoint_model(self, model_id: str) -> EndpointModel:
-        """
-        Retrieve an endpoint model by ID.
-
-        Args:
-            model_id: ID of the model configuration to retrieve.
-
-        Returns:
-            EndpointModel entity.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def update_endpoint_model(
+    def detach_model_from_endpoint(
         self,
-        model_id: str,
-        secret_id: str | None = None,
-        model_name: str | None = None,
-        updated_by: str | None = None,
-    ) -> EndpointModel:
+        endpoint_id: str,
+        model_definition_id: str,
+    ) -> None:
         """
-        Update an endpoint model's configuration.
+        Detach a model definition from an endpoint.
 
-        Args:
-            model_id: ID of the model to update.
-            secret_id: Optional new secret ID.
-            model_name: Optional new model name.
-            updated_by: Username of the updater.
-
-        Returns:
-            Updated EndpointModel entity.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def delete_endpoint_model(self, model_id: str) -> None:
-        """
-        Delete a model configuration from an endpoint.
-
-        Args:
-            model_id: ID of the model to delete.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def list_endpoint_models(self, endpoint_id: str) -> list[EndpointModel]:
-        """
-        List all models for an endpoint.
+        This removes the mapping but does not delete the model definition itself.
 
         Args:
             endpoint_id: ID of the endpoint.
-
-        Returns:
-            List of EndpointModel entities.
+            model_definition_id: ID of the model definition to detach.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1677,7 +1724,7 @@ class AbstractStore:
         resource_type: str,
         resource_id: str,
         created_by: str | None = None,
-    ) -> EndpointBinding:
+    ) -> GatewayEndpointBinding:
         """
         Bind an endpoint to an MLflow resource.
 
@@ -1692,24 +1739,16 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_endpoint_binding(self, binding_id: str) -> EndpointBinding:
-        """
-        Retrieve an endpoint binding by ID.
-
-        Args:
-            binding_id: ID of the binding to retrieve.
-
-        Returns:
-            EndpointBinding entity.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def delete_endpoint_binding(self, binding_id: str) -> None:
+    def delete_endpoint_binding(
+        self, endpoint_id: str, resource_type: str, resource_id: str
+    ) -> None:
         """
         Delete an endpoint binding.
 
         Args:
-            binding_id: ID of the binding to delete.
+            endpoint_id: ID of the endpoint.
+            resource_type: Type of resource bound to the endpoint.
+            resource_id: ID of the resource.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1718,7 +1757,7 @@ class AbstractStore:
         endpoint_id: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
-    ) -> list[EndpointBinding]:
+    ) -> list[GatewayEndpointBinding]:
         """
         List endpoint bindings with optional filtering.
 
@@ -1728,6 +1767,28 @@ class AbstractStore:
             resource_id: Optional filter by resource ID.
 
         Returns:
-            List of EndpointBinding entities (with optional endpoint_name and models populated).
+            List of EndpointBinding entities (with optional endpoint_name and model_mappings).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_resource_endpoint_config(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> GatewayEndpointConfig:
+        """
+        Get complete endpoint configuration for a resource (server-side only).
+
+        This returns everything needed to make LLM API calls: endpoint details,
+        models, and decrypted secrets. This is a privileged operation that should
+        only be called server-side and never exposed to clients.
+
+        Args:
+            resource_type: Type of resource (e.g., "scorer_job").
+            resource_id: Unique identifier for the resource instance.
+
+        Returns:
+            EndpointConfig entity containing endpoint_id, endpoint_name, and list of
+            ModelConfig with decrypted secret_value and auth_config.
         """
         raise NotImplementedError(self.__class__.__name__)
