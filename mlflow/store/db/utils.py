@@ -302,7 +302,8 @@ def create_sqlalchemy_engine_with_retry(db_uri):
             if attempts < MAX_RETRY_COUNT:
                 sleep_duration = 0.1 * ((2**attempts) - 1)
                 _logger.warning(
-                    "SQLAlchemy engine could not be created. The following exception is caught.\n"
+                    f"SQLAlchemy engine could not be created with {db_uri}. "
+                    "The following exception is caught.\n"
                     "%s\nOperation will be retried in %.1f seconds",
                     e,
                     sleep_duration,
