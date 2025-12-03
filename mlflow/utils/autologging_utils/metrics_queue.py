@@ -35,7 +35,6 @@ def flush_metrics_queue():
         # flush operation should proceed; all others are redundant and should be dropped
         acquired_lock = _metrics_queue_lock.acquire(blocking=False)
         if acquired_lock:
-            client = MlflowClient()
             # For thread safety and to avoid modifying a list while iterating over it, we record a
             # separate list of the items being flushed and remove each one from the metric queue,
             # rather than clearing the metric queue or reassigning it (clearing / reassigning is
@@ -46,6 +45,10 @@ def flush_metrics_queue():
                 _metrics_queue.remove(item)
 
             metrics_by_run = _assoc_list_to_map(snapshot)
+            if not metrics_by_run:
+                return
+
+            client = MlflowClient()
             for run_id, metrics in metrics_by_run.items():
                 client.log_batch(run_id, metrics=metrics, params=[], tags=[])
     finally:

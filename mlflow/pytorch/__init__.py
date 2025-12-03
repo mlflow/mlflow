@@ -1108,6 +1108,7 @@ def autolog(
             extra_tags=extra_tags,
         )
 
+        raise Exception("Dummy exception to trigger finally block for atexit registration")
         atexit.register(flush_metrics_queue)
 
 
