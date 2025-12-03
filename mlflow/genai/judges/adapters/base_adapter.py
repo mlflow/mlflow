@@ -13,9 +13,7 @@ if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
-from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai.model_utils import _parse_model_uri
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 
 @dataclass
@@ -105,19 +103,6 @@ class BaseJudgeAdapter(ABC):
             True if this adapter can handle the model and prompt type, False otherwise.
         """
 
-    @classmethod
-    def _parse_model_uri(cls, model_uri: str) -> tuple[str, str]:
-        """
-        Helper to parse model URI into provider and name.
-
-        Args:
-            model_uri: The full model URI.
-
-        Returns:
-            Tuple of (provider, model_name).
-        """
-        return _parse_model_uri(model_uri)
-
     @abstractmethod
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         """
@@ -134,50 +119,7 @@ class BaseJudgeAdapter(ABC):
         """
 
 
-def get_adapter(
-    model_uri: str,
-    prompt: str | list["ChatMessage"],
-) -> BaseJudgeAdapter:
-    """
-    Factory function to get the appropriate adapter for a given model configuration.
+# Import for backwards compatibility
+from mlflow.genai.judges.adapters.utils import get_adapter
 
-    Tries adapters in priority order:
-    1. DatabricksManagedJudgeAdapter (for default Databricks judge)
-    2. DatabricksServingEndpointAdapter (for Databricks serving endpoints)
-    3. LiteLLMAdapter (if LiteLLM is available)
-    4. GatewayAdapter (fallback for native providers)
-
-    Args:
-        model_uri: The full model URI (e.g., "openai:/gpt-4", "databricks").
-        prompt: The prompt to evaluate (string or list of ChatMessages).
-
-    Returns:
-        An instance of the appropriate adapter.
-
-    Raises:
-        MlflowException: If no suitable adapter is found.
-    """
-    from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-        DatabricksManagedJudgeAdapter,
-    )
-    from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-        DatabricksServingEndpointAdapter,
-    )
-    from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
-    from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
-
-    adapters = [
-        DatabricksManagedJudgeAdapter,
-        DatabricksServingEndpointAdapter,
-        LiteLLMAdapter,
-        GatewayAdapter,
-    ]
-
-    for adapter_class in adapters:
-        if adapter_class.is_applicable(model_uri=model_uri, prompt=prompt):
-            return adapter_class()
-
-    raise MlflowException(
-        f"No suitable adapter found for model_uri='{model_uri}'",
-        error_code=BAD_REQUEST,
-    )
+__all__ = ["BaseJudgeAdapter", "AdapterInvocationInput", "AdapterInvocationOutput", "get_adapter"]

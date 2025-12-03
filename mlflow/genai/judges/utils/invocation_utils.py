@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
+from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput, get_adapter
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     DatabricksServingEndpointAdapter,
     _record_judge_model_usage_failure_databricks_telemetry,
@@ -22,6 +23,7 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 )
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.telemetry.utils import _is_in_databricks
@@ -70,9 +72,6 @@ def invoke_judge_model(
     Raises:
         MlflowException: If the model cannot be invoked or dependencies are missing.
     """
-    from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput, get_adapter
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-
     in_databricks = _is_in_databricks()
 
     # Get the appropriate adapter
