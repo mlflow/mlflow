@@ -1,3 +1,4 @@
+import logging
 import posixpath
 
 from mlflow.entities import FileInfo
@@ -11,6 +12,9 @@ def _get_databricks_workspace_client():
     from databricks.sdk import WorkspaceClient
 
     return WorkspaceClient()
+
+
+_logger = logging.getLogger(__name__)
 
 
 class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
