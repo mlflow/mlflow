@@ -196,6 +196,14 @@ def tracking_uri(tmp_path: Path, cached_db: Path):
         yield
         return
 
+    if (
+        os.getenv("GITHUB_ACTIONS") == "true"
+        and os.getenv("MLFLOW_TRACKING_URI").startswith("http")
+    ):
+        # Running backward compatibility test against a remote server. Skip setting tracking URI.
+        yield
+        return
+
     db_path = tmp_path / "mlflow.db"
     shutil.copy(cached_db, db_path)
     uri = f"sqlite:///{db_path}"
@@ -217,6 +225,19 @@ def mock_otel_trace_start_time():
     # a smaller start time than child spans.
     with mock.patch("opentelemetry.sdk.trace.time_ns", return_value=0):
         yield
+
+
+@pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") != "true", reason="Only run in GitHub Actions")
+def test_tracking_uri_set():
+    """
+    Test tracking URI is set correctly in the test environment.
+    There are multiple fixtures try to configure the tracking URI, so this test is used to ensure
+    that the correct setup is used for the tracing tests.
+    """
+    if env_tracking_uri := os.getenv("MLFLOW_TRACKING_URI"):
+        assert mlflow.get_tracking_uri() == env_tracking_uri
+    else:
+        assert mlflow.get_tracking_uri().startswith("sqlite://")
 
 
 @pytest.mark.parametrize("with_active_run", [True, False])
