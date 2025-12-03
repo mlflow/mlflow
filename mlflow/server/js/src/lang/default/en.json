@@ -7,6 +7,10 @@
     "defaultMessage": "Assessments",
     "description": "Label for the assessments pane"
   },
+  "+1d2x/": {
+    "defaultMessage": "Run judge on traces",
+    "description": "Title for running judge on traces"
+  },
   "+1i81u": {
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
@@ -26,6 +30,14 @@
   "+LLlvi": {
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
+  },
+  "+NSi44": {
+    "defaultMessage": "Step 1: Install MLflow",
+    "description": "Step 1 title for custom judge creation"
+  },
+  "+Oupsq": {
+    "defaultMessage": "Start with a built-in LLM judge template or create your own.",
+    "description": "Hint text for LLM template selection with documentation link"
   },
   "+RYBrq": {
     "defaultMessage": "Promote model",
@@ -75,10 +87,6 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
-  "+iAvV7": {
-    "defaultMessage": "Learn more about configuring scorers",
-    "description": "Link text for configuring scorers documentation"
-  },
   "+khKtf": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
@@ -123,17 +131,13 @@
     "defaultMessage": "role",
     "description": "Placeholder for chat message role input"
   },
+  "/G/eHs": {
+    "defaultMessage": "Run judge",
+    "description": "Button text for running judge"
+  },
   "/GImw4": {
     "defaultMessage": "Is app's response correct compared to ground-truth?",
     "description": "Hint for Correctness template"
-  },
-  "/I2HBZ": {
-    "defaultMessage": "Scorers",
-    "description": "Label for the scorers tab in the MLflow experiment navbar"
-  },
-  "/II81b": {
-    "defaultMessage": "Step 1: Install MLflow",
-    "description": "Step 1 title for custom scorer creation"
   },
   "/IyEFR": {
     "defaultMessage": "Trace",
@@ -247,10 +251,6 @@
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
   },
-  "0GaCgN": {
-    "defaultMessage": "Please enter instructions to run the scorer",
-    "description": "Tooltip message when instructions are missing"
-  },
   "0HbGko": {
     "defaultMessage": "Model",
     "description": "Run page > Overview > Logged models > Unknown model flavor"
@@ -339,10 +339,6 @@
     "defaultMessage": "Using controls above, select at least one artifact containing table.",
     "description": "Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint"
   },
-  "1AjgkB": {
-    "defaultMessage": "Does the app's response meet specified criteria?",
-    "description": "Hint for Guidelines template"
-  },
   "1Buj/Q": {
     "defaultMessage": "Alternatively, you can interact with this trace via the MLflow Python SDK, using the {code} function. For more information, please check the {documentation_link}.",
     "description": "Body text for when a trace is too large to display"
@@ -362,6 +358,10 @@
   "1Ujhc3": {
     "defaultMessage": "True",
     "description": "True assessment label"
+  },
+  "1VD7Gl": {
+    "defaultMessage": "Create judge",
+    "description": "Create judge button text"
   },
   "1YGQOY": {
     "defaultMessage": "Duplicate run",
@@ -383,13 +383,13 @@
     "defaultMessage": "Showing only visible runs",
     "description": "Experiment page > compare runs > parallel chart > header > indicator for only visible runs shown"
   },
+  "1i/Bac": {
+    "defaultMessage": "Edit",
+    "description": "Edit button for judge"
+  },
   "1jPG5D": {
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
-  },
-  "1tRtls": {
-    "defaultMessage": "Registered at",
-    "description": "Header for the registration time column in the registered prompts table"
   },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
@@ -502,10 +502,6 @@
   "2gxV/O": {
     "defaultMessage": "Evaluation not available when grouping is enabled",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > title"
-  },
-  "2h3JIs": {
-    "defaultMessage": "Register your scorer and start it with a sampling configuration. The scorer will then be available for use and will show up in this UI.",
-    "description": "Step 3 description for registering and starting scorer"
   },
   "2mRfvl": {
     "defaultMessage": "Request error",
@@ -625,6 +621,10 @@
   "4Itm9y": {
     "defaultMessage": "Large trace",
     "description": "Modal title for when a trace is very large. The modal warns the user that the trace may cause UI slowness, but allows them to attempt to display it anyway by clicking a button."
+  },
+  "4JLrnY": {
+    "defaultMessage": "Modifying instructions is not supported for this built-in judge.",
+    "description": "Tooltip explaining why instructions are read-only for non-editable templates"
   },
   "4Jyn2b": {
     "defaultMessage": "Add/Edit alias for model version {version}",
@@ -834,6 +834,10 @@
     "defaultMessage": "Edit description",
     "description": "Text for edit description button on experiment view page header"
   },
+  "6TFZpM": {
+    "defaultMessage": "Create your own judge using a Python function. Useful if your requirements are not met by LLM-as-a-judge judges.",
+    "description": "Hint text for custom code judge type option"
+  },
   "6TuRTf": {
     "defaultMessage": "LLM-as-a-judge",
     "description": "Label for LLM scorer type"
@@ -841,6 +845,10 @@
   "6UqPlE": {
     "defaultMessage": "No parameters recorded",
     "description": "Run page > Overview > Parameters table > No parameters recorded"
+  },
+  "6WQ9yl": {
+    "defaultMessage": "Unable to load experiment judges",
+    "description": "Error message when experiment judges page fails to load"
   },
   "6XfILf": {
     "defaultMessage": "Contour chart",
@@ -993,6 +1001,10 @@
   "7gOeQm": {
     "defaultMessage": "Delete",
     "description": "Delete runs"
+  },
+  "7hHw+R": {
+    "defaultMessage": "Instructions",
+    "description": "Section header for judge instructions"
   },
   "7jsqqe": {
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
@@ -1150,6 +1162,10 @@
     "defaultMessage": "Train models",
     "description": "Home page quick action title for training models"
   },
+  "9/KT56": {
+    "defaultMessage": "Prompts",
+    "description": "Label for the prompts tab in the MLflow experiment navbar"
+  },
   "93BFzC": {
     "defaultMessage": "Outputs",
     "description": "Label for outputs variable option"
@@ -1201,10 +1217,6 @@
   "9W3kev": {
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
-  },
-  "9W768r": {
-    "defaultMessage": "Are you sure you want to delete the scorer ''{scorerName}''? This action cannot be undone.",
-    "description": "Confirmation message for deleting a scorer"
   },
   "9ZHB3D": {
     "defaultMessage": "MLflow runs:",
@@ -1258,6 +1270,10 @@
     "defaultMessage": "Click 'Add chart' or drag and drop to add charts here.",
     "description": "Runs compare page > Charts tab > No charts placeholder description"
   },
+  "9wZidY": {
+    "defaultMessage": "Choose from a selection of built-in LLM judges or create your own custom code based judge. {learnMore}",
+    "description": "Description for the empty state when no judges exist"
+  },
   "9y+yUQ": {
     "defaultMessage": "File is too large to preview",
     "description": "Label to indicate that the file is too large to preview"
@@ -1285,6 +1301,10 @@
   "ACNZd9": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments automatically identified as generative AI development"
+  },
+  "AEK/2K": {
+    "defaultMessage": "Please enter instructions to run the judge",
+    "description": "Tooltip message when instructions are missing"
   },
   "AEzy9w": {
     "defaultMessage": "After creation, you can register logged models as new versions.&nbsp;",
@@ -1330,10 +1350,6 @@
     "defaultMessage": "Previous",
     "description": "Button text for previous trace"
   },
-  "AjUjDD": {
-    "defaultMessage": "Save",
-    "description": "Save scorer button text"
-  },
   "Aqq08o": {
     "defaultMessage": "HTTP",
     "description": "Experiment dataset drawer > source type > HTTP source type label"
@@ -1361,6 +1377,10 @@
   "Ay+ZP/": {
     "defaultMessage": "Failed to delete tag. Error: {userVisibleError}",
     "description": "Text for user visible error when deleting tag in model version view"
+  },
+  "Ay8rPx": {
+    "defaultMessage": "Save",
+    "description": "Save judge button text"
   },
   "AyceYA": {
     "defaultMessage": "Served LLM model",
@@ -1482,9 +1502,9 @@
     "defaultMessage": "Created by",
     "description": "Label for the creator of a logged model on the logged model details page"
   },
-  "BvU3qB": {
-    "defaultMessage": "New scorer",
-    "description": "Button text to create a new scorer"
+  "BuykLs": {
+    "defaultMessage": "Delete judge",
+    "description": "Title for the delete judge confirmation modal"
   },
   "BwgPX0": {
     "defaultMessage": "Delete",
@@ -1526,6 +1546,10 @@
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments automatically identified as being focused on generative AI app and agent development"
   },
+  "CRr6Tx": {
+    "defaultMessage": "Create and manage judges",
+    "description": "Title for the empty state of the judges page"
+  },
   "CTEh+b": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > new run modal > \"cancel\" button label"
@@ -1566,10 +1590,6 @@
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
   },
-  "Ch55sc": {
-    "defaultMessage": "Unable to load experiment scorers",
-    "description": "Error message when experiment scorers page fails to load"
-  },
   "Cj2i02": {
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > error state title"
@@ -1589,10 +1609,6 @@
   "CpLnGS": {
     "defaultMessage": "Metrics",
     "description": "Table title text for metrics table in the model comparison page"
-  },
-  "CrXMY0": {
-    "defaultMessage": "Create a custom scorer function using the {decorator} decorator. Implement your scoring logic in the function body. {link}",
-    "description": "Step 2 description for defining scorer function"
   },
   "CruI7o": {
     "defaultMessage": "Latest version",
@@ -1666,10 +1682,6 @@
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
   },
-  "Dpf6mh": {
-    "defaultMessage": "Follow these steps to create a custom scorer using your own code. {link}",
-    "description": "Brief instructions for custom scorer functions"
-  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
@@ -1701,6 +1713,10 @@
   "EBwDIg": {
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
+  },
+  "ED1+Xu": {
+    "defaultMessage": "Prompts & versions",
+    "description": "Label for the versions section in the MLflow experiment navbar"
   },
   "EI7moF": {
     "defaultMessage": "Last year",
@@ -1746,6 +1762,10 @@
     "defaultMessage": "No trace data available",
     "description": "Evaluation review > no trace data available"
   },
+  "EaH1E1": {
+    "defaultMessage": "Version {version}",
+    "description": "Version display for judge"
+  },
   "EcjcgN": {
     "defaultMessage": "Metrics",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
@@ -1773,10 +1793,6 @@
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
-  },
-  "F4Eskg": {
-    "defaultMessage": "Loading scorers...",
-    "description": "Loading message while fetching experiment scorers"
   },
   "F4K195": {
     "defaultMessage": "No evaluation datasets found",
@@ -1841,10 +1857,6 @@
   "Fg/zU/": {
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments focused on generative AI app and agent development"
-  },
-  "Fhrgrc": {
-    "defaultMessage": "Versions",
-    "description": "Label for the versions section in the MLflow experiment navbar"
   },
   "FiKsFK": {
     "defaultMessage": "Last modified",
@@ -1914,6 +1926,10 @@
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
   },
+  "GJjAMy": {
+    "defaultMessage": "The trace variable is not supported when running the judge on a sample of traces",
+    "description": "Tooltip message when instructions contain trace variable"
+  },
   "GKVTw4": {
     "defaultMessage": "JSON",
     "description": "JSON select menu option for assessment data type"
@@ -1945,6 +1961,10 @@
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
+  },
+  "GogRws": {
+    "defaultMessage": "Loading judges...",
+    "description": "Loading message while fetching experiment judges"
   },
   "Gs+blV": {
     "defaultMessage": "Last modified",
@@ -2202,6 +2222,10 @@
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
   },
+  "JZuU8B": {
+    "defaultMessage": "Step 2: Define your judge function",
+    "description": "Step 2 title for custom judge creation"
+  },
   "JcRo6a": {
     "defaultMessage": "User",
     "description": "Column label for user"
@@ -2378,6 +2402,10 @@
     "defaultMessage": "Retrieval Relevance",
     "description": "LLM template option"
   },
+  "LK+UHk": {
+    "defaultMessage": "Show first 20",
+    "description": "Menu option for showing only 20 first runs in the evaluation runs table"
+  },
   "LKAZ2n": {
     "defaultMessage": "Disable grouped runs to compare",
     "description": "Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"
@@ -2438,10 +2466,6 @@
     "defaultMessage": "Metric",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option makes the X-axis a custom metric that the user selects."
   },
-  "M0zIfe": {
-    "defaultMessage": "Aliases",
-    "description": "Header for the aliases column in the registered prompts table"
-  },
   "M1dwxx": {
     "defaultMessage": "Version {version}",
     "description": "Model registry > models table > aliases column > version indicator"
@@ -2449,10 +2473,6 @@
   "M3c7bs": {
     "defaultMessage": "Tags",
     "description": "Column label for tags"
-  },
-  "M4Mhk3": {
-    "defaultMessage": "Choose a built-in template or create a custom template. {learnMore}",
-    "description": "Hint text for LLM template selection with documentation link"
   },
   "M5bYHa": {
     "defaultMessage": "No metrics available",
@@ -2473,10 +2493,6 @@
   "MBNIRk": {
     "defaultMessage": "Attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
-  },
-  "MBPQr0": {
-    "defaultMessage": "Run scorer",
-    "description": "Button text for running scorer"
   },
   "ML+mQa": {
     "defaultMessage": "Overall assessment:",
@@ -2534,13 +2550,13 @@
     "defaultMessage": "Add message",
     "description": "Button to insert a new chat message row"
   },
-  "N/Svk+": {
-    "defaultMessage": "Guidelines",
-    "description": "LLM template option"
-  },
   "N1G2a5": {
     "defaultMessage": "Expected facts",
     "description": "Evaluation review > Response section > expected facts > title"
+  },
+  "N4wIiU": {
+    "defaultMessage": "New judge",
+    "description": "Button text to create a new judge"
   },
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
@@ -2678,6 +2694,10 @@
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
   },
+  "OLornd": {
+    "defaultMessage": "New judge",
+    "description": "Button text to add a judge from empty state"
+  },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
@@ -2750,6 +2770,10 @@
     "defaultMessage": "Additional runs",
     "description": "Experiment page > grouped runs table > label for group with additional, ungrouped runs"
   },
+  "PKg5l7": {
+    "defaultMessage": "Retrieval Relevance is not yet supported for sample judge output",
+    "description": "Tooltip message when retrieval relevance template is selected"
+  },
   "PKwacx": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display in simplified view"
@@ -2801,10 +2825,6 @@
     "defaultMessage": "Actions{count}",
     "description": "Trace actions dropdown button"
   },
-  "PxEYcJ": {
-    "defaultMessage": "Delete",
-    "description": "Delete scorer button"
-  },
   "Q/evEc": {
     "defaultMessage": "Parameters ({length})",
     "description": "Run page > Overview > Parameters table > Section title"
@@ -2820,6 +2840,10 @@
   "Q73eXs": {
     "defaultMessage": "No params",
     "description": "Experiment page > group by runs control > no params to group by"
+  },
+  "Q7MSrQ": {
+    "defaultMessage": "Hide finished runs",
+    "description": "Menu option for hiding all finished runs in the evaluation runs table"
   },
   "QAyzA3": {
     "defaultMessage": "Delete",
@@ -2844,6 +2868,10 @@
   "QGiy9C": {
     "defaultMessage": "About this run",
     "description": "Title for the details/metadata section on the run details page"
+  },
+  "QH2RJZ": {
+    "defaultMessage": "Hide all runs",
+    "description": "Menu option for hiding all runs in the evaluation runs table"
   },
   "QHTLV9": {
     "defaultMessage": "Models",
@@ -2920,10 +2948,6 @@
   "RJenO+": {
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
-  },
-  "RMjGYQ": {
-    "defaultMessage": "Percentage of traces evaluated by this scorer.",
-    "description": "Hint text for sample rate slider"
   },
   "RUju4k": {
     "defaultMessage": "Charts",
@@ -3049,13 +3073,13 @@
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
   },
+  "SknPqh": {
+    "defaultMessage": "Judge type",
+    "description": "Label for judge type selection"
+  },
   "SnPghu": {
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions action"
-  },
-  "SqiVL1": {
-    "defaultMessage": "Run the scorer on the selected group of traces",
-    "description": "Description for running scorer on traces"
   },
   "SrV58C": {
     "defaultMessage": "Settings",
@@ -3156,10 +3180,6 @@
     "defaultMessage": "Inputs",
     "description": "Table section name for schema inputs in the model comparison page"
   },
-  "TiKwB3": {
-    "defaultMessage": "Scorer type",
-    "description": "Label for scorer type selection"
-  },
   "Tl63jz": {
     "defaultMessage": "All runs are filtered",
     "description": "Empty state title text for experiment runs page when all runs have been filtered out"
@@ -3256,10 +3276,6 @@
     "defaultMessage": "Status",
     "description": "Label for the status of a logged model on the logged model details page"
   },
-  "UhYfnu": {
-    "defaultMessage": "Run scorer on traces",
-    "description": "Title for running scorer on traces"
-  },
   "UhdPmo": {
     "defaultMessage": "Transition to",
     "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
@@ -3308,10 +3324,6 @@
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
   },
-  "VBsHmd": {
-    "defaultMessage": "Edit scorer",
-    "description": "Title for edit scorer modal"
-  },
   "VDkXRG": {
     "defaultMessage": "View model",
     "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
@@ -3323,6 +3335,10 @@
   "VMVNTR": {
     "defaultMessage": "Requested experiment was not found.",
     "description": "A message shown on the experiment page if the experiment is not found"
+  },
+  "VO1DnR": {
+    "defaultMessage": "Model",
+    "description": "Section header for model input"
   },
   "VP+qFF": {
     "defaultMessage": "Show diff only",
@@ -3408,6 +3424,10 @@
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
   },
+  "WDqWWa": {
+    "defaultMessage": "Show all runs",
+    "description": "Menu option for revealing all hidden runs in the evaluation runs table"
+  },
   "WELl8J": {
     "defaultMessage": "+{count} more",
     "description": "Message for the popover trigger to show more items in the categorical aggregate chart."
@@ -3480,6 +3500,10 @@
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guidelines assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
   },
+  "WncPgl": {
+    "defaultMessage": "Register your judge. The judge will then show up in this UI.",
+    "description": "Step 3 description for registering and starting judge"
+  },
   "WpD2MA": {
     "defaultMessage": "View All",
     "description": "View all traces button"
@@ -3491,10 +3515,6 @@
   "Ws58cc": {
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
-  },
-  "WsT6n2": {
-    "defaultMessage": "Create scorer",
-    "description": "Title for new scorer modal"
   },
   "WtUqxc": {
     "defaultMessage": "Error",
@@ -3619,10 +3639,6 @@
     "defaultMessage": "Input",
     "description": "Label for the input tokens in the tooltip for the tokens cell."
   },
-  "Y8t0y8": {
-    "defaultMessage": "Install or upgrade MLflow with the Databricks extras to ensure you have the latest scorer functionality.",
-    "description": "Step 1 description for installing MLflow"
-  },
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
     "description": "Link to download the artifact of the experiment"
@@ -3674,6 +3690,10 @@
   "YamyaP": {
     "defaultMessage": "Auto-refresh",
     "description": "String for the auto-refresh button that refreshes the runs list automatically"
+  },
+  "Yb0kNG": {
+    "defaultMessage": "Install or upgrade MLflow to ensure you have the latest judge functionality.",
+    "description": "Step 1 description for installing MLflow"
   },
   "Yd5ANL": {
     "defaultMessage": "PASS",
@@ -3755,10 +3775,6 @@
     "defaultMessage": "Install MLflow 3:",
     "description": "Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
   },
-  "ZTYpNH": {
-    "defaultMessage": "Sample scorer output",
-    "description": "Title for sample scorer output panel"
-  },
   "ZXUtU8": {
     "defaultMessage": "Click to see more",
     "description": "Run page > Overview > Tags cell > Tag"
@@ -3771,17 +3787,9 @@
     "defaultMessage": "Pass",
     "description": "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
   },
-  "ZaQ42C": {
-    "defaultMessage": "Commit message",
-    "description": "Header for the commit message column in the registered prompts table"
-  },
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
     "description": "Label for the relative axis on the runs compare chart"
-  },
-  "ZbBlDR": {
-    "defaultMessage": "Edit",
-    "description": "Edit button for scorer"
   },
   "Zc48NC": {
     "defaultMessage": "(unknown)",
@@ -3882,6 +3890,10 @@
   "aB6xFd": {
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
+  },
+  "aE6zVg": {
+    "defaultMessage": "Configure predefined judges, create guidelines-based LLM judges, or build custom judge functions to track your unique metrics. {link}",
+    "description": "Description for the empty state of the judges page"
   },
   "aFMLIO": {
     "defaultMessage": "System metrics",
@@ -3991,6 +4003,10 @@
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
     "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
   },
+  "bK3O8b": {
+    "defaultMessage": "Edit judge",
+    "description": "Title for edit judge modal"
+  },
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
@@ -4063,6 +4079,10 @@
     "defaultMessage": "Type",
     "description": "Run page > Overview > Experiment ID section label"
   },
+  "byhyEj": {
+    "defaultMessage": "Re-Run judge",
+    "description": "Button text for re-running judge"
+  },
   "bz4brG": {
     "defaultMessage": "Fail",
     "description": "Failing evaluation status in the evaluations table."
@@ -4074,10 +4094,6 @@
   "c0slEY": {
     "defaultMessage": "Click into an individual run to see all models associated with it",
     "description": "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
-  },
-  "c1dCMb": {
-    "defaultMessage": "Create scorer",
-    "description": "Create scorer button text"
   },
   "c1jD8u": {
     "defaultMessage": "Create an evaluation dataset",
@@ -4138,6 +4154,10 @@
   "cIV9pX": {
     "defaultMessage": "Permission denied",
     "description": "A title shown on the experiment page if user has no permissions to open the experiment"
+  },
+  "cJ9Nbp": {
+    "defaultMessage": "Are you sure you want to delete the judge ''{scorerName}''? This action cannot be undone.",
+    "description": "Confirmation message for deleting a judge"
   },
   "cJo1zH": {
     "defaultMessage": "{value} more",
@@ -4207,6 +4227,10 @@
     "defaultMessage": "Reopen review",
     "description": "Evaluation review > assessments > reopen review tooltip"
   },
+  "d4foU0": {
+    "defaultMessage": "Learn more about configuring judges",
+    "description": "Link text for configuring judges documentation"
+  },
   "d8I3cy": {
     "defaultMessage": "Show only visible",
     "description": "Experiment page > compare runs tab > chart header > move down option"
@@ -4238,10 +4262,6 @@
   "dVh69l": {
     "defaultMessage": "Run name",
     "description": "Column label for run name"
-  },
-  "dXnVsE": {
-    "defaultMessage": "Step 3: Register and start the scorer",
-    "description": "Step 3 title for custom scorer creation"
   },
   "dYbJha": {
     "defaultMessage": "Please provide run name",
@@ -4375,6 +4395,14 @@
     "defaultMessage": "Error during metric page load: invalid URL",
     "description": "Error message when loading metric page fails"
   },
+  "eVpwlz": {
+    "defaultMessage": "Step 3: Register the judge",
+    "description": "Step 3 title for custom judge creation"
+  },
+  "eYt1wE": {
+    "defaultMessage": "Add a judge to your experiment to measure your GenAI app quality",
+    "description": "Title for the empty state when no judges exist"
+  },
   "eZOxx1": {
     "defaultMessage": "Toggle the preview sidepane",
     "description": "Experiment page > control bar > expanded view toggle button tooltip"
@@ -4438,6 +4466,10 @@
   "fMf88R": {
     "defaultMessage": "Columns",
     "description": "Run page > artifact view > logged table view > columns selector label"
+  },
+  "fUwLyA": {
+    "defaultMessage": "Sample judge output",
+    "description": "Title for sample judge output panel"
   },
   "fWEvZL": {
     "defaultMessage": ", . : / - = and blank spaces are not allowed",
@@ -4551,9 +4583,9 @@
     "defaultMessage": "Display points",
     "description": "Runs charts > line chart > display points > label"
   },
-  "g8Uhds": {
-    "defaultMessage": "Name",
-    "description": "Section header for optional scorer name"
+  "gBzvDD": {
+    "defaultMessage": "Create judge",
+    "description": "Title for new judge modal"
   },
   "gC2Kxm": {
     "defaultMessage": "Give instructions to the model. Use '{{ }}' or the \"Add new variable\" button to add variables to your prompt.",
@@ -4659,9 +4691,9 @@
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
   },
-  "guBsqD": {
-    "defaultMessage": "List",
-    "description": "Label for the list mode on the registered prompt details page"
+  "guCNzD": {
+    "defaultMessage": "Run the judge on the selected group of traces",
+    "description": "Description for running judge on traces"
   },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
@@ -4698,6 +4730,10 @@
   "hIBLi9": {
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guideline adherence assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
+  },
+  "hR2Zvd": {
+    "defaultMessage": "Create a custom judge function using the {decorator} decorator. Implement your scoring logic in the function body. {link}",
+    "description": "Step 2 description for defining judge function"
   },
   "hT5ZGW": {
     "defaultMessage": "Remove message",
@@ -4794,10 +4830,6 @@
   "iF1UfU": {
     "defaultMessage": "New run using notebook",
     "description": "Experiment page > new notebook run modal > modal title"
-  },
-  "iJoFtG": {
-    "defaultMessage": "Create your own scorer using a Python function. Useful if your requirements are not met by LLM-as-a-judge scorers.",
-    "description": "Hint text for custom code scorer type option"
   },
   "iLFoPb": {
     "defaultMessage": "State",
@@ -5003,9 +5035,9 @@
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
   },
-  "kKus4w": {
-    "defaultMessage": "Retrieval Relevance is not yet supported for sample scorer output",
-    "description": "Tooltip message when retrieval relevance template is selected"
+  "kJJqpX": {
+    "defaultMessage": "Follow these steps to create a custom judge using your own code. {link}",
+    "description": "Brief instructions for custom judge functions"
   },
   "kNTkr+": {
     "defaultMessage": "Discard",
@@ -5038,10 +5070,6 @@
   "kgJSBI": {
     "defaultMessage": "Delete",
     "description": "A label for the confirm button in the delete prompt modal"
-  },
-  "kgZUd5": {
-    "defaultMessage": "Choose from a selection of 8 built-in LLM scorers by Databricks or create your own custom code based scorer. {learnMore}",
-    "description": "Description for the empty state when no scorers exist"
   },
   "kjltRf": {
     "defaultMessage": "Click a cell to preview data",
@@ -5090,6 +5118,10 @@
   "lFnpMi": {
     "defaultMessage": "AutoML",
     "description": "A short label for generic AutoML experiments"
+  },
+  "lHJWJh": {
+    "defaultMessage": "We encountered an issue loading the judges interface. Please refresh the page or contact support if the problem persists.",
+    "description": "Error description for experiment judges page loading failure"
   },
   "lISqyJ": {
     "defaultMessage": "Run details",
@@ -5167,6 +5199,10 @@
     "defaultMessage": "Version {version}",
     "description": "A label for the version number in the prompt details page"
   },
+  "lpptdR": {
+    "defaultMessage": "Automatically evaluate future traces using this judge",
+    "description": "Checkbox label for enabling automatic evaluation"
+  },
   "ls3868": {
     "defaultMessage": "Guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guidelines: moderate\""
@@ -5175,13 +5211,13 @@
     "defaultMessage": "Creation time",
     "description": "Label for the creation time column in the logged model list page"
   },
-  "ltxmrs": {
-    "defaultMessage": "Create and manage scorers",
-    "description": "Title for the empty state of the scorers page"
-  },
   "luV/3W": {
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guidelines assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
+  },
+  "lxGVDu": {
+    "defaultMessage": "Percentage of traces evaluated by this judge.",
+    "description": "Hint text for sample rate slider"
   },
   "m1Nb7W": {
     "defaultMessage": "Save",
@@ -5202,6 +5238,10 @@
   "mIFcgu": {
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the edit of an assessment"
+  },
+  "mILU5r": {
+    "defaultMessage": "Delete",
+    "description": "Delete judge button"
   },
   "mIk1MU": {
     "defaultMessage": "Create Model",
@@ -5243,10 +5283,6 @@
     "defaultMessage": "Logged models",
     "description": "Run page > Overview > Run models section label"
   },
-  "mmela4": {
-    "defaultMessage": "We encountered an issue loading the scorers interface. Please refresh the page or contact support if the problem persists.",
-    "description": "Error description for experiment scorers page loading failure"
-  },
   "mmiHAX": {
     "defaultMessage": "Parameters",
     "description": "Header title for the parameters section of the logged model list table"
@@ -5262,10 +5298,6 @@
   "mqDCNl": {
     "defaultMessage": "Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys.",
     "description": "An error message displayed when the logged table JSON file is malformed or does not contain 'columns' and 'data' keys"
-  },
-  "mqH8ff": {
-    "defaultMessage": "New scorer",
-    "description": "Button text to add a scorer from empty state"
   },
   "mqTFL+": {
     "defaultMessage": "Cancel",
@@ -5695,13 +5727,13 @@
     "defaultMessage": "None",
     "description": "Label for experiments with no automatically inferred experiment type"
   },
-  "qrwrrG": {
-    "defaultMessage": "Automatically evaluate future traces using this scorer",
-    "description": "Checkbox label for enabling automatic evaluation"
-  },
   "quxZB8": {
     "defaultMessage": "Create version",
     "description": "Button for creating a new genai model version"
+  },
+  "qzahRD": {
+    "defaultMessage": "Name",
+    "description": "Section header for optional judge name"
   },
   "r+KCRg": {
     "defaultMessage": "Parameter",
@@ -5775,10 +5807,6 @@
     "defaultMessage": "Violates global guidelines",
     "description": "Evaluation results > global guideline adherence assessment > negative value label. Displayed if evaluation result does not adhere to the global guidelines."
   },
-  "ra7uz9": {
-    "defaultMessage": "Re-Run scorer",
-    "description": "Button text for re-running scorer"
-  },
   "raa3Ij": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
@@ -5791,17 +5819,9 @@
     "defaultMessage": "Trace failed to render",
     "description": "Title for the error state in the model trace explorer"
   },
-  "rk80VL": {
-    "defaultMessage": "Add a scorer to your experiment to measure your GenAI app quality",
-    "description": "Title for the empty state when no scorers exist"
-  },
   "rmAWZX": {
     "defaultMessage": "just now",
     "description": "Evaluation review > assessments > tooltip > just now"
-  },
-  "ro8YJ6": {
-    "defaultMessage": "The trace variable is not supported when running the scorer on a sample of traces",
-    "description": "Tooltip message when instructions contain trace variable"
   },
   "rpqN8U": {
     "defaultMessage": "Dataset",
@@ -6103,6 +6123,10 @@
     "defaultMessage": "Suggested actions",
     "description": "Evaluation review > assessments > suggested actions > title"
   },
+  "vEuvEt": {
+    "defaultMessage": "Show first 10",
+    "description": "Menu option for showing only 10 first runs in the evaluation runs table"
+  },
   "vHNP+J": {
     "defaultMessage": "Add tags",
     "description": "Button text to add tags to a trace in the experiment traces table"
@@ -6154,6 +6178,10 @@
   "vlUEAo": {
     "defaultMessage": "Delete",
     "description": "Delete assessment modal button text"
+  },
+  "vlZ7Rr": {
+    "defaultMessage": "Judges",
+    "description": "Label for the judges tab in the MLflow experiment navbar"
   },
   "vlxeiA": {
     "defaultMessage": "Confirm",
@@ -6215,6 +6243,10 @@
     "defaultMessage": "Registered at:",
     "description": "A label for the registration timestamp in the prompt details page"
   },
+  "wKXJ6U": {
+    "defaultMessage": "Toggle visibility of evaluation runs",
+    "description": "Evaluation runs table > toggle visibility of runs > accessible label"
+  },
   "wMG8+P": {
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search models from the model registry table"
@@ -6250,6 +6282,10 @@
   "wjOGl2": {
     "defaultMessage": "Columns",
     "description": "Evaluation review > evaluations list > filter dropdown button"
+  },
+  "wo+kF7": {
+    "defaultMessage": "Specify the model for LLM evaluation. Defaults to openai:/gpt-4o-mini if not set. {learnMore}",
+    "description": "Hint text for model input with documentation link"
   },
   "womPSY": {
     "defaultMessage": "Session",
@@ -6439,10 +6475,6 @@
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
   },
-  "ye2YY/": {
-    "defaultMessage": "Configure predefined scorers, create guidelines-based LLM scorers, or build custom scorer functions to track your unique metrics. {link}",
-    "description": "Description for the empty state of the scorers page"
-  },
   "yeEPjS": {
     "defaultMessage": "No traces found",
     "description": "Experiment page > traces table > no traces recorded"
@@ -6459,17 +6491,9 @@
     "defaultMessage": "No prompts match your search",
     "description": "No search results message for linked prompts table on logged model details page"
   },
-  "ymSHKp": {
-    "defaultMessage": "Delete scorer",
-    "description": "Title for the delete scorer confirmation modal"
-  },
   "ynkoR7": {
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",
     "description": "Message text when no model versions are registered"
-  },
-  "yr2MZ+": {
-    "defaultMessage": "Instructions",
-    "description": "Section header for scorer instructions"
   },
   "yrsFOP": {
     "defaultMessage": "Datasets",
@@ -6610,9 +6634,5 @@
   "zxfWCx": {
     "defaultMessage": "Add/Edit Prompt Version Metadata",
     "description": "Title for a modal that allows the user to add or edit metadata tags on prompt versions."
-  },
-  "zzN8kE": {
-    "defaultMessage": "Step 2: Define your scorer function",
-    "description": "Step 2 title for custom scorer creation"
   }
 }

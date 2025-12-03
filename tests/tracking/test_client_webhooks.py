@@ -106,14 +106,12 @@ def test_get_webhook_not_found(client: MlflowClient):
 
 def test_list_webhooks(client: MlflowClient):
     # Create more webhooks than max_results
-    created_webhooks = []
     for i in range(5):
-        webhook = client.create_webhook(
+        client.create_webhook(
             name=f"webhook{i}",
             url=f"https://example.com/{i}",
             events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
         )
-        created_webhooks.append(webhook)
     # Test pagination with max_results=2
     webhooks_page = client.list_webhooks(max_results=2)
     assert len(webhooks_page) == 2

@@ -234,8 +234,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             MLFLOW_S3_UPLOAD_EXTRA_ARGS: JSON string containing extra arguments
                 for S3 uploads (e.g., '{"ServerSideEncryption": "AES256"}')
         """
-        s3_file_upload_extra_args = MLFLOW_S3_UPLOAD_EXTRA_ARGS.get()
-        if s3_file_upload_extra_args:
+        if s3_file_upload_extra_args := MLFLOW_S3_UPLOAD_EXTRA_ARGS.get():
             return json.loads(s3_file_upload_extra_args)
         else:
             return None

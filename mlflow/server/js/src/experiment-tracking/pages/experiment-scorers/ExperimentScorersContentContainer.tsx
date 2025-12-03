@@ -50,8 +50,8 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
         {[...Array(3).keys()].map((i) => (
           <ParagraphSkeleton
             label={intl.formatMessage({
-              defaultMessage: 'Loading scorers...',
-              description: 'Loading message while fetching experiment scorers',
+              defaultMessage: 'Loading judges...',
+              description: 'Loading message while fetching experiment judges',
             })}
             key={i}
             seed={`scorer-${i}`}
@@ -90,7 +90,7 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
           componentId={`${COMPONENT_ID_PREFIX}.new-scorer-button`}
           onClick={handleNewScorerClick}
         >
-          <FormattedMessage defaultMessage="New scorer" description="Button text to create a new scorer" />
+          <FormattedMessage defaultMessage="New judge" description="Button text to create a new judge" />
         </Button>
       </div>
       <Spacer size="sm" />

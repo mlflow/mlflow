@@ -27,18 +27,19 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
-from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.telemetry.events import LoadPromptEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.fluent import get_active_trace_id
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.fluent import get_active_trace_id, get_current_active_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import _get_latest_active_run, get_active_model_id
+from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
@@ -664,7 +665,47 @@ def register_prompt(
 def search_prompts(
     filter_string: str | None = None,
     max_results: int | None = None,
-) -> PagedList[Prompt]:
+) -> list[Prompt]:
+    """
+    Search for prompts in the MLflow Prompt Registry.
+
+    This call returns prompt metadata for prompts that have been marked
+    as prompts (i.e. tagged with `mlflow.prompt.is_prompt=true`). We can
+    further restrict results via a standard registry filter expression.
+
+    Args:
+        filter_string (Optional[str]):
+            An additional registry-search expression to apply (e.g.
+            `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
+            catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
+        max_results (Optional[int]):
+            The maximum number of prompts to return.
+
+    Returns:
+        A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects representing prompt metadata:
+
+        - name: The prompt name
+        - description: The prompt description
+        - tags: Prompt-level tags
+        - creation_timestamp: When the prompt was created
+
+        To get the actual prompt template content,
+        use :py:func:`mlflow.genai.load_prompt()` API with a specific version:
+
+        .. code-block:: python
+            import mlflow
+
+            # Search for prompts
+            prompts = mlflow.genai.search_prompts(filter_string="name LIKE 'greeting%'")
+
+            # Get prompts by experiment
+            prompts = mlflow.genai.search_prompts(filter_string='experiment_id = "1"')
+
+            # Get specific version content
+            for prompt in prompts:
+                prompt_version = mlflow.genai.load_prompt(prompt.name, version="1")
+                print(f"Template: {prompt_version.template}")
+    """
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="search_prompts"),
         category=FutureWarning,
@@ -783,7 +824,7 @@ def load_prompt(
                 except Exception:
                     # NB: We should still load the prompt even if linking fails, since the prompt
                     # is critical to the caller's application logic
-                    _logger.warn(
+                    _logger.warning(
                         f"Failed to link prompt '{prompt.name}' version '{prompt.version}'"
                         f" to model '{model_id}'.",
                         exc_info=True,
@@ -800,6 +841,12 @@ def load_prompt(
             trace_id=trace_id,
             prompt=prompt,
         )
+
+    # Set prompt version information as span attributes if there's an active span
+    if span := get_current_active_span():
+        current_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+        updated_value = update_linked_prompts_tag(current_value, [prompt])
+        span.set_attribute(SpanAttributeKey.LINKED_PROMPTS, updated_value)
 
     return prompt
 
@@ -826,7 +873,14 @@ def _load_prompt_not_cached(
     """
     client = MlflowClient()
     prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
-    return client.load_prompt(prompt_uri, allow_missing=allow_missing)
+    prompt = client.load_prompt(prompt_uri, allow_missing=allow_missing)
+
+    # Link the prompt to the active experiment. This is called only when
+    # the prompt is loaded from the registry to avoid performance overhead.
+    if experiment_id := _get_experiment_id():
+        client._link_prompt_to_experiment(prompt, experiment_id)
+
+    return prompt
 
 
 @require_prompt_registry

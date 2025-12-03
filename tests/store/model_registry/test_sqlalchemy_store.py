@@ -41,17 +41,6 @@ pytestmark = pytest.mark.notrackingurimock
 GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    store = SqlAlchemyStore(db_uri)
-    store.engine.dispose()
-    return db_path
-
-
 @pytest.fixture
 def store(tmp_path: Path, cached_db: Path):
     if db_uri_env := MLFLOW_TRACKING_URI.get():
@@ -2120,14 +2109,12 @@ def test_list_webhooks(store):
 
 def test_list_webhooks_pagination(store):
     # Create more webhooks than max_results
-    created_webhooks = []
     for i in range(5):
-        webhook = store.create_webhook(
+        store.create_webhook(
             name=f"webhook{i}",
             url=f"https://example.com/{i}",
             events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
         )
-        created_webhooks.append(webhook)
 
     # Test pagination with max_results=2
     webhooks_page = store.list_webhooks(max_results=2)

@@ -959,17 +959,6 @@ class SetTraceTagV3(_message.Message):
     def __init__(self, trace_id: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class DeleteTraceTag(_message.Message):
-    __slots__ = ("trace_id", "key")
-    class Response(_message.Message):
-        __slots__ = ()
-        def __init__(self) -> None: ...
-    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
-    KEY_FIELD_NUMBER: _ClassVar[int]
-    trace_id: str
-    key: str
-    def __init__(self, trace_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
-
-class DeleteTraceTagV3(_message.Message):
     __slots__ = ("request_id", "key")
     class Response(_message.Message):
         __slots__ = ()
@@ -979,6 +968,17 @@ class DeleteTraceTagV3(_message.Message):
     request_id: str
     key: str
     def __init__(self, request_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
+
+class DeleteTraceTagV3(_message.Message):
+    __slots__ = ("trace_id", "key")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    key: str
+    def __init__(self, trace_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
 
 class Trace(_message.Message):
     __slots__ = ("trace_info", "spans")
@@ -1091,6 +1091,24 @@ class LinkTracesToRun(_message.Message):
     trace_ids: _containers.RepeatedScalarFieldContainer[str]
     run_id: str
     def __init__(self, trace_ids: _Optional[_Iterable[str]] = ..., run_id: _Optional[str] = ...) -> None: ...
+
+class LinkPromptsToTrace(_message.Message):
+    __slots__ = ("trace_id", "prompt_versions")
+    class PromptVersionRef(_message.Message):
+        __slots__ = ("name", "version")
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        VERSION_FIELD_NUMBER: _ClassVar[int]
+        name: str
+        version: str
+        def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    PROMPT_VERSIONS_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    prompt_versions: _containers.RepeatedCompositeFieldContainer[LinkPromptsToTrace.PromptVersionRef]
+    def __init__(self, trace_id: _Optional[str] = ..., prompt_versions: _Optional[_Iterable[_Union[LinkPromptsToTrace.PromptVersionRef, _Mapping]]] = ...) -> None: ...
 
 class DatasetSummary(_message.Message):
     __slots__ = ("experiment_id", "name", "digest", "context")

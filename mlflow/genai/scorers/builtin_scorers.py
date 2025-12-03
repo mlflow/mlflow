@@ -16,7 +16,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
-from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
+from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
@@ -294,6 +294,7 @@ class BuiltInScorer(Judge):
             name=self.name,
             description=self.description,
             aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             builtin_scorer_class=self.__class__.__name__,
@@ -335,8 +336,7 @@ class BuiltInScorer(Judge):
         return scorer_class(**constructor_args)
 
     def validate_columns(self, columns: set[str]) -> None:
-        missing_columns = self.required_columns - columns
-        if missing_columns:
+        if missing_columns := self.required_columns - columns:
             raise MissingColumnsException(self.name, missing_columns)
 
     @property
@@ -1581,9 +1581,53 @@ class Equivalence(BuiltInScorer):
         return _sanitize_feedback(feedback)
 
 
+class BuiltInSessionLevelScorer(BuiltInScorer):
+    """
+    Abstract base class for built-in session-level scorers.
+    Session-level scorers evaluate entire conversation sessions rather than individual traces.
+    """
+
+    required_columns: set[str] = {"trace"}
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    @abstractmethod
+    def _create_judge(self) -> InstructionsJudge:
+        """
+        Create the InstructionsJudge instance for this scorer.
+        Subclasses should implement this to configure their specific judge.
+
+        Note: Instantiate InstructionsJudge directly instead of using make_judge.
+        """
+
+    def _get_judge(self) -> InstructionsJudge:
+        """Get or create the cached judge instance."""
+        if self._judge is None:
+            self._judge = self._create_judge()
+        return self._judge
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="session",
+                description="A list of trace objects belonging to the same conversation session.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        session: list[Trace] | None = None,
+    ) -> Feedback:
+        return self._get_judge()(session=session)
+
+
 @experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
-class UserFrustration(BuiltInScorer):
+class UserFrustration(BuiltInSessionLevelScorer):
     """
     UserFrustration evaluates the user's frustration state throughout the conversation
     with the AI assistant based on a conversation session.
@@ -1640,53 +1684,27 @@ class UserFrustration(BuiltInScorer):
 
     name: str = USER_FRUSTRATION_ASSESSMENT_NAME
     model: str | None = None
-    required_columns: set[str] = {"session"}
     description: str = "Evaluate the user's frustration state throughout the conversation."
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
-        if self._judge is None:
-            self._judge = InstructionsJudge(
-                name=self.name,
-                instructions=self.instructions,
-                model=self.model,
-                description=self.description,
-                feedback_value_type=Literal[
-                    "no_frustration", "frustration_resolved", "frustration_not_resolved"
-                ],
-            )
-        return self._judge
-
-    @property
-    def is_session_level_scorer(self) -> bool:
-        return True
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal[
+                "no_frustration", "frustration_resolved", "frustration_not_resolved"
+            ],
+        )
 
     @property
     def instructions(self) -> str:
         return USER_FRUSTRATION_PROMPT
 
-    def get_input_fields(self) -> list[JudgeField]:
-        return [
-            JudgeField(
-                name="session",
-                description="A list of trace objects belonging to the same conversation session.",
-            ),
-        ]
-
-    def __call__(
-        self,
-        *,
-        session: list[Trace] | None = None,
-    ) -> Feedback:
-        return self._get_judge()(session=session)
-
-    def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
-        raise NotImplementedError("Alignment is not supported for session-level scorers.")
-
 
 @experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
-class ConversationCompleteness(BuiltInScorer):
+class ConversationCompleteness(BuiltInSessionLevelScorer):
     """
     ConversationCompleteness evaluates whether an AI assistant fully addresses all user requests
     by the end of the conversation.
@@ -1738,50 +1756,24 @@ class ConversationCompleteness(BuiltInScorer):
 
     name: str = CONVERSATION_COMPLETENESS_ASSESSMENT_NAME
     model: str | None = None
-    required_columns: set[str] = {"session"}
     description: str = (
         "Evaluate whether the assistant fully addresses all user requests by the end of "
         "the conversation."
     )
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
-        if self._judge is None:
-            self._judge = InstructionsJudge(
-                name=self.name,
-                instructions=self.instructions,
-                model=self.model,
-                description=self.description,
-                feedback_value_type=Literal["yes", "no"],
-                generate_rationale_first=True,
-            )
-        return self._judge
-
-    @property
-    def is_session_level_scorer(self) -> bool:
-        return True
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+            generate_rationale_first=True,
+        )
 
     @property
     def instructions(self) -> str:
         return CONVERSATION_COMPLETENESS_PROMPT
-
-    def get_input_fields(self) -> list[JudgeField]:
-        return [
-            JudgeField(
-                name="session",
-                description="A list of trace objects belonging to the same conversation session.",
-            ),
-        ]
-
-    def __call__(
-        self,
-        *,
-        session: list[Trace] | None = None,
-    ) -> Feedback:
-        return self._get_judge()(session=session)
-
-    def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
-        raise NotImplementedError("Alignment is not supported for session-level scorers.")
 
 
 @experimental(version="3.7.0")

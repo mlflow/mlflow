@@ -16,13 +16,12 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'getting-started/connect-environment',
-      label: 'Set Up MLflow',
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'link',
-      href: '/genai/tracing/quickstart/python-openai',
-      label: 'Tracing Quickstart',
+      type: 'doc',
+      id: 'tracing/quickstart/index',
+      label: 'Start Tracing',
       className: 'sidebar-top-level-category',
     },
     {
@@ -42,20 +41,9 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
+          type: 'doc',
+          id: 'tracing/quickstart/index',
           label: 'Quickstart',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/python-openai',
-              label: 'Getting Started (Python)',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/typescript-openai',
-              label: 'Getting Started (TS/JS)',
-            },
-          ],
         },
         {
           type: 'category',
@@ -185,6 +173,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/vercelai',
                   label: 'Vercel AI SDK',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/voltagent',
+                  label: 'VoltAgent',
                 },
               ],
             },
@@ -557,6 +550,10 @@ const sidebarsGenAI: SidebarsConfig = {
             id: 'prompt-registry/optimize-prompts',
           },
           items: [
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/langchain-optimization',
+            },
             {
               type: 'doc',
               id: 'prompt-registry/optimize-prompts/openai-agent-optimization',

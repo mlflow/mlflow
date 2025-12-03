@@ -26,6 +26,10 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     control,
     name: 'sampleRate',
   });
+  const disableMonitoring = useWatch({
+    control,
+    name: 'disableMonitoring',
+  });
 
   const isAutomaticEvaluationEnabled = sampleRate > 0;
 
@@ -37,6 +41,10 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     display: 'flex' as const,
     flexDirection: 'column' as const,
   };
+
+  if (disableMonitoring) {
+    return null;
+  }
 
   return (
     <>
@@ -68,7 +76,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
               onClick={stopPropagationClick}
             >
               <FormattedMessage
-                defaultMessage="Automatically evaluate future traces using this scorer"
+                defaultMessage="Automatically evaluate future traces using this judge"
                 description="Checkbox label for enabling automatic evaluation"
               />
             </Checkbox>
@@ -89,7 +97,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
               </FormUI.Label>
               <FormUI.Hint>
                 <FormattedMessage
-                  defaultMessage="Percentage of traces evaluated by this scorer."
+                  defaultMessage="Percentage of traces evaluated by this judge."
                   description="Hint text for sample rate slider"
                 />
               </FormUI.Hint>

@@ -105,6 +105,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks',
   },
   {
+    id: 'voltagent',
+    name: 'VoltAgent',
+    logoPath: '/images/logos/voltagent-logo.png',
+    link: '/genai/tracing/integrations/listing/voltagent',
+    category: 'Agent Frameworks',
+  },
+  {
     id: 'agno',
     name: 'Agno',
     logoPath: '/images/logos/agno-logo.png',

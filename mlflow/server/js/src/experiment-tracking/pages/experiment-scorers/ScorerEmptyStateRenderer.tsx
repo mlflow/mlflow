@@ -5,7 +5,7 @@ import {
   Button,
   PlusIcon,
   Spacer,
-  SparkleIcon,
+  GavelIcon,
   Typography,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -34,19 +34,19 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({ onA
       }}
     >
       <Empty
-        image={<SparkleIcon css={{ fontSize: 48, color: theme.colors.textSecondary }} />}
+        image={<GavelIcon css={{ fontSize: 48, color: theme.colors.textSecondary }} />}
         title={
           <FormattedMessage
-            defaultMessage="Add a scorer to your experiment to measure your GenAI app quality"
-            description="Title for the empty state when no scorers exist"
+            defaultMessage="Add a judge to your experiment to measure your GenAI app quality"
+            description="Title for the empty state when no judges exist"
           />
         }
         description={
           <div css={{ maxWidth: 600, textAlign: 'center' }}>
             <Spacer size="sm" />
             <FormattedMessage
-              defaultMessage="Choose from a selection of 8 built-in LLM scorers by Databricks or create your own custom code based scorer. {learnMore}"
-              description="Description for the empty state when no scorers exist"
+              defaultMessage="Choose from a selection of built-in LLM judges or create your own custom code based judge. {learnMore}"
+              description="Description for the empty state when no judges exist"
               values={{
                 learnMore: (
                   <Typography.Link
@@ -70,7 +70,7 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({ onA
             componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-scorer-button`}
             onClick={onAddScorerClick}
           >
-            <FormattedMessage defaultMessage="New scorer" description="Button text to add a scorer from empty state" />
+            <FormattedMessage defaultMessage="New judge" description="Button text to add a judge from empty state" />
           </Button>
         }
       />
