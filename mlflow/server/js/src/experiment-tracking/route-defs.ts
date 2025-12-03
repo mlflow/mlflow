@@ -87,8 +87,8 @@ const getExperimentPageRouteDefs = () => {
           element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
         },
         {
-          path: RoutePaths.experimentPromptDetails,
-          pageId: PageId.experimentPromptDetails,
+          path: RoutePaths.experimentPageTabPromptDetails,
+          pageId: PageId.experimentPageTabPromptDetails,
           element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptDetailsPage')),
         },
       ],

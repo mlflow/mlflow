@@ -23,7 +23,7 @@ export enum PageId {
   experimentPageTabSingleChatSession = 'mlflow.experiment.tab.single-chat-session',
   experimentPageTabScorers = 'mlflow.experiment.tab.scorers',
   experimentPageTabPrompts = 'mlflow.experiment.prompts.list',
-  experimentPromptDetails = 'mlflow.experiment.prompt.details',
+  experimentPageTabPromptDetails = 'mlflow.experiment.prompt.details',
   // Child routes for experiment page - end
   experimentPageSearch = 'mlflow.experiment.details.search',
   compareExperimentsSearch = 'mlflow.experiment.compare',
@@ -98,7 +98,7 @@ export class RoutePaths {
   static get experimentPageTabPrompts() {
     return createMLflowRoutePath('/experiments/:experimentId/prompts');
   }
-  static get experimentPromptDetails() {
+  static get experimentPageTabPromptDetails() {
     return createMLflowRoutePath('/experiments/:experimentId/prompts/:promptName');
   }
   static get runPageDirect() {
@@ -298,7 +298,7 @@ class Routes {
 
   static getPromptDetailsPageRoute(promptName: string, experimentId?: string) {
     if (experimentId) {
-      return generatePath(RoutePaths.experimentPromptDetails, { experimentId, promptName });
+      return generatePath(RoutePaths.experimentPageTabPromptDetails, { experimentId, promptName });
     }
     return generatePath(RoutePaths.promptDetailsPage, { promptName });
   }
