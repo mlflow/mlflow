@@ -2,7 +2,7 @@ import { Global } from '@emotion/react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { ResizableBox } from 'react-resizable';
 import { ExperimentViewRunsTableResizerHandle } from '../../components/experiment-page/components/runs/ExperimentViewRunsTableResizer';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { ExperimentEvaluationDatasetsListTable } from './components/ExperimentEvaluationDatasetsListTable';
@@ -34,13 +34,20 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
     hasNextPage,
   } = useSearchEvaluationDatasets({ experimentId, nameFilter: searchFilter });
 
+  // Auto-select the first dataset when:
+  // - No dataset is currently selected, OR
+  // - The selected dataset is no longer in the list (e.g., was deleted / not in search)
+  const datasetIds = useMemo(() => datasets?.map((d) => d.dataset_id) ?? [], [datasets]);
+  useEffect(() => {
+    if (datasets?.length && (!selectedDatasetId || !datasetIds.includes(selectedDatasetId))) {
+      setSelectedDatasetId(datasets[0].dataset_id);
+    }
+  }, [datasets, selectedDatasetId, datasetIds, setSelectedDatasetId]);
+
   // Derive selected dataset from datasets and selectedDatasetId
   const selectedDataset = useMemo(() => {
-    if (!datasets?.length) return undefined;
-    if (selectedDatasetId) {
-      return datasets.find((d) => d.dataset_id === selectedDatasetId);
-    }
-    return undefined;
+    if (!datasets?.length || !selectedDatasetId) return undefined;
+    return datasets.find((d) => d.dataset_id === selectedDatasetId);
   }, [datasets, selectedDatasetId]);
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Empty,
   Table,
@@ -206,19 +206,6 @@ export const ExperimentEvaluationDatasetsListTable = ({
     hasNextPage: hasNextPage ?? false,
     fetchNextPage,
   });
-
-  // Get the list of sorted rows for auto-selection
-  const sortedRows = table.getRowModel().rows;
-
-  // Auto-select the first dataset when:
-  // - No dataset is currently selected, OR
-  // - The selected dataset is no longer in the list (e.g., was deleted / not in search)
-  const datasetIds = useMemo(() => datasets?.map((d) => d.dataset_id) ?? [], [datasets]);
-  useEffect(() => {
-    if (sortedRows.length > 0 && (!selectedDatasetId || !datasetIds.includes(selectedDatasetId))) {
-      setSelectedDatasetId(sortedRows[0].original.dataset_id);
-    }
-  }, [sortedRows, selectedDatasetId, datasetIds, setSelectedDatasetId]);
 
   if (error) {
     return <div>Error loading datasets</div>;
