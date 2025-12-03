@@ -75,6 +75,7 @@ class SerializedScorer:
     name: str
     aggregations: list[str] | None = None
     description: str | None = None
+    is_session_level_scorer: bool = False
 
     # Version metadata
     mlflow_version: str = mlflow.__version__
@@ -190,6 +191,7 @@ class Scorer(BaseModel):
             name=self.name,
             description=self.description,
             aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             call_source=source_info.get("call_source"),

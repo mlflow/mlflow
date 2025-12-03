@@ -377,8 +377,8 @@ const config: Config = {
             from: ['/llms/llm-tracking', '/tracing', '/llms/tracing', '/tracing/api/how-to'],
           },
           {
-            to: '/genai/tracing/quickstart/python-openai',
-            from: ['/genai/tracing/quickstart'],
+            to: '/genai/tracing/quickstart',
+            from: ['/genai/tracing/quickstart/typescript-openai', '/genai/tracing/quickstart/python-openai'],
           },
           {
             to: '/genai/tracing/faq',
@@ -651,6 +651,18 @@ const config: Config = {
           {
             to: '/genai/datasets',
             from: ['/genai/eval-monitor/scorers/llm-judge/dataset'],
+          },
+          // Classic ML Evaluation Redirects - consolidated to single page
+          {
+            to: '/ml/evaluation',
+            from: [
+              '/ml/evaluation/model-eval',
+              '/ml/evaluation/dataset-eval',
+              '/ml/evaluation/function-eval',
+              '/ml/evaluation/metrics-visualizations',
+              '/ml/evaluation/shap',
+              '/ml/evaluation/plugin-evaluators',
+            ],
           },
           // Prompt Management Redirects
           {

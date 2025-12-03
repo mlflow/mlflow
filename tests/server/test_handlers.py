@@ -201,7 +201,7 @@ def mock_evaluation_dataset():
     dataset.last_updated_by = "test_user"
     dataset.tags = {"env": "test", "version": "1.0"}
     dataset.experiment_ids = ["0", "1"]
-    dataset.records = []
+    dataset._records = []
     dataset.schema = json.dumps(
         {"inputs": {"question": "string"}, "expectations": {"accuracy": "float"}}
     )

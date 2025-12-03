@@ -1322,6 +1322,7 @@ def test_model_dump_uses_serialized_scorer_dataclass():
     expected_scorer = SerializedScorer(
         name="test_dataclass_judge",
         aggregations=[],
+        is_session_level_scorer=False,
         mlflow_version=mlflow.__version__,
         serialization_version=1,
         instructions_judge_pydantic_data={
@@ -1344,6 +1345,53 @@ def test_model_dump_uses_serialized_scorer_dataclass():
     assert serialized == expected_dict
 
     assert set(serialized.keys()) == set(expected_dict.keys())
+
+
+def test_model_dump_session_level_scorer():
+    judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate the {{ conversation }} for coherence",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    # Verify it's a session-level scorer
+    assert judge.is_session_level_scorer is True
+
+    serialized = judge.model_dump()
+
+    # Verify is_session_level_scorer is properly serialized
+    assert serialized["is_session_level_scorer"] is True
+    assert serialized["name"] == "conversation_judge"
+
+    expected_scorer = SerializedScorer(
+        name="conversation_judge",
+        aggregations=[],
+        is_session_level_scorer=True,
+        mlflow_version=mlflow.__version__,
+        serialization_version=1,
+        instructions_judge_pydantic_data={
+            "feedback_value_type": {
+                "type": "string",
+                "title": "Result",
+            },
+            "instructions": "Evaluate the {{ conversation }} for coherence",
+            "model": "openai:/gpt-4",
+        },
+        builtin_scorer_class=None,
+        builtin_scorer_pydantic_data=None,
+        call_source=None,
+        call_signature=None,
+        original_func_name=None,
+    )
+
+    expected_dict = asdict(expected_scorer)
+    assert serialized == expected_dict
+
+    # Test deserialization preserves is_session_level_scorer
+    deserialized = Scorer.model_validate(serialized)
+    assert deserialized.is_session_level_scorer is True
+    assert deserialized.name == "conversation_judge"
 
 
 def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
@@ -2757,6 +2805,32 @@ def test_make_judge_serialization_with_feedback_value_type():
     restored_list = Scorer.model_validate(serialized_list)
     assert typing.get_origin(restored_list._feedback_value_type) is list
     assert typing.get_args(restored_list._feedback_value_type) == (str,)
+
+
+def test_judge_with_literal_type_serialization():
+    literal_type = Literal["good", "bad"]
+    judge = make_judge(
+        name="test_judge",
+        instructions="Rate the response as {{ inputs }}",
+        feedback_value_type=literal_type,
+        model="databricks:/databricks-meta-llama-3-1-70b-instruct",
+    )
+
+    # Test serialization
+    serialized = InstructionsJudge._serialize_feedback_value_type(literal_type)
+    assert "enum" in serialized
+    assert serialized["enum"] == ["good", "bad"]
+
+    # Test model validate
+    dumped = judge.model_dump()
+    restored = Scorer.model_validate(dumped)
+    assert restored.name == "test_judge"
+    assert restored._feedback_value_type is not None
+
+    # Test register
+    registered = judge.register()
+    assert registered.name == "test_judge"
+    assert registered._feedback_value_type is not None
 
 
 def test_make_judge_validates_feedback_value_type():
