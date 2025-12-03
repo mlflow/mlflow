@@ -4496,7 +4496,6 @@ def test_start_trace(store: SqlAlchemyStore):
         "tag1": "apple",
         "tag2": "orange",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
-        TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE.value,
     }
     assert trace_info == store.get_trace_info(trace_id)
 
@@ -6799,7 +6798,6 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
 
     # Delete system tag for easier testing
     store.delete_trace_tag(trace_id, MLFLOW_ARTIFACT_LOCATION)
-    store.delete_trace_tag(trace_id, TraceTagKey.SPANS_LOCATION)
 
     assert store.get_trace_info(trace_id).tags == {}
 
@@ -11417,6 +11415,124 @@ def test_get_trace_not_found(store: SqlAlchemyStore) -> None:
     trace_id = f"tr-{uuid.uuid4().hex}"
     with pytest.raises(MlflowException, match=f"Trace with ID {trace_id} is not found."):
         store.get_trace(trace_id)
+
+
+def test_start_trace_only_no_spans_location_tag(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_only")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    created_trace_info = store.start_trace(trace_info)
+
+    assert TraceTagKey.SPANS_LOCATION not in created_trace_info.tags
+
+
+def test_start_trace_then_log_spans_adds_tag(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_then_log_spans")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info)
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+
+
+def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_log_spans_then_start_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+
+
+def test_concurrent_log_spans_spans_location_tag(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_concurrent_log_spans")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def log_span_worker(span_id):
+        span = create_test_span(
+            trace_id=trace_id,
+            name=f"concurrent_span_{span_id}",
+            span_id=span_id,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000 + span_id * 1000,
+            end_ns=2_000_000_000 + span_id * 1000,
+            trace_num=12345,
+        )
+        store.log_spans(experiment_id, [span])
+        return span_id
+
+    # Launch multiple concurrent log_spans calls
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(log_span_worker, i) for i in range(111, 116)]
+
+        # Wait for all to complete
+        results = [future.result() for future in futures]
+
+    # All workers should complete successfully
+    assert len(results) == 5
+    assert set(results) == {111, 112, 113, 114, 115}
+
+    # Verify the SPANS_LOCATION tag was created correctly
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+
+    # Verify all spans were logged
+    trace = store.get_trace(trace_id)
+    assert len(trace.data.spans) == 5
+    span_names = {span.name for span in trace.data.spans}
+    expected_names = {f"concurrent_span_{i}" for i in range(111, 116)}
+    assert span_names == expected_names
 
 
 @pytest.mark.parametrize("allow_partial", [True, False])
