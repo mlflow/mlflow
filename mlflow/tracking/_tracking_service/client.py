@@ -57,15 +57,23 @@ from mlflow.telemetry.events import (
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.context import registry as context_registry
-from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
+from mlflow.tracking.metric_value_conversion_utils import (
+    convert_metric_value_to_float_if_possible,
+)
 from mlflow.utils import chunk_list
 from mlflow.utils.annotations import experimental
-from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
+from mlflow.utils.async_logging.run_operations import (
+    RunOperations,
+    get_combined_run_operations,
+)
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    add_databricks_profile_info_to_artifact_uri,
+    is_databricks_uri,
+)
 from mlflow.utils.validation import (
     MAX_ENTITIES_PER_BATCH,
     MAX_METRICS_PER_BATCH,
@@ -298,7 +306,9 @@ class TrackingServiceClient:
         return self.store.create_experiment(
             name=name,
             artifact_location=artifact_location,
-            tags=[ExperimentTag(key, value) for (key, value) in tags.items()] if tags else [],
+            tags=[ExperimentTag(key, value) for (key, value) in tags.items()]
+            if tags
+            else [],
         )
 
     def delete_experiment(self, experiment_id):
@@ -553,7 +563,9 @@ class TrackingServiceClient:
         # Applicable only when synchronous is False
         run_operations_list = []
 
-        for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
+        for params_batch, tags_batch in zip_longest(
+            param_batches, tag_batches, fillvalue=[]
+        ):
             metrics_batch_size = min(
                 MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
                 MAX_METRICS_PER_BATCH,
@@ -564,7 +576,10 @@ class TrackingServiceClient:
 
             if synchronous:
                 self.store.log_batch(
-                    run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch
+                    run_id=run_id,
+                    metrics=metrics_batch,
+                    params=params_batch,
+                    tags=tags_batch,
                 )
             else:
                 run_operations_list.append(
@@ -578,7 +593,9 @@ class TrackingServiceClient:
 
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             if synchronous:
-                self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
+                self.store.log_batch(
+                    run_id=run_id, metrics=metrics_batch, params=[], tags=[]
+                )
             else:
                 run_operations_list.append(
                     self.store.log_batch_async(
@@ -664,11 +681,15 @@ class TrackingServiceClient:
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
+        _logger.info(f"[TrackingServiceClient] log_artifact, run_id = {run_id}")
         artifact_repo = self._get_artifact_repo(run_id)
+        _logger.info(f"[TrackingServiceClient] artifact_repo = {artifact_repo}")
         if os.path.isdir(local_path):
             dir_name = os.path.basename(os.path.normpath(local_path))
             path_name = (
-                os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
+                os.path.join(artifact_path, dir_name)
+                if artifact_path is not None
+                else dir_name
             )
             artifact_repo.log_artifacts(local_path, path_name)
         else:
@@ -712,9 +733,13 @@ class TrackingServiceClient:
         """
         from mlflow.artifacts import list_artifacts
 
-        return list_artifacts(run_id=run_id, artifact_path=path, tracking_uri=self.tracking_uri)
+        return list_artifacts(
+            run_id=run_id, artifact_path=path, tracking_uri=self.tracking_uri
+        )
 
-    def list_logged_model_artifacts(self, model_id: str, path: str | None = None) -> list[FileInfo]:
+    def list_logged_model_artifacts(
+        self, model_id: str, path: str | None = None
+    ) -> list[FileInfo]:
         """List the artifacts for a logged model.
 
         Args:
@@ -725,7 +750,9 @@ class TrackingServiceClient:
         Returns:
             List of :py:class:`mlflow.entities.FileInfo`
         """
-        return self._get_artifact_repo(model_id, resource="logged_model").list_artifacts(path)
+        return self._get_artifact_repo(
+            model_id, resource="logged_model"
+        ).list_artifacts(path)
 
     def download_artifacts(self, run_id: str, path: str, dst_path: str | None = None):
         """Download an artifact file or directory from a run to a local directory if applicable,
@@ -747,7 +774,10 @@ class TrackingServiceClient:
         from mlflow.artifacts import download_artifacts
 
         return download_artifacts(
-            run_id=run_id, artifact_path=path, dst_path=dst_path, tracking_uri=self.tracking_uri
+            run_id=run_id,
+            artifact_path=path,
+            dst_path=dst_path,
+            tracking_uri=self.tracking_uri,
         )
 
     def _log_url(self, run_id):
@@ -874,7 +904,10 @@ class TrackingServiceClient:
             tags=[LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
             if tags is not None
             else tags,
-            params=[LoggedModelParameter(str(key), str(value)) for key, value in params.items()]
+            params=[
+                LoggedModelParameter(str(key), str(value))
+                for key, value in params.items()
+            ]
             if params is not None
             else params,
             model_type=model_type,
@@ -883,10 +916,15 @@ class TrackingServiceClient:
     def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
         return self.store.log_logged_model_params(
             model_id=model_id,
-            params=[LoggedModelParameter(str(key), str(value)) for key, value in params.items()],
+            params=[
+                LoggedModelParameter(str(key), str(value))
+                for key, value in params.items()
+            ],
         )
 
-    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+    def finalize_logged_model(
+        self, model_id: str, status: LoggedModelStatus
+    ) -> LoggedModel:
         return self.store.finalize_logged_model(model_id, status)
 
     @record_usage_event(GetLoggedModelEvent)
@@ -898,17 +936,22 @@ class TrackingServiceClient:
 
     def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
         self.store.set_logged_model_tags(
-            model_id, [LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
+            model_id,
+            [LoggedModelTag(str(key), str(value)) for key, value in tags.items()],
         )
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         return self.store.delete_logged_model_tag(model_id, key)
 
     def log_model_artifact(self, model_id: str, local_path: str) -> None:
-        self._get_artifact_repo(model_id, resource="logged_model").log_artifact(local_path)
+        self._get_artifact_repo(model_id, resource="logged_model").log_artifact(
+            local_path
+        )
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
-        self._get_artifact_repo(model_id, resource="logged_model").log_artifacts(local_dir)
+        self._get_artifact_repo(model_id, resource="logged_model").log_artifacts(
+            local_dir
+        )
 
     def search_logged_models(
         self,
@@ -947,7 +990,9 @@ class TrackingServiceClient:
         Returns:
             The created EvaluationDataset object.
         """
-        experiment_ids = [experiment_id] if isinstance(experiment_id, str) else experiment_id
+        experiment_ids = (
+            [experiment_id] if isinstance(experiment_id, str) else experiment_id
+        )
         context_tags = context_registry.resolve_tags()
         merged_tags = tags.copy() if tags else {}
 
