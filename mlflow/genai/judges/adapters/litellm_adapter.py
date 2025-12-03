@@ -407,13 +407,6 @@ class LiteLLMAdapter(BaseJudgeAdapter):
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         """Invoke the judge model via LiteLLM."""
-        if not _is_litellm_available():
-            raise MlflowException(
-                "LiteLLM is required for using this judge. "
-                "Please install it with `pip install litellm`.",
-                error_code=BAD_REQUEST,
-            )
-
         from mlflow.types.llm import ChatMessage
 
         messages = (
@@ -443,6 +436,12 @@ class LiteLLMAdapter(BaseJudgeAdapter):
 
         metadata = {AssessmentMetadataKey.JUDGE_COST: total_cost} if total_cost else None
 
+        if "error" in response_dict:
+            raise MlflowException(
+                f"Judge evaluation failed with error: {response_dict['error']}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         feedback = Feedback(
             name=input_params.assessment_name,
             value=response_dict["result"],
@@ -453,12 +452,5 @@ class LiteLLMAdapter(BaseJudgeAdapter):
             trace_id=input_params.trace.info.trace_id if input_params.trace is not None else None,
             metadata=metadata,
         )
-
-        if "error" in response_dict:
-            feedback.error = response_dict["error"]
-            raise MlflowException(
-                f"Judge evaluation failed with error: {response_dict['error']}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
 
         return AdapterInvocationOutput(feedback=feedback, cost=total_cost)

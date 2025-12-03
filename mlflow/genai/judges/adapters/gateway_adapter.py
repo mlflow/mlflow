@@ -70,19 +70,13 @@ class GatewayAdapter(BaseJudgeAdapter):
         model_uri: str,
         prompt: str | list["ChatMessage"],
     ) -> bool:
-        model_provider, _ = cls._parse_model_uri(model_uri)
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+        model_provider, _ = _parse_model_uri(model_uri)
         return model_provider in _NATIVE_PROVIDERS and isinstance(prompt, str)
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         """Invoke the judge model via native AI Gateway adapters."""
-        # Validate prompt type
-        if not isinstance(input_params.prompt, str):
-            raise MlflowException(
-                "GatewayAdapter requires prompt to be a string. "
-                "Please install LiteLLM with `pip install litellm` to use ChatMessage prompts.",
-                error_code=BAD_REQUEST,
-            )
-
         # Validate trace support
         if input_params.trace is not None:
             raise MlflowException(
