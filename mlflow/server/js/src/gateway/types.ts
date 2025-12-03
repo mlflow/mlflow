@@ -54,9 +54,9 @@ export interface Secret {
   credential_name?: string;
   auth_config?: Record<string, any>;
   created_at: number;
-  updated_at: number;
+  last_updated_at: number;
   created_by?: string;
-  updated_by?: string;
+  last_updated_by?: string;
 }
 
 export interface CreateSecretRequest {
@@ -102,7 +102,6 @@ export interface ModelDefinition {
   last_updated_at: number;
   created_by?: string;
   last_updated_by?: string;
-  endpoint_count: number;
 }
 
 export interface EndpointModelMapping {
@@ -204,16 +203,24 @@ export interface DetachModelFromEndpointRequest {
   model_definition_id: string;
 }
 
+export type ResourceType = 'scorer_job';
+
 export interface EndpointBinding {
   binding_id: string;
   endpoint_id: string;
-  experiment_id: string;
+  resource_type: ResourceType;
+  resource_id: string;
   created_at: number;
+  last_updated_at: number;
+  created_by?: string;
+  last_updated_by?: string;
 }
 
 export interface CreateEndpointBindingRequest {
   endpoint_id: string;
-  experiment_id: string;
+  resource_type: ResourceType;
+  resource_id: string;
+  created_by?: string;
 }
 
 export interface CreateEndpointBindingResponse {
