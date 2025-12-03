@@ -342,9 +342,7 @@ def set_prompt_model_config(
     Args:
         name: The name of the prompt.
         version: The version of the prompt.
-        model_config: A PromptModelConfig instance or dictionary containing model-specific
-            configuration. Using a PromptModelConfig instance provides validation and type
-            safety for common parameters.
+        model_config: A PromptModelConfig or dict with model settings like model_name, temperature.
 
     Example:
 

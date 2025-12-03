@@ -576,8 +576,9 @@ class MlflowClient:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
-            model_config: Optional PromptModelConfig instance or dictionary containing. Using
-                PromptModelConfig provides validation and type safety.
+            model_config: Optional PromptModelConfig instance or dictionary containing
+                model-specific configuration like model_name, temperature, max_tokens, etc.
+                Using PromptModelConfig provides validation and type safety.
 
         Returns:
             A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
