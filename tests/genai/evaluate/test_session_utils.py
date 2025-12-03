@@ -424,8 +424,11 @@ def test_evaluate_session_level_scorers_handles_scorer_error():
     assert feedback.name == "failing_scorer"
     assert feedback.error is not None
     assert feedback.error.error_code == "SCORER_ERROR"
-    assert "Scorer failed!" in str(feedback.error.error_message)
     assert feedback.error.stack_trace is not None
+
+    assert feedback.error.to_proto().error_message == "Scorer failed!"
+    assert isinstance(feedback.error.error_message, str)
+    assert feedback.error.error_message == "Scorer failed!"
 
 
 def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
