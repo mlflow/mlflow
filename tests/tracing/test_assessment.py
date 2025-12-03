@@ -1,5 +1,6 @@
 import os
-import sys
+import shutil
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
     source_type=AssessmentSourceType.HUMAN,
@@ -24,6 +26,24 @@ _LLM_ASSESSMENT_SOURCE = AssessmentSource(
 )
 
 
+@pytest.fixture(scope="module")
+def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path | None:
+    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
+    if "MLFLOW_SKINNY" in os.environ or IS_TRACING_SDK_ONLY:
+        return None
+
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    tmp_path = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir(exist_ok=True)
+    store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+    store.engine.dispose()
+    return db_path
+
+
 @pytest.fixture
 def trace_id():
     with mlflow.start_span(name="test_span") as span:
@@ -33,20 +53,23 @@ def trace_id():
 
 
 @pytest.fixture(params=["file", "sqlalchemy"], autouse=True)
-def tracking_uri(request, tmp_path):
+def tracking_uri(request, tmp_path, cached_db):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
+
+    if IS_TRACING_SDK_ONLY and request.param == "sqlalchemy":
+        pytest.skip("SQLAlchemy store is not available in tracing SDK only mode.")
 
     original_tracking_uri = mlflow.get_tracking_uri()
 
     if request.param == "file":
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        # Copy the cached database to avoid migration on each test
+        db_path = tmp_path / "mlflow.db"
+        shutil.copy(cached_db, db_path)
+        tracking_uri = f"sqlite:///{db_path}"
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.
