@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 
+from deepeval.models import LiteLLMModel
 from deepeval.models.base_model import DeepEvalBaseLLM
+from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
@@ -26,9 +28,15 @@ def _build_json_prompt_with_schema(prompt: str, schema) -> str:
 def _parse_json_output_with_schema(output: str, schema):
     try:
         json_data = json.loads(output)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON output: {e}\nOutput: {output}")
+
+    try:
         return schema(**json_data)
-    except (json.JSONDecodeError, Exception) as e:
-        raise ValueError(f"Failed to parse structured output: {e}\nOutput: {output}")
+    except ValidationError as e:
+        raise ValueError(f"Failed to validate output against schema: {e}\nOutput: {output}")
+    except TypeError as e:
+        raise ValueError(f"Failed to instantiate schema with data: {e}\nOutput: {output}")
 
 
 class DatabricksDeepEvalLLM(DeepEvalBaseLLM):
@@ -103,19 +111,18 @@ class DatabricksServingEndpointDeepEvalLLM(DeepEvalBaseLLM):
 
 
 def create_deepeval_model(model_uri: str):
-    from deepeval.models import LiteLLMModel
-
     if model_uri == "databricks":
         return DatabricksDeepEvalLLM()
     elif model_uri.startswith("databricks:/"):
-        endpoint_name = model_uri.split(":", 1)[1].lstrip("/")
+        endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
         return DatabricksServingEndpointDeepEvalLLM(endpoint_name)
     elif ":" in model_uri:
+        # LiteLLM model format with provider: provider:/model_name (e.g., openai:/gpt-4)
         provider, model_name = model_uri.split(":", 1)
-        model_name = model_name.lstrip("/")
+        model_name = model_name.removeprefix("/")
         return LiteLLMModel(model=f"{provider}/{model_name}")
-
-    raise MlflowException.invalid_parameter_value(
-        f"Invalid model URI: '{model_uri}'. Expected format: 'databricks', "
-        "'databricks:/<endpoint_name>', or a LiteLLM model URI."
-    )
+    else:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid model_uri format: '{model_uri}'. "
+            f"Must be 'databricks' or include a provider prefix (e.g., 'openai:/gpt-4')."
+        )

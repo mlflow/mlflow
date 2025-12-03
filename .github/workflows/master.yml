@@ -293,7 +293,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install openai dspy
+          pip install openai dspy deepeval
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |

@@ -39,18 +39,16 @@ def _convert_to_deepeval_tool_calls(tool_call_dicts: list[dict[str, Any]]):
     """
     from deepeval.test_case import ToolCall as DeepEvalToolCall
 
-    tool_calls = []
-    for tc_dict in tool_call_dicts:
-        tool_call = DeepEvalToolCall(
+    return [
+        DeepEvalToolCall(
             name=tc_dict.get("name"),
             description=tc_dict.get("description"),
             reasoning=tc_dict.get("reasoning"),
             output=tc_dict.get("output"),
             input_parameters=tc_dict.get("input_parameters"),
         )
-        tool_calls.append(tool_call)
-
-    return tool_calls
+        for tc_dict in tool_call_dicts
+    ]
 
 
 def _extract_tool_calls_from_trace(trace: Trace):
@@ -72,16 +70,14 @@ def _extract_tool_calls_from_trace(trace: Trace):
     if not tool_spans:
         return None
 
-    tool_calls = []
-    for span in tool_spans:
-        tool_call = DeepEvalToolCall(
+    return [
+        DeepEvalToolCall(
             name=span.name,
             input_parameters=span.attributes.get(SpanAttributeKey.INPUTS),
             output=span.attributes.get(SpanAttributeKey.OUTPUTS),
         )
-        tool_calls.append(tool_call)
-
-    return tool_calls or None
+        for span in tool_spans
+    ]
 
 
 def _dict_to_kv_list(d: dict[str, Any]) -> list[str]:
@@ -106,7 +102,7 @@ def map_scorer_inputs_to_deepeval_test_case(
     context = _dict_to_kv_list(expectations) if expectations else None
     additional_metadata = trace.info.trace_metadata if trace else {}
     tags = _dict_to_kv_list(trace.info.tags) if trace else []
-    completion_time = trace.info.execution_duration * 1000 if trace else None
+    completion_time = trace.info.execution_duration / 1000 if trace else None
 
     expected_output = None
     expected_tools = None

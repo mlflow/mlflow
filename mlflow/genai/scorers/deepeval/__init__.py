@@ -42,7 +42,7 @@ class DeepEvalScorer(Scorer):
         Initialize a DeepEval metric scorer.
 
         Args:
-            metric_name: Name of the DeepEval metric (e.g., "answer_relevancy")
+            metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy")
             model: Model URI in MLflow format (default: "databricks")
             metric_kwargs: Additional metric-specific parameters
         """

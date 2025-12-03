@@ -30,9 +30,17 @@ def test_create_deepeval_model_openai():
     assert model.get_model_name().startswith("openai/gpt-4")
 
 
-def test_create_deepeval_model_invalid_uri_raises_error():
-    with pytest.raises(MlflowException, match="Invalid model URI"):
-        create_deepeval_model("invalid_uri")
+def test_create_deepeval_model_with_provider_no_slash():
+    """Test provider:model format (e.g., openai:gpt-4)."""
+    model = create_deepeval_model("openai:gpt-4")
+    assert model.__class__.__name__ == "LiteLLMModel"
+    assert model.get_model_name().startswith("openai/gpt-4")
+
+
+def test_create_deepeval_model_rejects_model_name_only():
+    """Test that model name without provider prefix is rejected."""
+    with pytest.raises(MlflowException, match="Invalid model_uri format"):
+        create_deepeval_model("gpt-4")
 
 
 def test_convert_to_deepeval_tool_calls():
