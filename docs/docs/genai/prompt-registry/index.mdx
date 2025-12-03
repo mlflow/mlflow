@@ -167,7 +167,7 @@ Once you have multiple versions of a prompt, you can compare them to understand 
 
 ### 4. Load and Use the Prompt
 
-To use a prompt in your GenAI application, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object:
+To use a prompt in your GenAI application, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object.
 
 ```python
 import mlflow
@@ -311,6 +311,70 @@ mlflow.genai.set_prompt_version_tag("summarization-prompt", 1, "author", "alice"
 mlflow.genai.load_prompt("prompts:/summarization-prompt/1").tags
 mlflow.genai.delete_prompt_version_tag("summarization-prompt", 1, "author")
 ```
+
+## Prompt Caching
+
+MLflow automatically caches loaded prompts in memory to improve performance and reduce repeated API
+calls. The caching behavior differs based on whether you're loading a prompt by **version** or
+by **alias**.
+
+### Default Caching Behavior
+
+- **Version-based prompts** (e.g., `prompts:/summarization-prompt/1`): Cached with **infinite TTL**
+  by default.
+- **Alias-based prompts** (e.g., `prompts:/summarization-prompt@latest` or `prompts:/summarization-prompt@production`): Cached with **60 seconds TTL** by default. Aliases can point to
+  different versions over time, so a shorter TTL ensures your application picks up updates.
+
+### Customizing Cache Behavior
+
+#### Per-Request Cache Control
+
+You can control caching on a per-request basis using the `cache_ttl_seconds` parameter:
+
+```python
+import mlflow
+
+# Custom TTL: Cache for 5 minutes
+prompt = mlflow.genai.load_prompt(
+    "prompts:/summarization-prompt/1", cache_ttl_seconds=300
+)
+
+# Bypass cache entirely: Always fetch from registry
+prompt = mlflow.genai.load_prompt(
+    "prompts:/summarization-prompt@production", cache_ttl_seconds=0
+)
+
+# Use infinite TTL even for alias-based prompts
+prompt = mlflow.genai.load_prompt(
+    "prompts:/summarization-prompt@latest", cache_ttl_seconds=float("inf")
+)
+```
+
+#### Global Cache Configuration
+
+You can set default TTL values globally using environment variables:
+
+```bash
+# Set alias-based prompt cache TTL to 5 minutes
+export MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS=300
+
+# Set version-based prompt cache TTL to 1 hour (instead of infinite)
+export MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS=3600
+
+# Disable caching globally
+export MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS=0
+export MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS=0
+```
+
+### Cache Invalidation
+
+The cache item is automatically invalidated when you modify the prompt version or alias tags,
+including the following operations:
+
+- `mlflow.genai.set_prompt_version_tag`
+- `mlflow.genai.set_prompt_alias`
+- `mlflow.genai.delete_prompt_version_tag`
+- `mlflow.genai.delete_prompt_alias`
 
 ## FAQ
 
