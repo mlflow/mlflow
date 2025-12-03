@@ -2238,10 +2238,10 @@ Examples
 
    library(mlflow)
 
-   # launch mlflow server locally
+   # launch mlflow ui locally
    mlflow_ui()
 
-   # launch mlflow server for existing mlflow server
+   # launch mlflow ui for existing mlflow server
    mlflow_set_tracking_uri("http://tracking-server:5000")
    mlflow_ui()
 
