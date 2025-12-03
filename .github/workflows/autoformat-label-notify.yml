@@ -27,10 +27,12 @@ jobs:
               owner,
               repo,
               issue_number: pull_number,
-              body: '👋 Hello! It looks like you added the `autoformat` label.\n\n' +
-                    'Instead of using labels, please use the `/autoformat` command by commenting on this PR:\n\n' +
-                    '```\n' +
-                    '/autoformat\n' +
-                    '```\n\n' +
-                    'The command will automatically format your code and push the changes. See the [autoformat documentation](.github/workflows/autoformat.md) for more details.'
+              body: 'Please use `/autoformat` command instead of labels.'
+            });
+
+            await github.rest.issues.removeLabel({
+              owner,
+              repo,
+              issue_number: pull_number,
+              name: 'autoformat'
             });
