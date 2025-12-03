@@ -82,7 +82,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
     }, [selectedColumns, uniqueColumns, viewMode]);
 
     const table = useReactTable<RunEntityOrGroupData>(
-      'mlflow/web/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
+      'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
       {
         columns,
         data: data,
@@ -145,6 +145,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
         {!isLoading &&
           table.getRowModel().rows.map((row) => {
             const isActive = 'info' in row.original ? row.original.info.runUuid === selectedRunUuid : false;
+            const runStatus = 'info' in row.original ? row.original.info.status : undefined;
             return (
               <ExperimentEvaluationRunsTableRow
                 key={row.id}
@@ -152,7 +153,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                 isActive={isActive}
                 isSelected={rowSelection[row.id]}
                 isExpanded={row.getIsExpanded()}
-                isHidden={isRowHidden(row.id)}
+                isHidden={isRowHidden(row.id, row.index, runStatus)}
                 columns={columns}
               />
             );

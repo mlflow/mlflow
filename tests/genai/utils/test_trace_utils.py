@@ -11,14 +11,17 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 import mlflow
 from mlflow.entities.assessment import Expectation
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
+from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     convert_predict_fn,
+    create_minimal_trace,
     extract_expectations_from_trace,
     extract_inputs_from_trace,
     extract_outputs_from_trace,
@@ -378,7 +381,6 @@ def create_span(
     ],
 )
 def test_get_retrieval_context_from_trace(spans, expected_retrieval_context):
-    """Test traces.extract_retrieval_context_from_trace."""
     trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=spans))
     assert extract_retrieval_context_from_trace(trace) == expected_retrieval_context
 
@@ -695,3 +697,66 @@ def test_does_store_support_trace_linking():
                 run_id="run-123",
             )
         mock_client.link_traces_to_run.assert_called_once()
+
+
+def test_create_minimal_trace_restores_session_metadata():
+    source = DatasetRecordSource(
+        source_type=DatasetRecordSourceType.TRACE,
+        source_data={"trace_id": "tr-original", "session_id": "session_1"},
+    )
+
+    eval_item = EvalItem(
+        request_id="req-123",
+        inputs={"question": "test"},
+        outputs="answer",
+        expectations={},
+        source=source,
+    )
+
+    trace = create_minimal_trace(eval_item)
+
+    # Verify session metadata was restored
+    assert trace.info.trace_metadata.get("mlflow.trace.session") == "session_1"
+    assert trace.data._get_root_span().inputs == {"question": "test"}
+    assert trace.data._get_root_span().outputs == "answer"
+
+
+def test_create_minimal_trace_without_source():
+    eval_item = EvalItem(
+        request_id="req-123",
+        inputs={"question": "test"},
+        outputs="answer",
+        expectations={},
+        source=None,
+    )
+
+    trace = create_minimal_trace(eval_item)
+
+    # Should create trace successfully without session metadata
+    assert trace is not None
+    assert "mlflow.trace.session" not in trace.info.trace_metadata
+    assert trace.data._get_root_span().inputs == {"question": "test"}
+    assert trace.data._get_root_span().outputs == "answer"
+
+
+def test_create_minimal_trace_with_source_but_no_session():
+    source = DatasetRecordSource(
+        source_type=DatasetRecordSourceType.TRACE,
+        source_data={"trace_id": "tr-original"},  # No session_id
+    )
+
+    eval_item = EvalItem(
+        request_id="req-123",
+        inputs={"question": "test"},
+        outputs="answer",
+        expectations={},
+        source=source,
+    )
+
+    trace = create_minimal_trace(eval_item)
+
+    # Should work without session metadata
+    assert trace is not None
+    assert "mlflow.trace.session" not in trace.info.trace_metadata
+    assert trace.data._get_root_span().inputs == {"question": "test"}
+    assert trace.data._get_root_span().outputs == "answer"

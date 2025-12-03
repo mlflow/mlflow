@@ -872,6 +872,24 @@ service MlflowService {
     };
   }
 
+  // Links prompt versions to a trace.
+  rpc linkPromptsToTrace(LinkPromptsToTrace) returns (LinkPromptsToTrace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/link-prompts"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Link Prompts to Trace"
+    };
+  }
+
   // Edge endpoint used to search for online traces from an inference table.
   rpc searchUnifiedTraceHandler(SearchUnifiedTraces) returns (SearchUnifiedTraces.Response) {
     option (rpc) = {
@@ -2564,8 +2582,8 @@ message GetTrace {
   // ID of the trace to fetch. Must be provided.
   optional string trace_id = 1 [(validate_required) = true];
 
-  // Whether to allow partial traces. Default to True.
-  optional bool allow_partial = 2 [default = true];
+  // Whether to allow partial traces. Default to False.
+  optional bool allow_partial = 2 [default = false];
 
   message Response {
     // The fetched trace including spans.
@@ -2777,6 +2795,18 @@ message DeleteTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the trace from which to delete the tag.
+  optional string request_id = 1;
+
+  // Name of the tag to delete.
+  optional string key = 2;
+
+  message Response {}
+}
+
+message DeleteTraceTagV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace from which to delete the tag.
   optional string trace_id = 3;
 
   // Name of the tag to delete.
@@ -2787,18 +2817,6 @@ message DeleteTraceTag {
   // request_id has been retired
   reserved 1;
   reserved "request_id";
-}
-
-message DeleteTraceTagV3 {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // ID of the trace from which to delete the tag.
-  optional string request_id = 1;
-
-  // Name of the tag to delete.
-  optional string key = 2;
-
-  message Response {}
 }
 
 message Trace {
@@ -2916,6 +2934,21 @@ message LinkTracesToRun {
 
   // ID of the run to link the traces to.
   optional string run_id = 2 [(validate_required) = true];
+
+  message Response {}
+}
+
+message LinkPromptsToTrace {
+  // ID of the trace to link prompt versions to.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Prompt version references to link to the trace.
+  // Each reference contains the prompt name and version.
+  message PromptVersionRef {
+    optional string name = 1 [(validate_required) = true];
+    optional string version = 2 [(validate_required) = true];
+  }
+  repeated PromptVersionRef prompt_versions = 2;
 
   message Response {}
 }

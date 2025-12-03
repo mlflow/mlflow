@@ -3,6 +3,8 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+from mlflow.entities.model_registry.prompt_version import PromptVersion
+
 if TYPE_CHECKING:
     from mlflow.entities import DatasetRecord, EvaluationDataset
 
@@ -77,8 +79,10 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     GetScorer,
+    GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkPromptsToTrace,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
@@ -461,6 +465,13 @@ class RestStore(AbstractStore):
         endpoint = get_single_trace_endpoint(trace_id, use_v3=False)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info).to_v3()
+
+    def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
+        req_body = message_to_json(GetTrace(trace_id=trace_id, allow_partial=allow_partial))
+        response_proto = self._call_endpoint(
+            GetTrace, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/get"
+        )
+        return Trace.from_proto(response_proto.trace)
 
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
@@ -965,17 +976,21 @@ class RestStore(AbstractStore):
                 LogLoggedModelParamsRequest, json_body=req_body, endpoint=f"{endpoint}/params"
             )
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
 
         Args:
             model_id: ID of the model to fetch.
+            allow_deleted: If ``True``, allow fetching logged models in the deleted lifecycle
+                stage. Defaults to ``False``.
 
         Returns:
             The fetched model.
         """
         endpoint = get_logged_model_endpoint(model_id)
+        if allow_deleted:
+            endpoint = f"{endpoint}?allow_deleted=true"
         response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
 
@@ -1596,8 +1611,9 @@ class RestStore(AbstractStore):
 
                 if response_proto.records:
                     records_dicts = json.loads(response_proto.records)
-                    for record_dict in records_dicts:
-                        all_records.append(DatasetRecord.from_dict(record_dict))
+                    all_records.extend(
+                        DatasetRecord.from_dict(record_dict) for record_dict in records_dicts
+                    )
 
                 if response_proto.next_page_token:
                     current_page_token = response_proto.next_page_token
@@ -1621,12 +1637,11 @@ class RestStore(AbstractStore):
             records = []
             if response_proto.records:
                 records_dicts = json.loads(response_proto.records)
-                for record_dict in records_dicts:
-                    records.append(DatasetRecord.from_dict(record_dict))
+                records.extend(
+                    DatasetRecord.from_dict(record_dict) for record_dict in records_dicts
+                )
 
-            next_page_token = (
-                response_proto.next_page_token if response_proto.next_page_token else None
-            )
+            next_page_token = response_proto.next_page_token or None
             return records, next_page_token
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
@@ -1647,6 +1662,28 @@ class RestStore(AbstractStore):
             )
         )
         self._call_endpoint(LinkTracesToRun, req_body)
+
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
+        """
+        # Convert PromptVersion objects to PromptVersionRef proto messages
+        prompt_refs = [
+            LinkPromptsToTrace.PromptVersionRef(name=pv.name, version=str(pv.version))
+            for pv in prompt_versions
+        ]
+
+        req_body = message_to_json(
+            LinkPromptsToTrace(
+                trace_id=trace_id,
+                prompt_versions=prompt_refs,
+            )
+        )
+        self._call_endpoint(LinkPromptsToTrace, req_body)
 
     def add_dataset_to_experiments(
         self, dataset_id: str, experiment_ids: list[str]

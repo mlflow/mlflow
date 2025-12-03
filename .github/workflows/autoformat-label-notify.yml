@@ -1,0 +1,38 @@
+name: Autoformat Label Notification
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  notify:
+    runs-on: ubuntu-slim
+    if: ${{ github.event.label.name == 'autoformat' }}
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # to post a comment on the PR
+    steps:
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pull_number,
+              body: 'Please use `/autoformat` command instead of labels.'
+            });
+
+            await github.rest.issues.removeLabel({
+              owner,
+              repo,
+              issue_number: pull_number,
+              name: 'autoformat'
+            });
