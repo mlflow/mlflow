@@ -19,7 +19,7 @@ The MLflow Transformers flavor provides native integration with the [Hugging Fac
 ## Installation
 
 ```bash
-pip install mlflow[transformers]
+pip install mlflow transformers
 ```
 
 ## Basic Usage
@@ -52,6 +52,31 @@ result = model("Hello, how are you?")
 pyfunc_model = mlflow.pyfunc.load_model("runs:/<run_id>/model")
 result = pyfunc_model.predict("Hello, how are you?")
 ```
+
+## Autologging with HuggingFace Trainer
+
+When using the HuggingFace `Trainer` class for fine-tuning, you can enable automatic logging to MLflow by setting `report_to="mlflow"` in the `TrainingArguments`:
+
+```python
+from transformers import TrainingArguments, Trainer
+
+training_args = TrainingArguments(
+    output_dir="./results",
+    report_to="mlflow",  # Enable MLflow logging
+    # ... other training arguments
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    # ... other trainer arguments
+)
+
+trainer.train()
+```
+
+This automatically logs training metrics, hyperparameters, and model checkpoints to your active MLflow run.
 
 ## Tutorials
 
@@ -126,10 +151,6 @@ Input and output formats for PyFunc may differ from native pipelines. Ensure com
 ### Model Configuration
 
 Parameters in `ModelSignature` override those in `model_config` when both are provided.
-
-### Prompt Templates
-
-Prompt templating is supported for specific pipeline types. See the [guide](/ml/deep-learning/transformers/guide#saving-prompt-templates-with-transformer-pipelines) for details.
 
 ## Working with Large Models
 

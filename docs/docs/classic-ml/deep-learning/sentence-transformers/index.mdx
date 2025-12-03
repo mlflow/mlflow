@@ -7,7 +7,7 @@ import { CardGroup, PageCard } from "@site/src/components/Card";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Package, Sparkles, Search, Box, Zap, GitBranch, BookOpen } from "lucide-react";
+import { Package, Sparkles, Search, Box, GitBranch, BookOpen } from "lucide-react";
 
 # MLflow Sentence Transformers Flavor
 
@@ -36,11 +36,6 @@ The MLflow Sentence Transformers flavor provides integration with the [Sentence 
       icon: Box,
       title: "PyFunc Integration",
       description: "Serve models with MLflow's generic Python function interface",
-    },
-    {
-      icon: Zap,
-      title: "Autologging",
-      description: "Automatic tracking of training metrics and parameters",
     },
   ]}
 />
@@ -193,98 +188,6 @@ with mlflow.start_run():
         model=model,
         name="fine_tuned_model",
     )
-```
-
-## Batch Processing
-
-Optimize batch processing for large datasets:
-
-```python
-import mlflow
-import time
-from sentence_transformers import SentenceTransformer
-
-with mlflow.start_run():
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-
-    large_dataset = [f"Document {i}: Sample text" for i in range(1000)]
-
-    # Configure batch processing
-    batch_config = {
-        "batch_size": 32,
-        "convert_to_numpy": True,
-        "normalize_embeddings": True,
-    }
-    mlflow.log_params(batch_config)
-
-    # Process in batches
-    start_time = time.time()
-    embeddings = model.encode(
-        large_dataset,
-        batch_size=batch_config["batch_size"],
-        convert_to_numpy=batch_config["convert_to_numpy"],
-        normalize_embeddings=batch_config["normalize_embeddings"],
-    )
-    processing_time = time.time() - start_time
-
-    # Log performance metrics
-    mlflow.log_metrics(
-        {
-            "processing_time_seconds": processing_time,
-            "documents_per_second": len(large_dataset) / processing_time,
-            "embedding_dimension": embeddings.shape[1],
-        }
-    )
-```
-
-## Model Comparison
-
-Compare multiple models systematically:
-
-```python
-import mlflow
-import pandas as pd
-import time
-from sentence_transformers import SentenceTransformer
-
-models_to_compare = [
-    "all-MiniLM-L6-v2",
-    "all-mpnet-base-v2",
-    "paraphrase-albert-small-v2",
-]
-
-with mlflow.start_run(run_name="model_comparison"):
-    results = []
-
-    for model_name in models_to_compare:
-        with mlflow.start_run(run_name=f"eval_{model_name}", nested=True):
-            model = SentenceTransformer(model_name)
-
-            # Evaluate speed
-            test_texts = ["Sample text"] * 100
-            start_time = time.time()
-            embeddings = model.encode(test_texts)
-            encoding_time = time.time() - start_time
-
-            results.append(
-                {
-                    "model": model_name,
-                    "texts_per_second": len(test_texts) / encoding_time,
-                    "embedding_dimension": model.get_sentence_embedding_dimension(),
-                }
-            )
-
-            mlflow.log_metrics(
-                {
-                    "texts_per_second": len(test_texts) / encoding_time,
-                    "embedding_dimension": model.get_sentence_embedding_dimension(),
-                }
-            )
-
-    # Log comparison
-    results_df = pd.DataFrame(results)
-    results_df.to_csv("comparison.csv", index=False)
-    mlflow.log_artifact("comparison.csv")
 ```
 
 ## Tutorials
