@@ -24,6 +24,7 @@ from mlflow.entities import (
     ExperimentTag,
     Feedback,
     FileInfo,
+    GatewayResourceType,
     Metric,
     Param,
     RunTag,
@@ -98,49 +99,66 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    AttachModelToEndpoint,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
+    CreateEndpoint,
+    CreateEndpointBinding,
     CreateExperiment,
     CreateLoggedModel,
+    CreateModelDefinition,
     CreateRun,
+    CreateSecret,
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
+    DeleteEndpoint,
+    DeleteEndpointBinding,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
+    DeleteModelDefinition,
     DeleteRun,
     DeleteScorer,
+    DeleteSecret,
     DeleteTag,
     DeleteTraces,
     DeleteTracesV3,
     DeleteTraceTag,
     DeleteTraceTagV3,
+    DetachModelFromEndpoint,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
     GetDataset,
     GetDatasetExperimentIds,
     GetDatasetRecords,
+    GetEndpoint,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
+    GetModelDefinition,
     GetRun,
     GetScorer,
+    GetSecretInfo,
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
+    ListEndpointBindings,
+    ListEndpoints,
     ListLoggedModelArtifacts,
+    ListModelDefinitions,
     ListScorers,
     ListScorerVersions,
+    ListSecrets,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -169,8 +187,11 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
+    UpdateEndpoint,
     UpdateExperiment,
+    UpdateModelDefinition,
     UpdateRun,
+    UpdateSecret,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -3809,6 +3830,422 @@ def _delete_scorer():
     return response
 
 
+# =============================================================================
+# Secrets Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_secret():
+    request_message = _get_request_message(
+        CreateSecret(),
+        schema={
+            "secret_name": [_assert_required, _assert_string],
+            "secret_value": [_assert_required, _assert_string],
+            "provider": [_assert_string],
+            "credential_name": [_assert_string],
+            "auth_config_json": [_assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    # Parse auth_config_json string to dict if provided
+    auth_config = None
+    if request_message.auth_config_json:
+        auth_config = json.loads(request_message.auth_config_json)
+
+    secret = _get_tracking_store().create_secret(
+        secret_name=request_message.secret_name,
+        secret_value=request_message.secret_value,
+        provider=request_message.provider or None,
+        credential_name=request_message.credential_name or None,
+        auth_config=auth_config,
+        created_by=request_message.created_by or None,
+    )
+    response_message = CreateSecret.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_secret_info():
+    request_message = _get_request_message(
+        GetSecretInfo(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+        },
+    )
+    secret = _get_tracking_store().get_secret_info(request_message.secret_id)
+    response_message = GetSecretInfo.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_secret():
+    request_message = _get_request_message(
+        UpdateSecret(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+            "secret_value": [_assert_required, _assert_string],
+            "auth_config_json": [_assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+    # Parse auth_config_json string to dict if provided
+    auth_config = None
+    if request_message.auth_config_json:
+        auth_config = json.loads(request_message.auth_config_json)
+
+    secret = _get_tracking_store().update_secret(
+        secret_id=request_message.secret_id,
+        secret_value=request_message.secret_value,
+        auth_config=auth_config,
+        updated_by=request_message.updated_by or None,
+    )
+    response_message = UpdateSecret.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_secret():
+    request_message = _get_request_message(
+        DeleteSecret(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_secret(request_message.secret_id)
+    response_message = DeleteSecret.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_secrets():
+    request_message = _get_request_message(
+        ListSecrets(),
+        schema={
+            "provider": [_assert_string],
+        },
+    )
+    secrets = _get_tracking_store().list_secrets(
+        provider=request_message.provider or None,
+    )
+    response_message = ListSecrets.Response()
+    response_message.secrets.extend([s.to_proto() for s in secrets])
+    return _wrap_response(response_message)
+
+
+# =============================================================================
+# Endpoints Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_endpoint():
+    request_message = _get_request_message(
+        CreateEndpoint(),
+        schema={
+            "name": [_assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    endpoint = _get_tracking_store().create_endpoint(
+        name=request_message.name or None,
+        model_definition_ids=list(request_message.model_definition_ids),
+        created_by=request_message.created_by or None,
+    )
+    response_message = CreateEndpoint.Response()
+    response_message.endpoint.CopyFrom(endpoint.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_endpoint():
+    request_message = _get_request_message(
+        GetEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+        },
+    )
+    endpoint = _get_tracking_store().get_endpoint(request_message.endpoint_id)
+    response_message = GetEndpoint.Response()
+    response_message.endpoint.CopyFrom(endpoint.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_endpoint():
+    request_message = _get_request_message(
+        UpdateEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "name": [_assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+    endpoint = _get_tracking_store().update_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        name=request_message.name or None,
+        updated_by=request_message.updated_by or None,
+    )
+    response_message = UpdateEndpoint.Response()
+    response_message.endpoint.CopyFrom(endpoint.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_endpoint():
+    request_message = _get_request_message(
+        DeleteEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_endpoint(request_message.endpoint_id)
+    response_message = DeleteEndpoint.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_endpoints():
+    request_message = _get_request_message(
+        ListEndpoints(),
+        schema={
+            "provider": [_assert_string],
+        },
+    )
+    endpoints = _get_tracking_store().list_endpoints(
+        provider=request_message.provider or None,
+    )
+    response_message = ListEndpoints.Response()
+    response_message.endpoints.extend([e.to_proto() for e in endpoints])
+    return _wrap_response(response_message)
+
+
+# =============================================================================
+# Model Definitions Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_model_definition():
+    request_message = _get_request_message(
+        CreateModelDefinition(),
+        schema={
+            "name": [_assert_required, _assert_string],
+            "secret_id": [_assert_required, _assert_string],
+            "provider": [_assert_required, _assert_string],
+            "model_name": [_assert_required, _assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    model_definition = _get_tracking_store().create_model_definition(
+        name=request_message.name,
+        secret_id=request_message.secret_id,
+        provider=request_message.provider,
+        model_name=request_message.model_name,
+        created_by=request_message.created_by or None,
+    )
+    response_message = CreateModelDefinition.Response()
+    response_message.model_definition.CopyFrom(model_definition.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_model_definition():
+    request_message = _get_request_message(
+        GetModelDefinition(),
+        schema={
+            "model_definition_id": [_assert_required, _assert_string],
+        },
+    )
+    model_definition = _get_tracking_store().get_model_definition(
+        request_message.model_definition_id
+    )
+    response_message = GetModelDefinition.Response()
+    response_message.model_definition.CopyFrom(model_definition.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_model_definitions():
+    request_message = _get_request_message(
+        ListModelDefinitions(),
+        schema={
+            "provider": [_assert_string],
+            "secret_id": [_assert_string],
+        },
+    )
+    model_definitions = _get_tracking_store().list_model_definitions(
+        provider=request_message.provider or None,
+        secret_id=request_message.secret_id or None,
+    )
+    response_message = ListModelDefinitions.Response()
+    response_message.model_definitions.extend([m.to_proto() for m in model_definitions])
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_model_definition():
+    request_message = _get_request_message(
+        UpdateModelDefinition(),
+        schema={
+            "model_definition_id": [_assert_required, _assert_string],
+            "name": [_assert_string],
+            "secret_id": [_assert_string],
+            "model_name": [_assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+    model_definition = _get_tracking_store().update_model_definition(
+        model_definition_id=request_message.model_definition_id,
+        name=request_message.name or None,
+        secret_id=request_message.secret_id or None,
+        model_name=request_message.model_name or None,
+        updated_by=request_message.updated_by or None,
+    )
+    response_message = UpdateModelDefinition.Response()
+    response_message.model_definition.CopyFrom(model_definition.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_model_definition():
+    request_message = _get_request_message(
+        DeleteModelDefinition(),
+        schema={
+            "model_definition_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_model_definition(request_message.model_definition_id)
+    response_message = DeleteModelDefinition.Response()
+    return _wrap_response(response_message)
+
+
+# =============================================================================
+# Endpoint Model Mappings Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _attach_model_to_endpoint():
+    request_message = _get_request_message(
+        AttachModelToEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "model_definition_id": [_assert_required, _assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    mapping = _get_tracking_store().attach_model_to_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        model_definition_id=request_message.model_definition_id,
+        weight=request_message.weight or 1,
+        created_by=request_message.created_by or None,
+    )
+    response_message = AttachModelToEndpoint.Response()
+    response_message.mapping.CopyFrom(mapping.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _detach_model_from_endpoint():
+    request_message = _get_request_message(
+        DetachModelFromEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "model_definition_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().detach_model_from_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        model_definition_id=request_message.model_definition_id,
+    )
+    response_message = DetachModelFromEndpoint.Response()
+    return _wrap_response(response_message)
+
+
+# =============================================================================
+# Endpoint Bindings Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_endpoint_binding():
+    request_message = _get_request_message(
+        CreateEndpointBinding(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "resource_type": [_assert_required, _assert_string],
+            "resource_id": [_assert_required, _assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    binding = _get_tracking_store().create_endpoint_binding(
+        endpoint_id=request_message.endpoint_id,
+        resource_type=GatewayResourceType(request_message.resource_type),
+        resource_id=request_message.resource_id,
+        created_by=request_message.created_by or None,
+    )
+    response_message = CreateEndpointBinding.Response()
+    response_message.binding.CopyFrom(binding.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_endpoint_binding():
+    request_message = _get_request_message(
+        DeleteEndpointBinding(),
+        schema={
+            "binding_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_endpoint_binding(request_message.binding_id)
+    response_message = DeleteEndpointBinding.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_endpoint_bindings():
+    request_message = _get_request_message(
+        ListEndpointBindings(),
+        schema={
+            "endpoint_id": [_assert_string],
+            "resource_type": [_assert_string],
+            "resource_id": [_assert_string],
+        },
+    )
+    bindings = _get_tracking_store().list_endpoint_bindings(
+        endpoint_id=request_message.endpoint_id or None,
+        resource_type=request_message.resource_type or None,
+        resource_id=request_message.resource_id or None,
+    )
+    response_message = ListEndpointBindings.Response()
+    response_message.bindings.extend([b.to_proto() for b in bindings])
+    return _wrap_response(response_message)
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4222,4 +4659,29 @@ HANDLERS = {
     ListScorerVersions: _list_scorer_versions,
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
+    # Secrets APIs
+    CreateSecret: _create_secret,
+    GetSecretInfo: _get_secret_info,
+    UpdateSecret: _update_secret,
+    DeleteSecret: _delete_secret,
+    ListSecrets: _list_secrets,
+    # Endpoints APIs
+    CreateEndpoint: _create_endpoint,
+    GetEndpoint: _get_endpoint,
+    UpdateEndpoint: _update_endpoint,
+    DeleteEndpoint: _delete_endpoint,
+    ListEndpoints: _list_endpoints,
+    # Model Definitions APIs
+    CreateModelDefinition: _create_model_definition,
+    GetModelDefinition: _get_model_definition,
+    ListModelDefinitions: _list_model_definitions,
+    UpdateModelDefinition: _update_model_definition,
+    DeleteModelDefinition: _delete_model_definition,
+    # Endpoint Model Mappings APIs
+    AttachModelToEndpoint: _attach_model_to_endpoint,
+    DetachModelFromEndpoint: _detach_model_from_endpoint,
+    # Endpoint Bindings APIs
+    CreateEndpointBinding: _create_endpoint_binding,
+    DeleteEndpointBinding: _delete_endpoint_binding,
+    ListEndpointBindings: _list_endpoint_bindings,
 }

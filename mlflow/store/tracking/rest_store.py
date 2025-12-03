@@ -14,6 +14,12 @@ from packaging.version import Version
 from mlflow.entities import (
     DatasetInput,
     Experiment,
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointModelMapping,
+    GatewayModelDefinition,
+    GatewayResourceType,
+    GatewaySecret,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -49,44 +55,61 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    AttachModelToEndpoint,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
+    CreateEndpoint,
+    CreateEndpointBinding,
     CreateExperiment,
     CreateLoggedModel,
+    CreateModelDefinition,
     CreateRun,
+    CreateSecret,
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
+    DeleteEndpoint,
+    DeleteEndpointBinding,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
+    DeleteModelDefinition,
     DeleteRun,
     DeleteScorer,
+    DeleteSecret,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
+    DetachModelFromEndpoint,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
     GetDataset,
     GetDatasetExperimentIds,
     GetDatasetRecords,
+    GetEndpoint,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
     GetMetricHistory,
+    GetModelDefinition,
     GetRun,
     GetScorer,
+    GetSecretInfo,
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkPromptsToTrace,
     LinkTracesToRun,
+    ListEndpointBindings,
+    ListEndpoints,
+    ListModelDefinitions,
     ListScorers,
     ListScorerVersions,
+    ListSecrets,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -115,8 +138,11 @@ from mlflow.protos.service_pb2 import (
     TraceRequestMetadata,
     TraceTag,
     UpdateAssessment,
+    UpdateEndpoint,
     UpdateExperiment,
+    UpdateModelDefinition,
     UpdateRun,
+    UpdateSecret,
     UpsertDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -128,6 +154,7 @@ from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    _V3_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     call_endpoint,
@@ -155,6 +182,31 @@ class RestStore(AbstractStore):
     """
 
     _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
+    _V3_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _V3_REST_API_PATH_PREFIX)
+
+    # Set of v3 APIs (secrets, endpoints, endpoint models, endpoint bindings)
+    _V3_APIS = {
+        CreateSecret,
+        GetSecretInfo,
+        UpdateSecret,
+        DeleteSecret,
+        ListSecrets,
+        CreateEndpoint,
+        GetEndpoint,
+        UpdateEndpoint,
+        DeleteEndpoint,
+        ListEndpoints,
+        CreateModelDefinition,
+        GetModelDefinition,
+        ListModelDefinitions,
+        UpdateModelDefinition,
+        DeleteModelDefinition,
+        AttachModelToEndpoint,
+        DetachModelFromEndpoint,
+        CreateEndpointBinding,
+        DeleteEndpointBinding,
+        ListEndpointBindings,
+    }
 
     def __init__(self, get_host_creds):
         super().__init__()
@@ -198,12 +250,15 @@ class RestStore(AbstractStore):
         retry_timeout_seconds=None,
         response_proto=None,
     ):
+        # Route v3 APIs to v3 endpoints, all others to v2 endpoints
+        method_to_info = self._V3_METHOD_TO_INFO if api in self._V3_APIS else self._METHOD_TO_INFO
+
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{trace_id}/info.
-            _, method = self._METHOD_TO_INFO[api]
+            _, method = method_to_info[api]
         else:
-            endpoint, method = self._METHOD_TO_INFO[api]
+            endpoint, method = method_to_info[api]
         response_proto = response_proto or api.Response()
         return call_endpoint(
             self.get_host_creds(),
@@ -1818,3 +1873,436 @@ class RestStore(AbstractStore):
             MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         return self.log_spans(location, spans)
+
+    # ========== Secrets Management APIs ==========
+
+    def create_secret(
+        self,
+        secret_name: str,
+        secret_value: str,
+        provider: str | None = None,
+        credential_name: str | None = None,
+        auth_config_json: str | None = None,
+        created_by: str | None = None,
+    ) -> GatewaySecret:
+        """
+        Create a new secret for secure credential storage.
+
+        Args:
+            secret_name: Name to identify the secret.
+            secret_value: The secret value to encrypt and store.
+            provider: Optional provider name (e.g., "openai", "anthropic").
+            credential_name: Optional credential name for the secret.
+            auth_config_json: Optional JSON string with authentication configuration.
+            created_by: Optional identifier of the user creating the secret.
+
+        Returns:
+            The created Secret object with masked value.
+        """
+        req_body = message_to_json(
+            CreateSecret(
+                secret_name=secret_name,
+                secret_value=secret_value,
+                provider=provider,
+                credential_name=credential_name,
+                auth_config_json=auth_config_json,
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(CreateSecret, req_body)
+        return GatewaySecret.from_proto(response_proto.secret)
+
+    def get_secret_info(self, secret_id: str) -> GatewaySecret:
+        """
+        Retrieve information about a secret (value will be masked).
+
+        Args:
+            secret_id: The unique identifier of the secret.
+
+        Returns:
+            The Secret object with masked value.
+        """
+        req_body = message_to_json(GetSecretInfo(secret_id=secret_id))
+        response_proto = self._call_endpoint(GetSecretInfo, req_body)
+        return GatewaySecret.from_proto(response_proto.secret)
+
+    def update_secret(
+        self,
+        secret_id: str,
+        secret_value: str,
+        auth_config_json: str | None = None,
+        updated_by: str | None = None,
+    ) -> GatewaySecret:
+        """
+        Update an existing secret's value.
+
+        Args:
+            secret_id: The unique identifier of the secret to update.
+            secret_value: The new secret value to encrypt and store.
+            auth_config_json: Optional JSON string with authentication configuration.
+            updated_by: Optional identifier of the user updating the secret.
+
+        Returns:
+            The updated Secret object with masked value.
+        """
+        req_body = message_to_json(
+            UpdateSecret(
+                secret_id=secret_id,
+                secret_value=secret_value,
+                auth_config_json=auth_config_json,
+                updated_by=updated_by,
+            )
+        )
+        response_proto = self._call_endpoint(UpdateSecret, req_body)
+        return GatewaySecret.from_proto(response_proto.secret)
+
+    def delete_secret(self, secret_id: str) -> None:
+        """
+        Delete a secret.
+
+        Args:
+            secret_id: The unique identifier of the secret to delete.
+        """
+        req_body = message_to_json(DeleteSecret(secret_id=secret_id))
+        self._call_endpoint(DeleteSecret, req_body)
+
+    def list_secrets(self, provider: str | None = None) -> list[GatewaySecret]:
+        """
+        List all secrets, optionally filtered by provider.
+
+        Args:
+            provider: Optional provider name to filter secrets.
+
+        Returns:
+            List of Secret objects with masked values.
+        """
+        req_body = message_to_json(ListSecrets(provider=provider))
+        response_proto = self._call_endpoint(ListSecrets, req_body)
+        return [GatewaySecret.from_proto(s) for s in response_proto.secrets]
+
+    # ========== Endpoints Management APIs ==========
+
+    def create_endpoint(
+        self,
+        name: str,
+        model_definition_ids: list[str],
+        created_by: str | None = None,
+    ) -> GatewayEndpoint:
+        """
+        Create a new endpoint with associated model definitions.
+
+        Args:
+            name: Name to identify the endpoint.
+            model_definition_ids: List of model definition IDs to attach to this endpoint.
+            created_by: Optional identifier of the user creating the endpoint.
+
+        Returns:
+            The created Endpoint object with associated model mappings.
+        """
+        req_body = message_to_json(
+            CreateEndpoint(
+                name=name,
+                model_definition_ids=model_definition_ids,
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(CreateEndpoint, req_body)
+        return GatewayEndpoint.from_proto(response_proto.endpoint)
+
+    def get_endpoint(self, endpoint_id: str) -> GatewayEndpoint:
+        """
+        Retrieve an endpoint with its model configurations.
+
+        Args:
+            endpoint_id: The unique identifier of the endpoint.
+
+        Returns:
+            The Endpoint object with associated models.
+        """
+        req_body = message_to_json(GetEndpoint(endpoint_id=endpoint_id))
+        response_proto = self._call_endpoint(GetEndpoint, req_body)
+        return GatewayEndpoint.from_proto(response_proto.endpoint)
+
+    def update_endpoint(
+        self,
+        endpoint_id: str,
+        name: str | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayEndpoint:
+        """
+        Update an endpoint's metadata.
+
+        Args:
+            endpoint_id: The unique identifier of the endpoint to update.
+            name: Optional new name for the endpoint.
+            updated_by: Optional identifier of the user updating the endpoint.
+
+        Returns:
+            The updated Endpoint object.
+        """
+        req_body = message_to_json(
+            UpdateEndpoint(
+                endpoint_id=endpoint_id,
+                name=name,
+                updated_by=updated_by,
+            )
+        )
+        response_proto = self._call_endpoint(UpdateEndpoint, req_body)
+        return GatewayEndpoint.from_proto(response_proto.endpoint)
+
+    def delete_endpoint(self, endpoint_id: str) -> None:
+        """
+        Delete an endpoint and all its associated models and bindings.
+
+        Args:
+            endpoint_id: The unique identifier of the endpoint to delete.
+        """
+        req_body = message_to_json(DeleteEndpoint(endpoint_id=endpoint_id))
+        self._call_endpoint(DeleteEndpoint, req_body)
+
+    def list_endpoints(self, provider: str | None = None) -> list[GatewayEndpoint]:
+        """
+        List all endpoints, optionally filtered by provider.
+
+        Args:
+            provider: Optional provider name to filter endpoints.
+
+        Returns:
+            List of Endpoint objects with their associated models.
+        """
+        req_body = message_to_json(ListEndpoints(provider=provider))
+        response_proto = self._call_endpoint(ListEndpoints, req_body)
+        return [GatewayEndpoint.from_proto(e) for e in response_proto.endpoints]
+
+    # ========== Model Definitions Management APIs ==========
+
+    def create_model_definition(
+        self,
+        name: str,
+        secret_id: str,
+        provider: str,
+        model_name: str,
+        created_by: str | None = None,
+    ) -> GatewayModelDefinition:
+        """
+        Create a reusable model definition.
+
+        Args:
+            name: User-friendly name for the model definition.
+            secret_id: ID of the secret containing API credentials.
+            provider: Provider name (e.g., "openai", "anthropic").
+            model_name: Name of the model (e.g., "gpt-4", "claude-3-5-sonnet").
+            created_by: Optional identifier of the user creating the definition.
+
+        Returns:
+            The created ModelDefinition object.
+        """
+        req_body = message_to_json(
+            CreateModelDefinition(
+                name=name,
+                secret_id=secret_id,
+                provider=provider,
+                model_name=model_name,
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(CreateModelDefinition, req_body)
+        return GatewayModelDefinition.from_proto(response_proto.model_definition)
+
+    def get_model_definition(self, model_definition_id: str) -> GatewayModelDefinition:
+        """
+        Retrieve a model definition by ID.
+
+        Args:
+            model_definition_id: The unique identifier of the model definition.
+
+        Returns:
+            The ModelDefinition object.
+        """
+        req_body = message_to_json(GetModelDefinition(model_definition_id=model_definition_id))
+        response_proto = self._call_endpoint(GetModelDefinition, req_body)
+        return GatewayModelDefinition.from_proto(response_proto.model_definition)
+
+    def list_model_definitions(
+        self,
+        provider: str | None = None,
+        secret_id: str | None = None,
+    ) -> list[GatewayModelDefinition]:
+        """
+        List all model definitions, optionally filtered.
+
+        Args:
+            provider: Optional provider name to filter definitions.
+            secret_id: Optional secret ID to filter definitions.
+
+        Returns:
+            List of ModelDefinition objects.
+        """
+        req_body = message_to_json(ListModelDefinitions(provider=provider, secret_id=secret_id))
+        response_proto = self._call_endpoint(ListModelDefinitions, req_body)
+        return [GatewayModelDefinition.from_proto(m) for m in response_proto.model_definitions]
+
+    def update_model_definition(
+        self,
+        model_definition_id: str,
+        name: str | None = None,
+        secret_id: str | None = None,
+        model_name: str | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayModelDefinition:
+        """
+        Update a model definition.
+
+        Args:
+            model_definition_id: The unique identifier of the model definition.
+            name: Optional new name.
+            secret_id: Optional new secret ID.
+            model_name: Optional new model name.
+            updated_by: Optional identifier of the user updating the definition.
+
+        Returns:
+            The updated ModelDefinition object.
+        """
+        req_body = message_to_json(
+            UpdateModelDefinition(
+                model_definition_id=model_definition_id,
+                name=name,
+                secret_id=secret_id,
+                model_name=model_name,
+                updated_by=updated_by,
+            )
+        )
+        response_proto = self._call_endpoint(UpdateModelDefinition, req_body)
+        return GatewayModelDefinition.from_proto(response_proto.model_definition)
+
+    def delete_model_definition(self, model_definition_id: str) -> None:
+        """
+        Delete a model definition (fails if in use by any endpoint).
+
+        Args:
+            model_definition_id: The unique identifier of the model definition.
+        """
+        req_body = message_to_json(DeleteModelDefinition(model_definition_id=model_definition_id))
+        self._call_endpoint(DeleteModelDefinition, req_body)
+
+    # ========== Endpoint Model Mappings Management APIs ==========
+
+    def attach_model_to_endpoint(
+        self,
+        endpoint_id: str,
+        model_definition_id: str,
+        weight: int = 1,
+        created_by: str | None = None,
+    ) -> GatewayEndpointModelMapping:
+        """
+        Attach a model definition to an endpoint.
+
+        Args:
+            endpoint_id: The unique identifier of the endpoint.
+            model_definition_id: The unique identifier of the model definition.
+            weight: Optional routing weight (default 1).
+            created_by: Optional identifier of the user creating the mapping.
+
+        Returns:
+            The created EndpointModelMapping object.
+        """
+        req_body = message_to_json(
+            AttachModelToEndpoint(
+                endpoint_id=endpoint_id,
+                model_definition_id=model_definition_id,
+                weight=weight,
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(AttachModelToEndpoint, req_body)
+        return GatewayEndpointModelMapping.from_proto(response_proto.mapping)
+
+    def detach_model_from_endpoint(
+        self,
+        endpoint_id: str,
+        model_definition_id: str,
+    ) -> None:
+        """
+        Detach a model definition from an endpoint (does not delete the model definition).
+
+        Args:
+            endpoint_id: The unique identifier of the endpoint.
+            model_definition_id: The unique identifier of the model definition.
+        """
+        req_body = message_to_json(
+            DetachModelFromEndpoint(
+                endpoint_id=endpoint_id,
+                model_definition_id=model_definition_id,
+            )
+        )
+        self._call_endpoint(DetachModelFromEndpoint, req_body)
+
+    # ========== Endpoint Bindings Management APIs ==========
+
+    def create_endpoint_binding(
+        self,
+        endpoint_id: str,
+        resource_type: GatewayResourceType,
+        resource_id: str,
+        created_by: str | None = None,
+    ) -> GatewayEndpointBinding:
+        """
+        Create a binding between an endpoint and a resource.
+
+        Args:
+            endpoint_id: The unique identifier of the endpoint.
+            resource_type: Type of resource to bind (e.g., ResourceType.SCORER_JOB).
+            resource_id: The unique identifier of the resource.
+            created_by: Optional identifier of the user creating the binding.
+
+        Returns:
+            The created EndpointBinding object.
+        """
+        req_body = message_to_json(
+            CreateEndpointBinding(
+                endpoint_id=endpoint_id,
+                resource_type=resource_type.value,
+                resource_id=resource_id,
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(CreateEndpointBinding, req_body)
+        return GatewayEndpointBinding.from_proto(response_proto.binding)
+
+    def delete_endpoint_binding(self, binding_id: str) -> None:
+        """
+        Delete a binding between an endpoint and a resource.
+
+        Args:
+            binding_id: The unique identifier of the binding to delete.
+        """
+        req_body = message_to_json(DeleteEndpointBinding(binding_id=binding_id))
+        self._call_endpoint(DeleteEndpointBinding, req_body)
+
+    def list_endpoint_bindings(
+        self,
+        endpoint_id: str | None = None,
+        resource_type: GatewayResourceType | None = None,
+        resource_id: str | None = None,
+    ) -> list[GatewayEndpointBinding]:
+        """
+        List endpoint bindings with optional server-side filtering.
+
+        Args:
+            endpoint_id: Optional endpoint ID to filter bindings.
+            resource_type: Optional resource type to filter bindings
+            (e.g., ResourceType.SCORER_JOB).
+            resource_id: Optional resource ID to filter bindings.
+
+        Returns:
+            List of EndpointBinding objects matching the filters.
+        """
+        req_body = message_to_json(
+            ListEndpointBindings(
+                endpoint_id=endpoint_id,
+                resource_type=resource_type.value if resource_type else None,
+                resource_id=resource_id,
+            )
+        )
+        response_proto = self._call_endpoint(ListEndpointBindings, req_body)
+        return [GatewayEndpointBinding.from_proto(b) for b in response_proto.bindings]

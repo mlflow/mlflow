@@ -221,7 +221,11 @@ class GatewayEndpointBinding(_MlflowObject):
     def to_proto(self):
         proto = ProtoGatewayEndpointBinding()
         proto.endpoint_id = self.endpoint_id
-        proto.resource_type = self.resource_type.value
+        proto.resource_type = (
+            self.resource_type.value
+            if isinstance(self.resource_type, GatewayResourceType)
+            else self.resource_type
+        )
         proto.resource_id = self.resource_id
         proto.created_at = self.created_at
         proto.last_updated_at = self.last_updated_at
