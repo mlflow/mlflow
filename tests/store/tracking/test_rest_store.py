@@ -30,6 +30,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -69,6 +70,7 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTrace,
     GetTraceInfoV3,
+    LinkPromptsToTrace,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -2953,4 +2955,36 @@ def test_server_version_check_caching():
             method="POST",
             data=mock.ANY,
             extra_headers=mock.ANY,
+        )
+
+
+def test_link_prompts_to_trace():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    trace_id = "tr-1234"
+    prompt_versions = [
+        PromptVersion(name="prompt1", version=1, template="template1"),
+        PromptVersion(name="prompt2", version=2, template="template2"),
+    ]
+
+    request = LinkPromptsToTrace(
+        trace_id=trace_id,
+        prompt_versions=[
+            LinkPromptsToTrace.PromptVersionRef(name=pv.name, version=str(pv.version))
+            for pv in prompt_versions
+        ],
+    )
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.link_prompts_to_trace(trace_id=trace_id, prompt_versions=prompt_versions)
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/link-prompts",
+            "POST",
+            message_to_json(request),
         )

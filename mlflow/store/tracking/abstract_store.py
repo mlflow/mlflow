@@ -16,6 +16,7 @@ from mlflow.entities import (
     ScorerVersion,
     ViewType,
 )
+from mlflow.entities.model_registry import PromptVersion
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
@@ -1264,6 +1265,21 @@ class AbstractStore:
         """
         raise NotImplementedError(
             f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
+        )
+
+    def link_prompts_to_trace(self, _trace_id: str, _prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            _trace_id: ID of the trace to link prompt versions to.
+            _prompt_versions: List of PromptVersion objects to link.
+
+        Raises:
+            NotImplementedError: If the operation is not supported by this store.
+        """
+        raise NotImplementedError(
+            f"Linking prompts to traces is not implemented for {self.__class__.__name__}."
         )
 
     def calculate_trace_filter_correlation(
