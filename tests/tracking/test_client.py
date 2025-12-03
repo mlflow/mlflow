@@ -673,7 +673,7 @@ def test_client_delete_traces(mock_store):
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def tracking_uri(request, tmp_path, monkeypatch, cached_db):
+def tracking_uri(request, tmp_path, cached_db):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -2067,17 +2067,17 @@ def registry_uri(request, tmp_path, cached_db):
     original_registry_uri = mlflow.get_registry_uri()
 
     if request.param == "file":
-        tracking_uri = tmp_path.joinpath("file").as_uri()
+        registry_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
         # Copy the cached database for this test
         db_path = tmp_path / "sqlalchemy.db"
         shutil.copy(cached_db, db_path)
         path = db_path.as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+        registry_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
             len("file://") :
         ]
 
-    yield tracking_uri
+    yield registry_uri
 
     # Reset tracking URI
     mlflow.set_tracking_uri(original_registry_uri)
