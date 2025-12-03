@@ -903,6 +903,10 @@
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
   },
+  "8VzQLx": {
+    "defaultMessage": "Markdown",
+    "description": "Tooltip content for a button that changes the render mode of the prompt to markdown"
+  },
   "8WJEHc": {
     "defaultMessage": "New model registry UI",
     "description": "Model registry > Switcher for the new model registry UI containing aliases > label"
@@ -4116,6 +4120,10 @@
   "jwALGI": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
+  },
+  "k/AedV": {
+    "defaultMessage": "Plain text",
+    "description": "Tooltip content for a button that changes the render mode of the prompt to plain text"
   },
   "k0l8lF": {
     "defaultMessage": "Boolean",

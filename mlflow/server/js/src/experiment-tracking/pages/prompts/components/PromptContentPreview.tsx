@@ -1,12 +1,16 @@
 import {
   Button,
-  CopyIcon,
   Modal,
   PlayIcon,
   Spacer,
   TrashIcon,
+  MarkdownIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
+  TextBoxIcon,
 } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
@@ -14,6 +18,7 @@ import { getPromptContentTagValue } from '../utils';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage } from 'react-intl';
 import { uniq } from 'lodash';
+import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
 import { useDeletePromptVersionModal } from '../hooks/useDeletePromptVersionModal';
 import { ShowArtifactCodeSnippet } from '../../../components/artifact-view-components/ShowArtifactCodeSnippet';
 
@@ -44,6 +49,7 @@ export const PromptContentPreview = ({
   });
 
   const [showUsageExample, setShowUsageExample] = useState(false);
+  const [shouldRenderMarkdown, setShouldRenderMarkdown] = useState(false);
 
   // Find all variables in the prompt content
   const variableNames = useMemo(() => {
@@ -82,7 +88,60 @@ export const PromptContentPreview = ({
       }}
     >
       <div css={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography.Title level={3}>Viewing version {promptVersion?.version}</Typography.Title>
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            flex: 1,
+            columnGap: theme.spacing.md,
+            rowGap: theme.spacing.sm,
+            marginRight: theme.spacing.md,
+          }}
+        >
+          <Typography.Title withoutMargins level={3}>
+            Viewing version {promptVersion?.version}
+          </Typography.Title>
+          <SegmentedControlGroup
+            name="render-mode"
+            size="small"
+            componentId="mlflow.prompts.details.toggle-markdown-rendering"
+            value={shouldRenderMarkdown}
+            onChange={(event) => setShouldRenderMarkdown(event.target.value)}
+            css={{ display: 'flex' }}
+          >
+            <SegmentedControlButton value={false}>
+              <Tooltip
+                componentId="mlflow.prompts.details.plaintext-rendering-tooltip"
+                content={
+                  <FormattedMessage
+                    defaultMessage="Plain text"
+                    description="Tooltip content for a button that changes the render mode of the prompt to plain text"
+                  />
+                }
+              >
+                <div css={{ display: 'flex', alignItems: 'center' }}>
+                  <TextBoxIcon css={{ fontSize: theme.typography.fontSizeLg }} />
+                </div>
+              </Tooltip>
+            </SegmentedControlButton>
+            <SegmentedControlButton value>
+              <Tooltip
+                componentId="mlflow.prompts.details.markdown-rendering-tooltip"
+                content={
+                  <FormattedMessage
+                    defaultMessage="Markdown"
+                    description="Tooltip content for a button that changes the render mode of the prompt to markdown"
+                  />
+                }
+              >
+                <div css={{ display: 'flex', alignItems: 'center' }}>
+                  <MarkdownIcon css={{ fontSize: theme.typography.fontSizeLg }} />
+                </div>
+              </Tooltip>
+            </SegmentedControlButton>
+          </SegmentedControlGroup>
+        </div>
         <div css={{ display: 'flex', gap: theme.spacing.sm }}>
           <Button
             componentId="mlflow.prompts.details.delete_version"
@@ -124,13 +183,17 @@ export const PromptContentPreview = ({
           overflow: 'auto',
         }}
       >
-        <Typography.Text
-          css={{
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          {value || 'Empty'}
-        </Typography.Text>
+        {shouldRenderMarkdown ? (
+          <GenAIMarkdownRenderer>{value || 'Empty'}</GenAIMarkdownRenderer>
+        ) : (
+          <Typography.Text
+            css={{
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {value || 'Empty'}
+          </Typography.Text>
+        )}
       </div>
       <Modal
         componentId="mlflow.prompts.details.preview.usage_example_modal"
