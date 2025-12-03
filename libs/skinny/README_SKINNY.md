@@ -72,7 +72,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
         <a href="https://mlflow.org/docs/latest/llms/tracing/index.html"><strong>🔍 Tracing / Observability</strong></a>
         <br><br>
         <div>Trace the internal states of your LLM/agentic applications for debugging quality issues and monitoring performance with ease.</div><br>
-        <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/python-openai/">Getting Started →</a>
+        <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/">Getting Started →</a>
         <br><br>
     </div>
     </td>
