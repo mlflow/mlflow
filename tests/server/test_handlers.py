@@ -153,6 +153,7 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.providers import LITELLM_AVAILABLE
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
@@ -2443,3 +2444,92 @@ def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_s
     # Verify response was created (200 status)
     assert response is not None
     assert response.status_code == 200
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_litellm_providers():
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/endpoints/litellm/providers")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "providers" in data
+        assert isinstance(data["providers"], list)
+        assert len(data["providers"]) > 0
+        assert "openai" in data["providers"]
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_litellm_models():
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/endpoints/litellm/models?provider=openai")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "models" in data
+        assert isinstance(data["models"], list)
+        assert len(data["models"]) > 0
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_litellm_models_all_providers():
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/endpoints/litellm/models")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "models" in data
+        assert isinstance(data["models"], list)
+        assert len(data["models"]) > 0
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config():
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/endpoints/litellm/provider-config?provider=openai")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "credential_name" in data
+        assert data["credential_name"] == "OPENAI_API_KEY"
+        assert "auth_fields" in data
+        assert isinstance(data["auth_fields"], list)
+        assert "capabilities" in data
+        assert isinstance(data["capabilities"], dict)
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config_with_multiple_auth_fields():
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/endpoints/litellm/provider-config?provider=bedrock")
+        assert response.status_code == 200
+        data = response.get_json()
+
+        # Bedrock requires multiple credentials
+        assert data["credential_name"] == "AWS_ACCESS_KEY_ID"
+        assert len(data["auth_fields"]) > 0
+
+        # Verify auth_fields structure
+        secret_key_field = next(
+            (f for f in data["auth_fields"] if f["name"] == "AWS_SECRET_ACCESS_KEY"), None
+        )
+        assert secret_key_field is not None
+        assert secret_key_field["required"] is True
+        assert secret_key_field["type"] == "string"
+
+        # Verify capabilities
+        assert "capabilities" in data
+        assert isinstance(data["capabilities"], dict)
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config_missing_provider():
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/endpoints/litellm/provider-config")
+        assert response.status_code == 400
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_litellm_not_available():
+    with mock.patch("mlflow.utils.providers.LITELLM_AVAILABLE", False):
+        with app.test_client() as c:
+            response = c.get("/api/3.0/mlflow/endpoints/litellm/providers")
+            assert response.status_code == 400
+            data = response.get_json()
+            assert "LiteLLM is not installed" in data["message"]

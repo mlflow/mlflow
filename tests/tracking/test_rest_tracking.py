@@ -87,6 +87,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.providers import LITELLM_AVAILABLE
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import get_safe_port
@@ -4505,3 +4506,78 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
     store.delete_model_definition(model_def1.model_definition_id)
     store.delete_model_definition(model_def2.model_definition_id)
     store.delete_secret(secret.secret_id)
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM endpoint tests")
+def test_list_litellm_providers(mlflow_client_with_secrets):
+    import requests
+
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+    response = requests.get(f"{base_url}/api/3.0/mlflow/endpoints/litellm/providers")
+    assert response.status_code == 200
+    data = response.json()
+    assert "providers" in data
+    assert isinstance(data["providers"], list)
+    assert len(data["providers"]) > 0
+    assert "openai" in data["providers"]
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM endpoint tests")
+def test_list_litellm_models(mlflow_client_with_secrets):
+    import requests
+
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+    response = requests.get(f"{base_url}/api/3.0/mlflow/endpoints/litellm/models")
+    assert response.status_code == 200
+    data = response.json()
+    assert "models" in data
+    assert isinstance(data["models"], list)
+    assert len(data["models"]) > 0
+
+    model = data["models"][0]
+    assert "model" in model
+    assert "provider" in model
+    assert "mode" in model
+
+    response = requests.get(
+        f"{base_url}/api/3.0/mlflow/endpoints/litellm/models", params={"provider": "openai"}
+    )
+    assert response.status_code == 200
+    filtered_data = response.json()
+    assert all(m["provider"] == "openai" for m in filtered_data["models"])
+
+
+@pytest.mark.skipif(not LITELLM_AVAILABLE, reason="litellm is required for LiteLLM endpoint tests")
+def test_get_provider_config(mlflow_client_with_secrets):
+    import requests
+
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+    response = requests.get(
+        f"{base_url}/api/3.0/mlflow/endpoints/litellm/provider-config",
+        params={"provider": "openai"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "credential_name" in data
+    assert data["credential_name"] == "OPENAI_API_KEY"
+    assert "auth_fields" in data
+    assert isinstance(data["auth_fields"], list)
+
+    response = requests.get(
+        f"{base_url}/api/3.0/mlflow/endpoints/litellm/provider-config",
+        params={"provider": "bedrock"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["credential_name"] == "AWS_ACCESS_KEY_ID"
+    assert len(data["auth_fields"]) > 0
+    assert any(f["name"] == "aws_secret_access_key" for f in data["auth_fields"])
+
+    response = requests.get(
+        f"{base_url}/api/3.0/mlflow/endpoints/litellm/provider-config",
+        params={"provider": "unknown_provider"},
+    )
+    assert response.status_code == 400
+
+    response = requests.get(f"{base_url}/api/3.0/mlflow/endpoints/litellm/provider-config")
+    assert response.status_code == 400
