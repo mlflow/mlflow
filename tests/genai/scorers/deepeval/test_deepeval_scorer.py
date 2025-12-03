@@ -7,7 +7,6 @@ from mlflow.genai.scorers.deepeval import get_judge
 
 
 def test_deepeval_scorer_with_exact_match_metric():
-    """Test with a real deterministic metric that doesn't require an LLM."""
     judge = get_judge("ExactMatch")
     result = judge(
         inputs="What is MLflow?",
@@ -24,7 +23,6 @@ def test_deepeval_scorer_with_exact_match_metric():
 
 
 def test_deepeval_scorer_handles_failure_with_exact_match():
-    """Test failure case with a real deterministic metric."""
     judge = get_judge("ExactMatch")
     result = judge(
         inputs="What is MLflow?",
@@ -37,7 +35,6 @@ def test_deepeval_scorer_handles_failure_with_exact_match():
 
 
 def test_metric_kwargs_passed_to_deepeval_metric():
-    """Test that custom parameters are passed through correctly."""
     with patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class:
         mock_metric_class = Mock()
         mock_metric_instance = Mock()
@@ -62,7 +59,6 @@ def test_metric_kwargs_passed_to_deepeval_metric():
 
 
 def test_deepeval_scorer_returns_error_feedback_on_exception():
-    """Test error handling when metric.measure() raises an exception."""
     with patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class:
         mock_metric_class = Mock()
         mock_metric_instance = Mock()
