@@ -671,6 +671,20 @@ def test_client_delete_traces(mock_store):
     )
 
 
+@pytest.fixture
+def disable_prompt_cache():
+    from mlflow.environment_variables import (
+        MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS,
+        MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS,
+    )
+
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.set(0)
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.set(0)
+    yield
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.unset()
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.unset()
+
+
 @pytest.fixture(params=["file", "sqlalchemy"])
 def tracking_uri(request, tmp_path, cached_db):
     """Set an MLflow Tracking URI with different type of backend."""
@@ -2109,7 +2123,7 @@ def test_crud_prompts(tracking_uri):
     assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
 
 
-def test_create_prompt_with_tags_and_metadata(tracking_uri):
+def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt with version-specific tags
@@ -2171,7 +2185,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
     assert prompt_v1_after_update.tags == {"author": "Alice"}  # Unchanged
 
 
-def test_create_prompt_error_handling(tracking_uri):
+def test_create_prompt_error_handling(tracking_uri, disable_prompt_cache):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Exceeds the max length
@@ -2695,7 +2709,7 @@ def test_log_batch_link_to_active_model(tracking_uri):
     }
 
 
-def test_load_prompt_with_alias_uri(tracking_uri):
+def test_load_prompt_with_alias_uri(tracking_uri, disable_prompt_cache):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Register two versions of a prompt
