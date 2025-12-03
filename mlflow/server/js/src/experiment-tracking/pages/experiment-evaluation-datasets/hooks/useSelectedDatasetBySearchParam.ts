@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
-const QUERY_PARAM_KEY = 'selectedDataset';
+const QUERY_PARAM_KEY = 'selectedDatasetId';
 
 /**
  * Query param-powered hook that returns the selected dataset ID.
