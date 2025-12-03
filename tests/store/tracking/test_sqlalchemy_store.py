@@ -1234,6 +1234,10 @@ def test_log_metric(store: SqlAlchemyStore):
         assert run.data.metrics["NegInf"] == -1.7976931348623157e308
 
 
+@pytest.mark.skipif(
+    is_windows(),
+    reason="Flaky on Windows due to SQLite database locking issues with concurrent writes",
+)
 def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
     """
     Verifies that concurrent logging succeeds without deadlock, which has been an issue
