@@ -96,6 +96,13 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
 
         with open(local_file, "rb") as f:
             name = Path(local_file).name
+            _logger.info(
+                f"[DatabricksSdkArtifactRepository] log_artifact, full_path = {
+                    self.full_path(
+                        posixpath.join(artifact_path, name) if artifact_path else name
+                    )
+                }"
+            )
             self.files_api.upload(
                 self.full_path(
                     posixpath.join(artifact_path, name) if artifact_path else name
