@@ -377,8 +377,8 @@ const config: Config = {
             from: ['/llms/llm-tracking', '/tracing', '/llms/tracing', '/tracing/api/how-to'],
           },
           {
-            to: '/genai/tracing/quickstart/python-openai',
-            from: ['/genai/tracing/quickstart'],
+            to: '/genai/tracing/quickstart',
+            from: ['/genai/tracing/quickstart/typescript-openai', '/genai/tracing/quickstart/python-openai'],
           },
           {
             to: '/genai/tracing/faq',
@@ -822,8 +822,8 @@ const config: Config = {
             from: ['/llms/sentence-transformers'],
           },
           {
-            to: '/ml/deep-learning/sentence-transformers/tutorials/',
-            from: ['/llms/sentence-transformers/tutorials'],
+            to: '/ml/deep-learning/sentence-transformers',
+            from: ['/llms/sentence-transformers/tutorials', '/ml/deep-learning/sentence-transformers/tutorials'],
           },
           {
             to: '/ml/deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers',
@@ -844,8 +844,8 @@ const config: Config = {
             ],
           },
           {
-            to: '/ml/deep-learning/sentence-transformers/guide',
-            from: ['/llms/sentence-transformers/guide'],
+            to: '/ml/deep-learning/sentence-transformers',
+            from: ['/llms/sentence-transformers/guide', '/ml/deep-learning/sentence-transformers/guide'],
           },
           {
             to: '/ml/deep-learning/tensorflow',

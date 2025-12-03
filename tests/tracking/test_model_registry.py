@@ -15,23 +15,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import get_safe_port
 from tests.tracking.integration_test_utils import ServerThread
-
-
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_dir / "mlflow.db"
-    backend_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
-    store.engine.dispose()
-    return db_path
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
