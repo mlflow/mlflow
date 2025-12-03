@@ -207,7 +207,7 @@ Judge instructions use template variables to reference evaluation data. These va
 :::warning[Only Reserved Variables Allowed]
 You can only use the reserved template variables shown above (`inputs`, `outputs`, `expectations`, `conversation`, `trace`). Custom variables like `{{ question }}` will cause validation errors. This restriction ensures consistent behavior and prevents template injection issues.
 
-**Note on `conversation` variable:** The `{{ conversation }}` template variable can only be used with `{{ expectations }}`. It cannot be combined with `{{ inputs }}`, `{{ outputs }}`, or `{{ trace }}` variables. This is because conversation history provides complete context, making individual turn data redundant.
+**Note on `conversation` variable:** The `{{ conversation }}` template variable can be used with `{{ expectations }}`, however it cannot be combined with `{{ inputs }}`, `{{ outputs }}`, or `{{ trace }}` variables. This is because conversation history provides complete context, making individual turn data redundant.
 :::
 
 ## Selecting Judge Models
