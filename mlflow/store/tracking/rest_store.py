@@ -26,6 +26,7 @@ from mlflow.entities import (
     ScorerVersion,
     ViewType,
 )
+from mlflow.exceptions import MlflowNotImplementedException
 
 # Constants for Databricks API disabled decorator
 _DATABRICKS_DATASET_API_NAME = "Evaluation dataset APIs"
@@ -468,10 +469,22 @@ class RestStore(AbstractStore):
 
     def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
         req_body = message_to_json(GetTrace(trace_id=trace_id, allow_partial=allow_partial))
-        response_proto = self._call_endpoint(
-            GetTrace, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/get"
-        )
-        return Trace.from_proto(response_proto.trace)
+        try:
+            response_proto = self._call_endpoint(
+                GetTrace, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/get"
+            )
+            return Trace.from_proto(response_proto.trace)
+        except MlflowException as e:
+            # Note: Old servers might match the route pattern /mlflow/traces/{trace_id} and
+            # interpret "get" as the trace_id parameter, we should catch this and raise
+            # NotImplementedException for downstream handling.
+            if (
+                e.error_code
+                == databricks_pb2.ErrorCode.Name(databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+                and "Trace with ID 'get' not found" in e.message
+            ):
+                raise MlflowNotImplementedException()
+            raise
 
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
