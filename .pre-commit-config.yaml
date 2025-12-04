@@ -104,7 +104,7 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
-        exclude: '^(CHANGELOG\.md|docs/api_reference/source/R-api\.rst|examples/llms/RAG/.*\.(json|csv)|mlflow/cli/__init__\.py|mlflow/R/mlflow/.*|tests/test_cli\.py|dev/check-mlflow-ui\.sh)$'
+        exclude: '^(CHANGELOG\.md|docs/api_reference/source/R-api\.rst|examples/llms/RAG/.*\.(json|csv)|mlflow/cli/__init__\.py|mlflow/R/mlflow/.*|tests/test_cli\.py|dev/check-mlflow-ui\.sh|dev/tests/test_check_mlflow_ui\.py)$'
 
       - id: pyproject
         name: pyproject
