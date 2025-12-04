@@ -1,5 +1,6 @@
 import warnings
 from threading import Thread
+from unittest.mock import patch
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric
@@ -67,3 +68,22 @@ def test_double_patch_does_not_overwrite(monkeypatch):
     controller.set_non_mlflow_warnings_disablement_state_for_current_thread(False)
 
     assert warnings.showwarning == ORIGINAL_SHOWWARNING
+
+
+def test_flush_metrics_queue_does_not_create_client_when_empty():
+    """
+    Test that flush_metrics_queue does not create an MlflowClient instance
+    when the metrics queue is empty. This optimization avoids unnecessary
+    client instantiation overhead.
+    """
+    # Ensure the queue is empty
+    _metrics_queue.clear()
+
+    # Mock MlflowClient to verify it's not instantiated
+    with patch("mlflow.utils.autologging_utils.metrics_queue.MlflowClient") as mock_client:
+        flush_metrics_queue()
+        # Verify MlflowClient was not instantiated when queue is empty
+        mock_client.assert_not_called()
+
+    # Verify the queue remains empty
+    assert len(_metrics_queue) == 0
