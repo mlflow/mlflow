@@ -10,44 +10,54 @@ const MAINTAINERS = [
 
 module.exports = async ({ github, context }) => {
   const { owner, repo } = context.repo;
-  const pull_number = context.issue.number;
+  const issue_number = context.issue.number;
   const commenter = context.payload.comment.user.login;
+  const isPullRequest = !!context.payload.issue?.pull_request;
 
   // Check if the commenter is a maintainer
   console.log("Maintainers:", MAINTAINERS);
   console.log("Commenter:", commenter);
+  console.log("Is PR:", isPullRequest);
 
   if (!MAINTAINERS.includes(commenter)) {
     console.log(`${commenter} is not a maintainer, skipping assignment`);
     return;
   }
 
-  // Get PR details to check for reviewers
-  const pr = await github.rest.pulls.get({
-    owner,
-    repo,
-    pull_number,
-  });
+  // For PRs, check if there are reviewers
+  if (isPullRequest) {
+    const pr = await github.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: issue_number,
+    });
 
-  const requestedReviewers = pr.data.requested_reviewers || [];
-  const requestedTeams = pr.data.requested_teams || [];
-  console.log(
-    "Requested reviewers:",
-    requestedReviewers.map((r) => r.login)
-  );
-  console.log(
-    "Requested teams:",
-    requestedTeams.map((t) => t.slug)
-  );
+    const requestedReviewers = pr.data.requested_reviewers || [];
+    const requestedTeams = pr.data.requested_teams || [];
+    console.log(
+      "Requested reviewers:",
+      requestedReviewers.map((r) => r.login)
+    );
+    console.log(
+      "Requested teams:",
+      requestedTeams.map((t) => t.slug)
+    );
 
-  // Only assign if there are no reviewers
-  if (requestedReviewers.length > 0 || requestedTeams.length > 0) {
-    console.log("PR already has reviewers, skipping assignment");
-    return;
+    // Only assign if there are no reviewers
+    if (requestedReviewers.length > 0 || requestedTeams.length > 0) {
+      console.log("PR already has reviewers, skipping assignment");
+      return;
+    }
   }
 
-  // Check if the commenter is already assigned
-  const currentAssignees = pr.data.assignees || [];
+  // Get issue details to check current assignees
+  const issue = await github.rest.issues.get({
+    owner,
+    repo,
+    issue_number,
+  });
+
+  const currentAssignees = issue.data.assignees || [];
   console.log(
     "Current assignees:",
     currentAssignees.map((a) => a.login)
@@ -63,7 +73,7 @@ module.exports = async ({ github, context }) => {
   await github.rest.issues.addAssignees({
     owner,
     repo,
-    issue_number: pull_number,
+    issue_number,
     assignees: [commenter],
   });
   console.log(`Successfully added ${commenter} as assignee`);
