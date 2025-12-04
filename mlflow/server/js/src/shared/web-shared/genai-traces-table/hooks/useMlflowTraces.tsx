@@ -673,6 +673,9 @@ const createMlflowSearchFilter = (
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
             const metadataKey = getCustomMetadataKeyFromColumnId(networkFilter.column);
+            if (!metadataKey) {
+              break;
+            }
             // Use double quotes for field names with special characters (dots, spaces)
             const columnKey =
               metadataKey.includes('.') || metadataKey.includes(' ')
