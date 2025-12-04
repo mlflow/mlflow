@@ -7,13 +7,13 @@ from mlflow.entities.model_registry import PromptModelConfig
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.prompt_version import (
     IS_PROMPT_TAG_KEY,
-    MODEL_CONFIG_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PromptVersion,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import model_version_to_prompt_version
 from mlflow.protos.model_registry_pb2 import ModelVersionTag
+from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 
 def test_prompt_initialization():
@@ -143,7 +143,7 @@ def test_prompt_from_model_version():
         tags=[
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
             ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value="Hello, {{name}}!"),
-            ModelVersionTag(key=MODEL_CONFIG_TAG_KEY, value=model_config_json),
+            ModelVersionTag(key=MLFLOW_PROMPT_MODEL_CONFIG, value=model_config_json),
         ],
         aliases=["alias"],
     )
@@ -195,8 +195,6 @@ def test_prompt_with_model_config_dict():
         model_config=model_config,
     )
     assert prompt.model_config == model_config
-    assert prompt.model_config["model_name"] == "gpt-5"
-    assert prompt.model_config["temperature"] == 0.7
 
     # Test prompt without model_config
     prompt_without_config = PromptVersion(name="my_prompt", version=2, template="Hello, {{name}}!")
@@ -314,40 +312,28 @@ def test_prompt_model_config_from_dict_with_unknown_fields():
     assert config.extra_params == {"custom_param": "value", "another_param": 123}
 
 
-def test_prompt_model_config_validation():
-    with pytest.raises(ValidationError, match="Input should be a valid number"):
-        PromptModelConfig(temperature="invalid")
-    with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
-        PromptModelConfig(temperature=-0.5)
-
-    with pytest.raises(ValidationError, match="Input should be a valid integer"):
-        PromptModelConfig(max_tokens=100.5)
-    with pytest.raises(ValidationError, match="Input should be greater than 0"):
-        PromptModelConfig(max_tokens=0)
-
-    with pytest.raises(ValidationError, match="Input should be a valid number"):
-        PromptModelConfig(top_p="invalid")
-    with pytest.raises(ValidationError, match="Input should be less than or equal to 1"):
-        PromptModelConfig(top_p=1.5)
-
-    with pytest.raises(ValidationError, match="Input should be a valid integer"):
-        PromptModelConfig(top_k=10.5)
-    with pytest.raises(ValidationError, match="Input should be greater than 0"):
-        PromptModelConfig(top_k=0)
-
-    with pytest.raises(ValidationError, match="Input should be a valid number"):
-        PromptModelConfig(frequency_penalty="invalid")
-    with pytest.raises(ValidationError, match="Input should be a valid number"):
-        PromptModelConfig(presence_penalty="invalid")
-
-    with pytest.raises(ValidationError, match="Input should be a valid list"):
-        PromptModelConfig(stop_sequences="not a list")
-    with pytest.raises(ValidationError, match="Input should be a valid string"):
-        PromptModelConfig(stop_sequences=["valid", 123])
-
-    with pytest.raises(ValidationError, match="Input should be a valid dictionary"):
-        PromptModelConfig(extra_params="not a dict")
-
+@pytest.mark.parametrize(
+    ("field", "value", "error_match"),
+    [
+        ("temperature", "invalid", "temperature must be a number"),
+        ("temperature", -0.5, "temperature must be non-negative"),
+        ("max_tokens", 100.5, "max_tokens must be an integer"),
+        ("max_tokens", 0, "max_tokens must be positive"),
+        ("top_p", "invalid", "top_p must be a number"),
+        ("top_p", 1.5, "top_p must be between 0 and 1"),
+        ("top_k", 10.5, "top_k must be an integer"),
+        ("top_k", 0, "top_k must be positive"),
+        ("frequency_penalty", "invalid", "frequency_penalty must be a number"),
+        ("presence_penalty", "invalid", "presence_penalty must be a number"),
+        ("stop_sequences", "not a list", "stop_sequences must be a list"),
+        ("stop_sequences", ["valid", 123], "All stop_sequences must be strings"),
+        ("extra_params", "not a dict", "extra_params must be a dict"),
+    ],
+)
+def test_prompt_model_config_validation(field, value, error_match):
+    with pytest.raises((TypeError, ValueError), match=error_match):
+        PromptModelConfig(**{field: value})
+    # Test valid values
     PromptModelConfig(temperature=0.0, max_tokens=1000, top_p=0.9, top_k=50)
 
 

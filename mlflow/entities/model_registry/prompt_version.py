@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
@@ -19,15 +19,10 @@ from mlflow.prompt.constants import (
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 # Alias type
 PromptVersionTag = ModelVersionTag
-
-
-MODEL_CONFIG_TAG_KEY = "_mlflow_prompt_model_config"
-
-
-from pydantic import BaseModel, Field
 
 
 class PromptModelConfig(BaseModel):
@@ -150,7 +145,7 @@ def _is_reserved_tag(key: str) -> bool:
         PROMPT_TEXT_TAG_KEY,
         PROMPT_TYPE_TAG_KEY,
         RESPONSE_FORMAT_TAG_KEY,
-        MODEL_CONFIG_TAG_KEY,
+        MLFLOW_PROMPT_MODEL_CONFIG,
     }
 
 
@@ -244,7 +239,7 @@ class PromptVersion(_ModelRegistryEntity):
             else:
                 # Validate dict by converting through PromptModelConfig
                 config_dict = PromptModelConfig.from_dict(model_config).to_dict()
-            tags[MODEL_CONFIG_TAG_KEY] = json.dumps(config_dict)
+            tags[MLFLOW_PROMPT_MODEL_CONFIG] = json.dumps(config_dict)
 
         # Store the tags dict
         self._tags: dict[str, str] = tags
@@ -321,9 +316,9 @@ class PromptVersion(_ModelRegistryEntity):
             and settings like temperature, top_p, max_tokens, etc., or None if no
             model config is specified.
         """
-        if MODEL_CONFIG_TAG_KEY not in self._tags:
+        if MLFLOW_PROMPT_MODEL_CONFIG not in self._tags:
             return None
-        return json.loads(self._tags[MODEL_CONFIG_TAG_KEY])
+        return json.loads(self._tags[MLFLOW_PROMPT_MODEL_CONFIG])
 
     def to_single_brace_format(self) -> str | list[dict[str, Any]]:
         """

@@ -46,10 +46,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.model_registry.prompt_version import (
-    MODEL_CONFIG_TAG_KEY,
-    PromptModelConfig,
-)
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import (
@@ -127,6 +124,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
+    MLFLOW_PROMPT_MODEL_CONFIG,
 )
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
@@ -666,7 +664,7 @@ class MlflowClient:
                 # Validate dict by converting through PromptModelConfig
                 config_dict = PromptModelConfig.from_dict(model_config).to_dict()
 
-            tags.update({MODEL_CONFIG_TAG_KEY: json.dumps(config_dict)})
+            tags.update({MLFLOW_PROMPT_MODEL_CONFIG: json.dumps(config_dict)})
 
         try:
             mv: ModelVersion = registry_client.create_model_version(

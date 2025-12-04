@@ -14,7 +14,6 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import (
-    MODEL_CONFIG_TAG_KEY,
     PromptModelConfig,
     PromptVersion,
 )
@@ -41,6 +40,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 _logger = logging.getLogger(__name__)
 
@@ -748,7 +748,7 @@ class AbstractStore:
         description: str | None = None,
         tags: dict[str, str] | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
-        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
+        model_config: PromptModelConfig | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -806,7 +806,7 @@ class AbstractStore:
                 config_dict = PromptModelConfig.from_dict(model_config).to_dict()
 
             version_tags.append(
-                ModelVersionTag(key=MODEL_CONFIG_TAG_KEY, value=json.dumps(config_dict))
+                ModelVersionTag(key=MLFLOW_PROMPT_MODEL_CONFIG, value=json.dumps(config_dict))
             )
 
         if tags:

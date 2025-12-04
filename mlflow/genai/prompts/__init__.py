@@ -8,7 +8,6 @@ from pydantic import BaseModel
 import mlflow.tracking._model_registry.fluent as registry_api
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import (
-    MODEL_CONFIG_TAG_KEY,
     PromptModelConfig,
     PromptVersion,
 )
@@ -16,6 +15,7 @@ from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
+from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 
 @contextmanager
@@ -326,7 +326,7 @@ def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
         registry_api._load_prompt_cached.cache_clear()
 
 
-@experimental(version="3.5.0")
+@experimental(version="3.7.0")
 @require_prompt_registry
 def set_prompt_model_config(
     name: str,
@@ -384,7 +384,7 @@ def set_prompt_model_config(
 
     with suppress_genai_migration_warning():
         MlflowClient().set_prompt_version_tag(
-            name=name, version=version, key=MODEL_CONFIG_TAG_KEY, value=config_json
+            name=name, version=version, key=MLFLOW_PROMPT_MODEL_CONFIG, value=config_json
         )
         registry_api._load_prompt_cached.cache_clear()
 
@@ -413,6 +413,6 @@ def delete_prompt_model_config(name: str, version: str | int) -> None:
     """
     with suppress_genai_migration_warning():
         MlflowClient().delete_prompt_version_tag(
-            name=name, version=version, key=MODEL_CONFIG_TAG_KEY
+            name=name, version=version, key=MLFLOW_PROMPT_MODEL_CONFIG
         )
         registry_api._load_prompt_cached.cache_clear()
