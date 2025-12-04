@@ -25,10 +25,7 @@ def patched_standalone_call(original, *args, **kwargs):
 
     fullname, span_type = _resolve_standalone_span(original, kwargs)
     if fullname is None or span_type is None:
-        _logger.debug(
-            "CrewAI Autolog misconfiguration: could not resolve span name or type for %s",
-            original.__name__,
-        )
+        _logger.debug(f"Could not resolve span name or type for {original}")
         return original(*args, **kwargs)
 
     with mlflow.start_span(name=fullname, span_type=span_type) as span:
