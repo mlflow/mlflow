@@ -24,7 +24,6 @@ from mlflow.genai.judges.adapters.base_adapter import (
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _sanitize_justification
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
@@ -318,6 +317,8 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
         model_uri: str,
         prompt: str | list["ChatMessage"],
     ) -> bool:
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
         # Don't handle the default judge (that's handled by DatabricksManagedJudgeAdapter)
         if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
             return False

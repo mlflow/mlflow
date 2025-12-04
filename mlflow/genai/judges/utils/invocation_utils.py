@@ -27,7 +27,6 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 )
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.telemetry.utils import _is_in_databricks
@@ -106,6 +105,8 @@ def invoke_judge_model(
 
     # Check if this is a Databricks serving endpoint adapter that needs telemetry
     if isinstance(adapter, DatabricksServingEndpointAdapter):
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
         model_provider, model_name = _parse_model_uri(model_uri)
 
         # Show deprecation warning for legacy 'endpoints' provider

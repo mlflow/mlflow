@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 
 
 @dataclass
@@ -46,6 +45,8 @@ class AdapterInvocationInput:
     def model_provider(self) -> str:
         """Get the parsed model provider (lazy evaluation)."""
         if self._model_provider is None:
+            from mlflow.metrics.genai.model_utils import _parse_model_uri
+
             self._model_provider, self._model_name = _parse_model_uri(self.model_uri)
         return self._model_provider
 
@@ -53,6 +54,8 @@ class AdapterInvocationInput:
     def model_name(self) -> str:
         """Get the parsed model name (lazy evaluation)."""
         if self._model_name is None:
+            from mlflow.metrics.genai.model_utils import _parse_model_uri
+
             self._model_provider, self._model_name = _parse_model_uri(self.model_uri)
         return self._model_name
 
