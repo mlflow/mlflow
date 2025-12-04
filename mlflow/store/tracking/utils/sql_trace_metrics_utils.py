@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import TypedDict
 
-from sqlalchemy import Column, and_, func
+from sqlalchemy import Column, and_, func, literal_column
 from sqlalchemy.orm.query import Query
 
 from mlflow.entities.trace_metrics import (
@@ -89,13 +89,14 @@ def get_percentile_aggregation(db_type: str, percentile: float, column):
 
 
 def get_time_bucket_expression(
-    timestamp_column: Column, time_granularity: TimeGranularity
+    timestamp_column: Column, time_granularity: TimeGranularity, db_type: str
 ) -> Column:
     """Get time bucket expression for grouping timestamps.
 
     Args:
         timestamp_column: SQLAlchemy column containing timestamps in milliseconds
         time_granularity: Time granularity for bucketing
+        db_type: Database type (e.g., "postgresql", "mssql", "mysql", "sqlite")
 
     Returns:
         SQLAlchemy column expression for time bucket
@@ -111,8 +112,15 @@ def get_time_bucket_expression(
 
     bucket_size_ms = granularity_ms_map[time_granularity]
 
-    # This floors the timestamp to the nearest bucket boundary
-    return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
+    if db_type == "mssql":
+        # MSSQL is very strict about GROUP BY expressions. We use literal_column
+        # to generate the exact same SQL text in SELECT, GROUP BY, and ORDER BY
+        column_name = timestamp_column.key
+        expr_str = f"floor({column_name} / {bucket_size_ms}) * {bucket_size_ms}"
+        return literal_column(expr_str)
+    else:
+        # This floors the timestamp to the nearest bucket boundary
+        return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
 
 def query_metrics_for_traces_view(
@@ -146,7 +154,9 @@ def query_metrics_for_traces_view(
     dimension_columns = []
 
     if time_granularity:
-        time_bucket_expr = get_time_bucket_expression(SqlTraceInfo.timestamp_ms, time_granularity)
+        time_bucket_expr = get_time_bucket_expression(
+            SqlTraceInfo.timestamp_ms, time_granularity, db_type
+        )
         dimension_columns.append(time_bucket_expr.label(TIME_BUCKET_LABEL))
 
     for dimension in dimensions or []:
