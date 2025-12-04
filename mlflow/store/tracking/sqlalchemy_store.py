@@ -3542,14 +3542,12 @@ class SqlAlchemyStore(AbstractStore):
             )
             # This is required to handle the concurrent calls that create or update the trace info,
             # and to set the spans_location tag here since spans are stored in db.
-            session.query(SqlTraceTag).filter(
-                SqlTraceTag.request_id == trace_id, SqlTraceTag.key == TraceTagKey.SPANS_LOCATION
-            ).update(
-                {
-                    SqlTraceTag.value: SpansLocation.TRACKING_STORE.value,
-                },
-                # Skip session synchronization for performance - we don't use the object afterward
-                synchronize_session=False,
+            session.merge(
+                SqlTraceTag(
+                    request_id=trace_id,
+                    key=TraceTagKey.SPANS_LOCATION,
+                    value=SpansLocation.TRACKING_STORE.value,
+                )
             )
 
         return spans
