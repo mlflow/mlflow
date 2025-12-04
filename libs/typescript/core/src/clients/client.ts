@@ -2,7 +2,8 @@ import { AuthProvider } from '../auth/types';
 import {
   NoAuthProvider,
   PersonalAccessTokenProvider,
-  BasicAuthProvider
+  BasicAuthProvider,
+  DatabricksSdkAuthProvider
 } from '../auth/providers';
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
@@ -37,18 +38,28 @@ export class MlflowClient {
 
     // Initialize auth provider
     if (options.authProvider) {
+      // Priority 1: Explicit authProvider takes precedence
       this.authProvider = options.authProvider;
     } else if (options.databricksToken) {
-      // Legacy: create PAT provider from token
-      this.authProvider = new PersonalAccessTokenProvider(options.databricksToken);
+      // Priority 2: Legacy databricksToken option
+      // Use SDK-based provider for Databricks contexts, simple PAT for others
+      if (options.trackingUri.startsWith('databricks')) {
+        this.authProvider = new DatabricksSdkAuthProvider({
+          host: options.host,
+          token: options.databricksToken
+        });
+      } else {
+        // Non-Databricks context - use simple Bearer token
+        this.authProvider = new PersonalAccessTokenProvider(options.databricksToken);
+      }
     } else if (options.trackingServerUsername && options.trackingServerPassword) {
-      // Legacy: create Basic Auth provider
+      // Priority 3: Legacy Basic Auth for non-Databricks tracking servers
       this.authProvider = new BasicAuthProvider(
         options.trackingServerUsername,
         options.trackingServerPassword
       );
     } else {
-      // No auth
+      // Priority 4: No auth
       this.authProvider = new NoAuthProvider();
     }
 

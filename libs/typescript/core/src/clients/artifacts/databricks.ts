@@ -1,5 +1,5 @@
 import { AuthProvider } from '../../auth/types';
-import { NoAuthProvider, PersonalAccessTokenProvider } from '../../auth/providers';
+import { NoAuthProvider, DatabricksSdkAuthProvider } from '../../auth/providers';
 import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
 import { TraceInfo } from '../../core/entities/trace_info';
 import { JSONBig } from '../../core/utils/json';
@@ -23,8 +23,12 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     if (options.authProvider) {
       this.authProvider = options.authProvider;
     } else if (options.databricksToken) {
-      // Legacy: create PAT provider from token
-      this.authProvider = new PersonalAccessTokenProvider(options.databricksToken);
+      // Legacy: create SDK-based PAT provider from token
+      // DatabricksArtifactsClient is only used for Databricks contexts
+      this.authProvider = new DatabricksSdkAuthProvider({
+        host: options.host,
+        token: options.databricksToken
+      });
     } else {
       // No auth
       this.authProvider = new NoAuthProvider();

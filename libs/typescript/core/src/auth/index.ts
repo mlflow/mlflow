@@ -1,10 +1,11 @@
 // Types
-export type { AuthProvider, AuthResult, DatabricksOAuthConfig } from './types';
+export type { AuthProvider, AuthResult } from './types';
 
 // Providers
 export {
   NoAuthProvider,
   PersonalAccessTokenProvider,
   BasicAuthProvider,
-  DatabricksOAuthProvider
+  DatabricksSdkAuthProvider,
+  type DatabricksSdkAuthConfig
 } from './providers';

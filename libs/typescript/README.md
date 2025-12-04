@@ -86,9 +86,9 @@ The SDK provides a flexible authentication provider system that supports various
 | Provider | Use Case |
 | -------- | -------- |
 | `NoAuthProvider` | Self-hosted MLflow without authentication (default) |
-| `PersonalAccessTokenProvider` | Databricks Personal Access Token (PAT) authentication |
+| `PersonalAccessTokenProvider` | Bearer token authentication (generic) |
 | `BasicAuthProvider` | Username/password authentication for MLflow tracking server |
-| `DatabricksOAuthProvider` | OAuth client credentials flow with automatic token refresh |
+| `DatabricksSdkAuthProvider` | Databricks PAT or OAuth using official SDK |
 
 ### How Authentication Providers Work
 
@@ -122,18 +122,62 @@ mlflow.init({
 });
 ```
 
-#### Personal Access Token (PAT)
+#### Databricks SDK Authentication (Recommended)
 
-For Databricks-hosted MLflow using a Personal Access Token:
+For Databricks-hosted MLflow, use `DatabricksSdkAuthProvider` which leverages the official Databricks SDK. It supports both PAT and OAuth authentication:
+
+**With Personal Access Token (PAT):**
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+import { DatabricksSdkAuthProvider } from 'mlflow-tracing';
+
+mlflow.init({
+  trackingUri: 'databricks',
+  experimentId: '<experiment-id>',
+  authProvider: new DatabricksSdkAuthProvider({
+    host: 'https://<workspace-name>.cloud.databricks.com',
+    token: process.env.DATABRICKS_TOKEN!
+  })
+});
+```
+
+**With OAuth Client Credentials (Service Principal):**
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+import { DatabricksSdkAuthProvider } from 'mlflow-tracing';
+
+mlflow.init({
+  trackingUri: 'databricks',
+  experimentId: '<experiment-id>',
+  authProvider: new DatabricksSdkAuthProvider({
+    host: 'https://<workspace-name>.cloud.databricks.com',
+    clientId: process.env.DATABRICKS_CLIENT_ID!,
+    clientSecret: process.env.DATABRICKS_CLIENT_SECRET!
+  })
+});
+```
+
+The SDK-based provider offers:
+- **40-second token refresh buffer** - Tokens are refreshed before expiry
+- **Official implementation** - Uses Databricks' own authentication code
+- **Consistent behavior** - Same auth logic as other Databricks tools
+
+To create a service principal with client credentials in Databricks, see the [Databricks documentation on OAuth M2M authentication](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html).
+
+#### Personal Access Token (Generic)
+
+For non-Databricks services that use Bearer token authentication:
 
 ```typescript
 import * as mlflow from 'mlflow-tracing';
 import { PersonalAccessTokenProvider } from 'mlflow-tracing';
 
 mlflow.init({
-  trackingUri: 'databricks',
+  trackingUri: 'http://my-mlflow-server:5000',
   experimentId: '<experiment-id>',
-  authProvider: new PersonalAccessTokenProvider(process.env.DATABRICKS_TOKEN!)
+  authProvider: new PersonalAccessTokenProvider('my-bearer-token')
 });
 ```
 
@@ -151,33 +195,6 @@ mlflow.init({
   authProvider: new BasicAuthProvider('username', 'password')
 });
 ```
-
-#### Databricks OAuth (Recommended for Production)
-
-For production applications, `DatabricksOAuthProvider` is recommended. It uses the OAuth client credentials flow and automatically handles token refresh:
-
-- **Proactive refresh**: Tokens are refreshed 5 minutes before expiry
-- **Immediate refresh**: Expired tokens are refreshed before the request
-- **Request deduplication**: Concurrent requests share a single token refresh
-- **Automatic retry**: Network errors are retried with exponential backoff
-
-```typescript
-import * as mlflow from 'mlflow-tracing';
-import { DatabricksOAuthProvider } from 'mlflow-tracing';
-
-mlflow.init({
-  trackingUri: 'databricks',
-  experimentId: '<experiment-id>',
-  authProvider: new DatabricksOAuthProvider({
-    host: 'https://<workspace-name>.cloud.databricks.com',
-    clientId: process.env.DATABRICKS_CLIENT_ID!,
-    clientSecret: process.env.DATABRICKS_CLIENT_SECRET!,
-    scopes: ['all-apis'] // Optional, defaults to ['all-apis']
-  })
-});
-```
-
-To create a service principal with client credentials in Databricks, see the [Databricks documentation on OAuth M2M authentication](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html).
 
 ### Creating a Custom Authentication Provider
 
