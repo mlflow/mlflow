@@ -2633,9 +2633,10 @@ class SqlAlchemyStore(AbstractStore):
                     .filter(SqlTraceInfo.request_id == trace_id)
                     .one_or_none()
                 )
+                new_tag_keys = {t.key for t in tags}
                 if db_sql_trace_info:
                     for tag in db_sql_trace_info.tags:
-                        if tag.key not in tags and tag.key == TraceTagKey.SPANS_LOCATION:
+                        if tag.key == TraceTagKey.SPANS_LOCATION and tag.key not in new_tag_keys:
                             sql_trace_info.tags.append(
                                 SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
                             )
