@@ -194,7 +194,6 @@ With this setting, the MLflow client still makes minimum HTTP requests to the tr
 but can directly upload artifacts to / download artifacts from the remote storage. While this might not be a good practice for access and
 security governance, it could be useful when you want to avoid the overhead of proxying artifacts through the tracking server.
 
-
 :::info Use the right configuration keys
 
 The two options `--serve-artifacts` and `--default-artifact-root` look similar, but they are used for different purposes. When you pick the wrong one, the artifact logging requests will not go through the expected route and may cause access issues. The rule of thumb is:
