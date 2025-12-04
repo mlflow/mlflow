@@ -57,12 +57,18 @@ def group_traces_by_session(
     session_groups = defaultdict(list)
 
     for item in eval_items:
-        if not getattr(item, "trace", None):
-            continue
+        session_id = None
 
-        trace_metadata = item.trace.info.trace_metadata
+        # First, try to get session_id from the trace metadata if trace exists
+        if getattr(item, "trace", None):
+            trace_metadata = item.trace.info.trace_metadata
+            session_id = trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
 
-        if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+        # If no session_id found in trace, check the source data (for dataset records)
+        if not session_id and item.source is not None:
+            session_id = item.source.source_data.get("session_id")
+
+        if session_id:
             session_groups[session_id].append(item)
 
     return dict(session_groups)

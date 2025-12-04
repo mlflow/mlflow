@@ -11,10 +11,10 @@ from typing import Any, Callable
 
 import pandas as pd
 
-# Add tqdm with fallback
 try:
     from tqdm.auto import tqdm
 except ImportError:
+    # If tqdm is not installed, we don't show a progress bar
     tqdm = None
 
 import mlflow
@@ -149,7 +149,7 @@ def run(
         eval_results = [None] * len(eval_items)
         multi_turn_assessments = {}
 
-        # Create progress bar for all tasks (tqdm imported at module level)
+        # Create progress bar for all tasks
         progress_bar = (
             tqdm(
                 total=total_tasks,
@@ -170,6 +170,8 @@ def run(
                     progress_bar.update(1)
 
             # Phase 2: Submit and complete multi-turn tasks (after single-turn)
+            # We run multi-turn scorers after single-turn, since single-turn scorers may create new
+            # traces that are needed by multi-turn scorers.
             if multi_turn_scorers and session_groups:
                 multi_turn_futures = [
                     executor.submit(
