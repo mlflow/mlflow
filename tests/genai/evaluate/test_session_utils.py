@@ -11,8 +11,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.session_utils import (
-    _evaluate_session_scorers,
     classify_scorers,
+    evaluate_session_level_scorers,
     get_first_trace_in_session,
     group_traces_by_session,
     validate_session_level_evaluation_inputs,
@@ -317,7 +317,7 @@ def test_validate_session_level_evaluation_inputs_mixed_scorers():
     )
 
 
-# ==================== Tests for _evaluate_session_scorers ====================
+# ==================== Tests for evaluate_session_level_scorers ====================
 
 
 def _create_test_trace(trace_id: str, request_time: int = 0) -> Trace:
@@ -348,7 +348,7 @@ def _create_eval_item(trace_id: str, request_time: int = 0) -> EvalItem:
     )
 
 
-def test_evaluate_session_scorers_success():
+def test_evaluate_session_level_scorers_success():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "test_scorer"
     mock_scorer.run.return_value = 0.8
@@ -359,7 +359,9 @@ def test_evaluate_session_scorers_success():
         _create_eval_item("trace2", request_time=200),
     ]
 
-    with patch("mlflow.genai.evaluation.session_utils.standardize_scorer_value") as mock_standardize:
+    with patch(
+        "mlflow.genai.evaluation.session_utils.standardize_scorer_value"
+    ) as mock_standardize:
         # Return a new Feedback object each time to avoid metadata overwriting
         def create_feedback(*args, **kwargs):
             return [
@@ -374,7 +376,7 @@ def test_evaluate_session_scorers_success():
 
         mock_standardize.side_effect = create_feedback
 
-        result = _evaluate_session_scorers("session1", session_items, [mock_scorer])
+        result = evaluate_session_level_scorers("session1", session_items, [mock_scorer])
 
         # Verify scorer was called once (for the single session)
         assert mock_scorer.run.call_count == 1
@@ -395,14 +397,14 @@ def test_evaluate_session_scorers_success():
         assert result["trace1"][0].metadata[TraceMetadataKey.TRACE_SESSION] == "session1"
 
 
-def test_evaluate_session_scorers_handles_scorer_error():
+def test_evaluate_session_level_scorers_handles_scorer_error():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "failing_scorer"
     mock_scorer.run.side_effect = ValueError("Scorer failed!")
 
     session_items = [_create_eval_item("trace1", 100)]
 
-    result = _evaluate_session_scorers("session1", session_items, [mock_scorer])
+    result = evaluate_session_level_scorers("session1", session_items, [mock_scorer])
 
     # Verify error feedback was created
     assert "trace1" in result
@@ -415,14 +417,16 @@ def test_evaluate_session_scorers_handles_scorer_error():
     assert feedback.error.stack_trace is not None
 
 
-def test_evaluate_session_scorers_multiple_feedbacks_per_scorer():
+def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "multi_feedback_scorer"
     mock_scorer.run.return_value = {"metric1": 0.7, "metric2": 0.9}
 
     session_items = [_create_eval_item("trace1", 100)]
 
-    with patch("mlflow.genai.evaluation.session_utils.standardize_scorer_value") as mock_standardize:
+    with patch(
+        "mlflow.genai.evaluation.session_utils.standardize_scorer_value"
+    ) as mock_standardize:
         feedbacks = [
             Feedback(
                 name="multi_feedback_scorer/metric1",
@@ -437,7 +441,7 @@ def test_evaluate_session_scorers_multiple_feedbacks_per_scorer():
         ]
         mock_standardize.return_value = feedbacks
 
-        result = _evaluate_session_scorers("session1", session_items, [mock_scorer])
+        result = evaluate_session_level_scorers("session1", session_items, [mock_scorer])
 
         # Verify both feedbacks are stored
         assert "trace1" in result
@@ -450,7 +454,7 @@ def test_evaluate_session_scorers_multiple_feedbacks_per_scorer():
         assert feedback_by_name["multi_feedback_scorer/metric2"].value == 0.9
 
 
-def test_evaluate_session_scorers_first_trace_selection():
+def test_evaluate_session_level_scorers_first_trace_selection():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
     mock_scorer.name = "first_trace_scorer"
     mock_scorer.run.return_value = 1.0
@@ -462,7 +466,9 @@ def test_evaluate_session_scorers_first_trace_selection():
         _create_eval_item("trace3", request_time=300),  # Third chronologically
     ]
 
-    with patch("mlflow.genai.evaluation.session_utils.standardize_scorer_value") as mock_standardize:
+    with patch(
+        "mlflow.genai.evaluation.session_utils.standardize_scorer_value"
+    ) as mock_standardize:
         feedback = Feedback(
             name="first_trace_scorer",
             source=AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="test"),
@@ -470,7 +476,7 @@ def test_evaluate_session_scorers_first_trace_selection():
         )
         mock_standardize.return_value = [feedback]
 
-        result = _evaluate_session_scorers("session1", session_items, [mock_scorer])
+        result = evaluate_session_level_scorers("session1", session_items, [mock_scorer])
 
         # Verify assessment is stored on trace1 (earliest request_time)
         assert "trace1" in result
@@ -481,7 +487,7 @@ def test_evaluate_session_scorers_first_trace_selection():
         assert result["trace1"][0].value == 1.0
 
 
-def test_evaluate_session_scorers_multiple_scorers():
+def test_evaluate_session_level_scorers_multiple_scorers():
     mock_scorer1 = Mock(spec=mlflow.genai.Scorer)
     mock_scorer1.name = "scorer1"
     mock_scorer1.run.return_value = 0.6
@@ -492,7 +498,9 @@ def test_evaluate_session_scorers_multiple_scorers():
 
     session_items = [_create_eval_item("trace1", 100)]
 
-    with patch("mlflow.genai.evaluation.session_utils.standardize_scorer_value") as mock_standardize:
+    with patch(
+        "mlflow.genai.evaluation.session_utils.standardize_scorer_value"
+    ) as mock_standardize:
 
         def create_feedback(name, value):
             return [
@@ -510,7 +518,9 @@ def test_evaluate_session_scorers_multiple_scorers():
             create_feedback("scorer2", 0.8),
         ]
 
-        result = _evaluate_session_scorers("session1", session_items, [mock_scorer1, mock_scorer2])
+        result = evaluate_session_level_scorers(
+            "session1", session_items, [mock_scorer1, mock_scorer2]
+        )
 
         # Verify both scorers were evaluated (runs in parallel)
         assert mock_scorer1.run.call_count == 1

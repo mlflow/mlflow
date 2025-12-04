@@ -87,7 +87,7 @@ def get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
     return min(session_items, key=lambda x: x.trace.info.request_time)
 
 
-def _evaluate_session_scorers(
+def evaluate_session_level_scorers(
     session_id: str,
     session_items: list["EvalItem"],
     multi_turn_scorers: list[Scorer],

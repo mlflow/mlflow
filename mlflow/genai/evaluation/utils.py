@@ -1,7 +1,6 @@
 import json
 import logging
 import math
-from concurrent.futures import Future, as_completed
 from typing import TYPE_CHECKING, Any, Collection
 
 from mlflow.entities import Assessment, Trace, TraceData
@@ -24,7 +23,6 @@ except ImportError:
 if TYPE_CHECKING:
     from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
-    from mlflow.genai.evaluation.entities import EvalResult
 
     try:
         import pyspark.sql.dataframe
@@ -387,25 +385,3 @@ def validate_tags(tags: Any) -> None:
 
     if errors:
         raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
-
-
-def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:
-    """Wraps the as_completed function with a progress bar."""
-    futures_as_completed = as_completed(futures)
-
-    try:
-        from tqdm.auto import tqdm
-
-        futures_as_completed = tqdm(
-            futures_as_completed,
-            total=len(futures),
-            disable=False,
-            desc="Evaluating",
-            smoothing=0,  # 0 means using average speed for remaining time estimates
-            bar_format=PGBAR_FORMAT,
-        )
-    except ImportError:
-        # If tqdm is not installed, we don't show a progress bar
-        pass
-
-    return [future.result() for future in futures_as_completed]

@@ -29,7 +29,7 @@ from mlflow.environment_variables import (
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.session_utils import (
-    _evaluate_session_scorers,
+    evaluate_session_level_scorers,
     classify_scorers,
     group_traces_by_session,
 )
@@ -175,7 +175,7 @@ def run(
             if multi_turn_scorers and session_groups:
                 multi_turn_futures = [
                     executor.submit(
-                        _evaluate_session_scorers,
+                        evaluate_session_level_scorers,
                         session_id=session_id,
                         session_items=session_items,
                         multi_turn_scorers=multi_turn_scorers,
