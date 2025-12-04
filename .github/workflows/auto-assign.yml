@@ -14,10 +14,8 @@ defaults:
 
 jobs:
   assign:
-    # Only run on PR comments for maintainers (OWNER, MEMBER, COLLABORATOR)
-    if: >
-      github.event.issue.pull_request &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    # Only run on PR comments
+    if: github.event.issue.pull_request
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
