@@ -1,13 +1,12 @@
-async function getMaintainers({ github, context }) {
-  const collaborators = await github.paginate(github.rest.repos.listCollaborators, {
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-  });
-  return collaborators
-    .filter(({ role_name }) => ["admin", "maintain"].includes(role_name))
-    .map(({ login }) => login)
-    .sort();
-}
+const MAINTAINERS = [
+  "B-Step62",
+  "BenWilson2",
+  "daniellok-db",
+  "harupy",
+  "serena-ruan",
+  "TomeHirata",
+  "WeichenXu123",
+];
 
 module.exports = async ({ github, context }) => {
   const { owner, repo } = context.repo;
@@ -15,11 +14,10 @@ module.exports = async ({ github, context }) => {
   const commenter = context.payload.comment.user.login;
 
   // Check if the commenter is a maintainer
-  const maintainers = await getMaintainers({ github, context });
-  console.log("Maintainers:", maintainers);
+  console.log("Maintainers:", MAINTAINERS);
   console.log("Commenter:", commenter);
 
-  if (!maintainers.includes(commenter)) {
+  if (!MAINTAINERS.includes(commenter)) {
     console.log(`${commenter} is not a maintainer, skipping assignment`);
     return;
   }
