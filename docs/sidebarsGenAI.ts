@@ -16,13 +16,12 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'getting-started/connect-environment',
-      label: 'Set Up MLflow',
       className: 'sidebar-top-level-category',
     },
     {
       type: 'doc',
-      id: 'tracing/quickstart/python-openai',
-      label: 'Tracing Quickstart',
+      id: 'tracing/quickstart/index',
+      label: 'Start Tracing',
       className: 'sidebar-top-level-category',
     },
     {
@@ -42,20 +41,9 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
+          type: 'doc',
+          id: 'tracing/quickstart/index',
           label: 'Quickstart',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/python-openai',
-              label: 'Getting Started (Python)',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/typescript-openai',
-              label: 'Getting Started (TS/JS)',
-            },
-          ],
         },
         {
           type: 'category',
@@ -395,6 +383,11 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'eval-monitor/running-evaluation/traces',
               label: 'Evaluate Traces',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/multi-turn',
+              label: 'Evaluate Conversations',
             },
           ],
         },

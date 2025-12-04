@@ -30,6 +30,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -43,7 +44,7 @@ from mlflow.environment_variables import (
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
@@ -69,6 +70,7 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTrace,
     GetTraceInfoV3,
+    LinkPromptsToTrace,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -1358,6 +1360,34 @@ def test_get_trace_with_allow_partial_false():
         call_args = mock_call.call_args
         request_body_json = json.loads(call_args[0][1])
         assert request_body_json["allow_partial"] is False
+
+
+def test_get_trace_handles_old_server_routing_conflict():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    # Simulate old server returning "Trace with ID 'get' not found"
+    error_response = MlflowException(
+        "Trace with ID 'get' not found",
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=error_response):
+        with pytest.raises(MlflowNotImplementedException):  # noqa: PT011
+            store.get_trace("some-trace-id")
+
+
+def test_get_trace_raises_other_errors():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    error_message = "Trace with ID 'abc123' not found"
+    genuine_error = MlflowException(
+        error_message,
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=genuine_error):
+        with pytest.raises(MlflowException, match=error_message):
+            store.get_trace("abc123")
 
 
 def test_log_logged_model_params():
@@ -2941,4 +2971,36 @@ def test_server_version_check_caching():
             method="POST",
             data=mock.ANY,
             extra_headers=mock.ANY,
+        )
+
+
+def test_link_prompts_to_trace():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    trace_id = "tr-1234"
+    prompt_versions = [
+        PromptVersion(name="prompt1", version=1, template="template1"),
+        PromptVersion(name="prompt2", version=2, template="template2"),
+    ]
+
+    request = LinkPromptsToTrace(
+        trace_id=trace_id,
+        prompt_versions=[
+            LinkPromptsToTrace.PromptVersionRef(name=pv.name, version=str(pv.version))
+            for pv in prompt_versions
+        ],
+    )
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.link_prompts_to_trace(trace_id=trace_id, prompt_versions=prompt_versions)
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/link-prompts",
+            "POST",
+            message_to_json(request),
         )

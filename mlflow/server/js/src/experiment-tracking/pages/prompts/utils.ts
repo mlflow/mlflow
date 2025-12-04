@@ -13,11 +13,16 @@ export const IS_PROMPT_TAG_VALUE = 'true';
 export const PROMPT_TYPE_TEXT = 'text' as const;
 export const PROMPT_TYPE_CHAT = 'chat' as const;
 export const PROMPT_TYPE_TAG_KEY = '_mlflow_prompt_type';
+// Tag key used to store comma-separated experiment IDs associated with a prompt
+export const PROMPT_EXPERIMENT_IDS_TAG_KEY = '_mlflow_experiment_ids';
 
 // Query parameter name for specifying prompt version in URLs
 export const PROMPT_VERSION_QUERY_PARAM = 'promptVersion';
 
-export type PromptsTableMetadata = { onEditTags: (editedEntity: RegisteredPrompt) => void };
+export type PromptsTableMetadata = {
+  onEditTags: (editedEntity: RegisteredPrompt) => void;
+  experimentId?: string;
+};
 export type PromptsVersionsTableMetadata = {
   showEditAliasesModal: (versionNumber: string) => void;
   aliasesByVersion: Record<string, string[]>;

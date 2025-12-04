@@ -83,13 +83,13 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
 
 
 # Provide a health check endpoint to ensure the application is responsive
-@app.route("/health")
+@app.route(_add_static_prefix("/health"))
 def health():
     return "OK", 200
 
 
 # Provide an endpoint to query the version of mlflow running on the server
-@app.route("/version")
+@app.route(_add_static_prefix("/version"))
 def version():
     return VERSION, 200
 
