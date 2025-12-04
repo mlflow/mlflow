@@ -181,10 +181,29 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
             return json.loads(att)
         return None
 
+    def _safe_extract_from_root_span(trace: Trace, attribute: str) -> Any:
+        """Safely extract an attribute from the root span, returning None if root span is None."""
+        root_span = trace.data._get_root_span()
+        if root_span is None:
+            return None
+        return getattr(root_span, attribute, None)
+
     if "inputs" not in df.columns:
-        df["inputs"] = df["trace"].apply(lambda trace: trace.data._get_root_span().inputs)
+        df["inputs"] = df["trace"].apply(
+            lambda trace: _safe_extract_from_root_span(trace, "inputs")
+        )
     if "outputs" not in df.columns:
-        df["outputs"] = df["trace"].apply(lambda trace: trace.data._get_root_span().outputs)
+        df["outputs"] = df["trace"].apply(
+            lambda trace: _safe_extract_from_root_span(trace, "outputs")
+        )
+
+    # Warn about traces that don't have a root span (where inputs/outputs are None)
+    missing_count = df[["inputs", "outputs"]].isna().any(axis=1).sum()
+    if missing_count > 0:
+        _logger.warning(
+            f"Found {missing_count} trace(s) that do not have a root span with inputs/outputs."
+        )
+
     return df
 
 
