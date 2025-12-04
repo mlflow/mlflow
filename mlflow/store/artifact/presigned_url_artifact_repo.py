@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import posixpath
 
@@ -19,15 +20,22 @@ from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.request_utils import augmented_raise_for_status, cloud_storage_http_request
+from mlflow.utils.request_utils import (
+    augmented_raise_for_status,
+    cloud_storage_http_request,
+)
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
 )
 
-FILESYSTEM_METHOD_TO_INFO = extract_api_info_for_service(FilesystemService, _REST_API_PATH_PREFIX)
+FILESYSTEM_METHOD_TO_INFO = extract_api_info_for_service(
+    FilesystemService, _REST_API_PATH_PREFIX
+)
 DIRECTORIES_ENDPOINT = "/api/2.0/fs/directories"
+
+_logger = logging.getLogger(__name__)
 
 
 class PresignedUrlArtifactRepository(CloudArtifactRepository):
@@ -45,6 +53,9 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
     ):
         artifact_uri = posixpath.join(
             "/Models", model_full_name.replace(".", "/"), str(model_version)
+        )
+        _logger.info(
+            f"[PresignedUrlArtifactRepository] __init__, artifact_uri = {artifact_uri}"
         )
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         self.db_creds = db_creds
@@ -80,10 +91,14 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
                 ArtifactCredentialInfo.HttpHeader(name=header.name, value=header.value)
                 for header in resp.headers
             ]
-            credential_infos.append(ArtifactCredentialInfo(signed_uri=resp.url, headers=headers))
+            credential_infos.append(
+                ArtifactCredentialInfo(signed_uri=resp.url, headers=headers)
+            )
         return credential_infos
 
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path=None):
+    def _upload_to_cloud(
+        self, cloud_credential_info, src_file_path, artifact_file_path=None
+    ):
         # artifact_file_path is unused in this implementation because the presigned URL
         # and local file path are sufficient for upload to cloud storage
         def try_func(creds):
@@ -97,7 +112,9 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
                     augmented_raise_for_status(response)
 
         def creds_func():
-            return self._get_write_credential_infos(remote_file_paths=[artifact_file_path])[0]
+            return self._get_write_credential_infos(
+                remote_file_paths=[artifact_file_path]
+            )[0]
 
         _retry_with_new_creds(
             try_func=try_func, creds_func=creds_func, orig_creds=cloud_credential_info
@@ -107,7 +124,9 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         infos = []
         page_token = ""
         while True:
-            endpoint = posixpath.join(DIRECTORIES_ENDPOINT, self.artifact_uri.lstrip("/"), path)
+            endpoint = posixpath.join(
+                DIRECTORIES_ENDPOINT, self.artifact_uri.lstrip("/"), path
+            )
             req_body = json.dumps({"page_token": page_token}) if page_token else None
 
             response_proto = ListDirectoryResponse()
@@ -147,7 +166,9 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
                 ArtifactCredentialInfo.HttpHeader(name=header.name, value=header.value)
                 for header in resp.headers
             ]
-            credential_infos.append(ArtifactCredentialInfo(signed_uri=resp.url, headers=headers))
+            credential_infos.append(
+                ArtifactCredentialInfo(signed_uri=resp.url, headers=headers)
+            )
         return credential_infos
 
     def _download_from_cloud(self, remote_file_path, local_path):
