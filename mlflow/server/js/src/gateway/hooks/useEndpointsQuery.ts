@@ -1,0 +1,29 @@
+import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { GatewayApi } from '../api';
+import { GatewayQueryKeys } from './queryKeys';
+import type { ListEndpointsResponse } from '../types';
+
+type EndpointsQueryKey = ReturnType<typeof GatewayQueryKeys.endpointsList>;
+
+const queryFn = ({ queryKey }: QueryFunctionContext<EndpointsQueryKey>) => {
+  const [, { provider }] = queryKey;
+  return GatewayApi.listEndpoints(provider);
+};
+
+export const useEndpointsQuery = ({ provider }: { provider?: string } = {}) => {
+  const queryResult = useQuery<ListEndpointsResponse, Error, ListEndpointsResponse, EndpointsQueryKey>(
+    GatewayQueryKeys.endpointsList({ provider }),
+    {
+      queryFn,
+      retry: false,
+    },
+  );
+
+  return {
+    data: queryResult.data?.endpoints,
+    error: queryResult.error ?? undefined,
+    isLoading: queryResult.isLoading,
+    refetch: queryResult.refetch,
+  };
+};
