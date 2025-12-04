@@ -10,7 +10,7 @@ from mlflow.utils.cryptography import KEKManager, rotate_secret_encryption
 @click.group("crypto", help="Commands for managing MLflow's cryptographic passphrase.")
 def commands():
     """
-    MLflow cryptopgraphic management CLI. Allows for the management of the envelope
+    MLflow cryptographic management CLI. Allows for the management of the envelope
     encryption KEK passphrase that is used for encryption and decryption with KEK/DEK for the
     secure storage of API Keys and associated authentication sensitive information.
     """
