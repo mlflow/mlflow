@@ -2573,9 +2573,6 @@ class SqlAlchemyStore(AbstractStore):
             trace_id,
             SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
         )
-        # If artifact proxy is enabled, the location must be a proxied location.
-        if os.getenv(SERVE_ARTIFACTS_ENV_VAR, "false") == "true":
-            artifact_uri = 
         return SqlTraceTag(request_id=trace_id, key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
     def start_trace(self, trace_info: "TraceInfo") -> TraceInfo:
