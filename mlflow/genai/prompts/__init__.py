@@ -337,7 +337,7 @@ def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
         MlflowClient().delete_prompt_version_tag(name=name, version=version, key=key)
 
 
-@experimental(version="3.7.0")
+@experimental(version="3.8.0")
 @require_prompt_registry
 def set_prompt_model_config(
     name: str,
@@ -399,7 +399,7 @@ def set_prompt_model_config(
         )
 
 
-@experimental(version="3.5.0")
+@experimental(version="3.8.0")
 @require_prompt_registry
 def delete_prompt_model_config(name: str, version: str | int) -> None:
     """Delete the model configuration from a specific prompt version.
