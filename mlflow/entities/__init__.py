@@ -21,6 +21,16 @@ from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.gateway_endpoint import (
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointConfig,
+    GatewayEndpointModelMapping,
+    GatewayModelConfig,
+    GatewayModelDefinition,
+    GatewayResourceType,
+)
+from mlflow.entities.gateway_secrets import GatewaySecret
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
@@ -121,6 +131,14 @@ __all__ = [
     "DatasetRecordSource",
     "DatasetRecordSourceType",
     "EntityAssociationType",
+    "GatewayEndpoint",
+    "GatewayEndpointBinding",
+    "GatewayEndpointConfig",
+    "GatewayEndpointModelMapping",
+    "GatewayModelConfig",
+    "GatewayModelDefinition",
+    "GatewayResourceType",
+    "GatewaySecret",
     "Webhook",
     "WebhookEvent",
     "WebhookStatus",
