@@ -197,11 +197,11 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
             lambda trace: _safe_extract_from_root_span(trace, "outputs")
         )
 
-    # Warn about traces that don't have a root span (where inputs/outputs are None)
-    missing_count = df[["inputs", "outputs"]].isna().any(axis=1).sum()
-    if missing_count > 0:
+    # Warn once if any traces have missing root spans
+    if df["trace"].apply(lambda trace: trace.data._get_root_span() is None).any():
         _logger.warning(
-            f"Found {missing_count} trace(s) that do not have a root span with inputs/outputs."
+            "Some traces do not have a root span. "
+            "This may occur if traces were fetched with search_traces(..., include_spans=False)."
         )
 
     return df
