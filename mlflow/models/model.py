@@ -78,8 +78,8 @@ _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
     "as they validate model inputs and denote the expected schema of model outputs. Please set "
     "`input_example` parameter when logging the model to auto infer the model signature. To "
     "manually set the signature, please visit https://www.mlflow.org/docs/"
-    f"{mlflow.__version__.replace('.dev0', '')}/ml/model/signatures.html for instructions on setting "
-    "signature on models."
+    f"{mlflow.__version__.replace('.dev0', '')}/ml/model/signatures.html for "
+    "instructions on setting signature on models."
 )
 
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
