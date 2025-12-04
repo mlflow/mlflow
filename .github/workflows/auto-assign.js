@@ -12,45 +12,17 @@ module.exports = async ({ github, context }) => {
   const { owner, repo } = context.repo;
   const issue_number = context.issue.number;
   const commenter = context.payload.comment.user.login;
-  const isPullRequest = !!context.payload.issue?.pull_request;
 
   // Check if the commenter is a maintainer
   console.log("Maintainers:", MAINTAINERS);
   console.log("Commenter:", commenter);
-  console.log("Is PR:", isPullRequest);
 
   if (!MAINTAINERS.includes(commenter)) {
     console.log(`${commenter} is not a maintainer, skipping assignment`);
     return;
   }
 
-  // For PRs, check if there are reviewers
-  if (isPullRequest) {
-    const pr = await github.rest.pulls.get({
-      owner,
-      repo,
-      pull_number: issue_number,
-    });
-
-    const requestedReviewers = pr.data.requested_reviewers || [];
-    const requestedTeams = pr.data.requested_teams || [];
-    console.log(
-      "Requested reviewers:",
-      requestedReviewers.map((r) => r.login)
-    );
-    console.log(
-      "Requested teams:",
-      requestedTeams.map((t) => t.slug)
-    );
-
-    // Only assign if there are no reviewers
-    if (requestedReviewers.length > 0 || requestedTeams.length > 0) {
-      console.log("PR already has reviewers, skipping assignment");
-      return;
-    }
-  }
-
-  // Get issue details to check current assignees
+  // Get issue/PR details to check current assignees
   const issue = await github.rest.issues.get({
     owner,
     repo,
