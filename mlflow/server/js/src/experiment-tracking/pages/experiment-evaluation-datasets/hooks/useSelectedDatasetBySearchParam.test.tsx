@@ -20,10 +20,10 @@ describe('useSelectedDatasetBySearchParam', () => {
     jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), mockSetSearchParams]);
   });
 
-  test('should return selectedDatasetId from URL', () => {
+  test('should return selectedDatasetIdId from URL', () => {
     jest
       .mocked(useSearchParams)
-      .mockReturnValue([new URLSearchParams({ selectedDataset: 'dataset-123' }), mockSetSearchParams]);
+      .mockReturnValue([new URLSearchParams({ selectedDatasetId: 'dataset-123' }), mockSetSearchParams]);
 
     const {
       result: {
@@ -34,7 +34,7 @@ describe('useSelectedDatasetBySearchParam', () => {
     expect(resultDatasetId).toEqual('dataset-123');
   });
 
-  test('should set selectedDatasetId in URL', () => {
+  test('should set selectedDatasetIdId in URL', () => {
     const {
       result: {
         current: [, setSelectedDatasetId],
@@ -46,11 +46,11 @@ describe('useSelectedDatasetBySearchParam', () => {
     });
 
     expect(mockSetSearchParams).toHaveBeenCalledTimes(1);
-    expect(mockSearchParams.get('selectedDataset')).toEqual('dataset-456');
+    expect(mockSearchParams.get('selectedDatasetId')).toEqual('dataset-456');
   });
 
-  test('should clear selectedDatasetId when set to undefined', () => {
-    mockSearchParams = new URLSearchParams({ selectedDataset: 'dataset-123' });
+  test('should clear selectedDatasetIdId when set to undefined', () => {
+    mockSearchParams = new URLSearchParams({ selectedDatasetId: 'dataset-123' });
 
     const {
       result: {
@@ -63,6 +63,6 @@ describe('useSelectedDatasetBySearchParam', () => {
     });
 
     expect(mockSetSearchParams).toHaveBeenCalledTimes(1);
-    expect(mockSearchParams.get('selectedDataset')).toBeNull();
+    expect(mockSearchParams.get('selectedDatasetId')).toBeNull();
   });
 });
