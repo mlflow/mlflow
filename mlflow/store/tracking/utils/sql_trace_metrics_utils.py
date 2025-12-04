@@ -79,9 +79,9 @@ def get_percentile_aggregation(db_type: str, percentile: float, column):
     match db_type:
         case "postgresql":
             return func.percentile_cont(percentile).within_group(column)
-        case "mssql":
-            return func.percentile_cont(percentile).within_group(column.asc())
-        case "mysql" | "sqlite":
+        # MSSQL contains PERCENTILE_CONT function, but it's easier to use the
+        # approximation formula since the function requires a window function.
+        case "mssql" | "mysql" | "sqlite":
             # MySQL and SQLite don't have PERCENTILE_CONT, so we use an approximation
             # For grouped data, we use a weighted average of min and max
             # This is a rough approximation: P = min + percentile * (max - min)
