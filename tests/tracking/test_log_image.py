@@ -1,12 +1,24 @@
 import json
 import os
 import posixpath
+import shutil
+import uuid
+from pathlib import Path
 
 import pytest
 
 import mlflow
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.time import get_current_time_millis
+
+
+@pytest.fixture(autouse=True)
+def set_tracking_uri(tmp_path: Path, cached_db: Path):
+    db_path = tmp_path / f"{uuid.uuid4().hex}.sqlite"
+    shutil.copy(cached_db, db_path)
+    with _use_tracking_uri(f"sqlite:///{db_path}"):
+        yield
 
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
