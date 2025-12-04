@@ -9,7 +9,7 @@ from mlflow.entities.trace_metrics import AggregationType, MetricsViewType, Time
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.db.db_types import MSSQL, POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.utils.time import get_current_time_millis
 
 pytestmark = pytest.mark.notrackingurimock
@@ -502,4 +502,221 @@ def test_query_trace_metrics_with_time_granularity_and_dimensions(store: SqlAlch
             "status": "OK",
         },
         "values": {"COUNT": 1},
+    }
+
+
+def test_query_trace_metrics_with_status_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_with_status_filter")
+
+    traces_data = [
+        ("trace1", TraceStatus.OK),
+        ("trace2", TraceStatus.OK),
+        ("trace3", TraceStatus.OK),
+        ("trace4", TraceStatus.ERROR),
+        ("trace5", TraceStatus.ERROR),
+    ]
+
+    for trace_id, status in traces_data:
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=status,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricsViewType.TRACES,
+        metric_name="trace",
+        aggregation_types=[AggregationType.COUNT],
+        filters=["trace.status = 'OK'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "trace",
+        "dimensions": {},
+        "values": {"COUNT": 3},
+    }
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricsViewType.TRACES,
+        metric_name="trace",
+        aggregation_types=[AggregationType.COUNT],
+        filters=["trace.status = 'ERROR'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "trace",
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+
+def test_query_trace_metrics_with_source_run_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_with_source_run_filter")
+
+    traces_data = [
+        ("trace1", "run_123"),
+        ("trace2", "run_123"),
+        ("trace3", "run_456"),
+        ("trace4", "run_456"),
+        ("trace5", None),  # No source run
+    ]
+
+    for trace_id, source_run in traces_data:
+        metadata = {TraceMetadataKey.SOURCE_RUN: source_run} if source_run else {}
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            trace_metadata=metadata,
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricsViewType.TRACES,
+        metric_name="trace",
+        aggregation_types=[AggregationType.COUNT],
+        filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = 'run_123'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "trace",
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricsViewType.TRACES,
+        metric_name="trace",
+        aggregation_types=[AggregationType.COUNT],
+        filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = 'run_456'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "trace",
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+
+def test_query_trace_metrics_with_multiple_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_with_multiple_filters")
+
+    traces_data = [
+        ("trace1", TraceStatus.OK, "run_123"),
+        ("trace2", TraceStatus.OK, "run_123"),
+        ("trace3", TraceStatus.ERROR, "run_123"),
+        ("trace4", TraceStatus.OK, "run_456"),
+        ("trace5", TraceStatus.ERROR, "run_456"),
+    ]
+
+    for trace_id, status, source_run in traces_data:
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=status,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            trace_metadata={TraceMetadataKey.SOURCE_RUN: source_run},
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricsViewType.TRACES,
+        metric_name="trace",
+        aggregation_types=[AggregationType.COUNT],
+        filters=[
+            "trace.status = 'OK'",
+            f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = 'run_123'",
+        ],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "trace",
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+
+def test_query_trace_metrics_with_tag_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_with_tag_filter")
+
+    traces_data = [
+        ("trace1", "model_v1"),
+        ("trace2", "model_v1"),
+        ("trace3", "model_v2"),
+        ("trace4", "model_v2"),
+        ("trace5", None),  # No model tag
+    ]
+
+    for trace_id, model_version in traces_data:
+        tags = {TraceTagKey.TRACE_NAME: "test_trace", "tag1": "value1"}
+        if model_version:
+            tags["model.version"] = model_version
+
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags=tags,
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricsViewType.TRACES,
+        metric_name="trace",
+        aggregation_types=[AggregationType.COUNT],
+        filters=["trace.tag.tag1 = 'value1'"],
+    )
+    assert len(result) == 1
+    assert asdict(result[0])["values"] == {"COUNT": 5}
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricsViewType.TRACES,
+        metric_name="trace",
+        aggregation_types=[AggregationType.COUNT],
+        filters=["trace.tag.`model.version` = 'model_v1'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "trace",
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricsViewType.TRACES,
+        metric_name="trace",
+        aggregation_types=[AggregationType.COUNT],
+        filters=["trace.tag.`model.version` = 'model_v2'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "trace",
+        "dimensions": {},
+        "values": {"COUNT": 2},
     }
