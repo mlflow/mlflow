@@ -107,7 +107,7 @@ def _parse_usage(instance: Any) -> dict[str, int] | None:
     }
 
 
-def _resolve_standalone_span(original, kwargs):
+def _resolve_standalone_span(original, kwargs) -> tuple[str, SpanType]:
     name = original.__name__
     if name == "execute_tool_and_check_finality":
         # default_tool_name should not be hit in normal runs; may append if crewai bugs
