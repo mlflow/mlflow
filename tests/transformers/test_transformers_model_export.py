@@ -643,7 +643,7 @@ def test_transformers_log_model_with_prompt_template_sets_return_full_text_false
     mlmodel = Model.load(str(model_path.joinpath("MLmodel")))
 
     pyfunc_flavor = mlmodel.flavors["python_function"]
-    config = pyfunc_flavor.get("config") or {}
+    config = pyfunc_flavor.get("config")
 
     assert config.get("return_full_text") is False
 
