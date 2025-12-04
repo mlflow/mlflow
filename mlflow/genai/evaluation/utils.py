@@ -198,9 +198,7 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
         )
 
     # Warn once if any traces have missing root spans
-    missing_root_span_mask = df["trace"].apply(
-        lambda trace: trace.data._get_root_span() is None
-    )
+    missing_root_span_mask = df["trace"].apply(lambda trace: trace.data._get_root_span() is None)
     if missing_root_span_mask.any():
         missing_count = missing_root_span_mask.sum()
         _logger.warning(
