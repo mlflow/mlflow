@@ -201,7 +201,8 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     missing_count = df[["inputs", "outputs"]].isna().any(axis=1).sum()
     if missing_count > 0:
         _logger.warning(
-            f"Found {missing_count} trace(s) that do not have a root span with inputs/outputs."
+            f"Found {missing_count} trace(s) that do not have a root span. "
+            "This may occur if traces were fetched with search_traces(..., include_spans=False)."
         )
 
     return df
