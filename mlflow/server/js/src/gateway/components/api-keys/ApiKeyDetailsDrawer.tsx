@@ -91,10 +91,13 @@ export const ApiKeyDetailsDrawer = ({ open, secret, onClose, onEdit, onDelete }:
                 onClick={handleEditClick}
                 aria-label={formatMessage({
                   defaultMessage: 'Edit API key',
-                  description: 'Edit API key button aria label',
+                  description: 'Gateway > API key details drawer > Edit API key button aria label',
                 })}
               >
-                <FormattedMessage defaultMessage="Edit API Key" description="Edit API key button" />
+                <FormattedMessage
+                  defaultMessage="Edit API Key"
+                  description="Gateway > API key details drawer > Edit API key button"
+                />
               </Button>
               <Button
                 componentId="mlflow.gateway.api-key-details.drawer.delete-button"
@@ -104,10 +107,13 @@ export const ApiKeyDetailsDrawer = ({ open, secret, onClose, onEdit, onDelete }:
                 onClick={handleDeleteClick}
                 aria-label={formatMessage({
                   defaultMessage: 'Delete API key',
-                  description: 'Delete API key button aria label',
+                  description: 'Gateway > API key details drawer > Delete API key button aria label',
                 })}
               >
-                <FormattedMessage defaultMessage="Delete API Key" description="Delete API key button" />
+                <FormattedMessage
+                  defaultMessage="Delete API Key"
+                  description="Gateway > API key details drawer > Delete API key button"
+                />
               </Button>
             </div>
           </div>

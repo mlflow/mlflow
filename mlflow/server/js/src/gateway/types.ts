@@ -230,3 +230,7 @@ export interface CreateEndpointBindingResponse {
 export interface ListEndpointBindingsResponse {
   bindings: EndpointBinding[];
 }
+
+export interface SecretsConfigResponse {
+  secrets_available?: boolean;
+}

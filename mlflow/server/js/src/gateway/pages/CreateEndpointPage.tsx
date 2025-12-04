@@ -276,7 +276,7 @@ const CreateEndpointPage = () => {
           <Breadcrumb includeTrailingCaret>
             <Breadcrumb.Item>
               <Link to={GatewayRoutes.gatewayPageRoute}>
-                <FormattedMessage defaultMessage="Gateway" description="Breadcrumb link to gateway page" />
+                <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
               </Link>
             </Breadcrumb.Item>
           </Breadcrumb>
@@ -412,6 +412,7 @@ const CreateEndpointPage = () => {
                       }
                     }}
                     layout="horizontal"
+                    css={{ gap: theme.spacing.md }}
                   >
                     <Radio value="new">
                       <FormattedMessage
@@ -419,24 +420,27 @@ const CreateEndpointPage = () => {
                         description="Option to configure new model"
                       />
                     </Radio>
-                    <Radio value="existing" disabled={!hasProviderModelDefinitions}>
-                      <FormattedMessage
-                        defaultMessage="Use existing model definition"
-                        description="Option to use existing model definition"
-                      />
-                    </Radio>
-                  </Radio.Group>
-                  {provider && !hasProviderModelDefinitions && (
-                    <Typography.Text
-                      color="secondary"
-                      css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
+                    <Tooltip
+                      componentId="mlflow.gateway.create-endpoint.model-definition-mode.tooltip"
+                      content={
+                        !hasProviderModelDefinitions
+                          ? intl.formatMessage({
+                              defaultMessage: 'No existing model definitions for this provider',
+                              description: 'Tooltip when no model definitions exist for provider',
+                            })
+                          : undefined
+                      }
                     >
-                      <FormattedMessage
-                        defaultMessage="No existing model definitions for this provider."
-                        description="Message when no existing model definitions for provider"
-                      />
-                    </Typography.Text>
-                  )}
+                      <span>
+                        <Radio value="existing" disabled={!hasProviderModelDefinitions}>
+                          <FormattedMessage
+                            defaultMessage="Use existing model definition"
+                            description="Option to use existing model definition"
+                          />
+                        </Radio>
+                      </span>
+                    </Tooltip>
+                  </Radio.Group>
                 </div>
 
                 {/* Model selection based on mode */}
@@ -508,6 +512,7 @@ const CreateEndpointPage = () => {
                   selectedSecretId={form.watch('existingSecretId')}
                   onSecretSelect={(secretId) => form.setValue('existingSecretId', secretId)}
                   newSecretFieldPrefix="newSecret"
+                  label=""
                 />
               </LongFormSection>
             )}
@@ -596,9 +601,9 @@ const CreateEndpointPage = () => {
                   ) : (
                     <Typography.Text>
                       {secretMode === 'new' ? (
-                        <FormattedMessage defaultMessage="New secret" description="Summary new secret" />
+                        <FormattedMessage defaultMessage="New API key" description="Summary new API key" />
                       ) : (
-                        <FormattedMessage defaultMessage="Existing secret" description="Summary existing secret" />
+                        <FormattedMessage defaultMessage="Existing API key" description="Summary existing API key" />
                       )}
                     </Typography.Text>
                   )}
@@ -620,7 +625,7 @@ const CreateEndpointPage = () => {
           }}
         >
           <Button componentId="mlflow.gateway.create-endpoint.cancel" onClick={handleCancel}>
-            <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
+            <FormattedMessage defaultMessage="Cancel" description="Gateway > Create endpoint page > Cancel button" />
           </Button>
           <Tooltip
             componentId="mlflow.gateway.create-endpoint.submit-tooltip"
@@ -640,7 +645,10 @@ const CreateEndpointPage = () => {
               loading={isLoading}
               disabled={!isFormComplete}
             >
-              <FormattedMessage defaultMessage="Create" description="Create button" />
+              <FormattedMessage
+                defaultMessage="Create"
+                description="Gateway > Create endpoint page > Create endpoint button"
+              />
             </Button>
           </Tooltip>
         </div>
@@ -699,7 +707,7 @@ const ModelSummary = ({ model, modelName }: { model: Model | undefined; modelNam
           css={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 2,
+            gap: theme.spacing.xs / 2,
             marginTop: theme.spacing.xs,
             fontSize: theme.typography.fontSizeSm,
             color: theme.colors.textSecondary,

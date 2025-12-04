@@ -15,6 +15,8 @@ import ErrorUtils from '../../common/utils/ErrorUtils';
 import { GatewaySideNav, type GatewayTabName } from '../components/side-nav/GatewaySideNav';
 import { useLocation } from '../../common/utils/RoutingUtils';
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
+import { useSecretsConfigQuery } from '../hooks/useSecretsConfigQuery';
+import { SecretsSetupGuide } from '../components/SecretsSetupGuide';
 
 const isUnsupportedBackendError = (error: Error | null | undefined): boolean => {
   if (!error) return false;
@@ -35,7 +37,8 @@ const isUnsupportedBackendError = (error: Error | null | undefined): boolean => 
 const GatewayLayout = () => {
   const { theme } = useDesignSystemTheme();
   const location = useLocation();
-  const { data, error, isLoading } = useEndpointsQuery();
+  const { error, isLoading } = useEndpointsQuery();
+  const { secretsAvailable, isLoading: isConfigLoading } = useSecretsConfigQuery();
 
   const getActiveTab = (): GatewayTabName => {
     if (location.pathname.includes('/api-keys')) {
@@ -46,7 +49,7 @@ const GatewayLayout = () => {
 
   // Show loading state during initial fetch only.
   // isLoading is true when the query is in flight and there's no cached data.
-  if (isLoading) {
+  if (isLoading || isConfigLoading) {
     return (
       <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <Spacer shrinks={false} />
@@ -54,7 +57,7 @@ const GatewayLayout = () => {
           title={
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
               <CloudModelIcon />
-              <FormattedMessage defaultMessage="Gateway" description="Header title for the gateway page" />
+              <FormattedMessage defaultMessage="AI Gateway" description="Header title for the gateway page" />
             </div>
           }
         />
@@ -82,7 +85,7 @@ const GatewayLayout = () => {
           title={
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
               <CloudModelIcon />
-              <FormattedMessage defaultMessage="Gateway" description="Header title for the gateway page" />
+              <FormattedMessage defaultMessage="AI Gateway" description="Header title for the gateway page" />
             </div>
           }
         />
@@ -100,7 +103,7 @@ const GatewayLayout = () => {
             image={<DatabaseIcon css={{ fontSize: 48, color: theme.colors.textSecondary }} />}
             title={
               <FormattedMessage
-                defaultMessage="Gateway requires a SQL backend"
+                defaultMessage="AI Gateway requires a SQL backend"
                 description="Title for unsupported backend message in gateway"
               />
             }
@@ -116,6 +119,34 @@ const GatewayLayout = () => {
     );
   }
 
+  if (secretsAvailable === false) {
+    return (
+      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <Spacer shrinks={false} />
+        <Header
+          title={
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              <CloudModelIcon />
+              <FormattedMessage defaultMessage="AI Gateway" description="Header title for the gateway page" />
+            </div>
+          }
+        />
+        <Spacer shrinks={false} />
+        <div
+          css={{
+            flex: 1,
+            overflow: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <SecretsSetupGuide />
+        </div>
+      </ScrollablePageWrapper>
+    );
+  }
+
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
@@ -123,7 +154,7 @@ const GatewayLayout = () => {
         title={
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <CloudModelIcon />
-            <FormattedMessage defaultMessage="Gateway" description="Header title for the gateway page" />
+            <FormattedMessage defaultMessage="AI Gateway" description="Header title for the gateway page" />
           </div>
         }
       />

@@ -13,23 +13,23 @@ import { BindingsUsingKeyDrawer } from '../components/api-keys/BindingsUsingKeyD
 import { useSecretsQuery } from '../hooks/useSecretsQuery';
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
 import { useBindingsQuery } from '../hooks/useBindingsQuery';
-import type { Secret, Endpoint, EndpointBinding } from '../types';
+import { useModelDefinitionsQuery } from '../hooks/useModelDefinitionsQuery';
+import type { Secret, Endpoint, EndpointBinding, ModelDefinition } from '../types';
 
 const ApiKeysPage = () => {
   const { theme } = useDesignSystemTheme();
   const { refetch: refetchSecrets } = useSecretsQuery();
   const { data: allEndpoints, refetch: refetchEndpoints } = useEndpointsQuery();
   const { data: allBindings } = useBindingsQuery();
+  const { data: allModelDefinitions, refetch: refetchModelDefinitions } = useModelDefinitionsQuery();
 
-  // Helper to get endpoints using a secret
-  const getEndpointsForSecret = (secretId: string): Endpoint[] => {
-    if (!allEndpoints) return [];
-    return allEndpoints.filter((endpoint) =>
-      endpoint.model_mappings?.some((mapping) => mapping.model_definition?.secret_id === secretId),
-    );
+  // Helper to get model definitions using a secret
+  const getModelDefinitionsForSecret = (secretId: string): ModelDefinition[] => {
+    if (!allModelDefinitions) return [];
+    return allModelDefinitions.filter((modelDef) => modelDef.secret_id === secretId);
   };
 
-  // Helper to get binding count for a secret
+  // Helper to get binding count for a secret (via endpoints that use model definitions with this secret)
   const getBindingCountForSecret = (secretId: string): number => {
     if (!allBindings || !allEndpoints) return 0;
     const endpointIds = new Set(
@@ -41,12 +41,13 @@ const ApiKeysPage = () => {
     );
     return allBindings.filter((binding) => endpointIds.has(binding.endpoint_id)).length;
   };
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
   const [editingSecret, setEditingSecret] = useState<Secret | null>(null);
   const [deleteModalData, setDeleteModalData] = useState<{
     secret: Secret;
-    endpoints: Endpoint[];
+    modelDefinitions: ModelDefinition[];
     bindingCount: number;
   } | null>(null);
   const [endpointsDrawerData, setEndpointsDrawerData] = useState<{
@@ -83,14 +84,14 @@ const ApiKeysPage = () => {
     }
   };
 
-  const handleDeleteClick = (secret: Secret, endpoints: Endpoint[], bindingCount: number) => {
-    setDeleteModalData({ secret, endpoints, bindingCount });
+  const handleDeleteClick = (secret: Secret, modelDefinitions: ModelDefinition[], bindingCount: number) => {
+    setDeleteModalData({ secret, modelDefinitions, bindingCount });
   };
 
   const handleDeleteFromDrawer = (secret: Secret) => {
-    const endpoints = getEndpointsForSecret(secret.secret_id);
+    const modelDefinitions = getModelDefinitionsForSecret(secret.secret_id);
     const bindingCount = getBindingCountForSecret(secret.secret_id);
-    setDeleteModalData({ secret, endpoints, bindingCount });
+    setDeleteModalData({ secret, modelDefinitions, bindingCount });
   };
 
   const handleDeleteModalClose = () => {
@@ -100,6 +101,7 @@ const ApiKeysPage = () => {
   const handleDeleteSuccess = () => {
     refetchSecrets();
     refetchEndpoints();
+    refetchModelDefinitions();
   };
 
   const handleEndpointsClick = (secret: Secret, endpoints: Endpoint[]) => {
@@ -151,7 +153,10 @@ const ApiKeysPage = () => {
           icon={<PlusIcon />}
           onClick={handleCreateClick}
         >
-          <FormattedMessage defaultMessage="Create API key" description="Create API key button" />
+          <FormattedMessage
+            defaultMessage="Create API key"
+            description="Gateway > API keys page > Create API key button"
+          />
         </Button>
       </div>
 
@@ -189,6 +194,7 @@ const ApiKeysPage = () => {
       {/* Endpoints Using Key Drawer */}
       <EndpointsUsingKeyDrawer
         open={endpointsDrawerData !== null}
+        keyName={endpointsDrawerData?.secret.secret_name ?? ''}
         endpoints={endpointsDrawerData?.endpoints ?? []}
         onClose={handleEndpointsDrawerClose}
       />
@@ -205,7 +211,7 @@ const ApiKeysPage = () => {
       <DeleteApiKeyModal
         open={deleteModalData !== null}
         secret={deleteModalData?.secret ?? null}
-        endpoints={deleteModalData?.endpoints ?? []}
+        modelDefinitions={deleteModalData?.modelDefinitions ?? []}
         bindingCount={deleteModalData?.bindingCount ?? 0}
         onClose={handleDeleteModalClose}
         onSuccess={handleDeleteSuccess}

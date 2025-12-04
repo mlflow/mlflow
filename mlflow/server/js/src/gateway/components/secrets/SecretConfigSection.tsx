@@ -1,7 +1,8 @@
-import { Radio, useDesignSystemTheme, FormUI } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { Radio, useDesignSystemTheme, FormUI, Tooltip } from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { SecretSelector } from './SecretSelector';
 import { CreateSecretForm } from './CreateSecretForm';
+import { useSecretsQuery } from '../../hooks/useSecretsQuery';
 
 export type SecretMode = 'existing' | 'new';
 
@@ -48,13 +49,17 @@ export const SecretConfigSection = ({
   componentIdPrefix = 'mlflow.gateway.secret-config',
 }: SecretConfigSectionProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { data: secrets } = useSecretsQuery({ provider });
+  const filteredSecrets = provider ? secrets?.filter((s) => s.provider === provider) : secrets;
+  const hasExistingSecrets = filteredSecrets && filteredSecrets.length > 0;
 
   if (!provider) {
     return (
       <div>
-        {label !== null && (
+        {label !== '' && (
           <FormUI.Label>
-            {label ?? (
+            {label || (
               <FormattedMessage defaultMessage="Authentication" description="Label for authentication section" />
             )}
           </FormUI.Label>
@@ -73,9 +78,9 @@ export const SecretConfigSection = ({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       {showModeSelector && (
         <div>
-          {label !== null && (
+          {label !== '' && (
             <FormUI.Label>
-              {label ?? (
+              {label || (
                 <FormattedMessage defaultMessage="Authentication" description="Label for authentication section" />
               )}
             </FormUI.Label>
@@ -86,13 +91,31 @@ export const SecretConfigSection = ({
             value={mode}
             onChange={(e) => onModeChange(e.target.value as SecretMode)}
             layout="horizontal"
+            css={{ gap: theme.spacing.md }}
           >
-            <Radio value="existing">
-              <FormattedMessage defaultMessage="Use existing secret" description="Option to use existing secret" />
-            </Radio>
             <Radio value="new">
-              <FormattedMessage defaultMessage="Create new secret" description="Option to create new secret" />
+              <FormattedMessage defaultMessage="Create new API key" description="Option to create new API key" />
             </Radio>
+            <Tooltip
+              componentId={`${componentIdPrefix}.mode.tooltip`}
+              content={
+                !hasExistingSecrets
+                  ? intl.formatMessage({
+                      defaultMessage: 'No existing API keys for this provider',
+                      description: 'Tooltip when no API keys exist for provider',
+                    })
+                  : undefined
+              }
+            >
+              <span>
+                <Radio value="existing" disabled={!hasExistingSecrets}>
+                  <FormattedMessage
+                    defaultMessage="Use existing API key"
+                    description="Option to use existing API key"
+                  />
+                </Radio>
+              </span>
+            </Tooltip>
           </Radio.Group>
         </div>
       )}

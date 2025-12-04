@@ -18,7 +18,7 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
     return (
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Spinner size="small" />
-        <FormattedMessage defaultMessage="Loading secrets..." description="Loading message for secrets" />
+        <FormattedMessage defaultMessage="Loading API keys..." description="Loading message for API keys" />
       </div>
     );
   }
@@ -28,7 +28,7 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
   return (
     <div>
       <FormUI.Label htmlFor="mlflow.gateway.create-endpoint.secret-select">
-        <FormattedMessage defaultMessage="Secret" description="Label for secret selector" />
+        <FormattedMessage defaultMessage="API key" description="Label for API key selector" />
       </FormUI.Label>
       <SimpleSelect
         id="mlflow.gateway.create-endpoint.secret-select"
@@ -36,7 +36,7 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
         value={value}
         onChange={({ target }) => onChange(target.value)}
         disabled={disabled || !filteredSecrets?.length}
-        placeholder={filteredSecrets?.length ? 'Select a secret' : 'No secrets available for this provider'}
+        placeholder={filteredSecrets?.length ? 'Select an API key' : 'No API keys available for this provider'}
         validationState={error ? 'error' : undefined}
         contentProps={{
           matchTriggerWidth: true,

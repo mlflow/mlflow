@@ -46,7 +46,7 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
             css={{
               fontFamily: 'monospace',
               backgroundColor: theme.colors.tagDefault,
-              padding: `2px ${theme.spacing.xs}px`,
+              padding: `${theme.spacing.xs / 2}px ${theme.spacing.xs}px`,
               borderRadius: theme.general.borderRadiusBase,
             }}
           >

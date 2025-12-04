@@ -318,7 +318,7 @@ const EditEndpointPage = () => {
           <Breadcrumb includeTrailingCaret>
             <Breadcrumb.Item>
               <Link to={GatewayRoutes.gatewayPageRoute}>
-                <FormattedMessage defaultMessage="Gateway" description="Breadcrumb link to gateway page" />
+                <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
               </Link>
             </Breadcrumb.Item>
             <Breadcrumb.Item>
@@ -469,7 +469,7 @@ const EditEndpointPage = () => {
           }}
         >
           <Button componentId="mlflow.gateway.edit-endpoint.cancel" onClick={handleCancel}>
-            <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
+            <FormattedMessage defaultMessage="Cancel" description="Gateway > Edit endpoint page > Cancel button" />
           </Button>
           <Tooltip
             componentId="mlflow.gateway.edit-endpoint.save-tooltip"
@@ -489,7 +489,10 @@ const EditEndpointPage = () => {
               loading={isLoading}
               disabled={!isFormComplete}
             >
-              <FormattedMessage defaultMessage="Save" description="Save button" />
+              <FormattedMessage
+                defaultMessage="Save"
+                description="Gateway > Edit endpoint page > Save endpoint button"
+              />
             </Button>
           </Tooltip>
         </div>

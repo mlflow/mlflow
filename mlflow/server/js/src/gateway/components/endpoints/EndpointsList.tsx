@@ -1,14 +1,21 @@
 import {
+  Accordion,
   Button,
   ChainIcon,
+  ChevronRightIcon,
+  Drawer,
   Empty,
+  importantify,
   Input,
+  LinkIcon,
   SearchIcon,
+  Spacer,
   Spinner,
   Table,
   TableCell,
   TableHeader,
   TableRow,
+  Tooltip,
   TrashIcon,
   Typography,
   useDesignSystemTheme,
@@ -17,13 +24,14 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useDeleteEndpointMutation } from '../../hooks/useDeleteEndpointMutation';
+import { useBindingsQuery } from '../../hooks/useBindingsQuery';
 import { formatProviderName } from '../../utils/providerUtils';
 import { timestampToDate } from '../../utils/dateUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { EndpointsFilterButton, type EndpointsFilter } from './EndpointsFilterButton';
 import GatewayRoutes from '../../routes';
-import type { Endpoint } from '../../types';
-import { useMemo, useState } from 'react';
+import type { Endpoint, EndpointBinding, ResourceType } from '../../types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface EndpointsListProps {
   onEndpointDeleted?: () => void;
@@ -33,10 +41,26 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
   const { data: endpoints, isLoading, refetch } = useEndpointsQuery();
+  const { data: bindings } = useBindingsQuery();
   const { mutate: deleteEndpoint, isLoading: isDeleting } = useDeleteEndpointMutation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [filter, setFilter] = useState<EndpointsFilter>({ providers: [] });
+  const [bindingsDrawerEndpoint, setBindingsDrawerEndpoint] = useState<{
+    endpointId: string;
+    endpointName: string;
+    bindings: EndpointBinding[];
+  } | null>(null);
+
+  // Group bindings by endpoint_id for quick lookup
+  const bindingsByEndpoint = useMemo(() => {
+    const map = new Map<string, EndpointBinding[]>();
+    bindings?.forEach((binding) => {
+      const existing = map.get(binding.endpoint_id) ?? [];
+      map.set(binding.endpoint_id, [...existing, binding]);
+    });
+    return map;
+  }, [bindings]);
 
   // Get all unique providers from all endpoints' model mappings
   const availableProviders = useMemo(() => {
@@ -161,6 +185,9 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
             <TableHeader componentId="mlflow.gateway.endpoints-list.models-header" css={{ flex: 2 }}>
               <FormattedMessage defaultMessage="Models" description="Models column header" />
             </TableHeader>
+            <TableHeader componentId="mlflow.gateway.endpoints-list.bindings-header" css={{ flex: 1 }}>
+              <FormattedMessage defaultMessage="Connected resources" description="Connected resources column header" />
+            </TableHeader>
             <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Last modified" description="Last modified column header" />
             </TableHeader>
@@ -193,6 +220,18 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
                 <ModelsCell modelMappings={endpoint.model_mappings} />
               </TableCell>
               <TableCell css={{ flex: 1 }}>
+                <BindingsCell
+                  bindings={bindingsByEndpoint.get(endpoint.endpoint_id) ?? []}
+                  onViewBindings={() =>
+                    setBindingsDrawerEndpoint({
+                      endpointId: endpoint.endpoint_id,
+                      endpointName: endpoint.name ?? endpoint.endpoint_id,
+                      bindings: bindingsByEndpoint.get(endpoint.endpoint_id) ?? [],
+                    })
+                  }
+                />
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
                 <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
               </TableCell>
               <TableCell css={{ flex: 0, minWidth: 48, maxWidth: 48 }}>
@@ -202,7 +241,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
                   icon={<TrashIcon />}
                   aria-label={formatMessage({
                     defaultMessage: 'Delete endpoint',
-                    description: 'Delete endpoint button aria label',
+                    description: 'Gateway > Endpoints list > Delete endpoint button aria label',
                   })}
                   onClick={() => handleDelete(endpoint)}
                   loading={deletingId === endpoint.endpoint_id}
@@ -213,7 +252,218 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           ))}
         </Table>
       )}
+
+      {/* Bindings drawer */}
+      <EndpointBindingsDrawer
+        open={bindingsDrawerEndpoint !== null}
+        endpointName={bindingsDrawerEndpoint?.endpointName ?? ''}
+        bindings={bindingsDrawerEndpoint?.bindings ?? []}
+        onClose={() => setBindingsDrawerEndpoint(null)}
+      />
     </div>
+  );
+};
+
+const EndpointBindingsDrawer = ({
+  open,
+  endpointName,
+  bindings,
+  onClose,
+}: {
+  open: boolean;
+  endpointName: string;
+  bindings: EndpointBinding[];
+  onClose: () => void;
+}) => {
+  const { theme, getPrefixedClassName } = useDesignSystemTheme();
+  const intl = useIntl();
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
+
+  const formatResourceTypePlural = (type: string) => {
+    switch (type) {
+      case 'scorer_job':
+        return intl.formatMessage({ defaultMessage: 'Scorer jobs', description: 'Scorer jobs resource type plural' });
+      default:
+        return type;
+    }
+  };
+
+  // Custom expand icon for accordion
+  const getExpandIcon = useCallback(
+    ({ isActive }: { isActive?: boolean }) => (
+      <div
+        css={importantify({
+          width: theme.general.heightBase / 2,
+          transform: isActive ? 'rotate(90deg)' : undefined,
+          transition: 'transform 0.2s',
+        })}
+      >
+        <ChevronRightIcon
+          css={{
+            svg: { width: theme.general.heightBase / 2, height: theme.general.heightBase / 2 },
+          }}
+        />
+      </div>
+    ),
+    [theme],
+  );
+
+  // Accordion styles
+  const accordionStyles = useMemo(() => {
+    const clsPrefix = getPrefixedClassName('collapse');
+    const classItem = `.${clsPrefix}-item`;
+    const classHeader = `.${clsPrefix}-header`;
+    const classContentBox = `.${clsPrefix}-content-box`;
+
+    return {
+      border: 'none',
+      backgroundColor: 'transparent',
+      [`& > ${classItem}`]: {
+        border: `1px solid ${theme.colors.borderDecorative}`,
+        borderRadius: theme.general.borderRadiusBase,
+        marginBottom: theme.spacing.sm,
+        overflow: 'hidden',
+      },
+      [`& > ${classItem} > ${classHeader}`]: {
+        paddingLeft: theme.spacing.sm,
+        paddingTop: theme.spacing.sm,
+        paddingBottom: theme.spacing.sm,
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: theme.colors.backgroundSecondary,
+      },
+      [classContentBox]: {
+        padding: 0,
+      },
+    };
+  }, [theme, getPrefixedClassName]);
+
+  // Group bindings by resource type
+  const bindingsByType = useMemo(() => {
+    const groups = new Map<ResourceType, EndpointBinding[]>();
+    bindings.forEach((binding) => {
+      if (!groups.has(binding.resource_type)) {
+        groups.set(binding.resource_type, []);
+      }
+      groups.get(binding.resource_type)!.push(binding);
+    });
+    return groups;
+  }, [bindings]);
+
+  // Initialize expanded sections when drawer opens
+  useEffect(() => {
+    if (open && bindings.length > 0) {
+      const types = Array.from(new Set(bindings.map((b) => b.resource_type)));
+      setExpandedSections(types);
+    }
+  }, [open, bindings]);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      onClose();
+      setExpandedSections([]);
+    }
+  };
+
+  const handleAccordionChange = (keys: string | string[]) => {
+    setExpandedSections(Array.isArray(keys) ? keys : [keys]);
+  };
+
+  return (
+    <Drawer.Root modal open={open} onOpenChange={handleOpenChange}>
+      <Drawer.Content
+        componentId="mlflow.gateway.endpoint-bindings.drawer"
+        width={480}
+        title={
+          <Typography.Title level={3} css={{ margin: 0 }}>
+            <FormattedMessage
+              defaultMessage="Connected resources ({count})"
+              description="Title for endpoint bindings drawer"
+              values={{ count: bindings.length }}
+            />
+          </Typography.Title>
+        }
+      >
+        <Spacer size="md" />
+        {bindings.length === 0 ? (
+          <Empty
+            description={
+              <FormattedMessage
+                defaultMessage="No resources connected to this endpoint"
+                description="Empty state when no resources connected"
+              />
+            }
+          />
+        ) : (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Resources using endpoint: {name}"
+                description="Subtitle showing endpoint name"
+                values={{ name: endpointName }}
+              />
+            </Typography.Text>
+
+            <Accordion
+              componentId="mlflow.gateway.endpoint-bindings.accordion"
+              activeKey={expandedSections}
+              onChange={handleAccordionChange}
+              dangerouslyAppendEmotionCSS={accordionStyles}
+              dangerouslySetAntdProps={{
+                expandIconPosition: 'left',
+                expandIcon: getExpandIcon,
+              }}
+            >
+              {Array.from(bindingsByType.entries()).map(([resourceType, typeBindings]) => (
+                <Accordion.Panel
+                  key={resourceType}
+                  header={
+                    <span css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
+                      {formatResourceTypePlural(resourceType)} ({typeBindings.length})
+                    </span>
+                  }
+                >
+                  <div
+                    css={{
+                      maxHeight: 8 * 52, // ~8 items before scrolling
+                      overflowY: 'auto',
+                    }}
+                  >
+                    {typeBindings.map((binding) => (
+                      <div
+                        key={binding.binding_id}
+                        css={{
+                          padding: theme.spacing.sm,
+                          borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+                          '&:last-child': { borderBottom: 'none' },
+                        }}
+                      >
+                        <Typography.Text css={{ fontFamily: 'monospace' }}>{binding.resource_id}</Typography.Text>
+                        <div css={{ marginTop: theme.spacing.xs / 2 }}>
+                          <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                            <FormattedMessage
+                              defaultMessage="Created {date}"
+                              description="When binding was created"
+                              values={{
+                                date: intl.formatDate(timestampToDate(binding.created_at), {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                }),
+                              }}
+                            />
+                          </Typography.Text>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Accordion.Panel>
+              ))}
+            </Accordion>
+          </div>
+        )}
+      </Drawer.Content>
+    </Drawer.Root>
   );
 };
 
@@ -226,10 +476,18 @@ const ModelsCell = ({ modelMappings }: { modelMappings: Endpoint['model_mappings
 
   const primaryMapping = modelMappings[0];
   const primaryModelDef = primaryMapping.model_definition;
-  const additionalCount = modelMappings.length - 1;
+  const additionalMappings = modelMappings.slice(1);
+  const additionalCount = additionalMappings.length;
+
+  const tooltipContent =
+    additionalCount > 0
+      ? additionalMappings
+          .map((m) => `${m.model_definition?.name ?? '-'} (${m.model_definition?.model_name ?? '-'})`)
+          .join(', ')
+      : undefined;
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: theme.spacing.xs / 2 }}>
       {/* Model definition name (user's nickname) */}
       <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }} bold>
         {primaryModelDef?.name ?? '-'}
@@ -239,10 +497,58 @@ const ModelsCell = ({ modelMappings }: { modelMappings: Endpoint['model_mappings
         {primaryModelDef?.model_name ?? '-'}
       </Typography.Text>
       {additionalCount > 0 && (
-        <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-          +{additionalCount} more
-        </Typography.Text>
+        <Tooltip componentId="mlflow.gateway.endpoints-list.models-more-tooltip" content={tooltipContent}>
+          <button
+            type="button"
+            css={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              margin: 0,
+              textAlign: 'left',
+              fontSize: theme.typography.fontSizeSm,
+              color: theme.colors.textSecondary,
+              cursor: 'default',
+              '&:hover': { textDecoration: 'underline' },
+            }}
+          >
+            +{additionalCount} more
+          </button>
+        </Tooltip>
       )}
     </div>
+  );
+};
+
+const BindingsCell = ({ bindings, onViewBindings }: { bindings: EndpointBinding[]; onViewBindings: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  if (!bindings || bindings.length === 0) {
+    return <Typography.Text color="secondary">-</Typography.Text>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onViewBindings}
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        color: theme.colors.actionPrimaryBackgroundDefault,
+        '&:hover': {
+          textDecoration: 'underline',
+        },
+      }}
+    >
+      <LinkIcon css={{ color: theme.colors.textSecondary, fontSize: 14 }} />
+      <Typography.Text css={{ color: 'inherit' }}>
+        {bindings.length} {bindings.length === 1 ? 'resource' : 'resources'}
+      </Typography.Text>
+    </button>
   );
 };

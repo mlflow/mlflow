@@ -45,8 +45,8 @@ export const SecretFormFields = ({
     return (
       <div css={{ color: theme.colors.textSecondary }}>
         <FormattedMessage
-          defaultMessage="Select a provider to configure secret"
-          description="Message when no provider selected for secret form"
+          defaultMessage="Select a provider to configure API key"
+          description="Message when no provider selected for API key form"
         />
       </div>
     );
@@ -68,7 +68,7 @@ export const SecretFormFields = ({
       {!hideNameField && (
         <div>
           <FormUI.Label htmlFor={`${componentIdPrefix}.name`}>
-            <FormattedMessage defaultMessage="Secret name" description="Label for secret name input" />
+            <FormattedMessage defaultMessage="API key name" description="Label for API key name input" />
           </FormUI.Label>
           <Input
             id={`${componentIdPrefix}.name`}

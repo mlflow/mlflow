@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { Alert, Button, Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useDeleteSecretMutation } from '../../hooks/useDeleteSecretMutation';
-import { useDetachModelFromEndpointMutation } from '../../hooks/useDeleteEndpointModelMutation';
-import type { Secret, Endpoint } from '../../types';
+import type { Secret, ModelDefinition } from '../../types';
 
 interface DeleteApiKeyModalProps {
   open: boolean;
   secret: Secret | null;
-  endpoints: Endpoint[];
+  modelDefinitions: ModelDefinition[];
   bindingCount: number;
   onClose: () => void;
   onSuccess?: () => void;
@@ -17,7 +16,7 @@ interface DeleteApiKeyModalProps {
 export const DeleteApiKeyModal = ({
   open,
   secret,
-  endpoints,
+  modelDefinitions,
   bindingCount,
   onClose,
   onSuccess,
@@ -27,13 +26,11 @@ export const DeleteApiKeyModal = ({
   const [confirmationText, setConfirmationText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const { mutateAsync: deleteSecret, isLoading: isDeletingSecret } = useDeleteSecretMutation();
-  const { mutateAsync: detachModel, isLoading: isDetaching } = useDetachModelFromEndpointMutation();
+  const { mutateAsync: deleteSecret, isLoading: isDeleting } = useDeleteSecretMutation();
 
-  const endpointCount = endpoints.length;
-  const hasEndpoints = endpointCount > 0;
-  const isConfirmed = !hasEndpoints || confirmationText === secret?.secret_name;
-  const isDeleting = isDeletingSecret || isDetaching;
+  const modelCount = modelDefinitions.length;
+  const hasModels = modelCount > 0;
+  const isConfirmed = !hasModels || confirmationText === secret?.secret_name;
 
   const handleDelete = async () => {
     if (!secret || !isConfirmed) return;
@@ -41,24 +38,6 @@ export const DeleteApiKeyModal = ({
     setError(null);
 
     try {
-      // First, detach all model definitions that use this secret from their endpoints
-      if (hasEndpoints) {
-        const detachRequests: { endpoint_id: string; model_definition_id: string }[] = [];
-        endpoints.forEach((endpoint) => {
-          endpoint.model_mappings?.forEach((mapping) => {
-            if (mapping.model_definition?.secret_id === secret.secret_id) {
-              detachRequests.push({
-                endpoint_id: endpoint.endpoint_id,
-                model_definition_id: mapping.model_definition.model_definition_id,
-              });
-            }
-          });
-        });
-
-        await Promise.all(detachRequests.map((req) => detachModel(req)));
-      }
-
-      // Then delete the secret itself
       await deleteSecret(secret.secret_id);
 
       handleClose();
@@ -98,7 +77,7 @@ export const DeleteApiKeyModal = ({
           <Button
             componentId="mlflow.gateway.delete-api-key-modal.delete"
             type="primary"
-            danger={hasEndpoints}
+            danger={hasModels}
             onClick={handleDelete}
             disabled={!isConfirmed || isDeleting}
             loading={isDeleting}
@@ -127,22 +106,22 @@ export const DeleteApiKeyModal = ({
           />
         </Typography.Text>
 
-        {hasEndpoints && (
+        {hasModels && (
           <Alert
             componentId="mlflow.gateway.delete-api-key-modal.warning"
             type="warning"
             message={
               bindingCount > 0 ? (
                 <FormattedMessage
-                  defaultMessage="This key is used by {endpointCount, plural, one {# endpoint} other {# endpoints}} and {bindingCount, plural, one {# resource} other {# resources}}. Deleting it will remove {endpointCount, plural, one {this endpoint} other {these endpoints}}."
-                  description="Warning about endpoints and bindings using this key"
-                  values={{ endpointCount, bindingCount }}
+                  defaultMessage="This key is used by {modelCount, plural, one {# model} other {# models}} and {bindingCount, plural, one {# resource} other {# resources}}. Deleting it will also delete {modelCount, plural, one {this model} other {these models}}."
+                  description="Warning about models and bindings using this key"
+                  values={{ modelCount, bindingCount }}
                 />
               ) : (
                 <FormattedMessage
-                  defaultMessage="This key is used by {count, plural, one {# endpoint} other {# endpoints}}. Deleting it will remove {count, plural, one {this endpoint} other {these endpoints}}."
-                  description="Warning about endpoints using this key"
-                  values={{ count: endpointCount }}
+                  defaultMessage="This key is used by {count, plural, one {# model} other {# models}}. Deleting it will also delete {count, plural, one {this model} other {these models}}."
+                  description="Warning about models using this key"
+                  values={{ count: modelCount }}
                 />
               )
             }
@@ -150,7 +129,7 @@ export const DeleteApiKeyModal = ({
           />
         )}
 
-        {hasEndpoints && (
+        {hasModels && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
             <Typography.Text>
               <FormattedMessage

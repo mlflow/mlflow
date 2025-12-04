@@ -1,9 +1,12 @@
-import { useParams, Link, useNavigate } from '../../common/utils/RoutingUtils';
 import {
+  Accordion,
   Alert,
   Breadcrumb,
   Button,
   Card,
+  ChevronRightIcon,
+  importantify,
+  LinkIcon,
   PencilIcon,
   Spinner,
   Tag,
@@ -11,20 +14,24 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { useCallback, useMemo, useState } from 'react';
+import { useParams, Link, useNavigate } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
-import GatewayRoutes from '../routes';
-import { formatProviderName } from '../utils/providerUtils';
-import { timestampToDate } from '../utils/dateUtils';
-import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
 import { useEndpointQuery } from '../hooks/useEndpointQuery';
 import { useModelsQuery } from '../hooks/useModelsQuery';
 import { useSecretQuery } from '../hooks/useSecretQuery';
-import type { EndpointModelMapping, ModelDefinition, Model } from '../types';
+import { useBindingsQuery } from '../hooks/useBindingsQuery';
+import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
+import GatewayRoutes from '../routes';
+import { formatProviderName } from '../utils/providerUtils';
+import { timestampToDate } from '../utils/dateUtils';
+import type { EndpointModelMapping, ModelDefinition, Model, EndpointBinding, ResourceType } from '../types';
 
 const EndpointDetailsPage = () => {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const intl = useIntl();
   const { endpointId } = useParams<{ endpointId: string }>();
 
   const { data, error, isLoading } = useEndpointQuery(endpointId ?? '');
@@ -34,6 +41,10 @@ const EndpointDetailsPage = () => {
   const primaryMapping = endpoint?.model_mappings?.[0];
   const primaryModelDef = primaryMapping?.model_definition;
   const { data: modelsData } = useModelsQuery({ provider: primaryModelDef?.provider });
+
+  // Get bindings for this endpoint
+  const { data: allBindings } = useBindingsQuery();
+  const endpointBindings = allBindings?.filter((b) => b.endpoint_id === endpointId) ?? [];
 
   const handleEdit = () => {
     // TODO: Navigate to edit page or open edit modal
@@ -73,7 +84,7 @@ const EndpointDetailsPage = () => {
         <Breadcrumb includeTrailingCaret>
           <Breadcrumb.Item>
             <Link to={GatewayRoutes.gatewayPageRoute}>
-              <FormattedMessage defaultMessage="Gateway" description="Breadcrumb link to gateway page" />
+              <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
             </Link>
           </Breadcrumb.Item>
         </Breadcrumb>
@@ -92,7 +103,10 @@ const EndpointDetailsPage = () => {
             icon={<PencilIcon />}
             onClick={handleEdit}
           >
-            <FormattedMessage defaultMessage="Edit" description="Edit endpoint button" />
+            <FormattedMessage
+              defaultMessage="Edit"
+              description="Gateway > Endpoint details page > Edit endpoint button"
+            />
           </Button>
         </div>
       </div>
@@ -205,6 +219,9 @@ const EndpointDetailsPage = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Connected resources - grouped by type */}
+                <ConnectedResourcesSection bindings={endpointBindings} />
               </div>
             </div>
           </Card>
@@ -342,7 +359,7 @@ const ModelCard = ({
                   fontFamily: 'monospace',
                   fontSize: theme.typography.fontSizeSm,
                   backgroundColor: theme.colors.tagDefault,
-                  padding: `2px ${theme.spacing.xs}px`,
+                  padding: `${theme.spacing.xs / 2}px ${theme.spacing.xs}px`,
                   borderRadius: theme.general.borderRadiusBase,
                 }}
               >
@@ -354,6 +371,157 @@ const ModelCard = ({
           <Typography.Text color="secondary">
             <FormattedMessage defaultMessage="Loading..." description="Loading secret" />
           </Typography.Text>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/** Connected resources section with collapsible accordion */
+const ConnectedResourcesSection = ({ bindings }: { bindings: EndpointBinding[] }) => {
+  const { theme, getPrefixedClassName } = useDesignSystemTheme();
+  const intl = useIntl();
+  const [expandedSections, setExpandedSections] = useState<string[]>(() =>
+    Array.from(new Set(bindings.map((b) => b.resource_type))),
+  );
+
+  const formatResourceTypePlural = (type: string) => {
+    switch (type) {
+      case 'scorer_job':
+        return intl.formatMessage({ defaultMessage: 'Scorer jobs', description: 'Scorer jobs resource type plural' });
+      default:
+        return type;
+    }
+  };
+
+  // Custom expand icon for accordion
+  const getExpandIcon = useCallback(
+    ({ isActive }: { isActive?: boolean }) => (
+      <div
+        css={importantify({
+          width: theme.general.heightBase / 2,
+          transform: isActive ? 'rotate(90deg)' : undefined,
+          transition: 'transform 0.2s',
+        })}
+      >
+        <ChevronRightIcon
+          css={{
+            svg: { width: theme.general.heightBase / 2, height: theme.general.heightBase / 2 },
+          }}
+        />
+      </div>
+    ),
+    [theme],
+  );
+
+  // Accordion styles
+  const accordionStyles = useMemo(() => {
+    const clsPrefix = getPrefixedClassName('collapse');
+    const classItem = `.${clsPrefix}-item`;
+    const classHeader = `.${clsPrefix}-header`;
+    const classContentBox = `.${clsPrefix}-content-box`;
+
+    return {
+      border: 'none',
+      backgroundColor: 'transparent',
+      [`& > ${classItem}`]: {
+        border: `1px solid ${theme.colors.borderDecorative}`,
+        borderRadius: theme.general.borderRadiusBase,
+        marginBottom: theme.spacing.xs,
+        overflow: 'hidden',
+      },
+      [`& > ${classItem} > ${classHeader}`]: {
+        paddingLeft: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
+        paddingBottom: theme.spacing.xs,
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: theme.colors.backgroundSecondary,
+      },
+      [classContentBox]: {
+        padding: 0,
+      },
+    };
+  }, [theme, getPrefixedClassName]);
+
+  // Group bindings by resource type
+  const bindingsByType = useMemo(() => {
+    const groups = new Map<ResourceType, EndpointBinding[]>();
+    bindings.forEach((binding) => {
+      if (!groups.has(binding.resource_type)) {
+        groups.set(binding.resource_type, []);
+      }
+      groups.get(binding.resource_type)!.push(binding);
+    });
+    return groups;
+  }, [bindings]);
+
+  const handleAccordionChange = (keys: string | string[]) => {
+    setExpandedSections(Array.isArray(keys) ? keys : [keys]);
+  };
+
+  return (
+    <div>
+      <Typography.Text color="secondary">
+        <FormattedMessage defaultMessage="Connected resources" description="Connected resources label" />
+      </Typography.Text>
+      <div css={{ marginTop: theme.spacing.xs }}>
+        {bindings.length === 0 ? (
+          <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm, fontStyle: 'italic' }}>
+            <FormattedMessage
+              defaultMessage="No resources are using this endpoint"
+              description="Empty state for connected resources"
+            />
+          </Typography.Text>
+        ) : (
+          <Accordion
+            componentId="mlflow.gateway.endpoint-details.bindings-accordion"
+            activeKey={expandedSections}
+            onChange={handleAccordionChange}
+            dangerouslyAppendEmotionCSS={accordionStyles}
+            dangerouslySetAntdProps={{
+              expandIconPosition: 'left',
+              expandIcon: getExpandIcon,
+            }}
+          >
+            {Array.from(bindingsByType.entries()).map(([resourceType, typeBindings]) => (
+              <Accordion.Panel
+                key={resourceType}
+                header={
+                  <span
+                    css={{
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                      fontSize: theme.typography.fontSizeSm,
+                    }}
+                  >
+                    {formatResourceTypePlural(resourceType)} ({typeBindings.length})
+                  </span>
+                }
+              >
+                <div
+                  css={{
+                    maxHeight: 8 * 28, // ~8 items before scrolling
+                    overflowY: 'auto',
+                  }}
+                >
+                  {typeBindings.map((binding) => (
+                    <div
+                      key={binding.binding_id}
+                      css={{
+                        padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                        borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+                        '&:last-child': { borderBottom: 'none' },
+                      }}
+                    >
+                      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm, fontFamily: 'monospace' }}>
+                        {binding.resource_id}
+                      </Typography.Text>
+                    </div>
+                  ))}
+                </div>
+              </Accordion.Panel>
+            ))}
+          </Accordion>
         )}
       </div>
     </div>
