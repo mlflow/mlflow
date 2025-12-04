@@ -315,23 +315,25 @@ def test_prompt_model_config_from_dict_with_unknown_fields():
 @pytest.mark.parametrize(
     ("field", "value", "error_match"),
     [
-        ("temperature", "invalid", "temperature must be a number"),
-        ("temperature", -0.5, "temperature must be non-negative"),
-        ("max_tokens", 100.5, "max_tokens must be an integer"),
-        ("max_tokens", 0, "max_tokens must be positive"),
-        ("top_p", "invalid", "top_p must be a number"),
-        ("top_p", 1.5, "top_p must be between 0 and 1"),
-        ("top_k", 10.5, "top_k must be an integer"),
-        ("top_k", 0, "top_k must be positive"),
-        ("frequency_penalty", "invalid", "frequency_penalty must be a number"),
-        ("presence_penalty", "invalid", "presence_penalty must be a number"),
-        ("stop_sequences", "not a list", "stop_sequences must be a list"),
-        ("stop_sequences", ["valid", 123], "All stop_sequences must be strings"),
-        ("extra_params", "not a dict", "extra_params must be a dict"),
+        ("temperature", "invalid", r"Input should be a valid number"),
+        ("temperature", -0.5, r"Input should be greater than or equal to 0"),
+        ("max_tokens", 100.5, r"Input should be a valid integer"),
+        ("max_tokens", 0, r"Input should be greater than 0"),
+        ("top_p", "invalid", r"Input should be a valid number"),
+        ("top_p", 1.5, r"Input should be less than or equal to 1"),
+        ("top_k", 10.5, r"Input should be a valid integer"),
+        ("top_k", 0, r"Input should be greater than 0"),
+        ("frequency_penalty", "invalid", r"Input should be a valid number"),
+        ("presence_penalty", "invalid", r"Input should be a valid number"),
+        ("stop_sequences", "not a list", r"Input should be a valid list"),
+        ("stop_sequences", ["valid", 123], r"Input should be a valid string"),
+        ("extra_params", "not a dict", r"Input should be a valid dictionary"),
     ],
 )
 def test_prompt_model_config_validation(field, value, error_match):
-    with pytest.raises((TypeError, ValueError), match=error_match):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match=error_match):
         PromptModelConfig(**{field: value})
     # Test valid values
     PromptModelConfig(temperature=0.0, max_tokens=1000, top_p=0.9, top_k=50)
