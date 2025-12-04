@@ -672,7 +672,12 @@ const createMlflowSearchFilter = (
           break;
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
-            const columnKey = `request_metadata.${getCustomMetadataKeyFromColumnId(networkFilter.column)}`;
+            const metadataKey = getCustomMetadataKeyFromColumnId(networkFilter.column);
+            // Use double quotes for field names with special characters (dots, spaces)
+            const columnKey =
+              metadataKey.includes('.') || metadataKey.includes(' ')
+                ? `request_metadata."${metadataKey}"`
+                : `request_metadata.${metadataKey}`;
             if (networkFilter.operator === FilterOperator.CONTAINS) {
               filter.push(`${columnKey} ILIKE '%${networkFilter.value}%'`);
             } else {
