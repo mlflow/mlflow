@@ -29,8 +29,8 @@ from mlflow.environment_variables import (
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.session_utils import (
-    evaluate_session_level_scorers,
     classify_scorers,
+    evaluate_session_level_scorers,
     group_traces_by_session,
 )
 from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
