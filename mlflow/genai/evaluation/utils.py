@@ -198,10 +198,16 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
         )
 
     # Warn once if any traces have missing root spans
-    if df["trace"].apply(lambda trace: trace.data._get_root_span() is None).any():
+    missing_root_span_mask = df["trace"].apply(
+        lambda trace: trace.data._get_root_span() is None
+    )
+    if missing_root_span_mask.any():
+        missing_count = missing_root_span_mask.sum()
         _logger.warning(
-            "Some traces do not have a root span. "
-            "This may occur if traces were fetched with search_traces(..., include_spans=False)."
+            f"{missing_count} trace(s) do not have a root span, so input and output data may be"
+            " missing for these traces. This may occur if traces were fetched using"
+            " search_traces(..., include_spans=False) and, if so, it can be resolved by fetching"
+            " traces using search_traces(..., include_spans=True)."
         )
 
     return df
