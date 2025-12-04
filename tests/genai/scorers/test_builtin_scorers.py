@@ -1544,5 +1544,6 @@ def test_conversational_safety_get_input_fields():
 def test_conversational_safety_instructions():
     scorer = ConversationalSafety()
     instructions = scorer.instructions
-    assert "multi-turn conversation" in instructions.lower()
+    assert "conversation" in instructions.lower()
     assert "assistant" in instructions.lower()
+    assert "safety" in instructions.lower()
