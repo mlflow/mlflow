@@ -2636,7 +2636,7 @@ class SqlAlchemyStore(AbstractStore):
                 new_tag_keys = {t.key for t in tags}
                 if db_sql_trace_info:
                     for tag in db_sql_trace_info.tags:
-                        if tag.key == TraceTagKey.SPANS_LOCATION and tag.key not in new_tag_keys:
+                        if tag.key not in new_tag_keys:
                             sql_trace_info.tags.append(
                                 SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
                             )
@@ -3425,14 +3425,7 @@ class SqlAlchemyStore(AbstractStore):
                     client_request_id=None,
                 )
                 # Add the artifact location tag that's required for search_traces to work
-                tags = [
-                    SqlTraceTag(
-                        key=TraceTagKey.SPANS_LOCATION,
-                        value=SpansLocation.TRACKING_STORE.value,
-                        request_id=trace_id,
-                    ),
-                    self._get_trace_artifact_location_tag(experiment, trace_id),
-                ]
+                tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
                 sql_trace_info.tags = tags
                 session.add(sql_trace_info)
                 try:
