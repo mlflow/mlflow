@@ -1,5 +1,10 @@
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
+import WorkflowSteps from '@site/src/components/WorkflowSteps';
+import TilesGrid from '@site/src/components/TilesGrid';
+import TileCard from '@site/src/components/TileCard';
+import { MessageSquare, Users, Target, Play, Code, Activity, BookOpen } from 'lucide-react';
+import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Evaluate Conversations
 
@@ -8,6 +13,33 @@ Conversation evaluation enables you to assess entire conversation sessions rathe
 :::info[Experimental Feature]
 Multi-turn evaluation is experimental in MLflow 3.7.0. The API and behavior may change in future releases.
 :::
+
+## Workflow
+
+<WorkflowSteps
+  steps={[
+    {
+      icon: MessageSquare,
+      title: "Tag traces with session IDs",
+      description: "Add session metadata to your traces to group related conversation turns together."
+    },
+    {
+      icon: Users,
+      title: "Search and retrieve session traces",
+      description: "Collect traces from your tracking server and MLflow will automatically group them by session."
+    },
+    {
+      icon: Target,
+      title: "Define conversation scorers",
+      description: "Use built-in multi-turn scorers or create custom ones to evaluate full conversations."
+    },
+    {
+      icon: Play,
+      title: "Run evaluation",
+      description: "Execute evaluation and analyze session-level metrics alongside individual turn metrics in MLflow UI."
+    }
+  ]}
+/>
 
 ## Overview
 
@@ -18,6 +50,18 @@ Traditional single-turn evaluation assesses each agent response independently. H
 - **Dialogue Coherence**: Does the conversation flow naturally?
 
 Multi-turn evaluation addresses these needs by grouping traces into conversation sessions and applying scorers that analyze the entire conversation history.
+
+## Prerequisites
+
+First, install the required packages by running the following command:
+
+```bash
+pip install --upgrade mlflow>=3.7
+```
+
+MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
+
+<ServerSetup />
 
 ## Quick Start
 
@@ -35,7 +79,7 @@ def my_chatbot(question, session_id):
 
 <ImageBox src="/images/genai/sessions-view-ui.png" alt="Sessions View UI" width="95%"/>
 
-To evaluate conversations, get traces from your experiment and pass them to `mlflow.genai.evaluate`:
+To evaluate conversations, [get traces from your experiment](/genai/tracing/search-traces/) and pass them to `mlflow.genai.evaluate`:
 
 ```python
 from mlflow.genai.scorers import ConversationCompleteness, UserFrustration
@@ -170,6 +214,32 @@ results = mlflow.genai.evaluate(
 
 ## Next Steps
 
-- Learn more about [creating custom LLM judges with make_judge](/genai/eval-monitor/scorers/llm-judge/make-judge)
-- Explore [built-in multi-turn scorers](/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn-scorers)
-- Understand [session tracing and user tracking](/genai/tracing/track-users-sessions/)
+<TilesGrid>
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Session Tracing Guide"
+    description="Learn how to track users and sessions in your conversational AI applications for better evaluation."
+    href="/genai/tracing/track-users-sessions/"
+    linkText="Learn about sessions →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Built-in Multi-Turn Scorers"
+    description="Explore predefined scorers for conversation completeness, user frustration, and other multi-turn metrics."
+    href="/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn-scorers"
+    linkText="View scorers →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Code}
+    iconSize={48}
+    title="Create Custom Multi-Turn Judges"
+    description="Build custom LLM judges using make_judge to evaluate conversation-specific criteria and patterns."
+    href="/genai/eval-monitor/scorers/llm-judge/make-judge"
+    linkText="Create custom judges →"
+    containerHeight={64}
+  />
+</TilesGrid>
