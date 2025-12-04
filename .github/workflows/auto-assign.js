@@ -22,7 +22,7 @@ module.exports = async ({ github, context }) => {
     return;
   }
 
-  // Get issue/PR details to check current assignees
+  // Get PR details to check current assignees
   const issue = await github.rest.issues.get({
     owner,
     repo,
