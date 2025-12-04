@@ -407,8 +407,6 @@ class LiteLLMAdapter(BaseJudgeAdapter):
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         """Invoke the judge model via LiteLLM."""
-        from mlflow.types.llm import ChatMessage
-
         messages = (
             [ChatMessage(role="user", content=input_params.prompt)]
             if isinstance(input_params.prompt, str)

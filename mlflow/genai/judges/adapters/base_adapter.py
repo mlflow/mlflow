@@ -27,6 +27,7 @@ class AdapterInvocationInput:
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries on transient failures.
         response_format: Optional Pydantic model class for structured output format.
+        use_case: Optional use case for telemetry tracking. Only used by some adapters.
     """
 
     model_uri: str
@@ -35,6 +36,7 @@ class AdapterInvocationInput:
     trace: Trace | None = None
     num_retries: int = 10
     response_format: type[pydantic.BaseModel] | None = None
+    use_case: str | None = None
 
     def __post_init__(self):
         """Cache the parsed model provider and name."""
@@ -122,7 +124,4 @@ class BaseJudgeAdapter(ABC):
         """
 
 
-# Import for backwards compatibility
-from mlflow.genai.judges.adapters.utils import get_adapter
-
-__all__ = ["BaseJudgeAdapter", "AdapterInvocationInput", "AdapterInvocationOutput", "get_adapter"]
+__all__ = ["BaseJudgeAdapter", "AdapterInvocationInput", "AdapterInvocationOutput"]

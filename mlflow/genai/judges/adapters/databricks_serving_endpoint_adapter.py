@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import time
+import traceback
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -334,16 +336,70 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        output = _invoke_databricks_serving_endpoint_judge(
-            model_name=input_params.model_name,
-            prompt=input_params.prompt,
-            assessment_name=input_params.assessment_name,
-            num_retries=input_params.num_retries,
-            response_format=input_params.response_format,
-        )
-        return AdapterInvocationOutput(
-            feedback=output.feedback,
-            request_id=output.request_id,
-            num_prompt_tokens=output.num_prompt_tokens,
-            num_completion_tokens=output.num_completion_tokens,
-        )
+        # Show deprecation warning for legacy 'endpoints' provider
+        model_provider = input_params.model_provider
+        if model_provider == "endpoints":
+            warnings.warn(
+                "The legacy provider 'endpoints' is deprecated and will be removed in a future "
+                "release. Please update your code to use the 'databricks' provider instead.",
+                FutureWarning,
+                stacklevel=4,
+            )
+
+        model_name = input_params.model_name
+
+        try:
+            output = _invoke_databricks_serving_endpoint_judge(
+                model_name=model_name,
+                prompt=input_params.prompt,
+                assessment_name=input_params.assessment_name,
+                num_retries=input_params.num_retries,
+                response_format=input_params.response_format,
+            )
+
+            # Set trace_id if trace was provided
+            feedback = output.feedback
+            if input_params.trace is not None:
+                feedback.trace_id = input_params.trace.info.trace_id
+
+            # Record success telemetry
+            try:
+                provider = "databricks" if model_provider == "endpoints" else model_provider
+                _record_judge_model_usage_success_databricks_telemetry(
+                    request_id=output.request_id,
+                    model_provider=provider,
+                    endpoint_name=model_name,
+                    num_prompt_tokens=output.num_prompt_tokens,
+                    num_completion_tokens=output.num_completion_tokens,
+                )
+            except Exception as telemetry_error:
+                _logger.debug(
+                    "Failed to record judge model usage success telemetry. Error: %s",
+                    telemetry_error,
+                    exc_info=True,
+                )
+
+            return AdapterInvocationOutput(
+                feedback=feedback,
+                request_id=output.request_id,
+                num_prompt_tokens=output.num_prompt_tokens,
+                num_completion_tokens=output.num_completion_tokens,
+            )
+
+        except Exception:
+            # Record failure telemetry
+            try:
+                provider = "databricks" if model_provider == "endpoints" else model_provider
+                _record_judge_model_usage_failure_databricks_telemetry(
+                    model_provider=provider,
+                    endpoint_name=model_name,
+                    error_code="UNKNOWN",
+                    error_message=traceback.format_exc(),
+                )
+            except Exception as telemetry_error:
+                _logger.debug(
+                    "Failed to record judge model usage failure telemetry. Error: %s",
+                    telemetry_error,
+                    exc_info=True,
+                )
+            raise

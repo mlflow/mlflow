@@ -416,5 +416,6 @@ class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
             prompt=input_params.prompt,
             assessment_name=input_params.assessment_name,
             trace=input_params.trace,
+            use_case=input_params.use_case,
         )
         return AdapterInvocationOutput(feedback=feedback)

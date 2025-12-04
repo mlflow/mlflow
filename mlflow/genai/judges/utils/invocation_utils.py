@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import traceback
-import warnings
 from typing import TYPE_CHECKING
 
 import pydantic
@@ -15,21 +13,12 @@ if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
-from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput, get_adapter
-from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-    DatabricksManagedJudgeAdapter,
-    _invoke_databricks_default_judge,
-)
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    DatabricksServingEndpointAdapter,
-    _record_judge_model_usage_failure_databricks_telemetry,
-    _record_judge_model_usage_success_databricks_telemetry,
-)
+from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+from mlflow.genai.judges.adapters.utils import get_adapter
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.telemetry.utils import _is_in_databricks
 
 _logger = logging.getLogger(__name__)
 
@@ -79,12 +68,8 @@ def invoke_judge_model(
     Raises:
         MlflowException: If the model cannot be invoked or dependencies are missing.
     """
-    in_databricks = _is_in_databricks()
-
-    # Get the appropriate adapter
     adapter = get_adapter(model_uri=model_uri, prompt=prompt)
 
-    # Create input parameters
     input_params = AdapterInvocationInput(
         model_uri=model_uri,
         prompt=prompt,
@@ -92,77 +77,9 @@ def invoke_judge_model(
         trace=trace,
         num_retries=num_retries,
         response_format=response_format,
+        use_case=use_case,
     )
 
-    # Handle DatabricksManagedJudgeAdapter with use_case parameter
-    if isinstance(adapter, DatabricksManagedJudgeAdapter):
-        return _invoke_databricks_default_judge(
-            prompt=prompt,
-            assessment_name=assessment_name,
-            trace=trace,
-            use_case=use_case,
-        )
-
-    # Check if this is a Databricks serving endpoint adapter that needs telemetry
-    if isinstance(adapter, DatabricksServingEndpointAdapter):
-        from mlflow.metrics.genai.model_utils import _parse_model_uri
-
-        model_provider, model_name = _parse_model_uri(model_uri)
-
-        # Show deprecation warning for legacy 'endpoints' provider
-        if model_provider == "endpoints":
-            warnings.warn(
-                "The legacy provider 'endpoints' is deprecated and will be removed in a future "
-                "release. Please update your code to use the 'databricks' provider instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-
-        try:
-            output = adapter.invoke(input_params)
-            feedback = output.feedback
-            feedback.trace_id = trace.info.trace_id if trace is not None else None
-
-            # Record success telemetry only when in Databricks
-            if in_databricks:
-                try:
-                    provider = "databricks" if model_provider == "endpoints" else model_provider
-                    _record_judge_model_usage_success_databricks_telemetry(
-                        request_id=output.request_id,
-                        model_provider=provider,
-                        endpoint_name=model_name,
-                        num_prompt_tokens=output.num_prompt_tokens,
-                        num_completion_tokens=output.num_completion_tokens,
-                    )
-                except Exception as telemetry_error:
-                    _logger.debug(
-                        "Failed to record judge model usage success telemetry. Error: %s",
-                        telemetry_error,
-                        exc_info=True,
-                    )
-
-            return feedback
-
-        except Exception:
-            # Record failure telemetry only when in Databricks
-            if in_databricks:
-                try:
-                    provider = "databricks" if model_provider == "endpoints" else model_provider
-                    _record_judge_model_usage_failure_databricks_telemetry(
-                        model_provider=provider,
-                        endpoint_name=model_name,
-                        error_code="UNKNOWN",
-                        error_message=traceback.format_exc(),
-                    )
-                except Exception as telemetry_error:
-                    _logger.debug(
-                        "Failed to record judge model usage failure telemetry. Error: %s",
-                        telemetry_error,
-                        exc_info=True,
-                    )
-            raise
-
-    # For all other adapters, invoke directly
     output = adapter.invoke(input_params)
     return output.feedback
 
