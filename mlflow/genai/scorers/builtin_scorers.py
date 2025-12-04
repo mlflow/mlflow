@@ -31,14 +31,11 @@ from mlflow.genai.judges.prompts.conversation_completeness import (
     CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
     CONVERSATION_COMPLETENESS_PROMPT,
 )
+from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.conversational_safety import (
-    CONVERSATIONAL_SAFETY_PROMPT_INSTRUCTIONS,
-    CONVERSATIONAL_SAFETY_PROMPT,
-)
 from mlflow.genai.judges.prompts.relevance_to_query import (
     RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
 )
@@ -1844,7 +1841,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
     def _create_judge(self) -> InstructionsJudge:
         return InstructionsJudge(
             name=self.name,
-            instructions=CONVERSATIONAL_SAFETY_PROMPT,
+            instructions=self.instructions,
             model=self.model,
             description=self.description,
             feedback_value_type=Literal["yes", "no"],
@@ -1853,7 +1850,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
 
     @property
     def instructions(self) -> str:
-        return CONVERSATIONAL_SAFETY_PROMPT_INSTRUCTIONS
+        return CONVERSATIONAL_SAFETY_PROMPT
 
 
 @experimental(version="3.7.0")
