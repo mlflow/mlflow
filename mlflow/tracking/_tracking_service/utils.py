@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from functools import lru_cache, partial
 from pathlib import Path
 from typing import Generator
+from urllib.parse import unquote
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -15,7 +16,7 @@ from mlflow.tracing.provider import reset
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.file_utils import path_to_local_file_uri, path_to_local_sqlite_uri
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
     _OSS_UNITY_CATALOG_SCHEME,
@@ -169,6 +170,10 @@ def get_tracking_uri() -> str:
         default_uri = _get_default_tracking_uri()
         if default_uri == DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH:
             return path_to_local_file_uri(os.path.abspath(default_uri))
+        if default_uri.startswith("sqlite:///"):
+            sqlite_path = unquote(default_uri[len("sqlite:///") :])
+            db_path = os.path.abspath(sqlite_path)
+            return path_to_local_sqlite_uri(db_path)
         return default_uri
 
 

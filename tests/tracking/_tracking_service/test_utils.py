@@ -6,6 +6,8 @@ import uuid
 from importlib import reload
 from pathlib import Path
 from unittest import mock
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import pytest
 
@@ -29,6 +31,7 @@ from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _get_tracking_scheme,
     _resolve_tracking_uri,
+    _use_tracking_uri,
     get_tracking_uri,
     set_tracking_uri,
 )
@@ -94,6 +97,24 @@ def test_get_store_with_mlruns_dir_but_no_meta_yaml(tmp_path, monkeypatch):
 
     store = _get_store()
     assert isinstance(store, SqlAlchemyStore)
+
+
+def test_default_sqlite_tracking_uri_respects_cwd(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with _use_tracking_uri(None):
+        store = _get_store()
+
+    assert isinstance(store, SqlAlchemyStore)
+    sqlite_uri = store.db_uri
+    assert sqlite_uri.startswith("sqlite:")
+    parsed = urlparse(sqlite_uri)
+    path = parsed.path
+    if not parsed.netloc and path.startswith("//"):
+        path = path[1:]
+    if parsed.netloc:
+        path = f"//{parsed.netloc}{path}"
+    db_path = Path(url2pathname(path))
+    assert db_path.parent == tmp_path
 
 
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
