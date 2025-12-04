@@ -3448,16 +3448,6 @@ class SqlAlchemyStore(AbstractStore):
                         .one()
                     )
 
-            # This is required to handle the concurrent calls that create or update the trace info,
-            # and to set the spans_location tag here since spans are stored in db.
-            session.merge(
-                SqlTraceTag(
-                    request_id=trace_id,
-                    key=TraceTagKey.SPANS_LOCATION,
-                    value=SpansLocation.TRACKING_STORE.value,
-                )
-            )
-
             # Atomic update of trace time range using SQLAlchemy's case expressions.
             # This is necessary to handle concurrent span additions from multiple processes/threads
             # without race conditions. The database performs the min/max comparisons atomically,
@@ -3467,10 +3457,12 @@ class SqlAlchemyStore(AbstractStore):
                 (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
                 else_=SqlTraceInfo.timestamp_ms,
             )
-            sql_trace_info.timestamp_ms = timestamp_update_expr
+            update_dict = {
+                SqlTraceInfo.timestamp_ms: timestamp_update_expr,
+            }
             # Only attempt to update execution_time_ms if we have at least one ended span
             if max_end_ms is not None:
-                sql_trace_info.execution_time_ms = (
+                update_dict[SqlTraceInfo.execution_time_ms] = (
                     case(
                         (
                             (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
@@ -3488,7 +3480,7 @@ class SqlAlchemyStore(AbstractStore):
                 TraceState.STATE_UNSPECIFIED.value,
             ):
                 if root_span_status:
-                    sql_trace_info.status = root_span_status
+                    update_dict[SqlTraceInfo.status] = root_span_status
 
             aggregated_token_usage = {}
             for span in spans:
@@ -3518,7 +3510,9 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(sql_span)
 
                 if span.parent_id is None:
-                    self._update_trace_info_attributes(sql_trace_info, span_dict)
+                    update_dict.update(
+                        self._update_trace_info_attributes(sql_trace_info, span_dict)
+                    )
 
             trace_token_usage = (
                 session.query(SqlTraceMetadata)
@@ -3541,26 +3535,44 @@ class SqlAlchemyStore(AbstractStore):
                     )
                 )
 
-            # Use merge to update the trace info to avoid concurrent updates
-            session.merge(sql_trace_info)
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
+                update_dict,
+                # Skip session synchronization for performance - we don't use the object afterward
+                synchronize_session=False,
+            )
+            # This is required to handle the concurrent calls that create or update the trace info,
+            # and to set the spans_location tag here since spans are stored in db.
+            session.query(SqlTraceTag).filter(
+                SqlTraceTag.request_id == trace_id, SqlTraceTag.key == TraceTagKey.SPANS_LOCATION
+            ).update(
+                {
+                    SqlTraceTag.value: SpansLocation.TRACKING_STORE.value,
+                },
+                # Skip session synchronization for performance - we don't use the object afterward
+                synchronize_session=False,
+            )
 
         return spans
 
     def _update_trace_info_attributes(
         self, sql_trace_info: SqlTraceInfo, span_dict: dict[str, Any]
-    ) -> None:
+    ) -> dict[str, Any]:
         """
         Update trace info attributes based on span dictionary.
 
         Args:
             sql_trace_info: SqlTraceInfo object
             span_dict: Dictionary of span
+
+        Returns:
+            Dictionary of update attributes
         """
+        update_dict = {}
         try:
             if sql_trace_info.request_preview is None and (
                 trace_inputs := span_dict.get("attributes", {}).get(SpanAttributeKey.INPUTS)
             ):
-                sql_trace_info.request_preview = _get_truncated_preview(
+                update_dict[SqlTraceInfo.request_preview] = _get_truncated_preview(
                     trace_inputs,
                     role="user",
                 )
@@ -3568,12 +3580,14 @@ class SqlAlchemyStore(AbstractStore):
             if sql_trace_info.response_preview is None and (
                 trace_outputs := span_dict.get("attributes", {}).get(SpanAttributeKey.OUTPUTS)
             ):
-                sql_trace_info.response_preview = _get_truncated_preview(
+                update_dict[SqlTraceInfo.response_preview] = _get_truncated_preview(
                     trace_outputs,
                     role="assistant",
                 )
         except Exception:
             _logger.debug(f"Failed to update trace info attributes: {span_dict}", exc_info=True)
+
+        return update_dict
 
     async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
         """

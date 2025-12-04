@@ -11658,6 +11658,10 @@ def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
 
 
+@pytest.mark.skipif(
+    mlflow.get_tracking_uri().startswith("mysql"),
+    reason="MySQL does not support concurrent log_spans calls for now",
+)
 def test_concurrent_log_spans_spans_location_tag(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_concurrent_log_spans")
     trace_id = f"tr-{uuid.uuid4().hex}"
