@@ -174,16 +174,14 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
                         click.echo(
                             f"\n✗ Failed to rotate encryption key {secret.secret_id}: {e}", err=True
                         )
-                        session.rollback()
                         raise MlflowException(
                             f"KEK rotation failed at encrypted entry {secret.secret_id}. "
                             "No changes were made. Fix the issue and re-run the command."
                         ) from e
 
-            session.commit()
-
+            key_word = "key" if rotated_count == 1 else "keys"
             click.echo(
-                f"\n✓ Successfully rotated {rotated_count} encryption keys "
+                f"\n✓ Successfully rotated {rotated_count} encryption {key_word} "
                 f"from KEK v{old_version} to v{new_version}\n"
             )
             click.echo("=" * 80)

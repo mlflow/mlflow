@@ -8,13 +8,13 @@ from mlflow.utils.cryptography import (
     AES_256_KEY_LENGTH,
     GCM_NONCE_LENGTH,
     KEKManager,
-    create_aad,
-    decrypt_secret,
+    _create_aad,
+    _decrypt_secret,
+    _encrypt_secret,
+    _generate_dek,
+    _mask_secret_value,
     decrypt_with_aes_gcm,
-    encrypt_secret,
     encrypt_with_aes_gcm,
-    generate_dek,
-    mask_secret_value,
     rotate_secret_encryption,
     unwrap_dek,
     wrap_dek,
@@ -105,25 +105,25 @@ def test_encrypt_secret_includes_kek_version():
     secret_id = "test-id"
     secret_name = "test-name"
 
-    result = encrypt_secret(secret_value, kek_manager, secret_id, secret_name)
+    result = _encrypt_secret(secret_value, kek_manager, secret_id, secret_name)
 
     assert result.kek_version == 2
 
 
 def test_generate_dek_length():
-    dek = generate_dek()
+    dek = _generate_dek()
     assert len(dek) == AES_256_KEY_LENGTH
     assert isinstance(dek, bytes)
 
 
 def test_generate_dek_random():
-    dek1 = generate_dek()
-    dek2 = generate_dek()
+    dek1 = _generate_dek()
+    dek2 = _generate_dek()
     assert dek1 != dek2
 
 
 def test_encrypt_decrypt_roundtrip():
-    dek = generate_dek()
+    dek = _generate_dek()
     plaintext = b"Hello, World!"
 
     result = encrypt_with_aes_gcm(plaintext, dek)
@@ -137,7 +137,7 @@ def test_encrypt_decrypt_roundtrip():
 
 
 def test_encrypt_with_custom_nonce():
-    dek = generate_dek()
+    dek = _generate_dek()
     plaintext = b"Test data"
     custom_nonce = os.urandom(GCM_NONCE_LENGTH)
 
@@ -146,7 +146,7 @@ def test_encrypt_with_custom_nonce():
 
 
 def test_encrypt_decrypt_with_aad():
-    dek = generate_dek()
+    dek = _generate_dek()
     plaintext = b"Secret message"
     aad = b"metadata"
 
@@ -158,7 +158,7 @@ def test_encrypt_decrypt_with_aad():
 
 
 def test_decrypt_with_wrong_aad_fails():
-    dek = generate_dek()
+    dek = _generate_dek()
     plaintext = b"Secret message"
     aad = b"correct-metadata"
 
@@ -170,7 +170,7 @@ def test_decrypt_with_wrong_aad_fails():
 
 
 def test_decrypt_with_missing_aad_fails():
-    dek = generate_dek()
+    dek = _generate_dek()
     plaintext = b"Secret message"
     aad = b"metadata"
 
@@ -197,15 +197,15 @@ def test_decrypt_with_wrong_key_length_raises(bad_key):
 
 @pytest.mark.parametrize("bad_nonce", [b"short", b"", b"a" * 5])
 def test_encrypt_with_wrong_nonce_length_raises(bad_nonce):
-    dek = generate_dek()
+    dek = _generate_dek()
     plaintext = b"Test"
     with pytest.raises(ValueError, match="Nonce must be 12 bytes"):
         encrypt_with_aes_gcm(plaintext, dek, nonce=bad_nonce)
 
 
 def test_decrypt_with_wrong_key_fails():
-    key1 = generate_dek()
-    key2 = generate_dek()
+    key1 = _generate_dek()
+    key2 = _generate_dek()
     plaintext = b"Secret"
 
     result = encrypt_with_aes_gcm(plaintext, key1)
@@ -216,7 +216,7 @@ def test_decrypt_with_wrong_key_fails():
 
 
 def test_decrypt_with_tampered_ciphertext_fails():
-    dek = generate_dek()
+    dek = _generate_dek()
     plaintext = b"Secret"
 
     result = encrypt_with_aes_gcm(plaintext, dek)
@@ -229,7 +229,7 @@ def test_decrypt_with_tampered_ciphertext_fails():
 
 
 def test_decrypt_with_short_ciphertext_raises():
-    dek = generate_dek()
+    dek = _generate_dek()
     short_ciphertext = os.urandom(5)
 
     with pytest.raises(ValueError, match="Ciphertext too short"):
@@ -237,8 +237,8 @@ def test_decrypt_with_short_ciphertext_raises():
 
 
 def test_wrap_unwrap_dek_roundtrip():
-    dek = generate_dek()
-    kek = generate_dek()
+    dek = _generate_dek()
+    kek = _generate_dek()
 
     wrapped_dek = wrap_dek(dek, kek)
     unwrapped_dek = unwrap_dek(wrapped_dek, kek)
@@ -247,9 +247,9 @@ def test_wrap_unwrap_dek_roundtrip():
 
 
 def test_unwrap_with_wrong_kek_fails():
-    dek = generate_dek()
-    kek1 = generate_dek()
-    kek2 = generate_dek()
+    dek = _generate_dek()
+    kek1 = _generate_dek()
+    kek2 = _generate_dek()
 
     wrapped_dek = wrap_dek(dek, kek1)
 
@@ -257,11 +257,11 @@ def test_unwrap_with_wrong_kek_fails():
         unwrap_dek(wrapped_dek, kek2)
 
 
-def test_create_aad():
+def test__create_aad():
     secret_id = "123e4567-e89b-12d3-a456-426614174000"
     secret_name = "my-api-key"
 
-    aad = create_aad(secret_id, secret_name)
+    aad = _create_aad(secret_id, secret_name)
 
     assert isinstance(aad, bytes)
     assert secret_id.encode() in aad
@@ -273,8 +273,8 @@ def test_create_aad_deterministic():
     secret_id = "test-id"
     secret_name = "test-name"
 
-    aad1 = create_aad(secret_id, secret_name)
-    aad2 = create_aad(secret_id, secret_name)
+    aad1 = _create_aad(secret_id, secret_name)
+    aad2 = _create_aad(secret_id, secret_name)
 
     assert aad1 == aad2
 
@@ -288,8 +288,8 @@ def test_create_aad_deterministic():
     ],
 )
 def test_create_aad_different_inputs(id1, name1, id2, name2):
-    aad1 = create_aad(id1, name1)
-    aad2 = create_aad(id2, name2)
+    aad1 = _create_aad(id1, name1)
+    aad2 = _create_aad(id2, name2)
     assert aad1 != aad2
 
 
@@ -305,15 +305,15 @@ def test_create_aad_different_inputs(id1, name1, id2, name2):
         ("12345678", "123...5678"),
     ],
 )
-def test_mask_secret_value(secret, expected_mask):
-    masked = mask_secret_value(secret)
+def test__mask_secret_value(secret, expected_mask):
+    masked = _mask_secret_value(secret)
     assert masked == expected_mask
 
 
 @pytest.mark.parametrize("short_secret", ["short", "1234567", "abc", ""])
 def test_mask_secret_value_short(short_secret):
     if short_secret:
-        masked = mask_secret_value(short_secret)
+        masked = _mask_secret_value(short_secret)
         assert masked == "***"
 
 
@@ -339,20 +339,20 @@ def test_mask_secret_value_short(short_secret):
     ],
 )
 def test_mask_secret_value_dict(secret_dict, expected_masked):
-    masked = mask_secret_value(secret_dict)
+    masked = _mask_secret_value(secret_dict)
     assert masked == expected_masked
 
 
 def test_mask_secret_value_nested_dict():
     secret = {"outer": {"inner": {"api_key": "sk-abc123xyz", "enabled": True}}}
-    masked = mask_secret_value(secret)
+    masked = _mask_secret_value(secret)
     assert masked == "<dict: 1 key (outer)>"
 
 
 def test_mask_secret_value_dict_with_very_long_key_names():
     long_key = "a" * 200
     secret = {long_key: "value"}
-    masked = mask_secret_value(secret)
+    masked = _mask_secret_value(secret)
 
     assert len(masked) <= 100
     assert masked.endswith("...>")
@@ -363,7 +363,7 @@ def test_mask_secret_value_dict_with_very_long_key_names():
         "key2_" + "b" * 100: "val2",
         "key3_" + "c" * 100: "val3",
     }
-    masked_multiple = mask_secret_value(secret_multiple)
+    masked_multiple = _mask_secret_value(secret_multiple)
     assert len(masked_multiple) <= 100
     assert masked_multiple.endswith("...>")
 
@@ -380,9 +380,9 @@ def test_encrypt_decrypt_secret_roundtrip_string(kek_manager, secret_value):
     secret_id = "test-uuid-123"
     secret_name = "test-secret"
 
-    result = encrypt_secret(secret_value, kek_manager, secret_id, secret_name)
+    result = _encrypt_secret(secret_value, kek_manager, secret_id, secret_name)
 
-    decrypted_value = decrypt_secret(
+    decrypted_value = _decrypt_secret(
         result.encrypted_value,
         result.wrapped_dek,
         kek_manager,
@@ -407,9 +407,9 @@ def test_encrypt_decrypt_secret_roundtrip_dict(kek_manager, secret_value):
     secret_id = "test-uuid-123"
     secret_name = "test-secret"
 
-    result = encrypt_secret(secret_value, kek_manager, secret_id, secret_name)
+    result = _encrypt_secret(secret_value, kek_manager, secret_id, secret_name)
 
-    decrypted_value = decrypt_secret(
+    decrypted_value = _decrypt_secret(
         result.encrypted_value,
         result.wrapped_dek,
         kek_manager,
@@ -426,11 +426,11 @@ def test_encrypt_secret_dict_is_json_serialized(kek_manager):
     secret_id = "test-uuid-123"
     secret_name = "test-secret"
 
-    result = encrypt_secret(secret_dict, kek_manager, secret_id, secret_name)
+    result = _encrypt_secret(secret_dict, kek_manager, secret_id, secret_name)
 
     kek = kek_manager.get_kek()
     dek = unwrap_dek(result.wrapped_dek, kek)
-    aad = create_aad(secret_id, secret_name)
+    aad = _create_aad(secret_id, secret_name)
     decrypted_bytes = decrypt_with_aes_gcm(result.encrypted_value, dek, aad=aad)
 
     decrypted_json = decrypted_bytes.decode("utf-8")
@@ -442,10 +442,10 @@ def test_encrypt_secret_dict_is_json_serialized(kek_manager):
 def test_decrypt_with_wrong_secret_id_fails(kek_manager):
     secret_value = "my-secret-key"
 
-    result = encrypt_secret(secret_value, kek_manager, secret_id="id1", secret_name="name1")
+    result = _encrypt_secret(secret_value, kek_manager, secret_id="id1", secret_name="name1")
 
     with pytest.raises(MlflowException, match="Failed to decrypt secret"):
-        decrypt_secret(
+        _decrypt_secret(
             result.encrypted_value,
             result.wrapped_dek,
             kek_manager,
@@ -457,10 +457,10 @@ def test_decrypt_with_wrong_secret_id_fails(kek_manager):
 def test_decrypt_with_wrong_secret_name_fails(kek_manager):
     secret_value = "my-secret-key"
 
-    result = encrypt_secret(secret_value, kek_manager, secret_id="id1", secret_name="name1")
+    result = _encrypt_secret(secret_value, kek_manager, secret_id="id1", secret_name="name1")
 
     with pytest.raises(MlflowException, match="Failed to decrypt secret"):
-        decrypt_secret(
+        _decrypt_secret(
             result.encrypted_value,
             result.wrapped_dek,
             kek_manager,
@@ -474,10 +474,10 @@ def test_decrypt_with_wrong_passphrase_fails():
     kek_manager2 = KEKManager(passphrase="passphrase2")
     secret_value = "my-secret-key"
 
-    result = encrypt_secret(secret_value, kek_manager1, secret_id="id1", secret_name="name1")
+    result = _encrypt_secret(secret_value, kek_manager1, secret_id="id1", secret_name="name1")
 
     with pytest.raises(MlflowException, match="Failed to decrypt secret"):
-        decrypt_secret(
+        _decrypt_secret(
             result.encrypted_value,
             result.wrapped_dek,
             kek_manager2,
@@ -491,9 +491,9 @@ def test_encrypt_secret_unicode(kek_manager):
     secret_id = "id1"
     secret_name = "unicode-secret"
 
-    result = encrypt_secret(secret_value, kek_manager, secret_id, secret_name)
+    result = _encrypt_secret(secret_value, kek_manager, secret_id, secret_name)
 
-    decrypted_value = decrypt_secret(
+    decrypted_value = _decrypt_secret(
         result.encrypted_value, result.wrapped_dek, kek_manager, secret_id, secret_name
     )
 
@@ -507,7 +507,7 @@ def test_rotate_secret_encryption():
     secret_id = "id1"
     secret_name = "name1"
 
-    encrypt_result = encrypt_secret(secret_value, old_kek_manager, secret_id, secret_name)
+    encrypt_result = _encrypt_secret(secret_value, old_kek_manager, secret_id, secret_name)
 
     rotate_result = rotate_secret_encryption(
         encrypt_result.encrypted_value,
@@ -519,7 +519,7 @@ def test_rotate_secret_encryption():
     assert rotate_result.encrypted_value == encrypt_result.encrypted_value
     assert rotate_result.wrapped_dek != encrypt_result.wrapped_dek
 
-    decrypted_value = decrypt_secret(
+    decrypted_value = _decrypt_secret(
         rotate_result.encrypted_value,
         rotate_result.wrapped_dek,
         new_kek_manager,
@@ -537,7 +537,7 @@ def test_rotate_cannot_decrypt_with_old_kek():
     secret_id = "id1"
     secret_name = "name1"
 
-    encrypt_result = encrypt_secret(secret_value, old_kek_manager, secret_id, secret_name)
+    encrypt_result = _encrypt_secret(secret_value, old_kek_manager, secret_id, secret_name)
 
     rotate_result = rotate_secret_encryption(
         encrypt_result.encrypted_value,
@@ -547,7 +547,7 @@ def test_rotate_cannot_decrypt_with_old_kek():
     )
 
     with pytest.raises(MlflowException, match="Failed to decrypt secret"):
-        decrypt_secret(
+        _decrypt_secret(
             encrypt_result.encrypted_value,
             rotate_result.wrapped_dek,
             old_kek_manager,
@@ -564,7 +564,7 @@ def test_rotate_with_wrong_old_kek_fails():
     secret_id = "id1"
     secret_name = "name1"
 
-    result = encrypt_secret(secret_value, correct_kek_manager, secret_id, secret_name)
+    result = _encrypt_secret(secret_value, correct_kek_manager, secret_id, secret_name)
 
     with pytest.raises(MlflowException, match="Failed to rotate secret encryption"):
         rotate_secret_encryption(
@@ -585,7 +585,7 @@ def test_rotate_multiple_secrets(secrets):
 
     encrypted_secrets = []
     for secret_value, secret_id, secret_name in secrets:
-        result = encrypt_secret(secret_value, old_kek_manager, secret_id, secret_name)
+        result = _encrypt_secret(secret_value, old_kek_manager, secret_id, secret_name)
         encrypted_secrets.append(
             (result.encrypted_value, result.wrapped_dek, secret_id, secret_name)
         )
@@ -596,7 +596,7 @@ def test_rotate_multiple_secrets(secrets):
         )
 
         original_value = next(s[0] for s in secrets if s[1] == secret_id and s[2] == secret_name)
-        decrypted_value = decrypt_secret(
+        decrypted_value = _decrypt_secret(
             encrypted_value,
             rotate_result.wrapped_dek,
             new_kek_manager,

@@ -1,13 +1,9 @@
+import importlib.util
 import json
 import logging
 import os
 from dataclasses import dataclass
 from typing import Any
-
-from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -16,15 +12,12 @@ _logger = logging.getLogger(__name__)
 
 
 def _check_cryptography_available():
-    """Check if cryptography is installed and raise helpful error if not."""
-    try:
-        import cryptography  # noqa: F401
-    except ImportError as e:
+    if importlib.util.find_spec("cryptography") is None:
         raise MlflowException(
             "The 'cryptography' library is required for MLflow secrets management. "
             "Install it with: pip install mlflow[extras] or pip install cryptography",
             error_code=INVALID_PARAMETER_VALUE,
-        ) from e
+        )
 
 
 # Application-level salt for KEK derivation (intentionally fixed, not per-password)
@@ -188,6 +181,8 @@ class KEKManager:
         Returns:
             32-byte (256-bit) KEK
         """
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -217,7 +212,7 @@ class KEKManager:
         return self._kek_version
 
 
-def generate_dek() -> bytes:
+def _generate_dek() -> bytes:
     """
     Generate a random 256-bit Data Encryption Key (DEK).
 
@@ -234,6 +229,7 @@ def generate_dek() -> bytes:
     https://cryptography.io/en/latest/hazmat/primitives/aead/#cryptography.hazmat.primitives.ciphers.aead.AESGCM.generate_key
     https://cryptography.io/en/latest/random-numbers/
     """
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     return AESGCM.generate_key(bit_length=256)
 
@@ -277,6 +273,8 @@ def encrypt_with_aes_gcm(
     elif len(nonce) != GCM_NONCE_LENGTH:
         raise ValueError(f"Nonce must be {GCM_NONCE_LENGTH} bytes (96 bits), got {len(nonce)}")
 
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
     aesgcm = AESGCM(key)
     ciphertext = aesgcm.encrypt(nonce, plaintext, aad)
 
@@ -314,6 +312,9 @@ def decrypt_with_aes_gcm(ciphertext: bytes, key: bytes, aad: bytes | None = None
     encrypted_data = ciphertext[GCM_NONCE_LENGTH:]
 
     try:
+        from cryptography.exceptions import InvalidTag
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
         aesgcm = AESGCM(key)
         return aesgcm.decrypt(nonce, encrypted_data, aad)
     except InvalidTag as e:
@@ -364,7 +365,7 @@ def unwrap_dek(wrapped_dek: bytes, kek: bytes) -> bytes:
         ) from e
 
 
-def create_aad(secret_id: str, secret_name: str) -> bytes:
+def _create_aad(secret_id: str, secret_name: str) -> bytes:
     """
     Create Additional Authenticated Data (AAD) from secret metadata.
 
@@ -388,7 +389,7 @@ def create_aad(secret_id: str, secret_name: str) -> bytes:
     return aad_str.encode("utf-8")
 
 
-def mask_secret_value(secret_value: str | dict[str, Any]) -> str:
+def _mask_secret_value(secret_value: str | dict[str, Any]) -> str:
     """
     Generate a masked version of a secret for display purposes.
 
@@ -441,7 +442,7 @@ def mask_secret_value(secret_value: str | dict[str, Any]) -> str:
     return f"{prefix}...{suffix}"
 
 
-def encrypt_secret(
+def _encrypt_secret(
     secret_value: str | dict[str, Any],
     kek_manager: KEKManager,
     secret_id: str,
@@ -476,8 +477,8 @@ def encrypt_secret(
         secret_bytes = json.dumps(secret_value, sort_keys=True).encode("utf-8")
     else:
         secret_bytes = secret_value.encode("utf-8")
-    dek = generate_dek()
-    aad = create_aad(secret_id, secret_name)
+    dek = _generate_dek()
+    aad = _create_aad(secret_id, secret_name)
 
     result = encrypt_with_aes_gcm(secret_bytes, dek, aad=aad)
     encrypted_value = result.nonce + result.ciphertext
@@ -492,7 +493,7 @@ def encrypt_secret(
     )
 
 
-def decrypt_secret(
+def _decrypt_secret(
     encrypted_value: bytes,
     wrapped_dek: bytes,
     kek_manager: KEKManager,
@@ -530,7 +531,7 @@ def decrypt_secret(
         kek = kek_manager.get_kek()
         dek = unwrap_dek(wrapped_dek, kek)
 
-        aad = create_aad(secret_id, secret_name)
+        aad = _create_aad(secret_id, secret_name)
 
         secret_bytes = decrypt_with_aes_gcm(encrypted_value, dek, aad=aad)
 
