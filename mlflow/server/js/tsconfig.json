@@ -1,34 +1,19 @@
 {
   "extends": [],
   "compilerOptions": {
-    "types": [
-      "node",
-      "@testing-library/jest-dom/jest-globals"
-    ],
+    "types": ["node", "@testing-library/jest-dom/jest-globals"],
     "noPropertyAccessFromIndexSignature": true,
     "jsxImportSource": "@emotion/react",
     "paths": {
-      "@mlflow/mlflow/*": [
-        "./*"
-      ],
-      "@databricks/i18n": [
-        "./src/i18n/i18n"
-      ],
-      "@databricks/web-shared/query-client": [
-        "./src/common/utils/reactQueryHooks"
-      ],
-      "@databricks/web-shared/*": [
-        "./src/shared/web-shared/*"
-      ]
+      "@mlflow/mlflow/*": ["./*"],
+      "@databricks/i18n": ["./src/i18n/i18n"],
+      "@databricks/web-shared/query-client": ["./src/common/utils/reactQueryHooks"],
+      "@databricks/web-shared/*": ["./src/shared/web-shared/*"]
     },
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ESNext", "DOM", "DOM.Iterable", "WebWorker"],
     "strict": true,
     "rootDir": ".",
     "skipLibCheck": true,
@@ -46,9 +31,7 @@
     "isolatedModules": true
   },
   "references": [],
-  "include": [
-    "./src/**/*"
-  ],
+  "include": ["./src/**/*"],
   "ts-node": {
     "swc": true
   }

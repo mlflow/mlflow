@@ -99,6 +99,30 @@ def _get_config_url(version: str) -> str | None:
     return None
 
 
+def fetch_telemetry_config() -> dict[str, any] | None:
+    import requests
+
+    # Check if telemetry is disabled
+    if is_telemetry_disabled():
+        return None
+
+    # Get config URL
+    config_url = _get_config_url(VERSION)
+    if not config_url:
+        return None
+
+    # Fetch config from remote URL
+    try:
+        response = requests.get(config_url, timeout=1)
+        if response.status_code != 200:
+            return None
+
+        return response.json()
+    except Exception as e:
+        _log_error(f"Failed to fetch telemetry config: {e}")
+        return None
+
+
 def _log_error(message: str) -> None:
     if _MLFLOW_TELEMETRY_LOGGING.get():
         _logger.error(message, exc_info=True)

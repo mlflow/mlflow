@@ -13,6 +13,7 @@ from functools import partial, wraps
 from typing import Any
 
 import requests
+from cachetools import TTLCache
 from flask import Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
@@ -1722,6 +1723,65 @@ def upload_artifact_handler():
         _log_artifact_to_repo(file_path, run, dirname, artifact_dir)
 
     return Response(mimetype="application/json")
+
+
+# Cache for telemetry config with 1 hour TTL
+_telemetry_config_cache = TTLCache(maxsize=1, ttl=3600)
+
+
+@catch_mlflow_exception
+def get_telemetry_handler():
+    """
+    GET handler for /telemetry endpoint.
+    Returns the telemetry client configuration by fetching it directly.
+    """
+    from mlflow.telemetry.utils import fetch_telemetry_config
+
+    # Check cache first
+    if "config" in _telemetry_config_cache:
+        return jsonify({"config": _telemetry_config_cache["config"]})
+
+    # Fetch and cache config
+    config = fetch_telemetry_config()
+    _telemetry_config_cache["config"] = config
+    return jsonify({"config": config})
+
+
+@catch_mlflow_exception
+def post_telemetry_handler():
+    """
+    POST handler for /telemetry endpoint.
+    Accepts telemetry records and adds them to the telemetry client.
+    """
+    from mlflow.telemetry import get_telemetry_client
+    from mlflow.telemetry.schemas import Record, Status
+
+    _validate_content_type(request, ["application/json"])
+
+    data = request.json
+    if not data:
+        raise MlflowException(
+            message="Request body must contain JSON data.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    records = [
+        Record(
+            event_name=event["event_name"],
+            timestamp_ns=event["timestamp_ns"],
+            params=event["params"],
+            status=Status.SUCCESS,
+        )
+        for event in data["records"]
+    ]
+
+    # Add record to telemetry client
+    client = get_telemetry_client()
+    if client is not None:
+        for record in records:
+            client.add_record(record)
+
+    return jsonify({"status": "success"})
 
 
 @catch_mlflow_exception

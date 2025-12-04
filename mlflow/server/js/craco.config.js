@@ -322,12 +322,19 @@ module.exports = function () {
             __dirname,
             'src/shared/web-shared/model-trace-explorer/oss-notebook-renderer/index.ts',
           ),
+          'telemetry-worker': {
+            import: path.resolve(__dirname, 'src/telemetry/worker/TelemetryLogger.worker.ts'),
+            chunkLoading: false,
+          },
         };
 
         // Configure output for multiple entries
         webpackConfig.output = {
           ...webpackConfig.output,
           filename: (pathData) => {
+            if (pathData.chunk.name === 'telemetry-worker') {
+              return 'TelemetryLogger.worker.js';
+            }
             return pathData.chunk.name === 'ml-model-trace-renderer'
               ? 'lib/notebook-trace-renderer/js/[name].[contenthash].js'
               : 'static/js/[name].[contenthash:8].js';
@@ -365,7 +372,7 @@ module.exports = function () {
         // Configure main HtmlWebpackPlugin to exclude notebook renderer chunks
         const mainHtmlPlugin = webpackConfig.plugins.find((plugin) => plugin.constructor.name === 'HtmlWebpackPlugin');
         if (mainHtmlPlugin) {
-          mainHtmlPlugin.options.excludeChunks = ['ml-model-trace-renderer'];
+          mainHtmlPlugin.options.excludeChunks = ['ml-model-trace-renderer', 'telemetry-worker'];
         }
 
         // Add HTML template for notebook renderer
@@ -409,5 +416,6 @@ module.exports = function () {
       ],
     },
   };
+
   return config;
 };
