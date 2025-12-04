@@ -97,7 +97,7 @@ class DeepEvalScorer(Scorer):
                 trace=trace,
             )
 
-            self._metric.measure(test_case)
+            self._metric.measure(test_case, _show_indicator=False)
 
             score = self._metric.score
             reason = self._metric.reason
