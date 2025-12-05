@@ -830,6 +830,8 @@ mlflow.genai.scorers.ConversationCompleteness
 mlflow.genai.scorers.ConversationCompleteness.model_post_init
 mlflow.genai.scorers.ConversationalSafety
 mlflow.genai.scorers.ConversationalSafety.model_post_init
+mlflow.genai.scorers.ConversationalToolCallEfficiency
+mlflow.genai.scorers.ConversationalToolCallEfficiency.model_post_init
 mlflow.genai.scorers.Correctness
 mlflow.genai.scorers.Correctness.get_input_fields
 mlflow.genai.scorers.Correctness.model_post_init
@@ -869,6 +871,7 @@ mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness
 mlflow.genai.scorers.builtin_scorers.ConversationCompleteness
 mlflow.genai.scorers.builtin_scorers.ConversationalSafety
+mlflow.genai.scorers.builtin_scorers.ConversationalToolCallEfficiency
 mlflow.genai.scorers.builtin_scorers.Correctness
 mlflow.genai.scorers.builtin_scorers.Equivalence
 mlflow.genai.scorers.builtin_scorers.ExpectationsGuidelines

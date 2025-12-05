@@ -168,7 +168,7 @@ def parse_tool_calls_from_trace(trace: Trace) -> list[dict[str, str]]:
     Example:
         >>> trace = mlflow.get_trace(trace_id)
         >>> tool_messages = parse_tool_calls_from_trace(trace)
-        >>> # [{"role": "tool", "content": "Tool: get_stock_price\\nInputs: {'symbol': 'AAPL'}\\nOutputs: {...}"}]
+        >>> # Returns: [{"role": "tool", "content": "Tool: name\\nInputs: ...\\nOutputs: ..."}]
     """
     from mlflow.entities.span import SpanType
 
@@ -200,9 +200,11 @@ def resolve_conversation_from_session(
                            in the conversation. Default is False for backward compatibility.
 
     Returns:
-        List of conversation messages in the format [{"role": "user"|"assistant"|"tool", "content": str}].
-        Each trace contributes user input and assistant output messages. If include_tool_calls is True,
-        tool call messages (with inputs/outputs) are also included in chronological order.
+        List of conversation messages in the format:
+        [{"role": "user"|"assistant"|"tool", "content": str}].
+        Each trace contributes user input and assistant output messages.
+        If include_tool_calls is True, tool call messages (with inputs/outputs)
+        are also included in chronological order.
     """
     # Sort traces by creation time (timestamp_ms)
     sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)

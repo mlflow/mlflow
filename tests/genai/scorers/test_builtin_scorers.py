@@ -1553,10 +1553,12 @@ def test_conversational_safety_instructions():
 def test_conversational_tool_call_efficiency_with_session():
     session_id = "test_session_efficiency"
     traces = []
-    for i, (q, a) in enumerate([
-        ("What is the price of AAPL?", "AAPL is $150."),
-        ("How about MSFT?", "MSFT is $300."),
-    ]):
+    for i, (q, a) in enumerate(
+        [
+            ("What is the price of AAPL?", "AAPL is $150."),
+            ("How about MSFT?", "MSFT is $300."),
+        ]
+    ):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": q})
             span.set_outputs(a)

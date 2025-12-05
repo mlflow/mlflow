@@ -33,8 +33,8 @@ from mlflow.genai.judges.prompts.conversation_completeness import (
 )
 from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
 from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
-    CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT,
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME,
+    CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT,
 )
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
@@ -1908,7 +1908,9 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
             filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
             return_type="list",
         )
-        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalToolCallEfficiency()])
+        result = mlflow.genai.evaluate(
+            data=session, scorers=[ConversationalToolCallEfficiency()]
+        )
     """
 
     name: str = CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME
