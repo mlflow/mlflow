@@ -17,35 +17,61 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 _logger = logging.getLogger(__name__)
 
 
+def patched_standalone_call(original, *args, **kwargs):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
+
+    if not config.log_traces:
+        return original(*args, **kwargs)
+
+    fullname, span_type = _resolve_standalone_span(original, kwargs)
+    if fullname is None or span_type is None:
+        _logger.debug(f"Could not resolve span name or type for {original}")
+        return original(*args, **kwargs)
+
+    with mlflow.start_span(name=fullname, span_type=span_type) as span:
+        inputs = _construct_full_inputs(original, *args, **kwargs)
+        span.set_inputs(inputs)
+
+        result = original(*args, **kwargs)
+
+        # Need to convert the response of generate_content for better visualization
+        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        span.set_outputs(outputs)
+
+        return result
+
+
 def patched_class_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
 
-    if config.log_traces:
-        default_name = f"{self.__class__.__name__}.{original.__name__}"
-        fullname = _get_span_name(self) or default_name
-        span_type = _get_span_type(self)
-        with mlflow.start_span(name=fullname, span_type=span_type) as span:
-            inputs = _construct_full_inputs(original, self, *args, **kwargs)
-            span.set_inputs(inputs)
-            _set_span_attributes(span=span, instance=self)
+    if not config.log_traces:
+        return original(self, *args, **kwargs)
 
-            # CrewAI reports only crew-level usage totals.
-            # This patch hooks LiteLLM's `completion` to capture each response
-            # so per-call LLM usage can be logged.
-            capture_context = (
-                _capture_llm_response(self) if span_type == SpanType.LLM else nullcontext()
-            )
-            with capture_context:
-                result = original(self, *args, **kwargs)
+    default_name = f"{self.__class__.__name__}.{original.__name__}"
+    fullname = _get_span_name(self) or default_name
+    span_type = _get_span_type(self)
+    with mlflow.start_span(name=fullname, span_type=span_type) as span:
+        inputs = _construct_full_inputs(original, self, *args, **kwargs)
+        span.set_inputs(inputs)
+        _set_span_attributes(span=span, instance=self)
 
-            # Need to convert the response of generate_content for better visualization
-            outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        # CrewAI reports only crew-level usage totals.
+        # This patch hooks LiteLLM's `completion` to capture each response
+        # so per-call LLM usage can be logged.
+        capture_context = (
+            _capture_llm_response(self) if span_type == SpanType.LLM else nullcontext()
+        )
+        with capture_context:
+            result = original(self, *args, **kwargs)
 
-            if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
-                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
-            span.set_outputs(outputs)
+        # Need to convert the response of generate_content for better visualization
+        outputs = result.__dict__ if hasattr(result, "__dict__") else result
 
-            return result
+        if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+        span.set_outputs(outputs)
+
+        return result
 
 
 def _capture_llm_response(instance):
@@ -79,6 +105,18 @@ def _parse_usage(instance: Any) -> dict[str, int] | None:
         TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
         TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
     }
+
+
+def _resolve_standalone_span(original, kwargs) -> tuple[str, SpanType]:
+    name = original.__name__
+    if name == "execute_tool_and_check_finality":
+        # default_tool_name should not be hit in normal runs; may append if crewai bugs
+        default_tool_name = "ToolExecution"
+        fullname = kwargs["agent_action"].tool if "agent_action" in kwargs else None
+        fullname = fullname or default_tool_name
+        return fullname, SpanType.TOOL
+
+    return None, None
 
 
 def _get_span_type(instance) -> str:

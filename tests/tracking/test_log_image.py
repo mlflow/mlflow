@@ -1,8 +1,6 @@
 import json
 import os
 import posixpath
-import shutil
-from pathlib import Path
 
 import pytest
 
@@ -13,10 +11,8 @@ from mlflow.utils.time import get_current_time_millis
 
 
 @pytest.fixture(autouse=True)
-def tracking_uri(tmp_path: Path, cached_db: Path):
-    db_path = tmp_path / "mlflow.db"
-    shutil.copy(cached_db, db_path)
-    with _use_tracking_uri(f"sqlite:///{db_path}"):
+def tracking_uri(db_uri: str):
+    with _use_tracking_uri(db_uri):
         yield
 
 

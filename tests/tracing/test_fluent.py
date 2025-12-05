@@ -1,14 +1,12 @@
 import asyncio
 import json
 import os
-import shutil
 import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -172,16 +170,13 @@ class ErroringStreamTestModel:
 
 
 @pytest.fixture(autouse=True)
-def tracking_uri(tmp_path: Path, cached_db: Path):
-    """Copies the cached database and sets the tracking URI for each test."""
+def tracking_uri(db_uri: str):
+    """Sets the tracking URI for each test."""
     if IS_TRACING_SDK_ONLY:
         yield
         return
 
-    db_path = tmp_path / "mlflow.db"
-    shutil.copy(cached_db, db_path)
-    uri = f"sqlite:///{db_path}"
-    mlflow.set_tracking_uri(uri)
+    mlflow.set_tracking_uri(db_uri)
     yield
     mlflow.set_tracking_uri(None)
 

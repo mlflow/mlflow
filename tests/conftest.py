@@ -876,13 +876,22 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     tmp_dir = tmp_path_factory.mktemp("sqlite_db")
     db_path = tmp_dir / "mlflow.db"
 
-    if IS_TRACING_SDK_ONLY:
-        return db_path
+    if not IS_TRACING_SDK_ONLY:
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+        db_uri = f"sqlite:///{db_path}"
+        artifact_uri = (tmp_dir / "artifacts").as_uri()
+        store = SqlAlchemyStore(db_uri, artifact_uri)
+        store.engine.dispose()
 
-    db_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-    store = SqlAlchemyStore(db_uri, artifact_uri)
-    store.engine.dispose()
     return db_path
+
+
+@pytest.fixture
+def db_uri(tmp_path: Path, cached_db: Path) -> str:
+    """Returns a fresh SQLite URI for each test by copying the cached database."""
+    db_path = tmp_path / "mlflow.db"
+    if not IS_TRACING_SDK_ONLY:
+        shutil.copy2(cached_db, db_path)
+
+    return f"sqlite:///{db_path}"

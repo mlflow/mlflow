@@ -6,7 +6,6 @@ when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 """
 
 import gzip
-import shutil
 import time
 import zlib
 from pathlib import Path
@@ -49,17 +48,12 @@ if IS_TRACING_SDK_ONLY:
 
 
 @pytest.fixture
-def mlflow_server(tmp_path: Path, cached_db: Path) -> Iterator[str]:
-    # Copy the pre-initialized cached DB into this test's tmp path
-    db_path = tmp_path / "mlflow.db"
-    shutil.copy(cached_db, db_path)
-
-    backend_store_uri = f"sqlite:///{db_path}"
+def mlflow_server(tmp_path: Path, db_uri: str) -> Iterator[str]:
     artifact_root = tmp_path.as_uri()
 
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    initialize_backend_stores(backend_store_uri, default_artifact_root=artifact_root)
+    initialize_backend_stores(db_uri, default_artifact_root=artifact_root)
 
     # Start the FastAPI app in a background thread and yield its URL.
     with ServerThread(mlflow_app, get_safe_port()) as url:

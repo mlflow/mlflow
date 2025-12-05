@@ -302,7 +302,7 @@ def test_fail_on_multiple_drivers():
 
 
 @pytest.fixture
-def store(tmp_path: Path, cached_db: Path) -> SqlAlchemyStore:
+def store(tmp_path: Path, db_uri: str) -> SqlAlchemyStore:
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():
@@ -310,9 +310,6 @@ def store(tmp_path: Path, cached_db: Path) -> SqlAlchemyStore:
         yield s
         _cleanup_database(s)
     else:
-        db_path = tmp_path / "mlflow.db"
-        shutil.copy(cached_db, db_path)
-        db_uri = f"sqlite:///{db_path}"
         s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
         yield s
 
