@@ -52,16 +52,18 @@ _MCP_SERVER_SAFE_ATTRIBUTES = frozenset(
     }
 )
 
-_SAFE_ATTRIBUTE_TYPES = (str, int, float, bool, type(None), list, tuple)
+_SAFE_PRIMITIVE_TYPES = (str, int, float, bool)
 
 
 def _is_safe_for_serialization(value: Any) -> bool:
     if value is None:
         return False
-    if isinstance(value, _SAFE_ATTRIBUTE_TYPES):
+    if isinstance(value, _SAFE_PRIMITIVE_TYPES):
         return True
     if isinstance(value, dict):
         return all(_is_safe_for_serialization(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return all(_is_safe_for_serialization(v) for v in value)
     if hasattr(value, "__dataclass_fields__"):
         return True
     if isinstance(value, type):

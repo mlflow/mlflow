@@ -12,6 +12,7 @@ import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanType
 from mlflow.pydantic_ai.autolog import (
     _get_agent_attributes,
+    _get_mcp_server_attributes,
     _get_model_attributes,
     _get_tool_attributes,
 )
@@ -385,6 +386,12 @@ class _MockUnsafeClient:
             {"name": "my_tool", "description": "helpful", "max_retries": 2},
             {"name": "my_tool", "description": "helpful", "max_retries": 2},
             ["_internal", "func"],
+        ),
+        (
+            _get_mcp_server_attributes,
+            {"name": "my_server", "url": "http://localhost:8080"},
+            {"name": "my_server", "url": "http://localhost:8080"},
+            ["_client", "_session", "_internal"],
         ),
     ],
 )
