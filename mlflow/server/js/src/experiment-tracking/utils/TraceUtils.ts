@@ -7,6 +7,8 @@ import {
   type ModelTraceInfoV3,
   type Assessment,
   type ExpectationAssessment,
+  NotebookModelTraceInfo,
+  ModelTraceInfo,
 } from '@databricks/web-shared/model-trace-explorer';
 
 /**
@@ -45,7 +47,7 @@ export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info'])
           spans: (rawData as any).spans?.map(deserializeOtelSpanIfNeeded) ?? [],
         } as any;
         return {
-          info: v3Trace.trace_info || traceInfo,
+          info: v3Trace.trace_info || traceInfo as ModelTraceInfoV3 | ModelTraceInfo | NotebookModelTraceInfo,
           data,
         };
       }
@@ -58,7 +60,7 @@ export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info'])
   const traceData = await MlflowService.getExperimentTraceData(traceId);
   return traceData
     ? {
-        info: traceInfo,
+        info: traceInfo as ModelTraceInfoV3 | ModelTraceInfo | NotebookModelTraceInfo,
         data: {
           ...traceData,
           spans: (traceData as any).spans?.map(deserializeOtelSpanIfNeeded) ?? (traceData as any).spans,

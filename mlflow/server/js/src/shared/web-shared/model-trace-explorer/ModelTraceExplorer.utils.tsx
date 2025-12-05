@@ -650,7 +650,6 @@ export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | n
     assessments: [],
     traceId,
     // mark this node as synthetic so renderers can omit it from UI and render its children instead
-    // @ts-expect-error runtime-only flag, not part of the ModelTraceSpanNode interface
     syntheticRoot: true,
   } as ModelTraceSpanNode;
 }
@@ -975,8 +974,7 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
 };
 
 /**
- * Attempt to normalize a conversation, return null in case the format is unrecognized.
- * Defaults to checking OpenAI format if not provided, as it is a common case.
+ * Attempt to normalize a conversation, return null in case the format is unrecognized
  *
  * Supported formats:
  *   1. Langchain chat inputs
