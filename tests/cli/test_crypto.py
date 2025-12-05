@@ -78,7 +78,7 @@ def patch_backend(mock_store):
         mock.patch("mlflow.cli.crypto._get_store", return_value=mock_store),
         mock.patch.dict(
             "sys.modules",
-            {"mlflow.store.tracking.dbmodels.models": mock.Mock(SqlSecret=mock_sql_secret)},
+            {"mlflow.store.tracking.dbmodels.models": mock.Mock(SqlGatewaySecret=mock_sql_secret)},
         ),
     ):
         yield mock_sql_secret
@@ -307,7 +307,7 @@ def test_database_connection_error(runner, old_passphrase_env):
         mock.patch("mlflow.cli.crypto._get_store", side_effect=Exception("Connection failed")),
         mock.patch.dict(
             "sys.modules",
-            {"mlflow.store.tracking.dbmodels.models": mock.Mock(SqlSecret=mock_sql_secret)},
+            {"mlflow.store.tracking.dbmodels.models": mock.Mock(SqlGatewaySecret=mock_sql_secret)},
         ),
     ):
         result = runner.invoke(

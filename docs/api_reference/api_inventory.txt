@@ -359,7 +359,7 @@ mlflow.entities.GatewayEndpointBinding
 mlflow.entities.GatewayEndpointModelMapping
 mlflow.entities.GatewayModelDefinition
 mlflow.entities.GatewayResourceType
-mlflow.entities.GatewaySecret
+mlflow.entities.GatewaySecretInfo
 mlflow.entities.InferenceTableLocation
 mlflow.entities.InferenceTableLocation.from_dict
 mlflow.entities.InferenceTableLocation.from_proto
@@ -556,7 +556,7 @@ mlflow.entities.gateway_endpoint.GatewayEndpointBinding
 mlflow.entities.gateway_endpoint.GatewayEndpointModelMapping
 mlflow.entities.gateway_endpoint.GatewayModelDefinition
 mlflow.entities.gateway_endpoint.GatewayResourceType
-mlflow.entities.gateway_secrets.GatewaySecret
+mlflow.entities.gateway_secrets.GatewaySecretInfo
 mlflow.entities.input_tag.InputTag
 mlflow.entities.lifecycle_stage.LifecycleStage
 mlflow.entities.logged_model.LoggedModel

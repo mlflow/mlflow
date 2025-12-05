@@ -136,10 +136,14 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
 
     click.echo("Retrieving encrypted keys to rotate...")
     try:
-        from mlflow.store.tracking.dbmodels.models import SqlSecret
+        from mlflow.store.tracking.dbmodels.models import SqlGatewaySecret
 
         with store.ManagedSessionMaker() as session:
-            secrets = session.query(SqlSecret).filter(SqlSecret.kek_version == old_version).all()
+            secrets = (
+                session.query(SqlGatewaySecret)
+                .filter(SqlGatewaySecret.kek_version == old_version)
+                .all()
+            )
             total_secrets = len(secrets)
 
             if total_secrets == 0:

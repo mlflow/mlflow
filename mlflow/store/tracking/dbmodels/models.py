@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Computed,
+    Float,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -37,6 +38,11 @@ from mlflow.entities import (
     Experiment,
     ExperimentTag,
     Feedback,
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointModelMapping,
+    GatewayModelDefinition,
+    GatewaySecretInfo,
     InputTag,
     Metric,
     Param,
@@ -2031,7 +2037,7 @@ class SqlJob(Base):
         )
 
 
-class SqlSecret(Base):
+class SqlGatewaySecret(Base):
     """
     DB model for secrets. These are recorded in the ``secrets`` table.
     Stores encrypted credentials used by MLflow resources (e.g., LLM provider API keys).
@@ -2054,12 +2060,6 @@ class SqlSecret(Base):
     tag (16 bytes). The secret value is encrypted using envelope encryption with a DEK, and
     the nonce is prepended for storage. AAD (Additional Authenticated Data) from secret_id
     and secret_name is included during encryption to prevent ciphertext substitution attacks.
-    """
-    encrypted_auth_config = Column(LargeBinary, nullable=True)
-    """
-    Encrypted provider authentication config: `LargeBinary`. Combined nonce (12 bytes) +
-    AES-GCM ciphertext + tag (16 bytes). Used for complex provider authentication like
-    AWS Bedrock (access keys), Azure OpenAI (endpoints), Vertex AI (service accounts).
     """
     wrapped_dek = Column(LargeBinary, nullable=False)
     """
@@ -2087,10 +2087,11 @@ class SqlSecret(Base):
     Credential name: `String` (limit 255 characters). Optional identifier for the credential.
     E.g., "ANTHROPIC_API_KEY", "openai_api_key", "bedrock_access_key".
     """
-    wrapped_auth_config_dek = Column(LargeBinary, nullable=True)
+    auth_config = Column(Text, nullable=True)
     """
-    Wrapped auth config data encryption key: `LargeBinary`. DEK encrypted by KEK.
-    Used to decrypt encrypted_auth_config.
+    Provider authentication config: `Text` (JSON string). Non-sensitive metadata for
+    provider configuration like region, project_id, endpoint URL. Useful for UI display
+    and disambiguation. Not encrypted since it contains no secrets.
     """
     description = Column(Text, nullable=True)
     """
@@ -2119,10 +2120,23 @@ class SqlSecret(Base):
     )
 
     def __repr__(self):
-        return f"<SqlSecret ({self.secret_id}, {self.secret_name})>"
+        return f"<SqlGatewaySecret ({self.secret_id}, {self.secret_name})>"
+
+    def to_mlflow_entity(self):
+        return GatewaySecretInfo(
+            secret_id=self.secret_id,
+            secret_name=self.secret_name,
+            masked_value=self.masked_value,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            provider=self.provider,
+            auth_config=json.loads(self.auth_config) if self.auth_config else None,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
 
 
-class SqlEndpoint(Base):
+class SqlGatewayEndpoint(Base):
     """
     DB model for endpoints. These are recorded in ``endpoints`` table.
     Represents LLM gateway endpoints that route requests to configured models.
@@ -2162,10 +2176,21 @@ class SqlEndpoint(Base):
     )
 
     def __repr__(self):
-        return f"<SqlEndpoint ({self.endpoint_id}, {self.name})>"
+        return f"<SqlGatewayEndpoint ({self.endpoint_id}, {self.name})>"
+
+    def to_mlflow_entity(self):
+        return GatewayEndpoint(
+            endpoint_id=self.endpoint_id,
+            name=self.name,
+            model_mappings=[mapping.to_mlflow_entity() for mapping in self.model_mappings],
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
 
 
-class SqlModelDefinition(Base):
+class SqlGatewayModelDefinition(Base):
     """
     DB model for model definitions. These are recorded in ``model_definitions`` table.
     Represents reusable LLM model configurations that can be shared across multiple endpoints.
@@ -2183,10 +2208,13 @@ class SqlModelDefinition(Base):
     Model definition name: `String` (limit 255 characters). User-provided name for identification.
     Defined as *Unique* in table schema.
     """
-    secret_id = Column(String(36), ForeignKey("secrets.secret_id"), nullable=False)
+    secret_id = Column(
+        String(36), ForeignKey("secrets.secret_id", ondelete="SET NULL"), nullable=True
+    )
     """
     Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
-    References the API key/credentials for this model.
+    References the API key/credentials for this model. Nullable to allow orphaned
+    model definitions when secrets are deleted.
     """
     provider = Column(String(64), nullable=False)
     """
@@ -2215,10 +2243,10 @@ class SqlModelDefinition(Base):
     Last update timestamp: `BigInteger`.
     """
 
-    secret = relationship("SqlSecret")
+    secret = relationship("SqlGatewaySecret")
     """
     SQLAlchemy relationship (many:one) with
-    :py:class:`mlflow.store.tracking.dbmodels.models.SqlSecret`.
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewaySecret`.
     """
 
     __table_args__ = (
@@ -2229,10 +2257,24 @@ class SqlModelDefinition(Base):
     )
 
     def __repr__(self):
-        return f"<SqlModelDefinition ({self.model_definition_id}, {self.name})>"
+        return f"<SqlGatewayModelDefinition ({self.model_definition_id}, {self.name})>"
+
+    def to_mlflow_entity(self):
+        return GatewayModelDefinition(
+            model_definition_id=self.model_definition_id,
+            name=self.name,
+            secret_id=self.secret_id,
+            secret_name=self.secret.secret_name if self.secret else None,
+            provider=self.provider,
+            model_name=self.model_name,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
 
 
-class SqlEndpointModelMapping(Base):
+class SqlGatewayEndpointModelMapping(Base):
     """
     DB model for endpoint-model mappings. These are recorded in ``endpoint_model_mappings`` table.
     Junction table linking endpoints to model definitions (supports multi-model routing).
@@ -2261,10 +2303,10 @@ class SqlEndpointModelMapping(Base):
     *Foreign Key* into ``model_definitions`` table.
     Prevents deletion of a model definition that is in use (default FK behavior).
     """
-    weight = Column(Integer, default=1, nullable=False)
+    weight = Column(Float, default=1.0, nullable=False)
     """
-    Routing weight: `Integer`. Used for traffic distribution when endpoint has multiple models.
-    Default is 1.
+    Routing weight: `Float`. Used for traffic distribution when endpoint has multiple models.
+    Default is 1.0.
     """
     created_by = Column(String(255), nullable=True)
     """
@@ -2275,15 +2317,15 @@ class SqlEndpointModelMapping(Base):
     Creation timestamp: `BigInteger`.
     """
 
-    endpoint = relationship("SqlEndpoint", backref=backref("model_mappings", cascade="all"))
+    endpoint = relationship("SqlGatewayEndpoint", backref=backref("model_mappings", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with
-    :py:class:`mlflow.store.tracking.dbmodels.models.SqlEndpoint`.
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayEndpoint`.
     """
-    model_definition = relationship("SqlModelDefinition")
+    model_definition = relationship("SqlGatewayModelDefinition")
     """
     SQLAlchemy relationship (many:one) with
-    :py:class:`mlflow.store.tracking.dbmodels.models.SqlModelDefinition`.
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayModelDefinition`.
     """
 
     __table_args__ = (
@@ -2300,12 +2342,26 @@ class SqlEndpointModelMapping(Base):
 
     def __repr__(self):
         return (
-            f"<SqlEndpointModelMapping ({self.mapping_id}, "
+            f"<SqlGatewayEndpointModelMapping ({self.mapping_id}, "
             f"endpoint={self.endpoint_id}, model={self.model_definition_id})>"
         )
 
+    def to_mlflow_entity(self):
+        model_def = None
+        if self.model_definition:
+            model_def = self.model_definition.to_mlflow_entity()
+        return GatewayEndpointModelMapping(
+            mapping_id=self.mapping_id,
+            endpoint_id=self.endpoint_id,
+            model_definition_id=self.model_definition_id,
+            model_definition=model_def,
+            weight=self.weight,
+            created_at=self.created_at,
+            created_by=self.created_by,
+        )
 
-class SqlEndpointBinding(Base):
+
+class SqlGatewayEndpointBinding(Base):
     """
     DB model for endpoint bindings. These are recorded in ``endpoint_bindings`` table.
     Tracks which resources are bound to which endpoints (e.g., model configurations, experiments).
@@ -2347,10 +2403,10 @@ class SqlEndpointBinding(Base):
     Last updater user ID: `String` (limit 255 characters).
     """
 
-    endpoint = relationship("SqlEndpoint", backref=backref("bindings", cascade="all"))
+    endpoint = relationship("SqlGatewayEndpoint", backref=backref("bindings", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with
-    :py:class:`mlflow.store.tracking.dbmodels.models.SqlEndpoint`.
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayEndpoint`.
     """
 
     __table_args__ = (
@@ -2361,5 +2417,17 @@ class SqlEndpointBinding(Base):
 
     def __repr__(self):
         return (
-            f"<SqlEndpointBinding ({self.endpoint_id}, {self.resource_type}, {self.resource_id})>"
+            f"<SqlGatewayEndpointBinding "
+            f"({self.endpoint_id}, {self.resource_type}, {self.resource_id})>"
+        )
+
+    def to_mlflow_entity(self):
+        return GatewayEndpointBinding(
+            endpoint_id=self.endpoint_id,
+            resource_type=self.resource_type,
+            resource_id=self.resource_id,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
         )
