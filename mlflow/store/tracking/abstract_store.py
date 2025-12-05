@@ -17,6 +17,12 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricDataPoint,
+    MetricsViewType,
+    TimeGranularity,
+)
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
@@ -27,6 +33,7 @@ from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
+    MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
@@ -404,6 +411,38 @@ class AbstractStore:
             not be meaningful in such cases.
         """
         raise NotImplementedError
+
+    def query_trace_metrics(
+        self,
+        experiment_ids: list[str],
+        view_type: MetricsViewType,
+        metric_name: str,
+        aggregation_types: list[AggregationType],
+        dimensions: list[str] | None = None,
+        filters: list[str] | None = None,
+        time_granularity: TimeGranularity | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        max_results: int = MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token: str | None = None,
+    ) -> PagedList[list[MetricDataPoint]]:
+        """
+        Query trace metrics for the given experiment ids.
+
+        Args:
+            experiment_ids: List of experiment ids to query metrics for.
+            view_type: The view type to query metrics for.
+            metric_name: The metric name to query metrics for.
+            aggregation_types: The aggregation types to apply to the metrics.
+            dimensions: The dimensions to group metrics by.
+            filters: The filters to apply to the traces.
+            time_granularity: The time granularity to group traces metrics by.
+            start_time_ms: The start time to query traces metrics for.
+            end_time_ms: The end time to query traces metrics for.
+            max_results: The maximum number of traces metrics to return. Default is 1000.
+            page_token: The page token to use for pagination.
+        """
+        raise MlflowNotImplementedException()
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """

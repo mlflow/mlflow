@@ -27,6 +27,15 @@ class AggregationType(str, Enum):
     def to_proto(self):
         return pb.AggregationType.Value(self)
 
+    def map_to_percentile(self) -> float | None:
+        return {
+            AggregationType.P50: 0.5,
+            AggregationType.P75: 0.75,
+            AggregationType.P90: 0.9,
+            AggregationType.P95: 0.95,
+            AggregationType.P99: 0.99,
+        }.get(self)
+
 
 class TimeGranularity(str, Enum):
     MINUTE = "MINUTE"
