@@ -130,7 +130,7 @@ def evaluate_session_level_scorers(
                     source=make_code_type_assessment_source(scorer.name),
                     error=AssessmentError(
                         error_code="SCORER_ERROR",
-                        error_message=e,
+                        error_message=str(e),
                         stack_trace=traceback.format_exc(),
                     ),
                 )
@@ -151,9 +151,7 @@ def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: 
     Raises:
         MlflowException: If invalid configuration is detected
     """
-    session_level_scorers = [scorer for scorer in scorers if scorer.is_session_level_scorer]
-
-    if session_level_scorers:
+    if session_level_scorers := [scorer for scorer in scorers if scorer.is_session_level_scorer]:
         if predict_fn is not None:
             scorer_names = [scorer.name for scorer in session_level_scorers]
             raise MlflowException.invalid_parameter_value(

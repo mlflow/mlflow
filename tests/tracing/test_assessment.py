@@ -1,5 +1,5 @@
 import os
-import sys
+import shutil
 
 import pytest
 
@@ -12,6 +12,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
     source_type=AssessmentSourceType.HUMAN,
@@ -33,20 +34,23 @@ def trace_id():
 
 
 @pytest.fixture(params=["file", "sqlalchemy"], autouse=True)
-def tracking_uri(request, tmp_path):
+def tracking_uri(request, tmp_path, cached_db):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
+
+    if IS_TRACING_SDK_ONLY and request.param == "sqlalchemy":
+        pytest.skip("SQLAlchemy store is not available in tracing SDK only mode.")
 
     original_tracking_uri = mlflow.get_tracking_uri()
 
     if request.param == "file":
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        # Copy the cached database to avoid migration on each test
+        db_path = tmp_path / "mlflow.db"
+        shutil.copy(cached_db, db_path)
+        tracking_uri = f"sqlite:///{db_path}"
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.
@@ -215,7 +219,6 @@ def test_log_feedback_with_error(trace_id, legacy_api):
 
 @pytest.mark.parametrize("legacy_api", [True, False])
 def test_log_feedback_with_exception_object(trace_id, legacy_api):
-    """Test that log_feedback correctly accepts Exception objects."""
     test_exception = ValueError("Test exception message")
 
     if legacy_api:
@@ -537,7 +540,6 @@ def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled():
 
 
 def test_get_assessment(trace_id):
-    """Test get_assessment calls store correctly"""
     assessment_id = mlflow.log_feedback(
         trace_id=trace_id,
         name="faithfulness",

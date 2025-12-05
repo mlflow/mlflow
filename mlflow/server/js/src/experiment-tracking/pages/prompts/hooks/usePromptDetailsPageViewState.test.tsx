@@ -14,14 +14,6 @@ describe('usePromptDetailsPageViewState', () => {
     expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.PREVIEW);
   });
 
-  it('should set table mode', () => {
-    const { result } = renderHook(() => usePromptDetailsPageViewState());
-    act(() => {
-      result.current.setTableMode();
-    });
-    expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.TABLE);
-  });
-
   it('should set preview mode with selected version', () => {
     const { result } = renderHook(() => usePromptDetailsPageViewState(mockPromptDetailsData));
     act(() => {

@@ -54,6 +54,7 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
@@ -1625,8 +1626,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            previous_tag = [t for t in run.tags if t.key == MLFLOW_LOGGED_MODELS]
-            if previous_tag:
+            if previous_tag := [t for t in run.tags if t.key == MLFLOW_LOGGED_MODELS]:
                 value = json.dumps(json.loads(previous_tag[0].value) + [model_dict])
             else:
                 value = json.dumps([model_dict])
@@ -1776,14 +1776,14 @@ class SqlAlchemyStore(AbstractStore):
                         )
                     )
                     # add input tags to objs_to_write
-                    for input_tag in dataset_input.tags:
-                        objs_to_write.append(
-                            SqlInputTag(
-                                input_uuid=new_input_uuid,
-                                name=input_tag.key,
-                                value=input_tag.value,
-                            )
+                    objs_to_write.extend(
+                        SqlInputTag(
+                            input_uuid=new_input_uuid,
+                            name=input_tag.key,
+                            value=input_tag.value,
                         )
+                        for input_tag in dataset_input.tags
+                    )
 
             if models:
                 for model in models:
@@ -2166,11 +2166,9 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
 
-            scorers = []
-            for sql_scorer_version in sql_scorer_versions:
-                scorers.append(sql_scorer_version.to_mlflow_entity())
-
-            return scorers
+            return [
+                sql_scorer_version.to_mlflow_entity() for sql_scorer_version in sql_scorer_versions
+            ]
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
@@ -2351,11 +2349,9 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             # Convert to mlflow.entities.scorer.ScorerVersion objects
-            scorers = []
-            for sql_scorer_version in sql_scorer_versions:
-                scorers.append(sql_scorer_version.to_mlflow_entity())
-
-            return scorers
+            return [
+                sql_scorer_version.to_mlflow_entity() for sql_scorer_version in sql_scorer_versions
+            ]
 
     def _apply_order_by_search_logged_models(
         self,
@@ -2611,14 +2607,7 @@ class SqlAlchemyStore(AbstractStore):
 
             tags = [
                 SqlTraceTag(request_id=trace_id, key=k, value=v) for k, v in trace_info.tags.items()
-            ] + [
-                self._get_trace_artifact_location_tag(experiment, trace_id),
-                SqlTraceTag(
-                    request_id=trace_id,
-                    key=TraceTagKey.SPANS_LOCATION,
-                    value=SpansLocation.TRACKING_STORE.value,
-                ),
-            ]
+            ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
             sql_trace_info.tags = tags
 
             sql_trace_info.request_metadata = [
@@ -2636,6 +2625,22 @@ class SqlAlchemyStore(AbstractStore):
                 # Trace already exists (likely created by log_spans())
                 # Use merge to update with start_trace() data, preserving any logged spans
                 session.rollback()
+                # This is required to preserve the spans_location tag if it was set by log_spans;
+                # We cannot set the tag in TraceInfo directly because this may be invoked by
+                # older mlflow clients that log spans to artifact repository.
+                db_sql_trace_info = (
+                    session.query(SqlTraceInfo)
+                    .filter(SqlTraceInfo.request_id == trace_id)
+                    .one_or_none()
+                )
+                new_tag_keys = {t.key for t in tags}
+                if db_sql_trace_info:
+                    for tag in db_sql_trace_info.tags:
+                        if tag.key not in new_tag_keys:
+                            sql_trace_info.tags.append(
+                                SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
+                            )
+                            break
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -3162,6 +3167,49 @@ class SqlAlchemyStore(AbstractStore):
                 for trace_id in trace_ids_to_add
             )
 
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
+        """
+        if not prompt_versions:
+            return
+
+        with self.ManagedSessionMaker() as session:
+            # Build list of prompt version IDs (format: "name/version")
+            prompt_ids = [f"{pv.name}/{pv.version}" for pv in prompt_versions]
+
+            # Check for existing associations
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                    SqlEntityAssociation.source_id == trace_id,
+                    SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
+                    SqlEntityAssociation.destination_id.in_(prompt_ids),
+                )
+                .all()
+            )
+            existing_prompt_ids = {
+                association.destination_id for association in existing_associations
+            }
+
+            prompt_ids_to_add = [pid for pid in prompt_ids if pid not in existing_prompt_ids]
+
+            session.add_all(
+                SqlEntityAssociation(
+                    association_id=uuid.uuid4().hex,
+                    source_type=EntityAssociationType.TRACE,
+                    source_id=trace_id,
+                    destination_type=EntityAssociationType.PROMPT_VERSION,
+                    destination_id=prompt_id,
+                )
+                for prompt_id in prompt_ids_to_add
+            )
+
     def calculate_trace_filter_correlation(
         self,
         experiment_ids: list[str],
@@ -3377,14 +3425,7 @@ class SqlAlchemyStore(AbstractStore):
                     client_request_id=None,
                 )
                 # Add the artifact location tag that's required for search_traces to work
-                tags = [
-                    SqlTraceTag(
-                        key=TraceTagKey.SPANS_LOCATION,
-                        value=SpansLocation.TRACKING_STORE.value,
-                        request_id=trace_id,
-                    ),
-                    self._get_trace_artifact_location_tag(experiment, trace_id),
-                ]
+                tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
                 sql_trace_info.tags = tags
                 session.add(sql_trace_info)
                 try:
@@ -3436,14 +3477,19 @@ class SqlAlchemyStore(AbstractStore):
                     update_dict[SqlTraceInfo.status] = root_span_status
 
             aggregated_token_usage = {}
+            session_id = None
             for span in spans:
                 span_dict = translate_span_when_storing(span)
-                if span_token_usage := span_dict.get("attributes", {}).get(
-                    SpanAttributeKey.CHAT_USAGE
-                ):
-                    aggregated_token_usage = update_token_usage(
-                        aggregated_token_usage, span_token_usage
-                    )
+                if span_attributes := span_dict.get("attributes", {}):
+                    if span_token_usage := span_attributes.get(SpanAttributeKey.CHAT_USAGE):
+                        aggregated_token_usage = update_token_usage(
+                            aggregated_token_usage, span_token_usage
+                        )
+                    # session id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
+                    if session_id is None and (
+                        span_session_id := span_attributes.get("session.id")
+                    ):
+                        session_id = span_session_id
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
@@ -3487,11 +3533,37 @@ class SqlAlchemyStore(AbstractStore):
                         value=json.dumps(trace_token_usage),
                     )
                 )
+            if session_id:
+                existing_session_id = (
+                    session.query(SqlTraceMetadata)
+                    .filter(
+                        SqlTraceMetadata.request_id == trace_id,
+                        SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
+                    )
+                    .one_or_none()
+                )
+                if not existing_session_id:
+                    session.merge(
+                        SqlTraceMetadata(
+                            request_id=trace_id,
+                            key=TraceMetadataKey.TRACE_SESSION,
+                            value=session_id,
+                        )
+                    )
 
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
                 # Skip session synchronization for performance - we don't use the object afterward
                 synchronize_session=False,
+            )
+            # This is required to handle the concurrent calls that create or update the trace info,
+            # and to set the spans_location tag here since spans are stored in db.
+            session.merge(
+                SqlTraceTag(
+                    request_id=trace_id,
+                    key=TraceTagKey.SPANS_LOCATION,
+                    value=SpansLocation.TRACKING_STORE.value,
+                )
             )
 
         return spans
@@ -4026,10 +4098,7 @@ class SqlAlchemyStore(AbstractStore):
                 sql_datasets = sql_datasets[:max_results]
                 next_page_token = SearchUtils.create_page_token(offset + max_results)
 
-            datasets = []
-            for sql_dataset in sql_datasets:
-                dataset = sql_dataset.to_mlflow_entity()
-                datasets.append(dataset)
+            datasets = [sql_dataset.to_mlflow_entity() for sql_dataset in sql_datasets]
 
             return PagedList(datasets, next_page_token)
 
@@ -4513,18 +4582,17 @@ class SqlAlchemyStore(AbstractStore):
 
             existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
 
-            new_associations = []
-            for exp_id in experiment_ids:
-                if str(exp_id) not in existing_exp_ids:
-                    new_associations.append(
-                        SqlEntityAssociation(
-                            association_id=uuid.uuid4().hex,
-                            source_id=dataset_id,
-                            source_type=EntityAssociationType.EVALUATION_DATASET,
-                            destination_id=str(exp_id),
-                            destination_type=EntityAssociationType.EXPERIMENT,
-                        )
-                    )
+            new_associations = [
+                SqlEntityAssociation(
+                    association_id=uuid.uuid4().hex,
+                    source_id=dataset_id,
+                    source_type=EntityAssociationType.EVALUATION_DATASET,
+                    destination_id=str(exp_id),
+                    destination_type=EntityAssociationType.EXPERIMENT,
+                )
+                for exp_id in experiment_ids
+                if str(exp_id) not in existing_exp_ids
+            ]
 
             if new_associations:
                 session.bulk_save_objects(new_associations)
@@ -4925,6 +4993,40 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 continue
 
             if SearchTraceUtils.is_tag(key_type, comparator):
+                # Special handling for prompts filter: only support exact match with name/version
+                # Uses EntityAssociation table for linkage
+                if key_name == TraceTagKey.LINKED_PROMPTS:
+                    # Only support = comparator for prompts filter
+                    if comparator != "=":
+                        raise MlflowException(
+                            f"Invalid comparator '{comparator}' for prompts filter. "
+                            "Only '=' is supported with format: prompt = \"name/version\"",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                    # Parse the filter value to extract name/version
+                    # Expected format: "name/version"
+                    if value.count("/") != 1:
+                        raise MlflowException(
+                            f"Invalid prompts filter value '{value}'. "
+                            'Expected format: prompt = "name/version"',
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                    # Query EntityAssociation table for trace<>prompt linkage
+                    # The prompt version ID is stored as "name/version"
+                    prompt_id = value
+                    association_subquery = (
+                        session.query(SqlEntityAssociation.source_id.label("request_id"))
+                        .filter(
+                            SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                            SqlEntityAssociation.destination_type
+                            == EntityAssociationType.PROMPT_VERSION,
+                            SqlEntityAssociation.destination_id == prompt_id,
+                        )
+                        .distinct()
+                        .subquery()
+                    )
+                    span_filters.append(association_subquery)
+                    continue
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata

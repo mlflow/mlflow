@@ -15,7 +15,6 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import MlflowExperimentLocation
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceSizeStatsKey, TraceTagKey
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -231,7 +230,6 @@ def test_async_bulk_export(monkeypatch):
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
-    """Test that prompts are correctly linked when using MLflow v3 exporter."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
@@ -309,7 +307,7 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
         join_thread_by_name_prefix("link_prompts_from_exporter")
 
     # Verify that trace info contains the linked prompts tags
-    tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
+    tag_value = trace_info.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert tag_value is not None
     tag_value = json.loads(tag_value)
     assert len(tag_value) == 2
@@ -337,7 +335,6 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
-    """Test that empty prompts list doesn't cause issues with MLflow v3 exporter."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
@@ -406,7 +403,6 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
 
 
 def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
-    """Test that MLflow v3 exporter handles prompt linking errors gracefully."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "False")  # Use sync for easier testing

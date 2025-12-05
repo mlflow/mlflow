@@ -351,9 +351,11 @@ class InstructionsJudge(Judge):
 
     def get_output_fields(self) -> list[JudgeField]:
         """Get the output fields for this judge."""
+        # Use generic field description, not self.description, to avoid the LLM
+        # echoing the scorer's description as the assessment value
         result_field = JudgeField(
             name="result",
-            description=self.description or _RESULT_FIELD_DESCRIPTION,
+            description=_RESULT_FIELD_DESCRIPTION,
             value_type=self._feedback_value_type,
         )
         rationale_field = JudgeField(
@@ -390,10 +392,11 @@ class InstructionsJudge(Judge):
         ]
 
         # Build user message parts in order
-        user_message_parts = []
-        for var_name in field_vars:
-            if var_name in template_values:
-                user_message_parts.append(f"{var_name}: {template_values[var_name]}")
+        user_message_parts = [
+            f"{var_name}: {template_values[var_name]}"
+            for var_name in field_vars
+            if var_name in template_values
+        ]
 
         # Some model providers (like Anthropic) require a user message
         # (i.e. a single-message chat history with role 'system' is not supported),
@@ -546,17 +549,14 @@ class InstructionsJudge(Judge):
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
-        result_field = (
-            self._feedback_value_type or str,
-            pydantic.Field(description=self.description or _RESULT_FIELD_DESCRIPTION),
-        )
-        rationale_field = (str, pydantic.Field(description=_RATIONALE_FIELD_DESCRIPTION))
+        output_fields = self.get_output_fields()
 
-        fields = (
-            {"rationale": rationale_field, "result": result_field}
-            if self._generate_rationale_first
-            else {"result": result_field, "rationale": rationale_field}
-        )
+        fields = {}
+        for field in output_fields:
+            fields[field.name] = (
+                field.value_type,
+                pydantic.Field(description=field.description),
+            )
 
         return pydantic.create_model("ResponseFormat", **fields)
 
@@ -625,7 +625,7 @@ class InstructionsJudge(Judge):
         """
         model = pydantic.create_model(
             "FeedbackValueSchema",
-            result=feedback_value_type,
+            result=(feedback_value_type, ...),
         )
         return model.model_json_schema()["properties"]["result"]
 
@@ -725,6 +725,7 @@ class InstructionsJudge(Judge):
             name=self.name,
             description=self.description,
             aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             instructions_judge_pydantic_data=pydantic_data,

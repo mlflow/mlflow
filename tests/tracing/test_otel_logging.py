@@ -5,8 +5,10 @@ This test suite verifies that the experiment ID header functionality works corre
 when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 """
 
+import gzip
 import shutil
 import time
+import zlib
 from pathlib import Path
 from typing import Iterator
 from unittest import mock
@@ -40,22 +42,10 @@ from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.helper_functions import get_safe_port
-from tests.store.tracking.test_sqlalchemy_store import ARTIFACT_URI
 from tests.tracking.integration_test_utils import ServerThread
 
 if IS_TRACING_SDK_ONLY:
     pytest.skip("OTel endpoint tests require full MLflow server", allow_module_level=True)
-
-
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
-    store.engine.dispose()
-    return db_path
 
 
 @pytest.fixture
@@ -796,3 +786,108 @@ def test_response_is_protobuf_format(mlflow_server: str):
     # Verify the response can be parsed as a valid ExportTraceServiceResponse
     response_message = ExportTraceServiceResponse()
     response_message.ParseFromString(response.content)
+
+
+def _build_valid_otlp_request() -> str:
+    """Helper: Build a valid OTLP ExportTraceServiceRequest protobuf."""
+
+    span = OTelProtoSpan()
+    span.trace_id = bytes.fromhex("0000000000000400" + "0" * 16)
+    span.span_id = bytes.fromhex("00000004" + "0" * 8)
+    span.name = "test-span"
+    span.start_time_unix_nano = 1000000000
+    span.end_time_unix_nano = 2000000000
+
+    scope = InstrumentationScope()
+    scope.name = "test-scope"
+
+    scope_spans = ScopeSpans()
+    scope_spans.scope.CopyFrom(scope)
+    scope_spans.spans.append(span)
+
+    resource = Resource()
+    resource_spans = ResourceSpans()
+    resource_spans.resource.CopyFrom(resource)
+    resource_spans.scope_spans.append(scope_spans)
+
+    request = ExportTraceServiceRequest()
+    request.resource_spans.append(resource_spans)
+
+    return request.SerializeToString()
+
+
+def test_otlp_traces_no_compression(mlflow_server: str):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-identity-test")
+    experiment_id = experiment.experiment_id
+
+    data = _build_valid_otlp_request()
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=data,
+        headers={
+            "Content-Type": "application/x-protobuf",
+            # No Content-Encoding -> no compression
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 200
+    assert response.headers.get("content-type") == "application/x-protobuf"
+
+    msg = ExportTraceServiceResponse()
+    msg.ParseFromString(response.content)
+
+
+def test_otlp_traces_gzip_compression(mlflow_server: str):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-gzip-test")
+    experiment_id = experiment.experiment_id
+
+    raw = _build_valid_otlp_request()
+    compressed = gzip.compress(raw)
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=compressed,
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "Content-Encoding": "gzip",
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 200
+    assert response.headers.get("content-type") == "application/x-protobuf"
+
+    msg = ExportTraceServiceResponse()
+    msg.ParseFromString(response.content)
+
+
+def test_otlp_traces_deflate_compression(mlflow_server: str):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-deflate-test")
+    experiment_id = experiment.experiment_id
+
+    raw = _build_valid_otlp_request()
+    compressed = zlib.compress(raw)
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=compressed,
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "Content-Encoding": "deflate",
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 200
+    assert response.headers.get("content-type") == "application/x-protobuf"
+
+    msg = ExportTraceServiceResponse()
+    msg.ParseFromString(response.content)

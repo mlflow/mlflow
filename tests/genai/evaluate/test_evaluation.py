@@ -22,7 +22,6 @@ from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 from tests.helper_functions import get_safe_port
@@ -157,19 +156,6 @@ def _validate_eval_result_df(result: EvaluationResult):
 class ServerConfig:
     host_type: Literal["local", "remote", "databricks"]
     backend_type: Literal["file", "sqlalchemy"] | None = None
-
-
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_dir / "mlflow.db"
-    backend_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
-    store.engine.dispose()
-    return db_path
 
 
 # Test with different server configurations
@@ -414,7 +400,6 @@ def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config, re
 
 
 def test_evaluate_with_managed_dataset(is_in_databricks):
-    """Test evaluation with both managed (Databricks) and OSS datasets."""
     if is_in_databricks:
         # Databricks path: Use managed dataset with mocks
         class MockDatasetClient:
@@ -845,16 +830,15 @@ def test_evaluate_with_managed_dataset_preserves_name():
     ],
 )
 def test_evaluate_with_tags(tags_data, expected_calls):
-    """Test that tags from evaluation data are logged to MLflow runs."""
-    data = []
-    for i, tags in enumerate(tags_data):
-        item = {
+    data = [
+        {
             "inputs": {"question": f"What is question {i}?"},
             "outputs": f"Answer {i}",
             "expectations": {"expected_response": f"Answer {i}"},
             "tags": tags,
         }
-        data.append(item)
+        for i, tags in enumerate(tags_data)
+    ]
 
     with mock.patch("mlflow.set_trace_tag") as mock_set_trace_tag:
         mlflow.genai.evaluate(
@@ -889,7 +873,6 @@ def test_evaluate_with_traces_tags_no_warnings():
 
 
 def test_evaluate_with_tags_error_handling(is_in_databricks):
-    """Test that tag logging errors don't fail the evaluation."""
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -912,7 +895,6 @@ def test_evaluate_with_tags_error_handling(is_in_databricks):
 
 
 def test_evaluate_with_invalid_tags_type():
-    """Test that invalid tag types raise appropriate validation errors."""
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -1163,8 +1145,6 @@ def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
 
 
 def test_evaluate_with_evaluation_dataset_and_session_level_scorers():
-    """Test that session-level scorers work with EvaluationDataset created from traces."""
-
     # Define a session-level scorer
     class ConversationLengthScorer(mlflow.genai.Scorer):
         def __init__(self):

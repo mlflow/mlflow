@@ -150,8 +150,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
 
     @staticmethod
     def get_s3_file_upload_extra_args():
-        s3_file_upload_extra_args = MLFLOW_S3_UPLOAD_EXTRA_ARGS.get()
-        if s3_file_upload_extra_args:
+        if s3_file_upload_extra_args := MLFLOW_S3_UPLOAD_EXTRA_ARGS.get():
             return json.loads(s3_file_upload_extra_args)
         else:
             return None

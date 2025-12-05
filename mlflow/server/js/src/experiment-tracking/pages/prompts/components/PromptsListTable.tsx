@@ -78,6 +78,7 @@ export const PromptsListTable = ({
   onNextPage,
   onPreviousPage,
   onEditTags,
+  experimentId,
 }: {
   prompts?: RegisteredPrompt[];
   error?: Error;
@@ -88,6 +89,7 @@ export const PromptsListTable = ({
   onNextPage: () => void;
   onPreviousPage: () => void;
   onEditTags: (editedEntity: RegisteredPrompt) => void;
+  experimentId?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = usePromptsTableColumns();
@@ -99,7 +101,7 @@ export const PromptsListTable = ({
       columns,
       getCoreRowModel: getCoreRowModel(),
       getRowId: (row, index) => row.name ?? index.toString(),
-      meta: { onEditTags } satisfies PromptsTableMetadata,
+      meta: { onEditTags, experimentId } satisfies PromptsTableMetadata,
     },
   );
 
