@@ -275,34 +275,30 @@ const sidebarsClassicML: SidebarsConfig = {
               label: 'Sentence Transformers',
               items: [
                 {
-                  type: 'doc',
-                  id: 'deep-learning/sentence-transformers/guide/index',
-                },
-                {
                   type: 'category',
                   label: 'Tutorials',
                   items: [
                     {
                       type: 'doc',
                       id: 'deep-learning/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart-ipynb',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers-ipynb',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'deep-learning/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers-ipynb',
+                      label: 'Quickstart',
                     },
                     {
                       type: 'doc',
                       id: 'deep-learning/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers-ipynb',
+                      label: 'Semantic Similarity',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'deep-learning/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers-ipynb',
+                      label: 'Semantic Search',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers-ipynb',
+                      label: 'Paraphrase Mining',
                     },
                   ],
-                  link: {
-                    type: 'doc',
-                    id: 'deep-learning/sentence-transformers/tutorials/index',
-                  },
                 },
               ],
               link: {

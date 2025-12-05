@@ -5,7 +5,9 @@ import pathlib
 import posixpath
 import random
 import re
+import shutil
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import NamedTuple
 from unittest import mock
 
@@ -42,6 +44,17 @@ from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,
     MAX_PARAMS_TAGS_PER_BATCH,
 )
+
+
+@pytest.fixture(autouse=True)
+def tracking_uri(tmp_path: Path, cached_db: Path):
+    """Copies the cached database and sets the tracking URI for each test."""
+    db_path = tmp_path / "mlflow.db"
+    shutil.copy(cached_db, db_path)
+    uri = f"sqlite:///{db_path}"
+    mlflow.set_tracking_uri(uri)
+    yield
+    mlflow.set_tracking_uri(None)
 
 
 class MockExperiment(NamedTuple):

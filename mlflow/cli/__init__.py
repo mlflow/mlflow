@@ -554,7 +554,7 @@ def server(
 
     if not registry_store_uri:
         registry_store_uri = backend_store_uri
-        click.echo(f"Registry store URI not provided. Using {registry_store_uri}")
+        click.echo("Registry store URI not provided. Using backend store URI.")
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
@@ -1013,6 +1013,11 @@ with contextlib.suppress(ImportError):
 
     cli.add_command(mlflow.gateway.cli.commands)
 
+# Add cryptography CLI commands (optional, requires cryptography package)
+with contextlib.suppress(ImportError):
+    from mlflow.cli import cryptography
+
+    cli.add_command(cryptography.commands)
 
 if __name__ == "__main__":
     cli()

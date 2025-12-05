@@ -1,5 +1,4 @@
 import sys
-from collections import Counter
 from enum import Enum
 from typing import Any
 
@@ -85,18 +84,22 @@ class GenAIEvaluateEvent(Event):
         # Track if predict_fn is provided
         record_params["predict_fn_provided"] = arguments.get("predict_fn") is not None
 
-        # Track builtin scorers
+        # Track scorer information
         scorers = arguments.get("scorers") or []
-        builtin_scorers = {
-            type(scorer).__name__ for scorer in scorers if isinstance(scorer, BuiltInScorer)
-        }
-        record_params["builtin_scorers"] = sorted(builtin_scorers)
-
-        # Track scorer kind counts
-        scorer_kind_count = Counter[str](
-            scorer.kind.value for scorer in scorers if isinstance(scorer, Scorer)
-        )
-        record_params["scorer_kind_count"] = dict[str, int](sorted(scorer_kind_count.items()))
+        scorer_info = [
+            {
+                "class": (
+                    type(scorer).__name__
+                    if isinstance(scorer, BuiltInScorer)
+                    else "UserDefinedScorer"
+                ),
+                "kind": scorer.kind.value,
+                "scope": "session" if scorer.is_session_level_scorer else "response",
+            }
+            for scorer in scorers
+            if isinstance(scorer, Scorer)
+        ]
+        record_params["scorer_info"] = scorer_info
 
         return record_params
 

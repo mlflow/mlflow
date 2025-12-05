@@ -354,6 +354,12 @@ mlflow.entities.Feedback.from_proto
 mlflow.entities.FileInfo
 mlflow.entities.FileInfo.from_proto
 mlflow.entities.FileInfo.to_proto
+mlflow.entities.GatewayEndpoint
+mlflow.entities.GatewayEndpointBinding
+mlflow.entities.GatewayEndpointModelMapping
+mlflow.entities.GatewayModelDefinition
+mlflow.entities.GatewayResourceType
+mlflow.entities.GatewaySecret
 mlflow.entities.InferenceTableLocation
 mlflow.entities.InferenceTableLocation.from_dict
 mlflow.entities.InferenceTableLocation.from_proto
@@ -545,6 +551,12 @@ mlflow.entities.entity_type.EntityAssociationType
 mlflow.entities.experiment.Experiment
 mlflow.entities.experiment_tag.ExperimentTag
 mlflow.entities.file_info.FileInfo
+mlflow.entities.gateway_endpoint.GatewayEndpoint
+mlflow.entities.gateway_endpoint.GatewayEndpointBinding
+mlflow.entities.gateway_endpoint.GatewayEndpointModelMapping
+mlflow.entities.gateway_endpoint.GatewayModelDefinition
+mlflow.entities.gateway_endpoint.GatewayResourceType
+mlflow.entities.gateway_secrets.GatewaySecret
 mlflow.entities.input_tag.InputTag
 mlflow.entities.lifecycle_stage.LifecycleStage
 mlflow.entities.logged_model.LoggedModel

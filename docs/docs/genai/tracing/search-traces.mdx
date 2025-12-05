@@ -55,19 +55,20 @@ The `search_traces` API uses a SQL-like Domain Specific Language (DSL) for query
 
 ### Supported Filters and Comparators
 
-| Field Type           | Fields                                                               | Operators                           | Examples                            |
-| -------------------- | -------------------------------------------------------------------- | ----------------------------------- | ----------------------------------- |
-| **Trace Status**     | `trace.status`                                                       | `=`, `!=`                           | trace.status = "OK"                 |
-| **Trace Timestamps** | `trace.timestamp_ms`, `trace.execution_time_ms`, `trace.end_time_ms` | `=`, `!=`, `>`, `<`, `>=`, `<=`     | trace.end_time_ms > 1762408895531   |
-| **Trace IDs**        | `trace.run_id`                                                       | `=`                                 | trace.run_id = "run_id"             |
-| **String Fields**    | `trace.client_request_id`, `trace.name`                              | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | trace.name LIKE "%Generate%"        |
-| **Span Name/Type**   | `span.name`, `span.type`                                             | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | span.type RLIKE "^LLM"              |
-| **Span Attributes**  | `span.attributes.<key>`                                              | `LIKE`, `ILIKE`                     | span.attributes.model RLIKE "^gpt"  |
-| **Tags**             | `tag.<key>`                                                          | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | tag.key = "value"                   |
-| **Metadata**         | `metadata.<key>`                                                     | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | metadata.user_id LIKE "user%"       |
-| **Feedback**         | `feedback.<name>`                                                    | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | feedback.rating = "excellent"       |
-| **Expectations**     | `expectation.<name>`                                                 | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | expectation.result = "pass"         |
-| **Full Text**        | `trace.text`                                                         | `LIKE` (with `%` wildcards)         | trace.text LIKE "%tell me a storty" |
+| Field Type           | Fields                                                               | Operators                           | Examples                           |
+| -------------------- | -------------------------------------------------------------------- | ----------------------------------- | ---------------------------------- |
+| **Trace Status**     | `trace.status`                                                       | `=`, `!=`                           | trace.status = "OK"                |
+| **Trace Timestamps** | `trace.timestamp_ms`, `trace.execution_time_ms`, `trace.end_time_ms` | `=`, `!=`, `>`, `<`, `>=`, `<=`     | trace.end_time_ms > 1762408895531  |
+| **Trace IDs**        | `trace.run_id`                                                       | `=`                                 | trace.run_id = "run_id"            |
+| **String Fields**    | `trace.client_request_id`, `trace.name`                              | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | trace.name LIKE "%Generate%"       |
+| **Linked Prompts**   | `prompt`                                                             | `=` (format: `"name/version"`)      | prompt = "qa-system-prompt/4"      |
+| **Span Name/Type**   | `span.name`, `span.type`                                             | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | span.type RLIKE "^LLM"             |
+| **Span Attributes**  | `span.attributes.<key>`                                              | `LIKE`, `ILIKE`                     | span.attributes.model RLIKE "^gpt" |
+| **Tags**             | `tag.<key>`                                                          | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | tag.key = "value"                  |
+| **Metadata**         | `metadata.<key>`                                                     | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | metadata.user_id LIKE "user%"      |
+| **Feedback**         | `feedback.<name>`                                                    | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | feedback.rating = "excellent"      |
+| **Expectations**     | `expectation.<name>`                                                 | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | expectation.result = "pass"        |
+| **Full Text**        | `trace.text`                                                         | `LIKE` (with `%` wildcards)         | trace.text LIKE "%tell me a story" |
 
 **Value Syntax:**
 
@@ -180,6 +181,17 @@ mlflow.search_traces(filter_string="tag.version RLIKE '^v[0-9]+\\.[0-9]+'")
 # Find traces associated with a specific run
 mlflow.search_traces(filter_string="trace.run_id = 'run_id_123456'")
 ```
+
+#### Filter by Linked Prompts
+
+```python
+# Find traces using a specific prompt version
+mlflow.search_traces(filter_string='prompt = "qa-agent-system-prompt/4"')
+```
+
+:::note
+The `prompt` filter only supports exact match (`=`) operator with the format `"name/version"`.
+:::
 
 #### Filter by Span Attributes
 

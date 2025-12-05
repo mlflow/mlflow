@@ -15,7 +15,6 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import MlflowExperimentLocation
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceSizeStatsKey, TraceTagKey
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -308,7 +307,7 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
         join_thread_by_name_prefix("link_prompts_from_exporter")
 
     # Verify that trace info contains the linked prompts tags
-    tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
+    tag_value = trace_info.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert tag_value is not None
     tag_value = json.loads(tag_value)
     assert len(tag_value) == 2

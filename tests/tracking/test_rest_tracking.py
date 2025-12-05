@@ -105,19 +105,6 @@ def store_type(request):
     return request.param
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_dir / "mlflow.db"
-    backend_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
-    store.engine.dispose()
-    return db_path
-
-
 @pytest.fixture
 def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""

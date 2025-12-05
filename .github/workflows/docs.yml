@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - pyproject.toml
+      - uv.lock
       - mlflow/**
       - docs/**
       - .github/workflows/docs.yml
@@ -17,6 +18,7 @@ on:
       - ready_for_review
     paths:
       - pyproject.toml
+      - uv.lock
       - mlflow/**
       - docs/**
       - .github/workflows/docs.yml

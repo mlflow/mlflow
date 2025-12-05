@@ -56,7 +56,7 @@ describe('ExperimentPageSideNav', () => {
       expect(screen.getByText('Datasets')).toBeInTheDocument();
 
       // Check prompts & versions section
-      const versionsSectionHeader = 'Versions';
+      const versionsSectionHeader = 'Prompts & versions';
       expect(screen.getByText(versionsSectionHeader)).toBeInTheDocument();
       expect(screen.getByText('Agent versions')).toBeInTheDocument();
     },

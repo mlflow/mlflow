@@ -138,6 +138,16 @@ def _configure_mlflow_loggers(root_module_name):
                     "level": (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper(),
                     "propagate": False,
                 },
+                "sqlalchemy.engine": {
+                    "handlers": ["mlflow_handler"],
+                    "level": "WARN",
+                    "propagate": False,
+                },
+                "alembic": {
+                    "handlers": ["mlflow_handler"],
+                    "level": "INFO",
+                    "propagate": False,
+                },
             },
             "filters": {
                 "suppress_in_thread": {

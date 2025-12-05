@@ -14,6 +14,7 @@ import {
   getMockedRegisteredPromptVersionSetTagsResponse,
 } from './test-utils';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { rest } from 'msw';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
@@ -189,5 +190,191 @@ describe('PromptsPage', () => {
         { key: '_mlflow_prompt_type', value: 'chat' },
       ]),
     );
+  });
+
+  describe('Experiment-scoped prompts', () => {
+    it('should render experiment-scoped prompts with filtering', async () => {
+      const experimentId = '123';
+      server.use(
+        rest.get('/ajax-api/2.0/mlflow/registered-models/search', (req, res, ctx) => {
+          const filter = req.url.searchParams.get('filter');
+          expect(filter).toContain(`tags.\`_mlflow_experiment_ids\` ILIKE '%,${experimentId},%'`);
+          return res(
+            ctx.json({
+              registered_models: [
+                {
+                  name: 'exp-prompt1',
+                  last_updated_timestamp: 1620000000000,
+                  tags: [
+                    { key: '_mlflow_experiment_ids', value: experimentId },
+                    { key: 'some_tag', value: 'abc' },
+                  ],
+                  latest_versions: [{ version: 1 }],
+                },
+              ],
+            }),
+          );
+        }),
+      );
+
+      const queryClient = new QueryClient();
+      render(<PromptsPage experimentId={experimentId} />, {
+        wrapper: ({ children }) => (
+          <IntlProvider locale="en">
+            <TestRouter
+              routes={[
+                testRoute(
+                  <DesignSystemProvider>
+                    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+                  </DesignSystemProvider>,
+                  '/',
+                ),
+                testRoute(<div />, '*'),
+              ]}
+              initialEntries={['/']}
+            />
+          </IntlProvider>
+        ),
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Prompts')).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('link', { name: 'exp-prompt1' })).toBeInTheDocument();
+      });
+    });
+
+    it('should create prompt with experiment ID tag when in experiment scope', async () => {
+      const experimentId = '456';
+      const createPromptSpy = jest.fn();
+      const createVersionSpy = jest.fn();
+
+      server.use(
+        getMockedRegisteredPromptsResponse(0),
+        rest.post('/ajax-api/2.0/mlflow/registered-models/create', async (req, res, ctx) => {
+          createPromptSpy(await req.json());
+          return res(ctx.json({}));
+        }),
+        getMockedRegisteredPromptCreateVersionResponse(createVersionSpy),
+      );
+
+      const queryClient = new QueryClient();
+      render(<PromptsPage experimentId={experimentId} />, {
+        wrapper: ({ children }) => (
+          <IntlProvider locale="en">
+            <TestRouter
+              routes={[
+                testRoute(
+                  <DesignSystemProvider>
+                    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+                  </DesignSystemProvider>,
+                  '/',
+                ),
+                testRoute(<div />, '*'),
+              ]}
+              initialEntries={['/']}
+            />
+          </IntlProvider>
+        ),
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Prompts')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText('Create prompt'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      });
+
+      await userEvent.type(screen.getByLabelText('Name:'), 'exp-prompt');
+      await userEvent.type(screen.getByLabelText('Prompt:'), 'test content');
+      await userEvent.click(screen.getByText('Create'));
+
+      await waitFor(() => {
+        expect(createPromptSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: 'exp-prompt',
+            tags: expect.arrayContaining([
+              {
+                key: 'mlflow.prompt.is_prompt',
+                value: 'true',
+              },
+              {
+                key: '_mlflow_experiment_ids',
+                value: `,${experimentId},`,
+              },
+            ]),
+          }),
+        );
+      });
+    });
+
+    it('should not add experiment ID tag when not in experiment scope', async () => {
+      const createPromptSpy = jest.fn();
+      const createVersionSpy = jest.fn();
+
+      server.use(
+        getMockedRegisteredPromptsResponse(0),
+        rest.post('/ajax-api/2.0/mlflow/registered-models/create', async (req, res, ctx) => {
+          createPromptSpy(await req.json());
+          return res(ctx.json({}));
+        }),
+        getMockedRegisteredPromptCreateVersionResponse(createVersionSpy),
+      );
+
+      const queryClient = new QueryClient();
+      render(<PromptsPage />, {
+        wrapper: ({ children }) => (
+          <IntlProvider locale="en">
+            <TestRouter
+              routes={[
+                testRoute(
+                  <DesignSystemProvider>
+                    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+                  </DesignSystemProvider>,
+                  '/',
+                ),
+                testRoute(<div />, '*'),
+              ]}
+              initialEntries={['/']}
+            />
+          </IntlProvider>
+        ),
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Prompts')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText('Create prompt'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      });
+
+      await userEvent.type(screen.getByLabelText('Name:'), 'global-prompt');
+      await userEvent.type(screen.getByLabelText('Prompt:'), 'test content');
+      await userEvent.click(screen.getByText('Create'));
+
+      await waitFor(() => {
+        expect(createPromptSpy).toHaveBeenCalled();
+      });
+
+      const call = createPromptSpy.mock.calls[0][0] as any;
+      expect(call.tags).toEqual(
+        expect.arrayContaining([
+          {
+            key: 'mlflow.prompt.is_prompt',
+            value: 'true',
+          },
+        ]),
+      );
+      // Should not contain experiment ID tag
+      expect(call.tags.find((tag: any) => tag.key === '_mlflow_experiment_ids')).toBeUndefined();
+    });
   });
 });

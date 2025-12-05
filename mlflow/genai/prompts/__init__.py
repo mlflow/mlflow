@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import mlflow.tracking._model_registry.fluent as registry_api
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.prompt.registry_utils import PromptCache as PromptCache
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
@@ -150,6 +151,7 @@ def load_prompt(
     allow_missing: bool = False,
     link_to_model: bool = True,
     model_id: str | None = None,
+    cache_ttl_seconds: float | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -163,6 +165,12 @@ def load_prompt(
             is not found.
         link_to_model: If True, link the prompt to the model.
         model_id: The ID of the model to link the prompt to. Only used if link_to_model is True.
+        cache_ttl_seconds: Time-to-live in seconds for the cached prompt. If not specified,
+            uses the value from `MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS` environment variable for
+            alias-based prompts (default 60), and the value from
+            `MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS` environment variable for version-based prompts
+            (default None, no TTL).
+            Set to 0 to bypass the cache and always fetch from the server.
 
     Example:
 
@@ -184,6 +192,12 @@ def load_prompt(
 
         # Load the latest version of the prompt by URI
         prompt = mlflow.genai.load_prompt("prompts:/my_prompt@latest")
+
+        # Load with custom cache TTL (5 minutes)
+        prompt = mlflow.genai.load_prompt("my_prompt", version=1, cache_ttl_seconds=300)
+
+        # Bypass cache entirely
+        prompt = mlflow.genai.load_prompt("my_prompt", version=1, cache_ttl_seconds=0)
     """
     with suppress_genai_migration_warning():
         return registry_api.load_prompt(
@@ -192,6 +206,7 @@ def load_prompt(
             allow_missing=allow_missing,
             link_to_model=link_to_model,
             model_id=model_id,
+            cache_ttl_seconds=cache_ttl_seconds,
         )
 
 
@@ -266,7 +281,6 @@ def set_prompt_tag(name: str, key: str, value: str) -> None:
     """
     with suppress_genai_migration_warning():
         MlflowClient().set_prompt_tag(name=name, key=key, value=value)
-        registry_api._load_prompt_cached.cache_clear()
 
 
 @experimental(version="3.5.0")
@@ -280,7 +294,6 @@ def delete_prompt_tag(name: str, key: str) -> None:
     """
     with suppress_genai_migration_warning():
         MlflowClient().delete_prompt_tag(name=name, key=key)
-        registry_api._load_prompt_cached.cache_clear()
 
 
 @experimental(version="3.5.0")
@@ -296,7 +309,6 @@ def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) 
     """
     with suppress_genai_migration_warning():
         MlflowClient().set_prompt_version_tag(name=name, version=version, key=key, value=value)
-        registry_api._load_prompt_cached.cache_clear()
 
 
 @experimental(version="3.5.0")
@@ -311,4 +323,3 @@ def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
     """
     with suppress_genai_migration_warning():
         MlflowClient().delete_prompt_version_tag(name=name, version=version, key=key)
-        registry_api._load_prompt_cached.cache_clear()

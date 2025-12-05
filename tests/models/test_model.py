@@ -673,10 +673,10 @@ def test_save_model_with_prompts():
     assert model.prompts == [prompt_1.uri, prompt_2.uri]
 
     # Check that prompts were linked to the run via the linkedPrompts tag
-    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+    from mlflow.tracing.constant import TraceTagKey
 
     run = mlflow.MlflowClient().get_run(model_info.run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)

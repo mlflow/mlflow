@@ -285,7 +285,7 @@ rf.fit(X_train, y_train)
 Once the above code finishes, run the following command in a separate terminal and access the MLflow UI via the printed URL. An MLflow **Run** should be automatically created, which tracks the training dataset, hyper parameters, performance metrics, the trained model, dependencies, and even more.
 
 ```
-mlflow ui
+mlflow server
 ```
 
 ## 💭 Support

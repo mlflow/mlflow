@@ -63,8 +63,7 @@ describe('MlflowClient', () => {
       expect(createdTraceInfo.traceMetadata).toEqual({ 'meta-key': 'meta-value' });
       expect(createdTraceInfo.tags).toEqual({
         'tag-key': 'tag-value',
-        'mlflow.artifactLocation': expect.any(String),
-        'mlflow.trace.spansLocation': expect.any(String)
+        'mlflow.artifactLocation': expect.any(String)
       });
       expect(createdTraceInfo.assessments).toEqual([]);
     });

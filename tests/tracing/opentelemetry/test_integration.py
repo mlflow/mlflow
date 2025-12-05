@@ -37,8 +37,6 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
 
             mlflow_span.set_outputs({"text": "world"})
 
-        root_span.set_status(otel_trace.Status(otel_trace.StatusCode.OK))
-
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
@@ -59,7 +57,7 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
     assert spans[0].events[0].name == "event1"
     assert spans[0].events[0].attributes["key2"] == "value2"
     assert spans[0].parent_id is None
-    assert spans[0].status.status_code == SpanStatusCode.OK
+    assert spans[0].status.status_code == SpanStatusCode.UNSET
     assert spans[1].name == "mlflow_span"
     assert spans[1].attributes["key3"] == "value3"
     assert spans[1].events == []

@@ -151,10 +151,10 @@ def _show_setup_status(
 
     if tracking_uri and tracking_uri.startswith("file://"):
         click.echo("\n💡 View your traces:")
-        click.echo(f"   mlflow ui --backend-store-uri {tracking_uri}")
+        click.echo(f"   mlflow server --backend-store-uri {tracking_uri}")
     elif not tracking_uri:
         click.echo("\n💡 View your traces:")
-        click.echo("   mlflow ui")
+        click.echo("   mlflow server")
     elif tracking_uri == "databricks":
         click.echo("\n💡 View your traces in your Databricks workspace")
 

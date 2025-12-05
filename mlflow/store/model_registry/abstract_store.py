@@ -18,7 +18,6 @@ from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, Webhoo
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
-    LINKED_PROMPTS_TAG_KEY,
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
@@ -34,6 +33,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
@@ -959,6 +959,7 @@ class AbstractStore:
             trace_id: Trace ID to link to each prompt version.
         """
         from mlflow.tracing.client import TracingClient
+        from mlflow.tracking import _get_store as _get_tracking_store
 
         client = TracingClient()
         with self._prompt_link_lock:
@@ -969,17 +970,27 @@ class AbstractStore:
                     error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                 )
 
-            # Use utility function to update linked prompts tag
-            current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
-            updated_tag_value = update_linked_prompts_tag(current_tag_value, prompt_versions)
-
-            # Only update if the tag value actually changed (avoiding redundant updates)
-            if current_tag_value != updated_tag_value:
-                client.set_trace_tag(
-                    trace_id,
-                    LINKED_PROMPTS_TAG_KEY,
-                    updated_tag_value,
+            # Try to use the tracking store's EntityAssociation-based linking
+            tracking_store = _get_tracking_store()
+            try:
+                tracking_store.link_prompts_to_trace(trace_id, prompt_versions)
+            except NotImplementedError:
+                _logger.debug(
+                    f"Linking prompts to trace {trace_id} failed. "
+                    "Tracking store does not support `link_prompts_to_trace` method."
                 )
+            finally:
+                # Use utility function to update linked prompts tag
+                current_tag_value = trace_info.tags.get(TraceTagKey.LINKED_PROMPTS)
+                updated_tag_value = update_linked_prompts_tag(current_tag_value, prompt_versions)
+
+                # Only update if the tag value actually changed (avoiding redundant updates)
+                if current_tag_value != updated_tag_value:
+                    client.set_trace_tag(
+                        trace_id,
+                        TraceTagKey.LINKED_PROMPTS,
+                        updated_tag_value,
+                    )
 
     def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
@@ -1049,7 +1060,7 @@ class AbstractStore:
                     error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                 )
 
-            current_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
+            current_tag_value = logged_model.tags.get(TraceTagKey.LINKED_PROMPTS)
             updated_tag_value = update_linked_prompts_tag(current_tag_value, [prompt_version])
 
             if current_tag_value != updated_tag_value:
@@ -1057,7 +1068,7 @@ class AbstractStore:
                     model_id,
                     [
                         LoggedModelTag(
-                            key=LINKED_PROMPTS_TAG_KEY,
+                            key=TraceTagKey.LINKED_PROMPTS,
                             value=updated_tag_value,
                         )
                     ],
@@ -1089,10 +1100,10 @@ class AbstractStore:
 
             current_tag_value = None
             if isinstance(run.data.tags, dict):
-                current_tag_value = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+                current_tag_value = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
             else:
                 for tag in run.data.tags:
-                    if tag.key == LINKED_PROMPTS_TAG_KEY:
+                    if tag.key == TraceTagKey.LINKED_PROMPTS:
                         current_tag_value = tag.value
                         break
 
@@ -1101,7 +1112,9 @@ class AbstractStore:
             if current_tag_value != updated_tag_value:
                 from mlflow.entities import RunTag
 
-                tracking_store.set_tag(run_id, RunTag(LINKED_PROMPTS_TAG_KEY, updated_tag_value))
+                tracking_store.set_tag(
+                    run_id, RunTag(TraceTagKey.LINKED_PROMPTS, updated_tag_value)
+                )
 
     # CRUD API for Webhook objects
     def create_webhook(
