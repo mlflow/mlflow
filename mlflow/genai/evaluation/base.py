@@ -222,6 +222,11 @@ def evaluate(
             The function must emit a single trace per call. If it doesn't, decorate
             the function with @mlflow.trace decorator to ensure a trace to be emitted.
 
+            Both synchronous and asynchronous (async def) functions are supported. Async
+            functions are automatically detected and wrapped to run synchronously with a
+            configurable timeout (default: 300 seconds). Set the timeout using the
+            MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT environment variable.
+
         model_id: Optional model identifier (e.g. "m-074689226d3b40bfbbdf4c3ff35832cd")
             to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
