@@ -33,8 +33,8 @@ test_that("can load model and predict with rfunc backend", {
   loaded_back_model <- mlflow_load_model(testthat_model_dir)
   prediction <- mlflow_predict(loaded_back_model, as.matrix(test$data))
   expect_equal(
-    prediction,
-    predict(model, as.matrix(test$data))
+    unname(prediction),
+    unname(predict(model, as.matrix(test$data)))
   )
 
 })
@@ -73,8 +73,8 @@ test_that("Can predict with cli backend", {
   prediction <- unlist(jsonlite::read_json(temp_out)$predictions)
   expect_true(!is.null(prediction))
   expect_equal(
-    prediction,
-    predict(model, as.matrix(test$data))
+    unname(prediction),
+    unname(predict(model, as.matrix(test$data)))
   )
   # json records
   jsonlite::write_json(list(dataframe_records = test$data), temp_in_json)
