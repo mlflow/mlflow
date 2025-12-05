@@ -110,6 +110,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
+    SqlTraceMetrics,
     SqlTraceTag,
 )
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
@@ -120,6 +121,7 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     SpansLocation,
+    TokenUsageKey,
     TraceMetadataKey,
     TraceSizeStatsKey,
     TraceTagKey,
@@ -2629,6 +2631,23 @@ class SqlAlchemyStore(AbstractStore):
                 SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
             ]
 
+            # Parse and store token usage as trace metrics if present in metadata
+            if token_usage_metadata := trace_info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
+                try:
+                    token_usage_dict = json.loads(token_usage_metadata)
+
+                    # Create a metric row for each token usage field
+                    trace_metrics = [
+                        SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
+                        for key in TokenUsageKey.all_keys()
+                        if (value := token_usage_dict.get(key)) is not None
+                    ]
+
+                    sql_trace_info.metrics = trace_metrics
+                except json.JSONDecodeError as e:
+                    # If token usage metadata is malformed, skip it
+                    _logger.debug(f"Failed to parse token usage metadata: {e}", exc_info=True)
+
             try:
                 session.add(sql_trace_info)
                 session.flush()
@@ -3596,6 +3615,14 @@ class SqlAlchemyStore(AbstractStore):
                         value=json.dumps(trace_token_usage),
                     )
                 )
+
+                # Store token usage as trace metrics
+                for key in TokenUsageKey.all_keys():
+                    if (value := trace_token_usage.get(key)) is not None:
+                        session.merge(
+                            SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
+                        )
+
             if session_id:
                 existing_session_id = (
                     session.query(SqlTraceMetadata)
