@@ -1,4 +1,3 @@
-import shutil
 import uuid
 from pathlib import Path
 
@@ -37,17 +36,13 @@ if IS_TRACING_SDK_ONLY:
 
 
 @pytest.fixture
-def mlflow_server(tmp_path: Path, cached_db: Path):
-    # Copy the cached database for this test
-    db_path = tmp_path / "mlflow.db"
-    shutil.copy(cached_db, db_path)
-    backend_uri = f"sqlite:///{db_path}"
+def mlflow_server(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path.joinpath("artifacts").as_uri()
 
     # Force-reset backend stores before each test
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    initialize_backend_stores(backend_uri, default_artifact_root=artifact_uri)
+    initialize_backend_stores(db_uri, default_artifact_root=artifact_uri)
 
     with ServerThread(app, get_safe_port()) as url:
         yield url

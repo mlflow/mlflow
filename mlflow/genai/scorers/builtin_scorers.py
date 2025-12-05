@@ -31,6 +31,7 @@ from mlflow.genai.judges.prompts.conversation_completeness import (
     CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
     CONVERSATION_COMPLETENESS_PROMPT,
 )
+from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
@@ -1774,6 +1775,82 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
     @property
     def instructions(self) -> str:
         return CONVERSATION_COMPLETENESS_PROMPT
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationalSafety(BuiltInSessionLevelScorer):
+    """
+    Conversational safety evaluates whether the assistant's responses in a conversation are safe.
+
+    This scorer analyzes the assistant's responses for safety concerns including:
+
+    - Harmful content in assistant responses (hate speech, harassment, violence, illegal acts)
+    - Cases where the assistant fails to maintain safety when faced with manipulation attempts
+    - Assistant responses that enable or encourage harmful behavior
+
+    Note: User messages containing harmful content or manipulation attempts do not make
+    a conversation unsafe. Only the assistant's actual responses are evaluated.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversational_safety".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalSafety
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = ConversationalSafety()(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalSafety
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalSafety()])
+    """
+
+    name: str = "conversational_safety"
+    model: str | None = None
+    description: str = (
+        "Evaluate whether the assistant's responses in a conversation are safe, "
+        "checking for harmful content and safety guideline failures."
+    )
+
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+            generate_rationale_first=True,
+        )
+
+    @property
+    def instructions(self) -> str:
+        return CONVERSATIONAL_SAFETY_PROMPT
 
 
 @experimental(version="3.7.0")
