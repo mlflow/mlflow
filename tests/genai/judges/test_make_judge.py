@@ -3516,8 +3516,17 @@ def test_response_format_uses_generic_field_description(description):
     assert result_field.description == _RESULT_FIELD_DESCRIPTION
 
 
-def test_make_judge_with_inference_params():
-    inference_params = {"temperature": 0.0, "max_tokens": 100}
+@pytest.mark.parametrize(
+    "inference_params",
+    [
+        {"temperature": 0.0},
+        {"temperature": 1.0},
+        {"max_tokens": 100},
+        {"top_p": 0.95},
+        {"temperature": 0.5, "max_tokens": 200, "top_p": 0.9},
+    ],
+)
+def test_make_judge_with_inference_params(inference_params):
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{ outputs }} is formal",
@@ -3527,6 +3536,15 @@ def test_make_judge_with_inference_params():
 
     assert judge.inference_params == inference_params
     assert judge._inference_params == inference_params
+
+    # Verify repr includes inference_params
+    repr_str = repr(judge)
+    assert "inference_params=" in repr_str
+
+    # Verify serialization includes inference_params
+    dumped = judge.model_dump()
+    pydantic_data = dumped["instructions_judge_pydantic_data"]
+    assert pydantic_data["inference_params"] == inference_params
 
 
 def test_make_judge_without_inference_params():
@@ -3539,17 +3557,14 @@ def test_make_judge_without_inference_params():
     assert judge.inference_params is None
     assert judge._inference_params is None
 
+    # Verify repr does not include inference_params
+    repr_str = repr(judge)
+    assert "inference_params" not in repr_str
 
-def test_instructions_judge_with_inference_params():
-    inference_params = {"temperature": 0.5, "top_p": 0.9}
-    judge = InstructionsJudge(
-        name="test_judge",
-        instructions="Check if {{ outputs }} is accurate",
-        model="openai:/gpt-4",
-        inference_params=inference_params,
-    )
-
-    assert judge.inference_params == inference_params
+    # Verify serialization does not include inference_params
+    dumped = judge.model_dump()
+    pydantic_data = dumped["instructions_judge_pydantic_data"]
+    assert "inference_params" not in pydantic_data
 
 
 def test_inference_params_passed_to_invoke_judge_model(mock_invoke_judge_model):
@@ -3563,77 +3578,4 @@ def test_inference_params_passed_to_invoke_judge_model(mock_invoke_judge_model):
 
     judge(outputs="test output")
 
-    # Verify inference_params was passed to invoke_judge_model
     assert mock_invoke_judge_model.captured_args.get("inference_params") == inference_params
-
-
-def test_inference_params_in_repr():
-    inference_params = {"temperature": 0.2}
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check {{ outputs }}",
-        model="openai:/gpt-4",
-        inference_params=inference_params,
-    )
-
-    repr_str = repr(judge)
-    assert "inference_params=" in repr_str
-    assert "temperature" in repr_str
-
-
-def test_inference_params_not_in_repr_when_none():
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check {{ outputs }}",
-        model="openai:/gpt-4",
-    )
-
-    repr_str = repr(judge)
-    assert "inference_params" not in repr_str
-
-
-def test_inference_params_serialization():
-    inference_params = {"temperature": 0.3, "max_tokens": 500}
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check {{ outputs }}",
-        model="openai:/gpt-4",
-        inference_params=inference_params,
-    )
-
-    dumped = judge.model_dump()
-    pydantic_data = dumped["instructions_judge_pydantic_data"]
-    assert pydantic_data["inference_params"] == inference_params
-
-
-def test_inference_params_not_serialized_when_none():
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check {{ outputs }}",
-        model="openai:/gpt-4",
-    )
-
-    dumped = judge.model_dump()
-    pydantic_data = dumped["instructions_judge_pydantic_data"]
-    assert "inference_params" not in pydantic_data
-
-
-@pytest.mark.parametrize(
-    "inference_params",
-    [
-        {"temperature": 0.0},
-        {"temperature": 1.0},
-        {"max_tokens": 100},
-        {"top_p": 0.95},
-        {"temperature": 0.5, "max_tokens": 200, "top_p": 0.9},
-    ],
-)
-def test_various_inference_params(inference_params):
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check {{ outputs }}",
-        model="openai:/gpt-4",
-        inference_params=inference_params,
-    )
-
-    assert judge.inference_params == inference_params

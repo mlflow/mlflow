@@ -970,68 +970,32 @@ def test_get_chat_completions_with_structured_output_with_trace(mock_trace):
     mock_invoke.assert_called_once()
 
 
-def test_invoke_judge_model_with_inference_params(mock_response):
-    inference_params = {"temperature": 0.0, "max_tokens": 100}
-
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
-        invoke_judge_model(
-            model_uri="openai:/gpt-4",
-            prompt="Evaluate this",
-            assessment_name="test",
-            inference_params=inference_params,
-        )
-
-    call_kwargs = mock_litellm.call_args.kwargs
-    assert call_kwargs["temperature"] == 0.0
-    assert call_kwargs["max_tokens"] == 100
-
-
-def test_invoke_judge_model_without_inference_params(mock_response):
+@pytest.mark.parametrize(
+    "inference_params",
+    [
+        None,
+        {"temperature": 0},
+        {"temperature": 0.5, "max_tokens": 100},
+        {"temperature": 0.5, "top_p": 0.9, "max_tokens": 500, "presence_penalty": 0.1},
+    ],
+)
+def test_invoke_judge_model_with_inference_params(mock_response, inference_params):
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Evaluate this",
             assessment_name="test",
-        )
-
-    assert feedback.name == "test"
-    # Verify inference params like temperature are not in kwargs
-    call_kwargs = mock_litellm.call_args.kwargs
-    assert "temperature" not in call_kwargs
-
-
-def test_inference_params_with_temperature_zero(mock_response):
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
-        invoke_judge_model(
-            model_uri="openai:/gpt-4",
-            prompt="Evaluate",
-            assessment_name="test",
-            inference_params={"temperature": 0},
-        )
-
-    call_kwargs = mock_litellm.call_args.kwargs
-    assert call_kwargs["temperature"] == 0
-
-
-def test_inference_params_with_multiple_settings(mock_response):
-    inference_params = {
-        "temperature": 0.5,
-        "top_p": 0.9,
-        "max_tokens": 500,
-        "presence_penalty": 0.1,
-    }
-
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
-        invoke_judge_model(
-            model_uri="openai:/gpt-4",
-            prompt="Evaluate",
-            assessment_name="test",
             inference_params=inference_params,
         )
 
+    assert feedback.name == "test"
     call_kwargs = mock_litellm.call_args.kwargs
-    for key, value in inference_params.items():
-        assert call_kwargs[key] == value
+
+    if inference_params:
+        for key, value in inference_params.items():
+            assert call_kwargs[key] == value
+    else:
+        assert "temperature" not in call_kwargs
 
 
 def test_get_chat_completions_with_inference_params():
@@ -1083,9 +1047,7 @@ def test_inference_params_in_tool_calling_loop(mock_trace):
             "litellm.completion", side_effect=[tool_call_response, final_response]
         ) as mock_litellm,
         mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
-        mock.patch(
-            "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
-        ) as mock_invoke,
+        mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
     ):
         mock_tool = mock.Mock()
         mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
