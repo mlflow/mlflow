@@ -1547,3 +1547,21 @@ def test_conversational_safety_instructions():
     assert "conversation" in instructions.lower()
     assert "assistant" in instructions.lower()
     assert "safety" in instructions.lower()
+
+
+def test_session_level_scorer_with_invalid_kwargs():
+    scorer = UserFrustration()
+
+    with pytest.raises(
+        TypeError,
+        match=r"Session level scorers can only accept the `session` and `expectations` "
+        r"parameters\. Got unexpected keyword argument\(s\): 'trace'",
+    ):
+        scorer(trace=create_simple_trace())
+
+    with pytest.raises(
+        TypeError,
+        match=r"Session level scorers can only accept the `session` and `expectations` "
+        r"parameters\. Got unexpected keyword argument\(s\): 'outputs'",
+    ):
+        scorer(outputs="some output")

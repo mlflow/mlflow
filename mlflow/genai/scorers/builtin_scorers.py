@@ -1622,8 +1622,16 @@ class BuiltInSessionLevelScorer(BuiltInScorer):
         self,
         *,
         session: list[Trace] | None = None,
+        expectations: dict[str, Any] | None = None,
+        **kwargs,
     ) -> Feedback:
-        return self._get_judge()(session=session)
+        if kwargs:
+            invalid_args = ", ".join(f"'{k}'" for k in kwargs.keys())
+            raise TypeError(
+                f"Session level scorers can only accept the `session` and `expectations` "
+                f"parameters. Got unexpected keyword argument(s): {invalid_args}"
+            )
+        return self._get_judge()(session=session, expectations=expectations)
 
 
 @experimental(version="3.7.0")
