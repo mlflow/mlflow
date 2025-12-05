@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Any
 
 from packaging.version import Version
 
@@ -99,7 +100,7 @@ def _get_config_url(version: str) -> str | None:
     return None
 
 
-def fetch_telemetry_config() -> dict[str, any] | None:
+def fetch_telemetry_config() -> dict[str, Any] | None:
     import requests
 
     # Check if telemetry is disabled
