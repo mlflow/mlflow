@@ -23,4 +23,14 @@ export interface AuthProvider {
    * @throws Error if authentication fails
    */
   authenticate(): Promise<AuthResult>;
+
+  /**
+   * Get the resolved host URL from the authentication provider.
+   * This is optional and only implemented by providers that can resolve
+   * the host dynamically (e.g., DatabricksSdkAuthProvider).
+   *
+   * @returns Promise resolving to the host URL
+   * @throws Error if host cannot be resolved
+   */
+  getHost?(): Promise<string>;
 }

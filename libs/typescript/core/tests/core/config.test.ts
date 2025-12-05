@@ -1,16 +1,30 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import { init, getConfig, readDatabricksConfig } from '../../src/core/config';
+import { init, getConfig, resetConfig, ensureInitialized } from '../../src/core/config';
+import { DatabricksSdkAuthProvider } from '../../src/auth/providers/databricks-sdk';
+
+// Mock the DatabricksSdkAuthProvider
+jest.mock('../../src/auth/providers/databricks-sdk');
+const MockDatabricksSdkAuthProvider = DatabricksSdkAuthProvider as jest.MockedClass<
+  typeof DatabricksSdkAuthProvider
+>;
+
+// Mock the provider module to prevent actual SDK initialization
+jest.mock('../../src/core/provider', () => ({
+  initializeSDKAsync: jest.fn().mockResolvedValue(undefined)
+}));
 
 describe('Config', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetConfig();
+    // Reset environment variables
+    delete process.env.MLFLOW_TRACKING_URI;
+    delete process.env.MLFLOW_EXPERIMENT_ID;
+    delete process.env.DATABRICKS_HOST;
+    delete process.env.DATABRICKS_TOKEN;
+  });
+
   describe('init and getConfig', () => {
     describe('environment variable resolution', () => {
-      afterEach(() => {
-        delete process.env.MLFLOW_TRACKING_URI;
-        delete process.env.MLFLOW_EXPERIMENT_ID;
-      });
-
       it('should read tracking configuration from environment variables when not provided', () => {
         process.env.MLFLOW_TRACKING_URI = 'http://env-tracking-host:5000';
         process.env.MLFLOW_EXPERIMENT_ID = 'env-experiment-id';
@@ -105,348 +119,167 @@ describe('Config', () => {
       );
     });
 
-    it.skip('should throw error if getConfig is called without init', () => {
-      // Skip this test as it interferes with other tests due to module state
-      expect(() => getConfig()).toThrow(
-        'The MLflow Tracing client is not configured. Please call init() with host and experimentId before using tracing functions.'
-      );
-    });
-
     describe('Databricks configuration', () => {
-      const tempDir = path.join(os.tmpdir(), 'mlflow-databricks-test-' + Date.now());
-      const configPath = path.join(tempDir, '.databrickscfg');
-
       beforeEach(() => {
-        fs.mkdirSync(tempDir, { recursive: true });
-      });
-
-      afterEach(() => {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      });
-
-      it('should read Databricks config for default profile', () => {
-        const configContent = `[DEFAULT]
-host = https://my-workspace.databricks.com
-token = dapi123456789abcdef
-
-[dev]
-host = https://dev-workspace.databricks.com
-token = dapi987654321fedcba`;
-
-        fs.writeFileSync(configPath, configContent);
-
-        const config = {
-          trackingUri: 'databricks',
-          experimentId: '123456789',
-          databricksConfigPath: configPath
-        };
-
-        init(config);
-
-        const result = getConfig();
-        expect(result.host).toBe('https://my-workspace.databricks.com');
-        expect(result.databricksToken).toBe('dapi123456789abcdef');
-      });
-
-      it('should read Databricks config for specific profile', () => {
-        const configContent = `[DEFAULT]
-host = https://my-workspace.databricks.com
-token = dapi123456789abcdef
-
-[dev]
-host = https://dev-workspace.databricks.com
-token = dapi987654321fedcba`;
-
-        fs.writeFileSync(configPath, configContent);
-
-        const config = {
-          trackingUri: 'databricks://dev',
-          experimentId: '123456789',
-          databricksConfigPath: configPath
-        };
-
-        init(config);
-
-        const result = getConfig();
-        expect(result.host).toBe('https://dev-workspace.databricks.com');
-        expect(result.databricksToken).toBe('dapi987654321fedcba');
-      });
-
-      it('should use explicit host/token over config file', () => {
-        const configContent = `[DEFAULT]
-host = https://my-workspace.databricks.com
-token = dapi123456789abcdef`;
-
-        fs.writeFileSync(configPath, configContent);
-
-        const config = {
-          trackingUri: 'databricks',
-          experimentId: '123456789',
-          databricksConfigPath: configPath,
-          host: 'https://override-workspace.databricks.com',
-          databricksToken: 'override-token'
-        };
-
-        init(config);
-
-        const result = getConfig();
-        expect(result.host).toBe('https://override-workspace.databricks.com');
-        expect(result.databricksToken).toBe('override-token');
-      });
-
-      it('should throw error if Databricks config file not found', () => {
-        const config = {
-          trackingUri: 'databricks',
-          experimentId: '123456789',
-          databricksConfigPath: '/nonexistent/path/.databrickscfg'
-        };
-
-        expect(() => init(config)).toThrow(/Failed to read Databricks configuration/);
-        expect(() => init(config)).toThrow(
-          /Make sure your \/nonexistent\/path\/.databrickscfg file exists/
+        MockDatabricksSdkAuthProvider.mockImplementation(
+          () =>
+            ({
+              authenticate: jest.fn().mockResolvedValue({ authorizationHeader: 'Bearer mock' }),
+              getHost: jest.fn().mockResolvedValue('https://mock-workspace.databricks.com')
+            }) as any
         );
       });
 
-      it('should throw error if profile not found in config', () => {
-        const configContent = `[DEFAULT]
-host = https://my-workspace.databricks.com
-token = dapi123456789abcdef`;
+      it('should create DatabricksSdkAuthProvider for "databricks" tracking URI', () => {
+        init({
+          trackingUri: 'databricks',
+          experimentId: '123456789'
+        });
 
-        fs.writeFileSync(configPath, configContent);
+        expect(MockDatabricksSdkAuthProvider).toHaveBeenCalledWith({
+          profile: undefined,
+          configFile: undefined,
+          host: undefined,
+          token: undefined,
+          clientId: undefined,
+          clientSecret: undefined
+        });
 
-        const config = {
-          trackingUri: 'databricks://nonexistent',
-          experimentId: '123456789',
-          databricksConfigPath: configPath
-        };
+        const result = getConfig();
+        expect(result.authProvider).toBeDefined();
+      });
 
-        expect(() => init(config)).toThrow(
-          /Failed to read Databricks configuration for profile 'nonexistent'/
+      it('should extract profile from "databricks://profile" tracking URI', () => {
+        init({
+          trackingUri: 'databricks://my-profile',
+          experimentId: '123456789'
+        });
+
+        expect(MockDatabricksSdkAuthProvider).toHaveBeenCalledWith(
+          expect.objectContaining({
+            profile: 'my-profile'
+          })
         );
       });
 
-      it('should handle empty profile name as DEFAULT', () => {
-        const configContent = `[DEFAULT]
-host = https://my-workspace.databricks.com
-token = dapi123456789abcdef`;
-
-        fs.writeFileSync(configPath, configContent);
-
-        const config = {
+      it('should handle empty profile as undefined (databricks://)', () => {
+        init({
           trackingUri: 'databricks://',
-          experimentId: '123456789',
-          databricksConfigPath: configPath
-        };
+          experimentId: '123456789'
+        });
 
-        init(config);
-
-        const result = getConfig();
-        expect(result.host).toBe('https://my-workspace.databricks.com');
-        expect(result.databricksToken).toBe('dapi123456789abcdef');
+        expect(MockDatabricksSdkAuthProvider).toHaveBeenCalledWith(
+          expect.objectContaining({
+            profile: undefined
+          })
+        );
       });
 
-      it('should use environment variables over config file', () => {
-        const configContent = `[DEFAULT]
-host = https://config-workspace.databricks.com
-token = config-token`;
-
-        fs.writeFileSync(configPath, configContent);
-
-        // Set environment variables
-        process.env.DATABRICKS_HOST = 'https://env-workspace.databricks.com';
-        process.env.DATABRICKS_TOKEN = 'env-token';
-
-        const config = {
+      it('should pass databricksConfigPath as configFile', () => {
+        init({
           trackingUri: 'databricks',
           experimentId: '123456789',
-          databricksConfigPath: configPath
+          databricksConfigPath: '/custom/path/.databrickscfg'
+        });
+
+        expect(MockDatabricksSdkAuthProvider).toHaveBeenCalledWith(
+          expect.objectContaining({
+            configFile: '/custom/path/.databrickscfg'
+          })
+        );
+      });
+
+      it('should pass explicit host and token to auth provider', () => {
+        init({
+          trackingUri: 'databricks',
+          experimentId: '123456789',
+          host: 'https://explicit-host.databricks.com',
+          databricksToken: 'explicit-token'
+        });
+
+        expect(MockDatabricksSdkAuthProvider).toHaveBeenCalledWith(
+          expect.objectContaining({
+            host: 'https://explicit-host.databricks.com',
+            token: 'explicit-token'
+          })
+        );
+      });
+
+      it('should pass OAuth credentials to auth provider', () => {
+        init({
+          trackingUri: 'databricks',
+          experimentId: '123456789',
+          clientId: 'my-client-id',
+          clientSecret: 'my-client-secret'
+        });
+
+        expect(MockDatabricksSdkAuthProvider).toHaveBeenCalledWith(
+          expect.objectContaining({
+            clientId: 'my-client-id',
+            clientSecret: 'my-client-secret'
+          })
+        );
+      });
+
+      it('should not create auth provider if one is already provided', () => {
+        const customAuthProvider = {
+          authenticate: jest.fn().mockResolvedValue({ authorizationHeader: 'Custom' })
         };
 
-        init(config);
+        init({
+          trackingUri: 'databricks',
+          experimentId: '123456789',
+          authProvider: customAuthProvider as any
+        });
+
+        expect(MockDatabricksSdkAuthProvider).not.toHaveBeenCalled();
 
         const result = getConfig();
-        expect(result.host).toBe('https://env-workspace.databricks.com');
-        expect(result.databricksToken).toBe('env-token');
+        expect(result.authProvider).toBe(customAuthProvider);
+      });
 
-        // Clean up environment variables
-        delete process.env.DATABRICKS_HOST;
-        delete process.env.DATABRICKS_TOKEN;
+      it('should not set host for Databricks URIs (resolved lazily)', () => {
+        init({
+          trackingUri: 'databricks',
+          experimentId: '123456789'
+        });
+
+        const result = getConfig();
+        // Host is not set immediately for Databricks URIs - it's resolved lazily
+        expect(result.host).toBeUndefined();
       });
     });
   });
 
-  describe('readDatabricksConfig', () => {
-    const tempDir = path.join(os.tmpdir(), 'mlflow-read-test-' + Date.now());
-    const configPath = path.join(tempDir, '.databrickscfg');
-
-    beforeEach(() => {
-      fs.mkdirSync(tempDir, { recursive: true });
+  describe('ensureInitialized', () => {
+    it('should resolve immediately if no init was called', async () => {
+      // When init hasn't been called, there's no promise to wait for
+      await expect(ensureInitialized()).resolves.toBeUndefined();
     });
 
-    afterEach(() => {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+    it('should wait for initialization to complete', async () => {
+      init({
+        trackingUri: 'http://localhost:5000',
+        experimentId: '123'
+      });
+
+      // Should not throw
+      await expect(ensureInitialized()).resolves.toBeUndefined();
     });
+  });
 
-    it('should read DEFAULT profile by default', () => {
-      const configContent = `[DEFAULT]
-host = https://default-workspace.databricks.com
-token = default-token`;
+  describe('resetConfig', () => {
+    it('should clear global config', () => {
+      init({
+        trackingUri: 'http://localhost:5000',
+        experimentId: '123'
+      });
 
-      fs.writeFileSync(configPath, configContent);
+      resetConfig();
 
-      const result = readDatabricksConfig(configPath);
-      expect(result.host).toBe('https://default-workspace.databricks.com');
-      expect(result.token).toBe('default-token');
-    });
-
-    it('should read specific profile', () => {
-      const configContent = `[DEFAULT]
-host = https://default-workspace.databricks.com
-token = default-token
-
-[production]
-host = https://prod-workspace.databricks.com
-token = prod-token`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      const result = readDatabricksConfig(configPath, 'production');
-      expect(result.host).toBe('https://prod-workspace.databricks.com');
-      expect(result.token).toBe('prod-token');
-    });
-
-    it('should handle config with extra fields', () => {
-      const configContent = `[DEFAULT]
-host = https://default-workspace.databricks.com
-token = default-token
-username = user@example.com
-jobs-api-version = 2.1`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      const result = readDatabricksConfig(configPath);
-      expect(result.host).toBe('https://default-workspace.databricks.com');
-      expect(result.token).toBe('default-token');
-    });
-
-    it('should throw error if config file not found', () => {
-      expect(() => readDatabricksConfig('/nonexistent/path/.databrickscfg')).toThrow(
-        'Failed to read Databricks config: Databricks config file not found at /nonexistent/path/.databrickscfg'
+      expect(() => getConfig()).toThrow(
+        'The MLflow Tracing client is not configured'
       );
-    });
-
-    it('should throw error if profile not found', () => {
-      const configContent = `[DEFAULT]
-host = https://default-workspace.databricks.com
-token = default-token`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      expect(() => readDatabricksConfig(configPath, 'nonexistent')).toThrow(
-        "Failed to read Databricks config: Profile 'nonexistent' not found in Databricks config file"
-      );
-    });
-
-    it('should throw error if host missing in profile', () => {
-      const configContent = `[DEFAULT]
-token = default-token`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      expect(() => readDatabricksConfig(configPath)).toThrow(
-        "Failed to read Databricks config: Host not found for profile 'DEFAULT' in Databricks config file"
-      );
-    });
-
-    it('should throw error if token missing in profile', () => {
-      const configContent = `[DEFAULT]
-host = https://default-workspace.databricks.com`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      expect(() => readDatabricksConfig(configPath)).toThrow(
-        "Failed to read Databricks config: Token not found for profile 'DEFAULT' in Databricks config file"
-      );
-    });
-
-    it('should handle malformed config file', () => {
-      const configContent = `This is not a valid INI file
-[missing closing bracket
-host = value`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      // The ini parser is permissive, so this might not throw, but profile won't be found
-      expect(() => readDatabricksConfig(configPath, 'DEFAULT')).toThrow(
-        /Failed to read Databricks config/
-      );
-    });
-
-    it('should read Databricks config for multiple profiles', () => {
-      const configContent = `[DEFAULT]
-host = https://default-workspace.databricks.com
-token = dapi123456789abcdef
-
-[dev]
-host = https://dev-workspace.databricks.com
-token = dapidev123456789ab
-
-[staging]
-host = https://staging-workspace.databricks.com
-token = dapistaging123456`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      // Test DEFAULT profile
-      let result = readDatabricksConfig(configPath);
-      expect(result.host).toBe('https://default-workspace.databricks.com');
-      expect(result.token).toBe('dapi123456789abcdef');
-
-      // Test dev profile
-      result = readDatabricksConfig(configPath, 'dev');
-      expect(result.host).toBe('https://dev-workspace.databricks.com');
-      expect(result.token).toBe('dapidev123456789ab');
-
-      // Test staging profile
-      result = readDatabricksConfig(configPath, 'staging');
-      expect(result.host).toBe('https://staging-workspace.databricks.com');
-      expect(result.token).toBe('dapistaging123456');
-    });
-
-    it('should handle Azure Databricks config format', () => {
-      const configContent = `[azure]
-host = https://adb-1234567890123456.7.azuredatabricks.net
-token = dapiazure123456789abcdef`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      const result = readDatabricksConfig(configPath, 'azure');
-      expect(result.host).toBe('https://adb-1234567890123456.7.azuredatabricks.net');
-      expect(result.token).toBe('dapiazure123456789abcdef');
-    });
-
-    it('should handle AWS Databricks config format', () => {
-      const configContent = `[aws]
-host = https://dbc-abcd1234-5678.cloud.databricks.com
-token = dapiaws123456789abcdef`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      const result = readDatabricksConfig(configPath, 'aws');
-      expect(result.host).toBe('https://dbc-abcd1234-5678.cloud.databricks.com');
-      expect(result.token).toBe('dapiaws123456789abcdef');
-    });
-
-    it('should handle GCP Databricks config format', () => {
-      const configContent = `[gcp]
-host = https://1234567890123456.7.gcp.databricks.com
-token = dapigcp123456789abcdef`;
-
-      fs.writeFileSync(configPath, configContent);
-
-      const result = readDatabricksConfig(configPath, 'gcp');
-      expect(result.host).toBe('https://1234567890123456.7.gcp.databricks.com');
-      expect(result.token).toBe('dapigcp123456789abcdef');
     });
   });
 });

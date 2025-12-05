@@ -39,11 +39,9 @@
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-node": "^0.201.1",
     "fast-safe-stringify": "^2.1.1",
-    "bignumber.js": "^9.0.0",
-    "ini": "^5.0.0"
+    "bignumber.js": "^9.0.0"
   },
   "devDependencies": {
-    "@types/ini": "^4.1.1",
     "@types/jest": "^29.5.3",
     "@types/node": "^20.4.5",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
