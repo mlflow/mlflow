@@ -2,7 +2,7 @@
 # Checks that api_inventory.txt is up to date with the documented APIs.
 # This rebuilds the Sphinx docs and verifies the inventory file hasn't changed.
 
-set -e
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'
