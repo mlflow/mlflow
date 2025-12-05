@@ -886,3 +886,11 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     store = SqlAlchemyStore(db_uri, artifact_uri)
     store.engine.dispose()
     return db_path
+
+
+@pytest.fixture
+def db_uri(tmp_path: Path, cached_db: Path) -> str:
+    """Returns a fresh SQLite URI for each test by copying the cached database."""
+    db_path = tmp_path / "mlflow.db"
+    shutil.copy2(cached_db, db_path)
+    return f"sqlite:///{db_path}"
