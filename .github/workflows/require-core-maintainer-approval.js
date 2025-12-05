@@ -9,39 +9,45 @@ async function getMaintainers({ github, context }) {
     .sort();
 }
 
-const EXEMPTIONS = [
+const EXEMPTION_RULES = [
   // Exemption for GenAI evaluation PRs.
   {
-    "authors": [
-      "alkispoly-db",
-      "AveshCSingh",
-      "danielseong1",
-      "smoorjani",
-      "SomtochiUmeh",
-      "xsh310",
+    authors: ["alkispoly-db", "AveshCSingh", "danielseong1", "smoorjani", "SomtochiUmeh", "xsh310"],
+    allowed: ["mlflow/genai/", "tests/genai/", "docs/"],
+    excludes: [
+      "mlflow/genai/agent_server/",
+      "mlflow/genai/git_versioning/",
+      "mlflow/genai/prompts/",
+      "mlflow/genai/optimize/",
     ],
-    "allowed": [
-      "mlflow/genai/**",
-      "tests/genai/**",
-      "docs/**",
-    ],
-    "excludes": [
-      "mlflow/genai/prompts/**",
-      "mlflow/genai/optimize/**",
-    ],
-  }
-]
+  },
+];
 
-
-function isAllowedPath(path) {
-  return EXEMPTIONS.some(({ allowed, excludes }) => {
-    return allowed.some((allowed) => path.startsWith(allowed)) && !excludes.some((exclude) => path.startsWith(exclude));
-  });
+function isAllowedPath(path, rule) {
+  return (
+    rule.allowed.some((allowedPath) => path.startsWith(allowedPath)) &&
+    !rule.excludes.some((exclude) => path.startsWith(exclude))
+  );
 }
 
 function isExempted(authorLogin, files) {
-  return EXEMPTIONS.some(({ authors }) => authors.includes(authorLogin)) || files.every(({ filename, previous_filename }) =>
-    [filename, previous_filename].filter(Boolean).every(isAllowedPath));
+  let filesToCheck = files.slice();
+  for (const rule of EXEMPTION_RULES) {
+    if (rule.authors.includes(authorLogin)) {
+      filesToCheck = filesToCheck.filter(({ filename, previous_filename }) =>
+        // Both before/after file paths must be allowed by the rule.
+        [filename, previous_filename].filter(Boolean).every((path) => isAllowedPath(path, rule))
+      );
+      if (filesToCheck.length === 0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function hasAnyApproval(reviews) {
+  return reviews.some(({ state }) => state === "APPROVED");
 }
 
 module.exports = async ({ github, context, core }) => {
