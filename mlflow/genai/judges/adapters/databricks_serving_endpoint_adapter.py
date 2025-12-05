@@ -109,6 +109,7 @@ def _invoke_databricks_serving_endpoint(
     prompt: str,
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> InvokeDatabricksModelOutput:
     from mlflow.utils.databricks_utils import get_databricks_host_creds
 
@@ -133,6 +134,10 @@ def _invoke_databricks_serving_endpoint(
             # Add response_schema if provided
             if response_format is not None:
                 payload["response_schema"] = response_format.model_json_schema()
+
+            # Add inference parameters if provided (e.g., temperature, top_p, max_tokens)
+            if inference_params:
+                payload.update(inference_params)
 
             res = requests.post(
                 url=api_url,
@@ -275,12 +280,14 @@ def _invoke_databricks_serving_endpoint_judge(
     assessment_name: str,
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> InvokeJudgeModelHelperOutput:
     output = _invoke_databricks_serving_endpoint(
         model_name=model_name,
         prompt=prompt,
         num_retries=num_retries,
         response_format=response_format,
+        inference_params=inference_params,
     )
     try:
         response_dict = json.loads(output.response)
