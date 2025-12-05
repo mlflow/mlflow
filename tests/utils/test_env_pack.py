@@ -312,7 +312,6 @@ def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path,
 def test_pack_env_for_databricks_model_serving_handles_existing_databricks_dir(
     tmp_path, mock_dbr_version
 ):
-    """Test that pack_env_for_databricks_model_serving handles existing _databricks directory."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
