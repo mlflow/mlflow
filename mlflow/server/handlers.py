@@ -1756,6 +1756,7 @@ def post_telemetry_handler():
     """
     from mlflow.telemetry import get_telemetry_client
     from mlflow.telemetry.schemas import Record, Status
+    from mlflow.telemetry.utils import fetch_telemetry_config
 
     _validate_content_type(request, ["application/json"])
 
@@ -1766,12 +1767,28 @@ def post_telemetry_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    # check cached config to see if telemetry is disabled
+    # if so, don't process the records. we don't rely on the
+    # config from the telemetry client because it is only fetched
+    # once, so it won't be updated unless the server is restarted.
+    if "config" in _telemetry_config_cache:
+        config = _telemetry_config_cache["config"]
+    else:
+        config = fetch_telemetry_config()
+        _telemetry_config_cache["config"] = config
+
+    if config and (config.get("disable_telemetry") or config.get("disable_ui_telemetry")):
+        return
+
     records = [
         Record(
-            event_name=event["event_name"],
-            timestamp_ns=event["timestamp_ns"],
-            params=event["params"],
+            event_name=event.get("event_name"),
+            timestamp_ns=event.get("timestamp_ns"),
+            params=event.get("params"),
             status=Status.SUCCESS,
+            installation_id=event.get("installation_id"),
+            session_id=event.get("session_id"),
+            duration_ms=0,
         )
         for event in data["records"]
     ]
@@ -1782,7 +1799,7 @@ def post_telemetry_handler():
         for record in records:
             client.add_record(record)
 
-    return jsonify({"status": "success"})
+    return
 
 
 @catch_mlflow_exception

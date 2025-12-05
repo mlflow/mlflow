@@ -1,109 +1,28 @@
-# TelemetryLogger
-
-A SharedWorker-based telemetry logging system for the MLflow UI.
+# MLflow UI Telemetry
 
 ## Overview
 
-The TelemetryLogger uses a SharedWorker to coordinate telemetry logging across multiple browser tabs/windows. This ensures that:
-
-- Telemetry events are logged efficiently without duplication
-- Configuration is fetched once and shared across all tabs
-- Events are filtered based on server-side configuration
+Telemetry in MLflow's UI is based on a [SharedWorker](https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker), which is a type of web worker that can be accessed by multiple tabs. This allows us to effectively consolidate and batch logs.
 
 ## Architecture
 
-- **TelemetryLogger.ts**: Client API for logging events
-- **TelemetryLogger.worker.ts**: SharedWorker that handles logging and config
-- **types.ts**: TypeScript types for telemetry data
+### Client
 
-## Usage
+**TelemetryClient.ts**:
 
-### Basic Event Logging
+- Client API for logging events. A singleton is exported from this file, and
+  is imported / used in `app.tsx` (the top-level MLflow frontend component).
+- We hook into the built-in `DesignSystemEventProvider`, which generates view and click events for every interactive component.
+- When `logEvent` is called, the client forwards the log to the SharedWorker via postMessage
 
-```typescript
-import { getTelemetryLogger, TelemetryStatus } from '@/telemetry';
+### SharedWorker
 
-const logger = getTelemetryLogger();
+**TelemetryLogger.worker.ts**:
 
-// Log a simple event
-logger.logEvent({
-  event_name: 'button_clicked',
-});
+- Main worker class that handles communication with the `/telemetry` server endpoint.
+- Please keep external dependencies here minimal, as it is bundled separately from the main app and we'd ideally keep the generated bundle relatively light (see the `telemetry-worker` entrypoint in `craco.config.js`)
 
-// Log an event with parameters
-logger.logEvent({
-  event_name: 'experiment_created',
-  params: {
-    experiment_id: '123',
-    source: 'ui',
-  },
-  status: TelemetryStatus.SUCCESS,
-});
+**LogQueue.ts**:
 
-// Log an event with timing
-logger.logEvent({
-  event_name: 'page_loaded',
-  duration_ms: 1250,
-  status: TelemetryStatus.SUCCESS,
-});
-```
-
-### Get Configuration
-
-```typescript
-import { getTelemetryLogger } from '@/telemetry';
-
-const logger = getTelemetryLogger();
-const config = await logger.getConfig();
-
-if (config) {
-  console.log('Ingestion URL:', config.ingestion_url);
-  console.log('Disabled events:', config.disable_events);
-}
-```
-
-### Check Initialization Status
-
-```typescript
-import { getTelemetryLogger } from '@/telemetry';
-
-const logger = getTelemetryLogger();
-if (logger.isInitialized()) {
-  logger.logEvent({ event_name: 'app_started' });
-}
-```
-
-## Event Record Structure
-
-```typescript
-interface TelemetryRecord {
-  event_name: string; // Required: Name of the event
-  timestamp_ns: number; // Optional: Defaults to current time
-  params?: Record<string, any>; // Optional: Event parameters
-  status?: TelemetryStatus; // Optional: Event status (UNKNOWN, SUCCESS, FAILURE)
-  duration_ms?: number; // Optional: Event duration in milliseconds
-}
-```
-
-## How It Works
-
-1. **Initialization**: When first imported, TelemetryLogger creates a SharedWorker
-2. **Config Fetch**: The worker fetches telemetry config from `/ajax-api/2.0/mlflow/telemetry` (GET)
-3. **Event Logging**: Events are sent to the worker, which filters and posts them to the server
-4. **Caching**: Config is cached in the worker to avoid repeated fetches
-
-## Browser Support
-
-SharedWorker is supported in:
-- Chrome/Edge 4+
-- Firefox 29+
-- Safari 16+
-
-If SharedWorker is not supported, the logger will fail gracefully and log a warning.
-
-## Notes
-
-- Events are fire-and-forget; `logEvent()` does not return a Promise
-- The logger automatically filters disabled events based on server config
-- Timestamps are automatically added if not provided (in nanoseconds)
-- The SharedWorker is shared across all tabs from the same origin
+- Simple class that batches logs and uploads them to the server every 15s.
+- Calls `navigator.sendBeacon()` on page close so logs are not lost

@@ -21,9 +21,13 @@ class Record:
     params: dict[str, Any] | None = None
     status: Status = Status.UNKNOWN
     duration_ms: int | None = None
+    # installation and session ID usually comes from the telemetry client,
+    # but callers can override with these fields (e.g. in UI telemetry records)
+    installation_id: str | None = None
+    session_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "timestamp_ns": self.timestamp_ns,
             "event_name": self.event_name,
             # dump params to string so we can parse them easily in ETL pipeline
@@ -31,6 +35,11 @@ class Record:
             "status": self.status.value,
             "duration_ms": self.duration_ms,
         }
+        if self.installation_id:
+            result["installation_id"] = self.installation_id
+        if self.session_id:
+            result["session_id"] = self.session_id
+        return result
 
 
 class SourceSDK(str, Enum):

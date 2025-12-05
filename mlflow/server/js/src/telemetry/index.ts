@@ -5,5 +5,5 @@
  * to coordinate logging across multiple browser tabs.
  */
 
-export { telemetryClient } from './TelemetryLogger';
+export { telemetryClient } from './TelemetryClient';
 export type { TelemetryRecord } from './types';

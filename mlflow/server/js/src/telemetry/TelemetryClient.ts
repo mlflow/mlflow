@@ -68,10 +68,15 @@ class TelemetryClient {
       return;
     }
 
+    if (record.eventType !== 'onClick') {
+      return;
+    }
+
     const payload: TelemetryRecord = {
       installation_id: this.installationId,
       event_name: 'ui_event',
-      timestamp_ns: Date.now(),
+      // convert from ms to ns
+      timestamp_ns: Date.now() * 1e6,
       params: {
         componentId: record.componentId,
         componentViewId: record.componentViewId,

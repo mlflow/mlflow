@@ -121,13 +121,19 @@ def serve_get_metric_history_bulk_interval():
 
 
 # Serve the "experiments/search-datasets" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"),
+    methods=["POST"],
+)
 def serve_search_datasets():
     return _search_datasets_handler()
 
 
 # Serve the "runs/create-promptlab-run" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"), methods=["POST"])
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"),
+    methods=["POST"],
+)
 def serve_create_promptlab_run():
     return create_promptlab_run_handler()
 

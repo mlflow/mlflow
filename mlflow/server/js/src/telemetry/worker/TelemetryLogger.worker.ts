@@ -1,10 +1,3 @@
-/**
- * TelemetryLogger SharedWorker
- *
- * A shared worker that coordinates telemetry logging across multiple browser tabs/windows.
- * This ensures telemetry events are logged once even when the user has multiple tabs open.
- */
-
 import {
   WorkerToClientMessageType,
   type TelemetryRecord,
@@ -14,11 +7,6 @@ import {
 import { TELEMETRY_ENDPOINT } from './constants';
 import { LogQueue } from './LogQueue';
 
-const scope = self as any as SharedWorkerGlobalScope;
-
-/**
- * Fetch telemetry configuration from the server
- */
 async function fetchConfig(): Promise<TelemetryConfig | null> {
   try {
     const response = await fetch(TELEMETRY_ENDPOINT, {
@@ -41,10 +29,18 @@ class TelemetryLogger {
   private config: Promise<TelemetryConfig | null> = fetchConfig();
   private sessionId = crypto.randomUUID();
   private logQueue: LogQueue = new LogQueue();
+  private samplingValue: number = Math.random() * 100;
 
   public async addLogToQueue(record: TelemetryRecord): Promise<void> {
     const config = await this.config;
+
     if (!config || config.disable_telemetry) {
+      return;
+    }
+
+    // check if the sampling value is less than the rollout percentage
+    const isEnabled = this.samplingValue < (config.ui_rollout_percentage ?? 0);
+    if (!isEnabled) {
       return;
     }
 
@@ -54,12 +50,8 @@ class TelemetryLogger {
 
 const logger = new TelemetryLogger();
 
-/**
- * Handle messages from connected ports
- */
-function handleMessage(event: MessageEvent, port: MessagePort): void {
+function handleMessage(event: MessageEvent): void {
   const message = event.data;
-  console.log('@@@ handleMessage', message);
 
   if (message.type !== ClientToWorkerMessageType.LOG_EVENT) {
     return;
@@ -70,16 +62,11 @@ function handleMessage(event: MessageEvent, port: MessagePort): void {
   });
 }
 
-/**
- * SharedWorker entry point
- */
-const ports: Set<MessagePort> = new Set();
+const scope = self as any as SharedWorkerGlobalScope;
 
 scope.onconnect = (event: MessageEvent) => {
   const port = event.ports[0];
-  ports.add(port);
-  port.onmessage = (e) => {
-    handleMessage(e, port);
-  };
+  port.onmessage = handleMessage;
+  // client only starts sending logs after receiving the READY message
   port.postMessage({ type: WorkerToClientMessageType.READY });
 };

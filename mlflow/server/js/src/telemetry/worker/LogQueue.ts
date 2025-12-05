@@ -8,7 +8,7 @@
 import { TELEMETRY_ENDPOINT } from './constants';
 import { type TelemetryRecord } from './types';
 
-const FLUSH_INTERVAL_MS = 15000; // 15 seconds
+const FLUSH_INTERVAL_MS = 15000; // 5 seconds
 
 export class LogQueue {
   private queue: TelemetryRecord[] = [];
@@ -19,16 +19,10 @@ export class LogQueue {
     this.startFlushTimer();
   }
 
-  /**
-   * Add a telemetry record to the queue
-   */
   public enqueue(record: TelemetryRecord): void {
     this.queue.push(record);
   }
 
-  /**
-   * Start the periodic flush timer
-   */
   private startFlushTimer(): void {
     if (this.flushTimer !== null) {
       return;
@@ -39,9 +33,6 @@ export class LogQueue {
     }, FLUSH_INTERVAL_MS) as unknown as number;
   }
 
-  /**
-   * Stop the periodic flush timer
-   */
   private stopFlushTimer(): void {
     if (this.flushTimer !== null) {
       self.clearInterval(this.flushTimer);
@@ -86,16 +77,10 @@ export class LogQueue {
     }
   }
 
-  /**
-   * Clear the queue without uploading
-   */
   public clear(): void {
     this.queue = [];
   }
 
-  /**
-   * Destroy the queue and stop the flush timer
-   */
   public destroy(): void {
     this.stopFlushTimer();
     this.queue = [];
