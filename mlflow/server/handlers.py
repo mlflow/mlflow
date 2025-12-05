@@ -1744,6 +1744,11 @@ def get_telemetry_handler():
 
     # Fetch and cache config
     config = fetch_telemetry_config()
+    config = config | {
+        "disable_ui_telemetry": False,
+        "disable_ui_events": ["test"],
+        "ui_rollout_percentage": 100,
+    }
     _telemetry_config_cache["config"] = config
     return jsonify({"config": config})
 
@@ -1778,7 +1783,7 @@ def post_telemetry_handler():
         _telemetry_config_cache["config"] = config
 
     if config and (config.get("disable_telemetry") or config.get("disable_ui_telemetry")):
-        return
+        return jsonify({"status": "disabled"})
 
     records = [
         Record(
@@ -1799,7 +1804,7 @@ def post_telemetry_handler():
         for record in records:
             client.add_record(record)
 
-    return
+    return jsonify({"status": "success"})
 
 
 @catch_mlflow_exception

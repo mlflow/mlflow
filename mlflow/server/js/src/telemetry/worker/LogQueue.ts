@@ -20,6 +20,10 @@ export class LogQueue {
   }
 
   public enqueue(record: TelemetryRecord): void {
+    // if the queue has been destroyed, don't enqueue any more records
+    if (this.flushTimer === null) {
+      return;
+    }
     this.queue.push(record);
   }
 
@@ -68,6 +72,11 @@ export class LogQueue {
       if (!response.ok) {
         console.error(`[LogQueue] Failed to upload batch: ${response.status}`);
         this.queue.unshift(...records);
+      }
+
+      const responseJson = await response.json();
+      if (responseJson.status === 'disabled') {
+        this.destroy();
       }
     } catch (error) {
       console.error('[LogQueue] Error uploading batch:', error);

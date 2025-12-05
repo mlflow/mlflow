@@ -18,7 +18,8 @@ async function fetchConfig(): Promise<TelemetryConfig | null> {
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.status}`);
     }
-    return await response.json();
+    const responseJson = await response.json();
+    return responseJson.config;
   } catch (error) {
     console.error('[TelemetryWorker] Failed to fetch config:', error);
     return null;
