@@ -786,6 +786,14 @@ must be applied to the wrapping div along with the desired max-height */
 }
 
 /* --------------------------------
+ * 7.1. Video Styling
+ * -------------------------------- */
+
+video {
+  border-radius: 12px;
+}
+
+/* --------------------------------
  * 8. Accessibility
  * -------------------------------- */
 
