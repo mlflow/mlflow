@@ -32,6 +32,10 @@ from mlflow.genai.judges.prompts.conversation_completeness import (
     CONVERSATION_COMPLETENESS_PROMPT,
 )
 from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
+from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
+    CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT,
+    CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME,
+)
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
@@ -1851,6 +1855,83 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
     @property
     def instructions(self) -> str:
         return CONVERSATIONAL_SAFETY_PROMPT
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
+    """
+    Conversational tool call efficiency evaluates whether tool usage across a
+    multi-turn conversation session was optimized.
+
+    This scorer analyzes the complete conversation and tool call history for efficiency:
+
+    - Avoiding redundant tool calls (fetching the same information multiple times)
+    - Reusing information from previous tool calls when available
+    - Calling tools only when necessary to fulfill user requests
+    - Using appropriate tools for the task at hand
+    - Recognizing batching opportunities
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversational_tool_call_efficiency".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalToolCallEfficiency
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = ConversationalToolCallEfficiency()(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalToolCallEfficiency
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalToolCallEfficiency()])
+    """
+
+    name: str = CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME
+    model: str | None = None
+    description: str = (
+        "Evaluate whether tool usage across a multi-turn conversation session was "
+        "efficient, checking for redundant calls, unnecessary calls, and poor tool selection."
+    )
+
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+            generate_rationale_first=True,
+            include_tool_calls_in_conversation=True,
+        )
+
+    @property
+    def instructions(self) -> str:
+        return CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT
 
 
 @experimental(version="3.7.0")
