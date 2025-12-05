@@ -174,6 +174,25 @@ results = mlflow.genai.evaluate(
 )
 ```
 
+:::tip Controlling Concurrency to Avoid Rate Limiting
+
+When using LLM-as-a-Judge scorers, MLflow runs evaluations concurrently to speed up the process. If you're hitting rate limits from your LLM provider (especially with free tiers), you can control the concurrency using environment variables:
+
+```bash
+# Limit concurrent scorer execution (default: 10)
+export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS=2
+
+# Limit concurrent data items being evaluated (default: 10)
+export MLFLOW_GENAI_EVAL_MAX_WORKERS=5
+
+# For strict rate limiting, run scorers sequentially
+export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS=1
+```
+
+The total maximum concurrent API calls is approximately `MLFLOW_GENAI_EVAL_MAX_WORKERS × MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS`. Adjust these values based on your LLM provider's rate limits.
+
+:::
+
 After running the code above, go to the MLflow UI and navigate to your experiment. You'll see the evaluation results with detailed metrics for each scorer.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-result.png" alt="Detailed Evaluation Results" width="90%" />
