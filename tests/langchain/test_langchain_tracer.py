@@ -702,3 +702,9 @@ async def test_tracer_with_manual_traces_async():
     assert spans[1].parent_id == spans[0].span_id
     assert spans[2].name == "manual_transform"
     assert spans[2].parent_id == spans[1].span_id
+
+
+@pytest.mark.parametrize("run_tracer_inline", [True, False])
+def test_tracer_run_inline_parameter(run_tracer_inline):
+    tracer = MlflowLangchainTracer(run_inline=run_tracer_inline)
+    assert tracer.run_inline == run_tracer_inline

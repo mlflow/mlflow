@@ -285,6 +285,15 @@ This way, the span for the `check_code` node will have child spans, which record
 
 ![LangGraph Child Span](/images/llms/tracing/langgraph-child-span.png)
 
+:::info Async Context Propagation
+When using async methods like `ainvoke()` with manual `@mlflow.trace` decorators, MLflow ensures proper context propagation by default. If you experience performance issues in high-throughput async scenarios and don't use manual tracing, you can disable this behavior:
+
+```python
+mlflow.langchain.autolog(run_tracer_inline=False)
+```
+
+:::
+
 ## Thread ID Tracking
 
 Since MLflow 3.6, MLflow will automatically record the thread (session) ID for the trace and let you view a group of traces as a session in the UI. To enable this feature, you need to pass the `thread_id` in the config when invoking the graph.
