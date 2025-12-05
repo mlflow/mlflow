@@ -1097,3 +1097,39 @@ def test_langchain_tracing_evaluate(log_traces):
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == result.run_id
         assert len(trace.info.assessments) == 2
+
+
+@pytest.mark.asyncio
+async def test_autolog_run_tracer_inline_with_manual_traces_async():
+    mlflow.langchain.autolog(run_tracer_inline=True)
+
+    prompt = PromptTemplate(
+        input_variables=["color"],
+        template="What is the complementary color of {color}?",
+    )
+    llm = ChatOpenAI()
+
+    @mlflow.trace
+    def manual_transform(s: str):
+        return s.replace("red", "blue")
+
+    chain = RunnableLambda(manual_transform) | prompt | llm | StrOutputParser()
+
+    @mlflow.trace(name="parent")
+    async def run(message):
+        return await chain.ainvoke(message)
+
+    response = await run("red")
+    expected_response = '[{"role": "user", "content": "What is the complementary color of blue?"}]'
+    assert response == expected_response
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    trace = traces[0]
+    spans = trace.data.spans
+    assert spans[0].name == "parent"
+    assert spans[1].name == "RunnableSequence"
+    assert spans[1].parent_id == spans[0].span_id
+    assert spans[2].name == "manual_transform"
+    assert spans[2].parent_id == spans[1].span_id
