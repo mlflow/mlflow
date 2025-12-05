@@ -123,6 +123,7 @@ def invoke_judge_model(
                 assessment_name=assessment_name,
                 num_retries=num_retries,
                 response_format=response_format,
+                inference_params=inference_params,
             )
             feedback = output.feedback
             feedback.trace_id = trace.info.trace_id if trace is not None else None
@@ -196,7 +197,7 @@ def invoke_judge_model(
                 "Structured output is not supported by native LLM providers. Please install "
                 "LiteLLM with `pip install litellm` to use this judge.",
             )
-        response = _invoke_via_gateway(model_uri, model_provider, prompt)
+        response = _invoke_via_gateway(model_uri, model_provider, prompt, inference_params)
 
     cleaned_response = _strip_markdown_code_blocks(response)
 
