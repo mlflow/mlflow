@@ -125,6 +125,7 @@ def _create_mock_eval_item(trace):
     """Helper to create a mock EvalItem with a trace."""
     eval_item = Mock(spec=EvalItem)
     eval_item.trace = trace
+    eval_item.source = None  # Explicitly set to None so it doesn't return a Mock
     return eval_item
 
 
@@ -202,6 +203,7 @@ def test_group_traces_by_session_excludes_none_traces():
     eval_item1 = _create_mock_eval_item(trace1)
     eval_item2 = Mock()
     eval_item2.trace = None  # No trace
+    eval_item2.source = None  # No source
 
     eval_items = [eval_item1, eval_item2]
     session_groups = group_traces_by_session(eval_items)
