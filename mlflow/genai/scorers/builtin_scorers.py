@@ -39,6 +39,10 @@ from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTION
 from mlflow.genai.judges.prompts.relevance_to_query import (
     RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
 )
+from mlflow.genai.judges.prompts.summarization import (
+    SUMMARIZATION_ASSESSMENT_NAME,
+    SUMMARIZATION_PROMPT,
+)
 from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
@@ -1940,6 +1944,108 @@ class Completeness(BuiltInScorer):
                 description=(
                     "The response from the model, e.g. "
                     "'MLflow is an open-source platform for managing the ML lifecycle.'"
+                ),
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        inputs: dict[str, Any] | None = None,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        return self._get_judge()(
+            inputs=inputs,
+            outputs=outputs,
+            trace=trace,
+        )
+
+
+@experimental(version="3.7.0")
+@format_docstring(_MODEL_API_DOC)
+class Summarization(BuiltInScorer):
+    """
+    Summarization evaluates whether a summarization output is factually correct, grounded in
+    the input, and provides reasonably good coverage of the input.
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "summarization".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Summarization
+
+        assessment = Summarization(name="my_summarization_check")(
+            inputs={"text": "MLflow is an open-source platform for managing ML workflows..."},
+            outputs="MLflow is an ML platform.",
+        )
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Summarization
+
+        data = [
+            {
+                "inputs": {
+                    "text": "MLflow is an open-source platform for managing ML workflows..."
+                },
+                "outputs": "MLflow is an ML platform.",
+            },
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[Summarization()])
+    """
+
+    name: str = SUMMARIZATION_ASSESSMENT_NAME
+    model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate whether the summarization output is factually correct based on the input "
+        "and does not make any assumptions not in the input, with a focus on faithfulness, "
+        "coverage, and conciseness."
+    )
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    def _get_judge(self) -> InstructionsJudge:
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=Literal["yes", "no"],
+            )
+        return self._judge
+
+    @property
+    def instructions(self) -> str:
+        return SUMMARIZATION_PROMPT
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data containing the original text to be summarized, "
+                    "e.g. {'text': 'The full text to be summarized...'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description=(
+                    "The summarization output to evaluate, e.g. "
+                    "'A concise summary of the input text.'"
                 ),
             ),
         ]
