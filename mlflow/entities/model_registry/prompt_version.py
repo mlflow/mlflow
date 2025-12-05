@@ -119,16 +119,8 @@ class PromptModelConfig(BaseModel):
             A PromptModelConfig instance with known fields populated and unknown fields in
             extra_params.
         """
-        known_fields = {
-            "model_name",
-            "temperature",
-            "max_tokens",
-            "top_p",
-            "top_k",
-            "frequency_penalty",
-            "presence_penalty",
-            "stop_sequences",
-        }
+        # Use Pydantic's model_fields to dynamically get field names (excluding extra_params)
+        known_fields = set(cls.model_fields.keys()) - {"extra_params"}
         known_params = {}
         extra_params = {}
         for key, value in config_dict.items():

@@ -88,7 +88,7 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 
 # For prompt model configuration
-MLFLOW_PROMPT_MODEL_CONFIG = "_mlflow_prompt_model_config"
+MLFLOW_PROMPT_MODEL_CONFIG = "mlflow.prompt.modelConfig"
 
 
 # A set of tags that cannot be updated by the user

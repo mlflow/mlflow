@@ -335,8 +335,6 @@ def test_prompt_model_config_validation(field, value, error_match):
 
     with pytest.raises(ValidationError, match=error_match):
         PromptModelConfig(**{field: value})
-    # Test valid values
-    PromptModelConfig(temperature=0.0, max_tokens=1000, top_p=0.9, top_k=50)
 
 
 def test_prompt_model_config_empty():
