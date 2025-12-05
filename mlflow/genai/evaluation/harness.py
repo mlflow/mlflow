@@ -18,6 +18,7 @@ from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
+    MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
 )
 from mlflow.genai.evaluation import context
@@ -307,8 +308,10 @@ def _compute_eval_scores(
         return feedbacks
 
     # Use a thread pool to run scorers in parallel
+    # Limit concurrent scorers to prevent rate limiting errors with external LLM APIs
+    max_scorer_workers = min(len(scorers), MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS.get())
     with ThreadPoolExecutor(
-        max_workers=len(scorers),
+        max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
         futures = [executor.submit(run_scorer, scorer) for scorer in scorers]
