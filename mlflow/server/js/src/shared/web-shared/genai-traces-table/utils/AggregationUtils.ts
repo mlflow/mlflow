@@ -108,8 +108,18 @@ export function getAssessmentInfos(
     ]) {
       assessmentNames.add(assessmentName);
       const assessment = assessments[0];
+      // DEBUG: Log assessment data
+      console.log('[DEBUG] First pass - Assessment:', assessmentName, {
+        stringValue: assessment.stringValue,
+        numericValue: assessment.numericValue,
+        booleanValue: assessment.booleanValue,
+        errorCode: assessment.errorCode,
+        errorMessage: assessment.errorMessage,
+      });
       // For string values, if we see a value that is not "yes" or "no", we treat it as a string.
       // This is not a great approach, we should probably actually pass the pass-fail dtype information back somehow.
+      // dtype is determined by the value type, regardless of whether there's an error.
+      // If an assessment has both an error AND a value, we still want to allow filtering by the value.
       let dtype: AssessmentDType | undefined = !isNil(assessment.stringValue)
         ? 'pass-fail'
         : !isNil(assessment.numericValue)
@@ -117,10 +127,7 @@ export function getAssessmentInfos(
         : !isNil(assessment.booleanValue)
         ? 'boolean'
         : undefined;
-
-      if (doesAssessmentContainErrors(assessment)) {
-        dtype = undefined;
-      }
+      console.log('[DEBUG] First pass - Computed dtype:', dtype, 'for', assessmentName);
 
       if (!assessmentDtypes[assessmentName]) {
         if (assessmentName in KnownEvaluationResultAssessmentValueLabel) {
@@ -149,9 +156,11 @@ export function getAssessmentInfos(
   // if any assessment does not have a dtype, give it 'unknown' type. this can happen if all evaluations for that assessment are errors
   for (const assessmentName of assessmentNames) {
     if (!assessmentDtypes[assessmentName]) {
+      console.log('[DEBUG] Setting dtype to unknown for', assessmentName, 'current value:', assessmentDtypes[assessmentName]);
       assessmentDtypes[assessmentName] = 'unknown';
     }
   }
+  console.log('[DEBUG] Final assessmentDtypes:', JSON.stringify(assessmentDtypes, null, 2));
 
   [...currentEvaluationResults, ...(otherEvaluationResults || [])].forEach((result) => {
     const responseAssessmentsByName: [string, RunEvaluationResultAssessment[]][] = Object.entries(
@@ -225,7 +234,9 @@ export function getAssessmentInfos(
         if (assessmentValue === null) assessmentValue = undefined;
 
         const uniqueValues = new Set<AssessmentValueType>();
-        if (!isError) {
+        // Add the value even if there's an error, as long as a value exists
+        // This allows filtering by assessments that have both errors and values
+        if (assessmentValue !== undefined) {
           uniqueValues.add(assessmentValue);
         }
 
@@ -250,7 +261,8 @@ export function getAssessmentInfos(
         const assessmentInfo = assessmentInfos[assessmentName];
         let value = assessment ? getEvaluationResultAssessmentValue(assessment) : undefined;
         if (isNil(value)) value = undefined;
-        if (!isError) {
+        // Add the value even if there's an error, as long as a value exists
+        if (value !== undefined) {
           assessmentInfo.uniqueValues.add(value);
         }
 
