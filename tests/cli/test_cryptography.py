@@ -370,7 +370,7 @@ def test_success_message_includes_version_info(runner, mock_store, mock_session)
             commands, ["rotate-kek", "--new-passphrase", "new-passphrase", "--yes"]
         )
         assert result.exit_code == 0
-        assert "Successfully rotated 1 encryption keys" in result.output
+        assert "Successfully rotated 1 encryption key" in result.output
 
 
 def test_shows_environment_variable_warning(runner, old_passphrase_env, mock_store, db_with_secret):
