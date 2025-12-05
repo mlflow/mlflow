@@ -2638,9 +2638,9 @@ class SqlAlchemyStore(AbstractStore):
 
                     # Create a metric row for each token usage field
                     trace_metrics = [
-                        SqlTraceMetrics(request_id=trace_id, key=key, value=value)
+                        SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
                         for key in TokenUsageKey.all_keys()
-                        if (value := token_usage_dict.get(key))
+                        if (value := token_usage_dict.get(key)) is not None
                     ]
 
                     sql_trace_info.metrics = trace_metrics
@@ -3618,8 +3618,10 @@ class SqlAlchemyStore(AbstractStore):
 
                 # Store token usage as trace metrics
                 for key in TokenUsageKey.all_keys():
-                    if value := trace_token_usage.get(key):
-                        session.merge(SqlTraceMetrics(request_id=trace_id, key=key, value=value))
+                    if (value := trace_token_usage.get(key)) is not None:
+                        session.merge(
+                            SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
+                        )
 
             if session_id:
                 existing_session_id = (
