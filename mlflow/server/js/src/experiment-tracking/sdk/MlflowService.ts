@@ -289,7 +289,6 @@ export class MlflowService {
    */
   static getExperimentTraceV3 = (
     traceId: string,
-    // allowPartial kept for compatibility but not sent due to server GET validation.
     _opts: { allowPartial?: boolean } = {},
   ) => {
     type GetExperimentTraceV3Response = {
@@ -302,11 +301,10 @@ export class MlflowService {
       };
     };
 
-    // Note: do not send allow_partial as a query param; server validates it as a boolean
-    // on raw query args and rejects string values. The proto default is true.
     return getJson({
       relativeUrl: `ajax-api/3.0/mlflow/traces/get`,
-      data: { trace_id: traceId },
+      // Default to false for backward compatibility
+      data: { trace_id: traceId, allow_partial: _opts.allowPartial ?? false },
     }) as Promise<GetExperimentTraceV3Response>;
   };
 
