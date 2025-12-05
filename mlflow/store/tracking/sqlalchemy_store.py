@@ -2607,14 +2607,7 @@ class SqlAlchemyStore(AbstractStore):
 
             tags = [
                 SqlTraceTag(request_id=trace_id, key=k, value=v) for k, v in trace_info.tags.items()
-            ] + [
-                self._get_trace_artifact_location_tag(experiment, trace_id),
-                SqlTraceTag(
-                    request_id=trace_id,
-                    key=TraceTagKey.SPANS_LOCATION,
-                    value=SpansLocation.TRACKING_STORE.value,
-                ),
-            ]
+            ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
             sql_trace_info.tags = tags
 
             sql_trace_info.request_metadata = [
@@ -2632,6 +2625,22 @@ class SqlAlchemyStore(AbstractStore):
                 # Trace already exists (likely created by log_spans())
                 # Use merge to update with start_trace() data, preserving any logged spans
                 session.rollback()
+                # This is required to preserve the spans_location tag if it was set by log_spans;
+                # We cannot set the tag in TraceInfo directly because this may be invoked by
+                # older mlflow clients that log spans to artifact repository.
+                db_sql_trace_info = (
+                    session.query(SqlTraceInfo)
+                    .filter(SqlTraceInfo.request_id == trace_id)
+                    .one_or_none()
+                )
+                new_tag_keys = {t.key for t in tags}
+                if db_sql_trace_info:
+                    for tag in db_sql_trace_info.tags:
+                        if tag.key not in new_tag_keys:
+                            sql_trace_info.tags.append(
+                                SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
+                            )
+                            break
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -3416,14 +3425,7 @@ class SqlAlchemyStore(AbstractStore):
                     client_request_id=None,
                 )
                 # Add the artifact location tag that's required for search_traces to work
-                tags = [
-                    SqlTraceTag(
-                        key=TraceTagKey.SPANS_LOCATION,
-                        value=SpansLocation.TRACKING_STORE.value,
-                        request_id=trace_id,
-                    ),
-                    self._get_trace_artifact_location_tag(experiment, trace_id),
-                ]
+                tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
                 sql_trace_info.tags = tags
                 session.add(sql_trace_info)
                 try:
@@ -3475,14 +3477,19 @@ class SqlAlchemyStore(AbstractStore):
                     update_dict[SqlTraceInfo.status] = root_span_status
 
             aggregated_token_usage = {}
+            session_id = None
             for span in spans:
                 span_dict = translate_span_when_storing(span)
-                if span_token_usage := span_dict.get("attributes", {}).get(
-                    SpanAttributeKey.CHAT_USAGE
-                ):
-                    aggregated_token_usage = update_token_usage(
-                        aggregated_token_usage, span_token_usage
-                    )
+                if span_attributes := span_dict.get("attributes", {}):
+                    if span_token_usage := span_attributes.get(SpanAttributeKey.CHAT_USAGE):
+                        aggregated_token_usage = update_token_usage(
+                            aggregated_token_usage, span_token_usage
+                        )
+                    # session id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
+                    if session_id is None and (
+                        span_session_id := span_attributes.get("session.id")
+                    ):
+                        session_id = span_session_id
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
@@ -3526,11 +3533,37 @@ class SqlAlchemyStore(AbstractStore):
                         value=json.dumps(trace_token_usage),
                     )
                 )
+            if session_id:
+                existing_session_id = (
+                    session.query(SqlTraceMetadata)
+                    .filter(
+                        SqlTraceMetadata.request_id == trace_id,
+                        SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
+                    )
+                    .one_or_none()
+                )
+                if not existing_session_id:
+                    session.merge(
+                        SqlTraceMetadata(
+                            request_id=trace_id,
+                            key=TraceMetadataKey.TRACE_SESSION,
+                            value=session_id,
+                        )
+                    )
 
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
                 # Skip session synchronization for performance - we don't use the object afterward
                 synchronize_session=False,
+            )
+            # This is required to handle the concurrent calls that create or update the trace info,
+            # and to set the spans_location tag here since spans are stored in db.
+            session.merge(
+                SqlTraceTag(
+                    request_id=trace_id,
+                    key=TraceTagKey.SPANS_LOCATION,
+                    value=SpansLocation.TRACKING_STORE.value,
+                )
             )
 
         return spans
