@@ -25,8 +25,7 @@ for every MLflow API request. Each MLflow workspace maps 1:1 to a Kubernetes nam
   `Authorization: Bearer <token>` header or the `X-Forwarded-Access-Token` header when running
   behind a proxy.
 - Evaluates Kubernetes `SelfSubjectAccessReview` objects for each MLflow API call across the
-  `experiments`, `registeredmodels`, `workspaces`, and `jobs` resources in the `mlflow.kubeflow.org`
-  API group.
+  `experiments`, `registeredmodels`, and `jobs` resources in the `mlflow.kubeflow.org` API group.
 - Transparently rewrites run requests so the authenticated user becomes the run owner.
 - Filters workspace listings to the set of namespaces the caller can `list`.
 - Denies workspace create/update/delete operations, even if RBAC would otherwise allow them, keeping
@@ -286,12 +285,11 @@ The authorization plugin evaluates Kubernetes `SelfSubjectAccessReview` requests
 `mlflow.kubeflow.org` API group. Tokens presented to the MLflow API must be authorized for the
 following for full access:
 
-| Resource           | Verbs                                                                                                                  |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `experiments`      | `get`, `list`, `create`, `update`, `delete`                                                                            |
-| `registeredmodels` | `get`, `list`, `create`, `update`, `delete`                                                                            |
-| `workspaces`       | `get`, `list`, `create`, `update`, `delete` (mutations are denied by the plugin but RBAC should still describe intent) |
-| `jobs`             | `get`, `list`, `create`                                                                                                |
+| Resource           | Verbs                                       |
+| ------------------ | ------------------------------------------- |
+| `experiments`      | `get`, `list`, `create`, `update`, `delete` |
+| `registeredmodels` | `get`, `list`, `create`, `update`, `delete` |
+| `jobs`             | `get`, `list`, `create`                     |
 
 > **Note:** Prompts share storage and permissions with registered models. Granting access to the
 > `registeredmodels` resource automatically covers prompt operations; no separate `prompts` RBAC
@@ -311,7 +309,6 @@ rules:
     resources:
       - experiments
       - registeredmodels
-      - workspaces
       - jobs
     verbs:
       - get
@@ -376,7 +373,6 @@ rules:
     resources:
       - experiments
       - registeredmodels
-      - workspaces
       - jobs
     verbs:
       - get

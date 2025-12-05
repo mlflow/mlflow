@@ -194,7 +194,6 @@ _ALLOWED_RESOURCES = {
 _WORKSPACE_PERMISSION_RESOURCE_PRIORITY = (
     RESOURCE_EXPERIMENTS,
     RESOURCE_REGISTERED_MODELS,
-    RESOURCE_WORKSPACES,
     RESOURCE_JOBS,
 )
 _FASTAPI_AUTH_PREFIXES = (OTLP_TRACES_PATH, "/ajax-api/3.0")
@@ -530,7 +529,7 @@ REQUEST_AUTHORIZATION_RULES: dict[type, AuthorizationRule] = {
     # SelfSubjectAccessReview cannot cover the full list. The response is instead filtered per
     # namespace via accessible_workspaces.
     ListWorkspaces: _workspaces_rule(None, apply_workspace_filter=True, requires_workspace=False),
-    GetWorkspace: _workspaces_rule("get", requires_workspace=False),
+    GetWorkspace: _workspaces_rule(None, requires_workspace=False),
     CreateWorkspace: _workspaces_rule("create", deny=True, requires_workspace=False),
     UpdateWorkspace: _workspaces_rule("update", deny=True, requires_workspace=False),
     DeleteWorkspace: _workspaces_rule("delete", deny=True, requires_workspace=False),
@@ -883,6 +882,25 @@ def _authorize_request(
                 "Permission denied for requested operation.",
                 error_code=databricks_pb2.PERMISSION_DENIED,
             )
+    elif rule.resource == RESOURCE_WORKSPACES and not rule.deny and not rule.apply_workspace_filter:
+        if not workspace_name:
+            raise MlflowException(
+                _WORKSPACE_REQUIRED_ERROR_MESSAGE,
+                error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
+        if not authorizer.can_access_workspace(identity, workspace_name, verb="get"):
+            raise MlflowException(
+                "Permission denied for requested operation.",
+                error_code=databricks_pb2.PERMISSION_DENIED,
+            )
+    elif rule.apply_workspace_filter:
+        pass  # Authorization is handled via response filtering
+    else:
+        raise MlflowException(
+            f"Authorization rule for '{method} {path}' is missing a verb or other "
+            "required configuration.",
+            error_code=databricks_pb2.INTERNAL_ERROR,
+        )
 
     return _AuthorizationResult(identity=identity, rule=rule, username=username)
 
@@ -1076,16 +1094,8 @@ class KubernetesAuthorizer:
         accessible: set[str] = set()
         subject_hash = identity.subject_hash(self._mode, missing_user_label=self._user_header_label)
         for workspace_name in names:
-            for resource in _WORKSPACE_PERMISSION_RESOURCE_PRIORITY:
-                if self.is_allowed(identity, resource, "list", workspace_name):
-                    accessible.add(workspace_name)
-                    _logger.debug(
-                        "Workspace %s included for subject_hash=%s via resource=%s",
-                        workspace_name,
-                        subject_hash,
-                        resource,
-                    )
-                    break
+            if self.can_access_workspace(identity, workspace_name, verb="list"):
+                accessible.add(workspace_name)
             else:
                 _logger.debug(
                     "Workspace %s excluded for subject_hash=%s; no list permission detected",
@@ -1093,6 +1103,36 @@ class KubernetesAuthorizer:
                     subject_hash,
                 )
         return accessible
+
+    def can_access_workspace(
+        self, identity: _RequestIdentity, workspace_name: str, verb: str = "get"
+    ) -> bool:
+        """Check if the identity can access the workspace via any priority resource.
+
+        Iterates through experiments, registeredmodels, and jobs resources to find if
+        the identity has the specified permission on any of them for the given workspace
+        (namespace).
+
+        Args:
+            identity: The request identity containing token or user/groups.
+            workspace_name: The workspace (namespace) to check access for.
+            verb: The Kubernetes RBAC verb to check (default: "get").
+
+        Returns:
+            True if the identity has the permission on any priority resource.
+        """
+        subject_hash = identity.subject_hash(self._mode, missing_user_label=self._user_header_label)
+        for resource in _WORKSPACE_PERMISSION_RESOURCE_PRIORITY:
+            if self.is_allowed(identity, resource, verb, workspace_name):
+                _logger.debug(
+                    "Workspace %s accessible for subject_hash=%s via resource=%s verb=%s",
+                    workspace_name,
+                    subject_hash,
+                    resource,
+                    verb,
+                )
+                return True
+        return False
 
 
 @dataclass(frozen=True)

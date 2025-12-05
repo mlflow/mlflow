@@ -685,8 +685,8 @@ def test_subject_access_review_mode_requires_user_header(monkeypatch):
 def test_workspace_scope_falls_back_to_view_args(monkeypatch):
     app = Flask(__name__)
     authorizer = Mock()
-    authorizer.is_allowed.return_value = True
-    rule = AuthorizationRule("get", resource=RESOURCE_WORKSPACES)
+    authorizer.can_access_workspace.return_value = True
+    rule = AuthorizationRule(None, resource=RESOURCE_WORKSPACES)
     monkeypatch.setattr(
         "kubernetes_workspace_provider.auth._find_authorization_rule",
         lambda path, method: rule,
@@ -710,9 +710,11 @@ def test_workspace_scope_falls_back_to_view_args(monkeypatch):
             workspace=None,
         )
 
-    args = authorizer.is_allowed.call_args[0]
+    args = authorizer.can_access_workspace.call_args[0]
     assert args[0].token == "scope-token"
-    assert args[1:] == ("workspaces", "get", "team-a")
+    assert args[1:] == ("team-a",)
+    kwargs = authorizer.can_access_workspace.call_args[1]
+    assert kwargs == {"verb": "get"}
 
 
 def test_workspace_create_requests_are_denied(monkeypatch):
@@ -904,3 +906,41 @@ def test_experiment_permissions_are_checked_first(monkeypatch):
     assert accessible == {"team-a"}
     first_call = authorizer.is_allowed.call_args_list[0][0]
     assert first_call[1] == "experiments"
+
+
+def test_can_access_workspace_iterates_priority_resources(monkeypatch):
+    monkeypatch.setattr(
+        "kubernetes_workspace_provider.auth._load_kubernetes_configuration",
+        lambda: SimpleNamespace(
+            host=None,
+            ssl_ca_cert=None,
+            verify_ssl=True,
+            proxy=None,
+            no_proxy=None,
+            proxy_headers=None,
+            safe_chars_for_path_param=None,
+            connection_pool_maxsize=None,
+        ),
+    )
+
+    config = KubernetesAuthConfig(cache_ttl_seconds=1)
+    authorizer = KubernetesAuthorizer(config)
+
+    def _fake_permission(identity, resource, verb, namespace):
+        return resource == "registeredmodels" and namespace == "team-a" and verb == "get"
+
+    authorizer.is_allowed = Mock(side_effect=_fake_permission)  # type: ignore[method-assign]
+
+    identity = _RequestIdentity(token="token")
+    assert authorizer.can_access_workspace(identity, "team-a", verb="get") is True
+
+    calls = authorizer.is_allowed.call_args_list
+    assert calls[0][0][1] == "experiments"
+    assert calls[1][0][1] == "registeredmodels"
+
+    authorizer.is_allowed.reset_mock()
+    assert authorizer.can_access_workspace(identity, "team-b", verb="get") is False
+
+    calls = authorizer.is_allowed.call_args_list
+    assert len(calls) == 3
+    assert [c[0][1] for c in calls] == ["experiments", "registeredmodels", "jobs"]
