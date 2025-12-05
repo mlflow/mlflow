@@ -14,11 +14,20 @@ defaults:
 
 jobs:
   assign:
-    # Only run on open PR comments from maintainers
+    # Only run on open PR comments from maintainers who are not already assigned
     if: >
-      github.event.issue.pull_request &&
-      github.event.issue.state == 'open' &&
-      contains(fromJSON('["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"]'), github.event.comment.user.login)
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        github.event.issue.state == 'open' &&
+        contains(fromJSON('["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"]'), github.event.comment.user.login) &&
+        !contains(github.event.issue.assignees.*.login, github.event.comment.user.login)
+      ) || (
+        github.event_name == 'pull_request_review_comment' &&
+        github.event.pull_request.state == 'open' &&
+        contains(fromJSON('["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"]'), github.event.comment.user.login) &&
+        !contains(github.event.pull_request.assignees.*.login, github.event.comment.user.login)
+      )
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -28,17 +37,8 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const issue_number = context.issue.number;
+            const issue_number = context.payload.issue?.number || context.payload.pull_request?.number;
             const commenter = context.payload.comment.user.login;
-            const currentAssignees = context.payload.issue.assignees || [];
-
-            console.log("Commenter:", commenter);
-            console.log("Current assignees:", currentAssignees.map((a) => a.login));
-
-            if (currentAssignees.some((a) => a.login === commenter)) {
-              console.log(`${commenter} is already assigned, skipping`);
-              return;
-            }
 
             console.log(`Adding ${commenter} as assignee`);
             await github.rest.issues.addAssignees({
