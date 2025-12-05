@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 from click.testing import CliRunner
 
-from mlflow.cli.cryptography import commands
+from mlflow.cli.crypto import commands
 from mlflow.exceptions import MlflowException
 
 
@@ -75,7 +75,7 @@ def db_with_secret(mock_session, mock_secret):
 def patch_backend(mock_store):
     mock_sql_secret = mock.Mock()
     with (
-        mock.patch("mlflow.cli.cryptography._get_store", return_value=mock_store),
+        mock.patch("mlflow.cli.crypto._get_store", return_value=mock_store),
         mock.patch.dict(
             "sys.modules",
             {"mlflow.store.tracking.dbmodels.models": mock.Mock(SqlSecret=mock_sql_secret)},
@@ -89,7 +89,7 @@ def patch_rotation(return_value=None):
     result = mock.Mock()
     result.wrapped_dek = b"new-wrapped-dek"
     with mock.patch(
-        "mlflow.cli.cryptography.rotate_secret_encryption",
+        "mlflow.cli.crypto.rotate_secret_encryption",
         return_value=return_value or result,
     ):
         yield
@@ -150,13 +150,13 @@ def test_old_passphrase_from_env(runner, old_passphrase_env, mock_store, empty_d
 
 def test_kek_version_defaults_to_1(runner, old_passphrase_env, mock_store, empty_db, monkeypatch):
     monkeypatch.delenv("MLFLOW_CRYPTO_KEK_VERSION", raising=False)
-    with patch_backend(mock_store), mock.patch("mlflow.cli.cryptography.KEKManager") as mock_kek:
+    with patch_backend(mock_store), mock.patch("mlflow.cli.crypto.KEKManager") as mock_kek:
         runner.invoke(commands, ["rotate-kek", "--new-passphrase", "new-passphrase", "--yes"])
         assert mock_kek.call_args_list[0][1]["kek_version"] == 1
 
 
 def test_kek_version_from_env(runner, mock_store, empty_db):
-    with patch_backend(mock_store), mock.patch("mlflow.cli.cryptography.os.getenv") as mock_getenv:
+    with patch_backend(mock_store), mock.patch("mlflow.cli.crypto.os.getenv") as mock_getenv:
 
         def getenv_side_effect(key, default=None):
             if key == "MLFLOW_CRYPTO_KEK_PASSPHRASE":
@@ -173,7 +173,7 @@ def test_kek_version_from_env(runner, mock_store, empty_db):
 
 
 def test_version_increments_correctly(runner, mock_store, empty_db):
-    with patch_backend(mock_store), mock.patch("mlflow.cli.cryptography.os.getenv") as mock_getenv:
+    with patch_backend(mock_store), mock.patch("mlflow.cli.crypto.os.getenv") as mock_getenv:
 
         def getenv_side_effect(key, default=None):
             if key == "MLFLOW_CRYPTO_KEK_PASSPHRASE":
@@ -274,7 +274,7 @@ def test_wrong_old_passphrase_fails(runner, old_passphrase_env, mock_store, db_w
     with (
         patch_backend(mock_store),
         mock.patch(
-            "mlflow.cli.cryptography.rotate_secret_encryption",
+            "mlflow.cli.crypto.rotate_secret_encryption",
             side_effect=MlflowException("Failed to rotate secret encryption"),
         ),
     ):
@@ -289,7 +289,7 @@ def test_rotation_failure_rolls_back(runner, old_passphrase_env, mock_store, db_
     with (
         patch_backend(mock_store),
         mock.patch(
-            "mlflow.cli.cryptography.rotate_secret_encryption",
+            "mlflow.cli.crypto.rotate_secret_encryption",
             side_effect=Exception("Rotation failed"),
         ),
     ):
@@ -304,9 +304,7 @@ def test_rotation_failure_rolls_back(runner, old_passphrase_env, mock_store, db_
 def test_database_connection_error(runner, old_passphrase_env):
     mock_sql_secret = mock.Mock()
     with (
-        mock.patch(
-            "mlflow.cli.cryptography._get_store", side_effect=Exception("Connection failed")
-        ),
+        mock.patch("mlflow.cli.crypto._get_store", side_effect=Exception("Connection failed")),
         mock.patch.dict(
             "sys.modules",
             {"mlflow.store.tracking.dbmodels.models": mock.Mock(SqlSecret=mock_sql_secret)},
@@ -322,9 +320,7 @@ def test_database_connection_error(runner, old_passphrase_env):
 def test_kek_manager_creation_error(runner, old_passphrase_env, mock_store):
     with (
         patch_backend(mock_store),
-        mock.patch(
-            "mlflow.cli.cryptography.KEKManager", side_effect=Exception("KEK creation failed")
-        ),
+        mock.patch("mlflow.cli.crypto.KEKManager", side_effect=Exception("KEK creation failed")),
     ):
         result = runner.invoke(
             commands, ["rotate-kek", "--new-passphrase", "new-passphrase", "--yes"]
@@ -355,7 +351,7 @@ def test_success_message_includes_version_info(runner, mock_store, mock_session)
     with (
         patch_backend(mock_store),
         patch_rotation(),
-        mock.patch("mlflow.cli.cryptography.os.getenv") as mock_getenv,
+        mock.patch("mlflow.cli.crypto.os.getenv") as mock_getenv,
     ):
 
         def getenv_side_effect(key, default=None):

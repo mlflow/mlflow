@@ -1,4 +1,3 @@
-import importlib.util
 import json
 import logging
 import os
@@ -9,15 +8,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
-
-
-def _check_cryptography_available():
-    if importlib.util.find_spec("cryptography") is None:
-        raise MlflowException(
-            "The 'cryptography' library is required for MLflow secrets management. "
-            "Install it with: pip install mlflow[extras] or pip install cryptography",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
 
 # Application-level salt for KEK derivation (intentionally fixed, not per-password)
@@ -139,8 +129,6 @@ class KEKManager:
     """
 
     def __init__(self, passphrase: str | None = None, kek_version: int | None = None):
-        _check_cryptography_available()
-
         if passphrase is None:
             passphrase = os.getenv("MLFLOW_CRYPTO_KEK_PASSPHRASE")
 

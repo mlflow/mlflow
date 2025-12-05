@@ -4,7 +4,7 @@ import os
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.cryptography import (
+from mlflow.utils.crypto import (
     AES_256_KEY_LENGTH,
     GCM_NONCE_LENGTH,
     KEKManager,

@@ -4,7 +4,7 @@ import click
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import _get_store
-from mlflow.utils.cryptography import KEKManager, rotate_secret_encryption
+from mlflow.utils.crypto import KEKManager, rotate_secret_encryption
 
 
 @click.group("crypto", help="Commands for managing MLflow's cryptographic passphrase.")
