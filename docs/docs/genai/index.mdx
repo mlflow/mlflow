@@ -5,7 +5,7 @@ import Platform from "@site/src/content/platform.mdx"
 import { CardGroup, TitleCard } from "@site/src/components/Card";
 import { Heart, Zap, Puzzle, LifeBuoy, Binoculars, Activity } from "lucide-react";
 
-# MLflow GenAI — Ship High-quality GenAI, Fast
+# MLflow GenAI: Ship High-quality GenAI, Fast
 
 MLflow GenAI is an open-source, all-in-one integrated platform that helps enhance your Agent & GenAI applications with end-to-end observability, evaluations, AI gateway and tracking.
 
@@ -22,7 +22,7 @@ MLflow GenAI is an open-source, all-in-one integrated platform that helps enhanc
   },
   {
     icon: LifeBuoy,
-    title: "End-to-End Platform",
+    title: "All-in-one Platform",
     description: "Manage the complete GenAI journey from experimentation to production. Track prompts, evaluate quality, deploy models, and monitor performance in one platform."
   },
   {
@@ -32,7 +32,7 @@ MLflow GenAI is an open-source, all-in-one integrated platform that helps enhanc
   },
   {
     icon: Activity,
-    title: "Automated Quality Assurance",
+    title: "Evaluation & Monitoring",
     description: "Stop manual testing with LLM judges and custom metrics. Systematically evaluate every change to ensure consistent improvements in your AI applications."
   },
   {
@@ -47,7 +47,7 @@ MLflow GenAI is an open-source, all-in-one integrated platform that helps enhanc
 Debug and iterate on GenAI applications using MLflow's tracing, which captures your app's entire execution, including prompts, retrievals and tool calls.
 MLflow's open-source, OpenTelemetry-compatible tracing SDK helps avoid vendor lock-in.
 
-<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop muted aria-label="MLflow Tracing" poster={useBaseUrl("/images/llms/tracing/tracing-top-poster.png")} />
 
 <CardGroup cols={1}>
     <TitleCard title="Observability Quickstart →" link="/genai/tracing/quickstart">
@@ -59,7 +59,7 @@ MLflow's open-source, OpenTelemetry-compatible tracing SDK helps avoid vendor lo
 
 Accurately measure free-form language with LLM judges by utilizing LLM-as-a-judge metrics, mimicking human expertise, to assess and enhance GenAI quality. Access pre-built judges for common metrics like hallucination or relevance, or develop custom judges tailored to your business needs and expert insights.
 
-<video src={useBaseUrl("/images/mlflow-3/eval-monitor/evaluation-result-video.mp4")} controls loop autoPlay muted aria-label="Prompt Evaluation" />
+<video src={useBaseUrl("/images/mlflow-3/eval-monitor/evaluation-result-video.mp4")} controls loop muted aria-label="MLflow Evaluation" poster={useBaseUrl("/images/mlflow-3/eval-monitor/evaluation-result-video-poster.png")} />
 
 <CardGroup cols={1}>
     <TitleCard title="Evaluations Quickstart →" link="/genai/eval-monitor/quickstart">
@@ -71,13 +71,15 @@ Accurately measure free-form language with LLM judges by utilizing LLM-as-a-judg
 
 Version, compare, iterate on, and discover prompt templates directly through the MLflow UI. Reuse prompts across multiple versions of your agent or application code, and view rich lineage identifying which versions are using each prompt.
 
-// TODO: will add video and link to quickstart similar to the above.
+<video src={useBaseUrl("/images/llms/prompt-registry/prompt-management.mp4")} controls loop muted aria-label="MLflow Prompt Management" poster={useBaseUrl("/images/llms/prompt-registry/prompt-management-poster.png")} />
 
-## AI Gateway
+<CardGroup cols={1}>
+    <TitleCard title="Prompt Management Quickstart →" link="/genai/prompt-registry/create-and-edit-prompts">
+    This quickstart will guide you through creating, editing and versioning prompts for your GenAI application.
+    </TitleCard>
+</CardGroup>
 
-Standardize access to multiple LLM providers through unified endpoints, centralized key management, and rate limiting.
-
-// TODO: will add video and link to quickstart similar to the above.
+---
 
 ## Running Anywhere
 
