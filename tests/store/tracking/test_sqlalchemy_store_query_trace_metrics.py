@@ -723,10 +723,19 @@ def test_query_trace_metrics_with_tag_filter(store: SqlAlchemyStore):
     }
 
 
-def test_query_trace_metrics_with_invalid_filter(store: SqlAlchemyStore):
+@pytest.mark.parametrize(
+    ("filter_string", "error_match"),
+    [
+        ("status = 'OK'", r"Filter must start with 'trace\.' prefix"),
+        ("trace.status != 'OK'", r"Only '=' operator is supported for trace metrics"),
+        ("trace.unsupported_field = 'value'", r"Invalid attribute key"),
+    ],
+)
+def test_query_trace_metrics_with_invalid_filter(
+    store: SqlAlchemyStore, filter_string: str, error_match: str
+):
     exp_id = store.create_experiment("test_with_invalid_filter")
 
-    # Create a trace so we have data
     trace_info = TraceInfo(
         trace_id="trace1",
         trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
@@ -737,29 +746,11 @@ def test_query_trace_metrics_with_invalid_filter(store: SqlAlchemyStore):
     )
     store.start_trace(trace_info)
 
-    with pytest.raises(MlflowException, match=r"Filter must start with 'trace\.' prefix"):
+    with pytest.raises(MlflowException, match=error_match):
         store.query_trace_metrics(
             experiment_ids=[exp_id],
             view_type=MetricsViewType.TRACES,
             metric_name="trace",
             aggregation_types=[AggregationType.COUNT],
-            filters=["status = 'OK'"],
-        )
-
-    with pytest.raises(MlflowException, match=r"Only '=' operator is supported for trace metrics"):
-        store.query_trace_metrics(
-            experiment_ids=[exp_id],
-            view_type=MetricsViewType.TRACES,
-            metric_name="trace",
-            aggregation_types=[AggregationType.COUNT],
-            filters=["trace.status != 'OK'"],
-        )
-
-    with pytest.raises(MlflowException, match=r"Invalid attribute key"):
-        store.query_trace_metrics(
-            experiment_ids=[exp_id],
-            view_type=MetricsViewType.TRACES,
-            metric_name="trace",
-            aggregation_types=[AggregationType.COUNT],
-            filters=["trace.unsupported_field = 'value'"],
+            filters=[filter_string],
         )
