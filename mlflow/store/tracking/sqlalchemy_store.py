@@ -3484,7 +3484,9 @@ class SqlAlchemyStore(AbstractStore):
                             aggregated_token_usage, span_token_usage
                         )
                     # session id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
-                    if span_session_id := span_attributes.get("session.id"):
+                    if session_id is None and (
+                        span_session_id := span_attributes.get("session.id")
+                    ):
                         session_id = span_session_id
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
