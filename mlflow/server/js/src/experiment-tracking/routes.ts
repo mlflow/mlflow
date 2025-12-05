@@ -22,6 +22,8 @@ export enum PageId {
   experimentPageTabChatSessions = 'mlflow.experiment.tab.chat-sessions',
   experimentPageTabSingleChatSession = 'mlflow.experiment.tab.single-chat-session',
   experimentPageTabScorers = 'mlflow.experiment.tab.scorers',
+  experimentPageTabPrompts = 'mlflow.experiment.prompts.list',
+  experimentPageTabPromptDetails = 'mlflow.experiment.prompt.details',
   // Child routes for experiment page - end
   experimentPageSearch = 'mlflow.experiment.details.search',
   compareExperimentsSearch = 'mlflow.experiment.compare',
@@ -29,7 +31,6 @@ export enum PageId {
   runPageDirect = 'mlflow.experiment.run.details.direct',
   compareRuns = 'mlflow.experiment.run.compare',
   metricPage = 'mlflow.metric.details',
-  experimentPrompt = 'mlflow.experiment.prompt',
 }
 
 // Route path definitions (used in defining route elements)
@@ -93,10 +94,11 @@ export class RoutePaths {
   static get runPageWithArtifact() {
     return createMLflowRoutePath('/experiments/:experimentId/runs/:runUuid/artifactPath/*');
   }
-  static get experimentPromptsList() {
+  // OSS experiment prompt page routes
+  static get experimentPageTabPrompts() {
     return createMLflowRoutePath('/experiments/:experimentId/prompts');
   }
-  static get experimentPrompt() {
+  static get experimentPageTabPromptDetails() {
     return createMLflowRoutePath('/experiments/:experimentId/prompts/:promptName');
   }
   static get runPageDirect() {
@@ -294,7 +296,10 @@ class Routes {
     return RoutePaths.promptsPage;
   }
 
-  static getPromptDetailsPageRoute(promptName: string) {
+  static getPromptDetailsPageRoute(promptName: string, experimentId?: string) {
+    if (experimentId) {
+      return generatePath(RoutePaths.experimentPageTabPromptDetails, { experimentId, promptName });
+    }
     return generatePath(RoutePaths.promptDetailsPage, { promptName });
   }
 }

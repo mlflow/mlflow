@@ -46,6 +46,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
@@ -298,17 +299,6 @@ def test_fail_on_unsupported_db_type(db_uri):
 def test_fail_on_multiple_drivers():
     with pytest.raises(MlflowException, match=r"Invalid database URI"):
         extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
-
-
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
-    store.engine.dispose()
-    return db_path
 
 
 @pytest.fixture
@@ -4500,7 +4490,6 @@ def test_start_trace(store: SqlAlchemyStore):
         "tag1": "apple",
         "tag2": "orange",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
-        TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE.value,
     }
     assert trace_info == store.get_trace_info(trace_id)
 
@@ -6796,6 +6785,164 @@ def test_search_traces_with_combined_numeric_and_string_filters(store: SqlAlchem
     assert trace_ids == {trace1_id, trace2_id, trace3_id}
 
 
+def test_search_traces_with_prompts_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_prompts_exact")
+
+    # Create traces with different linked prompts
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    # Trace 1: linked to qa-agent-system-prompt version 4
+    _create_trace(store, trace1_id, exp_id)
+    store.link_prompts_to_trace(
+        trace1_id, [PromptVersion(name="qa-agent-system-prompt", version=4, template="")]
+    )
+
+    # Trace 2: linked to qa-agent-system-prompt version 5
+    _create_trace(store, trace2_id, exp_id)
+    store.link_prompts_to_trace(
+        trace2_id, [PromptVersion(name="qa-agent-system-prompt", version=5, template="")]
+    )
+
+    # Trace 3: linked to chat-assistant-prompt version 1
+    _create_trace(store, trace3_id, exp_id)
+    store.link_prompts_to_trace(
+        trace3_id, [PromptVersion(name="chat-assistant-prompt", version=1, template="")]
+    )
+
+    # Trace 4: linked to multiple prompts
+    _create_trace(store, trace4_id, exp_id)
+    store.link_prompts_to_trace(
+        trace4_id,
+        [
+            PromptVersion(name="qa-agent-system-prompt", version=4, template=""),
+            PromptVersion(name="chat-assistant-prompt", version=2, template=""),
+        ],
+    )
+
+    # Test: Filter by exact prompt name/version
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "qa-agent-system-prompt/4"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace4_id}
+
+    # Test: Filter by another exact prompt name/version
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "qa-agent-system-prompt/5"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: Filter by chat assistant prompt
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "chat-assistant-prompt/1"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test: Filter by prompt that appears in multiple trace
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "chat-assistant-prompt/2"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+
+@pytest.mark.parametrize(
+    ("comparator", "filter_string"),
+    [
+        ("LIKE", 'prompt LIKE "%qa-agent%"'),
+        ("ILIKE", 'prompt ILIKE "%CHAT%"'),
+        ("RLIKE", 'prompt RLIKE "version.*1"'),
+        ("!=", 'prompt != "test/1"'),
+    ],
+)
+def test_search_traces_with_prompts_filter_invalid_comparator(
+    store: SqlAlchemyStore, comparator: str, filter_string: str
+):
+    exp_id = store.create_experiment("test_prompts_invalid")
+
+    with pytest.raises(
+        MlflowException,
+        match=f"Invalid comparator '{comparator}' for prompts filter. "
+        "Only '=' is supported with format: prompt = \"name/version\"",
+    ):
+        store.search_traces([exp_id], filter_string=filter_string)
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "invalid_value"),
+    [
+        ('prompt = "qa-agent-system-prompt"', "qa-agent-system-prompt"),
+        ('prompt = "foo/1/baz"', "foo/1/baz"),
+        ('prompt = ""', ""),
+    ],
+)
+def test_search_traces_with_prompts_filter_invalid_format(
+    store: SqlAlchemyStore, filter_string: str, invalid_value: str
+):
+    exp_id = store.create_experiment("test_prompts_invalid_format")
+
+    with pytest.raises(
+        MlflowException,
+        match=f"Invalid prompts filter value '{invalid_value}'. "
+        'Expected format: prompt = "name/version"',
+    ):
+        store.search_traces([exp_id], filter_string=filter_string)
+
+
+def test_search_traces_with_prompts_filter_no_matches(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_prompts_no_match")
+
+    # Create traces with linked prompts
+    trace1_id = "trace1"
+    _create_trace(store, trace1_id, exp_id)
+    store.link_prompts_to_trace(
+        trace1_id, [PromptVersion(name="qa-agent-system-prompt", version=4, template="")]
+    )
+
+    # Test: Filter by non-existent prompt
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "non-existent-prompt/999"')
+    assert len(traces) == 0
+
+    # Test: Filter by correct name but wrong version
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "qa-agent-system-prompt/999"')
+    assert len(traces) == 0
+
+
+def test_search_traces_with_prompts_filter_multiple_prompts(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_prompts_multiple")
+
+    # Create traces with multiple linked prompts
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+
+    # Trace 1: Single prompt
+    _create_trace(store, trace1_id, exp_id)
+    store.link_prompts_to_trace(trace1_id, [PromptVersion(name="prompt-a", version=1, template="")])
+
+    # Trace 2: Multiple prompts
+    _create_trace(store, trace2_id, exp_id)
+    store.link_prompts_to_trace(
+        trace2_id,
+        [
+            PromptVersion(name="prompt-a", version=1, template=""),
+            PromptVersion(name="prompt-b", version=2, template=""),
+            PromptVersion(name="prompt-c", version=3, template=""),
+        ],
+    )
+
+    # Test: Filter by first prompt - should match both
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "prompt-a/1"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: Filter by second prompt - should only match trace2
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "prompt-b/2"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: Filter by third prompt - should only match trace2
+    traces, _ = store.search_traces([exp_id], filter_string='prompt = "prompt-c/3"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
     trace_id = "tr-123"
@@ -6803,7 +6950,6 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
 
     # Delete system tag for easier testing
     store.delete_trace_tag(trace_id, MLFLOW_ARTIFACT_LOCATION)
-    store.delete_trace_tag(trace_id, TraceTagKey.SPANS_LOCATION)
 
     assert store.get_trace_info(trace_id).tags == {}
 
@@ -11421,6 +11567,129 @@ def test_get_trace_not_found(store: SqlAlchemyStore) -> None:
     trace_id = f"tr-{uuid.uuid4().hex}"
     with pytest.raises(MlflowException, match=f"Trace with ID {trace_id} is not found."):
         store.get_trace(trace_id)
+
+
+def test_start_trace_only_no_spans_location_tag(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_only")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    created_trace_info = store.start_trace(trace_info)
+
+    assert TraceTagKey.SPANS_LOCATION not in created_trace_info.tags
+
+
+def test_start_trace_then_log_spans_adds_tag(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_then_log_spans")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info)
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+
+
+def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_log_spans_then_start_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+
+
+@pytest.mark.skipif(
+    mlflow.get_tracking_uri().startswith("mysql"),
+    reason="MySQL does not support concurrent log_spans calls for now",
+)
+def test_concurrent_log_spans_spans_location_tag(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_concurrent_log_spans")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def log_span_worker(span_id):
+        span = create_test_span(
+            trace_id=trace_id,
+            name=f"concurrent_span_{span_id}",
+            span_id=span_id,
+            parent_id=111 if span_id != 111 else None,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000 + span_id * 1000,
+            end_ns=2_000_000_000 + span_id * 1000,
+            trace_num=12345,
+        )
+        store.log_spans(experiment_id, [span])
+        return span_id
+
+    # Launch multiple concurrent log_spans calls
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(log_span_worker, i) for i in range(111, 116)]
+
+        # Wait for all to complete
+        results = [future.result() for future in futures]
+
+    # All workers should complete successfully
+    assert len(results) == 5
+    assert set(results) == {111, 112, 113, 114, 115}
+
+    # Verify the SPANS_LOCATION tag was created correctly
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+
+    # Verify all spans were logged
+    trace = store.get_trace(trace_id)
+    assert len(trace.data.spans) == 5
+    span_names = {span.name for span in trace.data.spans}
+    expected_names = {f"concurrent_span_{i}" for i in range(111, 116)}
+    assert span_names == expected_names
 
 
 @pytest.mark.parametrize("allow_partial", [True, False])

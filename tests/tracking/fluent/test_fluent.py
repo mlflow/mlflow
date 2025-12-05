@@ -174,21 +174,6 @@ def create_experiment(
     return mlflow.entities.Experiment(experiment_id, name, artifact_location, lifecycle_stage, tags)
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    artifact_uri = tmp_path / "artifacts"
-    artifact_uri.mkdir(exist_ok=True)
-    store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-    store.engine.dispose()
-    return db_path
-
-
 @pytest.fixture(autouse=True)
 def tracking_uri(tmp_path: Path, cached_db: Path):
     """Copies the cached database and sets the tracking URI for each test."""
