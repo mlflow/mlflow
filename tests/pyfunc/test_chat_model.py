@@ -659,3 +659,80 @@ def test_chat_model_without_context_in_predict():
     input_data = {"messages": [{"role": "user", "content": "hello"}]}
     assert pyfunc_model.predict(input_data) == response.to_dict()
     assert next(iter(pyfunc_model.predict_stream(input_data))) == chunk_response.to_dict()
+
+
+# Async tests for ChatModel
+class AsyncChatModel(mlflow.pyfunc.ChatModel):
+    async def predict_async(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> ChatCompletionResponse:
+        mock_response = get_mock_response(messages, params)
+        return ChatCompletionResponse.from_dict(mock_response)
+
+    async def predict_stream_async(self, context, messages: list[ChatMessage], params: ChatParams):
+        num_chunks = 5
+        for i in range(num_chunks):
+            mock_response = get_mock_streaming_response(
+                f"async chunk {i}", is_last_chunk=(i == num_chunks - 1)
+            )
+            yield ChatCompletionChunk.from_dict(mock_response)
+
+    def predict(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> ChatCompletionResponse:
+        mock_response = get_mock_response(messages, params)
+        return ChatCompletionResponse.from_dict(mock_response)
+
+
+@pytest.mark.asyncio
+async def test_chat_model_async_predict():
+    model = AsyncChatModel()
+    messages = [ChatMessage(role="user", content="hello")]
+    params = ChatParams()
+    response = await model.predict_async(None, messages, params)
+    assert isinstance(response, ChatCompletionResponse)
+    assert response.choices[0].message.role == "assistant"
+
+
+@pytest.mark.asyncio
+async def test_chat_model_async_predict_stream():
+    model = AsyncChatModel()
+    messages = [ChatMessage(role="user", content="hello")]
+    params = ChatParams()
+    chunks = [chunk async for chunk in model.predict_stream_async(None, messages, params)]
+    assert len(chunks) == 5
+    assert all(isinstance(c, ChatCompletionChunk) for c in chunks)
+
+
+@pytest.mark.asyncio
+async def test_chat_model_default_async_delegates_to_sync():
+    model = SimpleChatModel()
+    messages = [ChatMessage(role="user", content="hello")]
+    params = ChatParams()
+    response = await model.predict_async(None, messages, params)
+    assert isinstance(response, ChatCompletionResponse)
+
+
+@pytest.mark.asyncio
+async def test_chat_model_wrapper_async_predict(tmp_path):
+    model = AsyncChatModel()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+
+    input_data = {"messages": [{"role": "user", "content": "hello"}]}
+    response = await loaded_model._model_impl.predict_async(input_data)
+    assert "choices" in response
+    assert response["choices"][0]["message"]["role"] == "assistant"
+
+
+@pytest.mark.asyncio
+async def test_chat_model_wrapper_async_predict_stream(tmp_path):
+    model = AsyncChatModel()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+
+    input_data = {"messages": [{"role": "user", "content": "hello"}]}
+    stream = loaded_model._model_impl.predict_stream_async(input_data)
+    chunks = [chunk async for chunk in stream]
+    assert len(chunks) == 5
+    assert all("choices" in c for c in chunks)

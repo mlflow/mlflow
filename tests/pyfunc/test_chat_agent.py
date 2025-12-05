@@ -430,3 +430,87 @@ def test_chat_agent_predict_with_params(tmp_path):
     responses = list(loaded_model.predict_stream(CHAT_AGENT_INPUT_EXAMPLE, params=None))
     for i, resp in enumerate(responses[:-1]):
         assert resp["delta"]["content"] == f"message {i}"
+
+
+# Async tests for ChatAgent
+class AsyncChatAgent(ChatAgent):
+    async def predict_async(
+        self,
+        messages: list[ChatAgentMessage],
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
+    ) -> ChatAgentResponse:
+        mock_response = get_mock_response(messages, "async response")
+        return ChatAgentResponse(**mock_response)
+
+    async def predict_stream_async(
+        self,
+        messages: list[ChatAgentMessage],
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
+    ):
+        for i in range(3):
+            mock_response = get_mock_response(messages, f"async chunk {i}")
+            mock_response["delta"] = mock_response["messages"][0]
+            mock_response["delta"]["id"] = str(i)
+            yield ChatAgentChunk(**mock_response)
+
+    def predict(
+        self,
+        messages: list[ChatAgentMessage],
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
+    ) -> ChatAgentResponse:
+        mock_response = get_mock_response(messages)
+        return ChatAgentResponse(**mock_response)
+
+
+@pytest.mark.asyncio
+async def test_chat_agent_async_predict():
+    model = AsyncChatAgent()
+    messages = [ChatAgentMessage(role="user", content="hello")]
+    response = await model.predict_async(messages)
+    assert isinstance(response, ChatAgentResponse)
+    assert response.messages[0].content == "async response"
+
+
+@pytest.mark.asyncio
+async def test_chat_agent_async_predict_stream():
+    model = AsyncChatAgent()
+    messages = [ChatAgentMessage(role="user", content="hello")]
+    chunks = [chunk async for chunk in model.predict_stream_async(messages)]
+    assert len(chunks) == 3
+    assert all(isinstance(c, ChatAgentChunk) for c in chunks)
+
+
+@pytest.mark.asyncio
+async def test_chat_agent_default_async_delegates_to_sync():
+    model = SimpleChatAgent()
+    messages = [ChatAgentMessage(role="user", content="hello")]
+    response = await model.predict_async(messages)
+    assert isinstance(response, ChatAgentResponse)
+
+
+@pytest.mark.asyncio
+async def test_chat_agent_wrapper_async_predict(tmp_path):
+    model = AsyncChatAgent()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+
+    input_data = {"messages": [{"role": "user", "content": "hello"}]}
+    response = await loaded_model._model_impl.predict_async(input_data)
+    assert "messages" in response
+    assert response["messages"][0]["content"] == "async response"
+
+
+@pytest.mark.asyncio
+async def test_chat_agent_wrapper_async_predict_stream(tmp_path):
+    model = AsyncChatAgent()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+
+    input_data = {"messages": [{"role": "user", "content": "hello"}]}
+    stream = loaded_model._model_impl.predict_stream_async(input_data)
+    chunks = [chunk async for chunk in stream]
+    assert len(chunks) == 3
+    assert all("delta" in c for c in chunks)

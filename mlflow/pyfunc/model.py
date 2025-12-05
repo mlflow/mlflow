@@ -11,6 +11,7 @@ import lzma
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any, Generator, Iterator
 
@@ -242,6 +243,54 @@ class PythonModel:
         """
         raise NotImplementedError()
 
+    async def predict_async(self, context, model_input, params: dict[str, Any] | None = None):
+        """
+        Asynchronous version of :func:`~PythonModel.predict`. Evaluates a pyfunc-compatible
+        input and produces a pyfunc-compatible output.
+
+        Override this method to implement async inference logic. The default implementation
+        delegates to the synchronous :func:`~PythonModel.predict` method for backward
+        compatibility.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                     can use to perform inference.
+            model_input: A pyfunc-compatible input for the model to evaluate.
+            params: Additional parameters to pass to the model for inference.
+
+        .. tip::
+            The `context` parameter can be removed from the function signature if it's not used.
+            `async def predict_async(self, model_input, params=None)` is valid.
+        """
+        # Default implementation delegates to sync predict for backward compatibility
+        return self.predict(context, model_input, params)
+
+    async def predict_stream_async(
+        self, context, model_input, params: dict[str, Any] | None = None
+    ) -> AsyncGenerator[Any, None]:
+        """
+        Asynchronous version of :func:`~PythonModel.predict_stream`. Evaluates a pyfunc-compatible
+        input and produces an async iterator of output.
+
+        Override this method to implement async streaming inference logic.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                     can use to perform inference.
+            model_input: A pyfunc-compatible input for the model to evaluate.
+            params: Additional parameters to pass to the model for inference.
+
+        .. tip::
+            The `context` parameter can be removed from the function signature if it's not used.
+            `async def predict_stream_async(self, model_input, params=None)` is valid.
+        """
+        raise NotImplementedError(
+            "Async streaming implementation not provided. Please override the "
+            "`predict_stream_async` method on your model to generate async streaming predictions."
+        )
+        # yield is needed to make this an async generator
+        yield  # pragma: no cover
+
 
 class _FunctionPythonModel(PythonModel):
     """
@@ -427,6 +476,77 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             "`predict_stream` method on your model to generate streaming "
             "predictions"
         )
+
+    async def predict_async(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> ChatCompletionResponse:
+        """
+        Asynchronous version of :func:`~ChatModel.predict`. Evaluates a chat input and
+        produces a chat output.
+
+        Override this method to implement async inference logic. The default implementation
+        delegates to the synchronous :func:`~ChatModel.predict` method for backward
+        compatibility.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
+            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
+                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                objects representing chat history.
+            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
+                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
+
+        .. tip::
+            The `context` parameter can be removed from the function signature if it's not used.
+            `async def predict_async(self, messages: list[ChatMessage], params: ChatParams)`
+            is valid.
+
+        Returns:
+            A :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`
+            object containing the model's response(s), as well as other metadata.
+        """
+        # Default implementation delegates to sync predict for backward compatibility
+        return self.predict(context, messages, params)
+
+    async def predict_stream_async(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        """
+        Asynchronous version of :func:`~ChatModel.predict_stream`. Evaluates a chat input
+        and produces an async generator of chat output chunks.
+
+        Override this method to implement async streaming inference logic.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
+            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
+                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                objects representing chat history.
+            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
+                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
+
+        .. tip::
+            The `context` parameter can be removed from the function signature if it's not used.
+            `async def predict_stream_async(self, messages: list[ChatMessage], params: ChatParams)`
+            is valid.
+
+        Returns:
+            An async generator over
+            :py:class:`ChatCompletionChunk <mlflow.types.llm.ChatCompletionChunk>`
+            objects containing the model's response(s), as well as other metadata.
+        """
+        raise NotImplementedError(
+            "Async streaming implementation not provided. Please override the "
+            "`predict_stream_async` method on your model to generate async streaming predictions."
+        )
+        # yield is needed to make this an async generator
+        yield  # pragma: no cover
 
 
 class ChatAgent(PythonModel, metaclass=ABCMeta):
@@ -815,6 +935,74 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             "`predict_stream` method on your model to generate streaming predictions"
         )
 
+    async def predict_async(
+        self,
+        messages: list[ChatAgentMessage],
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
+    ) -> ChatAgentResponse:
+        """
+        Asynchronous version of :func:`~ChatAgent.predict`. Given a ChatAgent input,
+        returns a ChatAgent output.
+
+        Override this method to implement async inference logic. The default implementation
+        delegates to the synchronous :func:`~ChatAgent.predict` method for backward
+        compatibility.
+
+        Args:
+            messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
+                A list of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
+                objects representing the chat history.
+            context (:py:class:`ChatContext <mlflow.types.agent.ChatContext>`):
+                A :py:class:`ChatContext <mlflow.types.agent.ChatContext>` object
+                containing conversation_id and user_id. **Optional** Defaults to None.
+            custom_inputs (Dict[str, Any]):
+                An optional param to provide arbitrary additional inputs
+                to the model. The dictionary values must be JSON-serializable. **Optional**
+                Defaults to None.
+
+        Returns:
+            A :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` object
+            containing the model's response, as well as other metadata.
+        """
+        # Default implementation delegates to sync predict for backward compatibility
+        return self.predict(messages, context, custom_inputs)
+
+    async def predict_stream_async(
+        self,
+        messages: list[ChatAgentMessage],
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[ChatAgentChunk, None]:
+        """
+        Asynchronous version of :func:`~ChatAgent.predict_stream`. Given a ChatAgent input,
+        returns an async generator containing streaming ChatAgent output chunks.
+
+        Override this method to implement async streaming inference logic.
+
+        Args:
+            messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
+                A list of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
+                objects representing the chat history.
+            context (:py:class:`ChatContext <mlflow.types.agent.ChatContext>`):
+                A :py:class:`ChatContext <mlflow.types.agent.ChatContext>` object
+                containing conversation_id and user_id. **Optional** Defaults to None.
+            custom_inputs (Dict[str, Any]):
+                An optional param to provide arbitrary additional inputs
+                to the model. The dictionary values must be JSON-serializable. **Optional**
+                Defaults to None.
+
+        Returns:
+            An async generator over :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`
+            objects containing the model's response(s), as well as other metadata.
+        """
+        raise NotImplementedError(
+            "Async streaming implementation not provided. Please override the "
+            "`predict_stream_async` method on your model to generate async streaming predictions."
+        )
+        # yield is needed to make this an async generator
+        yield  # pragma: no cover
+
 
 def _check_compression_supported(compression):
     if compression in _COMPRESSION_INFO:
@@ -921,6 +1109,47 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
             "Streaming implementation not provided. Please override the "
             "`predict_stream` method on your model to generate streaming predictions"
         )
+
+    async def predict_async(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        """
+        Asynchronous version of :func:`~ResponsesAgent.predict`. Given a ResponsesAgentRequest,
+        returns a ResponsesAgentResponse.
+
+        Override this method to implement async inference logic. The default implementation
+        delegates to the synchronous :func:`~ResponsesAgent.predict` method for backward
+        compatibility.
+
+        Args:
+            request: A ResponsesAgentRequest object containing the input to the model.
+
+        Returns:
+            A ResponsesAgentResponse object containing the model's response.
+        """
+        # Default implementation delegates to sync predict for backward compatibility
+        return self.predict(request)
+
+    async def predict_stream_async(
+        self, request: ResponsesAgentRequest
+    ) -> AsyncGenerator[ResponsesAgentStreamEvent, None]:
+        """
+        Asynchronous version of :func:`~ResponsesAgent.predict_stream`. Given a
+        ResponsesAgentRequest, returns an async generator of ResponsesAgentStreamEvent objects.
+
+        Override this method to implement async streaming inference logic.
+
+        Args:
+            request: A ResponsesAgentRequest object containing the input to the model.
+
+        Returns:
+            An async generator of ResponsesAgentStreamEvent objects containing the model's
+            streaming response.
+        """
+        raise NotImplementedError(
+            "Async streaming implementation not provided. Please override the "
+            "`predict_stream_async` method on your model to generate async streaming predictions."
+        )
+        # yield is needed to make this an async generator
+        yield  # pragma: no cover
 
     @staticmethod
     def create_text_delta(delta: str, item_id: str) -> dict[str, Any]:

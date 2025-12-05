@@ -1,5 +1,6 @@
 import inspect
 import logging
+from collections.abc import AsyncGenerator
 from typing import Any, Generator
 
 from mlflow.exceptions import MlflowException
@@ -122,4 +123,48 @@ class _ChatModelPyfuncWrapper:
             stream = self.chat_model.predict_stream(messages, params)
 
         for response in stream:
+            yield self._streaming_response_to_dict(response)
+
+    async def predict_async(
+        self, model_input: dict[str, Any], params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """
+        Async version of predict.
+
+        Args:
+            model_input: Model input data in the form of a chat request.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            Model predictions in :py:class:`~ChatCompletionResponse` format.
+        """
+        messages, chat_params = self._convert_input(model_input)
+        parameters = inspect.signature(self.chat_model.predict_async).parameters
+        if "context" in parameters or len(parameters) == 3:
+            response = await self.chat_model.predict_async(self.context, messages, chat_params)
+        else:
+            response = await self.chat_model.predict_async(messages, chat_params)
+        return self._response_to_dict(response)
+
+    async def predict_stream_async(
+        self, model_input: dict[str, Any], params: dict[str, Any] | None = None
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """
+        Async version of predict_stream.
+
+        Args:
+            model_input: Model input data in the form of a chat request.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            Async generator over model predictions in :py:class:`~ChatCompletionChunk` format.
+        """
+        messages, chat_params = self._convert_input(model_input)
+        parameters = inspect.signature(self.chat_model.predict_stream_async).parameters
+        if "context" in parameters or len(parameters) == 3:
+            stream = self.chat_model.predict_stream_async(self.context, messages, chat_params)
+        else:
+            stream = self.chat_model.predict_stream_async(messages, chat_params)
+
+        async for response in stream:
             yield self._streaming_response_to_dict(response)
