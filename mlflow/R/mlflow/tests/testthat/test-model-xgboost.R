@@ -13,7 +13,7 @@ test <- list(data = test[, predictors], label = test$am)
 
 model <- xgboost::xgboost(
   data = as.matrix(train$data), label = train$label, max_depth = 2,
-  eta = 1, nthread = 2, nrounds = 2, objective = "binary:logistic"
+  eta = 1, nthread = 2, nrounds = 2, objective = "reg:logistic"
 )
 
 testthat_model_dir <- tempfile("model_")
