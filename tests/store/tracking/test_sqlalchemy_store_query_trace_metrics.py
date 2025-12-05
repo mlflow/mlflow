@@ -7,6 +7,7 @@ from mlflow.entities import trace_location
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_metrics import AggregationType, MetricsViewType, TimeGranularity
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import MSSQL, POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
@@ -720,3 +721,45 @@ def test_query_trace_metrics_with_tag_filter(store: SqlAlchemyStore):
         "dimensions": {},
         "values": {"COUNT": 2},
     }
+
+
+def test_query_trace_metrics_with_invalid_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_with_invalid_filter")
+
+    # Create a trace so we have data
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    with pytest.raises(MlflowException, match=r"Filter must start with 'trace\.' prefix"):
+        store.query_trace_metrics(
+            experiment_ids=[exp_id],
+            view_type=MetricsViewType.TRACES,
+            metric_name="trace",
+            aggregation_types=[AggregationType.COUNT],
+            filters=["status = 'OK'"],
+        )
+
+    with pytest.raises(MlflowException, match=r"Only '=' operator is supported for trace metrics"):
+        store.query_trace_metrics(
+            experiment_ids=[exp_id],
+            view_type=MetricsViewType.TRACES,
+            metric_name="trace",
+            aggregation_types=[AggregationType.COUNT],
+            filters=["trace.status != 'OK'"],
+        )
+
+    with pytest.raises(MlflowException, match=r"Invalid attribute key"):
+        store.query_trace_metrics(
+            experiment_ids=[exp_id],
+            view_type=MetricsViewType.TRACES,
+            metric_name="trace",
+            aggregation_types=[AggregationType.COUNT],
+            filters=["trace.unsupported_field = 'value'"],
+        )

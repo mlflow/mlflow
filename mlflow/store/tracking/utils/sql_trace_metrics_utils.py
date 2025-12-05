@@ -135,12 +135,12 @@ def _parse_trace_metrics_filter(filter_string: str) -> list[dict[str, Any]]:
         List of parsed filter clauses
     """
     stripped = filter_string.strip()
+    # TODO: support spans and assessments metrics filters
     if not stripped.startswith("trace."):
         raise MlflowException.invalid_parameter_value(
             f"Filter must start with 'trace.' prefix, got: '{filter_string}'"
         )
 
-    # Remove 'trace.' prefix and parse with SearchTraceUtils
     filter_without_prefix = stripped.removeprefix("trace.")
     return SearchTraceUtils.parse_search_filter_for_search_traces(filter_without_prefix)
 
@@ -162,9 +162,6 @@ def apply_global_filters(query: Query, filters: list[str] | None) -> Query:
 
     Returns:
         Filtered query
-
-    Note:
-        Only '=' operator is supported. All filters must start with 'trace.' prefix.
     """
     if not filters:
         return query
@@ -176,7 +173,7 @@ def apply_global_filters(query: Query, filters: list[str] | None) -> Query:
             type_ = filter_clause.get("type")
             key = filter_clause.get("key")
             value = filter_clause.get("value")
-            comparator = filter_clause.get("comparator", "").upper()
+            comparator = filter_clause.get("comparator")
 
             # Only support '=' operator for trace metrics
             if comparator != "=":
