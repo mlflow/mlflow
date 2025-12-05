@@ -127,11 +127,13 @@ def _get_span_type(instance) -> str:
     try:
         if isinstance(instance, (Flow, Crew, Task)):
             return SpanType.CHAIN
-        if isinstance(instance, Agent):
+        elif isinstance(instance, Agent):
             return SpanType.AGENT
-        if isinstance(instance, LLM):
+        elif isinstance(instance, LLM):
             return SpanType.LLM
-        if isinstance(
+        elif isinstance(instance, Flow):
+            return SpanType.CHAIN
+        elif isinstance(
             instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
         ):
             return SpanType.MEMORY

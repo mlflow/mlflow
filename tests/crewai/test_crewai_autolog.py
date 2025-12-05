@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import ANY, Mock, patch
 
 import crewai
@@ -218,10 +217,6 @@ def task_named(simple_agent_1):
         description="noop",
         expected_output="noop",
     )
-
-
-def _fake_disabled_config(**_):
-    return SimpleNamespace(log_traces=False)
 
 
 def global_autolog():
@@ -974,10 +969,7 @@ def test_crew_task_named(simple_agent_1, task_named, autolog):
 
 
 def test_patched_class_call_original_when_traces_disabled(monkeypatch):
-    monkeypatch.setattr(
-        "mlflow.utils.autologging_utils.config.AutoLoggingConfig.init",
-        _fake_disabled_config,
-    )
+    mlflow.crewai.autolog(log_traces=False)
     original = Mock(return_value="ok")
     obj = object()
 
@@ -988,10 +980,7 @@ def test_patched_class_call_original_when_traces_disabled(monkeypatch):
 
 
 def test_patched_standalone_call_original_when_traces_disabled(monkeypatch):
-    monkeypatch.setattr(
-        "mlflow.utils.autologging_utils.config.AutoLoggingConfig.init",
-        _fake_disabled_config,
-    )
+    mlflow.crewai.autolog(log_traces=False)
     original = Mock(return_value="ok")
 
     result = patched_standalone_call(original, "arg", kw="val")
