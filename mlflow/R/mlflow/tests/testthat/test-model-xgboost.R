@@ -34,7 +34,7 @@ test_that("can load model and predict with rfunc backend", {
   prediction <- mlflow_predict(loaded_back_model, as.matrix(test$data))
   expect_equal(
     prediction,
-    predict(model, xgboost::xgb.DMatrix(as.matrix(test$data)))
+    predict(model, as.matrix(test$data))
   )
 
 })
@@ -72,7 +72,7 @@ test_that("Can predict with cli backend", {
   expect_true(!is.null(prediction))
   expect_equal(
     prediction,
-    predict(model, xgboost::xgb.DMatrix(as.matrix(test$data)))
+    predict(model, as.matrix(test$data))
   )
   # json records
   jsonlite::write_json(list(dataframe_records = test$data), temp_in_json)
