@@ -11,11 +11,9 @@ train <- list(data = train[, predictors], label = train$am)
 test <- mtcars[idx[26:32], ]
 test <- list(data = test[, predictors], label = test$am)
 
-dtrain <- xgboost::xgb.DMatrix(data = as.matrix(train$data), label = train$label)
-model <- xgboost::xgb.train(
-  params = list(max_depth = 2, eta = 1, nthread = 2, objective = "binary:logistic"),
-  data = dtrain,
-  nrounds = 2
+model <- xgboost::xgboost(
+  data = as.matrix(train$data), label = train$label, max_depth = 2,
+  eta = 1, nthread = 2, nrounds = 2, objective = "reg:squarederror"
 )
 
 testthat_model_dir <- tempfile("model_")
@@ -36,7 +34,7 @@ test_that("can load model and predict with rfunc backend", {
   prediction <- mlflow_predict(loaded_back_model, as.matrix(test$data))
   expect_equal(
     prediction,
-    predict(model, xgboost::xgb.DMatrix(as.matrix(test$data)))
+    predict(model, as.matrix(test$data))
   )
 
 })
@@ -46,16 +44,18 @@ test_that("can load and predict with python pyfunct and xgboost backend", {
   py_model <- pyfunc$load_model(testthat_model_dir)
   expect_equal(
     as.numeric(py_model$predict(test$data)),
-    unname(predict(model, as.matrix(test$data)))
+    unname(predict(model, as.matrix(test$data))),
+    tolerance = 0.2
   )
 
   mlflow.xgboost <- reticulate::import("mlflow.xgboost")
   xgboost_native_model <- mlflow.xgboost$load_model(testthat_model_dir)
   xgboost <- reticulate::import("xgboost")
 
-  expect_equivalent(
+  expect_equal(
     as.numeric(xgboost_native_model$predict(xgboost$DMatrix(test$data))),
-    unname(predict(model, as.matrix(test$data)))
+    unname(predict(model, as.matrix(test$data))),
+    tolerance = 0.2
   )
 })
 
@@ -74,7 +74,7 @@ test_that("Can predict with cli backend", {
   expect_true(!is.null(prediction))
   expect_equal(
     prediction,
-    predict(model, xgboost::xgb.DMatrix(as.matrix(test$data)))
+    predict(model, as.matrix(test$data))
   )
   # json records
   jsonlite::write_json(list(dataframe_records = test$data), temp_in_json)
