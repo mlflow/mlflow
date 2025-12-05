@@ -97,8 +97,8 @@ class SqlExperiment(Base):
     """
     name = Column(String(256), nullable=False)
     """
-    Experiment name: `String` (limit 256 characters). Unique per workspace (see
-    ``uq_experiments_workspace_name``) and *Non null* in the table schema.
+    Experiment name: `String` (limit 256 characters). Unique *within a workspace* (enforced by
+                     the ``workspace`` + ``name`` constraint) and *Non null* in the table schema.
     """
     workspace = Column(
         String(63),
@@ -107,7 +107,8 @@ class SqlExperiment(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     """
-    Workspace identifier for this experiment. Defaults to ``'default'`` for legacy rows.
+    Workspace identifier for this experiment: `String` (limit 63 characters). Defaults to
+    ``'default'`` when not explicitly provided.
     """
     artifact_location = Column(String(256), nullable=True)
     """
@@ -155,6 +156,7 @@ class SqlExperiment(Base):
             tags=[t.to_mlflow_entity() for t in self.tags],
             creation_time=self.creation_time,
             last_update_time=self.last_update_time,
+            workspace=self.workspace,
         )
 
 
@@ -1319,7 +1321,7 @@ class SqlEvaluationDataset(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     """
-    Workspace name that scopes this dataset. Defaults to ``'default'`` for legacy rows.
+    Workspace name that scopes this dataset.
     """
 
     name = Column(String(255), nullable=False)

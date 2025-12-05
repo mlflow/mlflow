@@ -1,10 +1,20 @@
 from mlflow.entities import Experiment, LifecycleStage
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_file, random_int
 
 
-def _check(exp, exp_id, name, location, lifecycle_stage, creation_time, last_update_time):
+def _check(
+    exp,
+    exp_id,
+    name,
+    location,
+    lifecycle_stage,
+    creation_time,
+    last_update_time,
+    workspace,
+):
     assert isinstance(exp, Experiment)
     assert exp.experiment_id == exp_id
     assert exp.name == name
@@ -12,6 +22,7 @@ def _check(exp, exp_id, name, location, lifecycle_stage, creation_time, last_upd
     assert exp.lifecycle_stage == lifecycle_stage
     assert exp.creation_time == creation_time
     assert exp.last_update_time == last_update_time
+    assert exp.workspace == workspace
 
 
 def test_creation_and_hydration():
@@ -21,6 +32,7 @@ def test_creation_and_hydration():
     location = random_file(".json")
     creation_time = get_current_time_millis()
     last_update_time = get_current_time_millis()
+    expected_workspace = DEFAULT_WORKSPACE_NAME
     exp = Experiment(
         exp_id,
         name,
@@ -29,7 +41,16 @@ def test_creation_and_hydration():
         creation_time=creation_time,
         last_update_time=last_update_time,
     )
-    _check(exp, exp_id, name, location, lifecycle_stage, creation_time, last_update_time)
+    _check(
+        exp,
+        exp_id,
+        name,
+        location,
+        lifecycle_stage,
+        creation_time,
+        last_update_time,
+        expected_workspace,
+    )
 
     as_dict = {
         "experiment_id": exp_id,
@@ -39,14 +60,33 @@ def test_creation_and_hydration():
         "tags": {},
         "creation_time": creation_time,
         "last_update_time": last_update_time,
+        "workspace": expected_workspace,
     }
     assert dict(exp) == as_dict
     proto = exp.to_proto()
     exp2 = Experiment.from_proto(proto)
-    _check(exp2, exp_id, name, location, lifecycle_stage, creation_time, last_update_time)
+    _check(
+        exp2,
+        exp_id,
+        name,
+        location,
+        lifecycle_stage,
+        creation_time,
+        last_update_time,
+        expected_workspace,
+    )
 
     exp3 = Experiment.from_dictionary(as_dict)
-    _check(exp3, exp_id, name, location, lifecycle_stage, creation_time, last_update_time)
+    _check(
+        exp3,
+        exp_id,
+        name,
+        location,
+        lifecycle_stage,
+        creation_time,
+        last_update_time,
+        expected_workspace,
+    )
 
 
 def test_string_repr():
@@ -61,5 +101,6 @@ def test_string_repr():
     assert (
         str(exp)
         == "<Experiment: artifact_location='hi', creation_time=1662004217511, experiment_id=0, "
-        "last_update_time=1662004217511, lifecycle_stage='active', name='myname', tags={}>"
+        "last_update_time=1662004217511, lifecycle_stage='active', name='myname', tags={}, "
+        "workspace='default'>"
     )
