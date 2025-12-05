@@ -98,13 +98,12 @@ CREATE TABLE secrets (
 	secret_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	secret_name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	encrypted_value VARBINARY NOT NULL,
-	encrypted_auth_config VARBINARY,
 	wrapped_dek VARBINARY NOT NULL,
 	kek_version INTEGER NOT NULL,
 	masked_value VARCHAR(100) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	provider VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	credential_name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	wrapped_auth_config_dek VARBINARY,
+	auth_config VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_at BIGINT NOT NULL,
@@ -213,7 +212,7 @@ CREATE TABLE logged_models (
 CREATE TABLE model_definitions (
 	model_definition_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	secret_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	secret_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	provider VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	model_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
@@ -221,7 +220,7 @@ CREATE TABLE model_definitions (
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT model_definitions_pk PRIMARY KEY (model_definition_id),
-	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id)
+	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE SET NULL
 )
 
 
@@ -340,7 +339,7 @@ CREATE TABLE endpoint_model_mappings (
 	mapping_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	model_definition_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	weight INTEGER NOT NULL,
+	weight FLOAT NOT NULL,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_at BIGINT NOT NULL,
 	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),

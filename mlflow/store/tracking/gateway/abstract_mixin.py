@@ -5,7 +5,7 @@ from mlflow.entities import (
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
     GatewayModelDefinition,
-    GatewaySecret,
+    GatewaySecretInfo,
 )
 
 
@@ -25,7 +25,7 @@ class GatewayStoreMixin:
         credential_name: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
-    ) -> GatewaySecret:
+    ) -> GatewaySecretInfo:
         """
         Create a new encrypted secret.
 
@@ -45,7 +45,7 @@ class GatewayStoreMixin:
 
     def get_secret_info(
         self, secret_id: str | None = None, secret_name: str | None = None
-    ) -> GatewaySecret:
+    ) -> GatewaySecretInfo:
         """
         Retrieve secret metadata by ID or name (does not decrypt the value).
 
@@ -64,7 +64,7 @@ class GatewayStoreMixin:
         secret_value: str,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
-    ) -> GatewaySecret:
+    ) -> GatewaySecretInfo:
         """
         Update an existing secret's value (key rotation).
 
@@ -83,14 +83,17 @@ class GatewayStoreMixin:
 
     def delete_secret(self, secret_id: str) -> None:
         """
-        Permanently delete a secret (CASCADE deletes model_definitions using it).
+        Permanently delete a secret.
+
+        Model definitions that reference this secret will become orphaned (their
+        secret_id will be set to NULL).
 
         Args:
             secret_id: ID of the secret to delete.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_secret_infos(self, provider: str | None = None) -> list[GatewaySecret]:
+    def list_secret_infos(self, provider: str | None = None) -> list[GatewaySecretInfo]:
         """
         List all secret metadata with optional filtering.
 
@@ -281,7 +284,7 @@ class GatewayStoreMixin:
         self,
         endpoint_id: str,
         model_definition_id: str,
-        weight: int = 1,
+        weight: float = 1.0,
         created_by: str | None = None,
     ) -> GatewayEndpointModelMapping:
         """
@@ -290,7 +293,7 @@ class GatewayStoreMixin:
         Args:
             endpoint_id: ID of the endpoint to attach the model to.
             model_definition_id: ID of the model definition to attach.
-            weight: Routing weight for traffic distribution (default 1).
+            weight: Routing weight for traffic distribution (default 1.0).
             created_by: Username of the creator.
 
         Returns:

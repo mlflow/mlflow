@@ -21,8 +21,8 @@ class GatewayModelDefinition(_MlflowObject):
     Args:
         model_definition_id: Unique identifier for this model definition.
         name: User-friendly name for identification and reuse.
-        secret_id: ID of the secret containing authentication credentials.
-        secret_name: Name of the secret for display/reference purposes.
+        secret_id: ID of the secret containing authentication credentials (None if orphaned).
+        secret_name: Name of the secret for display/reference purposes (None if orphaned).
         provider: LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
         model_name: Provider-specific model identifier (e.g., "gpt-4o", "claude-3-5-sonnet").
         created_at: Timestamp (milliseconds) when the model definition was created.
@@ -33,8 +33,8 @@ class GatewayModelDefinition(_MlflowObject):
 
     model_definition_id: str
     name: str
-    secret_id: str
-    secret_name: str
+    secret_id: str | None
+    secret_name: str | None
     provider: str
     model_name: str
     created_at: int
@@ -65,7 +65,7 @@ class GatewayEndpointModelMapping(_MlflowObject):
     endpoint_id: str
     model_definition_id: str
     model_definition: GatewayModelDefinition | None
-    weight: int
+    weight: float
     created_at: int
     created_by: str | None = None
 
