@@ -686,7 +686,9 @@ async def test_tracer_with_manual_traces_async():
 
     @mlflow.trace(name="parent")
     async def run(message):
-        return await chain.ainvoke(message, config={"callbacks": [MlflowLangchainTracer()]})
+        # run_inline=True ensures proper context propagation in async scenarios
+        tracer = MlflowLangchainTracer(run_inline=True)
+        return await chain.ainvoke(message, config={"callbacks": [tracer]})
 
     response = await run("red")
     expected_response = '[{"role": "user", "content": "What is the complementary color of blue?"}]'

@@ -53,16 +53,17 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             thread-local context. Occasionally this has to be passed manually because
             the callback may be invoked asynchronously and Langchain doesn't correctly
             propagate the thread-local context.
-        run_inline: If True (default), the callback runs in the main async task rather
-            than being offloaded to a thread pool. This ensures proper context propagation
-            when combining autolog traces with manual @mlflow.trace decorators in async
-            scenarios. Configurable via mlflow.langchain.autolog(run_tracer_inline=...).
+        run_inline: If True, the callback runs in the main async task rather than being
+            offloaded to a thread pool. This ensures proper context propagation when combining
+            autolog traces with manual @mlflow.trace decorators in async scenarios. Default is
+            False for backward compatibility. Configurable via
+            mlflow.langchain.autolog(run_tracer_inline=True).
     """
 
     def __init__(
         self,
         prediction_context: Optional["Context"] = None,
-        run_inline: bool = True,
+        run_inline: bool = False,
     ):
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
         # DO NOT use instance variables to manage the state of single trace.

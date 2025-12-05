@@ -17,7 +17,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     log_traces=True,
-    run_tracer_inline=True,
+    run_tracer_inline=False,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
@@ -37,12 +37,12 @@ def autolog(
         log_traces: If ``True``, traces are logged for Langchain models by using
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
-        run_tracer_inline: If ``True`` (default), the MLflow tracer callback runs in the main
-            async task rather than being offloaded to a thread pool. This ensures proper context
-            propagation when combining autolog traces with manual ``@mlflow.trace`` decorators
-            in async scenarios (e.g., LangGraph's ``ainvoke``). Set to ``False`` if you need
-            maximum async performance and don't use manual tracing within your LangChain/LangGraph
-            application.
+        run_tracer_inline: If ``True``, the MLflow tracer callback runs in the main async task
+            rather than being offloaded to a thread pool. This ensures proper context propagation
+            when combining autolog traces with manual ``@mlflow.trace`` decorators in async
+            scenarios (e.g., LangGraph's ``ainvoke``). Default is ``False`` for backward
+            compatibility. Set to ``True`` if you use manual ``@mlflow.trace`` decorators within
+            LangGraph nodes or tools and need them properly nested in the autolog trace.
     """
     try:
         from langchain_core.callbacks import BaseCallbackManager
