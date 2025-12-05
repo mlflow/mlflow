@@ -3,7 +3,6 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 
-import shutil
 import time
 from pathlib import Path
 
@@ -22,15 +21,9 @@ from tests.tracking.integration_test_utils import ServerThread
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def client(request: pytest.FixtureRequest, tmp_path: Path, cached_db: Path):
+def client(request: pytest.FixtureRequest, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-    if request.param == "file":
-        backend_uri = tmp_path.joinpath("file").as_uri()
-    else:
-        # Copy the cached database for this test
-        db_path = tmp_path / "mlflow.db"
-        shutil.copy(cached_db, db_path)
-        backend_uri = f"sqlite:///{db_path}"
+    backend_uri = tmp_path.joinpath("file").as_uri() if request.param == "file" else db_uri
 
     # Force-reset backend stores before each test
     handlers._tracking_store = None
