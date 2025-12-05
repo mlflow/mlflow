@@ -84,6 +84,13 @@ class GenAIEvaluateEvent(Event):
         # Track if predict_fn is provided
         record_params["predict_fn_provided"] = arguments.get("predict_fn") is not None
 
+        # Track eval data type
+        eval_data = arguments.get("data")
+        if eval_data is not None:
+            from mlflow.genai.evaluation.utils import _get_eval_data_type
+
+            record_params.update(_get_eval_data_type(eval_data))
+
         # Track scorer information
         scorers = arguments.get("scorers") or []
         scorer_info = [
@@ -102,6 +109,15 @@ class GenAIEvaluateEvent(Event):
         record_params["scorer_info"] = scorer_info
 
         return record_params
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        _, telemetry_data = result
+
+        if not isinstance(telemetry_data, dict):
+            return None
+
+        return telemetry_data
 
 
 class CreateLoggedModelEvent(Event):
