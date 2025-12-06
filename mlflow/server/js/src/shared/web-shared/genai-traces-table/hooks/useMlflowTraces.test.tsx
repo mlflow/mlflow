@@ -328,7 +328,7 @@ describe('useSearchMlflowTraces', () => {
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
     expect(JSON.parse(body)).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
-      filter: `request_metadata.user_id = 'user123' AND request_metadata.environment = 'production' AND request_metadata.mlflow.trace.session ILIKE '%%'`,
+      filter: `request_metadata.user_id = 'user123' AND request_metadata.environment = 'production' AND request_metadata."mlflow.trace.session" ILIKE '%%'`,
       max_results: 10000,
     });
   });
@@ -389,7 +389,7 @@ describe('useSearchMlflowTraces', () => {
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
     expect(JSON.parse(body)).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
-      filter: `request_metadata.user_id = 'user123' AND request_metadata.mlflow.run_id = 'run123'`,
+      filter: `request_metadata.user_id = 'user123' AND request_metadata."mlflow.run_id" = 'run123'`,
       max_results: 10000,
     });
   });
