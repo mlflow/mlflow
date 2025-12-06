@@ -1,5 +1,3 @@
-"""LiteLLM adapter for judge model invocation."""
-
 from __future__ import annotations
 
 import json
@@ -30,11 +28,7 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _strip_markdown_code_blocks,
 )
 from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
-from mlflow.protos.databricks_pb2 import (
-    BAD_REQUEST,
-    INVALID_PARAMETER_VALUE,
-    REQUEST_LIMIT_EXCEEDED,
-)
+from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
 from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
@@ -406,7 +400,8 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         return _is_litellm_available()
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
-        """Invoke the judge model via LiteLLM."""
+        from mlflow.types.llm import ChatMessage
+
         messages = (
             [ChatMessage(role="user", content=input_params.prompt)]
             if isinstance(input_params.prompt, str)
@@ -428,17 +423,13 @@ class LiteLLMAdapter(BaseJudgeAdapter):
             response_dict = json.loads(cleaned_response)
         except json.JSONDecodeError as e:
             raise MlflowException(
-                f"Failed to parse response from judge model. Response: {response}",
-                error_code=BAD_REQUEST,
+                f"Failed to parse response from judge model. Response: {response}"
             ) from e
 
         metadata = {AssessmentMetadataKey.JUDGE_COST: total_cost} if total_cost else None
 
         if "error" in response_dict:
-            raise MlflowException(
-                f"Judge evaluation failed with error: {response_dict['error']}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+            raise MlflowException(f"Judge evaluation failed with error: {response_dict['error']}")
 
         feedback = Feedback(
             name=input_params.assessment_name,

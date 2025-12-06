@@ -1,5 +1,3 @@
-"""AI Gateway adapter for judge model invocation."""
-
 from __future__ import annotations
 
 import json
@@ -76,13 +74,10 @@ class GatewayAdapter(BaseJudgeAdapter):
         return model_provider in _NATIVE_PROVIDERS and isinstance(prompt, str)
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
-        """Invoke the judge model via native AI Gateway adapters."""
-        # Validate trace support
         if input_params.trace is not None:
             raise MlflowException(
                 "LiteLLM is required for using traces with judges. "
                 "Please install it with `pip install litellm`.",
-                error_code=BAD_REQUEST,
             )
 
         # Validate structured output support
@@ -90,7 +85,6 @@ class GatewayAdapter(BaseJudgeAdapter):
             raise MlflowException(
                 "Structured output is not supported by native LLM providers. "
                 "Please install LiteLLM with `pip install litellm` to use structured output.",
-                error_code=BAD_REQUEST,
             )
 
         response = _invoke_via_gateway(

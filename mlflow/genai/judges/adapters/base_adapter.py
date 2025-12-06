@@ -1,5 +1,3 @@
-"""Base adapter interface for judge model invocations."""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -39,13 +37,11 @@ class AdapterInvocationInput:
     use_case: str | None = None
 
     def __post_init__(self):
-        """Cache the parsed model provider and name."""
         self._model_provider: str | None = None
         self._model_name: str | None = None
 
     @property
     def model_provider(self) -> str:
-        """Get the parsed model provider (lazy evaluation)."""
         if self._model_provider is None:
             from mlflow.metrics.genai.model_utils import _parse_model_uri
 
@@ -54,7 +50,6 @@ class AdapterInvocationInput:
 
     @property
     def model_name(self) -> str:
-        """Get the parsed model name (lazy evaluation)."""
         if self._model_name is None:
             from mlflow.metrics.genai.model_utils import _parse_model_uri
 
@@ -85,9 +80,6 @@ class AdapterInvocationOutput:
 class BaseJudgeAdapter(ABC):
     """
     Abstract base class for judge model adapters.
-
-    Each adapter exposes one public `invoke()` method and provides
-    an `is_applicable()` helper to determine if it can handle a given model.
     """
 
     @classmethod

@@ -1,5 +1,3 @@
-"""Databricks Serving Endpoint adapter for direct REST API invocations."""
-
 from __future__ import annotations
 
 import json
@@ -329,13 +327,6 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
         return model_provider in {"databricks", "endpoints"} and isinstance(prompt, str)
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
-        """Invoke a Databricks serving endpoint."""
-        if not isinstance(input_params.prompt, str):
-            raise MlflowException(
-                "DatabricksServingEndpointAdapter requires prompt to be a string",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
         # Show deprecation warning for legacy 'endpoints' provider
         model_provider = input_params.model_provider
         if model_provider == "endpoints":
@@ -362,7 +353,6 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
             if input_params.trace is not None:
                 feedback.trace_id = input_params.trace.info.trace_id
 
-            # Record success telemetry
             try:
                 provider = "databricks" if model_provider == "endpoints" else model_provider
                 _record_judge_model_usage_success_databricks_telemetry(
@@ -387,7 +377,6 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
             )
 
         except Exception:
-            # Record failure telemetry
             try:
                 provider = "databricks" if model_provider == "endpoints" else model_provider
                 _record_judge_model_usage_failure_databricks_telemetry(

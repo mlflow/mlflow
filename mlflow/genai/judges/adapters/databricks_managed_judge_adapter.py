@@ -1,5 +1,3 @@
-"""Databricks Managed Judge adapter using databricks.agents.evals library."""
-
 from __future__ import annotations
 
 import inspect
@@ -411,7 +409,6 @@ class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
         return model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
-        """Invoke the Databricks managed judge."""
         feedback = _invoke_databricks_default_judge(
             prompt=input_params.prompt,
             assessment_name=input_params.assessment_name,
