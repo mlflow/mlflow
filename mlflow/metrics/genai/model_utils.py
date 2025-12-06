@@ -1,5 +1,6 @@
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -74,6 +75,53 @@ def score_model_on_payload(
         f"Unknown model uri prefix '{prefix}'",
         error_code=INVALID_PARAMETER_VALUE,
     )
+
+
+def score_model_on_payloads(
+    model_uri,
+    payloads,
+    eval_parameters=None,
+    extra_headers=None,
+    proxy_url=None,
+    max_workers=10,
+    endpoint_type=None,
+):
+    """
+    Score the model on multiple payloads.
+    """
+    # Determine endpoint type once if not provided
+    if endpoint_type is None:
+        endpoint_type = get_endpoint_type(model_uri) or "llm/v1/chat"
+
+    def score_one(payload):
+        try:
+            return score_model_on_payload(
+                model_uri,
+                payload,
+                eval_parameters,
+                extra_headers,
+                proxy_url,
+                endpoint_type,
+            )
+        except Exception as e:
+            return e
+
+    results = [None] * len(payloads)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(score_one, payload): i for i, payload in enumerate(payloads)}
+
+        try:
+            from tqdm.auto import tqdm
+
+            futures_iter = tqdm(as_completed(futures), total=len(futures))
+        except ImportError:
+            futures_iter = as_completed(futures)
+
+        for future in futures_iter:
+            i = futures[future]
+            results[i] = future.result()
+
+    return results
 
 
 def _parse_model_uri(model_uri: str) -> tuple[str, str]:

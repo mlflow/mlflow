@@ -2,7 +2,6 @@ import json
 import logging
 import re
 import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -102,68 +101,36 @@ def _extract_score_and_justification(text):
     return None, None
 
 
-def _score_model_on_one_payload(
-    payload: str,
-    eval_model: str,
-    parameters: dict[str, Any] | None,
-    extra_headers: dict[str, str] | None = None,
-    proxy_url: str | None = None,
-):
-    try:
-        # If the endpoint does not specify type, default to chat format
-        endpoint_type = model_utils.get_endpoint_type(eval_model) or "llm/v1/chat"
-        raw_result = model_utils.score_model_on_payload(
-            eval_model, payload, parameters, extra_headers, proxy_url, endpoint_type
-        )
-        return _extract_score_and_justification(raw_result)
-    except ImportError:
-        raise
-    except MlflowException as e:
-        if e.error_code in [
-            ErrorCode.Name(BAD_REQUEST),
-            ErrorCode.Name(UNAUTHENTICATED),
-            ErrorCode.Name(INVALID_PARAMETER_VALUE),
-        ]:
-            raise
-        else:
-            return None, f"Failed to score model on payload. Error: {e!s}"
-    except Exception as e:
-        return None, f"Failed to score model on payload. Error: {e!s}"
-
-
 def _score_model_on_payloads(
     grading_payloads, model, parameters, headers, proxy_url, max_workers
 ) -> tuple[list[int], list[str]]:
-    scores = [None] * len(grading_payloads)
-    justifications = [None] * len(grading_payloads)
-    with ThreadPoolExecutor(
-        max_workers=max_workers, thread_name_prefix="MlflowGenAiScoring"
-    ) as executor:
-        futures = {
-            executor.submit(
-                _score_model_on_one_payload,
-                payload,
-                model,
-                parameters,
-                headers,
-                proxy_url,
-            ): indx
-            for indx, payload in enumerate(grading_payloads)
-        }
+    raw_results = model_utils.score_model_on_payloads(
+        model,
+        grading_payloads,
+        parameters,
+        headers,
+        proxy_url,
+        max_workers,
+    )
 
-        as_comp = as_completed(futures)
-        try:
-            from tqdm.auto import tqdm
+    scores = []
+    justifications = []
 
-            as_comp = tqdm(as_comp, total=len(futures))
-        except ImportError:
-            pass
-
-        for future in as_comp:
-            indx = futures[future]
-            score, justification = future.result()
-            scores[indx] = score
-            justifications[indx] = justification
+    for result in raw_results:
+        if isinstance(result, Exception):
+            e = result
+            if isinstance(e, MlflowException) and e.error_code in [
+                ErrorCode.Name(BAD_REQUEST),
+                ErrorCode.Name(UNAUTHENTICATED),
+                ErrorCode.Name(INVALID_PARAMETER_VALUE),
+            ]:
+                raise e
+            scores.append(None)
+            justifications.append(f"Failed to score model on payload. Error: {e!s}")
+        else:
+            score, justification = _extract_score_and_justification(result)
+            scores.append(score)
+            justifications.append(justification)
 
     return scores, justifications
 
@@ -619,34 +586,14 @@ def make_genai_metric(
         scores = [None] * len(inputs)
         justifications = [None] * len(inputs)
 
-        with ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix="MlflowGenAiEvaluation"
-        ) as executor:
-            futures = {
-                executor.submit(
-                    _score_model_on_one_payload,
-                    payload,
-                    eval_model,
-                    eval_parameters,
-                    extra_headers,
-                    proxy_url,
-                ): indx
-                for indx, payload in enumerate(grading_payloads)
-            }
-
-            as_comp = as_completed(futures)
-            try:
-                from tqdm.auto import tqdm
-
-                as_comp = tqdm(as_comp, total=len(futures))
-            except ImportError:
-                pass
-
-            for future in as_comp:
-                indx = futures[future]
-                score, justification = future.result()
-                scores[indx] = score
-                justifications[indx] = justification
+        scores, justifications = _score_model_on_payloads(
+            grading_payloads,
+            eval_model,
+            eval_parameters,
+            extra_headers,
+            proxy_url,
+            max_workers,
+        )
 
         aggregate_results = _get_aggregate_results(scores, aggregations)
         return MetricValue(scores, justifications, aggregate_results)
