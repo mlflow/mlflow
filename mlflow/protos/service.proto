@@ -3605,3 +3605,4 @@ message Scorer {
   // The unique identifier for the scorer.
   optional string scorer_id = 6;
 }
+
