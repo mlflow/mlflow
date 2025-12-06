@@ -463,6 +463,7 @@ def autolog(
     registered_model_name=None,
     model_format="ubj",
     extra_tags=None,
+    log_none_parameters=True,
 ):
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -514,6 +515,7 @@ def autolog(
             which is the recommended format for optimal performance and cross-platform
             compatibility. Also supports "json" and "xgb" formats.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        log_none_parameters: If ``False``, parameters with value ``None`` are not logged.
     """
     import numpy as np
     import xgboost
@@ -667,6 +669,10 @@ def autolog(
         # logging booster params separately to extract key/value pairs and make it easier to
         # compare them across runs.
         booster_params = args[0] if len(args) > 0 else kwargs["params"]
+        # Filter out None parameters if log_none_parameters is False
+        if not log_none_parameters:
+            booster_params = {k: v for k, v in booster_params.items() if v is not None}
+
         autologging_client.log_params(run_id=mlflow.active_run().info.run_id, params=booster_params)
 
         unlogged_params = [
@@ -683,6 +689,8 @@ def autolog(
         params_to_log_for_fn = get_mlflow_run_params_for_fn_args(
             original, args, kwargs, unlogged_params
         )
+        if not log_none_parameters:
+            params_to_log_for_fn = {k: v for k, v in params_to_log_for_fn.items() if v is not None}
         autologging_client.log_params(
             run_id=mlflow.active_run().info.run_id, params=params_to_log_for_fn
         )
