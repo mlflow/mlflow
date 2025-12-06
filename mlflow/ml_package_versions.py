@@ -16,11 +16,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "openai"
         },
         "models": {
-            "minimum": "1.55.2",
+            "minimum": "1.56.2",
             "maximum": "2.8.1"
         },
         "autologging": {
-            "minimum": "1.55.2",
+            "minimum": "1.56.2",
             "maximum": "2.8.1"
         }
     },
@@ -29,11 +29,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "dspy"
         },
         "models": {
-            "minimum": "2.5.41",
+            "minimum": "2.5.42",
             "maximum": "3.0.4"
         },
         "autologging": {
-            "minimum": "2.5.41",
+            "minimum": "2.5.42",
             "maximum": "3.0.4"
         }
     },
@@ -42,11 +42,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langchain"
         },
         "models": {
-            "minimum": "0.3.9",
+            "minimum": "0.3.10",
             "maximum": "1.1.0"
         },
         "autologging": {
-            "minimum": "0.3.9",
+            "minimum": "0.3.10",
             "maximum": "1.1.0"
         }
     },
@@ -112,7 +112,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "anthropic"
         },
         "autologging": {
-            "minimum": "0.40.0",
+            "minimum": "0.41.0",
             "maximum": "0.75.0"
         }
     },
@@ -123,7 +123,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.85.0",
-            "maximum": "1.6.0"
+            "maximum": "1.6.1"
         }
     },
     "agno": {
@@ -133,7 +133,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.7.0",
-            "maximum": "2.3.2"
+            "maximum": "2.3.4"
         }
     },
     "pydantic_ai": {
@@ -143,7 +143,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.1.9",
-            "maximum": "1.23.0"
+            "maximum": "1.25.1"
         }
     },
     "smolagents": {
@@ -190,8 +190,8 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "groq"
         },
         "autologging": {
-            "minimum": "0.13.0",
-            "maximum": "0.36.0"
+            "minimum": "0.13.1",
+            "maximum": "0.37.0"
         }
     },
     "bedrock": {
@@ -200,8 +200,8 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "boto3"
         },
         "autologging": {
-            "minimum": "1.35.71",
-            "maximum": "1.41.4"
+            "minimum": "1.35.75",
+            "maximum": "1.42.1"
         }
     },
     "sklearn": {
@@ -238,11 +238,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.1.3",
-            "maximum": "2.5.6"
+            "maximum": "2.6.0"
         },
         "autologging": {
             "minimum": "2.1.3",
-            "maximum": "2.5.6"
+            "maximum": "2.6.0"
         }
     },
     "keras": {
@@ -312,7 +312,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.17.0",
-            "maximum": "1.19.1"
+            "maximum": "1.20.0"
         }
     },
     "spacy": {
