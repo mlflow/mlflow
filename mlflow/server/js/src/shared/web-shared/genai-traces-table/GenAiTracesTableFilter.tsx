@@ -244,7 +244,13 @@ const FilterForm = ({
           <Button
             componentId="mlflow.evaluations_review.table_ui.apply_filters_button"
             type="primary"
-            onClick={() => setFilters(localFilters)}
+            onClick={() => {
+              // Filter out incomplete filters (missing column or value)
+              const validFilters = localFilters.filter(
+                (filter) => filter.column && filter.value !== undefined && filter.value !== '',
+              );
+              setFilters(validFilters);
+            }}
             css={{
               display: 'flex',
               justifyContent: 'flex-end',

@@ -181,6 +181,7 @@ export interface TableFilterOption {
 
 export interface TableFilterOptions {
   source: TableFilterOption[];
+  prompt?: TableFilterOption[];
 }
 
 export enum FilterOperator {

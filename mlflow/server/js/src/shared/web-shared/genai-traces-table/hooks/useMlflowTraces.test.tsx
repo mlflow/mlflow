@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-c
 
 import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
 import {
+  createMlflowSearchFilter,
   invalidateMlflowSearchTracesCache,
   useMlflowTraces,
   useMlflowTracesTableMetadata,
@@ -16,11 +17,13 @@ import {
 } from './useMlflowTraces';
 import {
   EXECUTION_DURATION_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   SESSION_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
+  STATE_COLUMN_ID,
 } from './useTableColumns';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import type { RunEvaluationTracesDataEntry } from '../types';
@@ -86,11 +89,166 @@ describe('useMlflowTracesTableMetadata', () => {
 
     expect(result.current.isLoading).toBe(false);
   });
+
+  test('extracts prompt options from single trace with single linked prompt', async () => {
+    jest.mocked(useGenAiTraceEvaluationArtifacts).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+
+    jest.mocked(fetchFn).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            tags: {
+              'mlflow.linkedPrompts': JSON.stringify([{ name: 'qa-agent-system-prompt', version: '4' }]),
+            },
+          },
+        ],
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useMlflowTracesTableMetadata({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-prompt-options',
+              },
+            },
+          ],
+          runUuid: 'run-prompt-options',
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.tableFilterOptions.prompt).toHaveLength(1);
+    expect(result.current.tableFilterOptions.prompt?.[0].value).toBe('qa-agent-system-prompt/4');
+  });
+
+  test('deduplicates prompt options across multiple traces', async () => {
+    jest.mocked(useGenAiTraceEvaluationArtifacts).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+
+    jest.mocked(fetchFn).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            tags: {
+              'mlflow.linkedPrompts': JSON.stringify([
+                { name: 'qa-agent-system-prompt', version: '4' },
+                { name: 'chat-assistant-prompt', version: '1' },
+              ]),
+            },
+          },
+          {
+            trace_id: 'trace_2',
+            tags: {
+              'mlflow.linkedPrompts': JSON.stringify([
+                { name: 'qa-agent-system-prompt', version: '4' },
+                { name: 'chat-assistant-prompt', version: '2' },
+              ]),
+            },
+          },
+        ],
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useMlflowTracesTableMetadata({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-dedupe-prompts',
+              },
+            },
+          ],
+          runUuid: 'run-dedupe-prompts',
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.tableFilterOptions.prompt).toHaveLength(3);
+    expect(result.current.tableFilterOptions.prompt?.map((p: any) => p.value)).toEqual([
+      'chat-assistant-prompt/1',
+      'chat-assistant-prompt/2',
+      'qa-agent-system-prompt/4',
+    ]);
+  });
+
+  test('handles invalid JSON in linkedPrompts tag gracefully', async () => {
+    jest.mocked(useGenAiTraceEvaluationArtifacts).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+
+    jest.mocked(fetchFn).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            tags: {
+              'mlflow.linkedPrompts': 'invalid-json',
+            },
+          },
+          {
+            trace_id: 'trace_2',
+            tags: {
+              'mlflow.linkedPrompts': JSON.stringify([{ name: 'valid-prompt', version: '1' }]),
+            },
+          },
+        ],
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useMlflowTracesTableMetadata({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-invalid-json',
+              },
+            },
+          ],
+          runUuid: 'run-invalid-json',
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.tableFilterOptions.prompt).toHaveLength(1);
+    expect(result.current.tableFilterOptions.prompt?.[0].value).toBe('valid-prompt/1');
+  });
 });
 
 describe('useSearchMlflowTraces', () => {
   beforeEach(() => {
     jest.mocked(shouldUseTracesV4API).mockReturnValue(false);
+    jest.mocked(fetchFn).mockClear();
   });
   test('returns empty data and isLoading = false when disabled is true', async () => {
     const { result } = renderHook(
@@ -1720,5 +1878,42 @@ describe('invalidateMlflowSearchTracesCache', () => {
     expect(invalidateQueriesSpy).toHaveBeenCalledTimes(1);
     // @ts-expect-error 'queryKey' does not exist in type
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['searchMlflowTraces'] });
+  });
+});
+
+describe('createMlflowSearchFilter', () => {
+  test('creates correct filter string for linked prompts', () => {
+    const networkFilters = [
+      {
+        column: LINKED_PROMPTS_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: 'qa-agent-system-prompt/4',
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe("prompt = 'qa-agent-system-prompt/4'");
+  });
+
+  test('combines prompt filter with other filters', () => {
+    const networkFilters = [
+      {
+        column: LINKED_PROMPTS_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: 'my-prompt/1',
+      },
+      {
+        column: STATE_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: 'OK',
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toContain("prompt = 'my-prompt/1'");
+    expect(filterString).toContain("attributes.status = 'OK'");
+    expect(filterString).toContain(' AND ');
   });
 });
