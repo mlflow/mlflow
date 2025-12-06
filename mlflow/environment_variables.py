@@ -644,6 +644,21 @@ MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZ
 #: (default: ``128``)
 MLFLOW_PROMPT_CACHE_MAX_SIZE = _EnvironmentVariable("MLFLOW_PROMPT_CACHE_MAX_SIZE", int, 128)
 
+#: Time-to-live in seconds for cached Alias-based prompts, e.g., "prompts:/name@latest", in the
+#: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
+#: access. Set to 0 to disable caching entirely. (default: ``60``)
+MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS", float, 60
+)
+
+#: Time-to-live in seconds for cached version-based prompts, e.g., "prompts:/name/version", in the
+#: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
+#: access. Set to 0 to disable caching entirely. (default: ``float("inf")``, infinite TTL)
+MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS", float, float("inf")
+)
+
+
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
 #: where a class imbalance due to a missing target class would raise an error in the
@@ -1131,4 +1146,11 @@ MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS"
 #: (default: ``True``)
 _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS", True
+)
+
+#: Serverless GPU Compute (SGC) job run ID for automatic run resumption on Databricks.
+#: This is used as a fallback when the dbutils widget parameter is not available.
+#: (default: ``None``)
+_SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID = _EnvironmentVariable(
+    "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", str, None
 )

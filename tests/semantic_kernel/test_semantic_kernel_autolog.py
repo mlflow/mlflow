@@ -451,7 +451,6 @@ async def test_sk_embeddings(mock_openai):
 
 @pytest.mark.asyncio
 async def test_kernel_invoke_function_object(mock_openai):
-    """Test that kernel.invoke with function object works correctly"""
     mlflow.semantic_kernel.autolog()
 
     await _create_and_invoke_kernel_function_object(mock_openai)

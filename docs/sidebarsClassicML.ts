@@ -275,34 +275,30 @@ const sidebarsClassicML: SidebarsConfig = {
               label: 'Sentence Transformers',
               items: [
                 {
-                  type: 'doc',
-                  id: 'deep-learning/sentence-transformers/guide/index',
-                },
-                {
                   type: 'category',
                   label: 'Tutorials',
                   items: [
                     {
                       type: 'doc',
                       id: 'deep-learning/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart-ipynb',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers-ipynb',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'deep-learning/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers-ipynb',
+                      label: 'Quickstart',
                     },
                     {
                       type: 'doc',
                       id: 'deep-learning/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers-ipynb',
+                      label: 'Semantic Similarity',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'deep-learning/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers-ipynb',
+                      label: 'Semantic Search',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers-ipynb',
+                      label: 'Paraphrase Mining',
                     },
                   ],
-                  link: {
-                    type: 'doc',
-                    id: 'deep-learning/sentence-transformers/tutorials/index',
-                  },
                 },
               ],
               link: {
@@ -404,39 +400,10 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
     },
     {
-      type: 'category',
+      type: 'doc',
+      id: 'evaluation/index',
       label: 'Evaluate',
       className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'evaluation/function-eval',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/dataset-eval',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/model-eval',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/metrics-visualizations',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/shap',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/plugin-evaluators',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'evaluation/index',
-      },
     },
     {
       type: 'category',

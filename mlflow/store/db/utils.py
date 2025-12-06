@@ -6,6 +6,7 @@ import sqlite3
 import tempfile
 import time
 from contextlib import contextmanager
+from pathlib import Path
 
 import sqlalchemy
 from alembic.migration import MigrationContext
@@ -290,7 +291,20 @@ def _get_schema_version(engine):
         return mc.get_current_revision()
 
 
+def _make_parent_dirs_if_sqlite(db_uri: str) -> None:
+    """Create parent directories for SQLite database file if they don't exist."""
+    if not db_uri.startswith("sqlite:///"):
+        return
+    # SQLite URI format: sqlite:///path/to/file.db (relative) or sqlite:////abs/path (Unix)
+    # Remove the 'sqlite:///' prefix to get the path
+    # Skip in-memory databases (:memory: or empty path)
+    db_path = db_uri.removeprefix("sqlite:///")
+    if db_path and db_path != ":memory:":
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+
 def create_sqlalchemy_engine_with_retry(db_uri):
+    _make_parent_dirs_if_sqlite(db_uri)
     attempts = 0
     while True:
         attempts += 1

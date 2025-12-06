@@ -11,13 +11,12 @@ import { GetStarted } from './components/GetStarted';
 import { ExperimentsHomeView } from './components/ExperimentsHomeView';
 import { DiscoverNews } from './components/DiscoverNews';
 import { LogTracesDrawer } from './components/LogTracesDrawer';
-import { HomePageViewStateProvider } from './HomePageViewStateContext';
 
 type ExperimentQueryKey = ['home', 'recent-experiments'];
 
 const RECENT_EXPERIMENTS_QUERY_KEY: ExperimentQueryKey = ['home', 'recent-experiments'];
 
-const HomePageContent = () => {
+const HomePage = () => {
   const { theme } = useDesignSystemTheme();
   const invalidateExperiments = useInvalidateExperimentList();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -76,11 +75,5 @@ const HomePageContent = () => {
     </ScrollablePageWrapper>
   );
 };
-
-const HomePage = () => (
-  <HomePageViewStateProvider>
-    <HomePageContent />
-  </HomePageViewStateProvider>
-);
 
 export default HomePage;

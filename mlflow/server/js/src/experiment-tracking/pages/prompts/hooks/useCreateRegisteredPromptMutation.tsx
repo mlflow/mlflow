@@ -10,13 +10,22 @@ type UpdateContentPayload = {
   content: string;
   commitMessage?: string;
   tags: { key: string; value: string }[];
+  promptTags?: { key: string; value: string }[];
 };
 
 export const useCreateRegisteredPromptMutation = () => {
   const updateMutation = useMutation<{ version: string }, Error, UpdateContentPayload>({
-    mutationFn: async ({ promptName, promptType, createPromptEntity, content, commitMessage, tags }) => {
+    mutationFn: async ({
+      promptName,
+      promptType,
+      createPromptEntity,
+      content,
+      commitMessage,
+      tags,
+      promptTags = [],
+    }) => {
       if (createPromptEntity) {
-        await RegisteredPromptsApi.createRegisteredPrompt(promptName);
+        await RegisteredPromptsApi.createRegisteredPrompt(promptName, promptTags);
       }
 
       const version = await RegisteredPromptsApi.createRegisteredPromptVersion(

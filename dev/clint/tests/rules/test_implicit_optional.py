@@ -28,7 +28,6 @@ class Good:
 
 
 def test_implicit_optional_stringified(index_path: Path) -> None:
-    """Test that stringified type annotations are handled correctly."""
     code = """
 from typing import Optional
 

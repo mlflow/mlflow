@@ -83,11 +83,13 @@ jobs:
           docs=$([[ -z $(echo "$changed_files" | grep '^docs/') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
           db=$([[ -z $(echo "$changed_files" | grep '^mlflow/store/db_migrations/') ]] && echo "false" || echo "true")
+          api=$([[ -z $(echo "$changed_files" | grep -E '(^mlflow/.*\.py$|^docs/api_reference/.*\.rst$)') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
           echo "docs=$docs" >> $GITHUB_OUTPUT
           echo "r=$r" >> $GITHUB_OUTPUT
           echo "db=$db" >> $GITHUB_OUTPUT
+          echo "api=$api" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
@@ -155,6 +157,12 @@ jobs:
         working-directory: docs/api_reference
         run: |
           ./build-rdoc.sh
+      # ************************************************************************
+      # API Reference
+      # ************************************************************************
+      - if: steps.diff.outputs.api == 'true'
+        run: |
+          uv run --group docs --extra gateway --directory docs/api_reference make dummy
       # ************************************************************************
       # Upload patch
       # ************************************************************************

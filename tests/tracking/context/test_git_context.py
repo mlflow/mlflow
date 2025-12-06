@@ -41,8 +41,6 @@ def test_git_run_context_tags(patch_script_name, patch_git_repo):
 
 
 def test_git_run_context_caching(patch_script_name):
-    """Check that the git commit hash is only looked up once."""
-
     with mock.patch("git.Repo") as mock_repo:
         context = GitRunContext()
         context.in_context()

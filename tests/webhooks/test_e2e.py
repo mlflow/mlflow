@@ -591,7 +591,6 @@ def test_webhook_retry_on_5xx_error(mlflow_client: MlflowClient, app_client: App
 def test_webhook_retry_on_429_rate_limit(
     mlflow_client: MlflowClient, app_client: AppClient
 ) -> None:
-    """Test that webhooks retry on 429 rate limit errors and respect Retry-After header"""
     # Create webhook pointing to rate-limited endpoint
     mlflow_client.create_webhook(
         name="rate_limit_test_webhook",

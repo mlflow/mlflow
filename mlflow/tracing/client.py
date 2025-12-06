@@ -683,7 +683,6 @@ class TracingClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
-    # TODO: Migrate this to the new association table
     def link_prompt_versions_to_trace(
         self, trace_id: str, prompts: Sequence[PromptVersion]
     ) -> None:

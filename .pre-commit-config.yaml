@@ -98,6 +98,31 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: check-mlflow-ui
+        name: check-mlflow-ui
+        entry: |
+          bash -c '
+            if bin/rg "mlflow ui" --line-number --with-filename "$@"; then
+              echo
+              echo "Error - Use \"mlflow server\" instead of \"mlflow ui\""
+              exit 1
+            fi
+          ' --
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        types: [text]
+        exclude: |
+          (?x)^(
+            \.pre-commit-config\.yaml|
+            CHANGELOG\.md|
+            docs/api_reference/source/R-api\.rst|
+            examples/llms/RAG/.*\.(json|csv)|
+            mlflow/cli/__init__\.py|
+            mlflow/R/mlflow/.*|
+            tests/test_cli\.py
+          )$
+
       - id: pyproject
         name: pyproject
         entry: uv run --only-group lint dev/pyproject.py

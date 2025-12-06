@@ -67,6 +67,9 @@ import {
   normalizeOtelGenAIChatMessage,
   normalizePydanticAIChatInput,
   normalizePydanticAIChatOutput,
+  normalizeVoltAgentChatInput,
+  normalizeVoltAgentChatOutput,
+  synthesizeVoltAgentChatMessages,
 } from './chat-utils';
 import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
 import { TOKEN_USAGE_METADATA_KEY } from './constants';
@@ -354,6 +357,7 @@ const getChatMessagesFromSpan = (
   inputs: any,
   outputs: any,
   messageFormat?: string,
+  children?: ModelTraceSpanNode[],
 ): ModelTraceChatMessage[] | undefined => {
   // if the `mlflow.chat.messages` attribute is provided
   // and in the correct format, return it as-is
@@ -371,6 +375,16 @@ const getChatMessagesFromSpan = (
   // PydanticAI's new_messages() returns complete conversation including user prompt
   if (messageFormat === 'pydantic_ai' && messagesFromOutputs.length > 0) {
     return messagesFromInputs.length > 0 ? messagesFromInputs.concat(messagesFromOutputs) : messagesFromOutputs;
+  }
+
+  // For VoltAgent format, synthesize messages from child spans (tool executions)
+  // This is necessary because VoltAgent stores tool calls as child TOOL spans
+  // rather than inline in the messages array
+  if (messageFormat === 'voltagent' && children && children.length > 0) {
+    const synthesizedMessages = synthesizeVoltAgentChatMessages(inputs, outputs, children);
+    if (synthesizedMessages && synthesizedMessages.length > 0) {
+      return synthesizedMessages;
+    }
   }
 
   // when either input or output is not chat messages, we do not set the chat message fiels.
@@ -421,7 +435,7 @@ export const normalizeNewSpanData = (
   // data that powers the "chat" tab
   const messagesAttributeValue = tryDeserializeAttribute(span.attributes?.['mlflow.chat.messages']);
   const messageFormat = tryDeserializeAttribute(span.attributes?.['mlflow.message.format']);
-  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat);
+  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat, children);
   const chatTools = getChatToolsFromSpan(tryDeserializeAttribute(span.attributes?.['mlflow.chat.tools']), inputs);
 
   // remove other private mlflow attributes
@@ -1028,6 +1042,10 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
       case 'pydantic_ai':
         const pydanticAIMessages = normalizePydanticAIChatInput(input) ?? normalizePydanticAIChatOutput(input);
         if (pydanticAIMessages) return pydanticAIMessages;
+        break;
+      case 'voltagent':
+        const voltAgentMessages = normalizeVoltAgentChatInput(input) ?? normalizeVoltAgentChatOutput(input);
+        if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
         // Fallback to OpenAI chat format

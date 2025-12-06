@@ -130,7 +130,7 @@ def evaluate_session_level_scorers(
                     source=make_code_type_assessment_source(scorer.name),
                     error=AssessmentError(
                         error_code="SCORER_ERROR",
-                        error_message=e,
+                        error_message=str(e),
                         stack_trace=traceback.format_exc(),
                     ),
                 )

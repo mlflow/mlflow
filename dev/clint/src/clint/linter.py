@@ -108,8 +108,7 @@ class Violation:
         return (
             # Since `Range` is 0-indexed, lineno and col_offset are incremented by 1
             f"{self.path}:{cell_loc}{self.range.shift(Position(1, 1))}: "
-            f"{self.rule.id}: {self.rule.message} "
-            f"See dev/clint/README.md for instructions on ignoring this rule ({self.rule.name})."
+            f"{self.rule.id}: {self.rule.message}"
         )
 
     def json(self) -> dict[str, str | int | None]:

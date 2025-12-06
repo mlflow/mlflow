@@ -1,0 +1,141 @@
+import ImageBox from '@site/src/components/ImageBox';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+import ServerSetup from "@site/src/content/setup_server.mdx";
+
+# Tracing Quickstart
+
+This quickstart guide will walk you through setting up a simple GenAI application with MLflow Tracing. In less than 10 minutes, you'll enable tracing, run a basic application, and explore the generated traces in the MLflow UI.
+
+## Prerequisites
+
+Make sure you have started the MLflow server.
+If you don't have the MLflow server running yet, just follow these simple steps to get it started.
+
+<ServerSetup />
+
+## Create a MLflow Experiment
+
+The traces your GenAI application will send to the MLflow server are grouped into MLflow experiments. We recommend creating one experiment for each GenAI application.
+
+Let's create a new MLflow experiment using the MLflow UI so that you can start sending your traces.
+
+<ImageBox src="/images/llms/tracing/quickstart/mlflow-ui-new-experiment.png" alt="New Experiment"/>
+
+1. Navigate to the MLflow UI in your browser at [http://localhost:5000](http://localhost:5000).
+2. Click on the <div className="inline-flex rounded-sm bg-sky-700 px-2 py-1.5 text-sm font-semibold text-white">Create</div> button on the top right.
+3. Enter a name for the experiment and click on "Create".
+
+_You can leave the `Artifact Location` field blank for now. It is an advanced configuration to override where MLflow stores experiment data._
+
+## Dependency
+
+To connect your GenAI application to the MLflow server, you will need to install the MLflow client SDK.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python(OpenAI)" default>
+```bash
+pip install --upgrade mlflow openai>=1.0.0
+```
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript(OpenAI)" default>
+```bash
+npm install mlflow-openai
+```
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+:::info
+
+While this guide features an example using the OpenAI SDK, the same steps apply to other LLM providers, including Anthropic, Google, Bedrock, and many others.
+
+For a comprehensive list of LLM providers supported by MLflow, see the <ins>[LLM Integrations Overview](/genai/tracing/integrations)</ins>.
+
+:::
+
+## Start Tracing
+
+Once your experiment is created, you're ready to connect to the MLflow server and begin sending traces from your GenAI application.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python(OpenAI)" default>
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Specify the tracking URI for the MLflow server.
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# Specify the experiment you just created for your GenAI application.
+mlflow.set_experiment("My Application")
+
+# Enable automatic tracing for all OpenAI API calls.
+mlflow.openai.autolog()
+
+client = OpenAI()
+# The trace of the following is sent to the MLflow server.
+client.chat.completions.create(
+    model="o4-mini",
+    messages=[
+        {"role": "system", "content": "You are a helpful weather assistant."},
+        {"role": "user", "content": "What's the weather like in Seattle?"},
+    ],
+)
+```
+
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript(OpenAI)">
+
+```typescript
+import { init } from "mlflow-tracing";
+import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+
+init({
+    trackingUri: "http://localhost:5000",
+    // NOTE: specifying experiment name is not yet supported in TypeScript SDK.
+    // You can copy the experiment id from the experiment details on the MLflow UI.
+    experimentId: "<experiment-id>",
+});
+
+// Wrap the OpenAI client with the tracedOpenAI function to enable automatic tracing.
+const client = tracedOpenAI(new OpenAI());
+
+// The trace of the following is sent to the MLflow server.
+client.chat.completions.create({
+    model: "o4-mini",
+    messages: [
+        {"role": "system", "content": "You are a helpful weather assistant."},
+        {"role": "user", "content": "What's the weather like in Seattle?"},
+    ],
+})
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## View Your Traces on the MLflow UI
+
+After running the code above, go to the MLflow UI and select the "My Application" experiment, and then select the "Traces" tab. It should show the newly created trace.
+
+<ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-list.png" alt="Single Trace" />
+
+<ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-detail.png" alt="Single Trace" />
+
+## Next Steps
+
+Congrats on sending your first trace with MLflow! Now that you've got the basics working, here are some recommended next steps to deepen your understanding of tracing and get the most out of MLflow Tracing:
+
+- **Explore More Integrations:** MLflow supports a wide range of LLM providers and agent frameworks. See the full list in the [Integrations Overview](/genai/tracing/integrations).
+
+- **Manual Tracing & Custom Spans:** Discover how to instrument your GenAI code with manual tracing and custom spans to capture additional details in your traces. Check out [Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing/) for more details.
+
+- **Attach Feedback & Evaluate Quality:** Add human or automated feedback to your traces. See how in [Attaching Feedback](/genai/tracing/collect-user-feedback/) or try [automated evaluation](/genai/eval-monitor) for scoring conversation responses.

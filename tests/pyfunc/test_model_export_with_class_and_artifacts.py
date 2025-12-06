@@ -1124,7 +1124,6 @@ def test_save_and_load_model_with_special_chars(
 
 
 def test_model_with_code_path_containing_main(tmp_path):
-    """Test that the __main__ module is unaffected by model loading"""
     directory = tmp_path.joinpath("model_with_main")
     directory.mkdir()
     main = directory.joinpath("__main__.py")

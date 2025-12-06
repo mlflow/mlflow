@@ -17,9 +17,6 @@ if TYPE_CHECKING:
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-    _invoke_databricks_default_judge,
-)
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint_judge,
     _record_judge_model_usage_failure_databricks_telemetry,
@@ -95,7 +92,11 @@ def invoke_judge_model(
         MlflowException: If the model cannot be invoked or dependencies are missing.
     """
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-        return _invoke_databricks_default_judge(prompt, assessment_name, use_case=use_case)
+        from mlflow.genai.judges.adapters.databricks_adapter import (
+            _invoke_databricks_default_judge,
+        )
+
+        return _invoke_databricks_default_judge(prompt, assessment_name, trace=trace)
 
     from mlflow.metrics.genai.model_utils import _parse_model_uri
     from mlflow.types.llm import ChatMessage

@@ -181,10 +181,33 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
             return json.loads(att)
         return None
 
+    def _safe_extract_from_root_span(trace: Trace, attribute: str) -> Any:
+        """Safely extract an attribute from the root span, returning None if root span is None."""
+        root_span = trace.data._get_root_span()
+        if root_span is None:
+            return None
+        return getattr(root_span, attribute, None)
+
     if "inputs" not in df.columns:
-        df["inputs"] = df["trace"].apply(lambda trace: trace.data._get_root_span().inputs)
+        df["inputs"] = df["trace"].apply(
+            lambda trace: _safe_extract_from_root_span(trace, "inputs")
+        )
     if "outputs" not in df.columns:
-        df["outputs"] = df["trace"].apply(lambda trace: trace.data._get_root_span().outputs)
+        df["outputs"] = df["trace"].apply(
+            lambda trace: _safe_extract_from_root_span(trace, "outputs")
+        )
+
+    # Warn once if any traces have missing root spans
+    missing_root_span_mask = df["trace"].apply(lambda trace: trace.data._get_root_span() is None)
+    if missing_root_span_mask.any():
+        missing_count = missing_root_span_mask.sum()
+        _logger.warning(
+            f"{missing_count} trace(s) do not have a root span, so input and output data may be"
+            " missing for these traces. This may occur if traces were fetched using"
+            " search_traces(..., include_spans=False) and, if so, it can be resolved by fetching"
+            " traces using search_traces(..., include_spans=True)."
+        )
+
     return df
 
 

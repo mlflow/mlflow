@@ -14,19 +14,20 @@ import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
 import { useDebounce } from 'use-debounce';
 
-const PromptsPage = () => {
+const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
   const [searchFilter, setSearchFilter] = useState('');
   const navigate = useNavigate();
 
   const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
 
   const { data, error, refetch, hasNextPage, hasPreviousPage, isLoading, onNextPage, onPreviousPage } =
-    usePromptsListQuery({ searchFilter: debouncedSearchFilter });
+    usePromptsListQuery({ experimentId, searchFilter: debouncedSearchFilter });
 
   const { EditTagsModal, showEditPromptTagsModal } = useUpdateRegisteredPromptTags({ onSuccess: refetch });
   const { CreatePromptModal, openModal: openCreateVersionModal } = useCreatePromptModal({
     mode: CreatePromptModalMode.CreatePrompt,
-    onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
+    experimentId,
+    onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName, experimentId)),
   });
 
   return (
@@ -62,6 +63,7 @@ const PromptsPage = () => {
           onNextPage={onNextPage}
           onPreviousPage={onPreviousPage}
           onEditTags={showEditPromptTagsModal}
+          experimentId={experimentId}
         />
       </div>
       {EditTagsModal}

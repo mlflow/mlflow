@@ -88,3 +88,7 @@ jobs:
           uv run --no-project dev/check_whitespace_only.py \
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }}
+
+      - name: Check unused media
+        run: |
+          dev/find-unused-media.sh

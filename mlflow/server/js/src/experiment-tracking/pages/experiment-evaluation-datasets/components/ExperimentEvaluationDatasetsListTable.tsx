@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Empty,
   Table,
@@ -20,7 +20,6 @@ import type { ColumnDef, Row, SortDirection, SortingState } from '@tanstack/reac
 import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import type { EvaluationDataset } from '../types';
-import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
 import { NameCell } from './ExperimentEvaluationDatasetsNameCell';
 import { LastUpdatedCell } from './ExperimentEvaluationDatasetsLastUpdatedCell';
 import { ActionsCell } from './ExperimentEvaluationDatasetsActionsCell';
@@ -106,23 +105,17 @@ interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<EvaluationDataset>;
   columnVisibility: { [key: string]: boolean };
   isActive: boolean;
-  setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
+  onSelectDataset: (dataset: EvaluationDataset) => void;
 }
 
 const ExperimentEvaluationDatasetsTableRow: React.FC<
   React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>
 > = React.memo(
-  ({ row, isActive, setSelectedDataset }) => {
+  ({ row, isActive, onSelectDataset }) => {
     const { theme } = useDesignSystemTheme();
 
     return (
-      <TableRow
-        key={row.id}
-        className="eval-datasets-table-row"
-        onClick={() => {
-          setSelectedDataset(row.original);
-        }}
-      >
+      <TableRow key={row.id} className="eval-datasets-table-row" onClick={() => onSelectDataset(row.original)}>
         {row.getVisibleCells().map((cell) => (
           <TableCell
             key={cell.id}
@@ -147,14 +140,30 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
 
 export const ExperimentEvaluationDatasetsListTable = ({
   experimentId,
-  selectedDataset,
-  setSelectedDataset,
-  setIsLoading,
+  datasets,
+  isLoading,
+  isFetching,
+  error,
+  refetch,
+  fetchNextPage,
+  hasNextPage,
+  selectedDatasetId,
+  setSelectedDatasetId,
+  searchFilter,
+  setSearchFilter,
 }: {
   experimentId: string;
-  selectedDataset?: EvaluationDataset;
-  setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
-  setIsLoading: (isLoading: boolean) => void;
+  datasets: EvaluationDataset[];
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => void;
+  fetchNextPage: () => void;
+  hasNextPage: boolean | undefined;
+  selectedDatasetId?: string;
+  setSelectedDatasetId: (datasetId: string | undefined) => void;
+  searchFilter: string;
+  setSearchFilter: (filter: string) => void;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -171,20 +180,8 @@ export const ExperimentEvaluationDatasetsListTable = ({
       return acc;
     }, {} as { [key: string]: boolean }),
   );
-  // searchFilter only gets updated after the user presses enter
-  const [searchFilter, setSearchFilter] = useState('');
-  // control field that gets updated immediately
+  // Control field that gets updated immediately
   const [internalSearchFilter, setInternalSearchFilter] = useState(searchFilter);
-
-  const {
-    data: datasets,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-    fetchNextPage,
-    hasNextPage,
-  } = useSearchEvaluationDatasets({ experimentId, nameFilter: searchFilter });
 
   const table = useReactTable(
     'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExperimentEvaluationDatasetsListTable.tsx',
@@ -209,25 +206,6 @@ export const ExperimentEvaluationDatasetsListTable = ({
     hasNextPage: hasNextPage ?? false,
     fetchNextPage,
   });
-
-  // update loading state in parent
-  useEffect(() => {
-    setIsLoading(isLoading);
-  }, [isLoading, setIsLoading]);
-
-  if (!datasets?.length) {
-    setSelectedDataset(undefined);
-  }
-
-  // set the selected dataset to the first one if the is no selected dataset,
-  // or if the selected dataset went out of scope (e.g. was deleted / not in search)
-  if (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id)) {
-    // Use the sorted data from the table to respect the current sort order
-    const sortedRows = table.getRowModel().rows;
-    if (sortedRows.length > 0) {
-      setSelectedDataset(sortedRows[0].original);
-    }
-  }
 
   if (error) {
     return <div>Error loading datasets</div>;
@@ -337,8 +315,8 @@ export const ExperimentEvaluationDatasetsListTable = ({
                   key={row.id}
                   row={row}
                   columnVisibility={columnVisibility}
-                  isActive={row.original.dataset_id === selectedDataset?.dataset_id}
-                  setSelectedDataset={setSelectedDataset}
+                  isActive={row.original.dataset_id === selectedDatasetId}
+                  onSelectDataset={(dataset) => setSelectedDatasetId(dataset.dataset_id)}
                 />
               ))}
 

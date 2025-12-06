@@ -10,6 +10,7 @@ from mlflow.entities import ScorerVersion, Span, Trace, TraceData, TraceInfo, Tr
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
+    PromptVersion,
     RegisteredModel,
     RegisteredModelTag,
 )
@@ -54,6 +55,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTraceTagV3,
     GetScorer,
     GetTrace,
+    LinkPromptsToTrace,
     ListScorers,
     ListScorerVersions,
     RegisterScorer,
@@ -107,6 +109,7 @@ from mlflow.server.handlers import (
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
+    _link_prompts_to_trace,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
@@ -201,7 +204,7 @@ def mock_evaluation_dataset():
     dataset.last_updated_by = "test_user"
     dataset.tags = {"env": "test", "version": "1.0"}
     dataset.experiment_ids = ["0", "1"]
-    dataset.records = []
+    dataset._records = []
     dataset.schema = json.dumps(
         {"inputs": {"question": "string"}, "expectations": {"accuracy": "float"}}
     )
@@ -410,7 +413,6 @@ def test_catch_mlflow_exception():
 
 
 def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
 
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path}")
@@ -1382,7 +1384,6 @@ def test_get_dataset_records_pagination(mock_tracking_store):
 
 
 def test_register_scorer(mock_get_request_message, mock_tracking_store):
-    """Test register_scorer handler."""
     experiment_id = "123"
     name = "accuracy_scorer"
     serialized_scorer = "serialized_scorer_data"
@@ -1419,7 +1420,6 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
 
 
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
-    """Test list_scorers handler."""
     experiment_id = "123"
 
     mock_get_request_message.return_value = ListScorers(experiment_id=experiment_id)
@@ -1461,7 +1461,6 @@ def test_list_scorers(mock_get_request_message, mock_tracking_store):
 
 
 def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
-    """Test list_scorer_versions handler."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1504,7 +1503,6 @@ def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
 
 
 def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
-    """Test get_scorer handler with specific version."""
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
@@ -1538,7 +1536,6 @@ def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
 
 
 def test_get_scorer_without_version(mock_get_request_message, mock_tracking_store):
-    """Test get_scorer handler without version (should return latest)."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1569,7 +1566,6 @@ def test_get_scorer_without_version(mock_get_request_message, mock_tracking_stor
 
 
 def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_store):
-    """Test delete_scorer handler with specific version."""
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
@@ -1589,7 +1585,6 @@ def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_stor
 
 
 def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_store):
-    """Test delete_scorer handler without version (should delete all versions)."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1732,7 +1727,6 @@ def test_calculate_trace_filter_correlation_with_nan_npmi(
 
 
 def test_databricks_tracking_store_registration():
-    """Test that Databricks tracking store is properly registered."""
     registry = TrackingStoreRegistryWrapper()
 
     # Test that the correct store type is returned for databricks scheme
@@ -1747,7 +1741,6 @@ def test_databricks_tracking_store_registration():
 
 
 def test_databricks_model_registry_store_registration():
-    """Test that Databricks model registry stores are properly registered."""
     registry = ModelRegistryStoreRegistryWrapper()
 
     # Test that the correct store type is returned for databricks
@@ -1778,7 +1771,6 @@ def test_databricks_model_registry_store_registration():
 
 
 def test_search_experiments_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_experiments converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_experiments_proto = SearchExperiments()
     search_experiments_proto.max_results = 10
@@ -1801,7 +1793,6 @@ def test_search_experiments_empty_page_token(mock_get_request_message, mock_trac
 def test_search_registered_models_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
-    """Test that _search_registered_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_registered_models_proto = SearchRegisteredModels()
     search_registered_models_proto.max_results = 10
@@ -1824,7 +1815,6 @@ def test_search_registered_models_empty_page_token(
 def test_search_model_versions_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
-    """Test that _search_model_versions converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_model_versions_proto = SearchModelVersions()
     search_model_versions_proto.max_results = 10
@@ -1845,7 +1835,6 @@ def test_search_model_versions_empty_page_token(
 
 
 def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_traces_v3 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     # SearchTracesV3 requires locations field
     search_traces_proto = SearchTracesV3()
@@ -1872,7 +1861,6 @@ def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracki
 def test_deprecated_search_traces_v2_empty_page_token(
     mock_get_request_message, mock_tracking_store
 ):
-    """Test that _deprecated_search_traces_v2 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_traces_proto = SearchTraces()
     search_traces_proto.max_results = 10
@@ -1893,7 +1881,6 @@ def test_deprecated_search_traces_v2_empty_page_token(
 
 
 def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_logged_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_logged_models_proto = SearchLoggedModels()
     search_logged_models_proto.max_results = 10
@@ -1914,7 +1901,6 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
 
 
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
-    """Test that _list_webhooks converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     list_webhooks_proto = ListWebhooks()
     list_webhooks_proto.max_results = 10
@@ -2415,6 +2401,44 @@ def test_set_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store)
     # Verify the store method was called with correct parameters
     # Note: Both handlers call the same store method
     mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_store):
+    """Test link_prompts_to_trace handler.
+
+    Verifies that the handler correctly parses the request and calls
+    store.link_prompts_to_trace() with the appropriate PromptVersion objects.
+    """
+    trace_id = "tr-test-123"
+    prompt_versions_refs = [
+        LinkPromptsToTrace.PromptVersionRef(name="prompt1", version="1"),
+        LinkPromptsToTrace.PromptVersionRef(name="prompt2", version="2"),
+    ]
+
+    # Create the request message
+    request_msg = LinkPromptsToTrace(trace_id=trace_id, prompt_versions=prompt_versions_refs)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the handler
+    response = _link_prompts_to_trace()
+
+    # Verify the store method was called with correct parameters
+    # The handler should convert PromptVersionRef to PromptVersion objects
+    call_args = mock_tracking_store.link_prompts_to_trace.call_args
+    assert call_args[1]["trace_id"] == trace_id
+
+    prompt_versions = call_args[1]["prompt_versions"]
+    assert len(prompt_versions) == 2
+    assert isinstance(prompt_versions[0], PromptVersion)
+    assert prompt_versions[0].name == "prompt1"
+    assert prompt_versions[0].version == 1
+    assert isinstance(prompt_versions[1], PromptVersion)
+    assert prompt_versions[1].name == "prompt2"
+    assert prompt_versions[1].version == 2
 
     # Verify response was created (200 status)
     assert response is not None

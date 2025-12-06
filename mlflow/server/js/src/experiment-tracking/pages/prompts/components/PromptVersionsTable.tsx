@@ -13,12 +13,9 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import Utils from '../../../../common/utils/Utils';
-import { ModelVersionTableAliasesCell } from '../../../../model-registry/components/aliases/ModelVersionTableAliasesCell';
 import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionsTableMode } from '../utils';
-import { PromptsListTableVersionCell } from './PromptsListTableVersionCell';
-import { PromptVersionsTableAliasesCell } from './PromptVersionsTableAliasesCell';
+import { PromptVersionsTableCombinedCell } from './PromptVersionsTableCombinedCell';
 import { PromptVersionsDiffSelectorButton } from './PromptVersionsDiffSelectorButton';
 
 type PromptVersionsTableColumnDef = ColumnDef<RegisteredPromptVersion>;
@@ -58,41 +55,12 @@ export const PromptVersionsTable = ({
           description: 'Header for the version column in the registered prompts table',
         }),
         accessorKey: 'version',
-        cell: PromptsListTableVersionCell,
+        cell: PromptVersionsTableCombinedCell,
       },
     ];
 
-    if (mode === PromptVersionsTableMode.TABLE) {
-      resultColumns.push({
-        id: 'creation_timestamp',
-        header: intl.formatMessage({
-          defaultMessage: 'Registered at',
-          description: 'Header for the registration time column in the registered prompts table',
-        }),
-        accessorFn: ({ creation_timestamp }) => Utils.formatTimestamp(creation_timestamp, intl),
-      });
-
-      resultColumns.push({
-        id: 'commit_message',
-        header: intl.formatMessage({
-          defaultMessage: 'Commit message',
-          description: 'Header for the commit message column in the registered prompts table',
-        }),
-        accessorKey: 'description',
-      });
-      resultColumns.push({
-        id: 'aliases',
-        header: intl.formatMessage({
-          defaultMessage: 'Aliases',
-          description: 'Header for the aliases column in the registered prompts table',
-        }),
-        accessorKey: 'aliases',
-        cell: PromptVersionsTableAliasesCell,
-      });
-    }
-
     return resultColumns;
-  }, [mode, intl]);
+  }, [intl]);
 
   const table = useReactTable(
     'mlflow/server/js/src/experiment-tracking/pages/prompts/components/PromptVersionsTable.tsx',
@@ -167,7 +135,6 @@ export const PromptVersionsTable = ({
               <TableRow
                 key={row.id}
                 css={{
-                  height: theme.general.heightBase,
                   backgroundColor: getColor(),
                   cursor: showCursorForEntireRow ? 'pointer' : 'default',
                 }}

@@ -10,8 +10,6 @@ from tests.resources.data.dataset_source import SampleDatasetSource
 
 
 def test_register_entrypoints_and_resolve(tmp_path):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     from mlflow_test_plugin.dummy_dataset_source import DummyDatasetSource
 
     registry = DatasetSourceRegistry()
@@ -95,8 +93,6 @@ def test_load_from_json_throws_for_unrecognized_source_type(tmp_path):
 
 
 def test_resolve_dataset_source_maintains_consistent_order_and_uses_last_registered_match(tmp_path):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     from mlflow_test_plugin.dummy_dataset_source import DummyDatasetSource
 
     class SampleDatasetSourceCopy1(SampleDatasetSource):
