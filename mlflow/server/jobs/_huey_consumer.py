@@ -17,7 +17,7 @@ and schedules the job execution continuously.
 import os
 import threading
 
-from mlflow.server import MLFLOW_HUEY_INSTANCE_KEY
+from mlflow.server.constants import MLFLOW_HUEY_INSTANCE_KEY
 from mlflow.server.jobs.utils import (
     _exit_when_orphaned,
     _get_or_init_huey_instance,
