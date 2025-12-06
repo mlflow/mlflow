@@ -3172,7 +3172,7 @@ def save_model(
             )
     elif isinstance(python_model, ChatAgent):
         input_example = _save_model_chat_agent_helper(
-            python_model, mlflow_model, signature, input_example
+            python_model, mlflow_model, signature, input_example, artifacts, model_config
         )
     elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         input_example = _save_model_responses_agent_helper(
@@ -3754,7 +3754,9 @@ def _save_model_with_loader_module_and_data_path(
     return mlflow_model
 
 
-def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_example):
+def _save_model_chat_agent_helper(
+    python_model, mlflow_model, signature, input_example, artifacts, model_config
+):
     """Helper method for save_model for ChatAgent models
 
     Returns: a dict input_example
@@ -3792,6 +3794,8 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
         input_example = CHAT_AGENT_INPUT_EXAMPLE
 
     _logger.info("Predicting on input example to validate output")
+    context = PythonModelContext(artifacts, model_config)
+    python_model.load_context(context)
     request = ChatAgentRequest(**input_example)
     output = python_model.predict(request.messages, request.context, request.custom_inputs)
     try:
