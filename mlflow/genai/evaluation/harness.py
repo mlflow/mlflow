@@ -123,10 +123,8 @@ def run(
     # Classify scorers into single-turn and multi-turn
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
 
-    # Pre-compute session groups if multi-turn scorers exist
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
 
-    # Calculate total work units for progress bar
     total_tasks = len(eval_items) + len(session_groups)
 
     with ThreadPoolExecutor(
@@ -192,7 +190,6 @@ def run(
             if progress_bar:
                 progress_bar.close()
 
-    # Log multi-turn assessments to traces
     if multi_turn_assessments:
         _log_multi_turn_assessments_to_traces(
             multi_turn_assessments=multi_turn_assessments,
