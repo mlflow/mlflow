@@ -771,7 +771,8 @@ class DatabricksTracingRestStore(RestStore):
         Calls /api/2.0/managed-evals/datasets endpoint.
 
         Args:
-            experiment_ids: List of experiment IDs to filter by
+            experiment_ids: List of experiment IDs to filter by. Only supports a single
+                experiment ID - raises error if multiple IDs are provided.
             filter_string: Not supported by managed-evals API (raises error)
             max_results: Maximum number of results (maps to page_size)
             order_by: Not supported by managed-evals API (raises error)
@@ -800,12 +801,13 @@ class DatabricksTracingRestStore(RestStore):
 
         # Convert experiment_ids to filter parameter
         if experiment_ids:
-            if len(experiment_ids) == 1:
-                params["filter"] = f"experiment_id={experiment_ids[0]}"
-            else:
-                # Use OR logic for multiple IDs
-                filters = " OR ".join([f"experiment_id={exp_id}" for exp_id in experiment_ids])
-                params["filter"] = filters
+            if len(experiment_ids) > 1:
+                raise MlflowException(
+                    "Databricks managed-evals API does not support searching multiple experiment IDs. "
+                    "Please search for one experiment at a time.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            params["filter"] = f"experiment_id={experiment_ids[0]}"
 
         # Add page_size
         if max_results:

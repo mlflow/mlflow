@@ -1523,24 +1523,11 @@ def test_search_datasets_multiple_experiment_ids():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
-    mock_response = mock.MagicMock()
-    mock_response.json.return_value = {"datasets": [], "next_page_token": None}
-
-    with (
-        mock.patch("mlflow.utils.rest_utils.http_request", return_value=mock_response) as mock_http,
-        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+    with pytest.raises(
+        MlflowException,
+        match="Databricks managed-evals API does not support searching multiple experiment IDs",
     ):
         store.search_datasets(experiment_ids=["exp_1", "exp_2"], max_results=100)
-
-        # Verify the API call
-        call_args = mock_http.call_args
-        endpoint = call_args[1]["endpoint"]
-        assert "/api/2.0/managed-evals/datasets" in endpoint
-        assert "filter=experiment_id" in endpoint
-        assert "exp_1" in endpoint
-        assert "exp_2" in endpoint
-        assert "OR" in endpoint
-        assert "page_size=100" in endpoint
 
 
 def test_search_datasets_pagination():
