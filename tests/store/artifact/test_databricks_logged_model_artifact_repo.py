@@ -66,20 +66,26 @@ def test_log_artifacts(tmp_path: Path):
             "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
         )
 
-        # Simulate success
+        # For multi-file uploads (>1 file), the SDK path is skipped to avoid race conditions
+        # and the presigned URL path is used directly
         repo.log_artifacts(str(local_dir), "artifact_path")
+        mock_databricks_artifact_repo.log_artifacts.assert_called_once()
+        mock_files_api.upload.assert_not_called()
+
+        # Test single-file upload uses SDK path
+        mock_databricks_artifact_repo.reset_mock()
+        single_file_dir = tmp_path / "single_file_dir"
+        single_file_dir.mkdir()
+        (single_file_dir / "single.txt").write_text("single")
+        repo.log_artifacts(str(single_file_dir), "artifact_path")
         mock_files_api.upload.assert_called()
 
-        # Simulate failure and fallback
+        # Simulate SDK failure and fallback for single-file upload
         mock_files_api.upload.side_effect = RuntimeError("Upload failed")
         with pytest.raises(RuntimeError, match=r"^Upload failed$"):
-            repo.databricks_sdk_repo.log_artifacts(str(local_dir), "artifact_path")
+            repo.databricks_sdk_repo.log_artifacts(str(single_file_dir), "artifact_path")
 
-        mock_databricks_artifact_repo.log_artifact.side_effect = RuntimeError("Fallback failed")
-        with pytest.raises(RuntimeError, match=r"^Fallback failed$"):
-            repo.databricks_artifact_repo.log_artifact("test", "artifact_path")
-
-        repo.log_artifacts(str(local_dir), "artifact_path")
+        repo.log_artifacts(str(single_file_dir), "artifact_path")
         mock_databricks_artifact_repo.log_artifacts.assert_called_once()
 
 

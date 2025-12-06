@@ -1,7 +1,6 @@
 import importlib.metadata
 import logging
 import posixpath
-from concurrent.futures import Future
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -88,28 +87,27 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             )
 
     def log_artifacts(self, local_dir: str, artifact_path: str | None = None) -> None:
+        # This method should only be called for single-file uploads now, as multi-file uploads
+        # are handled by DatabricksArtifactRepository to avoid storage proxy race conditions.
+        # See DatabricksTrackingArtifactRepository.log_artifacts for routing logic.
         local_dir = Path(local_dir).resolve()
-        futures: list[Future[None]] = []
-        with self._create_thread_pool() as executor:
-            for f in local_dir.rglob("*"):
-                if not f.is_file():
-                    continue
 
-                paths: list[str] = []
-                if artifact_path:
-                    paths.append(artifact_path)
-                if f.parent != local_dir:
-                    paths.append(str(f.parent.relative_to(local_dir)))
+        files_to_upload = []
+        for f in local_dir.rglob("*"):
+            if not f.is_file():
+                continue
 
-                fut = executor.submit(
-                    self.log_artifact,
-                    local_file=f,
-                    artifact_path=posixpath.join(*paths) if paths else None,
-                )
-                futures.append(fut)
+            paths: list[str] = []
+            if artifact_path:
+                paths.append(artifact_path)
+            if f.parent != local_dir:
+                paths.append(str(f.parent.relative_to(local_dir)))
 
-        for fut in futures:
-            fut.result()
+            files_to_upload.append((f, posixpath.join(*paths) if paths else None))
+
+        # Upload files (for single file, no threading needed)
+        for file_path, file_artifact_path in files_to_upload:
+            self.log_artifact(local_file=file_path, artifact_path=file_artifact_path)
 
     def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         dest_path = self.full_path(path)
