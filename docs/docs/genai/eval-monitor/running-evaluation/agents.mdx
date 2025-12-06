@@ -114,6 +114,31 @@ def predict_fn(question: str) -> str:
     return Runner.run_sync(agent, question).final_output
 ```
 
+:::tip
+
+**Async Functions are Supported!**
+
+If your agent library provides an async API, you can use it directly without converting to sync. MLflow automatically detects and handles async functions:
+
+```python
+async def predict_fn(question: str) -> str:
+    result = await Runner.run(agent, question)
+    return result.final_output
+
+
+mlflow.genai.evaluate(
+    data=eval_dataset, predict_fn=predict_fn, scorers=[exact_match, uses_correct_tools]
+)
+```
+
+By default, async functions have a 5-minute timeout. Configure this using the `MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT` environment variable:
+
+```bash
+export MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT=600  # 10 minutes
+```
+
+:::
+
 ### Step 2: Create evaluation dataset
 
 Design test cases as a list of dictionaries, each with an `inputs`, `expectations`, and an optional `tags` field. We would like to evaluate the correctness of the output, but also the tool calls used by the agent.

@@ -1,3 +1,6 @@
+import asyncio
+import functools
+import inspect
 import json
 import logging
 import math
@@ -12,6 +15,7 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT,
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
@@ -243,10 +247,37 @@ def extract_expectations_from_trace(
     return {exp.name: exp.expectation.value for exp in expectation_assessments}
 
 
+def _wrap_async_predict_fn(async_fn: Callable[..., Any]) -> Callable[..., Any]:
+    """
+    Wrap an async function to make it synchronous using asyncio.run with timeout.
+
+    Args:
+        async_fn: The async function to wrap
+
+    Returns:
+        A synchronous wrapper function that calls the async function with timeout
+    """
+    timeout = MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()
+
+    @functools.wraps(async_fn)
+    def sync_wrapper(*args, **kwargs):
+        return asyncio.run(asyncio.wait_for(async_fn(*args, **kwargs), timeout=timeout))
+
+    return sync_wrapper
+
+
 def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
+    If the predict_fn is an async function, wrap it to make it synchronous.
     """
+    # Detect if predict_fn is an async function and wrap it
+    if inspect.iscoroutinefunction(predict_fn):
+        _logger.debug(
+            f"Detected async predict_fn. Wrapping with asyncio.run() with timeout of "
+            f"{MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()} seconds."
+        )
+        predict_fn = _wrap_async_predict_fn(predict_fn)
     if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get():
         with (
             NoOpTracerPatcher() as counter,

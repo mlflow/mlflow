@@ -21,6 +21,41 @@ MLflow uses a thread pool to run the predict function and scorers in parallel. C
 export MLFLOW_GENAI_EVAL_MAX_WORKERS=5
 ```
 
+## Can I use async functions as predict_fn?
+
+Yes! MLflow automatically detects and wraps async functions. The async function will be executed with a timeout to prevent indefinite hangs.
+
+Configure the timeout (in seconds) using the `MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT` environment variable (default: `300` seconds):
+
+```bash
+export MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT=600  # 10 minutes
+```
+
+Example with an async predict function:
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+
+async def async_predict_fn(question: str) -> str:
+    """Async prediction function using OpenAI"""
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": question}],
+    )
+    return response.choices[0].message.content
+
+
+mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=async_predict_fn,  # Async function automatically supported
+    scorers=[Correctness()],
+)
+```
+
 ## Why does MLflow make N+1 predictions during evaluation?
 
 MLflow requires the predict function passed through the `predict_fn` parameter to emit a single trace per call. To ensure the function produces a trace, MLflow first runs one additional prediction on a single input.
