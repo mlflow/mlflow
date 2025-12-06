@@ -49,14 +49,43 @@ _LAZY_IMPORTS = {
     "get_all_scorers",
 }
 
+# Phoenix scorer integrations
+_PHOENIX_IMPORTS = {
+    "PhoenixHallucinationScorer",
+    "PhoenixRelevanceScorer",
+    "PhoenixToxicityScorer",
+    "PhoenixQAScorer",
+    "PhoenixSummarizationScorer",
+}
+
+# TruLens scorer integrations
+_TRULENS_IMPORTS = {
+    "TruLensGroundednessScorer",
+    "TruLensContextRelevanceScorer",
+    "TruLensAnswerRelevanceScorer",
+    "TruLensCoherenceScorer",
+}
+
 
 def __getattr__(name):
-    """Lazily import builtin scorers to avoid circular dependency."""
+    """Lazily import builtin scorers and third-party integrations to avoid circular dependency."""
     if name in _LAZY_IMPORTS:
         # Import the module when first accessed
         from mlflow.genai.scorers import builtin_scorers
 
         return getattr(builtin_scorers, name)
+
+    if name in _PHOENIX_IMPORTS:
+        # Import Phoenix integrations when first accessed
+        from mlflow.genai.scorers import phoenix
+
+        return getattr(phoenix, name)
+
+    if name in _TRULENS_IMPORTS:
+        # Import TruLens integrations when first accessed
+        from mlflow.genai.scorers import trulens
+
+        return getattr(trulens, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -69,8 +98,8 @@ def __dir__():
     """
     # Get the default module attributes
     module_attrs = list(globals().keys())
-    # Add the lazy imports
-    return sorted(set(module_attrs) | _LAZY_IMPORTS)
+    # Add the lazy imports and Phoenix/TruLens imports
+    return sorted(set(module_attrs) | _LAZY_IMPORTS | _PHOENIX_IMPORTS | _TRULENS_IMPORTS)
 
 
 # The TYPE_CHECKING block below is for static analysis tools only.
@@ -99,8 +128,22 @@ if TYPE_CHECKING:
         UserFrustration,
         get_all_scorers,
     )
+    from mlflow.genai.scorers.phoenix import (
+        PhoenixHallucinationScorer,
+        PhoenixQAScorer,
+        PhoenixRelevanceScorer,
+        PhoenixSummarizationScorer,
+        PhoenixToxicityScorer,
+    )
+    from mlflow.genai.scorers.trulens import (
+        TruLensAnswerRelevanceScorer,
+        TruLensCoherenceScorer,
+        TruLensContextRelevanceScorer,
+        TruLensGroundednessScorer,
+    )
 
 __all__ = [
+    # Built-in scorers
     "Completeness",
     "ConversationalRoleAdherence",
     "ConversationalSafety",
@@ -120,6 +163,18 @@ __all__ = [
     "ToolCallCorrectness",
     "ToolCallEfficiency",
     "UserFrustration",
+    # Third-party scorers - Phoenix
+    "PhoenixHallucinationScorer",
+    "PhoenixRelevanceScorer",
+    "PhoenixToxicityScorer",
+    "PhoenixQAScorer",
+    "PhoenixSummarizationScorer",
+    # Third-party scorers - TruLens
+    "TruLensGroundednessScorer",
+    "TruLensContextRelevanceScorer",
+    "TruLensAnswerRelevanceScorer",
+    "TruLensCoherenceScorer",
+    # Base classes and utilities
     "Scorer",
     "scorer",
     "ScorerSamplingConfig",
