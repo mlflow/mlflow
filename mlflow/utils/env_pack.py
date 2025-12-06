@@ -1,3 +1,5 @@
+import hashlib
+import json
 import shutil
 import subprocess
 import sys
@@ -6,7 +8,7 @@ import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator, Literal
+from typing import Any, Generator, Literal
 
 import yaml
 
@@ -29,6 +31,7 @@ class EnvPackConfig:
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
+_METADATA_DIR = "metadata"
 
 
 def _validate_env_pack(env_pack):
@@ -86,6 +89,53 @@ def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
     with tarfile.open(tar_path, "w", dereference=True) as tar:
         tar.add(root_path, arcname=".", filter=exclude)
     return tar
+
+
+def _calculate_file_metadata(file_path: Path) -> dict[str, Any]:
+    """Calculate hash and content length for a file.
+
+    Args:
+        file_path: Path to the file.
+
+    Returns:
+        Dictionary containing hash and content_length.
+    """
+    sha256 = hashlib.sha256()
+    content_length = 0
+
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            sha256.update(chunk)
+            content_length += len(chunk)
+
+    return {"hash": sha256.hexdigest(), "content_length": content_length}
+
+
+def _store_tar_metadata(local_artifacts_dir: Path, tar_files: dict[str, Path]) -> None:
+    """Calculate and store metadata for tar files.
+
+    Args:
+        local_artifacts_dir: Path to the model artifacts directory.
+        tar_files: Dictionary mapping tar file names to their paths.
+    """
+    # Use existing metadata directory if it exists, otherwise create it
+    metadata_dir = local_artifacts_dir / _METADATA_DIR
+    metadata_dir.mkdir(exist_ok=True)
+
+    metadata = {}
+
+    # Calculate metadata for each tar file
+    for name, tar_path in tar_files.items():
+        if tar_path.exists():
+            if name == _MODEL_VERSION_TAR:
+                metadata["model_version"] = _calculate_file_metadata(tar_path)
+            elif name == _MODEL_ENVIRONMENT_TAR:
+                metadata["model_environment"] = _calculate_file_metadata(tar_path)
+
+    # Store metadata as JSON file
+    metadata_file = metadata_dir / "artifact_metadata.json"
+    with open(metadata_file, "w") as f:
+        json.dump(metadata, f, indent=2)
 
 
 # TODO: Check pip requirements using uv instead.
@@ -171,8 +221,21 @@ def pack_env_for_databricks_model_serving(
         # Package model artifacts and env into temp_dir/_databricks
         temp_artifacts_dir = Path(temp_dir) / _ARTIFACT_PATH
         temp_artifacts_dir.mkdir(exist_ok=False)
-        _tar(local_artifacts_dir, temp_artifacts_dir / _MODEL_VERSION_TAR)
-        _tar(Path(sys.prefix), temp_artifacts_dir / _MODEL_ENVIRONMENT_TAR)
+
+        # Create tar files
+        model_version_tar_path = temp_artifacts_dir / _MODEL_VERSION_TAR
+        model_environment_tar_path = temp_artifacts_dir / _MODEL_ENVIRONMENT_TAR
+        _tar(local_artifacts_dir, model_version_tar_path)
+        _tar(Path(sys.prefix), model_environment_tar_path)
+
+        # Calculate and store metadata for the tar files
+        tar_files = {
+            _MODEL_VERSION_TAR: model_version_tar_path,
+            _MODEL_ENVIRONMENT_TAR: model_environment_tar_path,
+        }
+        _store_tar_metadata(local_artifacts_dir, tar_files)
+
+        # Move the _databricks directory to the final location
         shutil.move(str(temp_artifacts_dir), local_artifacts_dir)
 
         yield str(local_artifacts_dir)

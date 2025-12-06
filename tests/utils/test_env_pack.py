@@ -1,3 +1,5 @@
+import hashlib
+import json
 import subprocess
 import sys
 import tarfile
@@ -113,6 +115,16 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
                     )
 
                 assert expected_pip_path in member_names
+
+            # Verify metadata was created
+            metadata_file = artifacts_path / env_pack._METADATA_DIR / "artifact_metadata.json"
+            assert metadata_file.exists()
+
+            with open(metadata_file) as f:
+                metadata = json.load(f)
+
+            assert "model_version" in metadata
+            assert "model_environment" in metadata
 
             # Verify subprocess.run was called with correct arguments
             mock_run.assert_called_once()
@@ -303,3 +315,99 @@ def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path,
         ):
             with env_pack.pack_env_for_databricks_model_serving("models:/test-model/1"):
                 pass
+
+
+def test_store_tar_metadata(tmp_path):
+    """Test that _store_tar_metadata correctly calculates and stores metadata for tar files."""
+    # Create artifacts directory and mock tar files
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+
+    model_version_content = b"mock model version content"
+    model_environment_content = b"Hola!"
+
+    model_version_tar = tmp_path / "model_version.tar"
+    model_environment_tar = tmp_path / "model_environment.tar"
+
+    model_version_tar.write_bytes(model_version_content)
+    model_environment_tar.write_bytes(model_environment_content)
+
+    tar_files = {
+        env_pack._MODEL_VERSION_TAR: model_version_tar,
+        env_pack._MODEL_ENVIRONMENT_TAR: model_environment_tar,
+    }
+
+    env_pack._store_tar_metadata(artifacts_dir, tar_files)
+
+    # Verify metadata directory and file creation
+    metadata_dir = artifacts_dir / env_pack._METADATA_DIR
+    assert metadata_dir.exists()
+
+    metadata_file = metadata_dir / "artifact_metadata.json"
+    assert metadata_file.exists()
+
+    # Load and verify metadata content structure
+    with open(metadata_file) as f:
+        metadata = json.load(f)
+
+    assert "model_version" in metadata
+    assert "model_environment" in metadata
+
+    # Verify model_version metadata
+    model_version_meta = metadata["model_version"]
+    assert "hash" in model_version_meta
+    assert "content_length" in model_version_meta
+    assert model_version_meta["hash"] == hashlib.sha256(model_version_content).hexdigest()
+    assert model_version_meta["content_length"] == len(model_version_content)
+
+    # Verify model_environment metadata
+    model_environment_meta = metadata["model_environment"]
+    assert "hash" in model_environment_meta
+    assert "content_length" in model_environment_meta
+    assert model_environment_meta["hash"] == hashlib.sha256(model_environment_content).hexdigest()
+    assert model_environment_meta["content_length"] == len(model_environment_content)
+
+    # Verify different content produces different hashes
+    assert model_version_meta["hash"] != model_environment_meta["hash"]
+
+
+def test_calculate_file_metadata_empty_file(tmp_path):
+    """Test _calculate_file_metadata with an empty file."""
+    empty_file = tmp_path / "empty.txt"
+    empty_file.write_bytes(b"")
+
+    metadata = env_pack._calculate_file_metadata(empty_file)
+
+    assert metadata["content_length"] == 0
+    assert metadata["hash"] == hashlib.sha256().hexdigest()
+
+
+def test_store_tar_metadata_missing_files(tmp_path):
+    """Test that _store_tar_metadata handles missing tar files gracefully."""
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+
+    # Create only one of the two expected tar files
+    existing_tar = tmp_path / "model_version.tar"
+    missing_tar = tmp_path / "model_environment.tar"
+
+    existing_tar.write_bytes(b"existing content")
+
+    tar_files = {
+        env_pack._MODEL_VERSION_TAR: existing_tar,
+        env_pack._MODEL_ENVIRONMENT_TAR: missing_tar,
+    }
+
+    # Should not raise an error even with missing files
+    env_pack._store_tar_metadata(artifacts_dir, tar_files)
+
+    # Verify metadata was created for existing file only
+    metadata_file = artifacts_dir / env_pack._METADATA_DIR / "artifact_metadata.json"
+    assert metadata_file.exists()
+
+    with open(metadata_file) as f:
+        metadata = json.load(f)
+
+    # Should only contain metadata for the existing file
+    assert "model_version" in metadata
+    assert "model_environment" not in metadata
