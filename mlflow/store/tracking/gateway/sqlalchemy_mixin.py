@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from typing import Any
 
@@ -20,6 +21,13 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+)
+from mlflow.store.tracking._secret_cache import (
+    DEFAULT_CACHE_MAX_SIZE,
+    DEFAULT_CACHE_TTL,
+    SECRETS_CACHE_MAX_SIZE_ENV_VAR,
+    SECRETS_CACHE_TTL_ENV_VAR,
+    SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
@@ -58,6 +66,26 @@ class SqlAlchemyGatewayStoreMixin:
     - ManagedSessionMaker: Context manager for database sessions
     - _get_entity_or_raise: Helper method for fetching entities or raising if not found
     """
+
+    _secret_cache: SecretCache | None = None
+
+    @property
+    def secret_cache(self) -> SecretCache:
+        """Lazy-initialized secret cache for endpoint configurations."""
+        if self._secret_cache is None:
+            ttl = int(os.environ.get(SECRETS_CACHE_TTL_ENV_VAR, DEFAULT_CACHE_TTL))
+            max_size = int(os.environ.get(SECRETS_CACHE_MAX_SIZE_ENV_VAR, DEFAULT_CACHE_MAX_SIZE))
+            self._secret_cache = SecretCache(ttl_seconds=ttl, max_size=max_size)
+        return self._secret_cache
+
+    def _get_cache_key(self, resource_type: str, resource_id: str) -> str:
+        """Generate cache key for resource endpoint configs."""
+        return f"{resource_type}:{resource_id}"
+
+    def _invalidate_secret_cache(self) -> None:
+        """Clear the secret cache on mutations."""
+        if self._secret_cache is not None:
+            self._secret_cache.clear()
 
     def create_secret(
         self,
@@ -200,6 +228,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.flush()
             session.refresh(sql_secret)
 
+            self._invalidate_secret_cache()
             return sql_secret.to_mlflow_entity()
 
     def delete_secret(self, secret_id: str) -> None:
@@ -219,6 +248,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
 
             session.delete(sql_secret)
+            self._invalidate_secret_cache()
 
     def list_secret_infos(self, provider: str | None = None) -> list[GatewaySecretInfo]:
         """
@@ -418,6 +448,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             session.refresh(sql_model_def)
 
+            self._invalidate_secret_cache()
             return sql_model_def.to_mlflow_entity()
 
     def delete_model_definition(self, model_definition_id: str) -> None:
@@ -445,6 +476,7 @@ class SqlAlchemyGatewayStoreMixin:
             try:
                 session.delete(sql_model_def)
                 session.flush()
+                self._invalidate_secret_cache()
             except IntegrityError as e:
                 raise MlflowException(
                     "Cannot delete model definition that is currently in use by endpoints. "
@@ -585,6 +617,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.flush()
             session.refresh(sql_endpoint)
 
+            self._invalidate_secret_cache()
             return sql_endpoint.to_mlflow_entity()
 
     def delete_endpoint(self, endpoint_id: str) -> None:
@@ -600,6 +633,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
 
             session.delete(sql_endpoint)
+            self._invalidate_secret_cache()
 
     def list_endpoints(
         self,
@@ -699,6 +733,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             session.refresh(sql_mapping)
 
+            self._invalidate_secret_cache()
             return sql_mapping.to_mlflow_entity()
 
     def detach_model_from_endpoint(
@@ -735,6 +770,7 @@ class SqlAlchemyGatewayStoreMixin:
                 )
 
             session.delete(sql_mapping)
+            self._invalidate_secret_cache()
 
     def create_endpoint_binding(
         self,
@@ -779,6 +815,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.flush()
             session.refresh(sql_binding)
 
+            self._invalidate_secret_cache()
             return sql_binding.to_mlflow_entity()
 
     def delete_endpoint_binding(
@@ -808,6 +845,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
 
             session.delete(sql_binding)
+            self._invalidate_secret_cache()
 
     def list_endpoint_bindings(
         self,
