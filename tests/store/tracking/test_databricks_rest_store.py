@@ -1493,28 +1493,30 @@ def test_search_datasets_basic():
         "next_page_token": "token_123",
     }
 
-    with mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        return_value=mock.Mock(json=lambda: response_data),
-    ) as mock_http:
-        with mock.patch("mlflow.utils.rest_utils.verify_rest_response"):
-            result = store.search_datasets(experiment_ids=["exp_1"], max_results=100)
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            return_value=mock.Mock(json=lambda: response_data),
+        ) as mock_http,
+        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+    ):
+        result = store.search_datasets(experiment_ids=["exp_1"], max_results=100)
 
-            # Verify the mock was called correctly
-            mock_http.assert_called_once()
-            call_args = mock_http.call_args
-            assert call_args[1]["method"] == "GET"
-            assert "/api/2.0/managed-evals/datasets" in call_args[1]["endpoint"]
-            assert "experiment_id=exp_1" in call_args[1]["endpoint"]
+        # Verify the mock was called correctly
+        mock_http.assert_called_once()
+        call_args = mock_http.call_args
+        assert call_args[1]["method"] == "GET"
+        assert "/api/2.0/managed-evals/datasets" in call_args[1]["endpoint"]
+        assert "experiment_id=exp_1" in call_args[1]["endpoint"]
 
-            # Verify the results
-            assert len(result) == 1
-            assert result[0].dataset_id == "dataset_1"
-            assert result[0].name == "test_dataset"
-            assert result[0].digest == "abc123"
-            assert result[0].created_by == "user@example.com"
-            assert result[0].last_updated_by == "user@example.com"
-            assert result.token == "token_123"
+        # Verify the results
+        assert len(result) == 1
+        assert result[0].dataset_id == "dataset_1"
+        assert result[0].name == "test_dataset"
+        assert result[0].digest == "abc123"
+        assert result[0].created_by == "user@example.com"
+        assert result[0].last_updated_by == "user@example.com"
+        assert result.token == "token_123"
 
 
 def test_search_datasets_multiple_experiment_ids():
@@ -1524,21 +1526,21 @@ def test_search_datasets_multiple_experiment_ids():
     mock_response = mock.MagicMock()
     mock_response.json.return_value = {"datasets": [], "next_page_token": None}
 
-    with mock.patch(
-        "mlflow.utils.rest_utils.http_request", return_value=mock_response
-    ) as mock_http:
-        with mock.patch("mlflow.utils.rest_utils.verify_rest_response"):
-            store.search_datasets(experiment_ids=["exp_1", "exp_2"], max_results=100)
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request", return_value=mock_response) as mock_http,
+        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+    ):
+        store.search_datasets(experiment_ids=["exp_1", "exp_2"], max_results=100)
 
-            # Verify the API call
-            call_args = mock_http.call_args
-            endpoint = call_args[1]["endpoint"]
-            assert "/api/2.0/managed-evals/datasets" in endpoint
-            assert "filter=experiment_id" in endpoint
-            assert "exp_1" in endpoint
-            assert "exp_2" in endpoint
-            assert "OR" in endpoint
-            assert "page_size=100" in endpoint
+        # Verify the API call
+        call_args = mock_http.call_args
+        endpoint = call_args[1]["endpoint"]
+        assert "/api/2.0/managed-evals/datasets" in endpoint
+        assert "filter=experiment_id" in endpoint
+        assert "exp_1" in endpoint
+        assert "exp_2" in endpoint
+        assert "OR" in endpoint
+        assert "page_size=100" in endpoint
 
 
 def test_search_datasets_pagination():
@@ -1548,34 +1550,34 @@ def test_search_datasets_pagination():
     mock_response = mock.MagicMock()
     mock_response.json.return_value = {"datasets": [], "next_page_token": None}
 
-    with mock.patch(
-        "mlflow.utils.rest_utils.http_request", return_value=mock_response
-    ) as mock_http:
-        with mock.patch("mlflow.utils.rest_utils.verify_rest_response"):
-            store.search_datasets(
-                experiment_ids=["exp_1"], max_results=50, page_token="prev_token"
-            )
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request", return_value=mock_response) as mock_http,
+        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+    ):
+        store.search_datasets(experiment_ids=["exp_1"], max_results=50, page_token="prev_token")
 
-            # Verify the API call includes page_token
-            call_args = mock_http.call_args
-            endpoint = call_args[1]["endpoint"]
-            assert "page_token=prev_token" in endpoint
+        # Verify the API call includes page_token
+        call_args = mock_http.call_args
+        endpoint = call_args[1]["endpoint"]
+        assert "page_token=prev_token" in endpoint
 
 
 def test_search_datasets_empty_results():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
-    with mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        return_value=mock.Mock(json=lambda: {"datasets": []}),
-    ) as mock_http:
-        with mock.patch("mlflow.utils.rest_utils.verify_rest_response"):
-            result = store.search_datasets(experiment_ids=["exp_1"])
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            return_value=mock.Mock(json=lambda: {"datasets": []}),
+        ) as mock_http,
+        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+    ):
+        result = store.search_datasets(experiment_ids=["exp_1"])
 
-            mock_http.assert_called_once()
-            assert len(result) == 0
-            assert result.token is None
+        mock_http.assert_called_once()
+        assert len(result) == 0
+        assert result.token is None
 
 
 @pytest.mark.parametrize(
@@ -1602,9 +1604,7 @@ def test_search_datasets_endpoint_not_found():
         "mlflow.utils.rest_utils.http_request",
         side_effect=RestException({"error_code": "ENDPOINT_NOT_FOUND", "message": "Not found"}),
     ):
-        with pytest.raises(
-            MlflowException, match="not available in this Databricks workspace"
-        ):
+        with pytest.raises(MlflowException, match="not available in this Databricks workspace"):
             store.search_datasets(experiment_ids=["exp_1"])
 
 
@@ -1624,14 +1624,16 @@ def test_search_datasets_missing_required_field():
         ]
     }
 
-    with mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        return_value=mock.Mock(json=lambda: response_data),
-    ) as mock_http:
-        with mock.patch("mlflow.utils.rest_utils.verify_rest_response"):
-            with pytest.raises(MlflowException, match="missing required field"):
-                store.search_datasets(experiment_ids=["exp_1"])
-            mock_http.assert_called_once()
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            return_value=mock.Mock(json=lambda: response_data),
+        ) as mock_http,
+        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+    ):
+        with pytest.raises(MlflowException, match="missing required field"):
+            store.search_datasets(experiment_ids=["exp_1"])
+        mock_http.assert_called_once()
 
 
 def test_search_datasets_invalid_timestamp():
@@ -1650,11 +1652,13 @@ def test_search_datasets_invalid_timestamp():
         ]
     }
 
-    with mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        return_value=mock.Mock(json=lambda: response_data),
-    ) as mock_http:
-        with mock.patch("mlflow.utils.rest_utils.verify_rest_response"):
-            with pytest.raises(MlflowException, match="invalid timestamp format"):
-                store.search_datasets(experiment_ids=["exp_1"])
-            mock_http.assert_called_once()
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            return_value=mock.Mock(json=lambda: response_data),
+        ) as mock_http,
+        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+    ):
+        with pytest.raises(MlflowException, match="invalid timestamp format"):
+            store.search_datasets(experiment_ids=["exp_1"])
+        mock_http.assert_called_once()

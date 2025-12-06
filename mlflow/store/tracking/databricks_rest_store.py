@@ -1,6 +1,7 @@
 import logging
 from collections import defaultdict
-from urllib.parse import quote
+from datetime import datetime
+from urllib.parse import quote, urlencode
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
@@ -779,9 +780,6 @@ class DatabricksTracingRestStore(RestStore):
         Returns:
             PagedList of EvaluationDataset entities
         """
-        from datetime import datetime
-        from urllib.parse import urlencode
-
         from mlflow.entities import EvaluationDataset
         from mlflow.store.entities import PagedList
 
