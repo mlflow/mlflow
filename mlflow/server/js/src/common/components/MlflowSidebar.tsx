@@ -1,6 +1,7 @@
 import {
   BeakerIcon,
   Button,
+  DatabaseIcon,
   DropdownMenu,
   HomeIcon,
   ModelsIcon,
@@ -12,6 +13,7 @@ import type { Location } from '../utils/RoutingUtils';
 import { Link, matchPath, useLocation, useNavigate } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
+import GatewayRoutes from '../../gateway/routes';
 import { CreateExperimentModal } from '../../experiment-tracking/components/modals/CreateExperimentModal';
 import { useState } from 'react';
 import { useInvalidateExperimentList } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
@@ -29,6 +31,7 @@ const isExperimentsActive = (location: Location) =>
   matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
 const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
+const isGatewayActive = (location: Location) => matchPath('/gateway/*', location.pathname);
 
 export function MlflowSidebar() {
   const location = useLocation();
@@ -108,6 +111,15 @@ export function MlflowSidebar() {
             description="Sidebar button inside the 'new' popover to create new prompt"
           />
         ),
+      },
+    },
+    {
+      key: 'gateway',
+      icon: <DatabaseIcon />,
+      linkProps: {
+        to: GatewayRoutes.gatewayPageRoute,
+        isActive: isGatewayActive,
+        children: <FormattedMessage defaultMessage="Gateway" description="Sidebar link for gateway configuration" />,
       },
     },
   ];
