@@ -31,6 +31,7 @@ from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     Dataset,
     DatasetInput,
+    GatewayResourceType,
     InputTag,
     Metric,
     Param,
@@ -105,8 +106,13 @@ def store_type(request):
 
 
 @pytest.fixture
-def mlflow_client(store_type: str, tmp_path: Path, db_uri: str):
+def mlflow_client(store_type: str, tmp_path: Path, db_uri: str, monkeypatch):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
+    # Set passphrase for secrets management (required for encryption)
+    monkeypatch.setenv(
+        "MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-at-least-32-characters-long"
+    )
+
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
     elif store_type == "sqlalchemy":
@@ -116,6 +122,36 @@ def mlflow_client(store_type: str, tmp_path: Path, db_uri: str):
     handlers._tracking_store = None
     handlers._model_registry_store = None
     initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
+
+    with ServerThread(app, get_safe_port()) as url:
+        yield MlflowClient(url)
+
+
+@pytest.fixture
+def mlflow_client_with_secrets(tmp_path: Path, monkeypatch):
+    """Provides an MLflow Tracking API client with fresh database for secrets management.
+
+    Creates a fresh SQLite database for each test to avoid encryption state pollution.
+    This is necessary because the KEK encryption state can persist across tests when
+    using a shared cached database.
+    """
+    # Set passphrase for secrets management (required for encryption)
+    monkeypatch.setenv(
+        "MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-at-least-32-characters-long"
+    )
+
+    # Create fresh database for this test (not using cached_db)
+    backend_uri = f"sqlite:///{tmp_path}/mlflow.db"
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+
+    # Initialize the store (which creates tables)
+    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store.engine.dispose()
+
+    # Force-reset backend stores before each test
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=artifact_uri)
 
     with ServerThread(app, get_safe_port()) as url:
         yield MlflowClient(url)
@@ -4004,3 +4040,456 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
     # Verify the spans were returned (indicates successful logging)
     assert len(result_spans) == 1
     assert result_spans[0].name == f"test-rest-store-span-{use_async}"
+
+
+# =============================================================================
+# Secrets and Endpoints E2E Tests
+# =============================================================================
+
+
+def test_create_and_get_secret(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="test-api-key",
+        secret_value="sk-test-12345",
+        provider="openai",
+        credential_name="OPENAI_API_KEY",
+    )
+
+    assert secret.secret_name == "test-api-key"
+    assert secret.provider == "openai"
+    assert secret.secret_id is not None
+
+    fetched = store.get_secret_info(secret.secret_id)
+    assert fetched.secret_name == "test-api-key"
+    assert fetched.provider == "openai"
+    assert fetched.secret_id == secret.secret_id
+
+
+def test_update_secret(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="test-key",
+        secret_value="initial-value",
+        provider="anthropic",
+    )
+
+    updated = store.update_secret(
+        secret_id=secret.secret_id,
+        secret_value="updated-value",
+    )
+
+    assert updated.secret_id == secret.secret_id
+    assert updated.secret_name == "test-key"
+
+
+def test_list_secret_infos(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret1 = store.create_secret(
+        secret_name="openai-key",
+        secret_value="sk-openai",
+        provider="openai",
+    )
+    store.create_secret(
+        secret_name="anthropic-key",
+        secret_value="sk-ant",
+        provider="anthropic",
+    )
+
+    all_secrets = store.list_secret_infos()
+    assert len(all_secrets) >= 2
+
+    openai_secrets = store.list_secret_infos(provider="openai")
+    assert len(openai_secrets) >= 1
+    assert any(s.secret_id == secret1.secret_id for s in openai_secrets)
+
+
+def test_delete_secret(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="temp-key",
+        secret_value="temp-value",
+    )
+
+    store.delete_secret(secret.secret_id)
+
+    all_secrets = store.list_secret_infos()
+    assert not any(s.secret_id == secret.secret_id for s in all_secrets)
+
+
+def test_create_and_get_endpoint(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="test-api-key",
+        secret_value="sk-test-12345",
+        provider="openai",
+    )
+
+    model_def = store.create_model_definition(
+        name="test-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_endpoint(
+        name="test-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    assert endpoint.name == "test-endpoint"
+    assert endpoint.endpoint_id is not None
+    assert len(endpoint.model_mappings) == 1
+    assert endpoint.model_mappings[0].model_definition.model_name == "gpt-4"
+
+    fetched = store.get_endpoint(endpoint.endpoint_id)
+    assert fetched.name == "test-endpoint"
+    assert fetched.endpoint_id == endpoint.endpoint_id
+    assert len(fetched.model_mappings) == 1
+
+
+def test_update_endpoint(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="test-api-key-2",
+        secret_value="sk-test-67890",
+        provider="anthropic",
+    )
+
+    model_def = store.create_model_definition(
+        name="test-model-def-2",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet",
+    )
+
+    endpoint = store.create_endpoint(
+        name="initial-name",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    updated = store.update_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        name="updated-name",
+    )
+
+    assert updated.endpoint_id == endpoint.endpoint_id
+    assert updated.name == "updated-name"
+
+
+def test_list_endpoints(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret1 = store.create_secret(
+        secret_name="test-api-key-3",
+        secret_value="sk-test-11111",
+        provider="openai",
+    )
+    secret2 = store.create_secret(
+        secret_name="test-api-key-4",
+        secret_value="sk-test-22222",
+        provider="openai",
+    )
+
+    model_def1 = store.create_model_definition(
+        name="test-model-def-3",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_model_definition(
+        name="test-model-def-4",
+        secret_id=secret2.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    endpoint1 = store.create_endpoint(
+        name="endpoint-1",
+        model_definition_ids=[model_def1.model_definition_id],
+    )
+    endpoint2 = store.create_endpoint(
+        name="endpoint-2",
+        model_definition_ids=[model_def2.model_definition_id],
+    )
+
+    all_endpoints = store.list_endpoints()
+    assert len(all_endpoints) >= 2
+    endpoint_ids = {e.endpoint_id for e in all_endpoints}
+    assert endpoint1.endpoint_id in endpoint_ids
+    assert endpoint2.endpoint_id in endpoint_ids
+
+
+def test_delete_endpoint(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="test-api-key-5",
+        secret_value="sk-test-33333",
+        provider="openai",
+    )
+
+    model_def = store.create_model_definition(
+        name="test-model-def-5",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_endpoint(
+        name="temp-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    store.delete_endpoint(endpoint.endpoint_id)
+
+    all_endpoints = store.list_endpoints()
+    assert not any(e.endpoint_id == endpoint.endpoint_id for e in all_endpoints)
+
+
+def test_model_definitions(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="model-secret",
+        secret_value="sk-test",
+        provider="openai",
+    )
+
+    model_def = store.create_model_definition(
+        name="test-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    assert model_def.name == "test-model-def"
+    assert model_def.secret_id == secret.secret_id
+    assert model_def.provider == "openai"
+    assert model_def.model_name == "gpt-4"
+    assert model_def.model_definition_id is not None
+
+    fetched = store.get_model_definition(model_def.model_definition_id)
+    assert fetched.model_definition_id == model_def.model_definition_id
+    assert fetched.name == "test-model-def"
+
+    updated = store.update_model_definition(
+        model_definition_id=model_def.model_definition_id,
+        model_name="gpt-4-turbo",
+    )
+    assert updated.model_definition_id == model_def.model_definition_id
+    assert updated.model_name == "gpt-4-turbo"
+
+    all_defs = store.list_model_definitions()
+    assert any(d.model_definition_id == model_def.model_definition_id for d in all_defs)
+
+    store.delete_model_definition(model_def.model_definition_id)
+
+    all_defs_after = store.list_model_definitions()
+    assert not any(d.model_definition_id == model_def.model_definition_id for d in all_defs_after)
+
+
+def test_attach_detach_model_to_endpoint(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="attach-detach-secret",
+        secret_value="sk-test-attach",
+        provider="openai",
+    )
+
+    model_def1 = store.create_model_definition(
+        name="attach-model-def-1",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    model_def2 = store.create_model_definition(
+        name="attach-model-def-2",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    endpoint = store.create_endpoint(
+        name="attach-test-endpoint",
+        model_definition_ids=[model_def1.model_definition_id],
+    )
+
+    assert len(endpoint.model_mappings) == 1
+    assert endpoint.model_mappings[0].model_definition.model_name == "gpt-4"
+
+    mapping = store.attach_model_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def2.model_definition_id,
+    )
+
+    assert mapping.endpoint_id == endpoint.endpoint_id
+    assert mapping.model_definition_id == model_def2.model_definition_id
+
+    fetched_endpoint = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint.model_mappings) == 2
+
+    store.detach_model_from_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def2.model_definition_id,
+    )
+
+    fetched_endpoint_after = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint_after.model_mappings) == 1
+
+
+def test_endpoint_bindings(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="binding-secret",
+        secret_value="sk-test-44444",
+        provider="openai",
+    )
+
+    model_def1 = store.create_model_definition(
+        name="binding-model-def-1",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    model_def2 = store.create_model_definition(
+        name="binding-model-def-2",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    endpoint1 = store.create_endpoint(
+        name="binding-test-endpoint-1",
+        model_definition_ids=[model_def1.model_definition_id],
+    )
+
+    endpoint2 = store.create_endpoint(
+        name="binding-test-endpoint-2",
+        model_definition_ids=[model_def2.model_definition_id],
+    )
+
+    binding1 = store.create_endpoint_binding(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_id="job-123",
+    )
+
+    binding2 = store.create_endpoint_binding(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_id="job-456",
+    )
+
+    binding3 = store.create_endpoint_binding(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_id="job-789",
+    )
+
+    assert binding1.endpoint_id == endpoint1.endpoint_id
+    assert binding1.resource_type == GatewayResourceType.SCORER_JOB
+    assert binding1.resource_id == "job-123"
+
+    bindings_endpoint1 = store.list_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
+    assert len(bindings_endpoint1) == 2
+    resource_ids = {b.resource_id for b in bindings_endpoint1}
+    assert binding1.resource_id in resource_ids
+    assert binding2.resource_id in resource_ids
+    assert binding3.resource_id not in resource_ids
+
+    bindings_by_type = store.list_endpoint_bindings(resource_type=GatewayResourceType.SCORER_JOB)
+    assert len(bindings_by_type) >= 3
+
+    bindings_by_resource = store.list_endpoint_bindings(resource_id="job-123")
+    assert len(bindings_by_resource) == 1
+    assert bindings_by_resource[0].resource_id == binding1.resource_id
+
+    bindings_multi = store.list_endpoint_bindings(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=GatewayResourceType.SCORER_JOB,
+    )
+    assert len(bindings_multi) == 2
+
+    store.delete_endpoint_binding(
+        endpoint_id=binding1.endpoint_id,
+        resource_type=binding1.resource_type.value,
+        resource_id=binding1.resource_id,
+    )
+
+    bindings_after = store.list_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
+    assert len(bindings_after) == 1
+    assert not any(b.resource_id == binding1.resource_id for b in bindings_after)
+
+
+def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="integration-test-key",
+        secret_value="sk-integration-test",
+        provider="openai",
+    )
+
+    model_def1 = store.create_model_definition(
+        name="integration-model-def-1",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    model_def2 = store.create_model_definition(
+        name="integration-model-def-2",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_endpoint(
+        name="integration-endpoint",
+        model_definition_ids=[model_def1.model_definition_id],
+    )
+
+    mapping = store.attach_model_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def2.model_definition_id,
+    )
+
+    binding = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_id="integration-job",
+    )
+
+    fetched_endpoint = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint.model_mappings) == 2
+    mapping_ids = {m.mapping_id for m in fetched_endpoint.model_mappings}
+    assert mapping.mapping_id in mapping_ids
+
+    bindings = store.list_endpoint_bindings(resource_id="integration-job")
+    assert len(bindings) == 1
+    assert bindings[0].resource_id == binding.resource_id
+
+    store.delete_endpoint_binding(
+        endpoint_id=binding.endpoint_id,
+        resource_type=binding.resource_type.value,
+        resource_id=binding.resource_id,
+    )
+    store.detach_model_from_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def2.model_definition_id,
+    )
+    store.delete_endpoint(endpoint.endpoint_id)
+    store.delete_model_definition(model_def1.model_definition_id)
+    store.delete_model_definition(model_def2.model_definition_id)
+    store.delete_secret(secret.secret_id)
