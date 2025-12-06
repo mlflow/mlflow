@@ -16,6 +16,7 @@ from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     BAD_REQUEST,
     ENDPOINT_NOT_FOUND,
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     ErrorCode,
 )
@@ -754,6 +755,147 @@ class DatabricksTracingRestStore(RestStore):
 
         for location_id, batch_trace_ids in traces_by_location.items():
             self._batch_unlink_traces_from_run(location_id, batch_trace_ids, run_id)
+
+    def search_datasets(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = 1000,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ):
+        """
+        Search for evaluation datasets in Databricks using managed-evals API.
+
+        Calls /api/2.0/managed-evals/datasets endpoint.
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by
+            filter_string: Not supported by managed-evals API (raises error)
+            max_results: Maximum number of results (maps to page_size)
+            order_by: Not supported by managed-evals API (raises error)
+            page_token: Token for pagination
+
+        Returns:
+            PagedList of EvaluationDataset entities
+        """
+        from datetime import datetime
+        from urllib.parse import urlencode
+
+        from mlflow.entities import EvaluationDataset
+        from mlflow.store.entities import PagedList
+
+        # Raise errors for unsupported parameters
+        if filter_string:
+            raise MlflowException(
+                "filter_string parameter is not supported by Databricks managed-evals API",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if order_by:
+            raise MlflowException(
+                "order_by parameter is not supported by Databricks managed-evals API",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Build query parameters
+        params = {}
+
+        # Convert experiment_ids to filter parameter
+        if experiment_ids:
+            if len(experiment_ids) == 1:
+                params["filter"] = f"experiment_id={experiment_ids[0]}"
+            else:
+                # Use OR logic for multiple IDs
+                filters = " OR ".join([f"experiment_id={exp_id}" for exp_id in experiment_ids])
+                params["filter"] = filters
+
+        # Add page_size
+        if max_results:
+            params["page_size"] = str(max_results)
+
+        # Add page_token
+        if page_token:
+            params["page_token"] = page_token
+
+        # Build endpoint with query string
+        endpoint = "/api/2.0/managed-evals/datasets"
+        if params:
+            endpoint = f"{endpoint}?{urlencode(params)}"
+
+        # Make HTTP request
+        try:
+            response = http_request(
+                host_creds=self.get_host_creds(),
+                endpoint=endpoint,
+                method="GET",
+            )
+            verify_rest_response(response, endpoint)
+        except RestException as e:
+            if e.error_code == ErrorCode.Name(ENDPOINT_NOT_FOUND):
+                raise MlflowException(
+                    message=(
+                        "Dataset search is not available in this Databricks workspace. "
+                        "This feature requires managed-evals API support. "
+                        "Please contact your workspace administrator."
+                    ),
+                    error_code=ENDPOINT_NOT_FOUND,
+                ) from e
+            raise
+
+        # Parse response
+        response_json = response.json()
+
+        def _parse_iso_timestamp_ms(timestamp_str: str) -> int:
+            """Convert ISO 8601 timestamp string to milliseconds since epoch."""
+            return int(
+                datetime.fromisoformat(timestamp_str.replace("Z", "+00:00")).timestamp() * 1000
+            )
+
+        # Convert to EvaluationDataset entities
+        datasets = []
+        for dataset_dict in response_json.get("datasets", []):
+            # Extract required fields - will raise KeyError if missing
+            try:
+                dataset_id = dataset_dict["dataset_id"]
+                name = dataset_dict["name"]
+                digest = dataset_dict["digest"]
+                created_time_str = dataset_dict["create_time"]
+                last_update_time_str = dataset_dict["last_update_time"]
+            except KeyError as e:
+                _logger.error(f"Unexpected response format from managed-evals API: {response_json}")
+                raise MlflowException(
+                    f"Failed to parse dataset search response: missing required field {e}",
+                    error_code=INTERNAL_ERROR,
+                ) from e
+
+            # Parse timestamps - will raise ValueError/OSError if invalid
+            try:
+                created_time = _parse_iso_timestamp_ms(created_time_str)
+                last_update_time = _parse_iso_timestamp_ms(last_update_time_str)
+            except (ValueError, OSError) as e:
+                _logger.error(f"Failed to parse timestamp from managed-evals API: {response_json}")
+                raise MlflowException(
+                    f"Failed to parse dataset search response: invalid timestamp format: {e}",
+                    error_code=INTERNAL_ERROR,
+                ) from e
+
+            # Create dataset entity - safe operations outside try blocks
+            dataset = EvaluationDataset(
+                dataset_id=dataset_id,
+                name=name,
+                digest=digest,
+                created_time=created_time,
+                last_update_time=last_update_time,
+                tags=None,  # Not provided by managed-evals API
+                schema=None,  # Not provided by managed-evals API
+                profile=None,  # Not provided by managed-evals API
+                created_by=dataset_dict.get("created_by"),
+                last_updated_by=dataset_dict.get("last_updated_by"),
+            )
+            datasets.append(dataset)
+
+        next_page_token = response_json.get("next_page_token")
+        return PagedList(datasets, next_page_token)
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
