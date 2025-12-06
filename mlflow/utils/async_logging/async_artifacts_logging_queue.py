@@ -111,6 +111,7 @@ class AsyncArtifactsLoggingQueue:
                     filename=run_artifact.filename,
                     artifact_path=run_artifact.artifact_path,
                     artifact=run_artifact.artifact,
+                    save_options=run_artifact.save_options,
                 )
 
                 # Signal the artifact processing is done.
@@ -181,7 +182,9 @@ class AsyncArtifactsLoggingQueue:
         self._artifact_status_check_threadpool = None
         self._stop_data_logging_thread_event = threading.Event()
 
-    def log_artifacts_async(self, filename, artifact_path, artifact) -> RunOperations:
+    def log_artifacts_async(
+        self, filename, artifact_path, artifact, save_options=None
+    ) -> RunOperations:
         """Asynchronously logs runs artifacts.
 
         Args:
@@ -189,6 +192,7 @@ class AsyncArtifactsLoggingQueue:
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
             artifact: The artifact to be logged.
+            save_options: Options for saving the artifact.
 
         Returns:
             mlflow.utils.async_utils.RunOperations: An object that encapsulates the
@@ -206,6 +210,7 @@ class AsyncArtifactsLoggingQueue:
             artifact_path=artifact_path,
             artifact=artifact,
             completion_event=threading.Event(),
+            save_options=save_options,
         )
         self._queue.put(artifact)
         operation_future = self._artifact_status_check_threadpool.submit(
