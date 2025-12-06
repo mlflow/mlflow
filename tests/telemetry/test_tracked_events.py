@@ -816,7 +816,7 @@ def test_invoke_custom_judge_model(
         else:
             with (
                 mock.patch(
-                    "mlflow.genai.judges.utils.invocation_utils._invoke_litellm_and_handle_tools",
+                    "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
                     return_value=(mock_response, 10),
                 ),
                 mock.patch(
