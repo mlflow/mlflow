@@ -103,6 +103,15 @@ class GenAIEvaluateEvent(Event):
 
         return record_params
 
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        _, telemetry_data = result
+
+        if not isinstance(telemetry_data, dict):
+            return None
+
+        return telemetry_data
+
 
 class CreateLoggedModelEvent(Event):
     name: str = "create_logged_model"

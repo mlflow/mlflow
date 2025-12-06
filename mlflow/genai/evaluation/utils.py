@@ -55,6 +55,41 @@ PGBAR_FORMAT = (
 )
 
 
+def _get_eval_data_type(data: "EvaluationDatasetTypes") -> dict[str, Any]:
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+
+    if isinstance(data, list):
+        if len(data) > 0 and all(isinstance(item, Trace) for item in data):
+            return {"eval_data_type": "list[Trace]"}
+        return {"eval_data_type": "list[dict]"}
+    elif isinstance(data, pd.DataFrame):
+        return {"eval_data_type": "pd.DataFrame"}
+    elif isinstance(data, EntityEvaluationDataset):
+        return {"eval_data_type": "EntityEvaluationDataset"}
+    elif isinstance(data, ManagedEvaluationDataset):
+        return {"eval_data_type": "EvaluationDataset"}
+    else:
+        try:
+            from mlflow.utils.spark_utils import get_spark_dataframe_type
+
+            if isinstance(data, get_spark_dataframe_type()):
+                return {"eval_data_type": "pyspark.sql.DataFrame"}
+        except ImportError:
+            pass
+
+    return {"eval_data_type": "unknown"}
+
+
+def _get_eval_data_size_and_fields(df: "pd.DataFrame") -> dict[str, Any]:
+    input_columns = set(df.columns.tolist())
+    relevant_fields = {"inputs", "outputs", "trace", "expectations"}
+    return {
+        "eval_data_size": len(df),
+        "eval_data_provided_fields": sorted(input_columns & relevant_fields),
+    }
+
+
 def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
     Takes in a dataset in the format that `mlflow.genai.evaluate()` expects and

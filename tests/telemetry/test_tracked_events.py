@@ -387,8 +387,6 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
     model = TestModel()
 
     with (
-        mock.patch("mlflow.genai.judges.is_context_relevant"),
-        mock.patch("mlflow.genai.judges.meets_guidelines"),
         mock.patch("mlflow.genai.judges.utils.invocation_utils.invoke_judge_model"),
     ):
         # Test with all scorer kinds and scopes, without predict_fn
@@ -414,6 +412,9 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
                 {"class": "RelevanceToQuery", "kind": "builtin", "scope": "response"},
                 {"class": "UserFrustration", "kind": "builtin", "scope": "session"},
             ],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
+            "eval_data_provided_fields": ["inputs", "outputs"],
         }
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
@@ -431,6 +432,90 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
                 {"class": "RelevanceToQuery", "kind": "builtin", "scope": "response"},
                 {"class": "Guidelines", "kind": "guidelines", "scope": "response"},
             ],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
+            "eval_data_provided_fields": ["inputs", "outputs"],
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+
+def test_genai_evaluate_telemetry_data_fields(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
+    @mlflow.genai.scorer
+    def sample_scorer():
+        return 1.0
+
+    with mock.patch("mlflow.genai.judges.utils.invocation_utils.invoke_judge_model"):
+        # Test with list of dicts
+        data_list = [
+            {
+                "inputs": {"question": "Q1"},
+                "outputs": "A1",
+                "expectations": {"answer": "Expected1"},
+            },
+            {
+                "inputs": {"question": "Q2"},
+                "outputs": "A2",
+                "expectations": {"answer": "Expected2"},
+            },
+        ]
+        mlflow.genai.evaluate(data=data_list, scorers=[sample_scorer])
+        expected_params = {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+            ],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 2,
+            "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+        # Test with pandas DataFrame
+        df_data = pd.DataFrame(
+            [
+                {"inputs": {"question": "Q1"}, "outputs": "A1"},
+                {"inputs": {"question": "Q2"}, "outputs": "A2"},
+                {"inputs": {"question": "Q3"}, "outputs": "A3"},
+            ]
+        )
+        mlflow.genai.evaluate(data=df_data, scorers=[sample_scorer])
+        expected_params = {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+            ],
+            "eval_data_type": "pd.DataFrame",
+            "eval_data_size": 3,
+            "eval_data_provided_fields": ["inputs", "outputs"],
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+        # Test with list of Traces
+        trace_ids = []
+        for i in range(2):
+            with mlflow.start_span(name=f"test_span_{i}") as span:
+                span.set_inputs({"question": f"Q{i}"})
+                span.set_outputs({"answer": f"A{i}"})
+                trace_ids.append(span.trace_id)
+
+        traces = [mlflow.get_trace(trace_id) for trace_id in trace_ids]
+        mlflow.genai.evaluate(data=traces, scorers=[sample_scorer])
+        expected_params = {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+            ],
+            "eval_data_type": "list[Trace]",
+            "eval_data_size": 2,
+            "eval_data_provided_fields": ["inputs", "outputs", "trace"],
         }
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
