@@ -10,12 +10,23 @@ from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_schema
-from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
+from mlflow.types.schema import (
+    AnyType,
+    Array,
+    ColSpec,
+    DataType,
+    Map,
+    Object,
+    ParamSchema,
+    Property,
+    Schema,
+)
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
     UnsupportedTypeHintException,
     _convert_data_to_type_hint,
     _convert_dataframe_to_example_format,
+    _infer_params_schema_from_type_hints,
     _infer_schema_from_list_type_hint,
     _is_example_valid_for_type_from_example,
     _signature_cannot_be_inferred_from_type_hint,
@@ -44,6 +55,26 @@ class CustomModel2(pydantic.BaseModel):
     custom_field: dict[str, Any]
     messages: list[Message]
     optional_int: int | None = None
+
+
+class CustomParams(pydantic.BaseModel):
+    long_field: int
+    str_field: str
+    bool_field: bool
+    double_field: float
+    datetime_field: datetime.datetime
+    optional_str: str | None = None
+    array_field: list[str]
+
+
+class CustomParamsWithDefault(pydantic.BaseModel):
+    long_field: int = 1
+    str_field: str = "a"
+    bool_field: bool = False
+    double_field: float = 0.2
+    datetime_field: datetime.datetime = datetime.datetime.now()
+    optional_str: str | None = None
+    array_field: list[str] = ["a", "b"]
 
 
 @pytest.mark.parametrize(
@@ -348,6 +379,57 @@ def test_pydantic_model_validation(type_hint, example):
             _validate_data_against_type_hint(data=example.model_dump(), type_hint=type_hint)
             == example
         )
+
+
+@pytest.mark.parametrize(
+    "type_hint",
+    [CustomParams, CustomParamsWithDefault, dict[str, Any]],
+)
+def test_infer_params_schema_from_type_hints(type_hint):
+    param_schema = _infer_params_schema_from_type_hints(type_hint)
+    # Default to None for non-pydantic type hints
+    if not issubclass(type_hint, pydantic.BaseModel):
+        assert param_schema is None
+        return
+
+    assert isinstance(param_schema, ParamSchema)
+    # Check dtypes
+    if issubclass(type_hint, pydantic.BaseModel):
+        for param in param_schema.params:
+            if param.name == "long_field":
+                assert param.dtype is DataType.long
+            elif param.name == "str_field":
+                assert param.dtype is DataType.string
+            elif param.name == "bool_field":
+                assert param.dtype is DataType.boolean
+            elif param.name == "double_field":
+                assert param.dtype is DataType.double
+            elif param.name == "datetime_field":
+                assert param.dtype is DataType.datetime
+            elif param.name == "optional_str":
+                assert param.dtype is DataType.string
+            elif param.name == "array_field":
+                assert param.dtype is DataType.string
+                assert isinstance(param.default, list)
+                assert param.shape == (-1,)
+    # Check defaults
+    if isinstance(type_hint, CustomParamsWithDefault):
+        instance = CustomParamsWithDefault()
+        for param in param_schema.params:
+            if param.name == "long_field":
+                assert param.default == instance.long_field
+            elif param.name == "str_field":
+                assert param.default == instance.str_field
+            elif param.name == "bool_field":
+                assert param.default == instance.bool_field
+            elif param.name == "double_field":
+                assert param.default == instance.double_field
+            elif param.name == "datetime_field":
+                assert param.default == instance.datetime_field
+            elif param.name == "optional_str":
+                assert param.default == instance.optional_str
+            elif param.name == "array_field":
+                assert len(param.default) == len(instance.array_field)
 
 
 @pytest.mark.parametrize(
