@@ -888,10 +888,12 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture
-def db_uri(tmp_path: Path, cached_db: Path) -> str:
+def db_uri(cached_db: Path):
     """Returns a fresh SQLite URI for each test by copying the cached database."""
-    db_path = tmp_path / "mlflow.db"
-    if not IS_TRACING_SDK_ONLY:
-        shutil.copy2(cached_db, db_path)
+    with tempfile.NamedTemporaryFile(suffix=".db") as tmp_file:
+        db_path = Path(tmp_file.name)
 
-    return f"sqlite:///{db_path}"
+        if not IS_TRACING_SDK_ONLY:
+            shutil.copy2(cached_db, db_path)
+
+        yield f"sqlite:///{db_path}"
