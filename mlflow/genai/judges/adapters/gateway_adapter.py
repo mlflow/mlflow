@@ -1,5 +1,7 @@
 """AI Gateway adapter for judge model invocation."""
 
+from typing import Any
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
@@ -11,6 +13,7 @@ def _invoke_via_gateway(
     model_uri: str,
     provider: str,
     prompt: str,
+    inference_params: dict[str, Any] | None = None,
 ) -> str:
     """
     Invoke the judge model via native AI Gateway adapters.
@@ -19,6 +22,8 @@ def _invoke_via_gateway(
         model_uri: The full model URI.
         provider: The provider name.
         prompt: The prompt to evaluate.
+        inference_params: Optional dictionary of inference parameters to pass to the
+            model (e.g., temperature, top_p, max_tokens).
 
     Returns:
         The JSON response string from the model.
@@ -38,5 +43,6 @@ def _invoke_via_gateway(
     return score_model_on_payload(
         model_uri=model_uri,
         payload=prompt,
+        eval_parameters=inference_params,
         endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
     )
