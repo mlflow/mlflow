@@ -15,6 +15,7 @@ defaults:
 jobs:
   assign:
     # Only run on open PR comments from maintainers who are not already assigned and not the PR owner
+    # For pull_request_review_comment, also check that PR is not from a fork (token lacks write access for forks)
     if: >
       (
         github.event_name == 'issue_comment' &&
@@ -26,6 +27,7 @@ jobs:
       ) || (
         github.event_name == 'pull_request_review_comment' &&
         github.event.pull_request.state == 'open' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
         contains(fromJSON('["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"]'), github.event.comment.user.login) &&
         !contains(github.event.pull_request.assignees.*.login, github.event.comment.user.login) &&
         github.event.comment.user.login != github.event.pull_request.user.login
@@ -41,6 +43,19 @@ jobs:
             const { owner, repo } = context.repo;
             const issue_number = context.payload.issue?.number || context.payload.pull_request?.number;
             const commenter = context.payload.comment.user.login;
+
+            // For issue_comment events, check if PR is from a fork (token lacks write access for forks)
+            if (context.eventName === 'issue_comment') {
+              const { data: pr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: issue_number,
+              });
+              if (pr.head.repo.full_name !== `${owner}/${repo}`) {
+                console.log(`Skipping: PR is from a fork (${pr.head.repo.full_name})`);
+                return;
+              }
+            }
 
             console.log(`Adding ${commenter} as assignee`);
             await github.rest.issues.addAssignees({
