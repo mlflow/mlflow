@@ -773,9 +773,11 @@ class UcModelRegistryStore(BaseRestStore):
         from mlflow.data.delta_dataset_source import DeltaDatasetSource
 
         if run is None:
+            _logger.info("UC REST STORE: run is None")
             return None
         securable_list = []
         if run.inputs is not None:
+            _logger.info("UC REST STORE: inputs length: %s", str(len(run.inputs.dataset_inputs)))
             for dataset in run.inputs.dataset_inputs:
                 dataset_source = mlflow.data.get_source(dataset)
                 if (
@@ -788,7 +790,10 @@ class UcModelRegistryStore(BaseRestStore):
                             name=dataset_source.delta_table_name,
                             table_id=dataset_source.delta_table_id,
                         )
+                        _logger.info("UC REST STORE: delta table input found: %s", dataset_source.delta_table_name)
                         securable_list.append(Securable(table=table_entity))
+                else:
+                    _logger.info("UC REST STORE: non-delta table input found.  ignoring.")
             if len(securable_list) > _MAX_LINEAGE_DATA_SOURCES:
                 _logger.warning(
                     f"Model version has {len(securable_list)!s} upstream datasets, which "
@@ -797,6 +802,7 @@ class UcModelRegistryStore(BaseRestStore):
                 )
             return securable_list[0:_MAX_LINEAGE_DATA_SOURCES]
         else:
+            _logger.info("UC REST STORE: inputs empty")
             return None
 
     def _validate_model_signature(self, local_model_path):
@@ -949,6 +955,7 @@ class UcModelRegistryStore(BaseRestStore):
             source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
         lineage_securable_list = self._get_lineage_input_sources(run)
+        _logger.info("UC REST STORE: lineage_securable_list size: %s", str(len(lineage_securable_list)))
         job_id = self._get_job_id(run)
         job_run_id = self._get_job_run_id(run)
         extra_headers = None
@@ -967,6 +974,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Base64-encode the header value to ensure it's valid ASCII,
             # similar to JWT (see https://stackoverflow.com/a/40347926)
             header_json = message_to_json(lineage_header_info)
+            _logger.info("UC REST STORE: header_json: %s", header_json)
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
