@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Any, Generator
 
 import pydantic
@@ -102,4 +103,42 @@ class _ResponsesAgentPyfuncWrapper:
         """
         request = self._convert_input(model_input)
         for response in self.responses_agent.predict_stream(request):
+            yield self._response_to_dict(response, ResponsesAgentStreamEvent)
+
+    async def predict_async(self, model_input: dict[str, Any], params=None) -> dict[str, Any]:
+        """
+        Async version of predict.
+
+        Args:
+            model_input: A dict with the
+                :py:class:`ResponsesRequest <mlflow.types.responses.ResponsesRequest>` schema.
+            params: Unused in this function.
+
+        Returns:
+            A dict with the
+            (:py:class:`ResponsesResponse <mlflow.types.responses.ResponsesResponse>`)
+            schema.
+        """
+        request = self._convert_input(model_input)
+        response = await self.responses_agent.predict_async(request)
+        return self._response_to_dict(response, ResponsesAgentResponse)
+
+    async def predict_stream_async(
+        self, model_input: dict[str, Any], params=None
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """
+        Async version of predict_stream.
+
+        Args:
+            model_input: A dict with the
+                :py:class:`ResponsesRequest <mlflow.types.responses.ResponsesRequest>` schema.
+            params: Unused in this function.
+
+        Returns:
+            An async generator over dicts with the
+                (:py:class:`ResponsesStreamEvent <mlflow.types.responses.ResponsesStreamEvent>`)
+                schema.
+        """
+        request = self._convert_input(model_input)
+        async for response in self.responses_agent.predict_stream_async(request):
             yield self._response_to_dict(response, ResponsesAgentStreamEvent)

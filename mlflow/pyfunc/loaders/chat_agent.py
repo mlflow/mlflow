@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Any, Generator
 
 import pydantic
@@ -112,4 +113,41 @@ class _ChatAgentPyfuncWrapper:
         """
         messages, context, custom_inputs = self._convert_input(model_input)
         for response in self.chat_agent.predict_stream(messages, context, custom_inputs):
+            yield self._response_to_dict(response, ChatAgentChunk)
+
+    async def predict_async(self, model_input: dict[str, Any], params=None) -> dict[str, Any]:
+        """
+        Async version of predict.
+
+        Args:
+            model_input: A dict with the
+                :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
+            params: Unused in this function.
+
+        Returns:
+            A dict with the (:py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`)
+                schema.
+        """
+        messages, context, custom_inputs = self._convert_input(model_input)
+        response = await self.chat_agent.predict_async(messages, context, custom_inputs)
+        return self._response_to_dict(response, ChatAgentResponse)
+
+    async def predict_stream_async(
+        self, model_input: dict[str, Any], params=None
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """
+        Async version of predict_stream.
+
+        Args:
+            model_input: A dict with the
+                :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema.
+            params: Unused in this function.
+
+        Returns:
+            An async generator over dicts with the
+                (:py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`) schema.
+        """
+        messages, context, custom_inputs = self._convert_input(model_input)
+        stream = self.chat_agent.predict_stream_async(messages, context, custom_inputs)
+        async for response in stream:
             yield self._response_to_dict(response, ChatAgentChunk)
