@@ -1,0 +1,269 @@
+"""Conversational metrics for evaluating multi-turn dialogue performance."""
+
+from __future__ import annotations
+
+from mlflow.genai.scorers.deepeval import DeepEvalScorer
+
+
+class TurnRelevancy(DeepEvalScorer):
+    """
+    Evaluates the relevance of each conversation turn.
+
+    This multi-turn metric assesses whether each response in a conversation is relevant
+    to the corresponding user query. It evaluates coherence across the entire dialogue.
+
+    Note: This is a multi-turn metric that requires a list of traces representing
+    conversation turns.
+
+    Args:
+        threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        include_reason: Whether to include reasoning in the evaluation
+
+    Examples:
+        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import TurnRelevancy
+        >>> scorer = TurnRelevancy(threshold=0.7)
+        >>> feedback = scorer(traces=[trace1, trace2, trace3])  # List of conversation turns
+    """
+
+    def __init__(
+        self,
+        threshold: float | None = None,
+        model: str | None = None,
+        include_reason: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            metric_name="TurnRelevancy",
+            model=model,
+            threshold=threshold,
+            include_reason=include_reason,
+            **kwargs,
+        )
+
+
+class RoleAdherence(DeepEvalScorer):
+    """
+    Evaluates whether the agent stays in character throughout the conversation.
+
+    This multi-turn metric assesses if the agent consistently maintains its assigned
+    role, personality, and behavioral constraints across all conversation turns.
+
+    Note: This is a multi-turn metric that requires a list of traces representing
+    conversation turns.
+
+    Args:
+        threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        include_reason: Whether to include reasoning in the evaluation
+
+    Examples:
+        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import RoleAdherence
+        >>> scorer = RoleAdherence(threshold=0.8)
+        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+    """
+
+    def __init__(
+        self,
+        threshold: float | None = None,
+        model: str | None = None,
+        include_reason: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            metric_name="RoleAdherence",
+            model=model,
+            threshold=threshold,
+            include_reason=include_reason,
+            **kwargs,
+        )
+
+
+class KnowledgeRetention(DeepEvalScorer):
+    """
+    Evaluates the chatbot's ability to retain and use information from earlier in the conversation.
+
+    This multi-turn metric assesses whether the agent remembers and appropriately
+    references information from previous turns in the conversation, demonstrating
+    context awareness.
+
+    Note: This is a multi-turn metric that requires a list of traces representing
+    conversation turns.
+
+    Args:
+        threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        include_reason: Whether to include reasoning in the evaluation
+
+    Examples:
+        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import KnowledgeRetention
+        >>> scorer = KnowledgeRetention(threshold=0.7)
+        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+    """
+
+    def __init__(
+        self,
+        threshold: float | None = None,
+        model: str | None = None,
+        include_reason: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            metric_name="KnowledgeRetention",
+            model=model,
+            threshold=threshold,
+            include_reason=include_reason,
+            **kwargs,
+        )
+
+
+class ConversationCompleteness(DeepEvalScorer):
+    """
+    Evaluates whether the conversation satisfies the user's needs and goals.
+
+    This multi-turn metric assesses if the conversation reaches a satisfactory conclusion,
+    addressing all aspects of the user's original request or question.
+
+    Note: This is a multi-turn metric that requires a list of traces representing
+    conversation turns.
+
+    Args:
+        threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        include_reason: Whether to include reasoning in the evaluation
+
+    Examples:
+        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import (
+        ...     ConversationCompleteness,
+        ... )
+        >>> scorer = ConversationCompleteness(threshold=0.7)
+        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+    """
+
+    def __init__(
+        self,
+        threshold: float | None = None,
+        model: str | None = None,
+        include_reason: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            metric_name="ConversationCompleteness",
+            model=model,
+            threshold=threshold,
+            include_reason=include_reason,
+            **kwargs,
+        )
+
+
+class GoalAccuracy(DeepEvalScorer):
+    """
+    Evaluates the accuracy of achieving conversation goals in a multi-turn context.
+
+    This multi-turn metric assesses whether the agent successfully achieves the
+    specified goals or objectives throughout the conversation, measuring goal-oriented
+    effectiveness.
+
+    Note: This is a multi-turn metric that requires a list of traces representing
+    conversation turns.
+
+    Args:
+        threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        include_reason: Whether to include reasoning in the evaluation
+
+    Examples:
+        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import GoalAccuracy
+        >>> scorer = GoalAccuracy(threshold=0.7)
+        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+    """
+
+    def __init__(
+        self,
+        threshold: float | None = None,
+        model: str | None = None,
+        include_reason: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            metric_name="GoalAccuracy",
+            model=model,
+            threshold=threshold,
+            include_reason=include_reason,
+            **kwargs,
+        )
+
+
+class ToolUse(DeepEvalScorer):
+    """
+    Evaluates the effectiveness of tool usage throughout a conversation.
+
+    This multi-turn metric assesses whether the agent appropriately uses available
+    tools across multiple conversation turns, measuring tool selection and usage
+    effectiveness in a dialogue context.
+
+    Note: This is a multi-turn metric that requires a list of traces representing
+    conversation turns.
+
+    Args:
+        threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        include_reason: Whether to include reasoning in the evaluation
+
+    Examples:
+        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import ToolUse
+        >>> scorer = ToolUse(threshold=0.7)
+        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+    """
+
+    def __init__(
+        self,
+        threshold: float | None = None,
+        model: str | None = None,
+        include_reason: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            metric_name="ToolUse",
+            model=model,
+            threshold=threshold,
+            include_reason=include_reason,
+            **kwargs,
+        )
+
+
+class TopicAdherence(DeepEvalScorer):
+    """
+    Evaluates adherence to specified topics throughout a conversation.
+
+    This multi-turn metric assesses whether the agent stays on topic across the
+    entire conversation, avoiding unnecessary digressions or topic drift.
+
+    Note: This is a multi-turn metric that requires a list of traces representing
+    conversation turns.
+
+    Args:
+        threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        include_reason: Whether to include reasoning in the evaluation
+
+    Examples:
+        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import TopicAdherence
+        >>> scorer = TopicAdherence(threshold=0.7)
+        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+    """
+
+    def __init__(
+        self,
+        threshold: float | None = None,
+        model: str | None = None,
+        include_reason: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            metric_name="TopicAdherence",
+            model=model,
+            threshold=threshold,
+            include_reason=include_reason,
+            **kwargs,
+        )
