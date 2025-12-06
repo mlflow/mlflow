@@ -1,0 +1,44 @@
+name: assign-reviewer-run
+
+on:
+  workflow_run:
+    workflows: [assign-reviewer]
+    types: [completed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  assign:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      actions: read # to download artifacts
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github
+
+      - name: Download payload artifact
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const mod = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/assign-reviewer.js`);
+            await mod.download({ context, github });
+
+      - name: Unzip payload
+        run: unzip assign_payload.zip
+
+      - name: Assign reviewer as assignee
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const mod = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/assign-reviewer.js`);
+            await mod.assign({ context, github });
+
