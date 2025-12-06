@@ -1,7 +1,14 @@
+import { AuthProvider } from '../auth/types';
+import {
+  NoAuthProvider,
+  PersonalAccessTokenProvider,
+  BasicAuthProvider,
+  DatabricksSdkAuthProvider
+} from '../auth/providers';
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
 import { CreateExperiment, DeleteExperiment, GetTraceInfoV3, StartTraceV3 } from './spec';
-import { getRequestHeaders, makeRequest } from './utils';
+import { makeAuthenticatedRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 
@@ -11,29 +18,56 @@ import { ArtifactsClient, getArtifactsClient } from './artifacts';
 export class MlflowClient {
   /** MLflow tracking server host or Databricks workspace URL */
   private host: string;
-  /** Databricks personal access token */
-  private databricksToken?: string;
+  /** Authentication provider for API requests */
+  private authProvider: AuthProvider;
   /** Client implementation to upload/download trace data artifacts */
   private artifactsClient: ArtifactsClient;
-  /** The tracking server username for basic auth */
-  private trackingServerUsername?: string;
-  /** The tracking server password for basic auth */
-  private trackingServerPassword?: string;
 
   constructor(options: {
     trackingUri: string;
     host: string;
+    authProvider?: AuthProvider;
+    /** @deprecated Use authProvider instead */
     databricksToken?: string;
+    /** @deprecated Use authProvider instead */
     trackingServerUsername?: string;
+    /** @deprecated Use authProvider instead */
     trackingServerPassword?: string;
   }) {
     this.host = options.host;
-    this.databricksToken = options.databricksToken;
-    this.trackingServerUsername = options.trackingServerUsername;
-    this.trackingServerPassword = options.trackingServerPassword;
+
+    // Initialize auth provider
+    if (options.authProvider) {
+      // Priority 1: Explicit authProvider takes precedence
+      this.authProvider = options.authProvider;
+    } else if (options.databricksToken) {
+      // Priority 2: Legacy databricksToken option
+      // Use SDK-based provider for Databricks contexts, simple PAT for others
+      if (options.trackingUri.startsWith('databricks')) {
+        this.authProvider = new DatabricksSdkAuthProvider({
+          host: options.host,
+          token: options.databricksToken
+        });
+      } else {
+        // Non-Databricks context - use simple Bearer token
+        this.authProvider = new PersonalAccessTokenProvider(options.databricksToken);
+      }
+    } else if (options.trackingServerUsername && options.trackingServerPassword) {
+      // Priority 3: Legacy Basic Auth for non-Databricks tracking servers
+      this.authProvider = new BasicAuthProvider(
+        options.trackingServerUsername,
+        options.trackingServerPassword
+      );
+    } else {
+      // Priority 4: No auth
+      this.authProvider = new NoAuthProvider();
+    }
+
     this.artifactsClient = getArtifactsClient({
       trackingUri: options.trackingUri,
       host: options.host,
+      authProvider: this.authProvider,
+      // Pass legacy credentials for backwards compatibility
       databricksToken: options.databricksToken
     });
   }
@@ -49,14 +83,10 @@ export class MlflowClient {
   async createTrace(traceInfo: TraceInfo): Promise<TraceInfo> {
     const url = StartTraceV3.getEndpoint(this.host);
     const payload: StartTraceV3.Request = { trace: { trace_info: traceInfo.toJson() } };
-    const response = await makeRequest<StartTraceV3.Response>(
+    const response = await makeAuthenticatedRequest<StartTraceV3.Response>(
       'POST',
       url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      ),
+      this.authProvider,
       payload
     );
     return TraceInfo.fromJson(response.trace.trace_info);
@@ -80,14 +110,10 @@ export class MlflowClient {
    */
   async getTraceInfo(traceId: string): Promise<TraceInfo> {
     const url = GetTraceInfoV3.getEndpoint(this.host, traceId);
-    const response = await makeRequest<GetTraceInfoV3.Response>(
+    const response = await makeAuthenticatedRequest<GetTraceInfoV3.Response>(
       'GET',
       url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      )
+      this.authProvider
     );
 
     // The V3 API returns a Trace object with trace_info field
@@ -116,14 +142,10 @@ export class MlflowClient {
   ): Promise<string> {
     const url = CreateExperiment.getEndpoint(this.host);
     const payload: CreateExperiment.Request = { name, artifact_location: artifactLocation, tags };
-    const response = await makeRequest<CreateExperiment.Response>(
+    const response = await makeAuthenticatedRequest<CreateExperiment.Response>(
       'POST',
       url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      ),
+      this.authProvider,
       payload
     );
     return response.experiment_id;
@@ -135,15 +157,6 @@ export class MlflowClient {
   async deleteExperiment(experimentId: string): Promise<void> {
     const url = DeleteExperiment.getEndpoint(this.host);
     const payload: DeleteExperiment.Request = { experiment_id: experimentId };
-    await makeRequest<void>(
-      'POST',
-      url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      ),
-      payload
-    );
+    await makeAuthenticatedRequest<void>('POST', url, this.authProvider, payload);
   }
 }
