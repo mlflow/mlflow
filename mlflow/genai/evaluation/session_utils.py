@@ -93,7 +93,7 @@ def evaluate_session_level_scorers(
     multi_turn_scorers: list[Scorer],
 ) -> dict[str, list[Feedback]]:
     """
-    Evaluate all multi-turn scorers for a single session in parallel.
+    Evaluate all multi-turn scorers for a single session.
 
     Args:
         session_id: The session identifier
