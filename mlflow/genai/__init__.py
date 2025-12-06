@@ -27,6 +27,7 @@ from mlflow.genai.labeling import (
 from mlflow.genai.optimize import optimize_prompt, optimize_prompts
 from mlflow.genai.prompts import (
     delete_prompt_alias,
+    delete_prompt_model_config,
     delete_prompt_tag,
     delete_prompt_version_tag,
     get_prompt_tags,
@@ -34,6 +35,7 @@ from mlflow.genai.prompts import (
     register_prompt,
     search_prompts,
     set_prompt_alias,
+    set_prompt_model_config,
     set_prompt_tag,
     set_prompt_version_tag,
 )
@@ -69,6 +71,8 @@ __all__ = [
     "set_prompt_version_tag",
     "delete_prompt_tag",
     "delete_prompt_version_tag",
+    "set_prompt_model_config",
+    "delete_prompt_model_config",
     "ScorerScheduleConfig",
     "Agent",
     "LabelingSession",

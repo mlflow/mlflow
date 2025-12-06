@@ -46,6 +46,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import (
@@ -130,6 +131,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
+    MLFLOW_PROMPT_MODEL_CONFIG,
 )
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
@@ -502,6 +504,7 @@ class MlflowClient:
         commit_message: str | None = None,
         tags: dict[str, str] | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -581,6 +584,9 @@ class MlflowClient:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
+            model_config: Optional PromptModelConfig instance or dictionary containing
+                model-specific configuration like model_name, temperature, max_tokens, etc.
+                Using PromptModelConfig provides validation and type safety.
 
         Returns:
             A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -608,6 +614,7 @@ class MlflowClient:
                 description=commit_message,
                 tags=tags or {},
                 response_format=response_format,
+                model_config=model_config,
             )
 
             return registry_client.get_prompt_version(name, str(prompt_version.version))
@@ -656,6 +663,15 @@ class MlflowClient:
                     ),
                 }
             )
+        if model_config:
+            # Convert ModelConfig to dict if needed
+            if isinstance(model_config, PromptModelConfig):
+                config_dict = model_config.to_dict()
+            else:
+                # Validate dict by converting through PromptModelConfig
+                config_dict = PromptModelConfig.from_dict(model_config).to_dict()
+
+            tags.update({MLFLOW_PROMPT_MODEL_CONFIG: json.dumps(config_dict)})
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
