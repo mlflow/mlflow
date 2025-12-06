@@ -38,3 +38,7 @@ polars>=1
 dspy
 # required for testing mlflow.genai.optimize.optimizers
 gepa
+# Required by mlflow.tensorrt
+tensorrt-cu12
+tensorrt-cu12-bindings
+tensorrt-cu12-libs
