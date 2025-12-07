@@ -12,6 +12,7 @@ from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Completeness,
+    ConversationalCoherence,
     ConversationalRoleAdherence,
     ConversationalSafety,
     ConversationalToolCallEfficiency,
@@ -1647,4 +1648,82 @@ def test_conversational_role_adherence_instructions():
     instructions = scorer.instructions
     assert "role" in instructions.lower()
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
+
+
+# =====================================================================
+# ConversationalCoherence Tests
+# =====================================================================
+
+
+def test_conversational_coherence_with_session():
+    session_id = "test_session_coherence"
+    traces = []
+    for i, (q, a) in enumerate([
+        ("What is the capital of France?", "The capital of France is Paris."),
+        ("What is its population?", "Paris has about 2.1 million people."),
+    ]):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": q})
+            span.set_outputs(a)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.InstructionsJudge.__call__"
+    ) as mock_judge_call:
+        mock_judge_call.return_value = Feedback(
+            name="conversational_coherence",
+            value=CategoricalRating.YES,
+            rationale="Conversation is coherent across session.",
+        )
+
+        scorer = ConversationalCoherence()
+        result = scorer(session=traces)
+
+        assert result.name == "conversational_coherence"
+        assert result.value == CategoricalRating.YES
+        mock_judge_call.assert_called_once()
+
+
+def test_conversational_coherence_incoherent():
+    session_id = "test_session_incoherent"
+    traces = []
+    for i, (q, a) in enumerate([
+        ("What is the capital of France?", "The capital of France is Paris."),
+        ("Tell me more about it.", "Tokyo is known for its sushi."),
+    ]):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": q})
+            span.set_outputs(a)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.InstructionsJudge.__call__"
+    ) as mock_judge_call:
+        mock_judge_call.return_value = Feedback(
+            name="conversational_coherence",
+            value=CategoricalRating.NO,
+            rationale="Conversation is incoherent - topic shifted unexpectedly.",
+        )
+
+        scorer = ConversationalCoherence()
+        result = scorer(session=traces)
+
+        assert result.value == CategoricalRating.NO
+        assert "incoherent" in result.rationale.lower()
+
+
+def test_conversational_coherence_get_input_fields():
+    scorer = ConversationalCoherence()
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_conversational_coherence_instructions():
+    scorer = ConversationalCoherence()
+    instructions = scorer.instructions
+    assert "coherence" in instructions.lower() or "logical" in instructions.lower()
+    assert "consistency" in instructions.lower() or "flow" in instructions.lower()
 

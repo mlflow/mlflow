@@ -33,6 +33,12 @@ from mlflow.genai.judges.prompts.conversation_completeness import (
 )
 from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
 from mlflow.genai.judges.prompts import conversational_role_adherence
+from mlflow.genai.judges.prompts.conversational_role_adherence import (
+    CONVERSATIONAL_ROLE_ADHERENCE_PROMPT,
+)
+from mlflow.genai.judges.prompts.conversational_coherence import (
+    CONVERSATIONAL_COHERENCE_PROMPT,
+)
 from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME,
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT,
@@ -2029,6 +2035,85 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
     @property
     def instructions(self) -> str:
         return conversational_role_adherence.get_prompt(role_description=self.role_description)
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationalCoherence(BuiltInSessionLevelScorer):
+    """
+    Conversational coherence evaluates whether a multi-turn conversation maintains
+    logical flow and consistency throughout.
+
+    This scorer analyzes a conversation session for coherence issues including:
+
+    - Logical flow from one turn to the next
+    - Consistency of information throughout the conversation
+    - Contextual awareness (building upon previous context)
+    - Smooth topic transitions without confusing jumps
+    - Relevance maintenance throughout
+
+    Note: The scorer evaluates the overall coherence of the conversation flow,
+    focusing on whether responses logically follow from previous context.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversational_coherence".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalCoherence
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = ConversationalCoherence()(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalCoherence
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalCoherence()])
+    """
+
+    name: str = "conversational_coherence"
+    model: str | None = None
+    description: str = (
+        "Evaluate whether a multi-turn conversation maintains logical flow and "
+        "consistency, checking for context awareness and natural topic transitions."
+    )
+
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+            generate_rationale_first=True,
+        )
+
+    @property
+    def instructions(self) -> str:
+        return CONVERSATIONAL_COHERENCE_PROMPT
 
 
 @experimental(version="3.7.0")
