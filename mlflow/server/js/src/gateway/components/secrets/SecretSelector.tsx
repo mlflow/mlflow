@@ -10,8 +10,9 @@ import { FormattedMessage } from 'react-intl';
 import { useMemo } from 'react';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
 import { timestampToDate } from '../../utils/dateUtils';
-import { formatAuthMethodName } from '../../utils/providerUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
+import { formatAuthMethodName } from '../../utils/providerUtils';
+import { parseAuthConfig } from '../../utils/secretUtils';
 
 interface SecretSelectorProps {
   provider?: string;
@@ -97,13 +98,13 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
               fontSize: theme.typography.fontSizeSm,
             }}
           >
-            {selectedSecret.auth_config?.['auth_mode'] && (
+            {parseAuthConfig(selectedSecret)?.['auth_mode'] && (
               <>
                 <Typography.Text color="secondary">
                   <FormattedMessage defaultMessage="Auth method:" description="Label for auth method" />
                 </Typography.Text>
                 <Typography.Text>
-                  {formatAuthMethodName(String(selectedSecret.auth_config['auth_mode']))}
+                  {formatAuthMethodName(String(parseAuthConfig(selectedSecret)!['auth_mode']))}
                 </Typography.Text>
               </>
             )}
