@@ -1221,6 +1221,131 @@ class Safety(BuiltInScorer):
         return _sanitize_scorer_feedback(feedback)
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class PIILeakage(BuiltInScorer):
+    """
+    PII Leakage detects exposure of personally identifiable information in model responses.
+
+    This scorer analyzes content for various types of PII that could identify real individuals:
+
+    - Direct identifiers: names, addresses, phone numbers, email addresses
+    - Government IDs: SSN, passport numbers, driver's license numbers
+    - Financial information: credit card numbers, bank account numbers
+    - Health information: medical records, health insurance IDs
+    - Digital identifiers: IP addresses, login credentials
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "pii_leakage".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import PIILeakage
+
+        # Safe content (no PII)
+        feedback = PIILeakage()(outputs="The capital of France is Paris.")
+        print(feedback.value)  # "yes" (safe)
+
+        # Unsafe content (contains PII)
+        feedback = PIILeakage()(
+            outputs="Contact John Smith at john.smith@email.com or 555-123-4567."
+        )
+        print(feedback.value)  # "no" (unsafe)
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import PIILeakage
+
+        data = [
+            {
+                "inputs": {"question": "What is the capital of France?"},
+                "outputs": "The capital of France is Paris.",
+            },
+            {
+                "inputs": {"question": "Who can I contact?"},
+                "outputs": "Contact support@company.com for help.",
+            },
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[PIILeakage()])
+    """
+
+    name: str = "pii_leakage"
+    model: str | None = None
+    required_columns: set[str] = {"outputs"}
+    description: str = (
+        "Detect exposure of personally identifiable information (PII) in model responses."
+    )
+
+    @property
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
+        return "Detects exposure of personally identifiable information (PII) in model responses."
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the PIILeakage judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="outputs",
+                description=(
+                    "The response from the model to analyze for PII, "
+                    "e.g. 'Contact john@email.com for help.'"
+                ),
+            ),
+        ]
+
+    def __init__(self, /, **kwargs):
+        super().__init__(**kwargs)
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        """
+        Evaluate whether the response contains PII.
+
+        This scorer can be used in two ways:
+        1. Pass an MLflow trace object to automatically extract
+           and evaluate the outputs from the trace.
+        2. Directly provide the outputs to evaluate.
+
+        Args:
+            outputs: The response from the model to analyze for PII.
+                Optional when trace is provided.
+            trace: MLflow trace object containing the execution to evaluate. When provided,
+                outputs will be automatically extracted from the trace.
+
+        Returns:
+            An :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
+            value. Returns "yes" if content is safe (no PII), "no" if PII is detected.
+        """
+        fields = resolve_scorer_fields(trace, self, outputs=outputs, model=self.model)
+        _validate_required_fields(fields, self, "PIILeakage scorer")
+
+        feedback = judges.is_pii_safe(
+            content=parse_outputs_to_str(fields.outputs),
+            name=self.name,
+            model=self.model,
+        )
+        return _sanitize_scorer_feedback(feedback)
+
+
 @format_docstring(_MODEL_API_DOC)
 class Correctness(BuiltInScorer):
     """

@@ -21,6 +21,7 @@ from mlflow.genai.scorers import (
     Equivalence,
     ExpectationsGuidelines,
     Guidelines,
+    PIILeakage,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
@@ -1650,11 +1651,6 @@ def test_conversational_role_adherence_instructions():
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
 
 
-# =====================================================================
-# ConversationalCoherence Tests
-# =====================================================================
-
-
 def test_conversational_coherence_with_session():
     session_id = "test_session_coherence"
     traces = []
@@ -1727,3 +1723,108 @@ def test_conversational_coherence_instructions():
     assert "coherence" in instructions.lower() or "logical" in instructions.lower()
     assert "consistency" in instructions.lower() or "flow" in instructions.lower()
 
+
+def test_pii_leakage_no_pii():
+    with patch("mlflow.genai.judges.is_pii_safe") as mock_is_pii_safe:
+        mock_is_pii_safe.return_value = Feedback(
+            name="pii_leakage",
+            value=CategoricalRating.YES,  # YES means safe (no PII)
+            rationale="No PII detected in the content.",
+        )
+
+        scorer = PIILeakage()
+        result = scorer(outputs="The capital of France is Paris.")
+
+        assert result.name == "pii_leakage"
+        assert result.value == CategoricalRating.YES
+        assert result.rationale == "No PII detected in the content."
+        mock_is_pii_safe.assert_called_once()
+
+
+def test_pii_leakage_with_pii():
+    with patch("mlflow.genai.judges.is_pii_safe") as mock_is_pii_safe:
+        mock_is_pii_safe.return_value = Feedback(
+            name="pii_leakage",
+            value=CategoricalRating.NO,  # NO means unsafe (PII detected)
+            rationale="PII detected: email address and phone number.",
+        )
+
+        scorer = PIILeakage()
+        result = scorer(outputs="Contact John Smith at john@email.com or 555-123-4567.")
+
+        assert result.name == "pii_leakage"
+        assert result.value == CategoricalRating.NO
+        assert "PII detected" in result.rationale
+        mock_is_pii_safe.assert_called_once()
+
+
+def test_pii_leakage_with_custom_model(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="pii_leakage", value="yes", rationale="No PII found"
+        ),
+    ) as mock_invoke_judge:
+        custom_model = "openai:/gpt-4"
+        scorer = PIILeakage(model=custom_model)
+        result = scorer(outputs="The weather is sunny today.")
+
+        mock_invoke_judge.assert_called_once()
+        args, kwargs = mock_invoke_judge.call_args
+        assert args[0] == custom_model
+        assert kwargs["assessment_name"] == "pii_leakage"
+
+        assert result.name == "pii_leakage"
+        assert result.value == CategoricalRating.YES
+
+
+def test_pii_leakage_with_custom_name(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="my_pii_check", value="no", rationale="SSN detected: 123-45-6789"
+        ),
+    ) as mock_invoke_judge:
+        scorer = PIILeakage(name="my_pii_check", model="openai:/gpt-4")
+        result = scorer(outputs="My SSN is 123-45-6789.")
+
+        mock_invoke_judge.assert_called_once()
+        _, kwargs = mock_invoke_judge.call_args
+        assert kwargs["assessment_name"] == "my_pii_check"
+
+        assert result.name == "my_pii_check"
+        assert result.value == CategoricalRating.NO
+
+
+def test_pii_leakage_with_trace():
+    with patch("mlflow.genai.judges.is_pii_safe") as mock_is_pii_safe:
+        mock_is_pii_safe.return_value = Feedback(
+            name="pii_leakage",
+            value=CategoricalRating.YES,
+            rationale="No PII in trace output.",
+        )
+
+        trace = create_simple_trace()
+        scorer = PIILeakage()
+        result = scorer(trace=trace)
+
+        assert result.name == "pii_leakage"
+        assert result.value == CategoricalRating.YES
+        mock_is_pii_safe.assert_called_once()
+
+
+def test_pii_leakage_get_input_fields():
+    scorer = PIILeakage()
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["outputs"]
+
+
+def test_pii_leakage_instructions():
+    scorer = PIILeakage()
+    instructions = scorer.instructions
+    assert "pii" in instructions.lower() or "personally identifiable" in instructions.lower()

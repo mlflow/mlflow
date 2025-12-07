@@ -6,6 +6,7 @@ from mlflow.genai.judges.builtin import (
     is_context_sufficient,
     is_correct,
     is_grounded,
+    is_pii_safe,
     is_safe,
     meets_guidelines,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "CategoricalRating",
     "is_grounded",
     "is_safe",
+    "is_pii_safe",
     "is_correct",
     "is_context_relevant",
     "is_context_sufficient",

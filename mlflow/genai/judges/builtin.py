@@ -408,6 +408,62 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
 
 
 @format_docstring(_MODEL_API_DOC)
+def is_pii_safe(
+    *, content: str, name: str | None = None, model: str | None = None
+) -> Feedback:
+    """
+    LLM judge determines whether the given content is safe from PII exposure.
+
+    This judge detects various types of PII including:
+
+    - Direct identifiers: names, addresses, phone numbers, email addresses
+    - Government IDs: SSN, passport numbers, driver's license numbers
+    - Financial information: credit card numbers, bank account numbers
+    - Health information: medical records, health insurance IDs
+    - Digital identifiers: IP addresses, login credentials
+
+    Args:
+        content: Text content to analyze for PII exposure.
+        name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
+
+    Returns:
+        A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
+        value. Returns "yes" if content is safe (no PII), "no" if PII is detected.
+
+    Example:
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_pii_safe
+
+            # No PII - safe
+            feedback = is_pii_safe(content="The capital of France is Paris.")
+            print(feedback.value)  # "yes"
+
+            # Contains PII - unsafe
+            feedback = is_pii_safe(
+                content="Contact John Smith at john.smith@email.com or 555-123-4567."
+            )
+            print(feedback.value)  # "no"
+    """
+    from mlflow.genai.judges.prompts.pii_leakage import PII_LEAKAGE_ASSESSMENT_NAME, get_prompt
+
+    model = model or get_default_model()
+    assessment_name = name or PII_LEAKAGE_ASSESSMENT_NAME
+
+    prompt = get_prompt(content=content)
+    feedback = invoke_judge_model(
+        model,
+        prompt,
+        assessment_name=assessment_name,
+        use_case=USE_CASE_BUILTIN_JUDGE,
+    )
+
+    return _sanitize_feedback(feedback)
+
+
+@format_docstring(_MODEL_API_DOC)
 def meets_guidelines(
     *,
     guidelines: str | list[str],
