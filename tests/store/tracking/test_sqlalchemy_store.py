@@ -302,7 +302,7 @@ def test_fail_on_multiple_drivers():
 
 
 @pytest.fixture
-def store(tmp_path: Path, cached_db: Path) -> SqlAlchemyStore:
+def store(tmp_path: Path, db_uri: str) -> SqlAlchemyStore:
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():
@@ -310,9 +310,6 @@ def store(tmp_path: Path, cached_db: Path) -> SqlAlchemyStore:
         yield s
         _cleanup_database(s)
     else:
-        db_path = tmp_path / "mlflow.db"
-        shutil.copy(cached_db, db_path)
-        db_uri = f"sqlite:///{db_path}"
         s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
         yield s
 
@@ -11785,3 +11782,52 @@ def test_get_trace_with_complete_trace(store: SqlAlchemyStore, allow_partial: bo
     trace = store.get_trace(trace_id, allow_partial=allow_partial)
     assert trace is not None
     assert len(trace.data.spans) == 2
+
+
+def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_session_id")
+
+    # Session ID gets stored from span attributes
+    trace_id1 = f"tr-{uuid.uuid4().hex}"
+    otel_span1 = create_test_otel_span(trace_id=trace_id1)
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id1, cls=TraceJSONEncoder),
+        "session.id": "session-123",
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id1, "LLM")
+    store.log_spans(experiment_id, [span1])
+
+    trace_info1 = store.get_trace_info(trace_id1)
+    assert trace_info1.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-123"
+
+    # Existing session ID is preserved
+    trace_id2 = f"tr-{uuid.uuid4().hex}"
+    trace_with_session = TraceInfo(
+        trace_id=trace_id2,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.IN_PROGRESS,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "existing-session"},
+    )
+    store.start_trace(trace_with_session)
+
+    otel_span2 = create_test_otel_span(trace_id=trace_id2)
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id2, cls=TraceJSONEncoder),
+        "session.id": "different-session",
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id2, "LLM")
+    store.log_spans(experiment_id, [span2])
+
+    trace_info2 = store.get_trace_info(trace_id2)
+    assert trace_info2.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "existing-session"
+
+    # No session ID means no metadata
+    trace_id3 = f"tr-{uuid.uuid4().hex}"
+    otel_span3 = create_test_otel_span(trace_id=trace_id3)
+    span3 = create_mlflow_span(otel_span3, trace_id3, "LLM")
+    store.log_spans(experiment_id, [span3])
+
+    trace_info3 = store.get_trace_info(trace_id3)
+    assert TraceMetadataKey.TRACE_SESSION not in trace_info3.trace_metadata

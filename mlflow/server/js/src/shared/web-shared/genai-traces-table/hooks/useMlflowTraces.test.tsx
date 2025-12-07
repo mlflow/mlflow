@@ -190,7 +190,6 @@ describe('useSearchMlflowTraces', () => {
             endTime: '200',
           },
           filters: [
-            // assessment is client side so should get filtered out from network filters
             {
               column: TracesTableColumnGroup.ASSESSMENT,
               key: 'overall',
@@ -262,7 +261,7 @@ describe('useSearchMlflowTraces', () => {
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
     expect(JSON.parse(body)).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
-      filter: `attributes.run_id = 'run-xyz' AND attributes.timestamp_ms > 100 AND attributes.timestamp_ms < 200 AND tags.user = 'user_1' AND tags.user = 'user_2' AND attributes.execution_time_ms > 1000 AND request_metadata."mlflow.trace.user" = 'user_3' AND attributes.run_id = 'run_1' AND request_metadata."mlflow.modelId" = 'version_1' AND attributes.status = 'OK' AND attributes.name = 'trace_1'`,
+      filter: `attributes.run_id = 'run-xyz' AND attributes.timestamp_ms > 100 AND attributes.timestamp_ms < 200 AND feedback.\`overall\` = 'success' AND tags.user = 'user_1' AND tags.user = 'user_2' AND attributes.execution_time_ms > 1000 AND request_metadata."mlflow.trace.user" = 'user_3' AND attributes.run_id = 'run_1' AND request_metadata."mlflow.modelId" = 'version_1' AND attributes.status = 'OK' AND attributes.name = 'trace_1'`,
       max_results: 10000,
     });
   });
@@ -915,7 +914,8 @@ describe('useSearchMlflowTraces', () => {
     });
   });
 
-  it('handles client side filters', async () => {
+  it('handles assessment filters via backend', async () => {
+    // Mock returns only matching trace (simulating backend filtering)
     jest.mocked(fetchFn).mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -939,29 +939,6 @@ describe('useSearchMlflowTraces', () => {
                 trace_id: 'trace_1',
                 feedback: {
                   value: 'pass',
-                },
-              },
-            ],
-          },
-          {
-            trace_id: 'trace_2',
-            request: '{"input": "value2"}',
-            response: '{"output": "value"}',
-            assessments: [
-              {
-                assessment_id: 'overall_assessment',
-                assessment_name: 'overall_assessment',
-                trace_id: 'trace_2',
-                feedback: {
-                  value: 'fail',
-                },
-              },
-              {
-                assessment_id: 'correctness',
-                assessment_name: 'correctness_assessment',
-                trace_id: 'trace_2',
-                feedback: {
-                  value: 'fail',
                 },
               },
             ],
@@ -1004,6 +981,11 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    // Verify the assessment filter was sent to the backend
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body).filter).toContain("feedback.`overall_assessment` = 'pass'");
+
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data?.[0].trace_id).toBe('trace_1');
     expect(result.current.data?.[0].assessments).toHaveLength(2);
@@ -1011,6 +993,27 @@ describe('useSearchMlflowTraces', () => {
     expect((result.current.data?.[0].assessments?.[0] as FeedbackAssessment)?.feedback?.value).toBe('pass');
     expect(result.current.data?.[0].assessments?.[1].assessment_id).toBe('correctness');
     expect((result.current.data?.[0].assessments?.[1] as FeedbackAssessment)?.feedback?.value).toBe('pass');
+  });
+
+  it('handles search query filtering', async () => {
+    jest.mocked(fetchFn).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value1"}',
+            response: '{"output": "value"}',
+          },
+          {
+            trace_id: 'trace_2',
+            request: '{"input": "value2"}',
+            response: '{"output": "value"}',
+          },
+        ] as ModelTraceInfoV3[],
+        next_page_token: undefined,
+      }),
+    } as any);
 
     // handles searching in experiment view with search filter
     const { result: result2 } = renderHook(

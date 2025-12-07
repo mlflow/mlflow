@@ -204,7 +204,7 @@ export const useMlflowTracesTableMetadata = ({
 
 const getNetworkAndClientFilters = (
   filters: TableFilter[],
-  assessmentsFilteredOnClientSide = true,
+  assessmentsFilteredOnClientSide = false,
 ): {
   networkFilters: TableFilter[];
   clientFilters: TableFilter[];
@@ -214,7 +214,6 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
-      // mlflow search api does not support assessment filters, so we need to pass them as client filters
       if (filter.column === TracesTableColumnGroup.ASSESSMENT && assessmentsFilteredOnClientSide) {
         acc.clientFilters.push(filter);
       } else {
@@ -277,10 +276,7 @@ export const useSearchMlflowTraces = ({
   // For APIS <=v3, filter traces by assessments or search query on the client side
   const useClientSideFiltering = !usingV4APIs;
 
-  const { networkFilters, clientFilters } = useMemo(
-    () => getNetworkAndClientFilters(filters || [], useClientSideFiltering),
-    [filters, useClientSideFiltering],
-  );
+  const { networkFilters, clientFilters } = useMemo(() => getNetworkAndClientFilters(filters || []), [filters]);
 
   const filter = createMlflowSearchFilter(
     runUuid,

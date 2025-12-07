@@ -13,6 +13,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -876,13 +877,24 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     tmp_dir = tmp_path_factory.mktemp("sqlite_db")
     db_path = tmp_dir / "mlflow.db"
 
-    if IS_TRACING_SDK_ONLY:
-        return db_path
+    if not IS_TRACING_SDK_ONLY:
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+        db_uri = f"sqlite:///{db_path}"
+        artifact_uri = (tmp_dir / "artifacts").as_uri()
+        store = SqlAlchemyStore(db_uri, artifact_uri)
+        store.engine.dispose()
 
-    db_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-    store = SqlAlchemyStore(db_uri, artifact_uri)
-    store.engine.dispose()
     return db_path
+
+
+@pytest.fixture
+def db_uri(cached_db: Path) -> Iterator[str]:
+    """Returns a fresh SQLite URI for each test by copying the cached database."""
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        db_path = Path(tmp_dir) / "mlflow.db"
+
+        if not IS_TRACING_SDK_ONLY:
+            shutil.copy2(cached_db, db_path)
+
+        yield f"sqlite:///{db_path}"

@@ -561,6 +561,10 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'prompt-registry/optimize-prompts/langgraph-optimization',
+            },
+            {
+              type: 'doc',
               id: 'prompt-registry/optimize-prompts/openai-agent-optimization',
             },
           ],

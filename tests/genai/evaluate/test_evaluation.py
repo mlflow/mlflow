@@ -1,4 +1,3 @@
-import shutil
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -172,7 +171,7 @@ class ServerConfig:
     ],
     ids=["local_file", "local_sqlalchemy", "remote_file", "remote_sqlalchemy"],
 )
-def server_config(request, tmp_path: Path, cached_db: Path):
+def server_config(request, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     config = request.param
 
@@ -180,10 +179,7 @@ def server_config(request, tmp_path: Path, cached_db: Path):
         case "file":
             backend_uri = tmp_path.joinpath("file").as_uri()
         case "sqlalchemy":
-            # Copy the cached database for this test
-            db_path = tmp_path / "mlflow.db"
-            shutil.copy(cached_db, db_path)
-            backend_uri = f"sqlite:///{db_path}"
+            backend_uri = db_uri
 
     match config.host_type:
         case "local":

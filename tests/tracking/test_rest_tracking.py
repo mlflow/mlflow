@@ -9,7 +9,6 @@ import math
 import os
 import pathlib
 import posixpath
-import shutil
 import subprocess
 import sys
 import time
@@ -106,15 +105,12 @@ def store_type(request):
 
 
 @pytest.fixture
-def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
+def mlflow_client(store_type: str, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
     elif store_type == "sqlalchemy":
-        # Copy the cached database for this test
-        db_path = tmp_path / "mlflow.db"
-        shutil.copy(cached_db, db_path)
-        backend_uri = f"sqlite:///{db_path}"
+        backend_uri = db_uri
 
     # Force-reset backend stores before each test.
     handlers._tracking_store = None

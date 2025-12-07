@@ -228,9 +228,7 @@ export function getAssessmentInfos(
 
         const uniqueValues = new Set<AssessmentValueType>();
         for (const currentAssessment of assessments) {
-          let assessmentValue = currentAssessment
-            ? getEvaluationResultAssessmentValue(currentAssessment)
-            : undefined;
+          let assessmentValue = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
           if (assessmentValue === null) assessmentValue = undefined;
           if (assessmentValue !== undefined) {
             uniqueValues.add(assessmentValue);
