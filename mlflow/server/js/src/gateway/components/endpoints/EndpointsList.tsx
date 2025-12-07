@@ -17,12 +17,13 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useDeleteEndpointMutation } from '../../hooks/useDeleteEndpointMutation';
+import { formatProviderName } from '../../utils/providerUtils';
 import { timestampToDate } from '../../utils/dateUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { EndpointsFilterButton, type EndpointsFilter } from './EndpointsFilterButton';
 import GatewayRoutes from '../../routes';
 import type { Endpoint } from '../../types';
-import { useMemo, useState, useCallback, memo } from 'react';
+import { useMemo, useState } from 'react';
 
 interface EndpointsListProps {
   onEndpointDeleted?: () => void;
@@ -76,22 +77,19 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     return filtered;
   }, [endpoints, searchFilter, filter]);
 
-  const handleDelete = useCallback(
-    (endpoint: Endpoint) => {
-      setDeletingId(endpoint.endpoint_id);
-      deleteEndpoint(endpoint.endpoint_id, {
-        onSuccess: () => {
-          setDeletingId(null);
-          refetch();
-          onEndpointDeleted?.();
-        },
-        onError: () => {
-          setDeletingId(null);
-        },
-      });
-    },
-    [deleteEndpoint, refetch, onEndpointDeleted],
-  );
+  const handleDelete = (endpoint: Endpoint) => {
+    setDeletingId(endpoint.endpoint_id);
+    deleteEndpoint(endpoint.endpoint_id, {
+      onSuccess: () => {
+        setDeletingId(null);
+        refetch();
+        onEndpointDeleted?.();
+      },
+      onError: () => {
+        setDeletingId(null);
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -157,13 +155,13 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           }}
         >
           <TableRow isHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.name-header">
+            <TableHeader componentId="mlflow.gateway.endpoints-list.name-header" css={{ flex: 2 }}>
               <FormattedMessage defaultMessage="Name" description="Endpoint name column header" />
             </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.models-header">
+            <TableHeader componentId="mlflow.gateway.endpoints-list.models-header" css={{ flex: 2 }}>
               <FormattedMessage defaultMessage="Models" description="Models column header" />
             </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header">
+            <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Last modified" description="Last modified column header" />
             </TableHeader>
             <TableHeader
@@ -173,7 +171,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           </TableRow>
           {filteredEndpoints.map((endpoint) => (
             <TableRow key={endpoint.endpoint_id}>
-              <TableCell>
+              <TableCell css={{ flex: 2 }}>
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
                   <ChainIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
                   <Link
@@ -191,10 +189,10 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
                   </Link>
                 </div>
               </TableCell>
-              <TableCell multiline>
+              <TableCell css={{ flex: 2 }}>
                 <ModelsCell modelMappings={endpoint.model_mappings} />
               </TableCell>
-              <TableCell>
+              <TableCell css={{ flex: 1 }}>
                 <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
               </TableCell>
               <TableCell css={{ flex: 0, minWidth: 48, maxWidth: 48 }}>
@@ -219,7 +217,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
   );
 };
 
-const ModelsCell = memo(({ modelMappings }: { modelMappings: Endpoint['model_mappings'] }) => {
+const ModelsCell = ({ modelMappings }: { modelMappings: Endpoint['model_mappings'] }) => {
   const { theme } = useDesignSystemTheme();
 
   if (!modelMappings || modelMappings.length === 0) {
@@ -247,4 +245,4 @@ const ModelsCell = memo(({ modelMappings }: { modelMappings: Endpoint['model_map
       )}
     </div>
   );
-});
+};

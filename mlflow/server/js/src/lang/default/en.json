@@ -3808,6 +3808,10 @@
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the prompt creation modal in the prompt management UI"
   },
+  "WPWU2Z": {
+    "defaultMessage": "API key value is required",
+    "description": "Error message when API key value is empty"
+  },
   "WQwCH6": {
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
