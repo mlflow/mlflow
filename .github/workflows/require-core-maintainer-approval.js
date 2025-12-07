@@ -35,8 +35,8 @@ function isExempted(authorLogin, files) {
   for (const rule of EXEMPTION_RULES) {
     if (rule.authors.includes(authorLogin)) {
       filesToCheck = filesToCheck.filter(({ filename, previous_filename }) =>
-        // Both before/after file paths must be allowed by the rule.
-        [filename, previous_filename].filter(Boolean).every((path) => isAllowedPath(path, rule))
+        // Keep files where NOT all before/after file paths are allowed by the rule.
+        !([filename, previous_filename].filter(Boolean).every((path) => isAllowedPath(path, rule)))
       );
       if (filesToCheck.length === 0) {
         return true;
