@@ -29,7 +29,6 @@ function filterEval(
       continue;
     }
 
-    // Get ALL assessments for this name, not just the first one
     const assessments =
       assessmentName === KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT
         ? runValue.overallAssessments ?? []
@@ -40,22 +39,10 @@ function filterEval(
         runValue?.overallAssessments[0]?.rootCauseAssessment?.assessmentName === assessmentName;
       includeEval = includeEval && currentIsAssessmentRootCause;
     } else {
-      // Check if ANY assessment matches the filter value
-      let matchesFilter = false;
-      for (const assessment of assessments) {
-        let assessmentValue = assessment ? getEvaluationResultAssessmentValue(assessment) : undefined;
-        if (isNil(assessmentValue)) {
-          assessmentValue = undefined;
-        }
-        if (assessmentValue === filterValue) {
-          matchesFilter = true;
-          break;
-        }
-      }
-      // If no assessments exist, check if filter is for undefined
-      if (assessments.length === 0) {
-        matchesFilter = filterValue === undefined;
-      }
+      const matchesFilter = assessments.some((assessment) => {
+        const value = getEvaluationResultAssessmentValue(assessment) ?? undefined;
+        return value === filterValue;
+      });
       includeEval = includeEval && matchesFilter;
     }
   }
