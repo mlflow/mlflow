@@ -29,22 +29,34 @@ function filterEval(
       continue;
     }
 
-    const assessment =
+    // Get ALL assessments for this name, not just the first one
+    const assessments =
       assessmentName === KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT
-        ? runValue.overallAssessments?.[0]
-        : runValue.responseAssessmentsByName[assessmentName]?.[0];
+        ? runValue.overallAssessments ?? []
+        : runValue.responseAssessmentsByName[assessmentName] ?? [];
 
     if (filter.filterType === 'rca') {
       const currentIsAssessmentRootCause =
         runValue?.overallAssessments[0]?.rootCauseAssessment?.assessmentName === assessmentName;
       includeEval = includeEval && currentIsAssessmentRootCause;
     } else {
-      let assessmentValue = assessment ? getEvaluationResultAssessmentValue(assessment) : undefined;
-      if (isNil(assessmentValue)) {
-        assessmentValue = undefined;
+      // Check if ANY assessment matches the filter value
+      let matchesFilter = false;
+      for (const assessment of assessments) {
+        let assessmentValue = assessment ? getEvaluationResultAssessmentValue(assessment) : undefined;
+        if (isNil(assessmentValue)) {
+          assessmentValue = undefined;
+        }
+        if (assessmentValue === filterValue) {
+          matchesFilter = true;
+          break;
+        }
       }
-
-      includeEval = includeEval && assessmentValue === filterValue;
+      // If no assessments exist, check if filter is for undefined
+      if (assessments.length === 0) {
+        matchesFilter = filterValue === undefined;
+      }
+      includeEval = includeEval && matchesFilter;
     }
   }
   return includeEval;

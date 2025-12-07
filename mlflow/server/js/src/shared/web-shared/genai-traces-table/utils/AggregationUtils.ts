@@ -107,27 +107,22 @@ export function getAssessmentInfos(
       ...retrievalAssessmentsByName,
     ]) {
       assessmentNames.add(assessmentName);
-      const assessment = assessments[0];
-      // DEBUG: Log assessment data
-      console.log('[DEBUG] First pass - Assessment:', assessmentName, {
-        stringValue: assessment.stringValue,
-        numericValue: assessment.numericValue,
-        booleanValue: assessment.booleanValue,
-        errorCode: assessment.errorCode,
-        errorMessage: assessment.errorMessage,
-      });
-      // For string values, if we see a value that is not "yes" or "no", we treat it as a string.
-      // This is not a great approach, we should probably actually pass the pass-fail dtype information back somehow.
-      // dtype is determined by the value type, regardless of whether there's an error.
-      // If an assessment has both an error AND a value, we still want to allow filtering by the value.
-      let dtype: AssessmentDType | undefined = !isNil(assessment.stringValue)
-        ? 'pass-fail'
-        : !isNil(assessment.numericValue)
-        ? 'numeric'
-        : !isNil(assessment.booleanValue)
-        ? 'boolean'
-        : undefined;
-      console.log('[DEBUG] First pass - Computed dtype:', dtype, 'for', assessmentName);
+      // Check ALL assessments (not just the first) to find one with a non-error value.
+      // This ensures we correctly determine dtype even if some assessments have errors.
+      let dtype: AssessmentDType | undefined;
+      for (const assessment of assessments) {
+        dtype = !isNil(assessment.stringValue)
+          ? 'pass-fail'
+          : !isNil(assessment.numericValue)
+          ? 'numeric'
+          : !isNil(assessment.booleanValue)
+          ? 'boolean'
+          : undefined;
+        // If we found an assessment with a value, use it and stop searching
+        if (dtype !== undefined) {
+          break;
+        }
+      }
 
       if (!assessmentDtypes[assessmentName]) {
         if (assessmentName in KnownEvaluationResultAssessmentValueLabel) {
@@ -137,12 +132,16 @@ export function getAssessmentInfos(
       }
 
       // Treat non-"yes"|"no" as string values.
-      if (
-        dtype === 'pass-fail' &&
-        !isNil(assessment.stringValue) &&
-        !PASS_FAIL_VALUES.includes(assessment.stringValue)
-      ) {
-        assessmentDtypes[assessmentName] = 'string';
+      // We need to check if ANY assessment in this result has a string value
+      for (const assessment of assessments) {
+        if (
+          dtype === 'pass-fail' &&
+          !isNil(assessment.stringValue) &&
+          !PASS_FAIL_VALUES.includes(assessment.stringValue)
+        ) {
+          assessmentDtypes[assessmentName] = 'string';
+          break;
+        }
       }
 
       // If the dtype is not the same as the current dtype (meaning there's mixed data types),
@@ -156,11 +155,9 @@ export function getAssessmentInfos(
   // if any assessment does not have a dtype, give it 'unknown' type. this can happen if all evaluations for that assessment are errors
   for (const assessmentName of assessmentNames) {
     if (!assessmentDtypes[assessmentName]) {
-      console.log('[DEBUG] Setting dtype to unknown for', assessmentName, 'current value:', assessmentDtypes[assessmentName]);
       assessmentDtypes[assessmentName] = 'unknown';
     }
   }
-  console.log('[DEBUG] Final assessmentDtypes:', JSON.stringify(assessmentDtypes, null, 2));
 
   [...currentEvaluationResults, ...(otherEvaluationResults || [])].forEach((result) => {
     const responseAssessmentsByName: [string, RunEvaluationResultAssessment[]][] = Object.entries(
@@ -185,8 +182,9 @@ export function getAssessmentInfos(
         ...overallAssessmentsByName.filter(([name]) => name === assessmentName),
         ...retrievalAssessmentsByName.filter(([name]) => name === assessmentName),
       ];
-      // NOTE: We only take the first assessment as row-level judges produce a single assessment.
-      const assessments = assessmentsByName.map(([_, assessments]) => assessments[0]);
+      // Flatten all assessments to collect values from all of them, not just the first one.
+      // This is needed to capture values from assessments that have both errors and valid values.
+      const assessments = assessmentsByName.flatMap(([_, assessmentArray]) => assessmentArray);
       const assessment: RunEvaluationResultAssessment | undefined = assessments[0];
 
       const isError = doesAssessmentContainErrors(assessment);
@@ -230,14 +228,17 @@ export function getAssessmentInfos(
                 description: 'Custom judge assessment description',
               });
 
-        let assessmentValue = assessment ? getEvaluationResultAssessmentValue(assessment) : undefined;
-        if (assessmentValue === null) assessmentValue = undefined;
-
         const uniqueValues = new Set<AssessmentValueType>();
-        // Add the value even if there's an error, as long as a value exists
-        // This allows filtering by assessments that have both errors and values
-        if (assessmentValue !== undefined) {
-          uniqueValues.add(assessmentValue);
+        // Iterate through ALL assessments to collect unique values, not just the first one.
+        // This ensures we capture values from assessments that have both errors and valid values.
+        for (const currentAssessment of assessments) {
+          let assessmentValue = currentAssessment
+            ? getEvaluationResultAssessmentValue(currentAssessment)
+            : undefined;
+          if (assessmentValue === null) assessmentValue = undefined;
+          if (assessmentValue !== undefined) {
+            uniqueValues.add(assessmentValue);
+          }
         }
 
         assessmentInfos[assessmentName] = {
@@ -259,11 +260,13 @@ export function getAssessmentInfos(
         };
       } else {
         const assessmentInfo = assessmentInfos[assessmentName];
-        let value = assessment ? getEvaluationResultAssessmentValue(assessment) : undefined;
-        if (isNil(value)) value = undefined;
-        // Add the value even if there's an error, as long as a value exists
-        if (value !== undefined) {
-          assessmentInfo.uniqueValues.add(value);
+        // Iterate through ALL assessments to collect unique values, not just the first one.
+        for (const currentAssessment of assessments) {
+          let value = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
+          if (isNil(value)) value = undefined;
+          if (value !== undefined) {
+            assessmentInfo.uniqueValues.add(value);
+          }
         }
 
         // Update isEditable.
