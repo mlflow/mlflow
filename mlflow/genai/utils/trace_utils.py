@@ -19,6 +19,7 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
@@ -261,6 +262,23 @@ def _wrap_async_predict_fn(async_fn: Callable[..., Any]) -> Callable[..., Any]:
 
     @functools.wraps(async_fn)
     def sync_wrapper(*args, **kwargs):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            try:
+                import nest_asyncio
+
+                nest_asyncio.apply()
+            except ImportError:
+                raise MlflowException(
+                    "Detected a running event loop (e.g., in Jupyter notebook). "
+                    "To use async predict functions in notebook environments, "
+                    "install nest-asyncio: pip install nest-asyncio"
+                )
+
         return asyncio.run(asyncio.wait_for(async_fn(*args, **kwargs), timeout=timeout))
 
     return sync_wrapper

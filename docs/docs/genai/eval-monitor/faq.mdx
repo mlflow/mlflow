@@ -31,6 +31,12 @@ Configure the timeout (in seconds) using the `MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT` e
 export MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT=600  # 10 minutes
 ```
 
+**For Jupyter Notebooks:** Install `nest_asyncio` to use async functions in notebook environments:
+
+```bash
+pip install nest_asyncio
+```
+
 Example with an async predict function:
 
 ```python
