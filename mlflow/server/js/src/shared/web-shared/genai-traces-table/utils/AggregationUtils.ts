@@ -182,8 +182,6 @@ export function getAssessmentInfos(
         ...overallAssessmentsByName.filter(([name]) => name === assessmentName),
         ...retrievalAssessmentsByName.filter(([name]) => name === assessmentName),
       ];
-      // Flatten all assessments to collect values from all of them, not just the first one.
-      // This is needed to capture values from assessments that have both errors and valid values.
       const assessments = assessmentsByName.flatMap(([_, assessmentArray]) => assessmentArray);
       const assessment: RunEvaluationResultAssessment | undefined = assessments[0];
 
@@ -229,8 +227,6 @@ export function getAssessmentInfos(
               });
 
         const uniqueValues = new Set<AssessmentValueType>();
-        // Iterate through ALL assessments to collect unique values, not just the first one.
-        // This ensures we capture values from assessments that have both errors and valid values.
         for (const currentAssessment of assessments) {
           let assessmentValue = currentAssessment
             ? getEvaluationResultAssessmentValue(currentAssessment)
@@ -260,7 +256,6 @@ export function getAssessmentInfos(
         };
       } else {
         const assessmentInfo = assessmentInfos[assessmentName];
-        // Iterate through ALL assessments to collect unique values, not just the first one.
         for (const currentAssessment of assessments) {
           let value = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
           if (isNil(value)) value = undefined;
