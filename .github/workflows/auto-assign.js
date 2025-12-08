@@ -11,7 +11,7 @@ async function getMaintainers({ github, context }) {
 
 module.exports = async ({ github, context }) => {
   const { owner, repo } = context.repo;
-  const maintainers = await getMaintainers({ github, context });
+  const maintainers = new Set(await getMaintainers({ github, context }));
 
   // Get current time minus 200 minutes to look for recent comments and PRs
   const lookbackTime = new Date(Date.now() - 200 * 60 * 1000);
@@ -27,9 +27,6 @@ module.exports = async ({ github, context }) => {
   console.log(`Scanning ${searchResults.length} recently updated PRs`);
 
   for (const pr of searchResults) {
-    const prAuthor = pr.user.login;
-    const currentAssignees = pr.assignees.map((a) => a.login);
-
     // Get recent comments and reviews
     const [issueComments, reviews] = await Promise.all([
       github.rest.issues.listComments({
@@ -45,22 +42,20 @@ module.exports = async ({ github, context }) => {
       }),
     ]);
 
-    // Filter reviews by lookback time
+    // Filter reviews by lookback time and extract authors
     const recentReviews = reviews.data.filter((r) => new Date(r.submitted_at) > lookbackTime);
-
-    // Extract and filter maintainer authors directly
-    const allAuthors = [
+    const commentAuthors = new Set([
       ...issueComments.data.map((c) => c.user.login),
       ...recentReviews.map((r) => r.user.login),
-    ];
-    const maintainersToAssign = [
-      ...new Set(
-        allAuthors.filter(
-          (login) =>
-            maintainers.includes(login) && login !== prAuthor && !currentAssignees.includes(login)
-        )
-      ),
-    ];
+    ]);
+
+    // Use Set operations to find maintainers to assign
+    const prAuthor = pr.user.login;
+    const currentAssignees = new Set(pr.assignees.map((a) => a.login));
+
+    const maintainersToAssign = [...commentAuthors].filter(
+      (login) => maintainers.has(login) && login !== prAuthor && !currentAssignees.has(login)
+    );
 
     if (maintainersToAssign.length === 0) {
       continue;
