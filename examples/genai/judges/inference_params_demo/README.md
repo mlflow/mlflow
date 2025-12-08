@@ -2,6 +2,13 @@
 
 This demo shows how to use `inference_params` with `make_judge()` to control LLM behavior during evaluation.
 
+## Test Evidence
+
+This folder contains test evidence for both OSS and Databricks environments:
+
+- **OSS (LiteLLM/OpenAI)**: See `oss_test/` folder
+- **Databricks**: See screenshots and `databricks_demo.py`
+
 ## Feature Overview
 
 The `inference_params` parameter allows you to pass inference parameters (e.g., `temperature`, `top_p`, `max_tokens`) to the underlying LLM when using MLflow's LLM Judges.

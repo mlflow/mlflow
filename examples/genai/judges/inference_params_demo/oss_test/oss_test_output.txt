@@ -1,0 +1,95 @@
+
+######################################################################
+#  OSS Integration Test: inference_params (PR #19152)                #
+#  Adapter: LiteLLM (OpenAI backend)                                 #
+######################################################################
+
+[MODE] LIVE - Making actual API calls
+[INFO] MLflow: /Users/debu.sinha/projects/mlflow-work/mlflow-fork
+
+======================================================================
+  TEST 1: Deterministic Judge (temperature=0.0)
+======================================================================
+
+Judge: accuracy_check
+Model: openai:/gpt-4o-mini
+inference_params: {'temperature': 0.0}
+
+Test Input: {'answer': 'The Eiffel Tower is 330 meters tall.'}
+
+Running 3 evaluations (should produce identical rationales)...
+
+Run 1:
+  value: accurate
+  rationale: The statement that the Eiffel Tower is 330 meters tall is factually accurate. The height of the Eiffel Tower, including its antennas, is indeed approximately 330 meters.
+
+Run 2:
+  value: accurate
+  rationale: The statement that the Eiffel Tower is 330 meters tall is factually accurate. The height of the Eiffel Tower, including its antennas, is indeed approximately 330 meters.
+
+Run 3:
+  value: accurate
+  rationale: The statement that the Eiffel Tower is 330 meters tall is factually accurate. The height of the Eiffel Tower, including its antennas, is indeed approximately 330 meters.
+
+[Result] All rationales identical: True
+[PASS] Deterministic behavior confirmed with temperature=0.0
+
+======================================================================
+  TEST 2: Varied Judge (temperature=1.0)
+======================================================================
+
+Judge: accuracy_check
+Model: openai:/gpt-4o-mini
+inference_params: {'temperature': 1.0}
+
+Test Input: {'answer': 'The Eiffel Tower is 330 meters tall.'}
+
+Running 3 evaluations (should produce varied rationales)...
+
+Run 1:
+  value: accurate
+  rationale: The Eiffel Tower's height is commonly cited as approximately 330 meters, including its antennas. This measurement is consistent with official statistics and recent data, making the output factually accurate.
+
+Run 2:
+  value: accurate
+  rationale: The provided output states that the Eiffel Tower is 330 meters tall, which is factually accurate. The Eiffel Tower, located in Paris, France, was completed in 1889 and is indeed 330 meters in height, including its antennas.
+
+Run 3:
+  value: accurate
+  rationale: The statement that the Eiffel Tower is 330 meters tall is factually accurate. The current height of the Eiffel Tower, including antennas, is approximately 330 meters, which reflects its official measurement.
+
+[Result] All rationales identical: False
+[PASS] Varied behavior confirmed with temperature=1.0
+
+======================================================================
+  TEST 3: Multiple Inference Parameters
+======================================================================
+
+Judge: quality_eval
+Model: openai:/gpt-4o-mini
+inference_params: {'temperature': 0.3, 'max_tokens': 200, 'top_p': 0.9}
+
+Test Input: {'response': 'Machine learning enables computers to learn from data.'}
+
+Running evaluation...
+
+value: Clear and Accurate
+rationale: The response clearly states that machine learning allows computers to learn from data, which accurately captures the essence of machine learning. The language is straightforward and easy to understand, making the concept accessible to a broad audience.
+
+[PASS] Multiple inference parameters work correctly
+
+======================================================================
+  TEST 4: Default Behavior (no inference_params)
+======================================================================
+
+Judge: default_eval
+Model: openai:/gpt-4o-mini
+inference_params: None
+
+[PASS] inference_params correctly defaults to None
+
+======================================================================
+  ALL TESTS PASSED
+======================================================================
+
+The inference_params feature is working correctly with LiteLLM!
