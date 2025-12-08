@@ -2,7 +2,7 @@ import { isNil } from 'lodash';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode } from './ModelTrace.types';
-import { getDefaultActiveTab, parseModelTraceToTree, searchTreeBySpanId } from './ModelTraceExplorer.utils';
+import { getDefaultActiveTab, parseModelTraceToTreeWithMultipleRoots, searchTreeBySpanId } from './ModelTraceExplorer.utils';
 import { getTimelineTreeNodesMap } from './timeline-tree/TimelineTree.utils';
 
 export type ModelTraceExplorerViewState = {
@@ -21,6 +21,9 @@ export type ModelTraceExplorerViewState = {
   isTraceInitialLoading?: boolean;
   assessmentsPaneEnabled: boolean;
   isInComparisonView: boolean;
+  // NB: There can be multiple top-level spans in the trace when it is in-progress. They are not
+  // root spans, but used as a tentative roots until the trace is complete.
+  topLevelNodes: ModelTraceSpanNode[];
 };
 
 export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplorerViewState>({
@@ -39,6 +42,7 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   isTraceInitialLoading: false,
   assessmentsPaneEnabled: true,
   isInComparisonView: false,
+  topLevelNodes: [],
 });
 
 export const useModelTraceExplorerViewState = () => {
@@ -67,7 +71,9 @@ export const ModelTraceExplorerViewStateProvider = ({
   isTraceInitialLoading?: boolean;
   isInComparisonView?: boolean;
 }) => {
-  const rootNode = useMemo(() => parseModelTraceToTree(modelTrace), [modelTrace]);
+  const topLevelNodes = useMemo(() => parseModelTraceToTreeWithMultipleRoots(modelTrace), [modelTrace]);
+  const rootNode = topLevelNodes.length === 1 ? topLevelNodes[0] : null;
+
   const nodeMap = useMemo(() => (rootNode ? getTimelineTreeNodesMap([rootNode]) : {}), [rootNode]);
   const selectedSpanOnRender = searchTreeBySpanId(rootNode, selectedSpanIdOnRender);
   const defaultSelectedNode = selectedSpanOnRender ?? rootNode ?? undefined;
@@ -107,6 +113,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       assessmentsPaneEnabled,
       isTraceInitialLoading,
       isInComparisonView,
+      topLevelNodes,
     }),
     [
       activeView,
@@ -121,6 +128,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       assessmentsPaneEnabled,
       isTraceInitialLoading,
       isInComparisonView,
+      topLevelNodes,
     ],
   );
 

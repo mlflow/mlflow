@@ -561,7 +561,26 @@ export function getModelTraceSize(trace: ModelTrace): number | null {
   return !isNil(size) && !isNaN(size) ? size : null;
 }
 
+/**
+ * Parses a model trace into a single tree starting with the root span.
+ * @param trace - The model trace to parse.
+ * @returns The tree starting with the root span.
+ */
 export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | null {
+  const topLevelSpans = parseModelTraceToTreeWithMultipleRoots(trace);
+  if (!topLevelSpans || topLevelSpans.length !== 1) {
+    return null;
+  }
+  return topLevelSpans[0];
+}
+
+/**
+ * Parses a model trace into a tree of ModelTraceSpanNodes.
+ * @param trace - The model trace to parse.
+ * @returns The top-level nodes in the trace. This is a single root span when the trace is complete,
+ * but can be multiple spans when the trace is in-progress and root span is not yet emitted.
+ */
+export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): ModelTraceSpanNode[] {
   const traceId = getModelTraceId(trace);
   const rawSpans = trace.trace_data?.spans ?? trace.data.spans;
 
@@ -571,10 +590,9 @@ export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | n
   const relationMap: { [span_id: string]: string[] } = {};
 
   if (!spans || spans.length === 0) {
-    return null;
+    return [];
   }
 
-  // Build lookup maps
   spans.forEach((span) => {
     const spanId = getModelTraceSpanId(span);
     spanMap[spanId] = span;
@@ -582,23 +600,15 @@ export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | n
   });
 
   // Populate child relationships only when the parent exists in the partial set
-  const topLevelSpanIds: string[] = [];
   spans.forEach((span) => {
     const spanId = getModelTraceSpanId(span);
     const parentId = getModelTraceSpanParentId(span);
-    if (parentId && relationMap[parentId]) {
-      relationMap[parentId].push(spanId);
-    } else if (!parentId || !relationMap[parentId]) {
-      // No parent or parent not present in this partial set → treat as top-level
-      topLevelSpanIds.push(spanId);
-    }
+    relationMap[parentId]?.push(spanId);
   });
 
-  // Compute a global time window for the tree (so partials render sanely)
-  const allStarts = spans.map((s) => getModelTraceSpanStartTime(s));
-  const allEnds = spans.map((s) => getModelTraceSpanEndTime(s));
-  const rootStart = Math.min(...allStarts);
-  const rootEnd = Math.max(...allEnds);
+  // Compute a global time window for the tree
+  const globalStartTime = Math.min(...spans.map((s) => getModelTraceSpanStartTime(s)));
+  const globalEndTime = Math.max(...spans.map((s) => getModelTraceSpanEndTime(s)));
   const assessmentMap = getAssessmentMap(trace.info);
 
   function getSpanNodeFromData(span_id: string): ModelTraceSpanNode {
@@ -606,43 +616,40 @@ export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | n
     const children = relationMap[span_id].map(getSpanNodeFromData);
 
     if (isV3ModelTraceSpan(span) || 'parent_id' in span) {
-      return normalizeNewSpanData(span, rootStart, rootEnd, children, assessmentMap, traceId);
+      return normalizeNewSpanData(span, globalStartTime, globalEndTime, children, assessmentMap, traceId);
     }
 
     // v1 spans
-    const spanType = (span as any).span_type ?? ModelSpanType.UNKNOWN;
+    const spanType = span.span_type ?? ModelSpanType.UNKNOWN;
     return {
-      title: (span as any).name,
+      title: span.name,
       icon: <ModelTraceExplorerIcon type={getIconTypeForSpan(spanType)} />,
       type: spanType as ModelSpanType,
-      key: (span as any).context.span_id,
-      start: Number((span as any).start_time) - rootStart,
-      end: Number((span as any).end_time ?? rootEnd) - rootStart,
-      children,
-      inputs: (span as any).inputs,
-      outputs: (span as any).outputs,
-      attributes: (span as any).attributes,
-      events: (span as any).events,
-      parentId: (span as any).parent_id ?? (span as any).parent_span_id,
+      key: span.context.span_id,
+      start: Number(span.start_time) - globalStartTime,
+      // default to the end of the root span if the span has no end time.
+      // this can happen if an exception was thrown in the span.
+      end: Number(span.end_time ?? globalEndTime) - globalStartTime,
+      children: children,
+      inputs: span.inputs,
+      outputs: span.outputs,
+      attributes: span.attributes,
+      events: span.events,
+      parentId: span.parent_id ?? span.parent_span_id,
       assessments: [],
       traceId,
     };
   }
 
-  // If we have exactly one true root (no parent) and no orphans, return it directly
-  const trueRoots = spans.filter((s) => !getModelTraceSpanParentId(s)).map(getModelTraceSpanId);
-  const hasSingleTrueRoot = trueRoots.length === 1 && topLevelSpanIds.every((id) => id === trueRoots[0]);
-  if (hasSingleTrueRoot) {
-    const root = getSpanNodeFromData(trueRoots[0]);
-    root.rootForest = [root];
-    return root;
-  }
-
-  // Otherwise, render a forest of top-level spans while the true root is still exporting.
-  const forest = topLevelSpanIds.map(getSpanNodeFromData);
-  const primaryRoot = forest[0];
-  primaryRoot.rootForest = forest;
-  return primaryRoot;
+  // While the trace is in-progress, there can be multiple top-level spans.
+  const topLevelNodes = new Array<ModelTraceSpanNode>();
+  spans.forEach((s) => {
+    const parentId = getModelTraceSpanParentId(s);
+    if (!parentId || !spanMap[parentId]) {
+      topLevelNodes.push(getSpanNodeFromData(getModelTraceSpanId(s)));
+    }
+  });
+  return topLevelNodes;
 }
 
 // returns a map of { [span_id: string] : Assessment[] }
@@ -965,7 +972,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
 };
 
 /**
- * Attempt to normalize a conversation, return null in case the format is unrecognized
+ * Attempt to normalize a conversation, return null in case the format is unrecognized.
+ * Defaults to checking OpenAI format if not provided, as it is a common case.
  *
  * Supported formats:
  *   1. Langchain chat inputs

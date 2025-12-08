@@ -15,13 +15,12 @@ import {
   getTimelineTreeNodesMap,
 } from '../timeline-tree/TimelineTree.utils';
 
-const getDefaultSpanFilterState = (treeNode: ModelTraceSpanNode | null): SpanFilterState => {
+const getDefaultSpanFilterState = (roots: ModelTraceSpanNode[]): SpanFilterState => {
   const spanTypeDisplayState: Record<string, boolean> = {};
 
   // populate the spanTypeDisplayState with
   // all span types that exist on the trace
-  if (treeNode) {
-    const roots = treeNode.rootForest ?? [treeNode];
+  if (roots) {
     const allSpanTypes = compact(getTimelineTreeNodesList<ModelTraceSpanNode>(roots).map((node) => node.type));
     allSpanTypes.forEach((spanType) => {
       spanTypeDisplayState[spanType] = true;
@@ -51,14 +50,14 @@ const getTabForMatch = (match: SearchMatch): ModelTraceExplorerTab => {
 };
 
 export const useModelTraceSearch = ({
-  treeNode,
+  treeNodes,
   selectedNode,
   setSelectedNode,
   setActiveTab,
   setExpandedKeys,
   modelTraceInfo,
 }: {
-  treeNode: ModelTraceSpanNode | null;
+  treeNodes: ModelTraceSpanNode[];
   selectedNode: ModelTraceSpanNode | undefined;
   setSelectedNode: (node: ModelTraceSpanNode) => void;
   setActiveTab: (tab: ModelTraceExplorerTab) => void;
@@ -79,19 +78,11 @@ export const useModelTraceSearch = ({
   handlePreviousSearchMatch: () => void;
 } => {
   const [searchFilter, setSearchFilter] = useState<string>('');
-  const [spanFilterState, setSpanFilterState] = useState<SpanFilterState>(() => getDefaultSpanFilterState(treeNode));
+  const [spanFilterState, setSpanFilterState] = useState<SpanFilterState>(() => getDefaultSpanFilterState(treeNodes));
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
   const { filteredTreeNodes, matches } = useMemo(() => {
-    if (isNil(treeNode)) {
-      return {
-        filteredTreeNodes: [],
-        matches: [],
-      };
-    }
-
-    const roots = treeNode.rootForest ?? [treeNode];
     // Run search over each root and merge results
-    const merged = roots.map((root) => searchTree(root, searchFilter, spanFilterState));
+    const merged = treeNodes.map((root) => searchTree(root, searchFilter, spanFilterState));
     return {
       filteredTreeNodes: merged.flatMap((r) => r.filteredTreeNodes),
       matches: merged.flatMap((r) => r.matches),
@@ -100,7 +91,7 @@ export const useModelTraceSearch = ({
     // using the whole object seems to cause the state to be reset at
     // unexpected times.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treeNode?.key, searchFilter, spanFilterState, modelTraceInfo]);
+  }, [treeNodes, searchFilter, spanFilterState, modelTraceInfo]);
 
   const nodeMap = useMemo(() => {
     return getTimelineTreeNodesMap(filteredTreeNodes);

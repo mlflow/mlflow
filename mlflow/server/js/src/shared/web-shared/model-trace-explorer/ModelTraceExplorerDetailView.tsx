@@ -59,42 +59,15 @@ export const ModelTraceExplorerDetailView = ({
     activeTab,
     setActiveTab,
     isInComparisonView,
+    topLevelNodes,
   } = useModelTraceExplorerViewState();
 
-  // Render a forest if provided (for in-progress traces lacking a single root).
-  const rootNodesForRender = useMemo(
-    () => (treeNode ? treeNode.rootForest ?? [treeNode] : []),
-    [treeNode],
-  );
 
   const { expandedKeys, setExpandedKeys } = useTimelineTreeExpandedNodes({
-    rootNodes: rootNodesForRender,
+    rootNodes: topLevelNodes,
     // nodes beyond this depth will be collapsed
     initialExpandDepth: DEFAULT_EXPAND_DEPTH,
   });
-
-  // Track which keys we've auto-expanded so we don't override user collapses on refresh
-  const seenAutoExpandedKeysRef = useRef<Set<string | number>>(new Set());
-
-  // When the tree switches roots (e.g., forest collapses into a true root once export completes),
-  // ensure the new root and default-depth nodes are expanded so the tree does not appear collapsed.
-  const prevRootKeyRef = useRef<string | number | undefined>(undefined);
-  useEffect(() => {
-    const currentRootKey = treeNode?.key;
-    const prevRootKey = prevRootKeyRef.current;
-
-    if (currentRootKey && currentRootKey !== prevRootKey) {
-      // Expand new root and default-depth nodes; keep prior expansions if still valid.
-      const defaultDepthKeys = values(getTimelineTreeNodesMap(rootNodesForRender, DEFAULT_EXPAND_DEPTH)).map(
-        (node) => node.key,
-      );
-      const next = new Set(expandedKeys);
-      defaultDepthKeys.forEach((k) => next.add(k));
-      setExpandedKeys(next);
-      seenAutoExpandedKeysRef.current = new Set(defaultDepthKeys.concat(Array.from(seenAutoExpandedKeysRef.current)));
-      prevRootKeyRef.current = currentRootKey;
-    }
-  }, [treeNode?.key, rootNodesForRender, expandedKeys, setExpandedKeys]);
 
   const {
     matchData,
@@ -106,7 +79,7 @@ export const ModelTraceExplorerDetailView = ({
     handleNextSearchMatch,
     handlePreviousSearchMatch,
   } = useModelTraceSearch({
-    treeNode,
+    treeNodes: topLevelNodes,
     selectedNode,
     setSelectedNode,
     setActiveTab,
@@ -123,34 +96,10 @@ export const ModelTraceExplorerDetailView = ({
 
   // initial render
   useLayoutEffect(() => {
-    // On first load, expand nodes up to the default depth.
-    // Do not reset expanded nodes on background refresh to avoid flicker.
-    if (!expandedKeys || expandedKeys.size === 0) {
-      const list = values(getTimelineTreeNodesMap(rootNodesForRender, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
-      const initial = new Set(list);
-      setExpandedKeys(initial);
-      // remember which keys we auto-expanded at bootstrap
-      seenAutoExpandedKeysRef.current = initial;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rootNodesForRender]);
-
-  // Ensure newly arrived spans are auto-expanded by default, but do not re-expand
-  // spans that the user has explicitly collapsed.
-  useEffect(() => {
-    const defaultDepthKeys = values(getTimelineTreeNodesMap(rootNodesForRender, DEFAULT_EXPAND_DEPTH)).map(
-      (node) => node.key,
-    );
-
-    // Only auto-expand keys we have never auto-expanded before (i.e., truly new)
-    const newKeys = defaultDepthKeys.filter((k) => !seenAutoExpandedKeysRef.current.has(k));
-    if (newKeys.length > 0) {
-      const next = new Set(expandedKeys);
-      newKeys.forEach((k) => next.add(k));
-      setExpandedKeys(next);
-      newKeys.forEach((k) => seenAutoExpandedKeysRef.current.add(k));
-    }
-  }, [rootNodesForRender, expandedKeys, setExpandedKeys]);
+    // expand all nodes up to the default depth when the tree changes
+    const list = values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
+    setExpandedKeys(new Set(list));
+  }, [filteredTreeNodes, setExpandedKeys]);
 
   const leftPaneMinWidth = useMemo(() => {
     // min width necessary to render all the spans in the tree accounting for indentation

@@ -10,7 +10,7 @@ import {
   Modal,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ModelTraceExplorer, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import { ModelTraceExplorer, ModelTraceInfoV3, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
@@ -19,6 +19,7 @@ import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace } from '../hooks/useGetTrace';
 import type { AssessmentInfo, EvalTraceComparisonEntry, SaveAssessmentsQuery } from '../types';
 import { shouldUseTracesV4API } from '../utils/FeatureUtils';
+import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 
 const MODAL_SPACING_REM = 4;
 const DEFAULT_MODAL_MARGIN_REM = 1;
@@ -109,7 +110,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
       [evaluations, previousEvaluationIdx],
     );
 
-  const tracesTableConfig = useGenAITracesTableConfig();
+    const tracesTableConfig = useGenAITracesTableConfig();
 
     const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo);
     const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo);
@@ -121,33 +122,24 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);
 
-  const currentTraceQueryResult =
+    const currentTraceQueryResult =
       selectedEvaluationId === evaluation?.currentRunValue?.evaluationId ? traceQueryResult : compareToTraceQueryResult;
 
-    // --- Auto-polling until root span is present ---
+    // --- Auto-polling until root span is present if the backend support returning partial spans ---
+    const spansLocation = getSpansLocation(evaluation?.currentRunValue?.traceInfo);
     const pollTimerRef = useRef<number | null>(null);
-
-    const hasTrueRoot = useCallback((trace?: ModelTrace | undefined) => {
-      if (!trace) return false;
-      const spans = (trace as any).trace_data?.spans ?? (trace as any).data?.spans ?? [];
-      if (!Array.isArray(spans) || spans.length === 0) return false;
-      return spans.some((s: any) => ('start_time_unix_nano' in s ? !s.parent_span_id : !s.parent_id));
+    const isTraceCompleted = useCallback((trace?: ModelTrace | undefined) => {
+      return !trace || (trace.info as ModelTraceInfoV3).state !== 'IN_PROGRESS';
     }, []);
 
-    const isTrackingStoreSpans = useCallback((trace?: ModelTrace | undefined) => {
-      const tags = (trace as any)?.info?.tags;
-      if (!tags) return false;
-      if (Array.isArray(tags)) {
-        return tags.some((t) => t?.key === 'mlflow.trace.spansLocation' && t?.value === 'TRACKING_STORE');
-      }
-      return tags['mlflow.trace.spansLocation'] === 'TRACKING_STORE';
-    }, []);
 
     useEffect(() => {
-      // Only poll for the active trace result
+      if (spansLocation !== TRACKING_STORE_SPANS_LOCATION) {
+        return;
+      }
+
       const activeResult = currentTraceQueryResult;
-      const canPoll = isTrackingStoreSpans(activeResult?.data) && !hasTrueRoot(activeResult?.data);
-      if (!canPoll) {
+      if (isTraceCompleted(activeResult?.data)) {
         // stop any existing timer
         if (pollTimerRef.current) {
           window.clearInterval(pollTimerRef.current);
@@ -155,11 +147,10 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
         }
         return;
       }
-      // start polling every 1s
+
+      // polling every second
       if (!pollTimerRef.current) {
-        pollTimerRef.current = window.setInterval(() => {
-          activeResult?.refetch?.();
-        }, 1000) as unknown as number;
+        pollTimerRef.current = window.setInterval(() => { activeResult?.refetch?.()}, 1000);
       }
       return () => {
         if (pollTimerRef.current) {
@@ -167,8 +158,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           pollTimerRef.current = null;
         }
       };
-      // re-evaluate when data or selected evaluation changes
-    }, [currentTraceQueryResult, hasTrueRoot, isTrackingStoreSpans]);
+    }, [currentTraceQueryResult]);
 
     if (isNil(evaluation)) {
       return <></>;
@@ -210,8 +200,8 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           }}
           footer={null} // Hide the footer
         >
-          {/* Show skeleton only for initial load (no data yet), not for background refetches */}
-          {!currentTraceQueryResult.data && (currentTraceQueryResult.isLoading || currentTraceQueryResult.isFetching) && (
+          {/* Only show skeleton for the first fetch to avoid flickering when polling new spans */}
+          {!currentTraceQueryResult.data && currentTraceQueryResult.isFetching && (
             <GenericSkeleton
               label="Loading trace..."
               style={{
@@ -257,24 +247,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
             )
           }
         </Modal>
-        {/* Manual refresh button overlay (top-right) */}
-        <div
-          css={{
-            position: 'fixed',
-            top: theme.spacing.lg,
-            right: theme.spacing.lg,
-            zIndex: 2000,
-            opacity: 0.85,
-            '&:hover': { opacity: 1 },
-          }}
-        >
-          <Button
-            componentId="mlflow.evaluations_review.modal.refresh_trace"
-            icon={<RefreshIcon />}
-            onClick={() => currentTraceQueryResult.refetch?.()}
-            disabled={currentTraceQueryResult.isFetching}
-          />
-        </div>
         <div
           css={{
             display: 'flex',
