@@ -182,6 +182,7 @@ export const TableFilterItemValueInput = ({
     );
   }
 
+  // Only available in OSS
   if (tableFilter.column === LINKED_PROMPTS_COLUMN_ID) {
     const promptOptions = tableFilterOptions.prompt || [];
     return (
