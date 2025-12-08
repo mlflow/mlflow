@@ -659,6 +659,7 @@ export const createMlflowSearchFilter = (
         case LOGGED_MODEL_COLUMN_ID:
           filter.push(`request_metadata."mlflow.modelId" = '${networkFilter.value}'`);
           break;
+        // Only available in OSS
         case LINKED_PROMPTS_COLUMN_ID:
           filter.push(`prompt = '${networkFilter.value}'`);
           break;
