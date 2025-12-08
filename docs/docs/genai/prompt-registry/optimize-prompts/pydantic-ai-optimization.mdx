@@ -63,6 +63,7 @@ user_prompt = mlflow.genai.register_prompt(
 
 
 # Step 2: Create a prediction function that uses Pydantic AI
+@mlflow.trace
 def predict_fn(query):
     # Load prompts from registry
     system_prompt = mlflow.genai.load_prompt("prompts:/customer-support-system@latest")
