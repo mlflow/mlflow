@@ -2118,16 +2118,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         with self.ManagedSessionMaker() as session:
-            queyr  = (
-                self._get_query(session, SqlLoggedModel)
-                .filter(
-                    SqlLoggedModel.model_id == model_id,
-                    SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
-                )
+            queyr = self._get_query(session, SqlLoggedModel).filter(
+                SqlLoggedModel.model_id == model_id,
+                SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             )
             if not allow_deleted:
                 query = query.filter(SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED)
-                
+
             logged_model = query.first()
             if not logged_model:
                 self._raise_model_not_found(model_id)
