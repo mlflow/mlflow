@@ -31,7 +31,7 @@ function isAllowedPath(path, rule) {
 }
 
 function isExempted(authorLogin, files) {
-  let filesToCheck = files.slice();
+  let filesToCheck = files;
   for (const rule of EXEMPTION_RULES) {
     if (rule.authors.includes(authorLogin)) {
       filesToCheck = filesToCheck.filter(
