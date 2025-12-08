@@ -1966,6 +1966,44 @@ service MlflowService {
       rpc_doc_title: "Get Secrets Config"
     };
   }
+
+  // ========== UI Telemetry APIs ==========
+
+  // Get telemetry configuration for the UI client.
+  rpc getUITelemetryConfig(GetUITelemetryConfig) returns (GetUITelemetryConfig.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/telemetry"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get UI Telemetry Configuration"
+    };
+  }
+
+  // Ingest batched telemetry records from UI clients
+  rpc uploadUITelemetryRecords(UploadUITelemetryRecords) returns (UploadUITelemetryRecords.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/telemetry"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Upload UI Telemetry Records"
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -4373,4 +4411,52 @@ message GetSecretsConfig {
     // Whether the server is configured to handle secrets (encryption available)
     optional bool secrets_available = 1;
   }
+}
+
+// =============================================================================
+// UI Telemetry Messages
+// =============================================================================
+
+// Get UI telemetry configuration.
+message GetUITelemetryConfig {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {
+    // Whether UI telemetry is disabled
+    optional bool disable_ui_telemetry = 1;
+    // List of events that we should not log
+    repeated string disable_ui_events = 2;
+    // Float from 0-100 indicating sampling rate
+    optional double ui_rollout_percentage = 3;
+  }
+}
+
+// Upload UI telemetry records.
+message UploadUITelemetryRecords {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  repeated TelemetryRecord records = 1;
+
+  message Response {
+    optional string status = 1;
+  }
+}
+
+// A single telemetry record from the UI client.
+message TelemetryRecord {
+  // Name of the telemetry event. For UI events, this will always be "ui_event" in order
+  // for them to easily be filtered out of the ETL pipeline. The actual componentIds
+  // and other metadata are stored in params
+  optional string event_name = 1;
+
+  optional int64 timestamp_ns = 2;
+
+  // arbitrary dict of key: value pairs
+  optional string params = 3;
+
+  // Random UUID that is stored in a browser's LocalStorage
+  optional string installation_id = 4;
+
+  // Random UUID representing the current UI session
+  optional string session_id = 5;
 }
