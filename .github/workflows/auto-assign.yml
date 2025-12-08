@@ -25,10 +25,10 @@ jobs:
             const { owner, repo } = context.repo;
             const maintainers = ["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"];
 
-            // Get current time minus 4 hours to look for recent comments and PRs (with buffer since we run every 3 hours)
-            const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+            // Get current time minus 200 minutes to look for recent comments and PRs (provides buffer beyond 3-hour cron schedule to avoid missing comments during execution overlap)
+            const lookbackTime = new Date(Date.now() - 200 * 60 * 1000);
 
-            // Get recent PRs (stop pagination when we hit PRs older than 4 hours)
+            // Get recent PRs (stop pagination when we hit PRs older than 200 minutes)
             const prs = [];
 
             outer: for await (const response of github.paginate.iterator(github.rest.pulls.list, {
@@ -40,7 +40,7 @@ jobs:
             })) {
               for (const pr of response.data) {
                 const updatedAt = new Date(pr.updated_at);
-                if (updatedAt > fourHoursAgo) {
+                if (updatedAt > lookbackTime) {
                   prs.push(pr);
                 } else {
                   break outer;
@@ -60,13 +60,13 @@ jobs:
                   owner,
                   repo,
                   issue_number: pr.number,
-                  since: fourHoursAgo.toISOString()
+                  since: lookbackTime.toISOString()
                 }),
                 github.rest.pulls.listReviewComments({
                   owner,
                   repo,
                   pull_number: pr.number,
-                  since: fourHoursAgo.toISOString()
+                  since: lookbackTime.toISOString()
                 })
               ]);
 
@@ -87,15 +87,13 @@ jobs:
               const maintainersToAssign = [...new Set(maintainerComments.map(c => c.user.login))];
 
               // Assign maintainers
-              if (maintainersToAssign.length > 0) {
-                await github.rest.issues.addAssignees({
-                  owner,
-                  repo,
-                  issue_number: pr.number,
-                  assignees: maintainersToAssign,
-                });
-                console.log(`Assigned [${maintainersToAssign.join(', ')}] to PR #${pr.number}`);
-              }
+              await github.rest.issues.addAssignees({
+                owner,
+                repo,
+                issue_number: pr.number,
+                assignees: maintainersToAssign,
+              });
+              console.log(`Assigned [${maintainersToAssign.join(', ')}] to PR #${pr.number}`);
             }
 
             console.log('Scan completed');
