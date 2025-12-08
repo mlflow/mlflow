@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
-    from mlflow.types.llm import ChatMessage
+    from mlflow.types.llm import ChatMessage, ToolDefinition
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -22,10 +22,8 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
-from mlflow.genai.judges.tools import list_judge_tools
 from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, REQUEST_LIMIT_EXCEEDED
-from mlflow.types.llm import ToolDefinition
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -307,6 +305,8 @@ def _invoke_databricks_default_judge(
         tools = None
         model = None
         if trace is not None:
+            from mlflow.genai.judges.tools import list_judge_tools
+
             tools = [tool.get_definition() for tool in list_judge_tools()]
             model = _DATABRICKS_AGENTIC_JUDGE_MODEL
 
