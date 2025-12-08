@@ -19,81 +19,9 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
-            const { owner, repo } = context.repo;
-            const maintainers = ["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"];
-
-            // Get current time minus 200 minutes to look for recent comments and PRs (provides buffer beyond 3-hour cron schedule to avoid missing comments during execution overlap)
-            const lookbackTime = new Date(Date.now() - 200 * 60 * 1000);
-
-            // Get recent PRs (stop pagination when we hit PRs older than 200 minutes)
-            const prs = [];
-
-            outer: for await (const response of github.paginate.iterator(github.rest.pulls.list, {
-              owner,
-              repo,
-              state: 'open',
-              sort: 'updated',
-              direction: 'desc'
-            })) {
-              for (const pr of response.data) {
-                const updatedAt = new Date(pr.updated_at);
-                if (updatedAt > lookbackTime) {
-                  prs.push(pr);
-                } else {
-                  break outer;
-                }
-              }
-            }
-
-            console.log(`Scanning ${prs.length} recently updated PRs`);
-
-            for (const pr of prs) {
-              const prAuthor = pr.user.login;
-              const currentAssignees = pr.assignees.map(a => a.login);
-
-              // Get recent comments (both issue and review comments)
-              const [issueComments, reviewComments] = await Promise.all([
-                github.rest.issues.listComments({
-                  owner,
-                  repo,
-                  issue_number: pr.number,
-                  since: lookbackTime.toISOString()
-                }),
-                github.rest.pulls.listReviewComments({
-                  owner,
-                  repo,
-                  pull_number: pr.number,
-                  since: lookbackTime.toISOString()
-                })
-              ]);
-
-              const allComments = [...issueComments.data, ...reviewComments.data];
-
-              // Process maintainer comments
-              const maintainerComments = allComments.filter(c =>
-                maintainers.includes(c.user.login) &&
-                c.user.login !== prAuthor &&
-                !currentAssignees.includes(c.user.login)
-              );
-
-              if (maintainerComments.length === 0) {
-                continue;
-              }
-
-              // Get unique maintainers to assign
-              const maintainersToAssign = [...new Set(maintainerComments.map(c => c.user.login))];
-
-              // Assign maintainers
-              await github.rest.issues.addAssignees({
-                owner,
-                repo,
-                issue_number: pr.number,
-                assignees: maintainersToAssign,
-              });
-              console.log(`Assigned [${maintainersToAssign.join(', ')}] to PR #${pr.number}`);
-            }
-
-            console.log('Scan completed');
+            const script = require('./.github/workflows/auto-assign.js');
+            await script({ github, context });
