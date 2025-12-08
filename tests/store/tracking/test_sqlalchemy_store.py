@@ -2407,9 +2407,9 @@ def test_search_with_max_results(store: SqlAlchemyStore):
                 name="name",
                 experiment_id=int(exp),
                 user_id="Anderson",
-                status="RUNNING",
+                status=RunStatus.to_string(RunStatus.RUNNING),
                 start_time=i,
-                lifecycle_stage="active",
+                lifecycle_stage=entities.LifecycleStage.ACTIVE,
             )
             for i, run_uuid in enumerate(run_uuids)
         )
