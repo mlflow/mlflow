@@ -1,34 +1,34 @@
 # A special tag in RegisteredModel to indicate that it is a prompt
-IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
+import re
 
+IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
 # A special tag in ModelVersion to store the prompt text
 PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 
-# OSS tags (dots allowed)
+# Unity Catalog tags cannot contain dots
 PROMPT_TYPE_TAG_KEY = "mlflow.prompt.type"
-RESPONSE_FORMAT_TAG_KEY = "mlflow.prompt.response_format"
-LINKED_PROMPTS_TAG_KEY = "mlflow.prompt.linked_prompts"
-
-# Unity Catalog-compatible tags (no dots)
-PROMPT_TYPE_TAG_KEY_UC = "_mlflow_prompt_type"
-RESPONSE_FORMAT_TAG_KEY_UC = "_mlflow_prompt_response_format"
+RESPONSE_FORMAT_TAG_KEY = "mlflow.prompt.response.format"
 
 # Prompt types
 PROMPT_TYPE_TEXT = "text"
 PROMPT_TYPE_CHAT = "chat"
-PROMPT_TYPE_JINJA2 = "jinja2"   # ← 너가 추가해야 하는 부분 맞음
+PROMPT_TYPE_JINJA2 = "jinja2"
 
-# Associated runs & experiments
+# Linked prompt key
+LINKED_PROMPTS_TAG_KEY = "mlflow.linkedPrompts"
+
+# A special tag to store associated run IDs for prompts
 PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.associatedRunIds"
+
+# A special tag to store associated experiment IDs for prompts (comma-separated list)
+# Using underscore prefix for Unity Catalog compatibility (UC tags cannot contain dots)
 PROMPT_EXPERIMENT_IDS_TAG_KEY = "_mlflow_experiment_ids"
 
-# Template variable regex
-import re
 PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(
     r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}"
 )
 
 PROMPT_TEXT_DISPLAY_LIMIT = 30
 
-# Valid prompt name rule
+# Alphanumeric, underscore, hyphen, and dot are allowed in prompt name
 PROMPT_NAME_RULE = re.compile(r"^[a-zA-Z0-9_.-]+$")
