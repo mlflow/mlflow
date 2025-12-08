@@ -4,7 +4,7 @@ from typing import Any
 from mlflow.entities._mlflow_object import _MlflowObject
 
 
-@dataclass
+@dataclass(frozen=True)
 class GatewaySecretInfo(_MlflowObject):
     """
     Metadata about an encrypted secret for authenticating with LLM providers.
@@ -17,6 +17,11 @@ class GatewaySecretInfo(_MlflowObject):
     (Additional Authenticated Data) during AES-GCM encryption. If either is modified
     in the database, decryption will fail. To "rename" a secret, create a new one with
     the desired name and delete the old one. See mlflow/utils/crypto.py:_create_aad().
+
+    This dataclass is frozen (immutable) because:
+    1. It represents a read-only view of database state
+    2. secret_id and secret_name must never be modified (used in encryption AAD)
+    3. Database triggers also enforce immutability of these fields
 
     Args:
         secret_id: Unique identifier for this secret. IMMUTABLE - used in AAD for encryption.

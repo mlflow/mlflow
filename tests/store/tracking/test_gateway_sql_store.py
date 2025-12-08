@@ -198,6 +198,38 @@ def test_list_secret_infos(store: SqlAlchemyStore):
     assert all(s.provider == "openai" for s in openai_secrets)
 
 
+def test_secret_id_and_name_are_immutable_at_database_level(store: SqlAlchemyStore):
+    """
+    Verify that secret_id and secret_name cannot be modified at the database level.
+
+    These fields are used as AAD (Additional Authenticated Data) in AES-GCM encryption.
+    If they are modified, decryption will fail. A database trigger enforces this immutability
+    to prevent any code path from accidentally allowing mutation.
+    """
+    from sqlalchemy import text
+    from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
+
+    secret = store.create_secret(
+        secret_name="immutable-test",
+        secret_value="test-value",
+        provider="openai",
+    )
+
+    def attempt_mutation(session):
+        session.execute(
+            text("UPDATE secrets SET secret_name = :new_name WHERE secret_id = :id"),
+            {"new_name": "modified-name", "id": secret.secret_id},
+        )
+        session.flush()
+
+    with store.ManagedSessionMaker() as session:
+        with pytest.raises((DatabaseError, IntegrityError, OperationalError)):
+            attempt_mutation(session)
+
+    retrieved = store.get_secret_info(secret_id=secret.secret_id)
+    assert retrieved.secret_name == "immutable-test"
+
+
 # =============================================================================
 # Model Definition Operations
 # =============================================================================

@@ -148,7 +148,7 @@ def test_encrypt_with_custom_nonce():
     plaintext = b"Test data"
     custom_nonce = os.urandom(GCM_NONCE_LENGTH)
 
-    result = _encrypt_with_aes_gcm(plaintext, dek, _nonce=custom_nonce)
+    result = _encrypt_with_aes_gcm(plaintext, dek, _nonce_for_testing=custom_nonce)
     assert result.nonce == custom_nonce
 
 
@@ -207,7 +207,7 @@ def test_encrypt_with_wrong_nonce_length_raises(bad_nonce):
     dek = _generate_dek()
     plaintext = b"Test"
     with pytest.raises(ValueError, match="Nonce must be 12 bytes"):
-        _encrypt_with_aes_gcm(plaintext, dek, _nonce=bad_nonce)
+        _encrypt_with_aes_gcm(plaintext, dek, _nonce_for_testing=bad_nonce)
 
 
 def test_decrypt_with_wrong_key_fails():

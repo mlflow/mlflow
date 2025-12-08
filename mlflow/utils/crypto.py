@@ -232,19 +232,17 @@ def _generate_dek() -> bytes:
 
 
 def _encrypt_with_aes_gcm(
-    plaintext: bytes, key: bytes, *, aad: bytes | None = None, _nonce: bytes | None = None
+    plaintext: bytes,
+    key: bytes,
+    *,
+    aad: bytes | None = None,
+    _nonce_for_testing: bytes | None = None,
 ) -> AESGCMResult:
     """
     Encrypt plaintext using AES-256-GCM. INTERNAL FUNCTION.
 
     AES-GCM provides authenticated encryption with associated data (AEAD),
     which means tampering is detected automatically during decryption.
-
-    NB: This is a private function. The _nonce parameter is intentionally named with an
-    underscore prefix and is keyword-only to discourage external use. In normal operation,
-    callers should NOT provide _nonce - let it default to None for cryptographically secure
-    random nonce generation. The _nonce parameter exists ONLY for testing purposes where
-    deterministic behavior is required for assertions.
 
     CRITICAL: Never reuse a nonce with the same key. Nonce reuse completely compromises
     AES-GCM security, allowing attackers to recover plaintext and forge messages.
@@ -255,8 +253,9 @@ def _encrypt_with_aes_gcm(
         aad: Optional Additional Authenticated Data. If provided, this data is
              authenticated but not encrypted. Useful for binding encryption to
              metadata (e.g., secret_id + secret_name) to prevent substitution attacks.
-        _nonce: TESTING ONLY. 12-byte nonce. If None (default), generates random nonce.
-                DO NOT use this parameter in production code.
+        _nonce_for_testing: FOR TESTING ONLY. 12-byte nonce for deterministic encryption
+            in tests. In production, leave as None to generate a cryptographically secure
+            random nonce. DO NOT use this parameter in production code.
 
     Returns:
         AESGCMResult with nonce and ciphertext
@@ -273,12 +272,14 @@ def _encrypt_with_aes_gcm(
     if len(key) != AES_256_KEY_LENGTH:
         raise ValueError(f"Key must be {AES_256_KEY_LENGTH} bytes (256 bits), got {len(key)}")
 
-    if _nonce is None:
+    if _nonce_for_testing is None:
         nonce = os.urandom(GCM_NONCE_LENGTH)
-    elif len(_nonce) != GCM_NONCE_LENGTH:
-        raise ValueError(f"Nonce must be {GCM_NONCE_LENGTH} bytes (96 bits), got {len(_nonce)}")
+    elif len(_nonce_for_testing) != GCM_NONCE_LENGTH:
+        raise ValueError(
+            f"Nonce must be {GCM_NONCE_LENGTH} bytes (96 bits), got {len(_nonce_for_testing)}"
+        )
     else:
-        nonce = _nonce
+        nonce = _nonce_for_testing
 
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
