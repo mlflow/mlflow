@@ -271,10 +271,8 @@ export const useSearchMlflowTraces = ({
   error?: NetworkRequestError;
   refetchMlflowTraces?: UseQueryResult<ModelTraceInfoV3[], NetworkRequestError>['refetch'];
 } => {
-  const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
-
-  // For APIS <=v3, filter traces by assessments or search query on the client side
-  const useClientSideFiltering = !usingV4APIs;
+  // Client-side filtering is always disabled in OSS MLflow. It is only used in Databricks.
+  const useClientSideFiltering = false;
 
   const { networkFilters, clientFilters } = useMemo(
     () => getNetworkAndClientFilters(filters || [], /* assessmentsFilteredOnClientSide */ false),

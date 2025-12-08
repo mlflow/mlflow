@@ -995,7 +995,7 @@ describe('useSearchMlflowTraces', () => {
     expect((result.current.data?.[0].assessments?.[1] as FeedbackAssessment)?.feedback?.value).toBe('pass');
   });
 
-  it('handles search query filtering', async () => {
+  it('handles search query filtering via backend', async () => {
     jest.mocked(fetchFn).mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -1005,18 +1005,12 @@ describe('useSearchMlflowTraces', () => {
             request: '{"input": "value1"}',
             response: '{"output": "value"}',
           },
-          {
-            trace_id: 'trace_2',
-            request: '{"input": "value2"}',
-            response: '{"output": "value"}',
-          },
         ] as ModelTraceInfoV3[],
         next_page_token: undefined,
       }),
     } as any);
 
-    // handles searching in experiment view with search filter
-    const { result: result2 } = renderHook(
+    const { result } = renderHook(
       () =>
         useSearchMlflowTraces({
           locations: [
@@ -1027,38 +1021,22 @@ describe('useSearchMlflowTraces', () => {
               },
             },
           ],
-          searchQuery: 'value1',
+          searchQuery: 'test query',
         }),
       {
         wrapper: createWrapper(),
       },
     );
 
-    await waitFor(() => expect(result2.current.isLoading).toBe(false));
-    expect(result2.current.data).toHaveLength(1);
-    expect(result2.current.data?.[0].trace_id).toBe('trace_1');
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const { result: result3 } = renderHook(
-      () =>
-        useSearchMlflowTraces({
-          locations: [
-            {
-              type: 'MLFLOW_EXPERIMENT',
-              mlflow_experiment: {
-                experiment_id: 'experiment-xyz',
-              },
-            },
-          ],
-          searchQuery: 'value2',
-        }),
-      {
-        wrapper: createWrapper(),
-      },
-    );
+    // Verify the search query was sent to the backend
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body).filter).toContain("span.attributes.`mlflow.spanInputs` ILIKE '%test query%'");
 
-    await waitFor(() => expect(result3.current.isLoading).toBe(false));
-    expect(result3.current.data).toHaveLength(1);
-    expect(result3.current.data?.[0].trace_id).toBe('trace_2');
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0].trace_id).toBe('trace_1');
   });
 
   it('uses server-side assessment filters when applicable', async () => {
