@@ -143,26 +143,33 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
         _logger.info("Created new ECR repository: %s", image)
     registry = f"{account}.dkr.ecr.{region}.amazonaws.com"
 
-    # Docker login: get password from AWS CLI and pipe to docker login
-    _logger.info("Logging in to ECR registry: %s", registry)
-    aws_result = subprocess.run(
-        ["aws", "ecr", "get-login-password"],
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["docker", "login", "--username", "AWS", "--password-stdin", registry],
-        input=aws_result.stdout,
-        check=True,
-    )
+    try:
+        # Docker login: get password from AWS CLI and pipe to docker login
+        _logger.info("Logging in to ECR registry: %s", registry)
+        aws_result = subprocess.run(
+            ["aws", "ecr", "get-login-password"],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["docker", "login", "--username", "AWS", "--password-stdin", registry],
+            input=aws_result.stdout,
+            capture_output=True,
+            check=True,
+        )
 
-    # Docker tag
-    _logger.info("Tagging image %s as %s", image, fullname)
-    subprocess.run(["docker", "tag", image, fullname], check=True)
+        # Docker tag
+        _logger.info("Tagging image %s as %s", image, fullname)
+        subprocess.run(["docker", "tag", image, fullname], capture_output=True, check=True)
 
-    # Docker push
-    _logger.info("Pushing image %s", fullname)
-    subprocess.run(["docker", "push", fullname], check=True)
+        # Docker push
+        _logger.info("Pushing image %s", fullname)
+        subprocess.run(["docker", "push", fullname], capture_output=True, check=True)
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode() if e.stderr else str(e)
+        raise MlflowException(
+            f"Failed to push image to ECR. Command '{' '.join(e.cmd)}' failed: {error_msg}"
+        ) from e
 
 
 def _deploy(
