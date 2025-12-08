@@ -9,7 +9,7 @@ async function getMaintainers({ github, context }) {
     .sort();
 }
 
-module.exports = async ({ github, context }) => {
+module.exports = async ({ github, context, skipAssignment = false }) => {
   const { owner, repo } = context.repo;
   const maintainers = new Set(await getMaintainers({ github, context }));
 
@@ -62,13 +62,19 @@ module.exports = async ({ github, context }) => {
     }
 
     // Assign maintainers
-    await github.rest.issues.addAssignees({
-      owner,
-      repo,
-      issue_number: pr.number,
-      assignees: maintainersToAssign,
-    });
-    console.log(`Assigned [${maintainersToAssign.join(", ")}] to PR #${pr.number}`);
+    if (!skipAssignment) {
+      await github.rest.issues.addAssignees({
+        owner,
+        repo,
+        issue_number: pr.number,
+        assignees: maintainersToAssign,
+      });
+    }
+    console.log(
+      `${skipAssignment ? "[DRY RUN] Would assign" : "Assigned"} [${maintainersToAssign.join(
+        ", "
+      )}] to PR #${pr.number}`
+    );
   }
 
   console.log("Scan completed");
