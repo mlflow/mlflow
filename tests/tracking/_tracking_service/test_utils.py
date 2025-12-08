@@ -6,11 +6,14 @@ import uuid
 from importlib import reload
 from pathlib import Path
 from unittest import mock
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import pytest
 
 import mlflow
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_TOKEN,
@@ -28,6 +31,7 @@ from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _get_tracking_scheme,
     _resolve_tracking_uri,
+    _use_tracking_uri,
     get_tracking_uri,
     set_tracking_uri,
 )
@@ -92,6 +96,24 @@ def test_get_store_with_mlruns_dir_but_no_meta_yaml(tmp_path, monkeypatch):
 
     store = _get_store()
     assert isinstance(store, SqlAlchemyStore)
+
+
+def test_default_sqlite_tracking_uri_respects_cwd(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with _use_tracking_uri(None):
+        store = _get_store()
+
+    assert isinstance(store, SqlAlchemyStore)
+    sqlite_uri = store.db_uri
+    assert sqlite_uri.startswith("sqlite:")
+    parsed = urlparse(sqlite_uri)
+    path = parsed.path
+    if not parsed.netloc and path.startswith("//"):
+        path = path[1:]
+    if parsed.netloc:
+        path = f"//{parsed.netloc}{path}"
+    db_path = Path(url2pathname(path))
+    assert db_path.parent == tmp_path
 
 
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
@@ -179,6 +201,7 @@ def test_get_store_rest_store_with_no_insecure(monkeypatch):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
@@ -193,6 +216,10 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
             # Accordingly, we mock `SqlAlchemyStore.search_experiments`
             "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
             return_value=[],
+        ),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._initialize_store_state",
+            return_value=None,
         ),
     ):
         store = _get_store()
@@ -213,6 +240,7 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     artifact_uri = "file:artifact/path"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
@@ -225,6 +253,10 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
         mock.patch(
             "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
             return_value=[],
+        ),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._initialize_store_state",
+            return_value=None,
         ),
     ):
         store = _get_store(artifact_uri=artifact_uri)
