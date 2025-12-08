@@ -1520,7 +1520,7 @@ class GraphQLAuthorizationMiddleware:
             if store.get_user(username).is_admin:
                 return next(root, info, **args)
         except Exception:
-            _logger.warning("GraphQL authorization failed - auth system error", exc_info=True)
+            _logger.warning("GraphQL authorization failed: auth system error", exc_info=True)
             return None
 
         try:
