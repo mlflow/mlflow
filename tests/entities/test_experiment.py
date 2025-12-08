@@ -2,7 +2,7 @@ from mlflow.entities import Experiment, LifecycleStage
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-from tests.helper_functions import random_file, random_int
+from tests.helper_functions import random_file, random_int, random_str
 
 
 def _check(
@@ -104,3 +104,24 @@ def test_string_repr():
         "last_update_time=1662004217511, lifecycle_stage='active', name='myname', tags={}, "
         "workspace='default'>"
     )
+
+
+def test_experiment_non_default_workspace_round_trip():
+    workspace = f"team-{random_str()}"
+    exp = Experiment(
+        experiment_id=str(random_int()),
+        name=f"exp_{random_int()}",
+        artifact_location="dbfs:/mlflow/workspace-test",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+        creation_time=1662004217511,
+        last_update_time=1662004218511,
+        workspace=workspace,
+    )
+
+    as_dict = dict(exp)
+    assert as_dict["workspace"] == workspace
+    as_dict.pop("tags", None)
+
+    hydrated = Experiment.from_dictionary(as_dict)
+    assert hydrated.workspace == workspace
+    assert workspace in str(hydrated)
