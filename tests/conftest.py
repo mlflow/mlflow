@@ -28,7 +28,6 @@ from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
@@ -537,11 +536,10 @@ def tmp_experiment_for_tracing_sdk_test(monkeypatch):
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
-def tracking_uri_mock(tmp_path, request):
+def tracking_uri_mock(db_uri: str, request: pytest.FixtureRequest) -> Iterator[str | None]:
     if "notrackingurimock" not in request.keywords:
-        tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
-        with _use_tracking_uri(tracking_uri):
-            yield tracking_uri
+        with _use_tracking_uri(db_uri):
+            yield db_uri
     else:
         yield None
 
@@ -877,13 +875,18 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     tmp_dir = tmp_path_factory.mktemp("sqlite_db")
     db_path = tmp_dir / "mlflow.db"
 
-    if not IS_TRACING_SDK_ONLY:
-        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    if IS_TRACING_SDK_ONLY:
+        return db_path
 
-        db_uri = f"sqlite:///{db_path}"
-        artifact_uri = (tmp_dir / "artifacts").as_uri()
-        store = SqlAlchemyStore(db_uri, artifact_uri)
-        store.engine.dispose()
+    try:
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    except ImportError:
+        return db_path
+
+    db_uri = f"sqlite:///{db_path}"
+    artifact_uri = (tmp_dir / "artifacts").as_uri()
+    store = SqlAlchemyStore(db_uri, artifact_uri)
+    store.engine.dispose()
 
     return db_path
 
@@ -894,7 +897,7 @@ def db_uri(cached_db: Path) -> Iterator[str]:
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         db_path = Path(tmp_dir) / "mlflow.db"
 
-        if not IS_TRACING_SDK_ONLY:
+        if not IS_TRACING_SDK_ONLY and cached_db.exists():
             shutil.copy2(cached_db, db_path)
 
         yield f"sqlite:///{db_path}"
