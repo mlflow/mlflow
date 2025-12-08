@@ -27,16 +27,24 @@ def test_client_register_prompt_detects_jinja2(monkeypatch):
 
     created_versions = []
 
-    # Monkeypatch create_model_version to capture tags
     def mock_create_model_version(name, description, source, tags):
         created_versions.append(tags)
+
         class Dummy:
-            version = 1
-        return Dummy()
+            def __init__(self, name, description, tags):
+                self.version = 1
+                self.name = name
+                self.description = description
+                self.tags = tags
+                self.aliases = []
+                self.creation_timestamp = None
+                self.last_updated_timestamp = None
+                self.user_id = None
+
+        return Dummy(name, description, tags)
 
     monkeypatch.setattr(client._get_registry_client(), "create_model_version", mock_create_model_version)
 
-    # Run registration with Jinja2 template
     template = "Hello {{ user }} from {% if country %}{{ country }}{% else %}somewhere{% endif %}"
     client.register_prompt(name="jinja-detect", template=template)
 
@@ -47,16 +55,28 @@ def test_client_register_prompt_detects_jinja2(monkeypatch):
 # 5. Fallback for plain text templates
 def test_client_register_prompt_plain_text(monkeypatch):
     client = MlflowClient()
+
     created_versions = []
 
     def mock_create_model_version(name, description, source, tags):
         created_versions.append(tags)
+
         class Dummy:
-            version = 1
-        return Dummy()
+            def __init__(self, name, description, tags):
+                self.version = 1
+                self.name = name
+                self.description = description
+                self.tags = tags
+                self.aliases = []
+                self.creation_timestamp = None
+                self.last_updated_timestamp = None
+                self.user_id = None
+
+        return Dummy(name, description, tags)
 
     monkeypatch.setattr(client._get_registry_client(), "create_model_version", mock_create_model_version)
 
     client.register_prompt(name="plain-detect", template="Hello {{name}}")
+
     tags = created_versions[0]
-    assert tags["mlflow.prompt.type"] in ["text", PROMPT_TYPE_JINJA2]
+    assert tags["mlflow.prompt.type"] == "text"   

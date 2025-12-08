@@ -68,6 +68,7 @@ from mlflow.prompt.constants import (
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_JINJA2,
     PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
@@ -642,12 +643,34 @@ class MlflowClient:
         # Version metadata is represented as ModelVersion tags in the registry
         tags = tags or {}
         tags.update({IS_PROMPT_TAG_KEY: "true"})
+
         if isinstance(template, list):
-            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT})
-            tags.update({PROMPT_TEXT_TAG_KEY: json.dumps(template)})
+            # Chat prompt
+            tags.update({
+                PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT,
+                PROMPT_TEXT_TAG_KEY: json.dumps(template),
+            })
+
+        elif isinstance(template, str):
+            # Jinja2 detection
+            if "{%" in template and "%}" in template:
+                tags.update({
+                    PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_JINJA2,
+                    PROMPT_TEXT_TAG_KEY: template,
+                })
+            else:
+                # Plain text prompt
+                tags.update({
+                    PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT,
+                    PROMPT_TEXT_TAG_KEY: template,
+                })
+
         else:
-            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT})
-            tags.update({PROMPT_TEXT_TAG_KEY: template})
+            # Unexpected template type → must raise error!!
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid prompt template type: {type(template)}"
+            )
+
         if response_format:
             tags.update(
                 {
@@ -670,7 +693,6 @@ class MlflowClient:
                 # delete the registered model to avoid leaving a prompt with no versions
                 registry_client.delete_registered_model(name)
             raise
-
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 
