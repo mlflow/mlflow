@@ -319,63 +319,79 @@ class PromptVersion(_ModelRegistryEntity):
         allow_partial: bool = False,
         use_jinja_sandbox: bool = True,
         **kwargs,
-    ) -> PromptVersion | str | list[dict[str, Any]]:
+    ):
         """
         Format the template with the given keyword arguments.
+        By default, it raises an error if there are missing variables.
 
-        Supports plain text, chat prompts, and Jinja2 templates (string only).
+        Jinja2 templates:
+        - If prompt_type is jinja2, the template string is rendered using
+        SandboxedEnvironment by default.
+        - Use `use_jinja_sandbox=False` to render using unrestricted Environment.
         """
         from mlflow.genai.prompts.utils import format_prompt
 
-        input_keys = set(kwargs.keys())
         template = self.template
+        input_keys = set(kwargs.keys())
 
-        # 1. Handle Jinja2-based templates (string only)
-        if getattr(self, "_prompt_type", None) == PROMPT_TYPE_JINJA2:
+        # 0. Validate template type
+        if not isinstance(template, (str, list)):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid template type: expected str or list, got {type(template)}"
+            )
+            
+        # 1. Jinja2 rendering
+        if self._prompt_type == PROMPT_TYPE_JINJA2:
             from jinja2 import Environment
             from jinja2.sandbox import SandboxedEnvironment
             from jinja2 import Undefined
 
+            if not isinstance(template, str):
+                raise MlflowException.invalid_parameter_value(
+                    "Jinja2 templates must be string-based."
+                )
+
             env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
             env = env_cls(undefined=Undefined)
 
-            # Jinja2 works only with strings
             tmpl = env.from_string(template)
             return tmpl.render(**kwargs)
 
-        # 2. Handle plain text prompts
-        if self._prompt_type == PROMPT_TYPE_TEXT:
-            formatted = format_prompt(template, **kwargs)
-
-        # 3. Handle chat prompts (list of dict)
-        else:
-            formatted = [
-                {
+        # 2. Chat prompt (list-of-dict)
+        if isinstance(template, list):
+            # NOTE: MLflow original code path — DO NOT MODIFY
+            formatted = []
+            for msg in template:
+                formatted.append({
                     "role": msg["role"],
                     "content": format_prompt(msg.get("content"), **kwargs),
-                }
-                for msg in template
-            ]
+                })
+            return formatted
 
-        # 4. Check missing variables
-        if missing_keys := self.variables - input_keys:
-            if not allow_partial:
-                raise MlflowException.invalid_parameter_value(
-                    f"Missing variables: {missing_keys}. "
-                    "To partially format the prompt, set `allow_partial=True`."
-                )
-            else:
-                return PromptVersion(
-                    name=self.name,
-                    version=int(self.version),
-                    template=formatted,
-                    response_format=self.response_format,
-                    commit_message=self.commit_message,
-                    creation_timestamp=self.creation_timestamp,
-                    tags=self.tags,
-                    aliases=self.aliases,
-                    last_updated_timestamp=self.last_updated_timestamp,
-                    user_id=self.user_id,
-                )
+        # 3. Plain text prompt (string)
+        formatted = format_prompt(template, **kwargs)
+
+        # 4. Missing variable validation
+        missing_keys = self.variables - input_keys
+        if missing_keys and not allow_partial:
+            raise MlflowException.invalid_parameter_value(
+                f"Missing variables: {missing_keys}. "
+                "To partially format the prompt, set `allow_partial=True`."
+            )
+
+        if missing_keys and allow_partial:
+            # MLflow expects PromptVersion return ONLY in partial mode for TEXT
+            return PromptVersion(
+                name=self.name,
+                version=int(self.version),
+                template=formatted,
+                response_format=self.response_format,
+                commit_message=self.commit_message,
+                creation_timestamp=self.creation_timestamp,
+                tags=self.tags,
+                aliases=self.aliases,
+                last_updated_timestamp=self.last_updated_timestamp,
+                user_id=self.user_id,
+            )
 
         return formatted
