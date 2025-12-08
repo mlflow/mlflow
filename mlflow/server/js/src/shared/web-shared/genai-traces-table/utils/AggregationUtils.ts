@@ -107,8 +107,8 @@ export function getAssessmentInfos(
       ...retrievalAssessmentsByName,
     ]) {
       assessmentNames.add(assessmentName);
-      // Check ALL assessments (not just the first) to find one with a non-error value.
-      // This ensures we correctly determine dtype even if some assessments have errors.
+      // For string values, if we see a value that is not "yes" or "no", we treat it as a string.
+      // This is not a great approach, we should probably actually pass the pass-fail dtype information back somehow.
       let dtype: AssessmentDType | undefined;
       for (const assessment of assessments) {
         dtype = !isNil(assessment.stringValue)
@@ -132,7 +132,6 @@ export function getAssessmentInfos(
       }
 
       // Treat non-"yes"|"no" as string values.
-      // We need to check if ANY assessment in this result has a string value
       for (const assessment of assessments) {
         if (
           dtype === 'pass-fail' &&
