@@ -2118,7 +2118,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         with self.ManagedSessionMaker() as session:
-            queyr = self._get_query(session, SqlLoggedModel).filter(
+            query = self._get_query(session, SqlLoggedModel).filter(
                 SqlLoggedModel.model_id == model_id,
                 SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             )
