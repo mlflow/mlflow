@@ -37,6 +37,15 @@ class MetricsAggregation(_MlflowObject):
     aggregation_type: AggregationType
     percentile_value: float | None = None
 
+    def __post_init__(self):
+        if self.aggregation_type == AggregationType.PERCENTILE:
+            if self.percentile_value is None:
+                raise ValueError("Percentile value is required for PERCENTILE aggregation")
+            if self.percentile_value > 100 or self.percentile_value < 0:
+                raise ValueError("Percentile value must be between 0 and 100")
+        elif self.percentile_value is not None:
+            raise ValueError("Percentile value is only allowed for PERCENTILE aggregation")
+
     def to_proto(self) -> pb.MetricsAggregation:
         proto = pb.MetricsAggregation()
         proto.aggregation_type = self.aggregation_type.to_proto()

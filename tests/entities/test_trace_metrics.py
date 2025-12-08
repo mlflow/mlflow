@@ -46,6 +46,44 @@ def test_metrics_aggregation_percentile_values(percentile_value: float):
     assert proto.percentile_value == percentile_value
 
 
+def test_metrics_aggregation_percentile_requires_value():
+    with pytest.raises(ValueError, match="Percentile value is required for PERCENTILE aggregation"):
+        MetricsAggregation(aggregation_type=AggregationType.PERCENTILE)
+
+
+@pytest.mark.parametrize("percentile_value", [-1.0, -0.1, 100.1, 101.0, 1000.0])
+def test_metrics_aggregation_percentile_value_out_of_range(percentile_value: float):
+    with pytest.raises(ValueError, match="Percentile value must be between 0 and 100"):
+        MetricsAggregation(
+            aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
+        )
+
+
+@pytest.mark.parametrize("percentile_value", [0.0, 0.1, 50.0, 99.9, 100.0])
+def test_metrics_aggregation_percentile_value_valid_range(percentile_value: float):
+    aggregation = MetricsAggregation(
+        aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
+    )
+    assert aggregation.percentile_value == percentile_value
+
+
+@pytest.mark.parametrize(
+    "agg_type",
+    [
+        AggregationType.COUNT,
+        AggregationType.SUM,
+        AggregationType.AVG,
+        AggregationType.MIN,
+        AggregationType.MAX,
+    ],
+)
+def test_metrics_aggregation_non_percentile_with_value_raises(agg_type: AggregationType):
+    with pytest.raises(
+        ValueError, match="Percentile value is only allowed for PERCENTILE aggregation"
+    ):
+        MetricsAggregation(aggregation_type=agg_type, percentile_value=50.0)
+
+
 def test_trace_metrics_metric_data_point_from_proto():
     metric_data_point_proto = pb.MetricDataPoint(
         metric_name="latency",
