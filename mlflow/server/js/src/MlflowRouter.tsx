@@ -16,7 +16,7 @@ import {
   useParams,
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
-import { shouldEnableWorkspaces } from './common/utils/FeatureUtils';
+import { useWorkspacesEnabled } from './common/utils/ServerFeaturesContext';
 
 // Route definition imports:
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';
@@ -124,12 +124,12 @@ const MlflowRootRoute = ({
   );
 };
 
-const WorkspaceRouterSync = () => {
+const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!shouldEnableWorkspaces()) {
+    if (!workspacesEnabled) {
       setActiveWorkspace(null);
       return;
     }
@@ -153,17 +153,22 @@ const WorkspaceRouterSync = () => {
     if (workspace !== activeWorkspace) {
       setActiveWorkspace(workspace);
     }
-  }, [location, navigate]);
+  }, [location, navigate, workspacesEnabled]);
 
   return null;
 };
 
-const WorkspaceAwareRootRoute = (props: React.ComponentProps<typeof MlflowRootRoute>) => (
-  <>
-    <WorkspaceRouterSync />
-    <MlflowRootRoute {...props} />
-  </>
-);
+const WorkspaceAwareRootRoute = (
+  props: React.ComponentProps<typeof MlflowRootRoute> & { workspacesEnabled: boolean },
+) => {
+  const { workspacesEnabled, ...rootProps } = props;
+  return (
+    <>
+      <WorkspaceRouterSync workspacesEnabled={workspacesEnabled} />
+      <MlflowRootRoute {...rootProps} />
+    </>
+  );
+};
 
 const prependWorkspaceToRoutes = (routeDefs: MlflowRouteDef[]): MlflowRouteDef[] =>
   routeDefs.map((route) => {
@@ -182,12 +187,13 @@ export const MlflowRouter = ({
   isDarkTheme?: boolean;
   setIsDarkTheme?: (isDarkTheme: boolean) => void;
 }) => {
+  const { workspacesEnabled, loading: featuresLoading } = useWorkspacesEnabled();
+
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const routes = useMemo<MlflowRouteDef[]>(
     () => [...getExperimentTrackingRouteDefs(), ...getModelRegistryRouteDefs(), landingRoute, ...getCommonRouteDefs()],
     [],
   );
-  const workspacesEnabled = shouldEnableWorkspaces();
   const [workspaceKey, setWorkspaceKey] = useState(() => getCurrentWorkspace() ?? DEFAULT_WORKSPACE_NAME);
 
   useEffect(() => {
@@ -204,42 +210,46 @@ export const MlflowRouter = ({
     () => (workspacesEnabled ? [...routes, ...workspaceRoutes] : routes),
     [routes, workspaceRoutes, workspacesEnabled],
   );
+
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const hashRouter = useMemo(
     () =>
-      createHashRouter([
-        {
-          path: '/',
-          element: (
-            <WorkspaceAwareRootRoute
-              key={workspaceKey}
-              isDarkTheme={isDarkTheme}
-              setIsDarkTheme={setIsDarkTheme}
-              useChildRoutesOutlet
-            />
-          ),
-          children: combinedRoutes,
-        },
-      ]),
-    [combinedRoutes, isDarkTheme, setIsDarkTheme, workspaceKey] /* eslint-disable-line react-hooks/exhaustive-deps */,
+      // Don't create router while still loading features
+      featuresLoading
+        ? null
+        : createHashRouter([
+            {
+              path: '/',
+              element: (
+                <WorkspaceAwareRootRoute
+                  key={workspaceKey}
+                  isDarkTheme={isDarkTheme}
+                  setIsDarkTheme={setIsDarkTheme}
+                  useChildRoutesOutlet
+                  workspacesEnabled={workspacesEnabled}
+                />
+              ),
+              children: combinedRoutes,
+            },
+          ]),
+    [
+      combinedRoutes,
+      isDarkTheme,
+      setIsDarkTheme,
+      workspaceKey,
+      workspacesEnabled,
+      featuresLoading,
+    ] /* eslint-disable-line react-hooks/exhaustive-deps */,
   );
 
-  if (hashRouter) {
-    return (
-      <React.Suspense fallback={<LegacySkeleton />}>
-        <RouterProvider router={hashRouter} />
-      </React.Suspense>
-    );
+  // Show loading skeleton while determining if workspaces are enabled
+  if (featuresLoading || !hashRouter) {
+    return <LegacySkeleton />;
   }
 
   return (
-    <HashRouter key={workspaceKey}>
-      <WorkspaceAwareRootRoute
-        key={workspaceKey}
-        routes={combinedRoutes}
-        isDarkTheme={isDarkTheme}
-        setIsDarkTheme={setIsDarkTheme}
-      />
-    </HashRouter>
+    <React.Suspense fallback={<LegacySkeleton />}>
+      <RouterProvider router={hashRouter} />
+    </React.Suspense>
   );
 };

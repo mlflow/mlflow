@@ -24,6 +24,7 @@ import {
   getCurrentWorkspace,
   subscribeToWorkspaceChanges,
 } from './common/utils/WorkspaceUtils';
+import { ServerFeaturesProvider } from './common/utils/ServerFeaturesContext';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -63,7 +64,9 @@ export function MLFlowRoot() {
             <ApplyGlobalStyles />
             <MlflowThemeGlobalStyles />
             <QueryClientProvider key={workspaceKey} client={queryClient}>
-              <MlflowRouter key={workspaceKey} isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+              <ServerFeaturesProvider>
+                <MlflowRouter key={workspaceKey} isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+              </ServerFeaturesProvider>
             </QueryClientProvider>
           </DesignSystemContainer>
         </Provider>

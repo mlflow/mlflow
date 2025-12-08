@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
 import {
   defaultResponseParser,
   getDefaultHeaders,
@@ -36,8 +36,26 @@ import {
 } from './FetchUtils';
 import { ErrorWrapper } from './ErrorWrapper';
 import { setActiveWorkspace } from './WorkspaceUtils';
+import { getWorkspacesEnabledSync } from './ServerFeaturesContext';
+
+jest.mock('./ServerFeaturesContext', () => ({
+  ...jest.requireActual<typeof import('./ServerFeaturesContext')>('./ServerFeaturesContext'),
+  getWorkspacesEnabledSync: jest.fn(),
+}));
+
+const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('FetchUtils', () => {
+  beforeAll(() => {
+    getWorkspacesEnabledSyncMock.mockReturnValue(true);
+    setActiveWorkspace('default');
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+    setActiveWorkspace(null);
+  });
+
   describe('getDefaultHeadersFromCookies', () => {
     it('empty cookie should result in no headers', () => {
       expect(getDefaultHeadersFromCookies('')).toEqual({});

@@ -3,9 +3,12 @@
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
 
-// For dynamic detection, we assume enabled and let WorkspaceSelector handle the actual check
-// This ensures the redirect logic works immediately while WorkspaceSelector loads the list
-export const shouldEnableWorkspaces = () => true;
+import { getWorkspacesEnabledSync } from './ServerFeaturesContext';
+
+// Returns the current workspaces enabled state from the cached server features.
+// This is synchronous and returns the cached value (false if not yet loaded).
+// For React components, prefer using the useWorkspacesEnabled hook instead.
+export const shouldEnableWorkspaces = () => getWorkspacesEnabledSync();
 
 export const shouldEnableWorkspacePermissions = () => shouldEnableWorkspaces();
 

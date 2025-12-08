@@ -1,12 +1,30 @@
-import { describe, test, expect, it } from '@jest/globals';
+import { describe, test, expect, it, beforeAll, afterAll, jest } from '@jest/globals';
 import React from 'react';
 import { ErrorView } from './ErrorView';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MemoryRouter } from '../utils/RoutingUtils';
-import { DEFAULT_WORKSPACE_NAME } from '../utils/WorkspaceUtils';
+import { DEFAULT_WORKSPACE_NAME, setActiveWorkspace } from '../utils/WorkspaceUtils';
+import { getWorkspacesEnabledSync } from '../utils/ServerFeaturesContext';
+
+jest.mock('../utils/ServerFeaturesContext', () => ({
+  ...jest.requireActual<typeof import('../utils/ServerFeaturesContext')>('../utils/ServerFeaturesContext'),
+  getWorkspacesEnabledSync: jest.fn(),
+}));
+
+const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('ErrorView', () => {
   const workspacePrefixed = (path: string) => `/workspaces/${DEFAULT_WORKSPACE_NAME}${path}`;
+
+  beforeAll(() => {
+    getWorkspacesEnabledSyncMock.mockReturnValue(true);
+    setActiveWorkspace(DEFAULT_WORKSPACE_NAME);
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+    setActiveWorkspace(null);
+  });
 
   test('should render 400', () => {
     renderWithIntl(
