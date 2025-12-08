@@ -13,29 +13,16 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
-import { useQuery } from '../../common/utils/reactQueryHooks';
 import { useCallback, useMemo } from 'react';
-import { GatewayApi } from '../api';
 import GatewayRoutes from '../routes';
 import { formatProviderName } from '../utils/providerUtils';
+import { timestampToDate } from '../utils/dateUtils';
 import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
+import { useEndpointQuery } from '../hooks/useEndpointQuery';
+import { useModelsQuery } from '../hooks/useModelsQuery';
+import { useSecretQuery } from '../hooks/useSecretQuery';
 import type { EndpointModelMapping, ModelDefinition, Model, SecretInfo } from '../types';
 import { formatTokens, formatCost } from '../utils/formatters';
-
-const useEndpointQuery = (endpointId: string) => {
-  return useQuery(['gateway_endpoint', endpointId], {
-    queryFn: () => GatewayApi.getEndpoint(endpointId),
-    retry: false,
-    enabled: Boolean(endpointId),
-  });
-};
-
-const useModelsMetadataQuery = (provider: string | undefined) => {
-  return useQuery(['gateway_models', provider], {
-    queryFn: () => GatewayApi.listModels(provider),
-    enabled: Boolean(provider),
-  });
-};
 
 const EndpointDetailsPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -48,7 +35,7 @@ const EndpointDetailsPage = () => {
   // Get the primary model mapping and its model definition
   const primaryMapping = endpoint?.model_mappings?.[0];
   const primaryModelDef = primaryMapping?.model_definition;
-  const { data: modelsData } = useModelsMetadataQuery(primaryModelDef?.provider);
+  const { data: modelsData } = useModelsQuery({ provider: primaryModelDef?.provider });
 
   const handleEdit = useCallback(() => {
     navigate(GatewayRoutes.getEditEndpointRoute(endpointId ?? ''));
@@ -162,7 +149,7 @@ const EndpointDetailsPage = () => {
                         <ModelCard
                           key={mapping.mapping_id}
                           modelDefinition={mapping.model_definition}
-                          modelMetadata={modelsData?.models?.find(
+                          modelMetadata={modelsData?.find(
                             (m: Model) => m.model === mapping.model_definition?.model_name,
                           )}
                         />
@@ -196,7 +183,7 @@ const EndpointDetailsPage = () => {
                     <FormattedMessage defaultMessage="Created" description="Created at label" />
                   </Typography.Text>
                   <div css={{ marginTop: theme.spacing.xs }}>
-                    <TimeAgo date={new Date(endpoint.created_at)} />
+                    <TimeAgo date={timestampToDate(endpoint.created_at)} />
                   </div>
                 </div>
 
@@ -205,7 +192,7 @@ const EndpointDetailsPage = () => {
                     <FormattedMessage defaultMessage="Last modified" description="Last modified label" />
                   </Typography.Text>
                   <div css={{ marginTop: theme.spacing.xs }}>
-                    <TimeAgo date={new Date(endpoint.last_updated_at)} />
+                    <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
                   </div>
                 </div>
 
@@ -240,10 +227,7 @@ const ModelCard = ({
   const intl = useIntl();
 
   // Fetch secret for this model definition
-  const { data: secretData } = useQuery(['gateway_secret', modelDefinition?.secret_id], {
-    queryFn: () => GatewayApi.getSecret(modelDefinition!.secret_id),
-    enabled: Boolean(modelDefinition?.secret_id),
-  });
+  const { data: secretData } = useSecretQuery(modelDefinition?.secret_id);
 
   // Memoize capabilities array
   const capabilities = useMemo(() => {

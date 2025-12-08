@@ -46,3 +46,23 @@ export function formatProviderName(provider: string): string {
   };
   return formatMap[provider] ?? provider.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+/**
+ * Formats an auth method name for display.
+ * Converts snake_case identifiers to readable titles.
+ */
+export function formatAuthMethodName(authMethod: string): string {
+  const formatMap: Record<string, string> = {
+    auth_token: 'Auth Token',
+    api_key: 'API Key',
+    access_key: 'Access Key',
+    sts: 'STS (Assume Role)',
+    oauth: 'OAuth',
+    oauth2: 'OAuth 2.0',
+    service_account: 'Service Account',
+    bearer_token: 'Bearer Token',
+    basic_auth: 'Basic Auth',
+    pat: 'Personal Access Token',
+  };
+  return formatMap[authMethod] ?? authMethod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
