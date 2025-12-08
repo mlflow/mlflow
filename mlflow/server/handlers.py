@@ -2778,6 +2778,27 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+def _get_graphql_auth_middleware():
+    """
+    Get GraphQL authorization middleware if basic-auth is enabled.
+
+    Returns:
+        A list of middleware instances if auth is enabled, empty list otherwise.
+    """
+    try:
+        from mlflow.server.auth import get_graphql_authorization_middleware, is_auth_enabled
+
+        if not is_auth_enabled():
+            return []
+        return get_graphql_authorization_middleware()
+    except ImportError:
+        # Auth module not available
+        return []
+    except Exception:
+        # Auth not configured or other error
+        return []
+
+
 @catch_mlflow_exception
 def _graphql():
     from graphql import parse
@@ -2795,8 +2816,16 @@ def _graphql():
     if check_result := check_query_safety(node):
         result = check_result
     else:
+        # Get auth middleware if basic-auth is enabled
+        middleware = _get_graphql_auth_middleware()
+
         # Executing the GraphQL query using the Graphene schema
-        result = schema.execute(query, variables=variables, operation_name=operation_name)
+        result = schema.execute(
+            query,
+            variables=variables,
+            operation_name=operation_name,
+            middleware=middleware,
+        )
 
     # Convert execution result into json.
     result_data = {
