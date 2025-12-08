@@ -1495,10 +1495,10 @@ def test_search_datasets_basic():
 
     with (
         mock.patch(
-            "mlflow.utils.rest_utils.http_request",
+            "mlflow.store.tracking.databricks_rest_store.http_request",
             return_value=mock.Mock(json=lambda: response_data),
         ) as mock_http,
-        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
     ):
         result = store.search_datasets(experiment_ids=["exp_1"], max_results=100)
 
@@ -1507,7 +1507,11 @@ def test_search_datasets_basic():
         call_args = mock_http.call_args
         assert call_args[1]["method"] == "GET"
         assert "/api/2.0/managed-evals/datasets" in call_args[1]["endpoint"]
-        assert "experiment_id=exp_1" in call_args[1]["endpoint"]
+        # URL encoding: = becomes %3D
+        assert (
+            "experiment_id%3Dexp_1" in call_args[1]["endpoint"]
+            or "experiment_id=exp_1" in call_args[1]["endpoint"]
+        )
 
         # Verify the results
         assert len(result) == 1
@@ -1538,8 +1542,10 @@ def test_search_datasets_pagination():
     mock_response.json.return_value = {"datasets": [], "next_page_token": None}
 
     with (
-        mock.patch("mlflow.utils.rest_utils.http_request", return_value=mock_response) as mock_http,
-        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request", return_value=mock_response
+        ) as mock_http,
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
     ):
         store.search_datasets(experiment_ids=["exp_1"], max_results=50, page_token="prev_token")
 
@@ -1555,10 +1561,10 @@ def test_search_datasets_empty_results():
 
     with (
         mock.patch(
-            "mlflow.utils.rest_utils.http_request",
+            "mlflow.store.tracking.databricks_rest_store.http_request",
             return_value=mock.Mock(json=lambda: {"datasets": []}),
         ) as mock_http,
-        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
     ):
         result = store.search_datasets(experiment_ids=["exp_1"])
 
@@ -1588,7 +1594,7 @@ def test_search_datasets_endpoint_not_found():
     store = DatabricksTracingRestStore(lambda: creds)
 
     with mock.patch(
-        "mlflow.utils.rest_utils.http_request",
+        "mlflow.store.tracking.databricks_rest_store.http_request",
         side_effect=RestException({"error_code": "ENDPOINT_NOT_FOUND", "message": "Not found"}),
     ):
         with pytest.raises(MlflowException, match="not available in this Databricks workspace"):
@@ -1613,10 +1619,10 @@ def test_search_datasets_missing_required_field():
 
     with (
         mock.patch(
-            "mlflow.utils.rest_utils.http_request",
+            "mlflow.store.tracking.databricks_rest_store.http_request",
             return_value=mock.Mock(json=lambda: response_data),
         ) as mock_http,
-        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
     ):
         with pytest.raises(MlflowException, match="missing required field"):
             store.search_datasets(experiment_ids=["exp_1"])
@@ -1641,10 +1647,10 @@ def test_search_datasets_invalid_timestamp():
 
     with (
         mock.patch(
-            "mlflow.utils.rest_utils.http_request",
+            "mlflow.store.tracking.databricks_rest_store.http_request",
             return_value=mock.Mock(json=lambda: response_data),
         ) as mock_http,
-        mock.patch("mlflow.utils.rest_utils.verify_rest_response"),
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
     ):
         with pytest.raises(MlflowException, match="invalid timestamp format"):
             store.search_datasets(experiment_ids=["exp_1"])
