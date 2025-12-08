@@ -44,14 +44,24 @@ jobs:
               (m) => !approved.includes(m) && m !== author
             );
 
-            // Randomly select 2 reviewers using Fisher-Yates shuffle.
-            // We use this instead of .sort(() => Math.random() - 0.5) which has selection bias.
+            // Weekly shuffle + round robin for fair review distribution.
+            // The shuffle order changes weekly, and run_number determines the starting position.
+            const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+            const seededRandom = (seed) => {
+              const x = Math.sin(seed) * 10000;
+              return x - Math.floor(x);
+            };
             const shuffled = [...eligibleReviewers];
             for (let i = shuffled.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
+              const j = Math.floor(seededRandom(weekNumber + i) * (i + 1));
               [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
-            const selectedReviewers = shuffled.slice(0, 2);
+            const runNumber = context.runNumber;
+            const startIdx = runNumber % shuffled.length;
+            const selectedReviewers = [
+              shuffled[startIdx],
+              shuffled[(startIdx + 1) % shuffled.length],
+            ].slice(0, Math.min(2, shuffled.length));
 
             if (selectedReviewers.length > 0) {
               await github.rest.pulls.requestReviewers({
@@ -60,7 +70,7 @@ jobs:
                 pull_number,
                 reviewers: selectedReviewers,
               });
-              console.log(`Randomly assigned reviewers: ${selectedReviewers.join(", ")}`);
+              console.log(`Assigned reviewers (week ${weekNumber}, run ${runNumber}): ${selectedReviewers.join(", ")}`);
             } else {
               console.log("No eligible reviewers available");
             }
