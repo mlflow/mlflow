@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, DropdownMenu, Input, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 
-import { shouldEnableWorkspaces } from '../utils/FeatureUtils';
+import { useWorkspacesEnabled } from '../utils/ServerFeaturesContext';
 import { fetchAPI, getAjaxUrl } from '../utils/FetchUtils';
 import {
   DEFAULT_WORKSPACE_NAME,
@@ -19,7 +19,7 @@ type Workspace = {
 const WORKSPACES_ENDPOINT = 'ajax-api/2.0/mlflow/workspaces';
 
 export const WorkspaceSelector = () => {
-  const workspacesEnabled = shouldEnableWorkspaces();
+  const { workspacesEnabled, loading: featuresLoading } = useWorkspacesEnabled();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -32,7 +32,8 @@ export const WorkspaceSelector = () => {
   const currentWorkspace = workspaceFromPath ?? DEFAULT_WORKSPACE_NAME;
 
   useEffect(() => {
-    if (!workspacesEnabled) {
+    // Don't load workspaces while still determining if feature is enabled
+    if (featuresLoading || !workspacesEnabled) {
       setWorkspaces([]);
       setLoadFailed(false);
       return;
@@ -79,7 +80,7 @@ export const WorkspaceSelector = () => {
     return () => {
       isMounted = false;
     };
-  }, [workspacesEnabled]);
+  }, [workspacesEnabled, featuresLoading]);
 
   const options = useMemo(() => {
     const deduped = new Map<string, Workspace>();
@@ -132,7 +133,8 @@ export const WorkspaceSelector = () => {
     setSearchTerm(''); // Clear search on selection
   };
 
-  if (!workspacesEnabled) {
+  // Don't render while loading features or if workspaces are disabled
+  if (featuresLoading || !workspacesEnabled) {
     return null;
   }
 

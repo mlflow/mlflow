@@ -1,4 +1,4 @@
-import { shouldEnableWorkspaces as importedShouldEnableWorkspaces } from './FeatureUtils';
+import { getWorkspacesEnabledSync } from './ServerFeaturesContext';
 
 const WORKSPACE_STORAGE_KEY = 'mlflow.activeWorkspace';
 
@@ -78,10 +78,7 @@ export const hasWorkspaceAccess = (workspace: string | null): boolean => {
 const isAbsoluteUrl = (value: string) => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value);
 
 const isWorkspacesFeatureEnabled = () => {
-  if (typeof importedShouldEnableWorkspaces === 'function') {
-    return importedShouldEnableWorkspaces();
-  }
-  return true;
+  return getWorkspacesEnabledSync();
 };
 
 const sanitizePath = (path: string) => {

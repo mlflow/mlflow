@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from '@jest/globals';
+import { afterAll, afterEach, beforeAll, describe, expect, jest, test } from '@jest/globals';
 import { DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
@@ -13,6 +13,16 @@ import { apis, artifactsByRunUuid } from '../../reducers/Reducers';
 import { ExperimentLoggedModelDetailsArtifacts } from './ExperimentLoggedModelDetailsArtifacts';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { setActiveWorkspace } from '../../../common/utils/WorkspaceUtils';
+import { getWorkspacesEnabledSync } from '../../../common/utils/ServerFeaturesContext';
+
+jest.mock('../../../common/utils/ServerFeaturesContext', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/ServerFeaturesContext')>(
+    '../../../common/utils/ServerFeaturesContext',
+  ),
+  getWorkspacesEnabledSync: jest.fn(),
+}));
+
+const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   const { history } = setupTestRouter();
@@ -81,12 +91,14 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   };
 
   beforeAll(() => {
+    getWorkspacesEnabledSyncMock.mockReturnValue(true);
     setActiveWorkspace('team-a');
     process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
     server.listen();
   });
 
   afterAll(() => {
+    jest.restoreAllMocks();
     setActiveWorkspace(null);
     server.close();
   });

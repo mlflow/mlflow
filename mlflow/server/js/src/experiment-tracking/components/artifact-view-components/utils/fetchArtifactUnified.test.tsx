@@ -3,6 +3,16 @@ import { rest } from 'msw';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { fetchArtifactUnified } from './fetchArtifactUnified';
 import { setActiveWorkspace } from '../../../../common/utils/WorkspaceUtils';
+import { getWorkspacesEnabledSync } from '../../../../common/utils/ServerFeaturesContext';
+
+jest.mock('../../../../common/utils/ServerFeaturesContext', () => ({
+  ...jest.requireActual<typeof import('../../../../common/utils/ServerFeaturesContext')>(
+    '../../../../common/utils/ServerFeaturesContext',
+  ),
+  getWorkspacesEnabledSync: jest.fn(),
+}));
+
+const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('fetchArtifactUnified', () => {
   const experimentId = 'test-experiment-id';
@@ -30,6 +40,7 @@ describe('fetchArtifactUnified', () => {
   );
 
   beforeAll(() => {
+    getWorkspacesEnabledSyncMock.mockReturnValue(true);
     setActiveWorkspace('team-a');
     server.listen();
   });
@@ -40,11 +51,12 @@ describe('fetchArtifactUnified', () => {
 
   afterAll(() => {
     setActiveWorkspace(null);
+    jest.restoreAllMocks();
     server.close();
   });
 
   it('fetches run artifact from workspace API', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const result = await fetchArtifactUnified({
       experimentId,
       path,
@@ -54,14 +66,14 @@ describe('fetchArtifactUnified', () => {
     });
 
     expect(result).toEqual(runArtifactContent);
-    jest.restoreAllMocks();
+    consoleErrorSpy.mockRestore();
   });
 
   it('fetches logged model artifact from workspace API', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const result = await fetchArtifactUnified({ experimentId, path, runUuid, isLoggedModelsMode, loggedModelId });
 
     expect(result).toEqual(loggedModelArtifactContent);
-    jest.restoreAllMocks();
+    consoleErrorSpy.mockRestore();
   });
 });

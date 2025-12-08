@@ -9,15 +9,10 @@ import { graphql } from 'msw';
 import type { MlflowGetExperimentQuery } from '../../../../graphql/__generated__/graphql';
 import { ExperimentKind } from '../../../constants';
 
-jest.mock('../../../../common/utils/FeatureUtils', () => {
-  const actualFeatureUtils = jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
-    '../../../../common/utils/FeatureUtils',
-  );
-  return {
-    ...actualFeatureUtils,
-    shouldEnableWorkspaces: () => false,
-  };
-});
+jest.mock('../../../../common/utils/ServerFeaturesContext', () => ({
+  getWorkspacesEnabledSync: () => false,
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
+}));
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
