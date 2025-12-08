@@ -355,6 +355,6 @@ def test_pack_env_for_databricks_model_serving_handles_existing_databricks_dir(
             assert databricks_path.exists()
             assert (databricks_path / env_pack._MODEL_VERSION_TAR).exists()
             assert (databricks_path / env_pack._MODEL_ENVIRONMENT_TAR).exists()
-            
+
             # Verify old file is gone (directory was replaced, not merged)
             assert not (databricks_path / "old_file.txt").exists()
