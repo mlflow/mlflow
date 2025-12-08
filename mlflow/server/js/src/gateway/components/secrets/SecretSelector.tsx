@@ -1,7 +1,17 @@
-import { SimpleSelect, SimpleSelectOption, FormUI, Spinner, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  SimpleSelect,
+  SimpleSelectOption,
+  FormUI,
+  Spinner,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useMemo } from 'react';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
+import { timestampToDate } from '../../utils/dateUtils';
+import { formatAuthMethodName } from '../../utils/providerUtils';
+import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 
 interface SecretSelectorProps {
   provider?: string;
@@ -20,6 +30,12 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
     [provider, secrets],
   );
 
+  // Find the selected secret for displaying details
+  const selectedSecret = useMemo(
+    () => (value ? filteredSecrets?.find((s) => s.secret_id === value) : undefined),
+    [value, filteredSecrets],
+  );
+
   if (isLoading) {
     return (
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
@@ -30,30 +46,88 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
   }
 
   return (
-    <div>
-      <FormUI.Label htmlFor="mlflow.gateway.create-endpoint.secret-select">
-        <FormattedMessage defaultMessage="Secret" description="Label for secret selector" />
-      </FormUI.Label>
-      <SimpleSelect
-        id="mlflow.gateway.create-endpoint.secret-select"
-        componentId="mlflow.gateway.create-endpoint.secret-select"
-        value={value}
-        onChange={({ target }) => onChange(target.value)}
-        disabled={disabled || !filteredSecrets?.length}
-        placeholder={filteredSecrets?.length ? 'Select a secret' : 'No secrets available for this provider'}
-        validationState={error ? 'error' : undefined}
-        contentProps={{
-          matchTriggerWidth: true,
-          maxHeight: 300,
-        }}
-      >
-        {filteredSecrets?.map((secret) => (
-          <SimpleSelectOption key={secret.secret_id} value={secret.secret_id}>
-            {secret.secret_name}
-          </SimpleSelectOption>
-        ))}
-      </SimpleSelect>
-      {error && <FormUI.Message type="error" message={error} />}
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, width: '100%' }}>
+      <div>
+        <FormUI.Label htmlFor="mlflow.gateway.create-endpoint.secret-select">
+          <FormattedMessage defaultMessage="Secret" description="Label for secret selector" />
+        </FormUI.Label>
+        <SimpleSelect
+          id="mlflow.gateway.create-endpoint.secret-select"
+          componentId="mlflow.gateway.create-endpoint.secret-select"
+          value={value}
+          onChange={({ target }) => onChange(target.value)}
+          disabled={disabled || !filteredSecrets?.length}
+          placeholder={filteredSecrets?.length ? 'Select a secret' : 'No secrets available for this provider'}
+          validationState={error ? 'error' : undefined}
+          contentProps={{
+            matchTriggerWidth: true,
+            maxHeight: 300,
+          }}
+          css={{ width: '100%' }}
+        >
+          {filteredSecrets?.map((secret) => (
+            <SimpleSelectOption key={secret.secret_id} value={secret.secret_id}>
+              {secret.secret_name}
+            </SimpleSelectOption>
+          ))}
+        </SimpleSelect>
+        {error && <FormUI.Message type="error" message={error} />}
+      </div>
+
+      {/* Selected secret details */}
+      {selectedSecret && (
+        <div
+          css={{
+            backgroundColor: theme.colors.backgroundSecondary,
+            borderRadius: theme.general.borderRadiusBase,
+            padding: theme.spacing.md,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.xs,
+          }}
+        >
+          <Typography.Text bold size="sm" color="secondary">
+            <FormattedMessage defaultMessage="Secret details" description="Header for secret details section" />
+          </Typography.Text>
+          <div
+            css={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              gap: `${theme.spacing.xs}px ${theme.spacing.md}px`,
+              fontSize: theme.typography.fontSizeSm,
+            }}
+          >
+            {selectedSecret.credential_name && (
+              <>
+                <Typography.Text color="secondary">
+                  <FormattedMessage defaultMessage="Auth method:" description="Label for auth method" />
+                </Typography.Text>
+                <Typography.Text>{formatAuthMethodName(selectedSecret.credential_name)}</Typography.Text>
+              </>
+            )}
+            <Typography.Text color="secondary">
+              <FormattedMessage defaultMessage="Last updated:" description="Label for last updated" />
+            </Typography.Text>
+            <Typography.Text>
+              <TimeAgo date={timestampToDate(selectedSecret.last_updated_at)} />
+            </Typography.Text>
+            <Typography.Text color="secondary">
+              <FormattedMessage defaultMessage="Created:" description="Label for created date" />
+            </Typography.Text>
+            <Typography.Text>
+              <TimeAgo date={timestampToDate(selectedSecret.created_at)} />
+            </Typography.Text>
+            {selectedSecret.created_by && (
+              <>
+                <Typography.Text color="secondary">
+                  <FormattedMessage defaultMessage="Created by:" description="Label for created by" />
+                </Typography.Text>
+                <Typography.Text>{selectedSecret.created_by}</Typography.Text>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
