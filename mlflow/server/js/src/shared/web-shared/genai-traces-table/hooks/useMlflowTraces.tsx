@@ -204,7 +204,7 @@ export const useMlflowTracesTableMetadata = ({
 
 const getNetworkAndClientFilters = (
   filters: TableFilter[],
-  assessmentsFilteredOnClientSide = false,
+  assessmentsFilteredOnClientSide = true,
 ): {
   networkFilters: TableFilter[];
   clientFilters: TableFilter[];
@@ -276,7 +276,10 @@ export const useSearchMlflowTraces = ({
   // For APIS <=v3, filter traces by assessments or search query on the client side
   const useClientSideFiltering = !usingV4APIs;
 
-  const { networkFilters, clientFilters } = useMemo(() => getNetworkAndClientFilters(filters || []), [filters]);
+  const { networkFilters, clientFilters } = useMemo(
+    () => getNetworkAndClientFilters(filters || [], /* assessmentsFilteredOnClientSide */ false),
+    [filters],
+  );
 
   const filter = createMlflowSearchFilter(
     runUuid,
