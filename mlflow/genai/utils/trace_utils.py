@@ -1,3 +1,6 @@
+import asyncio
+import functools
+import inspect
 import json
 import logging
 import math
@@ -12,12 +15,14 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT,
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracing.utils.search import traces_to_df
@@ -168,15 +173,13 @@ def resolve_conversation_from_session(
     conversation = []
     for trace in sorted_traces:
         # Extract and parse input (user message)
-        inputs = extract_inputs_from_trace(trace)
-        if inputs:
+        if inputs := extract_inputs_from_trace(trace):
             user_content = parse_inputs_to_str(inputs)
             if user_content and user_content.strip():
                 conversation.append({"role": "user", "content": user_content})
 
         # Extract and parse output (assistant message)
-        outputs = extract_outputs_from_trace(trace)
-        if outputs:
+        if outputs := extract_outputs_from_trace(trace):
             assistant_content = parse_outputs_to_str(outputs)
             if assistant_content and assistant_content.strip():
                 conversation.append({"role": "assistant", "content": assistant_content})
@@ -245,10 +248,54 @@ def extract_expectations_from_trace(
     return {exp.name: exp.expectation.value for exp in expectation_assessments}
 
 
+def _wrap_async_predict_fn(async_fn: Callable[..., Any]) -> Callable[..., Any]:
+    """
+    Wrap an async function to make it synchronous using asyncio.run with timeout.
+
+    Args:
+        async_fn: The async function to wrap
+
+    Returns:
+        A synchronous wrapper function that calls the async function with timeout
+    """
+    timeout = MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()
+
+    @functools.wraps(async_fn)
+    def sync_wrapper(*args, **kwargs):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            try:
+                import nest_asyncio
+
+                nest_asyncio.apply()
+            except ImportError:
+                raise MlflowException(
+                    "Detected a running event loop (e.g., in Jupyter notebook). "
+                    "To use async predict functions in notebook environments, "
+                    "install nest-asyncio: pip install nest-asyncio"
+                )
+
+        return asyncio.run(asyncio.wait_for(async_fn(*args, **kwargs), timeout=timeout))
+
+    return sync_wrapper
+
+
 def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
+    If the predict_fn is an async function, wrap it to make it synchronous.
     """
+    # Detect if predict_fn is an async function and wrap it
+    if inspect.iscoroutinefunction(predict_fn):
+        _logger.debug(
+            f"Detected async predict_fn. Wrapping with asyncio.run() with timeout of "
+            f"{MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()} seconds."
+        )
+        predict_fn = _wrap_async_predict_fn(predict_fn)
     if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get():
         with (
             NoOpTracerPatcher() as counter,
@@ -307,6 +354,17 @@ def is_none_or_nan(value: Any) -> bool:
     """
     # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
     return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def _is_empty(value: Any) -> bool:
+    """
+    Check if a value is empty (None, empty dict, empty list, empty string, etc.).
+    """
+    if value is None:
+        return True
+    if isinstance(value, (dict, list, str)):
+        return len(value) == 0
+    return False
 
 
 def parse_inputs_to_str(value: Any) -> str:
@@ -588,14 +646,30 @@ def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> di
 def create_minimal_trace(eval_item: "EvalItem") -> Trace:
     """
     Create a minimal trace object with a single span, based on given inputs/outputs.
+
+    If the eval_item has a source with session metadata (from a dataset created from traces),
+    the session metadata will be restored on the newly created trace. This enables session-level
+    scorers to identify which traces belong to the same session.
     """
     from mlflow.pyfunc.context import Context, set_prediction_context
+
+    # Extract session metadata from source if available
+    session_metadata = {}
+    if eval_item.source and hasattr(eval_item.source, "source_data"):
+        source_data = eval_item.source.source_data
+        if session_id := source_data.get("session_id"):
+            session_metadata[TraceMetadataKey.TRACE_SESSION] = session_id
 
     context = Context(request_id=eval_item.request_id, is_evaluate=True)
     with set_prediction_context(context):
         with mlflow.start_span(name="root_span", span_type=SpanType.CHAIN) as root_span:
             root_span.set_inputs(eval_item.inputs)
             root_span.set_outputs(eval_item.outputs)
+
+            # Set session metadata on the trace while it's still active
+            if session_metadata:
+                mlflow.update_current_trace(metadata=session_metadata)
+
         return mlflow.get_trace(root_span.trace_id)
 
 

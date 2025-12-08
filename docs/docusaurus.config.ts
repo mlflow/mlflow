@@ -35,6 +35,11 @@ const config: Config = {
   onBrokenAnchors: 'throw',
   onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
 
+  future: {
+    v4: true, // opt-in for Docusaurus v4 planned changes
+    experimental_faster: true, // turns Docusaurus Faster on globally
+  },
+
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
@@ -81,6 +86,11 @@ const config: Config = {
   clientModules: [require.resolve('./src/docusaurus.theme.js')],
 
   themeConfig: {
+    docs: {
+      sidebar: {
+        autoCollapseCategories: true,
+      },
+    },
     mermaid: {
       theme: { light: 'neutral', dark: 'dark' },
       options: {
@@ -305,18 +315,21 @@ const config: Config = {
             to: '/self-hosting/security/basic-http-auth',
             from: ['/ml/auth'],
           },
-          // Redirect mlflow 3 pages
+          // Redirect mlflow 3 pages to migration guide
           {
-            to: '/genai/mlflow-3',
-            from: ['/mlflow-3', '/ml/mlflow-3'],
-          },
-          {
-            to: '/genai/mlflow-3/deep-learning',
-            from: ['/mlflow-3/deep-learning'],
-          },
-          {
-            to: '/genai/mlflow-3/genai-agent',
-            from: ['/mlflow-3/genai-agent'],
+            to: '/ml/mlflow-3',
+            from: [
+              '/mlflow-3',
+              '/genai/mlflow-3',
+              '/genai/mlflow-3/deep-learning',
+              '/mlflow-3/deep-learning',
+              '/genai/mlflow-3/genai-agent',
+              '/mlflow-3/genai-agent',
+              '/genai/mlflow-3/breaking-changes',
+              '/mlflow-3/breaking-changes',
+              '/genai/mlflow-3/faqs',
+              '/mlflow-3/faqs',
+            ],
           },
           {
             to: '/genai/getting-started/databricks-trial',
@@ -362,6 +375,10 @@ const config: Config = {
           {
             to: '/genai/tracing',
             from: ['/llms/llm-tracking', '/tracing', '/llms/tracing', '/tracing/api/how-to'],
+          },
+          {
+            to: '/genai/tracing/quickstart',
+            from: ['/genai/tracing/quickstart/typescript-openai', '/genai/tracing/quickstart/python-openai'],
           },
           {
             to: '/genai/tracing/faq',
@@ -635,6 +652,18 @@ const config: Config = {
             to: '/genai/datasets',
             from: ['/genai/eval-monitor/scorers/llm-judge/dataset'],
           },
+          // Classic ML Evaluation Redirects - consolidated to single page
+          {
+            to: '/ml/evaluation',
+            from: [
+              '/ml/evaluation/model-eval',
+              '/ml/evaluation/dataset-eval',
+              '/ml/evaluation/function-eval',
+              '/ml/evaluation/metrics-visualizations',
+              '/ml/evaluation/shap',
+              '/ml/evaluation/plugin-evaluators',
+            ],
+          },
           // Prompt Management Redirects
           {
             to: '/genai/prompt-registry/prompt-engineering',
@@ -701,19 +730,31 @@ const config: Config = {
           // Governance and Deployments Redirects
           {
             to: '/genai/governance/ai-gateway',
-            from: ['/llms/deployments/', '/llms/gateway/index', '/llms/gateway'],
+            from: [
+              '/llms/deployments/',
+              '/llms/gateway/index',
+              '/llms/gateway',
+              '/llms/deployments/guides',
+              '/llms/gateway/guides/index',
+              '/llms/gateway/guide',
+              '/genai/governance/ai-gateway/guides',
+            ],
           },
           {
-            to: '/genai/governance/ai-gateway/guides',
-            from: ['/llms/deployments/guides', '/llms/gateway/guides/index', '/llms/gateway/guide'],
+            to: '/genai/governance/ai-gateway/setup',
+            from: [
+              '/llms/deployments/guides/step1-create-deployments',
+              '/llms/gateway/guides/step1-create-gateway',
+              '/genai/governance/ai-gateway/guides/step1-create-deployments',
+            ],
           },
           {
-            to: '/genai/governance/ai-gateway/guides/step1-create-deployments',
-            from: ['/llms/deployments/guides/step1-create-deployments', '/llms/gateway/guides/step1-create-gateway'],
-          },
-          {
-            to: '/genai/governance/ai-gateway/guides/step2-query-deployments',
-            from: ['/llms/deployments/guides/step2-query-deployments', '/llms/gateway/guides/step2-query-gateway'],
+            to: '/genai/governance/ai-gateway/usage',
+            from: [
+              '/llms/deployments/guides/step2-query-deployments',
+              '/llms/gateway/guides/step2-query-gateway',
+              '/genai/governance/ai-gateway/guides/step2-query-deployments',
+            ],
           },
           {
             to: '/genai/governance/unity-catalog',
@@ -746,8 +787,12 @@ const config: Config = {
             from: ['/deep-learning/keras'],
           },
           {
-            to: '/ml/deep-learning/keras/quickstart/quickstart-keras',
+            to: '/ml/deep-learning/keras',
             from: ['/deep-learning/keras/quickstart/quickstart_keras'],
+          },
+          {
+            to: '/ml/deep-learning/keras',
+            from: ['/deep-learning/keras/guide', '/ml/deep-learning/keras/guide'],
           },
           {
             to: '/ml/deep-learning/pytorch',
@@ -763,13 +808,22 @@ const config: Config = {
               '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
             ],
           },
+          // Redirect consolidated spaCy guide to index
+          {
+            to: '/ml/deep-learning/spacy',
+            from: [
+              '/deep-learning/spacy/guide',
+              '/classic-ml/deep-learning/spacy/guide',
+              '/ml/deep-learning/spacy/guide',
+            ],
+          },
           {
             to: '/ml/deep-learning/sentence-transformers',
             from: ['/llms/sentence-transformers'],
           },
           {
-            to: '/ml/deep-learning/sentence-transformers/tutorials/',
-            from: ['/llms/sentence-transformers/tutorials'],
+            to: '/ml/deep-learning/sentence-transformers',
+            from: ['/llms/sentence-transformers/tutorials', '/ml/deep-learning/sentence-transformers/tutorials'],
           },
           {
             to: '/ml/deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers',
@@ -790,20 +844,22 @@ const config: Config = {
             ],
           },
           {
-            to: '/ml/deep-learning/sentence-transformers/guide',
-            from: ['/llms/sentence-transformers/guide'],
+            to: '/ml/deep-learning/sentence-transformers',
+            from: ['/llms/sentence-transformers/guide', '/ml/deep-learning/sentence-transformers/guide'],
           },
           {
             to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow'],
           },
+          // Redirect consolidated tensorflow guide and quickstart to index
           {
             to: '/ml/deep-learning/tensorflow',
-            from: ['/deep-learning/tensorflow/guide'],
-          },
-          {
-            to: '/ml/deep-learning/tensorflow',
-            from: ['/deep-learning/tensorflow/quickstart/quickstart_tensorflow'],
+            from: [
+              '/deep-learning/tensorflow/guide',
+              '/ml/deep-learning/tensorflow/guide',
+              '/deep-learning/tensorflow/quickstart/quickstart_tensorflow',
+              '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
+            ],
           },
           {
             to: '/ml/deep-learning/transformers',
@@ -1092,6 +1148,16 @@ const config: Config = {
           {
             to: '/ml/tutorials-and-examples',
             from: ['/tutorials-and-examples'],
+          },
+          // Redirect removed sklearn subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/sklearn/',
+            from: ['/ml/traditional-ml/sklearn/guide', '/ml/traditional-ml/sklearn/quickstart/quickstart-sklearn'],
+          },
+          // Redirect removed XGBoost subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/xgboost/',
+            from: ['/ml/traditional-ml/xgboost/guide', '/ml/traditional-ml/xgboost/quickstart/quickstart-xgboost'],
           },
         ],
       },

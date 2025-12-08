@@ -9,7 +9,6 @@ import math
 import os
 import pathlib
 import posixpath
-import shutil
 import subprocess
 import sys
 import time
@@ -105,29 +104,13 @@ def store_type(request):
     return request.param
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_dir / "mlflow.db"
-    backend_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
-    store.engine.dispose()
-    return db_path
-
-
 @pytest.fixture
-def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
+def mlflow_client(store_type: str, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
     elif store_type == "sqlalchemy":
-        # Copy the cached database for this test
-        db_path = tmp_path / "mlflow.db"
-        shutil.copy(cached_db, db_path)
-        backend_uri = f"sqlite:///{db_path}"
+        backend_uri = db_uri
 
     # Force-reset backend stores before each test.
     handlers._tracking_store = None
@@ -2404,9 +2387,8 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
     assert "Query exceeds maximum depth of 10" in response.json()["errors"][0]
 
     # Test max selections limit
-    selections = []
-    for i in range(1002):  # Exceed the 1000 selection limit
-        selections.append(f"field_{i} {{ name }}")
+    # Exceed the 1000 selection limit
+    selections = [f"field_{i} {{ name }}" for i in range(1002)]
     selections_query = (
         'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
         + " ".join(selections)
@@ -2890,7 +2872,6 @@ def test_get_trace_artifact_handler(mlflow_client):
 
 
 def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
-    """Test linking traces to runs and searching traces with run_id filter."""
     # Skip file store because it doesn't support linking traces to runs
     if store_type == "file":
         pytest.skip("File store doesn't support linking traces to runs")
@@ -3324,7 +3305,6 @@ def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
 
 
 def test_assessments_end_to_end(mlflow_client):
-    """Test complete assessment CRUD workflow using REST API."""
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
     # Set up experiment and trace
@@ -3475,7 +3455,6 @@ def test_assessments_end_to_end(mlflow_client):
 
 
 def test_graphql_nan_metric_handling(mlflow_client):
-    """Test that NaN metric values are correctly handled by returning null in GraphQL responses."""
     experiment_id = mlflow_client.create_experiment("test_graphql_nan_metrics")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id

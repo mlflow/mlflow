@@ -70,11 +70,26 @@ const getExperimentPageRouteDefs = () => {
           ),
         },
         {
+          path: RoutePaths.experimentPageTabScorers,
+          pageId: PageId.experimentPageTabScorers,
+          element: createLazyRouteElement(() => import('./pages/experiment-scorers/ExperimentScorersPage')),
+        },
+        {
           path: RoutePaths.experimentPageTabDatasets,
           pageId: PageId.experimentPageTabDatasets,
-          element: createLazyRouteElement(
-            () => import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage'),
-          ),
+          element: createLazyRouteElement(() => {
+            return import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage');
+          }),
+        },
+        {
+          path: RoutePaths.experimentPageTabPrompts,
+          pageId: PageId.experimentPageTabPrompts,
+          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
+        },
+        {
+          path: RoutePaths.experimentPageTabPromptDetails,
+          pageId: PageId.experimentPageTabPromptDetails,
+          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptDetailsPage')),
         },
       ],
     },

@@ -6,6 +6,7 @@ from typing import Any
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
+from mlflow.utils.annotations import deprecated
 
 _UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = "mlflow_experiment_trace_otel_spans"
 _UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME = "mlflow_experiment_trace_otel_logs"
@@ -51,6 +52,7 @@ class MlflowExperimentLocation(TraceLocationBase):
         return cls(experiment_id=d["experiment_id"])
 
 
+@deprecated(since="3.7.0")
 @dataclass
 class InferenceTableLocation(TraceLocationBase):
     """

@@ -27,6 +27,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai import make_judge
+from mlflow.genai.judges.constants import _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.judges.utils import _NATIVE_PROVIDERS, validate_judge_model
@@ -66,7 +67,7 @@ def mock_databricks_rag_eval(monkeypatch):
             self.expected_content = expected_content
             self.response_data = response_data
 
-        def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
+        def get_chat_completions_result(self, user_prompt, system_prompt, use_case=None, **kwargs):
             # Check that expected content is in either user or system prompt
             if self.expected_content:
                 combined = (system_prompt or "") + " " + user_prompt
@@ -114,7 +115,15 @@ def mock_invoke_judge_model(monkeypatch):
     calls = []
     captured_args = {}
 
-    def _mock(model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None):
+    def _mock(
+        model_uri,
+        prompt,
+        assessment_name,
+        trace=None,
+        num_retries=10,
+        response_format=None,
+        use_case=None,
+    ):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
 
@@ -127,6 +136,7 @@ def mock_invoke_judge_model(monkeypatch):
                 "trace": trace,
                 "num_retries": num_retries,
                 "response_format": response_format,
+                "use_case": use_case,
             }
         )
 
@@ -619,7 +629,13 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     captured_args = {}
 
     def mock_invoke(
-        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+        model_uri,
+        prompt,
+        assessment_name,
+        trace=None,
+        num_retries=10,
+        response_format=None,
+        use_case=None,
     ):
         captured_args.update(
             {
@@ -629,6 +645,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
                 "trace": trace,
                 "num_retries": num_retries,
                 "response_format": response_format,
+                "use_case": use_case,
             }
         )
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
@@ -844,7 +861,7 @@ def test_kind_property():
         model="openai:/gpt-4",
     )
 
-    assert judge.kind == ScorerKind.BUILTIN
+    assert judge.kind == ScorerKind.INSTRUCTIONS
 
 
 @pytest.mark.parametrize(
@@ -1305,6 +1322,7 @@ def test_model_dump_uses_serialized_scorer_dataclass():
     expected_scorer = SerializedScorer(
         name="test_dataclass_judge",
         aggregations=[],
+        is_session_level_scorer=False,
         mlflow_version=mlflow.__version__,
         serialization_version=1,
         instructions_judge_pydantic_data={
@@ -1327,6 +1345,53 @@ def test_model_dump_uses_serialized_scorer_dataclass():
     assert serialized == expected_dict
 
     assert set(serialized.keys()) == set(expected_dict.keys())
+
+
+def test_model_dump_session_level_scorer():
+    judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate the {{ conversation }} for coherence",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    # Verify it's a session-level scorer
+    assert judge.is_session_level_scorer is True
+
+    serialized = judge.model_dump()
+
+    # Verify is_session_level_scorer is properly serialized
+    assert serialized["is_session_level_scorer"] is True
+    assert serialized["name"] == "conversation_judge"
+
+    expected_scorer = SerializedScorer(
+        name="conversation_judge",
+        aggregations=[],
+        is_session_level_scorer=True,
+        mlflow_version=mlflow.__version__,
+        serialization_version=1,
+        instructions_judge_pydantic_data={
+            "feedback_value_type": {
+                "type": "string",
+                "title": "Result",
+            },
+            "instructions": "Evaluate the {{ conversation }} for coherence",
+            "model": "openai:/gpt-4",
+        },
+        builtin_scorer_class=None,
+        builtin_scorer_pydantic_data=None,
+        call_source=None,
+        call_signature=None,
+        original_func_name=None,
+    )
+
+    expected_dict = asdict(expected_scorer)
+    assert serialized == expected_dict
+
+    # Test deserialization preserves is_session_level_scorer
+    deserialized = Scorer.model_validate(serialized)
+    assert deserialized.is_session_level_scorer is True
+    assert deserialized.name == "conversation_judge"
 
 
 def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
@@ -1427,7 +1492,13 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     captured_prompt = None
 
     def mock_invoke(
-        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+        model_uri,
+        prompt,
+        assessment_name,
+        trace=None,
+        num_retries=10,
+        response_format=None,
+        use_case=None,
     ):
         nonlocal captured_prompt
         captured_prompt = prompt
@@ -2736,6 +2807,32 @@ def test_make_judge_serialization_with_feedback_value_type():
     assert typing.get_args(restored_list._feedback_value_type) == (str,)
 
 
+def test_judge_with_literal_type_serialization():
+    literal_type = Literal["good", "bad"]
+    judge = make_judge(
+        name="test_judge",
+        instructions="Rate the response as {{ inputs }}",
+        feedback_value_type=literal_type,
+        model="databricks:/databricks-meta-llama-3-1-70b-instruct",
+    )
+
+    # Test serialization
+    serialized = InstructionsJudge._serialize_feedback_value_type(literal_type)
+    assert "enum" in serialized
+    assert serialized["enum"] == ["good", "bad"]
+
+    # Test model validate
+    dumped = judge.model_dump()
+    restored = Scorer.model_validate(dumped)
+    assert restored.name == "test_judge"
+    assert restored._feedback_value_type is not None
+
+    # Test register
+    registered = judge.register()
+    assert registered.name == "test_judge"
+    assert registered._feedback_value_type is not None
+
+
 def test_make_judge_validates_feedback_value_type():
     # Valid types should work
     make_judge(
@@ -2854,7 +2951,6 @@ def test_make_judge_with_default_feedback_value_type(monkeypatch):
 
 
 def test_conversation_template_variable_extraction():
-    """Test that conversation template variable is correctly extracted."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate the {{ conversation }} for quality",
@@ -2865,8 +2961,10 @@ def test_conversation_template_variable_extraction():
     assert judge.template_variables == {"conversation"}
 
 
-def test_is_multi_turn_property():
-    """Test that is_multi_turn property returns True when conversation is in template variables."""
+def test_is_session_level_scorer_property():
+    """Test that is_session_level_scorer property returns True when conversation is in template
+    variables.
+    """
     conversation_judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -2874,7 +2972,7 @@ def test_is_multi_turn_property():
         model="openai:/gpt-4",
     )
 
-    assert conversation_judge.is_multi_turn is True
+    assert conversation_judge.is_session_level_scorer is True
 
     regular_judge = make_judge(
         name="regular_judge",
@@ -2883,11 +2981,10 @@ def test_is_multi_turn_property():
         model="openai:/gpt-4",
     )
 
-    assert regular_judge.is_multi_turn is False
+    assert regular_judge.is_session_level_scorer is False
 
 
 def test_conversation_with_expectations_allowed():
-    """Test that conversation can be used with expectations."""
     judge = make_judge(
         name="conversation_expectations_judge",
         instructions="Evaluate {{ conversation }} against {{ expectations }}",
@@ -2899,7 +2996,6 @@ def test_conversation_with_expectations_allowed():
 
 
 def test_conversation_with_other_variables_rejected():
-    """Test that conversation cannot be used with inputs, outputs, or trace."""
     with pytest.raises(
         MlflowException,
         match=(
@@ -2944,7 +3040,6 @@ def test_conversation_with_other_variables_rejected():
 
 
 def test_session_validation_type_error():
-    """Test that session must be a list."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -2957,7 +3052,6 @@ def test_session_validation_type_error():
 
 
 def test_session_validation_not_all_traces():
-    """Test that all elements in session must be Trace objects."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3013,7 +3107,6 @@ def create_trace_with_session(
 
 
 def test_validate_session_missing_session_id():
-    """Test that _validate_session raises error when trace is missing session_id."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3072,7 +3165,6 @@ def test_validate_session_different_sessions():
 
 
 def test_validate_session_same_session():
-    """Test that _validate_session passes when all traces belong to the same session."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3088,7 +3180,6 @@ def test_validate_session_same_session():
 
 
 def test_conversation_extraction_from_session(mock_invoke_judge_model):
-    """Test that conversation is correctly extracted from session traces."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }} for quality",
@@ -3141,7 +3232,6 @@ def test_conversation_extraction_from_session(mock_invoke_judge_model):
 
 
 def test_conversation_extraction_chronological_order(mock_invoke_judge_model):
-    """Test that conversation messages are extracted in chronological order."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3178,7 +3268,6 @@ def test_conversation_extraction_chronological_order(mock_invoke_judge_model):
 
 
 def test_conversation_with_expectations(mock_invoke_judge_model):
-    """Test that conversation can be used with expectations."""
     judge = make_judge(
         name="conversation_expectations_judge",
         instructions="Evaluate {{ conversation }} against {{ expectations }}",
@@ -3219,7 +3308,6 @@ expectations: {
 
 
 def test_conversation_missing_session():
-    """Test that missing session raises error when conversation is required."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3234,7 +3322,6 @@ def test_conversation_missing_session():
 
 
 def test_conversation_empty_session():
-    """Test that empty session list is handled."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3249,7 +3336,6 @@ def test_conversation_empty_session():
 
 
 def test_conversation_with_empty_inputs_or_outputs(mock_invoke_judge_model):
-    """Test that empty inputs/outputs are filtered out from conversation."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3292,7 +3378,6 @@ def test_conversation_with_empty_inputs_or_outputs(mock_invoke_judge_model):
 
 
 def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
-    """Test that unused conversation parameter triggers warning."""
     judge = make_judge(
         name="outputs_judge",
         instructions="Evaluate {{ outputs }}",
@@ -3317,7 +3402,6 @@ def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
 
 
 def test_conversation_no_warning_when_used(mock_invoke_judge_model):
-    """Test that no warning is shown when conversation is used."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3344,3 +3428,84 @@ def test_conversation_no_warning_when_used(mock_invoke_judge_model):
                     # Should not contain both "conversation" and "not used" together
                     if "conversation" in warning_msg.lower():
                         assert "not used" not in warning_msg.lower()
+
+
+def test_instructions_judge_generate_rationale_first():
+    # Test with generate_rationale_first=False (default)
+    judge_default = InstructionsJudge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=str,
+        generate_rationale_first=False,
+    )
+
+    # Check output fields order (default: result first, then rationale)
+    output_fields_default = judge_default.get_output_fields()
+    assert len(output_fields_default) == 2
+    assert output_fields_default[0].name == "result"
+    assert output_fields_default[1].name == "rationale"
+
+    # Check response format field order (default: result first)
+    response_format_default = judge_default._create_response_format_model()
+    field_names_default = list(response_format_default.model_fields.keys())
+    assert field_names_default == ["result", "rationale"]
+
+    # Test with generate_rationale_first=True
+    judge_rationale_first = InstructionsJudge(
+        name="test_judge_rationale_first",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=Literal["good", "bad"],
+        generate_rationale_first=True,
+    )
+
+    # Check output fields order (rationale first, then result)
+    output_fields_rationale_first = judge_rationale_first.get_output_fields()
+    assert len(output_fields_rationale_first) == 2
+    assert output_fields_rationale_first[0].name == "rationale"
+    assert output_fields_rationale_first[1].name == "result"
+
+    # Check response format field order (rationale first)
+    response_format_rationale_first = judge_rationale_first._create_response_format_model()
+    field_names_rationale_first = list(response_format_rationale_first.model_fields.keys())
+    assert field_names_rationale_first == ["rationale", "result"]
+
+    # Verify field descriptions are correct regardless of order
+    assert output_fields_default[0].value_type == str
+    assert output_fields_default[1].value_type == str
+    assert output_fields_rationale_first[0].value_type == str  # rationale
+    assert output_fields_rationale_first[1].value_type == Literal["good", "bad"]  # result
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Evaluates the conciseness of the response",  # With custom description
+        None,  # Without description
+    ],
+)
+def test_response_format_uses_generic_field_description(description):
+    judge = InstructionsJudge(
+        name="Conciseness" if description else "TestJudge",
+        instructions="Evaluate if the output {{ outputs }} is concise",
+        description=description,
+        model="openai:/gpt-4",
+    )
+
+    response_format_model = judge._create_response_format_model()
+    schema = response_format_model.model_json_schema()
+
+    # The result field description should be the generic description,
+    # NOT the scorer's description
+    result_description = schema["properties"]["result"]["description"]
+    assert result_description == _RESULT_FIELD_DESCRIPTION
+
+    # Verify rationale field uses its own description
+    rationale_description = schema["properties"]["rationale"]["description"]
+    assert rationale_description == "Detailed explanation for the evaluation"
+
+    # Also verify get_output_fields() uses generic description (used in system prompt)
+    output_fields = judge.get_output_fields()
+    result_field = next(f for f in output_fields if f.name == "result")
+    assert result_field.description == _RESULT_FIELD_DESCRIPTION

@@ -30,9 +30,16 @@ class ScorerKind(Enum):
     CLASS = "class"
     BUILTIN = "builtin"
     DECORATOR = "decorator"
+    INSTRUCTIONS = "instructions"
+    GUIDELINES = "guidelines"
 
 
-_ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
+_ALLOWED_SCORERS_FOR_REGISTRATION = [
+    ScorerKind.BUILTIN,
+    ScorerKind.DECORATOR,
+    ScorerKind.INSTRUCTIONS,
+    ScorerKind.GUIDELINES,
+]
 
 
 class ScorerStatus(Enum):
@@ -68,6 +75,7 @@ class SerializedScorer:
     name: str
     aggregations: list[str] | None = None
     description: str | None = None
+    is_session_level_scorer: bool = False
 
     # Version metadata
     mlflow_version: str = mlflow.__version__
@@ -118,8 +126,8 @@ class Scorer(BaseModel):
     _registered_backend: str | None = PrivateAttr(default=None)
 
     @property
-    def is_multi_turn(self) -> bool:
-        """Get whether this scorer is a multi-turn scorer.
+    def is_session_level_scorer(self) -> bool:
+        """Get whether this scorer is a session-level scorer.
 
         Defaults to False. Child classes can override this property to return True
         or compute the value dynamically based on their configuration.
@@ -183,6 +191,7 @@ class Scorer(BaseModel):
             name=self.name,
             description=self.description,
             aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             call_source=source_info.get("call_source"),
@@ -380,7 +389,7 @@ class Scorer(BaseModel):
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
         return scorer_instance
 
-    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
+    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None, session=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
 
         merged = {
@@ -388,6 +397,7 @@ class Scorer(BaseModel):
             "outputs": outputs,
             "expectations": expectations,
             "trace": trace,
+            "session": session,
         }
         # Filter to only the parameters the function actually expects
         sig = inspect.signature(self.__call__)
@@ -498,7 +508,8 @@ class Scorer(BaseModel):
 
             * - ``session``
               - A list of trace objects belonging to the same conversation session.
-              - Available only for multi-turn scorers (scorers with ``is_multi_turn = True``).
+              - Specify this parameter only for session_level scorers
+                (scorers with ``is_session_level_scorer = True``).
                 * Only traces with the same ``mlflow.trace.session`` metadata value can be passed in
                   this parameter, otherwise an error will be raised.
 

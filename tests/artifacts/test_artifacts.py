@@ -7,6 +7,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.file_utils import mkdir, path_to_local_file_uri
 from mlflow.utils.os import is_windows
 
@@ -14,6 +15,12 @@ from mlflow.utils.os import is_windows
 class Artifact(NamedTuple):
     uri: str
     content: str
+
+
+@pytest.fixture(autouse=True)
+def tracking_uri(db_uri: str):
+    with _use_tracking_uri(db_uri):
+        yield
 
 
 @pytest.fixture

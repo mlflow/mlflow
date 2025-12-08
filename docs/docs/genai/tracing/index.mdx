@@ -1,20 +1,18 @@
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
-import { APILink } from "@site/src/components/APILink";
-import { CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import ImageBox from "@site/src/components/ImageBox";
 import TracingIntegrations from "@site/src/components/TracingIntegrations";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import { GitMerge, Heart, Zap, Puzzle, LifeBuoy, Users } from "lucide-react";
+import { Heart, Zap, Puzzle, LifeBuoy, Users } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # MLflow Tracing for LLM Observability
 
 MLflow Tracing is a fully **OpenTelemetry-compatible** LLM observability solution for your applications. It captures the inputs, outputs, and metadata associated with each intermediate step of a request, enabling you to easily pinpoint the source of bugs and unexpected behaviors.
 
-<ImageBox src="/images/llms/tracing/tracing-top.gif" alt="Tracing Gateway Video" />
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
 
 ## Use Cases Throughout the ML Lifecycle
 
@@ -171,7 +169,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of a machine lea
     image="/images/logos/python-logo.png"
     title="Quickstart (Python)"
     description="Get started with MLflow Tracing in Python"
-    href="/genai/tracing/quickstart/python-openai"
+    href="/genai/tracing/quickstart"
     linkText="Start building  →"
     containerHeight={64}
   />
@@ -179,7 +177,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of a machine lea
     image="/images/logos/javascript-typescript-logo.png"
     title="Quickstart (JS/TS)"
     description="Get started with MLflow Tracing in JavaScript or TypeScript"
-    href="/genai/tracing/quickstart/typescript-openai"
+    href="/genai/tracing/quickstart"
     linkText="Start building →"
     containerHeight={64}
   />

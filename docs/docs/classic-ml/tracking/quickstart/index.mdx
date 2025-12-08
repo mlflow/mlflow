@@ -3,7 +3,6 @@ sidebar_position: 2
 sidebar_label: "Quickstart"
 ---
 
-import { CardGroup, PageCard } from "@site/src/components/Card";
 import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Tracking Quickstart
@@ -89,7 +88,7 @@ To learn more about autologging and supported libraries, see the [Autologging](/
 To see the results of training, you can access the MLflow UI by navigating to the URL of the Tracking Server. If you have not started one, open a new terminal and run the following command at the root of the MLflow project and access the UI at http://localhost:5000 (or the port number you specified).
 
 ```bash
-mlflow ui --port 5000
+mlflow server --port 5000
 ```
 
 When opening the site, you will see a screen similar to the following:

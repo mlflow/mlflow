@@ -192,7 +192,6 @@ def test_set_chat_tools_validation():
     ],
 )
 def test_openai_parse_tools_enum_validation(enum_values, param_type):
-    """Test that OpenAI _parse_tools accepts various enum value types."""
     from mlflow.openai.utils.chat_schema import _parse_tools
 
     # Simulate the exact OpenAI autologging input that was failing

@@ -299,8 +299,7 @@ class Model(ConfigModel):
 
         # For Pydantic v2: 'context' is a ValidationInfo object with a 'data' attribute.
         # For Pydantic v1: 'context' is dict-like 'values'.
-        provider = context.data.get("provider")
-        if provider:
+        if provider := context.data.get("provider"):
             config_type = provider_registry.get(provider).CONFIG_TYPE
             return config_type(**val) if isinstance(val, dict) else val
         raise MlflowException.invalid_parameter_value(

@@ -67,7 +67,6 @@ def test_server_static_prefix_validation():
 
 
 def test_server_uvicorn_options():
-    """Test that uvicorn options are properly handled."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test default behavior (uvicorn should be used when no server options specified)
         CliRunner().invoke(server)
@@ -115,7 +114,6 @@ def test_server_uvicorn_options():
 
 @pytest.mark.skipif(is_windows(), reason="--dev mode is not supported on Windows")
 def test_server_dev_mode():
-    """Test that --dev flag sets proper uvicorn options."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test with --dev flag (should set uvicorn opts)
         CliRunner().invoke(server, ["--dev"])
@@ -141,7 +139,6 @@ def test_server_dev_mode():
 
 @pytest.mark.skipif(is_windows(), reason="Gunicorn is not supported on Windows")
 def test_server_gunicorn_options():
-    """Test that gunicorn options are properly handled."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test that gunicorn-opts disables uvicorn
         CliRunner().invoke(server, ["--gunicorn-opts", "--timeout 120 --max-requests 1000"])
@@ -802,7 +799,6 @@ def test_env_file_loading_invalid_path() -> None:
 
 
 def test_server_with_env_file(tmp_path):
-    """Test that --env-file is passed through to uvicorn."""
     env_file = tmp_path / ".env"
     env_file.write_text("TEST_VAR=test_value\n")
 
@@ -847,3 +843,105 @@ def test_mlflow_gc_with_datasets(sqlite_store):
     assert experiments[0].experiment_id == "0"
     with pytest.raises(MlflowException, match=f"No Experiment with id={experiment_id} exists"):
         store.get_experiment(experiment_id)
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_model(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+
+    store.delete_logged_model(model.model_id)
+    subprocess.check_output([sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", uri])
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(model.model_id)
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_models_older_than(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    old_time = time.time() - (2 * 24 * 60 * 60)
+    with mock.patch("time.time", return_value=old_time):
+        model = store.create_logged_model(experiment_id=exp_id)
+
+    store.delete_logged_model(model.model_id)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            uri,
+            "--older-than",
+            "1d",
+        ]
+    )
+
+    retrieved_model = store.get_logged_model(model.model_id, allow_deleted=True)
+    assert retrieved_model.model_id == model.model_id
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_models_deletes_when_older_than(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+
+    old_deletion_ms = int((time.time() - (2 * 24 * 60 * 60)) * 1000)
+    with mock.patch("mlflow.utils.time.get_current_time_millis", return_value=old_deletion_ms):
+        store.delete_logged_model(model.model_id)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            uri,
+            "--older-than",
+            "1d",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(model.model_id)
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    old_model = store.create_logged_model(experiment_id=exp_id)
+    recent_model = store.create_logged_model(experiment_id=exp_id)
+
+    old_deletion_ms = int((time.time() - (3 * 24 * 60 * 60)) * 1000)
+    with mock.patch("mlflow.utils.time.get_current_time_millis", return_value=old_deletion_ms):
+        store.delete_logged_model(old_model.model_id)
+
+    with mock.patch("mlflow.utils.time.get_current_time_millis") as current_time_mock:
+        current_time_mock.return_value = int(time.time() * 1000)
+        store.delete_logged_model(recent_model.model_id)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            uri,
+            "--older-than",
+            "1d",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(old_model.model_id)
+
+    retrieved_model = store.get_logged_model(recent_model.model_id, allow_deleted=True)
+    assert retrieved_model.model_id == recent_model.model_id

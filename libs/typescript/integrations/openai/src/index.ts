@@ -165,8 +165,8 @@ function extractTokenUsage(response: any): TokenUsage | undefined {
   if ('prompt_tokens' in usage) {
     return {
       input_tokens: usage.prompt_tokens,
-      output_tokens: usage.completion_tokens,
-      total_tokens: usage.total_tokens || usage.prompt_tokens + usage.completion_tokens
+      output_tokens: usage.completion_tokens ?? 0,
+      total_tokens: usage.total_tokens || usage.prompt_tokens + (usage.completion_tokens ?? 0)
     };
   }
 

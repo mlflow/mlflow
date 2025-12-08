@@ -134,5 +134,8 @@
   "files.associations": {
     "*.mdx": "markdown",
     "*.ipynb": "jupyter"
+  },
+  "files.watcherExclude": {
+    "**/target": true
   }
 }

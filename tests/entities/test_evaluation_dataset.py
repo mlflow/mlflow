@@ -301,7 +301,6 @@ def test_evaluation_dataset_complex_tags():
 
 
 def test_evaluation_dataset_to_df():
-    """Test that to_df method returns a DataFrame with outputs column."""
     dataset = EvaluationDataset(
         dataset_id="dataset123",
         name="test_dataset",
@@ -320,6 +319,7 @@ def test_evaluation_dataset_to_df():
         "tags",
         "source_type",
         "source_id",
+        "source",
         "created_time",
         "dataset_record_id",
     ]
@@ -417,7 +417,12 @@ def create_test_span(
 
 
 def create_test_trace(
-    trace_id="test-trace-123", inputs=None, outputs=None, expectations=None, _no_defaults=False
+    trace_id="test-trace-123",
+    inputs=None,
+    outputs=None,
+    expectations=None,
+    trace_metadata=None,
+    _no_defaults=False,
 ):
     assessments = []
     if expectations:
@@ -440,6 +445,7 @@ def create_test_trace(
         execution_duration=1000,
         state=TraceState.OK,
         assessments=assessments,
+        trace_metadata=trace_metadata or {},
     )
 
     default_inputs = {"question": "What is MLflow?"}
@@ -638,3 +644,72 @@ def test_process_trace_records_mixed_types_error():
         ),
     ):
         dataset._process_trace_records([trace, not_a_trace])
+
+
+def test_process_trace_records_preserves_session_metadata():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    # Create trace with session metadata
+    trace_with_session = create_test_trace(
+        trace_id="tr-123",
+        trace_metadata={"mlflow.trace.session": "session_1"},
+    )
+
+    # Create trace without session metadata
+    trace_without_session = create_test_trace(
+        trace_id="tr-456",
+        trace_metadata={},
+    )
+
+    records = dataset._process_trace_records([trace_with_session, trace_without_session])
+
+    # Trace with session should have session_id in source_data
+    assert records[0]["source"]["source_data"]["trace_id"] == "tr-123"
+    assert records[0]["source"]["source_data"]["session_id"] == "session_1"
+
+    # Trace without session should only have trace_id
+    assert records[1]["source"]["source_data"]["trace_id"] == "tr-456"
+    assert "session_id" not in records[1]["source"]["source_data"]
+
+
+def test_to_df_includes_source_column():
+    from mlflow.entities.dataset_record import DatasetRecord
+    from mlflow.entities.dataset_record_source import DatasetRecordSource
+
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    # Manually add a record with source to the dataset
+    source = DatasetRecordSource(
+        source_type=DatasetRecordSourceType.TRACE,
+        source_data={"trace_id": "tr-123"},
+    )
+    record = DatasetRecord(
+        dataset_id="dataset123",
+        dataset_record_id="record123",
+        inputs={"question": "test"},
+        outputs={"answer": "test answer"},
+        expectations={},
+        tags={},
+        created_time=123456789,
+        last_update_time=123456789,
+        source=source,
+    )
+    dataset._records = [record]
+
+    df = dataset.to_df()
+
+    assert "source" in df.columns
+    assert df["source"].notna().all()
+    assert df["source"].iloc[0] == source

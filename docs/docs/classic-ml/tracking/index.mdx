@@ -3,7 +3,6 @@ sidebar_label: Overview
 sidebar_position: 0
 ---
 
-import Link from "@docusaurus/Link";
 import { PageCard, CardGroup } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
@@ -268,7 +267,7 @@ If you log runs to a local `mlruns` directory, run the following command in the 
 then access http://127.0.0.1:5000 in your browser.
 
 ```bash
-mlflow ui --port 5000
+mlflow server --port 5000
 ```
 
 Alternatively, the [MLflow Tracking Server](#tracking_server) serves the same UI and enables remote

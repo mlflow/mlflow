@@ -345,7 +345,6 @@ def test_standard_store_registry_with_mocked_entrypoint():
 
 
 def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     monkeypatch.chdir(tmp_path)
     reload(mlflow.tracking._tracking_service.utils)
     assert (
