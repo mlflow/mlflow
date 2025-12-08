@@ -566,6 +566,9 @@ mlflow.entities.model_registry.ModelVersionSearch.tags
 mlflow.entities.model_registry.ModelVersionTag
 mlflow.entities.model_registry.ModelVersionTag.from_proto
 mlflow.entities.model_registry.ModelVersionTag.to_proto
+mlflow.entities.model_registry.PromptModelConfig
+mlflow.entities.model_registry.PromptModelConfig.from_dict
+mlflow.entities.model_registry.PromptModelConfig.to_dict
 mlflow.entities.model_registry.PromptVersion
 mlflow.entities.model_registry.PromptVersion.convert_response_format_to_dict
 mlflow.entities.model_registry.PromptVersion.format
@@ -591,6 +594,7 @@ mlflow.entities.model_registry.model_version_deployment_job_state.ModelVersionDe
 mlflow.entities.model_registry.model_version_search.ModelVersionSearch
 mlflow.entities.model_registry.model_version_tag.ModelVersionTag
 mlflow.entities.model_registry.prompt.Prompt
+mlflow.entities.model_registry.prompt_version.PromptModelConfig
 mlflow.entities.model_registry.prompt_version.PromptVersion
 mlflow.entities.model_registry.registered_model.RegisteredModel
 mlflow.entities.model_registry.registered_model_alias.RegisteredModelAlias
@@ -739,6 +743,7 @@ mlflow.genai.delete_dataset
 mlflow.genai.delete_dataset_tag
 mlflow.genai.delete_labeling_session
 mlflow.genai.delete_prompt_alias
+mlflow.genai.delete_prompt_model_config
 mlflow.genai.delete_prompt_tag
 mlflow.genai.delete_prompt_version_tag
 mlflow.genai.disable_git_model_versioning
@@ -873,6 +878,7 @@ mlflow.genai.search_datasets
 mlflow.genai.search_prompts
 mlflow.genai.set_dataset_tags
 mlflow.genai.set_prompt_alias
+mlflow.genai.set_prompt_model_config
 mlflow.genai.set_prompt_tag
 mlflow.genai.set_prompt_version_tag
 mlflow.genai.to_predict_fn
