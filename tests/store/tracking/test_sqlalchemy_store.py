@@ -2398,11 +2398,23 @@ def test_search_full(store: SqlAlchemyStore):
 
 def test_search_with_max_results(store: SqlAlchemyStore):
     exp = _create_experiments(store, "search_with_max_results")
-    runs = [
-        _run_factory(store, _get_run_configs(exp, start_time=r)).info.run_id for r in range(1200)
-    ]
+    # Bulk insert runs using SQLAlchemy for performance
+    run_uuids = [uuid.uuid4().hex for _ in range(1200)]
+    with store.ManagedSessionMaker() as session:
+        session.add_all(
+            SqlRun(
+                run_uuid=run_uuid,
+                name="name",
+                experiment_id=int(exp),
+                user_id="Anderson",
+                status="RUNNING",
+                start_time=i,
+                lifecycle_stage="active",
+            )
+            for i, run_uuid in enumerate(run_uuids)
+        )
     # reverse the ordering, since we created in increasing order of start_time
-    runs.reverse()
+    runs = list(reversed(run_uuids))
 
     assert runs[:1000] == _search_runs(store, exp)
     for n in [1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
