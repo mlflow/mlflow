@@ -4012,7 +4012,7 @@ def test_malicious_meta_yaml_in_artifact_folder_path_traversal(tmp_path):
     )
     run_id = run.info.run_id
 
-    assert run.info.artifact_uri == str(root_dir / run_id / "artifacts")
+    assert Path(run.info.artifact_uri) == root_dir / run_id / "artifacts"
 
     artifacts_dir = root_dir / run_id / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
