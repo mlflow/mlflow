@@ -110,6 +110,22 @@ export const ModelTraceExplorerDetailView = ({
     return Math.max(LEFT_PANE_HEADER_MIN_WIDTH_PX, minWidthForSpans);
   }, [filteredTreeNodes, theme.spacing.lg]);
 
+  const { traceStartTime, traceEndTime } = useMemo(() => {
+    // Use single root when it exists, otherwise calculate from topLevelNodes (multiple roots)
+    if (treeNode) {
+      return { traceStartTime: treeNode.start, traceEndTime: treeNode.end };
+    }
+
+    if (!topLevelNodes || topLevelNodes.length === 0) {
+      return { traceStartTime: 0, traceEndTime: 0 };
+    }
+
+    const traceStartTime = Math.min(...topLevelNodes.map(node => node.start));
+    const traceEndTime = Math.max(...topLevelNodes.map(node => node.end));
+
+    return { traceStartTime, traceEndTime };
+  }, [treeNode, topLevelNodes]);
+
   return (
     <div
       css={{
@@ -151,8 +167,8 @@ export const ModelTraceExplorerDetailView = ({
             <TimelineTree
               rootNodes={filteredTreeNodes}
               selectedNode={selectedNode}
-              traceStartTime={treeNode?.start ?? 0}
-              traceEndTime={treeNode?.end ?? 0}
+              traceStartTime={traceStartTime}
+              traceEndTime={traceEndTime}
               setSelectedNode={onSelectNode}
               css={{ flex: 1 }}
               expandedKeys={expandedKeys}
