@@ -265,6 +265,11 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   chatTools?: ModelTraceChatTool[];
   parentId?: string | null;
   traceId: string;
+  /**
+   * Optional forest of root nodes when the backend has not yet emitted a single true root.
+   * When present, renderers should display these roots instead of the receiver node itself.
+   */
+  rootForest?: ModelTraceSpanNode[];
 }
 
 export type ModelTraceExplorerTab = 'chat' | 'content' | 'attributes' | 'events';

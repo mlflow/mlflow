@@ -633,25 +633,16 @@ export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | n
   const trueRoots = spans.filter((s) => !getModelTraceSpanParentId(s)).map(getModelTraceSpanId);
   const hasSingleTrueRoot = trueRoots.length === 1 && topLevelSpanIds.every((id) => id === trueRoots[0]);
   if (hasSingleTrueRoot) {
-    return getSpanNodeFromData(trueRoots[0]);
+    const root = getSpanNodeFromData(trueRoots[0]);
+    root.rootForest = [root];
+    return root;
   }
 
-  // Otherwise, create a synthetic root and attach all top-level spans as children
-  const children = topLevelSpanIds.map(getSpanNodeFromData);
-  return {
-    title: traceId,
-    icon: <ModelTraceExplorerIcon type={getIconTypeForSpan(ModelSpanType.UNKNOWN)} />,
-    type: ModelSpanType.UNKNOWN,
-    key: traceId,
-    start: 0,
-    end: rootEnd - rootStart,
-    children,
-    // No inputs/outputs/attributes/events for the synthetic root
-    assessments: [],
-    traceId,
-    // mark this node as synthetic so renderers can omit it from UI and render its children instead
-    syntheticRoot: true,
-  } as ModelTraceSpanNode;
+  // Otherwise, render a forest of top-level spans while the true root is still exporting.
+  const forest = topLevelSpanIds.map(getSpanNodeFromData);
+  const primaryRoot = forest[0];
+  primaryRoot.rootForest = forest;
+  return primaryRoot;
 }
 
 // returns a map of { [span_id: string] : Assessment[] }

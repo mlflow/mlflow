@@ -21,10 +21,7 @@ const getDefaultSpanFilterState = (treeNode: ModelTraceSpanNode | null): SpanFil
   // populate the spanTypeDisplayState with
   // all span types that exist on the trace
   if (treeNode) {
-    // If the provided root is a synthetic root, use its children to seed available span types
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - syntheticRoot is a runtime flag
-    const roots = treeNode?.syntheticRoot ? treeNode.children ?? [] : [treeNode];
+    const roots = treeNode.rootForest ?? [treeNode];
     const allSpanTypes = compact(getTimelineTreeNodesList<ModelTraceSpanNode>(roots).map((node) => node.type));
     allSpanTypes.forEach((spanType) => {
       spanTypeDisplayState[spanType] = true;
@@ -92,10 +89,7 @@ export const useModelTraceSearch = ({
       };
     }
 
-    // Allow forest rendering by bypassing synthetic roots for search
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - syntheticRoot is a runtime flag
-    const roots = treeNode?.syntheticRoot ? (treeNode.children ?? []) : [treeNode];
+    const roots = treeNode.rootForest ?? [treeNode];
     // Run search over each root and merge results
     const merged = roots.map((root) => searchTree(root, searchFilter, spanFilterState));
     return {

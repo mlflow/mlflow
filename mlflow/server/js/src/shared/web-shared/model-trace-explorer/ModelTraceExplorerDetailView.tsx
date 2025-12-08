@@ -61,13 +61,10 @@ export const ModelTraceExplorerDetailView = ({
     isInComparisonView,
   } = useModelTraceExplorerViewState();
 
-  // If the parsed root is a synthetic root, render its children as top-level nodes
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - syntheticRoot is a runtime flag set in parseModelTraceToTree
-  const isSyntheticRoot = Boolean(treeNode?.syntheticRoot);
+  // Render a forest if provided (for in-progress traces lacking a single root).
   const rootNodesForRender = useMemo(
-    () => (treeNode ? (isSyntheticRoot ? treeNode.children ?? [] : [treeNode]) : []),
-    [treeNode, isSyntheticRoot],
+    () => (treeNode ? treeNode.rootForest ?? [treeNode] : []),
+    [treeNode],
   );
 
   const { expandedKeys, setExpandedKeys } = useTimelineTreeExpandedNodes({
@@ -79,34 +76,25 @@ export const ModelTraceExplorerDetailView = ({
   // Track which keys we've auto-expanded so we don't override user collapses on refresh
   const seenAutoExpandedKeysRef = useRef<Set<string | number>>(new Set());
 
-  // When a synthetic root transitions to a true root span (once export completes),
-  // ensure the new root is expanded so the tree does not appear collapsed.
+  // When the tree switches roots (e.g., forest collapses into a true root once export completes),
+  // ensure the new root and default-depth nodes are expanded so the tree does not appear collapsed.
   const prevRootKeyRef = useRef<string | number | undefined>(undefined);
   useEffect(() => {
     const currentRootKey = treeNode?.key;
     const prevRootKey = prevRootKeyRef.current;
+
     if (currentRootKey && currentRootKey !== prevRootKey) {
-      // If new root is not expanded yet, expand it but preserve existing expansions
-      if (!expandedKeys.has(currentRootKey)) {
-        // If synthetic root, do not expand it; expand its immediate children instead
-        if (isSyntheticRoot) {
-          const next = new Set(expandedKeys);
-          (treeNode?.children ?? []).forEach((child) => next.add(child.key as string | number));
-          setExpandedKeys(next);
-          (treeNode?.children ?? []).forEach((child) => seenAutoExpandedKeysRef.current.add(child.key as any));
-        } else {
-          const next = new Set(expandedKeys);
-          next.add(currentRootKey);
-          setExpandedKeys(next);
-          // mark root as auto-expanded to avoid re-adding collapsed nodes later
-          seenAutoExpandedKeysRef.current.add(currentRootKey);
-        }
-        // mark root as auto-expanded to avoid re-adding collapsed nodes later
-        seenAutoExpandedKeysRef.current.add(currentRootKey);
-      }
+      // Expand new root and default-depth nodes; keep prior expansions if still valid.
+      const defaultDepthKeys = values(getTimelineTreeNodesMap(rootNodesForRender, DEFAULT_EXPAND_DEPTH)).map(
+        (node) => node.key,
+      );
+      const next = new Set(expandedKeys);
+      defaultDepthKeys.forEach((k) => next.add(k));
+      setExpandedKeys(next);
+      seenAutoExpandedKeysRef.current = new Set(defaultDepthKeys.concat(Array.from(seenAutoExpandedKeysRef.current)));
       prevRootKeyRef.current = currentRootKey;
     }
-  }, [treeNode?.key, expandedKeys, setExpandedKeys]);
+  }, [treeNode?.key, rootNodesForRender, expandedKeys, setExpandedKeys]);
 
   const {
     matchData,
