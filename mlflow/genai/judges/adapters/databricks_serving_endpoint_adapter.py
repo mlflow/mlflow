@@ -25,6 +25,7 @@ from mlflow.genai.judges.adapters.base_adapter import (
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _sanitize_justification
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.telemetry.utils import _log_error
 
 _logger = logging.getLogger(__name__)
 
@@ -362,12 +363,8 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
                     num_prompt_tokens=output.num_prompt_tokens,
                     num_completion_tokens=output.num_completion_tokens,
                 )
-            except Exception as telemetry_error:
-                _logger.debug(
-                    "Failed to record judge model usage success telemetry. Error: %s",
-                    telemetry_error,
-                    exc_info=True,
-                )
+            except Exception:
+                _log_error("Failed to record judge model usage success telemetry")
 
             return AdapterInvocationOutput(
                 feedback=feedback,
@@ -385,10 +382,6 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
                     error_code="UNKNOWN",
                     error_message=traceback.format_exc(),
                 )
-            except Exception as telemetry_error:
-                _logger.debug(
-                    "Failed to record judge model usage failure telemetry. Error: %s",
-                    telemetry_error,
-                    exc_info=True,
-                )
+            except Exception:
+                _log_error("Failed to record judge model usage failure telemetry")
             raise
