@@ -2,6 +2,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import ExperimentTag as ProtoExperimentTag
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class Experiment(_MlflowObject):
@@ -20,6 +21,7 @@ class Experiment(_MlflowObject):
         tags=None,
         creation_time=None,
         last_update_time=None,
+        workspace=None,
     ):
         super().__init__()
         self._experiment_id = experiment_id
@@ -29,6 +31,7 @@ class Experiment(_MlflowObject):
         self._tags = {tag.key: tag.value for tag in (tags or [])}
         self._creation_time = creation_time
         self._last_update_time = last_update_time
+        self._workspace = resolve_entity_workspace_name(workspace)
 
     @property
     def experiment_id(self):
@@ -75,6 +78,11 @@ class Experiment(_MlflowObject):
     def _set_last_update_time(self, last_update_time):
         self._last_update_time = last_update_time
 
+    @property
+    def workspace(self):
+        """Workspace that owns the experiment, if known."""
+        return self._workspace
+
     @classmethod
     def from_proto(cls, proto):
         experiment = cls(
@@ -88,6 +96,7 @@ class Experiment(_MlflowObject):
             # `last_update_time` if they are non-zero.
             creation_time=proto.creation_time or None,
             last_update_time=proto.last_update_time or None,
+            workspace=None,
         )
         for proto_tag in proto.tags:
             experiment._add_tag(ExperimentTag.from_proto(proto_tag))
