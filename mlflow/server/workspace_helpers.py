@@ -6,8 +6,8 @@ import os
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE_STORE_URI
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
-from mlflow.tracking._workspace import utils as workspace_utils
 from mlflow.tracking._workspace.registry import get_workspace_store
+from mlflow.utils import workspace_utils
 
 _logger = logging.getLogger(__name__)
 
