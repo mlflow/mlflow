@@ -244,9 +244,7 @@ const FilterForm = ({
           <Button
             componentId="mlflow.evaluations_review.table_ui.apply_filters_button"
             type="primary"
-            onClick={() => {
-              setFilters(localFilters);
-            }}
+            onClick={() => setFilters(localFilters)}
             css={{
               display: 'flex',
               justifyContent: 'flex-end',
