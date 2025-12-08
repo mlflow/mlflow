@@ -275,8 +275,8 @@ export const useSearchMlflowTraces = ({
   const useClientSideFiltering = false;
 
   const { networkFilters, clientFilters } = useMemo(
-    () => getNetworkAndClientFilters(filters || [], /* assessmentsFilteredOnClientSide */ false),
-    [filters],
+    () => getNetworkAndClientFilters(filters || [], useClientSideFiltering),
+    [filters, useClientSideFiltering],
   );
 
   const filter = createMlflowSearchFilter(
