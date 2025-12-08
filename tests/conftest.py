@@ -897,7 +897,7 @@ def db_uri(cached_db: Path) -> Iterator[str]:
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         db_path = Path(tmp_dir) / "mlflow.db"
 
-        if not IS_TRACING_SDK_ONLY:
+        if not IS_TRACING_SDK_ONLY and cached_db.exists():
             shutil.copy2(cached_db, db_path)
 
         yield f"sqlite:///{db_path}"
