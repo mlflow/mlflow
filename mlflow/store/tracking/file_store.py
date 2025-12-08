@@ -624,7 +624,10 @@ class FileStore(AbstractStore):
         Permanently delete a run (metadata and metrics, tags, parameters).
         This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
         """
-        _, run_dir = self._find_run_root(run_id)
+        # NB: Skip validation here since artifacts may have already been deleted
+        # by gc before calling this method. The run_id was already validated
+        # by search_runs/get_run before reaching this point.
+        _, run_dir = self._find_run_root(run_id, validate_structure=False)
         shutil.rmtree(run_dir)
 
     def _get_deleted_runs(self, older_than=0):
@@ -670,7 +673,15 @@ class FileStore(AbstractStore):
             return get_parent_dir(parent)
         return parent
 
-    def _find_run_root(self, run_uuid):
+    def _is_valid_run_directory(self, run_dir):
+        required_subdirs = [
+            FileStore.METRICS_FOLDER_NAME,
+            FileStore.PARAMS_FOLDER_NAME,
+            FileStore.ARTIFACTS_FOLDER_NAME,
+        ]
+        return all(is_directory(os.path.join(run_dir, subdir)) for subdir in required_subdirs)
+
+    def _find_run_root(self, run_uuid, validate_structure=True):
         _validate_run_id(run_uuid)
         self._check_root_dir()
         all_experiments = self._get_active_experiments(True) + self._get_deleted_experiments(True)
@@ -678,7 +689,12 @@ class FileStore(AbstractStore):
             runs = find(experiment_dir, run_uuid, full_path=True)
             if len(runs) == 0:
                 continue
-            return os.path.basename(os.path.abspath(experiment_dir)), runs[0]
+            run_dir = runs[0]
+            # NB: Validate run directory structure to prevent path traversal via malicious
+            # meta.yaml in artifact folders (ZDI-CAN-26649)
+            if validate_structure and not self._is_valid_run_directory(run_dir):
+                continue
+            return os.path.basename(os.path.abspath(experiment_dir)), run_dir
         return None, None
 
     def update_run_info(self, run_id, run_status, end_time, run_name):
