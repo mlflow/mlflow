@@ -3263,8 +3263,8 @@ message MetricDataPoint {
 
   // Metric values for this data point
   // Keys are aggregation types
-  // e.g., {"avg": "150", "p99": "234.5"}
-  map<string, string> values = 3;
+  // e.g., {"AVG": 150, "P99": 234.5}
+  map<string, double> values = 3;
 }
 
 message SetTraceTag {
