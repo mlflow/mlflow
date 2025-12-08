@@ -61,23 +61,24 @@ class GatewayStoreMixin:
     def update_secret(
         self,
         secret_id: str,
-        secret_value: str,
+        secret_value: str | None = None,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
         """
-        Update an existing secret's value (key rotation).
+        Update an existing secret's configuration.
 
         Args:
             secret_id: ID of the secret to update.
-            secret_value: New secret value to encrypt.
+            secret_value: Optional new secret value to encrypt (key rotation).
+                          If None, secret value is unchanged.
             auth_config: Optional updated provider-specific auth configuration.
                          If provided, replaces existing auth_config. If None,
                          auth_config is unchanged.
             updated_by: Username of the updater.
 
         Returns:
-            Updated Secret entity with new encrypted value.
+            Updated Secret entity.
         """
         raise NotImplementedError(self.__class__.__name__)
 
