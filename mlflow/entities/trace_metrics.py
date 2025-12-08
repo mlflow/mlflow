@@ -42,9 +42,14 @@ class MetricsAggregation(_MlflowObject):
             if self.percentile_value is None:
                 raise ValueError("Percentile value is required for PERCENTILE aggregation")
             if self.percentile_value > 100 or self.percentile_value < 0:
-                raise ValueError("Percentile value must be between 0 and 100")
+                raise ValueError(
+                    f"Percentile value must be between 0 and 100, got {self.percentile_value}"
+                )
         elif self.percentile_value is not None:
-            raise ValueError("Percentile value is only allowed for PERCENTILE aggregation")
+            raise ValueError(
+                "Percentile value is only allowed for PERCENTILE aggregation type, "
+                f"got {self.aggregation_type}"
+            )
 
     def to_proto(self) -> pb.MetricsAggregation:
         proto = pb.MetricsAggregation()
@@ -58,7 +63,7 @@ class MetricsAggregation(_MlflowObject):
 class MetricDataPoint(_MlflowObject):
     metric_name: str
     dimensions: dict[str, str]
-    values: dict[str, str]
+    values: dict[str, float]
 
     @classmethod
     def from_proto(cls, proto: pb.MetricDataPoint) -> "MetricDataPoint":

@@ -1011,15 +1011,15 @@ class MetricDataPoint(_message.Message):
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        value: float
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
     METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
     DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
     VALUES_FIELD_NUMBER: _ClassVar[int]
     metric_name: str
     dimensions: _containers.ScalarMap[str, str]
-    values: _containers.ScalarMap[str, str]
-    def __init__(self, metric_name: _Optional[str] = ..., dimensions: _Optional[_Mapping[str, str]] = ..., values: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    values: _containers.ScalarMap[str, float]
+    def __init__(self, metric_name: _Optional[str] = ..., dimensions: _Optional[_Mapping[str, str]] = ..., values: _Optional[_Mapping[str, float]] = ...) -> None: ...
 
 class SetTraceTag(_message.Message):
     __slots__ = ("request_id", "key", "value")

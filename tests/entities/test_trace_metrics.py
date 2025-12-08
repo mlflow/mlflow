@@ -69,13 +69,7 @@ def test_metrics_aggregation_percentile_value_valid_range(percentile_value: floa
 
 @pytest.mark.parametrize(
     "agg_type",
-    [
-        AggregationType.COUNT,
-        AggregationType.SUM,
-        AggregationType.AVG,
-        AggregationType.MIN,
-        AggregationType.MAX,
-    ],
+    [t for t in AggregationType if t is not AggregationType.PERCENTILE],
 )
 def test_metrics_aggregation_non_percentile_with_value_raises(agg_type: AggregationType):
     with pytest.raises(
@@ -88,10 +82,10 @@ def test_trace_metrics_metric_data_point_from_proto():
     metric_data_point_proto = pb.MetricDataPoint(
         metric_name="latency",
         dimensions={"status": "OK"},
-        values={"avg": "150.5", "p99": "200"},
+        values={"avg": 150.5, "p99": 200},
     )
     assert MetricDataPoint.from_proto(metric_data_point_proto) == MetricDataPoint(
         metric_name="latency",
         dimensions={"status": "OK"},
-        values={"avg": "150.5", "p99": "200"},
+        values={"avg": 150.5, "p99": 200},
     )
