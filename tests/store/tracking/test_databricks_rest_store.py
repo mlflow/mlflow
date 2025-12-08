@@ -1505,13 +1505,13 @@ def test_search_datasets_basic():
         # Verify the mock was called correctly
         mock_http.assert_called_once()
         call_args = mock_http.call_args
+        endpoint = call_args[1]["endpoint"]
         assert call_args[1]["method"] == "GET"
-        assert "/api/2.0/managed-evals/datasets" in call_args[1]["endpoint"]
+        assert "/api/2.0/managed-evals/datasets" in endpoint
         # URL encoding: = becomes %3D
-        assert (
-            "experiment_id%3Dexp_1" in call_args[1]["endpoint"]
-            or "experiment_id=exp_1" in call_args[1]["endpoint"]
-        )
+        assert "experiment_id%3Dexp_1" in endpoint or "experiment_id=exp_1" in endpoint
+        # Verify max_results is passed as page_size
+        assert "page_size=100" in endpoint
 
         # Verify the results
         assert len(result) == 1
