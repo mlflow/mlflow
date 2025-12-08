@@ -29,22 +29,21 @@ function filterEval(
       continue;
     }
 
-    const assessment =
+    const assessments =
       assessmentName === KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT
-        ? runValue.overallAssessments?.[0]
-        : runValue.responseAssessmentsByName[assessmentName]?.[0];
+        ? runValue.overallAssessments ?? []
+        : runValue.responseAssessmentsByName[assessmentName] ?? [];
 
     if (filter.filterType === 'rca') {
       const currentIsAssessmentRootCause =
         runValue?.overallAssessments[0]?.rootCauseAssessment?.assessmentName === assessmentName;
       includeEval = includeEval && currentIsAssessmentRootCause;
     } else {
-      let assessmentValue = assessment ? getEvaluationResultAssessmentValue(assessment) : undefined;
-      if (isNil(assessmentValue)) {
-        assessmentValue = undefined;
-      }
-
-      includeEval = includeEval && assessmentValue === filterValue;
+      const matchesFilter = assessments.some((assessment) => {
+        const value = getEvaluationResultAssessmentValue(assessment) ?? undefined;
+        return value === filterValue;
+      });
+      includeEval = includeEval && matchesFilter;
     }
   }
   return includeEval;
