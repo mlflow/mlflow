@@ -20,11 +20,23 @@ DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE = (
     "DeepEval metrics require the 'deepeval' package. Please install it with: pip install deepeval"
 )
 
+# Expectation keys for conversational test cases
+EXPECTATION_KEY_SCENARIO = "scenario"
+EXPECTATION_KEY_CHATBOT_ROLE = "chatbot_role"
+EXPECTATION_KEY_EXPECTED_OUTCOME = "expected_outcome"
+EXPECTATION_KEY_CONTEXT = "context"
+
+try:
+    from deepeval.test_case import ConversationalTestCase, LLMTestCase
+    from deepeval.test_case import ToolCall as DeepEvalToolCall
+
+    _DEEPEVAL_INSTALLED = True
+except ImportError:
+    _DEEPEVAL_INSTALLED = False
+
 
 def _check_deepeval_installed():
-    try:
-        import deepeval  # noqa: F401
-    except ImportError:
+    if not _DEEPEVAL_INSTALLED:
         raise MlflowException.invalid_parameter_value(DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE)
 
 
@@ -38,8 +50,6 @@ def _convert_to_deepeval_tool_calls(tool_call_dicts: list[dict[str, Any]]):
     Returns:
         List of DeepEval ToolCall objects
     """
-    from deepeval.test_case import ToolCall as DeepEvalToolCall
-
     return [
         DeepEvalToolCall(
             name=tc_dict.get("name"),
@@ -64,8 +74,6 @@ def _extract_tool_calls_from_trace(trace: Trace):
     """
     if not trace:
         return None
-
-    from deepeval.test_case import ToolCall as DeepEvalToolCall
 
     tool_spans = trace.search_spans(span_type=SpanType.TOOL)
     if not tool_spans:
@@ -92,8 +100,6 @@ def map_scorer_inputs_to_deepeval_test_case(
     expectations: dict[str, Any] | None = None,
     trace: Trace | None = None,
 ):
-    from deepeval.test_case import LLMTestCase
-
     if trace:
         inputs = resolve_inputs_from_trace(inputs, trace)
         outputs = resolve_outputs_from_trace(outputs, trace)
@@ -132,3 +138,55 @@ def map_scorer_inputs_to_deepeval_test_case(
         tags=tags,
         completion_time=completion_time,
     )
+
+
+def map_session_to_deepeval_conversational_test_case(
+    session: list[Trace],
+    expectations: dict[str, Any] | None = None,
+):
+    """
+    Convert list of MLflow traces (session) to DeepEval ConversationalTestCase.
+
+    Args:
+        session: List of traces in chronological order (same mlflow.trace.session ID)
+        expectations: Optional conversation-level metadata. Use the EXPECTATION_KEY_* constants:
+            - EXPECTATION_KEY_SCENARIO: Description of the test scenario
+            - EXPECTATION_KEY_CHATBOT_ROLE: The chatbot's assigned role
+            - EXPECTATION_KEY_EXPECTED_OUTCOME: The anticipated result
+            - EXPECTATION_KEY_CONTEXT: Background information (str or list[str])
+
+    Returns:
+        ConversationalTestCase with turns populated from session traces
+    """
+    turns = []
+    for trace in session:
+        inputs = resolve_inputs_from_trace(None, trace)
+        outputs = resolve_outputs_from_trace(None, trace)
+
+        test_case = map_scorer_inputs_to_deepeval_test_case(
+            metric_name="",
+            inputs=inputs,
+            outputs=outputs,
+            expectations=None,
+            trace=trace,
+        )
+        turns.append(test_case)
+
+    kwargs = {}
+    if expectations:
+        if EXPECTATION_KEY_SCENARIO in expectations:
+            kwargs[EXPECTATION_KEY_SCENARIO] = str(expectations[EXPECTATION_KEY_SCENARIO])
+        if EXPECTATION_KEY_CHATBOT_ROLE in expectations:
+            kwargs[EXPECTATION_KEY_CHATBOT_ROLE] = str(expectations[EXPECTATION_KEY_CHATBOT_ROLE])
+        if EXPECTATION_KEY_EXPECTED_OUTCOME in expectations:
+            kwargs[EXPECTATION_KEY_EXPECTED_OUTCOME] = str(
+                expectations[EXPECTATION_KEY_EXPECTED_OUTCOME]
+            )
+        if EXPECTATION_KEY_CONTEXT in expectations:
+            ctx = expectations[EXPECTATION_KEY_CONTEXT]
+            if isinstance(ctx, list):
+                kwargs[EXPECTATION_KEY_CONTEXT] = [str(c) for c in ctx]
+            else:
+                kwargs[EXPECTATION_KEY_CONTEXT] = [str(ctx)]
+
+    return ConversationalTestCase(turns=turns, **kwargs)

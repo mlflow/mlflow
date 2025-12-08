@@ -37,7 +37,6 @@ from mlflow.genai.scorers.deepeval.scorers.safety_metrics import (
 )
 
 
-# General-purpose metrics
 class Hallucination(DeepEvalScorer):
     """
     Detects hallucinations where the LLM fabricates information not present in the context.

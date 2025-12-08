@@ -20,11 +20,19 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
-from mlflow.genai.scorers.deepeval.registry import get_metric_class, is_deterministic_metric
-from mlflow.genai.scorers.deepeval.utils import map_scorer_inputs_to_deepeval_test_case
+from mlflow.genai.scorers.deepeval.registry import (
+    get_metric_class,
+    is_deterministic_metric,
+    is_multi_turn_metric,
+)
+from mlflow.genai.scorers.deepeval.utils import (
+    map_scorer_inputs_to_deepeval_test_case,
+    map_session_to_deepeval_conversational_test_case,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -51,7 +59,6 @@ class DeepEvalScorer(Scorer):
         metric_class = get_metric_class(metric_name)
 
         if is_deterministic_metric(metric_name):
-            # Deterministic metrics don't need a model
             self._metric = metric_class(**metric_kwargs)
         else:
             deepeval_model = create_deepeval_model(model)
@@ -62,6 +69,10 @@ class DeepEvalScorer(Scorer):
                 **metric_kwargs,
             )
 
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return is_multi_turn_metric(self.name)
+
     def __call__(
         self,
         *,
@@ -69,6 +80,7 @@ class DeepEvalScorer(Scorer):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
+        session: list[Trace] | None = None,
     ) -> Feedback:
         """
         Evaluate using the wrapped DeepEval metric.
@@ -78,6 +90,7 @@ class DeepEvalScorer(Scorer):
             outputs: The output to evaluate
             expectations: Expected values and context for evaluation
             trace: MLflow trace for evaluation
+            session: List of MLflow traces for multi-turn evaluation
 
         Returns:
             Feedback object with pass/fail value, rationale, and score in metadata
@@ -88,13 +101,24 @@ class DeepEvalScorer(Scorer):
         )
 
         try:
-            test_case = map_scorer_inputs_to_deepeval_test_case(
-                metric_name=self.name,
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=trace,
-            )
+            if self.is_session_level_scorer:
+                if session is None:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Multi-turn metric '{self.name}' requires 'session' parameter "
+                        f"containing a list of traces from the conversation."
+                    )
+                test_case = map_session_to_deepeval_conversational_test_case(
+                    session=session,
+                    expectations=expectations,
+                )
+            else:
+                test_case = map_scorer_inputs_to_deepeval_test_case(
+                    metric_name=self.name,
+                    inputs=inputs,
+                    outputs=outputs,
+                    expectations=expectations,
+                    trace=trace,
+                )
 
             self._metric.measure(test_case, _show_indicator=False)
 
@@ -150,7 +174,6 @@ def get_judge(
     )
 
 
-# Import namespaced metric classes from scorers subdirectory
 from mlflow.genai.scorers.deepeval.scorers import (
     AnswerRelevancy,
     ArgumentCorrectness,

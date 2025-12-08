@@ -3,6 +3,16 @@ from __future__ import annotations
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.deepeval.utils import DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE
 
+_MULTI_TURN_METRICS_REGISTRY = {
+    "TurnRelevancy": "deepeval.metrics.TurnRelevancyMetric",
+    "RoleAdherence": "deepeval.metrics.RoleAdherenceMetric",
+    "KnowledgeRetention": "deepeval.metrics.KnowledgeRetentionMetric",
+    "ConversationCompleteness": "deepeval.metrics.ConversationCompletenessMetric",
+    "GoalAccuracy": "deepeval.metrics.GoalAccuracyMetric",
+    "ToolUse": "deepeval.metrics.ToolUseMetric",
+    "TopicAdherence": "deepeval.metrics.TopicAdherenceMetric",
+}
+
 _METRIC_REGISTRY = {
     # RAG Metrics
     "AnswerRelevancy": "deepeval.metrics.AnswerRelevancyMetric",
@@ -17,15 +27,8 @@ _METRIC_REGISTRY = {
     "StepEfficiency": "deepeval.metrics.StepEfficiencyMetric",
     "PlanAdherence": "deepeval.metrics.PlanAdherenceMetric",
     "PlanQuality": "deepeval.metrics.PlanQualityMetric",
-    # Conversational Metrics
-    # TODO: Add support for conversational metrics with ConversationalTestCase
-    # "TurnRelevancy": "deepeval.metrics.TurnRelevancyMetric",
-    # "RoleAdherence": "deepeval.metrics.RoleAdherenceMetric",
-    # "KnowledgeRetention": "deepeval.metrics.KnowledgeRetentionMetric",
-    # "ConversationCompleteness": "deepeval.metrics.ConversationCompletenessMetric",
-    # "GoalAccuracy": "deepeval.metrics.GoalAccuracyMetric",
-    # "ToolUse": "deepeval.metrics.ToolUseMetric",
-    # "TopicAdherence": "deepeval.metrics.TopicAdherenceMetric",
+    # Conversational Metrics (multi-turn session-level)
+    **_MULTI_TURN_METRICS_REGISTRY,
     # Safety Metrics
     "Bias": "deepeval.metrics.BiasMetric",
     "Toxicity": "deepeval.metrics.ToxicityMetric",
@@ -74,3 +77,7 @@ def get_metric_class(metric_name: str):
 
 def is_deterministic_metric(metric_name: str):
     return metric_name in ("ExactMatch", "PatternMatch")
+
+
+def is_multi_turn_metric(metric_name: str):
+    return metric_name in _MULTI_TURN_METRICS_REGISTRY
