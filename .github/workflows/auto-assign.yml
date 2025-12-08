@@ -1,52 +1,101 @@
 name: Auto-assign maintainer
 
 on:
-  issue_comment:
-    types:
-      - created
-  pull_request_review_comment:
-    types:
-      - created
+  schedule:
+    # Run every 3 hours to check for new maintainer comments
+    - cron: "0 */3 * * *"
+  workflow_dispatch: # Allow manual triggering
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  assign:
-    # Only run on open PR comments from maintainers who are not already assigned and not the PR owner
-    if: >
-      (
-        github.event_name == 'issue_comment' &&
-        github.event.issue.pull_request &&
-        github.event.issue.state == 'open' &&
-        contains(fromJSON('["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"]'), github.event.comment.user.login) &&
-        !contains(github.event.issue.assignees.*.login, github.event.comment.user.login) &&
-        github.event.comment.user.login != github.event.issue.user.login
-      ) || (
-        github.event_name == 'pull_request_review_comment' &&
-        github.event.pull_request.state == 'open' &&
-        contains(fromJSON('["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"]'), github.event.comment.user.login) &&
-        !contains(github.event.pull_request.assignees.*.login, github.event.comment.user.login) &&
-        github.event.comment.user.login != github.event.pull_request.user.login
-      )
+  scan-and-assign:
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
+      contents: read
+      issues: write
       pull-requests: write
     steps:
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const { owner, repo } = context.repo;
-            const issue_number = context.payload.issue?.number || context.payload.pull_request?.number;
-            const commenter = context.payload.comment.user.login;
+            const maintainers = ["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"];
 
-            console.log(`Adding ${commenter} as assignee`);
-            await github.rest.issues.addAssignees({
+            // Get current time minus 4 hours to look for recent comments and PRs (with buffer since we run every 3 hours)
+            const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+
+            // Get recent PRs (stop pagination when we hit PRs older than 4 hours)
+            const prs = [];
+
+            outer: for await (const response of github.paginate.iterator(github.rest.pulls.list, {
               owner,
               repo,
-              issue_number,
-              assignees: [commenter],
-            });
-            console.log(`Successfully added ${commenter} as assignee`);
+              state: 'open',
+              sort: 'updated',
+              direction: 'desc'
+            })) {
+              for (const pr of response.data) {
+                const updatedAt = new Date(pr.updated_at);
+                if (updatedAt > fourHoursAgo) {
+                  prs.push(pr);
+                } else {
+                  break outer;
+                }
+              }
+            }
+
+            console.log(`Scanning ${prs.length} recently updated PRs`);
+
+            for (const pr of prs) {
+              const prAuthor = pr.user.login;
+              const currentAssignees = pr.assignees.map(a => a.login);
+
+              // Get recent comments (both issue and review comments)
+              const [issueComments, reviewComments] = await Promise.all([
+                github.rest.issues.listComments({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  since: fourHoursAgo.toISOString()
+                }),
+                github.rest.pulls.listReviewComments({
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  since: fourHoursAgo.toISOString()
+                })
+              ]);
+
+              const allComments = [...issueComments.data, ...reviewComments.data];
+
+              // Process maintainer comments
+              const maintainerComments = allComments.filter(c =>
+                maintainers.includes(c.user.login) &&
+                c.user.login !== prAuthor &&
+                !currentAssignees.includes(c.user.login)
+              );
+
+              if (maintainerComments.length === 0) {
+                continue;
+              }
+
+              // Get unique maintainers to assign
+              const maintainersToAssign = [...new Set(maintainerComments.map(c => c.user.login))];
+
+              // Assign maintainers
+              if (maintainersToAssign.length > 0) {
+                await github.rest.issues.addAssignees({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  assignees: maintainersToAssign,
+                });
+                console.log(`Assigned [${maintainersToAssign.join(', ')}] to PR #${pr.number}`);
+              }
+            }
+
+            console.log('Scan completed');
