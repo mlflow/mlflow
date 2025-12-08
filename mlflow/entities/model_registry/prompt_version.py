@@ -96,9 +96,7 @@ class PromptVersion(_ModelRegistryEntity):
                 for msg in template:
                     ChatMessage.model_validate(msg)
             except ValidationError as e:
-                raise ValueError(
-                    "Template must be a list of dicts with role and content"
-                ) from e
+                raise ValueError("Template must be a list of dicts with role and content") from e
             self._prompt_type = PROMPT_TYPE_CHAT
             tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_CHAT
         else:
@@ -334,32 +332,9 @@ class PromptVersion(_ModelRegistryEntity):
         template = self.template
         input_keys = set(kwargs.keys())
 
-        # 0. Validate template type
-        if not isinstance(template, (str, list)):
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid template type: expected str or list, got {type(template)}"
-            )
-            
-        # 1. Jinja2 rendering
-        if self._prompt_type == PROMPT_TYPE_JINJA2:
-            from jinja2 import Environment
-            from jinja2.sandbox import SandboxedEnvironment
-            from jinja2 import Undefined
-
-            if not isinstance(template, str):
-                raise MlflowException.invalid_parameter_value(
-                    "Jinja2 templates must be string-based."
-                )
-
-            env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
-            env = env_cls(undefined=Undefined)
-
-            tmpl = env.from_string(template)
-            return tmpl.render(**kwargs)
-
-        # 2. Chat prompt (list-of-dict)
+        # 1) CHAT PROMPT (list of dicts)
         if isinstance(template, list):
-            # NOTE: MLflow original code path — DO NOT MODIFY
+            # MLflow original behavior — must not be modified
             formatted = []
             for msg in template:
                 formatted.append({
@@ -368,30 +343,51 @@ class PromptVersion(_ModelRegistryEntity):
                 })
             return formatted
 
-        # 3. Plain text prompt (string)
-        formatted = format_prompt(template, **kwargs)
+        # 2) STRING PROMPT (text or Jinja2)
+        elif isinstance(template, str):
 
-        # 4. Missing variable validation
-        missing_keys = self.variables - input_keys
-        if missing_keys and not allow_partial:
+            # Jinja2 rendering
+            if self._prompt_type == PROMPT_TYPE_JINJA2:
+                from jinja2 import Environment
+                from jinja2.sandbox import SandboxedEnvironment
+                from jinja2 import Undefined
+
+                env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
+                env = env_cls(undefined=Undefined)
+
+                tmpl = env.from_string(template)
+                return tmpl.render(**kwargs)
+
+            # Plain text formatting
+            formatted = format_prompt(template, **kwargs)
+
+            # Check missing variables
+            missing_keys = self.variables - input_keys
+
+            if missing_keys and not allow_partial:
+                raise MlflowException.invalid_parameter_value(
+                    f"Missing variables: {missing_keys}. "
+                    "To partially format the prompt, set `allow_partial=True`."
+                )
+
+            if missing_keys and allow_partial:
+                return PromptVersion(
+                    name=self.name,
+                    version=int(self.version),
+                    template=formatted,
+                    response_format=self.response_format,
+                    commit_message=self.commit_message,
+                    creation_timestamp=self.creation_timestamp,
+                    tags=self.tags,
+                    aliases=self.aliases,
+                    last_updated_timestamp=self.last_updated_timestamp,
+                    user_id=self.user_id,
+                )
+
+            return formatted
+
+        # 3) INVALID TEMPLATE TYPE → RAISE ERROR
+        else:
             raise MlflowException.invalid_parameter_value(
-                f"Missing variables: {missing_keys}. "
-                "To partially format the prompt, set `allow_partial=True`."
+                f"Invalid template type: expected str or list, got {type(template)}"
             )
-
-        if missing_keys and allow_partial:
-            # MLflow expects PromptVersion return ONLY in partial mode for TEXT
-            return PromptVersion(
-                name=self.name,
-                version=int(self.version),
-                template=formatted,
-                response_format=self.response_format,
-                commit_message=self.commit_message,
-                creation_timestamp=self.creation_timestamp,
-                tags=self.tags,
-                aliases=self.aliases,
-                last_updated_timestamp=self.last_updated_timestamp,
-                user_id=self.user_id,
-            )
-
-        return formatted
