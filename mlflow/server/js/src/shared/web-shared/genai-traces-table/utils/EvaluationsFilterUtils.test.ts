@@ -120,7 +120,7 @@ describe('filterEvaluationResults', () => {
     expect(filteredResults).toEqual(evalsWithTraceInfo);
   });
 
-  it('filters on assessment value when multiple assessments exist for same name', () => {
+  it('filters on assessment value when multiple assessment value types exist for same name', () => {
     const makeEntry = (
       assessments: RunEvaluationTracesDataEntry['responseAssessmentsByName'],
     ): EvalTraceComparisonEntry => ({
