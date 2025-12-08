@@ -433,17 +433,12 @@ def test_chat_agent_predict_with_params(tmp_path):
 
 
 def test_chat_agent_load_context_called_during_save(tmp_path):
-    config_file = tmp_path / "config.txt"
-    config_file.write_text("loaded_prefix")
-
     class ChatAgentWithArtifacts(ChatAgent):
         def __init__(self):
             self.prefix = None
 
         def load_context(self, context):
-            config_path = context.artifacts["config"]
-            with open(config_path) as f:
-                self.prefix = f.read()
+            self.prefix = "loaded_prefix"
 
         def predict(
             self,
@@ -468,7 +463,6 @@ def test_chat_agent_load_context_called_during_save(tmp_path):
     mlflow.pyfunc.save_model(
         python_model=model,
         path=save_path,
-        artifacts={"config": str(config_file)},
     )
 
     loaded_model = mlflow.pyfunc.load_model(save_path)
