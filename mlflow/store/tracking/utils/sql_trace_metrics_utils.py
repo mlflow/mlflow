@@ -109,6 +109,48 @@ def get_time_bucket_expression(
         return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
 
+def _get_aggregation_expression(aggregation: MetricsAggregation, db_type: str, column) -> Column:
+    """
+    Get the SQL aggregation expression for the given aggregation type and column.
+
+    Args:
+        aggregation: The aggregation of the metric
+        db_type: Database type (for percentile calculations)
+        column: The column to aggregate
+
+    Returns:
+        SQLAlchemy column expression for the aggregation
+    """
+    match aggregation.aggregation_type:
+        case AggregationType.COUNT:
+            return func.count(column)
+        case AggregationType.SUM:
+            return func.sum(column)
+        case AggregationType.AVG:
+            return func.avg(column)
+        case AggregationType.PERCENTILE:
+            return get_percentile_aggregation(db_type, aggregation.percentile_value, column)
+        case _:
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported aggregation type: {aggregation.aggregation_type}",
+            )
+
+
+def _get_aggregation_column_for_traces(metric_name: str) -> Column:
+    """
+    Get the SQL column for the given metric name.
+    """
+    match metric_name:
+        case "trace":
+            return SqlTraceInfo.request_id
+        case "latency":
+            return SqlTraceInfo.execution_time_ms
+        case _:
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported metric name: {metric_name}",
+            )
+
+
 def query_metrics_for_traces_view(
     db_type: str,
     query: Query,
@@ -146,42 +188,36 @@ def query_metrics_for_traces_view(
         dimension_columns.append(time_bucket_expr.label(TIME_BUCKET_LABEL))
 
     for dimension in dimensions or []:
-        if dimension == "name":
-            # Join with SqlTraceTag to get trace name
-            query = query.join(
-                SqlTraceTag,
-                and_(
-                    SqlTraceInfo.request_id == SqlTraceTag.request_id,
-                    SqlTraceTag.key == TraceTagKey.TRACE_NAME,
-                ),
-            )
-            dimension_columns.append(SqlTraceTag.value.label("name"))
-        elif dimension == "status":
-            dimension_columns.append(SqlTraceInfo.status.label("status"))
-        else:
-            raise NotImplementedError(
-                f"dimension {dimension} is not supported for view type {MetricsViewType.TRACES}"
-            )
+        match dimension:
+            case "name":
+                # Join with SqlTraceTag to get trace name
+                query = query.join(
+                    SqlTraceTag,
+                    and_(
+                        SqlTraceInfo.request_id == SqlTraceTag.request_id,
+                        SqlTraceTag.key == TraceTagKey.TRACE_NAME,
+                    ),
+                )
+                dimension_columns.append(SqlTraceTag.value.label("name"))
+            case "status":
+                dimension_columns.append(SqlTraceInfo.status.label("status"))
+            case _:
+                raise NotImplementedError(
+                    f"dimension {dimension} is not supported for view type {MetricsViewType.TRACES}"
+                )
 
-    aggregation_results = {}
-
-    if metric_name == "trace":
-        aggregation_results[AggregationType.COUNT] = func.count(SqlTraceInfo.request_id)
-    elif metric_name == "latency":
-        for aggregation in aggregations:
-            agg_type = aggregation.aggregation_type
-            match agg_type:
-                case AggregationType.AVG:
-                    aggregation_results[agg_type] = func.avg(SqlTraceInfo.execution_time_ms)
-                case AggregationType.PERCENTILE:
-                    aggregation_results[agg_type] = get_percentile_aggregation(
-                        db_type, aggregation.percentile_value, SqlTraceInfo.execution_time_ms
-                    )
+    # Build aggregation expressions
+    agg_column = _get_aggregation_column_for_traces(metric_name)
+    aggregation_results = {
+        str(aggregation): _get_aggregation_expression(aggregation, db_type, agg_column)
+        for aggregation in aggregations
+    }
 
     # select columns: dimensions first, then aggregations
     select_columns = dimension_columns.copy()
-    for agg_type, agg_func in aggregation_results.items():
-        select_columns.append(agg_func.label(agg_type.value))
+    for agg_label, agg_func in aggregation_results.items():
+        select_columns.append(agg_func.label(agg_label))
+    query = query.with_entities(*select_columns)
 
     # Extract underlying column expressions from labeled columns for GROUP BY/ORDER BY
     if dimension_columns:
@@ -190,7 +226,7 @@ def query_metrics_for_traces_view(
         # order by time bucket first, then by other dimensions
         query = query.order_by(*group_by_columns)
 
-    results = query.with_entities(*select_columns).limit(max_results).all()
+    results = query.limit(max_results).all()
 
     return convert_results_to_metric_data_points(
         results, select_columns, len(dimension_columns), metric_name

@@ -51,6 +51,11 @@ class MetricAggregation(_MlflowObject):
                 f"got {self.aggregation_type}"
             )
 
+    def __str__(self) -> str:
+        if self.aggregation_type == AggregationType.PERCENTILE:
+            return f"P{self.percentile_value}"
+        return str(self.aggregation_type)
+
     def to_proto(self) -> pb.MetricAggregation:
         proto = pb.MetricAggregation()
         proto.aggregation_type = self.aggregation_type.to_proto()

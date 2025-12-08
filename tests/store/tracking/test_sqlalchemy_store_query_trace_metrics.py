@@ -313,12 +313,12 @@ def test_query_trace_metrics_latency_percentiles(
     assert asdict(result[0]) == {
         "metric_name": "latency",
         "dimensions": {"name": "workflow_a"},
-        "values": {"PERCENTILE": expected_workflow_a},
+        "values": {f"P{percentile_value}": expected_workflow_a},
     }
     assert asdict(result[1]) == {
         "metric_name": "latency",
         "dimensions": {"name": "workflow_b"},
-        "values": {"PERCENTILE": expected_workflow_b},
+        "values": {f"P{percentile_value}": expected_workflow_b},
     }
 
 
@@ -350,7 +350,8 @@ def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStor
         metric_name="latency",
         aggregations=[
             MetricsAggregation(aggregation_type=AggregationType.AVG),
-            MetricsAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95.0),
+            MetricsAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
+            MetricsAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=99),
         ],
         dimensions=["name"],
     )
@@ -358,11 +359,12 @@ def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStor
     # Calculate expected percentile value based on database type
     values = [100.0, 200.0, 300.0, 400.0, 500.0]
     expected_p95 = _get_expected_percentile_value(store, 95.0, 100.0, 500.0, values)
+    expected_p99 = _get_expected_percentile_value(store, 99.0, 100.0, 500.0, values)
 
     assert asdict(result[0]) == {
         "metric_name": "latency",
         "dimensions": {"name": "workflow_a"},
-        "values": {"AVG": 300.0, "PERCENTILE": expected_p95},
+        "values": {"AVG": 300.0, "P95": expected_p95, "P99": expected_p99},
     }
 
 
