@@ -15,13 +15,13 @@ import {
   getTimelineTreeNodesMap,
 } from '../timeline-tree/TimelineTree.utils';
 
-const getDefaultSpanFilterState = (roots: ModelTraceSpanNode[]): SpanFilterState => {
+const getDefaultSpanFilterState = (treeNodes: ModelTraceSpanNode[]): SpanFilterState => {
   const spanTypeDisplayState: Record<string, boolean> = {};
 
   // populate the spanTypeDisplayState with
   // all span types that exist on the trace
-  if (roots) {
-    const allSpanTypes = compact(getTimelineTreeNodesList<ModelTraceSpanNode>(roots).map((node) => node.type));
+  if (treeNodes) {
+    const allSpanTypes = compact(getTimelineTreeNodesList<ModelTraceSpanNode>(treeNodes).map((node) => node.type));
     allSpanTypes.forEach((spanType) => {
       spanTypeDisplayState[spanType] = true;
     });
