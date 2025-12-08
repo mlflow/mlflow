@@ -2,7 +2,11 @@ import { isNil } from 'lodash';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode } from './ModelTrace.types';
-import { getDefaultActiveTab, parseModelTraceToTreeWithMultipleRoots, searchTreeBySpanId } from './ModelTraceExplorer.utils';
+import {
+  getDefaultActiveTab,
+  parseModelTraceToTreeWithMultipleRoots,
+  searchTreeBySpanId,
+} from './ModelTraceExplorer.utils';
 import { getTimelineTreeNodesMap } from './timeline-tree/TimelineTree.utils';
 
 export type ModelTraceExplorerViewState = {

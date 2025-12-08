@@ -1,6 +1,15 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Overflow, Tag, Typography, useDesignSystemTheme, Tooltip, ClockIcon, Notification, UserIcon } from '@databricks/design-system';
+import {
+  Overflow,
+  Tag,
+  Typography,
+  useDesignSystemTheme,
+  Tooltip,
+  ClockIcon,
+  Notification,
+  UserIcon,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { type ModelTrace, type ModelTraceInfoV3, type ModelTraceState } from './ModelTrace.types';
@@ -84,7 +93,7 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           flexWrap: 'wrap',
         }}
       >
-        {statusState && <ModelTraceHeaderStatusTag statusState={statusState} getTruncatedLabel={getTruncatedLabel}/>}
+        {statusState && <ModelTraceHeaderStatusTag statusState={statusState} getTruncatedLabel={getTruncatedLabel} />}
         {modelTraceId && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="ID" description="Label for the ID section" />}

@@ -131,8 +131,8 @@ describe('parseModelTraceToTreeWithMultipleRoots', () => {
     const rootNodes = parseModelTraceToTreeWithMultipleRoots(inProgressTrace);
 
     expect(rootNodes).toHaveLength(2);
-    expect(rootNodes[0]).toEqual(expect.objectContaining({key: '31323334'}));
-    expect(rootNodes[1]).toEqual(expect.objectContaining({key: '3132333435'}));
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: '31323334' }));
+    expect(rootNodes[1]).toEqual(expect.objectContaining({ key: '3132333435' }));
   });
 
   it('should treat orphaned spans as top-level nodes', () => {
@@ -159,13 +159,13 @@ describe('parseModelTraceToTreeWithMultipleRoots', () => {
   it('should handle traces with only the root span', () => {
     const singleSpanTrace = {
       ...MOCK_V3_TRACE,
-      data: { spans: [MOCK_V3_SPANS[0]]},
+      data: { spans: [MOCK_V3_SPANS[0]] },
     };
 
     const rootNodes = parseModelTraceToTreeWithMultipleRoots(singleSpanTrace);
 
     expect(rootNodes).toHaveLength(1);
-    expect(rootNodes[0]).toEqual(expect.objectContaining({key: 'a96bcf7b57a48b3d'}));
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: 'a96bcf7b57a48b3d' }));
   });
 
   it('should calculate span times relative to global start time', () => {

@@ -1,12 +1,6 @@
 import React from 'react';
 import { useIntl, FormattedMessage } from '@databricks/i18n';
-import {
-  ClockIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  TagColors,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { ClockIcon, CheckCircleIcon, XCircleIcon, TagColors, useDesignSystemTheme } from '@databricks/design-system';
 
 import { type ModelTraceState } from './ModelTrace.types';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
@@ -29,7 +23,7 @@ export const ModelTraceHeaderStatusTag = ({ statusState, getTruncatedLabel }: Pr
   const getStatusConfig = (
     statusState: ModelTraceState,
     intl: ReturnType<typeof useIntl>,
-    theme: ReturnType<typeof useDesignSystemTheme>['theme']
+    theme: ReturnType<typeof useDesignSystemTheme>['theme'],
   ): StatusConfig | null => {
     const statusMap: Record<ModelTraceState, StatusConfig | null> = {
       IN_PROGRESS: {
@@ -46,14 +40,17 @@ export const ModelTraceHeaderStatusTag = ({ statusState, getTruncatedLabel }: Pr
         color: 'teal' as TagColors,
       },
       ERROR: {
-        label: intl.formatMessage({ defaultMessage: 'Error', description: 'Model trace header > status label > error' }),
+        label: intl.formatMessage({
+          defaultMessage: 'Error',
+          description: 'Model trace header > status label > error',
+        }),
         icon: <XCircleIcon css={{ color: theme.colors.textValidationDanger }} />,
         color: 'coral' as TagColors,
       },
       STATE_UNSPECIFIED: null,
     };
     return statusMap[statusState];
-  }
+  };
   const status = getStatusConfig(statusState, intl, theme);
 
   if (!status) {

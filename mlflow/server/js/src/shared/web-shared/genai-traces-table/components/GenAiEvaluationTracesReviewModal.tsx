@@ -19,7 +19,10 @@ import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace } from '../hooks/useGetTrace';
 import type { AssessmentInfo, EvalTraceComparisonEntry, SaveAssessmentsQuery } from '../types';
 import { shouldUseTracesV4API } from '../utils/FeatureUtils';
-import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
+import {
+  getSpansLocation,
+  TRACKING_STORE_SPANS_LOCATION,
+} from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 
 const MODAL_SPACING_REM = 4;
 const DEFAULT_MODAL_MARGIN_REM = 1;
@@ -132,7 +135,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
       return !trace || (trace.info as ModelTraceInfoV3).state !== 'IN_PROGRESS';
     }, []);
 
-
     useEffect(() => {
       if (spansLocation !== TRACKING_STORE_SPANS_LOCATION) {
         return;
@@ -150,7 +152,9 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
       // polling every second
       if (!pollTimerRef.current) {
-        pollTimerRef.current = window.setInterval(() => { activeResult?.refetch?.()}, 1000);
+        pollTimerRef.current = window.setInterval(() => {
+          activeResult?.refetch?.();
+        }, 1000);
       }
       return () => {
         if (pollTimerRef.current) {

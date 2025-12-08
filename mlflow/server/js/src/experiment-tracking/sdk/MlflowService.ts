@@ -288,10 +288,7 @@ export class MlflowService {
    * Traces API: get a single trace (info + spans) with optional partial support. Only supported
    * by OSS SQLAlchemyStore now.
    */
-  static getExperimentTraceV3 = (
-    traceId: string,
-    _opts: { allowPartial?: boolean } = {},
-  ) => {
+  static getExperimentTraceV3 = (traceId: string, _opts: { allowPartial?: boolean } = {}) => {
     type GetExperimentTraceV3Response = {
       trace?: {
         trace_info?: ModelTraceInfo;

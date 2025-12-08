@@ -62,7 +62,6 @@ export const ModelTraceExplorerDetailView = ({
     topLevelNodes,
   } = useModelTraceExplorerViewState();
 
-
   const { expandedKeys, setExpandedKeys } = useTimelineTreeExpandedNodes({
     rootNodes: topLevelNodes,
     // nodes beyond this depth will be collapsed
@@ -120,8 +119,8 @@ export const ModelTraceExplorerDetailView = ({
       return { traceStartTime: 0, traceEndTime: 0 };
     }
 
-    const traceStartTime = Math.min(...topLevelNodes.map(node => node.start));
-    const traceEndTime = Math.max(...topLevelNodes.map(node => node.end));
+    const traceStartTime = Math.min(...topLevelNodes.map((node) => node.start));
+    const traceEndTime = Math.max(...topLevelNodes.map((node) => node.end));
 
     return { traceStartTime, traceEndTime };
   }, [treeNode, topLevelNodes]);

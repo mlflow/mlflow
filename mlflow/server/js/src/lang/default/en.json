@@ -2006,6 +2006,10 @@
     "defaultMessage": "Failed to set tag. Error: {userVisibleError}",
     "description": "Text for user visible error when setting tag in model version view"
   },
+  "HNQ9dM": {
+    "defaultMessage": "Status",
+    "description": "Label for the status section"
+  },
   "HTQZeI": {
     "defaultMessage": "Evaluate trace",
     "description": "A call to action button to add assessments to a model trace in the single chat turn view"
@@ -3623,6 +3627,10 @@
     "defaultMessage": "No metrics recorded",
     "description": "Placeholder text when no metrics are recorded for a logged model"
   },
+  "Y1eg9D": {
+    "defaultMessage": "In progress",
+    "description": "Model trace header > status label > in progress"
+  },
   "Y47tVZ": {
     "defaultMessage": "Time (relative)",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for relative time since the first metric was logged."
@@ -4739,6 +4747,10 @@
     "defaultMessage": "Remove message",
     "description": "Button to remove a chat message row"
   },
+  "hUfxmd": {
+    "defaultMessage": "OK",
+    "description": "Model trace header > status label > ok"
+  },
   "hV4vVj": {
     "defaultMessage": "called {functionName} in {toolCallId}",
     "description": "A message that shows the tool calls that an AI assistant made. The full message reads (for example): 'Assistant called get_weather in id_123'."
@@ -4778,6 +4790,10 @@
   "hnhCDT": {
     "defaultMessage": "Error occurred",
     "description": "Run page > artifact view > logged table view > generic error empty state title"
+  },
+  "ho2T6B": {
+    "defaultMessage": "Error",
+    "description": "Model trace header > status label > error"
   },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
