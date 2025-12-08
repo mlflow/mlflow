@@ -35,6 +35,7 @@ from mlflow.prompt.constants import (
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
 )
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     AwsCredentials,
@@ -942,6 +943,35 @@ def test_create_model_version_with_optional_signature_validation_bypass_disabled
 
         # Verify that signature validation was performed
         mock_validate_signature.assert_called_once_with(tmp_path)
+
+
+def test_get_logged_model_from_model_id_returns_none_on_resource_not_found(store):
+    with mock.patch(
+        "mlflow.get_logged_model",
+        side_effect=MlflowException("Node ID does not exist", error_code=RESOURCE_DOES_NOT_EXIST),
+    ):
+        result = store._get_logged_model_from_model_id("nonexistent_model_id")
+        assert result is None
+
+
+def test_get_logged_model_from_model_id_returns_logged_model_on_success(store):
+    mock_logged_model = LoggedModel(
+        experiment_id="exp123",
+        model_id="model123",
+        name="test_model",
+        artifact_location="runs:/run123/model",
+        source_run_id="run123",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+    )
+    with mock.patch("mlflow.get_logged_model", return_value=mock_logged_model):
+        result = store._get_logged_model_from_model_id("model123")
+        assert result == mock_logged_model
+
+
+def test_get_logged_model_from_model_id_returns_none_for_none_input(store):
+    result = store._get_logged_model_from_model_id(None)
+    assert result is None
 
 
 @pytest.mark.parametrize(
