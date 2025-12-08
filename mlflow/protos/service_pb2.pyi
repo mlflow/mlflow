@@ -2022,6 +2022,44 @@ class GetSecretsConfig(_message.Message):
         def __init__(self, secrets_available: bool = ...) -> None: ...
     def __init__(self) -> None: ...
 
+class GetUITelemetryConfig(_message.Message):
+    __slots__ = ()
+    class Response(_message.Message):
+        __slots__ = ("disable_ui_telemetry", "disable_ui_events", "ui_rollout_percentage")
+        DISABLE_UI_TELEMETRY_FIELD_NUMBER: _ClassVar[int]
+        DISABLE_UI_EVENTS_FIELD_NUMBER: _ClassVar[int]
+        UI_ROLLOUT_PERCENTAGE_FIELD_NUMBER: _ClassVar[int]
+        disable_ui_telemetry: bool
+        disable_ui_events: _containers.RepeatedScalarFieldContainer[str]
+        ui_rollout_percentage: float
+        def __init__(self, disable_ui_telemetry: bool = ..., disable_ui_events: _Optional[_Iterable[str]] = ..., ui_rollout_percentage: _Optional[float] = ...) -> None: ...
+    def __init__(self) -> None: ...
+
+class UploadUITelemetryRecords(_message.Message):
+    __slots__ = ("records",)
+    class Response(_message.Message):
+        __slots__ = ("status",)
+        STATUS_FIELD_NUMBER: _ClassVar[int]
+        status: str
+        def __init__(self, status: _Optional[str] = ...) -> None: ...
+    RECORDS_FIELD_NUMBER: _ClassVar[int]
+    records: _containers.RepeatedCompositeFieldContainer[TelemetryRecord]
+    def __init__(self, records: _Optional[_Iterable[_Union[TelemetryRecord, _Mapping]]] = ...) -> None: ...
+
+class TelemetryRecord(_message.Message):
+    __slots__ = ("event_name", "timestamp_ns", "params", "installation_id", "session_id")
+    EVENT_NAME_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_NS_FIELD_NUMBER: _ClassVar[int]
+    PARAMS_FIELD_NUMBER: _ClassVar[int]
+    INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    event_name: str
+    timestamp_ns: int
+    params: str
+    installation_id: str
+    session_id: str
+    def __init__(self, event_name: _Optional[str] = ..., timestamp_ns: _Optional[int] = ..., params: _Optional[str] = ..., installation_id: _Optional[str] = ..., session_id: _Optional[str] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...
