@@ -23,6 +23,7 @@ from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     convert_predict_fn,
     create_minimal_trace,
+    extract_available_tools_from_trace,
     extract_expectations_from_trace,
     extract_inputs_from_trace,
     extract_outputs_from_trace,
@@ -34,6 +35,7 @@ from mlflow.genai.utils.trace_utils import (
     parse_tool_calls_from_trace,
     resolve_conversation_from_session,
 )
+from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.utils import build_otel_context
 
 from tests.tracing.helper import create_test_trace_info, get_traces, purge_traces
@@ -937,3 +939,212 @@ def test_convert_predict_fn_async_function_with_timeout(monkeypatch):
         converted_fn(request=sample_input)
 
     assert len(get_traces()) == 0
+
+
+@pytest.mark.parametrize(
+    ("span_type", "use_attribute", "tool_name", "tool_description"),
+    [
+        ("LLM", True, "get_weather", "Get current weather"),
+        ("CHAT_MODEL", False, "search", "Search the web"),
+    ],
+)
+def test_extract_available_tools_from_trace_basic(
+    span_type, use_attribute, tool_name, tool_description
+):
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": tool_name,
+                "description": tool_description,
+                "parameters": {"type": "object", "properties": {"param": {"type": "string"}}},
+            },
+        }
+    ]
+
+    with mlflow.start_span(name="test_span", span_type=span_type) as span:
+        if use_attribute:
+            set_span_chat_tools(span, tools)
+            span.set_inputs({"prompt": "test"})
+        else:
+            span.set_inputs({"messages": [{"role": "user", "content": "test"}], "tools": tools})
+        span.set_outputs({"response": "result"})
+
+    trace = mlflow.get_trace(span.trace_id)
+    extracted_tools = extract_available_tools_from_trace(trace)
+
+    assert len(extracted_tools) == 1
+    assert extracted_tools[0].function.name == tool_name
+    assert extracted_tools[0].function.description == tool_description
+
+
+def test_extract_available_tools_from_trace_with_multiple_spans():
+    tool1 = [
+        {
+            "type": "function",
+            "function": {
+                "name": "add",
+                "description": "Add two numbers",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "a": {"type": "number"},
+                        "b": {"type": "number"},
+                    },
+                },
+            },
+        }
+    ]
+
+    tool2 = [
+        {
+            "type": "function",
+            "function": {
+                "name": "multiply",
+                "description": "Multiply two numbers",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "x": {"type": "number"},
+                        "y": {"type": "number"},
+                    },
+                },
+            },
+        }
+    ]
+
+    with mlflow.start_span(name="parent") as parent:
+        with mlflow.start_span(name="llm1", span_type="LLM") as span1:
+            set_span_chat_tools(span1, tool1)
+
+        with mlflow.start_span(name="llm2", span_type="CHAT_MODEL") as span2:
+            set_span_chat_tools(span2, tool2)
+
+    trace = mlflow.get_trace(parent.trace_id)
+    extracted_tools = extract_available_tools_from_trace(trace)
+
+    assert len(extracted_tools) == 2
+    tool_names = [t.function.name for t in extracted_tools]
+    assert "add" in tool_names
+    assert "multiply" in tool_names
+
+
+def test_extract_available_tools_from_trace_deduplication():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather info",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+    with mlflow.start_span(name="parent") as parent:
+        with mlflow.start_span(name="llm1", span_type="LLM") as span1:
+            set_span_chat_tools(span1, tools)
+
+        with mlflow.start_span(name="llm2", span_type="LLM") as span2:
+            set_span_chat_tools(span2, tools)  # Same tool
+
+    trace = mlflow.get_trace(parent.trace_id)
+    extracted_tools = extract_available_tools_from_trace(trace)
+
+    # Should only return 1 tool despite being in 2 spans
+    assert len(extracted_tools) == 1
+    assert extracted_tools[0].function.name == "get_weather"
+
+
+def test_extract_available_tools_from_trace_different_descriptions():
+    tool1 = [
+        {
+            "type": "function",
+            "function": {
+                "name": "search",
+                "description": "Search the web",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+    tool2 = [
+        {
+            "type": "function",
+            "function": {
+                "name": "search",
+                "description": "Search the database",  # Different description
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+    with mlflow.start_span(name="parent") as parent:
+        with mlflow.start_span(name="llm1", span_type="LLM") as span1:
+            set_span_chat_tools(span1, tool1)
+
+        with mlflow.start_span(name="llm2", span_type="LLM") as span2:
+            set_span_chat_tools(span2, tool2)
+
+    trace = mlflow.get_trace(parent.trace_id)
+    extracted_tools = extract_available_tools_from_trace(trace)
+
+    # Should return 2 tools since descriptions are different
+    assert len(extracted_tools) == 2
+    descriptions = [t.function.description for t in extracted_tools]
+    assert "Search the web" in descriptions
+    assert "Search the database" in descriptions
+
+
+@pytest.mark.parametrize(
+    "trace_fixture",
+    [
+        None,
+        Trace(info=create_test_trace_info(trace_id="tr-123"), data=None),
+        Trace(info=create_test_trace_info(trace_id="tr-456"), data=TraceData(spans=[])),
+    ],
+)
+def test_extract_available_tools_from_trace_returns_empty(trace_fixture):
+    result = extract_available_tools_from_trace(trace_fixture)
+    assert result == []
+
+
+@pytest.mark.parametrize(
+    ("has_valid_tool", "expected_count"),
+    [
+        (False, 0),  # Only invalid tools
+        (True, 1),  # Mix of valid and invalid tools
+    ],
+)
+def test_extract_available_tools_from_trace_with_invalid_tools(has_valid_tool, expected_count):
+    with mlflow.start_span(name="parent") as parent:
+        if has_valid_tool:
+            valid_tool = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "valid_tool",
+                        "description": "A valid tool",
+                    },
+                }
+            ]
+            with mlflow.start_span(name="llm1", span_type="LLM") as span1:
+                set_span_chat_tools(span1, valid_tool)
+
+        with mlflow.start_span(name="llm2", span_type="LLM") as span2:
+            span2.set_inputs(
+                {
+                    "messages": [{"role": "user", "content": "test"}],
+                    "tools": [
+                        {"invalid": "tool"},  # Missing required fields
+                        {"type": "function"},  # Missing function field
+                    ],
+                }
+            )
+
+    trace = mlflow.get_trace(parent.trace_id)
+    extracted_tools = extract_available_tools_from_trace(trace)
+
+    assert len(extracted_tools) == expected_count
+    if has_valid_tool:
+        assert extracted_tools[0].function.name == "valid_tool"
