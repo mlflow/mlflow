@@ -73,5 +73,7 @@ print(" User > What is 2 times 3?")
 print(f"  🦙  > {response}")
 print("\n-------\n\n\033[0m")
 
-print("\033[92m🚀 Now run `mlflow ui --port 5000` open MLflow UI to see the trace visualization!")
+print(
+    "\033[92m🚀 Now run `mlflow server --port 5000` open MLflow UI to see the trace visualization!"
+)
 print(f"   - Experiment URL: http://127.0.0.1:5000/#/experiments/{experiment_id}\033[0m")

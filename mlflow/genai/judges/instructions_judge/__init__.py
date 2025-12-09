@@ -625,7 +625,7 @@ class InstructionsJudge(Judge):
         """
         model = pydantic.create_model(
             "FeedbackValueSchema",
-            result=feedback_value_type,
+            result=(feedback_value_type, ...),
         )
         return model.model_json_schema()["properties"]["result"]
 
@@ -725,6 +725,7 @@ class InstructionsJudge(Judge):
             name=self.name,
             description=self.description,
             aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             instructions_judge_pydantic_data=pydantic_data,

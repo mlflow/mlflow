@@ -16,13 +16,12 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'getting-started/connect-environment',
-      label: 'Set Up MLflow',
       className: 'sidebar-top-level-category',
     },
     {
       type: 'doc',
-      id: 'tracing/quickstart/python-openai',
-      label: 'Tracing Quickstart',
+      id: 'tracing/quickstart/index',
+      label: 'Start Tracing',
       className: 'sidebar-top-level-category',
     },
     {
@@ -42,20 +41,9 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
+          type: 'doc',
+          id: 'tracing/quickstart/index',
           label: 'Quickstart',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/python-openai',
-              label: 'Getting Started (Python)',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/typescript-openai',
-              label: 'Getting Started (TS/JS)',
-            },
-          ],
         },
         {
           type: 'category',
@@ -396,6 +384,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'eval-monitor/running-evaluation/traces',
               label: 'Evaluate Traces',
             },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/multi-turn',
+              label: 'Evaluate Conversations',
+            },
           ],
         },
         {
@@ -568,7 +561,15 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'prompt-registry/optimize-prompts/langgraph-optimization',
+            },
+            {
+              type: 'doc',
               id: 'prompt-registry/optimize-prompts/openai-agent-optimization',
+            },
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/pydantic-ai-optimization',
             },
           ],
         },
@@ -896,6 +897,11 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluation Datasets',
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'references/request-features',
+      className: 'sidebar-top-level-category',
     },
     {
       type: 'doc',

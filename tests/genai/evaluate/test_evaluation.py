@@ -1,4 +1,3 @@
-import shutil
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -22,7 +21,6 @@ from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 from tests.helper_functions import get_safe_port
@@ -159,19 +157,6 @@ class ServerConfig:
     backend_type: Literal["file", "sqlalchemy"] | None = None
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_dir / "mlflow.db"
-    backend_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
-    store.engine.dispose()
-    return db_path
-
-
 # Test with different server configurations
 # 1. local file backend
 # 2. local sqlalchemy backend
@@ -186,7 +171,7 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     ],
     ids=["local_file", "local_sqlalchemy", "remote_file", "remote_sqlalchemy"],
 )
-def server_config(request, tmp_path: Path, cached_db: Path):
+def server_config(request, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     config = request.param
 
@@ -194,10 +179,7 @@ def server_config(request, tmp_path: Path, cached_db: Path):
         case "file":
             backend_uri = tmp_path.joinpath("file").as_uri()
         case "sqlalchemy":
-            # Copy the cached database for this test
-            db_path = tmp_path / "mlflow.db"
-            shutil.copy(cached_db, db_path)
-            backend_uri = f"sqlite:///{db_path}"
+            backend_uri = db_uri
 
     match config.host_type:
         case "local":

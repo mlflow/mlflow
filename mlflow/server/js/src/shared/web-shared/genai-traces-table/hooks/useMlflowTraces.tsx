@@ -15,6 +15,7 @@ import {
   STATE_COLUMN_ID,
   USER_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
   SOURCE_COLUMN_ID,
   useTableColumns,
@@ -158,6 +159,8 @@ export const useMlflowTracesTableMetadata = ({
   const tableFilterOptions = useMemo(() => {
     // Add source options
     const sourceMap = new Map<string, TableFilterOption>();
+    const promptMap = new Map<string, TableFilterOption>();
+
     filteredTraces?.forEach((trace) => {
       const traceMetadata = trace.trace_metadata;
       if (traceMetadata) {
@@ -169,10 +172,33 @@ export const useMlflowTracesTableMetadata = ({
           });
         }
       }
+
+      // Extract linked prompts from trace tags. Fetch data from backend if users
+      // want to filter by prompt not included in the current traces.
+      const tags = trace.tags;
+      if (tags && tags['mlflow.linkedPrompts']) {
+        try {
+          const linkedPrompts = JSON.parse(tags['mlflow.linkedPrompts']);
+          if (Array.isArray(linkedPrompts)) {
+            linkedPrompts.forEach((prompt: { name: string; version: string }) => {
+              const promptValue = `${prompt.name}/${prompt.version}`;
+              if (!promptMap.has(promptValue)) {
+                promptMap.set(promptValue, {
+                  value: promptValue,
+                  renderValue: () => promptValue,
+                });
+              }
+            });
+          }
+        } catch (e) {
+          // Ignore invalid JSON
+        }
+      }
     });
 
     return {
       source: Array.from(sourceMap.values()).sort((a, b) => a.value.localeCompare(b.value)),
+      prompt: Array.from(promptMap.values()).sort((a, b) => a.value.localeCompare(b.value)),
     } as TableFilterOptions;
   }, [filteredTraces]);
 
@@ -576,7 +602,7 @@ const buildTracesFromSearchAndArtifacts = (
   };
 };
 
-const createMlflowSearchFilter = (
+export const createMlflowSearchFilter = (
   runUuid: string | null | undefined,
   timeRange?: { startTime?: string; endTime?: string } | null,
   networkFilters?: TableFilter[],
@@ -632,6 +658,10 @@ const createMlflowSearchFilter = (
           break;
         case LOGGED_MODEL_COLUMN_ID:
           filter.push(`request_metadata."mlflow.modelId" = '${networkFilter.value}'`);
+          break;
+        // Only available in OSS
+        case LINKED_PROMPTS_COLUMN_ID:
+          filter.push(`prompt = '${networkFilter.value}'`);
           break;
         case TRACE_NAME_COLUMN_ID:
           filter.push(`attributes.name ${networkFilter.operator} '${networkFilter.value}'`);

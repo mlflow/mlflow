@@ -4,7 +4,7 @@ sidebar_label: Optimize Prompts
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import { CardGroup, Card } from "@site/src/components/Card";
+import { CardGroup, Card, SmallLogoCard } from "@site/src/components/Card";
 
 # Optimize Prompts (Experimental)
 
@@ -351,6 +351,27 @@ optimizer = GepaPromptOptimizer(
 
 ## Advanced Usage
 
+### Works with Any Agent Framework
+
+MLflow's optimization is **framework-agnostic**—it works seamlessly with LangChain, LangGraph, OpenAI Agent, Pydantic AI, CrewAI, AutoGen, or any custom framework. No need to rewrite your existing agents or switch frameworks.
+
+See these framework-specific guides for detailed examples:
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/langchain-optimization">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/langgraph-optimization">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/openai-agent-optimization">
+    <span>![OpenAI Agent Logo](/images/logos/openai-agent-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/pydantic-ai-optimization">
+    <span>![Pydantic AI Logo](/images/logos/pydanticai-logo.png)</span>
+  </SmallLogoCard>
+</CardGroup>
+
 ### Using Custom Scorers
 
 Define custom evaluation metrics to guide optimization:
@@ -476,15 +497,6 @@ result = mlflow.genai.optimize_prompts(
 optimized_plan = result.optimized_prompts[0]
 optimized_answer = result.optimized_prompts[1]
 ```
-
-### Works with Any Agent Framework
-
-MLflow's optimization is **framework-agnostic**—it works seamlessly with LangChain, DSPy, CrewAI, AutoGen, or any custom framework. No need to rewrite your existing agents or switch frameworks.
-
-See these framework-specific guides for detailed examples:
-
-- [Optimizing Prompts for LangChain](/genai/prompt-registry/optimize-prompts/langchain-optimization): Learn how to optimize LangChain chains with minimal code changes
-- [Optimizing Prompts for OpenAI Agents](/genai/prompt-registry/optimize-prompts/openai-agent-optimization): Learn how to optimize OpenAI Agent prompts
 
 ## Result Object
 

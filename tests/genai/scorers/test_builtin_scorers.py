@@ -12,6 +12,7 @@ from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Completeness,
+    ConversationalSafety,
     ConversationCompleteness,
     Correctness,
     Equivalence,
@@ -22,6 +23,7 @@ from mlflow.genai.scorers import (
     RetrievalRelevance,
     RetrievalSufficiency,
     Safety,
+    Summarization,
     UserFrustration,
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
@@ -36,6 +38,12 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.uri import is_databricks_uri
 
 from tests.genai.conftest import databricks_only
+
+
+@pytest.fixture
+def mock_openai_env(monkeypatch):
+    """Fixture to mock OpenAI API key for tests that need it."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
 
 @pytest.fixture
@@ -205,10 +213,8 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
     assert results[2].error.error_code == "test"
 
 
-def test_retrieval_relevance_with_custom_model(sample_rag_trace, monkeypatch: pytest.MonkeyPatch):
-    # Set a dummy OpenAI key to avoid validation errors
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-
+@pytest.mark.usefixtures("mock_openai_env")
+def test_retrieval_relevance_with_custom_model(sample_rag_trace):
     with patch(
         "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
         return_value=Feedback(
@@ -462,10 +468,8 @@ def test_safety_non_databricks():
     assert safety_scorer.name == "safety"
 
 
-def test_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch):
-    # Set a dummy OpenAI key to avoid validation errors
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-
+@pytest.mark.usefixtures("mock_openai_env")
+def test_safety_with_custom_model():
     with patch(
         "mlflow.genai.judges.builtin.invoke_judge_model",
         return_value=Feedback(name="safety", value="yes", rationale="Safe content"),
@@ -484,10 +488,8 @@ def test_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch):
         assert result.rationale == "Safe content"
 
 
-def test_safety_with_custom_model_and_name(monkeypatch: pytest.MonkeyPatch):
-    # Set a dummy OpenAI key to avoid validation errors
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-
+@pytest.mark.usefixtures("mock_openai_env")
+def test_safety_with_custom_model_and_name():
     with patch(
         "mlflow.genai.judges.builtin.invoke_judge_model",
         return_value=Feedback(name="custom_safety", value="no", rationale="Unsafe content"),
@@ -577,7 +579,7 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    # Now we have 9 scorers for OSS (added Completeness) and 11 for Databricks
+    # Now we have 9 scorers for OSS and 11 for Databricks
     assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
@@ -1464,4 +1466,156 @@ def test_completeness_with_trace():
         assert result.name == "completeness"
         assert result.value == "yes"
         assert result.rationale == "Fully addressed"
+        mock_invoke_judge.assert_called_once()
+
+
+def test_conversational_safety_with_session():
+    session_id = "test_session_safety"
+    traces = []
+    for i, (q, a) in enumerate(
+        [
+            ("What is Python?", "Python is a programming language."),
+            ("How do I install it?", "You can download it from python.org."),
+        ]
+    ):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": q})
+            span.set_outputs(a)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="conversational_safety",
+            value="yes",
+            rationale="Safe conversation across session",
+        ),
+    ) as mock_invoke_judge:
+        scorer = ConversationalSafety()
+        result = scorer(session=traces)
+
+        assert result.name == "conversational_safety"
+        assert result.value == "yes"
+        assert result.rationale == "Safe conversation across session"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name"),
+    [
+        (None, None, "conversational_safety"),
+        ("custom_safety_check", "openai:/gpt-4", "custom_safety_check"),
+    ],
+)
+def test_conversational_safety_with_custom_name_and_model(name, model, expected_name):
+    session_id = "test_session_safety_custom"
+    traces = []
+    with mlflow.start_span(name="test_turn") as span:
+        span.set_inputs({"question": "Test question"})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale="Conversation is safe"),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = ConversationalSafety(**kwargs)
+        result = scorer(session=traces)
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == "Conversation is safe"
+        mock_invoke_judge.assert_called_once()
+
+
+def test_conversational_safety_get_input_fields():
+    scorer = ConversationalSafety()
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_conversational_safety_instructions():
+    scorer = ConversationalSafety()
+    instructions = scorer.instructions
+    assert "conversation" in instructions.lower()
+    assert "assistant" in instructions.lower()
+    assert "safety" in instructions.lower()
+
+
+def test_session_level_scorer_with_invalid_kwargs():
+    scorer = UserFrustration()
+
+    with pytest.raises(
+        TypeError,
+        match=r"Session level scorers can only accept the `session` and `expectations` "
+        r"parameters\. Got unexpected keyword argument\(s\): 'trace'",
+    ):
+        scorer(trace=create_simple_trace())
+
+    with pytest.raises(
+        TypeError,
+        match=r"Session level scorers can only accept the `session` and `expectations` "
+        r"parameters\. Got unexpected keyword argument\(s\): 'outputs'",
+    ):
+        scorer(outputs="some output")
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name", "rationale"),
+    [
+        (None, None, "summarization", "Good summary"),
+        ("custom_summarization_check", "openai:/gpt-4", "custom_summarization_check", "Excellent"),
+    ],
+)
+def test_summarization_with_inputs_outputs(name, model, expected_name, rationale):
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale=rationale),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = Summarization(**kwargs)
+        result = scorer(
+            inputs={
+                "text": (
+                    "MLflow is an open-source platform for managing the end-to-end machine "
+                    "learning lifecycle. It provides tools for experiment tracking, model "
+                    "packaging, and deployment."
+                )
+            },
+            outputs="MLflow is an ML lifecycle management platform.",
+        )
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == rationale
+        mock_invoke_judge.assert_called_once()
+
+
+def test_summarization_with_trace():
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name="summarization", value="yes", rationale="Accurate summary"),
+    ) as mock_invoke_judge:
+        trace = create_simple_trace(
+            inputs={"question": "Summarize MLflow"},
+            outputs="MLflow is an open-source platform for managing ML workflows.",
+        )
+        scorer = Summarization()
+        result = scorer(trace=trace)
+
+        assert result.name == "summarization"
+        assert result.value == "yes"
+        assert result.rationale == "Accurate summary"
         mock_invoke_judge.assert_called_once()

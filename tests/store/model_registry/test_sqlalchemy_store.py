@@ -1,7 +1,5 @@
-import shutil
 import time
 import uuid
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -41,27 +39,13 @@ pytestmark = pytest.mark.notrackingurimock
 GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    store = SqlAlchemyStore(db_uri)
-    store.engine.dispose()
-    return db_path
-
-
 @pytest.fixture
-def store(tmp_path: Path, cached_db: Path):
+def store(db_uri: str):
     if db_uri_env := MLFLOW_TRACKING_URI.get():
         s = SqlAlchemyStore(db_uri_env)
         yield s
         _cleanup_database(s)
     else:
-        db_path = tmp_path / "mlflow.db"
-        shutil.copy(cached_db, db_path)
-        db_uri = f"sqlite:///{db_path}"
         s = SqlAlchemyStore(db_uri)
         yield s
 

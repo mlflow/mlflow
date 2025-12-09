@@ -15,7 +15,11 @@ export const ExperimentPageSubTabSelector = ({
 
   if (activeTab === ExperimentPageTabName.EvaluationRuns || activeTab === ExperimentPageTabName.Datasets) {
     return (
-      <Tabs.Root componentId={experimentId} value={activeTab} css={{ '& > div': { marginBottom: 0 } }}>
+      <Tabs.Root
+        componentId="mlflow.experiment.details.sub-tab-selector"
+        value={activeTab}
+        css={{ '& > div': { marginBottom: 0 } }}
+      >
         <Tabs.List>
           <Tabs.Trigger value={ExperimentPageTabName.EvaluationRuns}>
             <Link

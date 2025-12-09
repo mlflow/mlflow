@@ -130,7 +130,7 @@ def evaluate_session_level_scorers(
                     source=make_code_type_assessment_source(scorer.name),
                     error=AssessmentError(
                         error_code="SCORER_ERROR",
-                        error_message=e,
+                        error_message=str(e),
                         stack_trace=traceback.format_exc(),
                     ),
                 )
@@ -157,5 +157,6 @@ def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: 
             raise MlflowException.invalid_parameter_value(
                 f"Multi-turn scorers are not yet supported with predict_fn. "
                 f"The following scorers require session-level evaluation: {scorer_names}. "
-                f"Please pass traces instead."
+                f"Please pass existing traces containing session IDs to `data` "
+                f"(e.g., `data=mlflow.search_traces()`)."
             )

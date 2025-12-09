@@ -1162,6 +1162,10 @@
     "defaultMessage": "Train models",
     "description": "Home page quick action title for training models"
   },
+  "9/KT56": {
+    "defaultMessage": "Prompts",
+    "description": "Label for the prompts tab in the MLflow experiment navbar"
+  },
   "93BFzC": {
     "defaultMessage": "Outputs",
     "description": "Label for outputs variable option"
@@ -1710,6 +1714,10 @@
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
   },
+  "ED1+Xu": {
+    "defaultMessage": "Prompts & versions",
+    "description": "Label for the versions section in the MLflow experiment navbar"
+  },
   "EI7moF": {
     "defaultMessage": "Last year",
     "description": "Option for the start select dropdown to filter runs since the last 1 year"
@@ -1849,10 +1857,6 @@
   "Fg/zU/": {
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments focused on generative AI app and agent development"
-  },
-  "Fhrgrc": {
-    "defaultMessage": "Versions",
-    "description": "Label for the versions section in the MLflow experiment navbar"
   },
   "FiKsFK": {
     "defaultMessage": "Last modified",
@@ -2413,6 +2417,10 @@
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
+  },
+  "LOJumx": {
+    "defaultMessage": "Prompt",
+    "description": "Column label for linked prompts"
   },
   "LTbwXS": {
     "defaultMessage": "Artifact evaluation",
