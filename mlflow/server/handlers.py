@@ -4672,10 +4672,11 @@ def get_ui_telemetry_handler():
     # Fetch and cache config
     config = fetch_ui_telemetry_config()
     if config is None:
+        # temporary fallback for testing
         config = {
-            "disable_ui_telemetry": True,
-            "disable_ui_events": [],
-            "ui_rollout_percentage": 0,
+            "disable_ui_telemetry": False,
+            "disable_ui_events": ["test"],
+            "ui_rollout_percentage": 100,
         }
     else:
         config = config | {
@@ -4687,7 +4688,7 @@ def get_ui_telemetry_handler():
 
     response_message = GetUITelemetryConfig.Response()
     response_message.disable_ui_telemetry = config["disable_ui_telemetry"]
-    response_message.disable_ui_events = json.dumps(config["disable_ui_events"])
+    response_message.disable_ui_events.extend(config["disable_ui_events"])
     response_message.ui_rollout_percentage = config["ui_rollout_percentage"]
     return _wrap_response(response_message)
 
@@ -4700,12 +4701,12 @@ def post_ui_telemetry_handler():
     """
     from mlflow.telemetry import get_telemetry_client
     from mlflow.telemetry.schemas import Record, Status
-    from mlflow.telemetry.utils import fetch_telemetry_config
+    from mlflow.telemetry.utils import fetch_ui_telemetry_config
 
     request_message = _get_request_message(
         UploadUITelemetryRecords(),
         schema={
-            "records": [_assert_required, _assert_string],
+            "records": [_assert_array],
         },
     )
 
@@ -4723,7 +4724,7 @@ def post_ui_telemetry_handler():
     if "config" in _telemetry_config_cache:
         config = _telemetry_config_cache["config"]
     else:
-        config = fetch_telemetry_config()
+        config = fetch_ui_telemetry_config()
         _telemetry_config_cache["config"] = config
 
     if config and (config.get("disable_telemetry") or config.get("disable_ui_telemetry")):
@@ -4731,15 +4732,15 @@ def post_ui_telemetry_handler():
 
     records = [
         Record(
-            event_name=event.get("event_name"),
-            timestamp_ns=event.get("timestamp_ns"),
-            params=event.get("params"),
+            event_name=event.event_name,
+            timestamp_ns=event.timestamp_ns,
+            params=event.params,
             status=Status.SUCCESS,
-            installation_id=event.get("installation_id"),
-            session_id=event.get("session_id"),
+            installation_id=event.installation_id,
+            session_id=event.session_id,
             duration_ms=0,
         )
-        for event in data["records"]
+        for event in data
     ]
 
     # Add record to telemetry client
