@@ -45,6 +45,7 @@ from mlflow.protos.databricks_tracing_pb2 import (
 )
 from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
+from mlflow.store.entities import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.utils import parse_trace_id_v4
@@ -101,9 +102,9 @@ class CompositeToken(BaseModel):
         encoded_token, offset_str = parts
         try:
             offset = int(offset_str)
-            if not encoded_token:
-                return cls(backend_token=None, offset=offset)
-            backend_token = base64.b64decode(encoded_token).decode("utf-8")
+            backend_token = (
+                base64.b64decode(encoded_token).decode("utf-8") if encoded_token else None
+            )
             return cls(backend_token=backend_token, offset=offset)
         except (ValueError, Exception):
             return cls(backend_token=token_str, offset=0)
@@ -885,8 +886,6 @@ class DatabricksTracingRestStore(RestStore):
         page_token: str | None = None,
     ):
         """Fetch a single page of datasets from the backend."""
-        from mlflow.store.entities import PagedList
-
         params = {}
         if experiment_ids:
             params["filter"] = f"experiment_id={experiment_ids[0]}"
@@ -934,9 +933,6 @@ class DatabricksTracingRestStore(RestStore):
         """
         Search for evaluation datasets in Databricks using managed-evals API.
 
-        Fetches multiple backend pages if necessary to return exactly max_results
-        datasets (or fewer if no more results exist).
-
         Args:
             experiment_ids: List of experiment IDs to filter by. Only supports a single
                 experiment ID - raises error if multiple IDs are provided.
@@ -948,8 +944,6 @@ class DatabricksTracingRestStore(RestStore):
         Returns:
             PagedList of EvaluationDataset entities
         """
-        from mlflow.store.entities import PagedList
-
         self._validate_search_datasets_params(filter_string, order_by, experiment_ids)
 
         token = CompositeToken.parse(page_token)
@@ -969,11 +963,8 @@ class DatabricksTracingRestStore(RestStore):
                 page_token=current_backend_token,
             )
 
-            page_results = list(page)
-
-            if skip_count > 0:
-                page_results = page_results[skip_count:]
-                skip_count = 0
+            page_results = list(page)[skip_count:]
+            skip_count = 0
 
             last_page_size = len(page_results)
             all_datasets.extend(page_results)
