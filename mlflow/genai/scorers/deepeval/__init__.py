@@ -54,7 +54,6 @@ class DeepEvalScorer(Scorer):
             # Deterministic metrics don't need a model
             self._metric = metric_class(**metric_kwargs)
         else:
-            # TODO: Support databricks model serving models (e.g., databricks:/model_name)
             deepeval_model = create_deepeval_model(model)
             self._metric = metric_class(
                 model=deepeval_model,

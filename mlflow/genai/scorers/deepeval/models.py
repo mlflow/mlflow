@@ -47,7 +47,7 @@ class DatabricksDeepEvalLLM(DeepEvalBaseLLM):
     """
 
     def __init__(self):
-        super().__init__(model=_DATABRICKS_DEFAULT_JUDGE_MODEL)
+        super().__init__(model_name=_DATABRICKS_DEFAULT_JUDGE_MODEL)
 
     def load_model(self, **kwargs):
         return self
@@ -78,7 +78,7 @@ class DatabricksServingEndpointDeepEvalLLM(DeepEvalBaseLLM):
 
     def __init__(self, endpoint_name: str):
         self._endpoint_name = endpoint_name
-        super().__init__(model=f"databricks:/{endpoint_name}")
+        super().__init__(model_name=f"databricks:/{endpoint_name}")
 
     def load_model(self, **kwargs):
         return self

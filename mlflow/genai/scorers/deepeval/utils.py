@@ -9,6 +9,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
+    parse_inputs_to_str,
     parse_outputs_to_str,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
@@ -91,7 +92,6 @@ def map_scorer_inputs_to_deepeval_test_case(
     expectations: dict[str, Any] | None = None,
     trace: Trace | None = None,
 ):
-    _check_deepeval_installed()
     from deepeval.test_case import LLMTestCase
 
     if trace:
@@ -121,8 +121,8 @@ def map_scorer_inputs_to_deepeval_test_case(
     retrieval_context = [str(context) for context in span_id_to_context.values()]
 
     return LLMTestCase(
-        input=str(inputs),
-        actual_output=str(outputs),
+        input=parse_inputs_to_str(inputs),
+        actual_output=parse_outputs_to_str(outputs),
         expected_output=expected_output,
         context=context,
         retrieval_context=retrieval_context,
