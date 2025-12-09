@@ -1,12 +1,14 @@
 import os
-
-import httpx
+from typing import TYPE_CHECKING
 
 import mlflow
 from mlflow.pyfunc import scoring_server
 
+if TYPE_CHECKING:
+    import httpx
 
-def score_model_in_process(model_uri: str, data: str, content_type: str) -> httpx.Response:
+
+def score_model_in_process(model_uri: str, data: str, content_type: str) -> "httpx.Response":
     """Score a model using in-process FastAPI TestClient (faster than subprocess)."""
     from fastapi.testclient import TestClient
 
