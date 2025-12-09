@@ -28,19 +28,17 @@ module.exports = async ({ github, context, skipAssignment = false }) => {
 
   for (const pr of searchResults) {
     // Get recent comments and reviews
-    const [issueComments, reviews] = await Promise.all([
-      github.rest.issues.listComments({
-        owner,
-        repo,
-        issue_number: pr.number,
-        since: lookbackTime.toISOString(),
-      }),
-      github.rest.pulls.listReviews({
-        owner,
-        repo,
-        pull_number: pr.number,
-      }),
-    ]);
+    const issueComments = await github.rest.issues.listComments({
+      owner,
+      repo,
+      issue_number: pr.number,
+      since: lookbackTime.toISOString(),
+    });
+    const reviews = await github.rest.pulls.listReviews({
+      owner,
+      repo,
+      pull_number: pr.number,
+    });
 
     // Filter reviews by lookback time and extract authors
     const recentReviews = reviews.data.filter((r) => new Date(r.submitted_at) > lookbackTime);
@@ -52,10 +50,11 @@ module.exports = async ({ github, context, skipAssignment = false }) => {
     // Use Set operations to find maintainers to assign
     const prAuthor = pr.user.login;
     const currentAssignees = new Set(pr.assignees.map((a) => a.login));
+    const excludeSet = new Set([prAuthor, ...currentAssignees]);
 
-    const maintainersToAssign = [...commentAuthors].filter(
-      (login) => maintainers.has(login) && login !== prAuthor && !currentAssignees.has(login)
-    );
+    const maintainersToAssign = [
+      ...commentAuthors.intersection(maintainers).difference(excludeSet),
+    ];
 
     if (maintainersToAssign.length === 0) {
       continue;
