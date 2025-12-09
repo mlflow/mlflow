@@ -6,9 +6,9 @@ from sqlalchemy.orm.query import Query
 
 from mlflow.entities.trace_metrics import (
     AggregationType,
+    MetricAggregation,
     MetricDataPoint,
-    MetricsAggregation,
-    MetricsViewType,
+    MetricViewType,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceTag
@@ -46,8 +46,8 @@ TRACES_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
 }
 
 # TODO: add spans and assessments metrics configs
-VIEW_TYPE_CONFIGS: dict[MetricsViewType, dict[str, TraceMetricsConfig]] = {
-    MetricsViewType.TRACES: TRACES_METRICS_CONFIGS,
+VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
+    MetricViewType.TRACES: TRACES_METRICS_CONFIGS,
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
@@ -109,7 +109,7 @@ def get_time_bucket_expression(
         return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
 
-def _get_aggregation_expression(aggregation: MetricsAggregation, db_type: str, column) -> Column:
+def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, column) -> Column:
     """
     Get the SQL aggregation expression for the given aggregation type and column.
 
@@ -155,7 +155,7 @@ def query_metrics_for_traces_view(
     db_type: str,
     query: Query,
     metric_name: str,
-    aggregations: list[MetricsAggregation],
+    aggregations: list[MetricAggregation],
     dimensions: list[str] | None,
     filters: list[str],
     time_interval_seconds: int | None,
@@ -203,7 +203,7 @@ def query_metrics_for_traces_view(
                 dimension_columns.append(SqlTraceInfo.status.label("status"))
             case _:
                 raise NotImplementedError(
-                    f"dimension {dimension} is not supported for view type {MetricsViewType.TRACES}"
+                    f"dimension {dimension} is not supported for view type {MetricViewType.TRACES}"
                 )
 
     # Build aggregation expressions
@@ -234,9 +234,9 @@ def query_metrics_for_traces_view(
 
 
 def validate_query_trace_metrics_params(
-    view_type: MetricsViewType,
+    view_type: MetricViewType,
     metric_name: str,
-    aggregations: list[MetricsAggregation],
+    aggregations: list[MetricAggregation],
     dimensions: list[str] | None,
 ):
     """Validate parameters for query_trace_metrics.

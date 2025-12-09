@@ -5,7 +5,7 @@ import pytest
 
 from mlflow.entities import trace_location
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_metrics import AggregationType, MetricsAggregation, MetricsViewType
+from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.db.db_types import POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -65,9 +65,9 @@ def test_query_trace_metrics_count_no_dimensions(store: SqlAlchemyStore):
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
-        view_type=MetricsViewType.TRACES,
+        view_type=MetricViewType.TRACES,
         metric_name="trace",
-        aggregations=[MetricsAggregation(aggregation_type=AggregationType.COUNT)],
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
     )
 
     assert len(result) == 1
@@ -102,9 +102,9 @@ def test_query_trace_metrics_count_by_status(store: SqlAlchemyStore):
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
-        view_type=MetricsViewType.TRACES,
+        view_type=MetricViewType.TRACES,
         metric_name="trace",
-        aggregations=[MetricsAggregation(aggregation_type=AggregationType.COUNT)],
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["status"],
     )
 
@@ -145,9 +145,9 @@ def test_query_trace_metrics_count_by_name(store: SqlAlchemyStore):
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
-        view_type=MetricsViewType.TRACES,
+        view_type=MetricViewType.TRACES,
         metric_name="trace",
-        aggregations=[MetricsAggregation(aggregation_type=AggregationType.COUNT)],
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["name"],
     )
 
@@ -188,9 +188,9 @@ def test_query_trace_metrics_count_by_multiple_dimensions(store: SqlAlchemyStore
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
-        view_type=MetricsViewType.TRACES,
+        view_type=MetricViewType.TRACES,
         metric_name="trace",
-        aggregations=[MetricsAggregation(aggregation_type=AggregationType.COUNT)],
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["status", "name"],
     )
 
@@ -241,9 +241,9 @@ def test_query_trace_metrics_latency_avg(store: SqlAlchemyStore):
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
-        view_type=MetricsViewType.TRACES,
+        view_type=MetricViewType.TRACES,
         metric_name="latency",
-        aggregations=[MetricsAggregation(aggregation_type=AggregationType.AVG)],
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
         dimensions=["name"],
     )
 
@@ -291,10 +291,10 @@ def test_query_trace_metrics_latency_percentiles(
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
-        view_type=MetricsViewType.TRACES,
+        view_type=MetricViewType.TRACES,
         metric_name="latency",
         aggregations=[
-            MetricsAggregation(
+            MetricAggregation(
                 aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
             )
         ],
@@ -346,12 +346,12 @@ def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStor
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
-        view_type=MetricsViewType.TRACES,
+        view_type=MetricViewType.TRACES,
         metric_name="latency",
         aggregations=[
-            MetricsAggregation(aggregation_type=AggregationType.AVG),
-            MetricsAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
-            MetricsAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=99),
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=99),
         ],
         dimensions=["name"],
     )
@@ -395,9 +395,9 @@ def test_query_trace_metrics_with_time_interval(store: SqlAlchemyStore):
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
-        view_type=MetricsViewType.TRACES,
+        view_type=MetricViewType.TRACES,
         metric_name="trace",
-        aggregations=[MetricsAggregation(aggregation_type=AggregationType.COUNT)],
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         time_interval_seconds=3600,  # 1 hour
         start_time_ms=base_time,
         end_time_ms=base_time + 3 * hour_ms,
@@ -457,9 +457,9 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
-        view_type=MetricsViewType.TRACES,
+        view_type=MetricViewType.TRACES,
         metric_name="trace",
-        aggregations=[MetricsAggregation(aggregation_type=AggregationType.COUNT)],
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["status"],
         time_interval_seconds=3600,  # 1 hour
         start_time_ms=base_time,

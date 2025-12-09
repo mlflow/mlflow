@@ -61,9 +61,9 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_metrics import (
+    MetricAggregation,
     MetricDataPoint,
-    MetricsAggregation,
-    MetricsViewType,
+    MetricViewType,
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -2818,9 +2818,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def query_trace_metrics(
         self,
         experiment_ids: list[str],
-        view_type: MetricsViewType,
+        view_type: MetricViewType,
         metric_name: str,
-        aggregations: list[MetricsAggregation],
+        aggregations: list[MetricAggregation],
         dimensions: list[str] | None = None,
         filters: list[str] | None = None,
         time_interval_seconds: int | None = None,
@@ -2850,7 +2850,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if end_time_ms is not None:
                 query = query.filter(SqlTraceInfo.timestamp_ms <= end_time_ms)
 
-            if view_type == MetricsViewType.TRACES:
+            if view_type == MetricViewType.TRACES:
                 data_points = query_metrics_for_traces_view(
                     db_type=self.db_type,
                     query=query,

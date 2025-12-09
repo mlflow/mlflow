@@ -18,9 +18,9 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace_metrics import (
+    MetricAggregation,
     MetricDataPoint,
-    MetricsAggregation,
-    MetricsViewType,
+    MetricViewType,
 )
 
 if TYPE_CHECKING:
@@ -415,9 +415,9 @@ class AbstractStore(GatewayStoreMixin):
     def query_trace_metrics(
         self,
         experiment_ids: list[str],
-        view_type: MetricsViewType,
+        view_type: MetricViewType,
         metric_name: str,
-        aggregations: list[MetricsAggregation],
+        aggregations: list[MetricAggregation],
         dimensions: list[str] | None = None,
         filters: list[str] | None = None,
         time_interval_seconds: int | None = None,
