@@ -4452,7 +4452,7 @@ message TelemetryRecord {
   optional int64 timestamp_ns = 2;
 
   // arbitrary dict of key: value pairs
-  optional string params = 3;
+  map<string, string> params = 3;
 
   // Random UUID that is stored in a browser's LocalStorage
   optional string installation_id = 4;
