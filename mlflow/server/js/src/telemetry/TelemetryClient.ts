@@ -1,0 +1,97 @@
+/**
+ * TelemetryLogger client
+ *
+ * Wrapper for interacting with the TelemetryLogger SharedWorker.
+ * Provides a simple API for logging telemetry events.
+ */
+import type { TelemetryRecord } from './types';
+import { isDesignSystemEvent } from './utils';
+import { WorkerToClientMessageType, ClientToWorkerMessageType } from './worker/types';
+
+const LOCAL_STORAGE_INSTALLATION_ID_KEY = 'mlflow-telemetry-installation-id';
+
+class TelemetryClient {
+  private installationId: string = this.getInstallationId();
+  private port: MessagePort | null = null;
+  private ready: Promise<boolean> = this.initWorker();
+
+  private getInstallationId(): string {
+    const localStorageInstallationId = localStorage.getItem(LOCAL_STORAGE_INSTALLATION_ID_KEY);
+
+    if (!localStorageInstallationId) {
+      const installationId = crypto.randomUUID();
+      localStorage.setItem(LOCAL_STORAGE_INSTALLATION_ID_KEY, installationId);
+      return installationId;
+    } else {
+      return localStorageInstallationId;
+    }
+  }
+
+  private initWorker(): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        // Create SharedWorker instance
+        this.port = new SharedWorker(new URL('./worker/TelemetryLogger.worker.ts', import.meta.url), {
+          name: 'telemetry-worker',
+        }).port;
+
+        if (!this.port) {
+          resolve(false);
+          return;
+        }
+
+        const handleReadyMessage = (event: MessageEvent): void => {
+          if (event.data.type === WorkerToClientMessageType.READY) {
+            resolve(true);
+          }
+        };
+
+        // Listen for the "READY" message from worker
+        this.port.onmessage = handleReadyMessage;
+      } catch (error) {
+        console.error('[TelemetryLogger] Failed to initialize SharedWorker:', error);
+        resolve(false);
+      }
+    });
+  }
+
+  /**
+   * Log a telemetry event
+   */
+  public async logEvent(record: any): Promise<void> {
+    const isReady = await this.ready;
+    if (!isReady || !this.port) {
+      return;
+    }
+
+    if (!isDesignSystemEvent(record)) {
+      return;
+    }
+
+    if (record.eventType !== 'onClick') {
+      return;
+    }
+
+    const payload: TelemetryRecord = {
+      installation_id: this.installationId,
+      event_name: 'ui_event',
+      // convert from ms to ns
+      timestamp_ns: Date.now() * 1e6,
+      params: {
+        componentId: record.componentId,
+        componentViewId: record.componentViewId,
+        componentType: record.componentType,
+        componentSubType: record.componentSubType,
+        eventType: record.eventType,
+      },
+    };
+
+    this.port?.postMessage({
+      type: ClientToWorkerMessageType.LOG_EVENT,
+      payload,
+    });
+  }
+}
+
+// Singleton instance
+export const telemetryClient: TelemetryClient = new TelemetryClient();
