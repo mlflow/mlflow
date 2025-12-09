@@ -4726,7 +4726,7 @@ def post_ui_telemetry_handler():
         Record(
             event_name=event.event_name,
             timestamp_ns=event.timestamp_ns,
-            params=event.params,
+            params=dict(event.params),
             status=Status.SUCCESS,
             installation_id=event.installation_id,
             session_id=event.session_id,
