@@ -844,18 +844,25 @@ class DatabricksTracingRestStore(RestStore):
         """
         Search for evaluation datasets in Databricks using managed-evals API.
 
+        This method makes a single API call to the backend and returns the results
+        from that call. The backend may return fewer items than max_results due to
+        backend implementation details. Use the returned page_token to fetch
+        subsequent pages if needed.
+
         Calls /api/2.0/managed-evals/datasets endpoint.
 
         Args:
             experiment_ids: List of experiment IDs to filter by. Only supports a single
                 experiment ID - raises error if multiple IDs are provided.
             filter_string: Not supported by managed-evals API (raises error)
-            max_results: Maximum number of results (maps to page_size)
+            max_results: Maximum number of results to request from the backend.
+                Note: The backend may return fewer items than this value.
             order_by: Not supported by managed-evals API (raises error)
-            page_token: Token for pagination
+            page_token: Token for retrieving the next page of results
 
         Returns:
-            PagedList of EvaluationDataset entities
+            PagedList of EvaluationDataset entities. The list may contain fewer items
+            than max_results. Use the token attribute to fetch the next page.
         """
         self._validate_search_datasets_params(filter_string, order_by, experiment_ids)
 
