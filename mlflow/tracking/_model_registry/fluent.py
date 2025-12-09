@@ -1,4 +1,3 @@
-import functools
 import json
 import logging
 import threading
@@ -11,14 +10,12 @@ from pydantic import BaseModel
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.run import Run
-from mlflow.environment_variables import (
-    MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
-    MLFLOW_PROMPT_CACHE_MAX_SIZE,
-)
+from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
+from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     NOT_FOUND,
@@ -39,7 +36,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run, get_active_model_id
+from mlflow.tracking.fluent import _get_latest_active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
@@ -557,6 +554,7 @@ def register_prompt(
     commit_message: str | None = None,
     tags: dict[str, str] | None = None,
     response_format: type[BaseModel] | dict[str, Any] | None = None,
+    model_config: "PromptModelConfig | dict[str, Any] | None" = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -595,6 +593,8 @@ def register_prompt(
             the changes. Optional.
         response_format: Optional Pydantic class or dictionary defining the expected response
             structure. This can be used to specify the schema for structured outputs from LLM calls.
+        model_config: Optional PromptModelConfig instance or dictionary containing model-specific
+            configuration. Using PromptModelConfig provides validation and type safety.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -658,6 +658,7 @@ def register_prompt(
         commit_message=commit_message,
         tags=tags,
         response_format=response_format,
+        model_config=model_config,
     )
 
 
@@ -732,6 +733,7 @@ def load_prompt(
     allow_missing: bool = False,
     link_to_model: bool = True,
     model_id: str | None = None,
+    cache_ttl_seconds: float | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -747,6 +749,11 @@ def load_prompt(
                        by `model_id`, or the active model ID if `model_id` is None and
                        there is an active model.
         model_id: The ID of the model to which to link the prompt, if `link_to_model` is True.
+        cache_ttl_seconds: Time-to-live in seconds for the cached prompt. If not specified,
+            uses the value from `MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS` environment variable for
+            alias-based prompts (default 60), and the value from
+            `MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS` environment variable for version-based prompts
+            (default None, no TTL). Set to 0 to bypass the cache and always fetch from the server.
 
     Example:
 
@@ -763,6 +770,12 @@ def load_prompt(
         # Load a prompt version with an alias "production"
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")
 
+        # Load with custom cache TTL (5 minutes)
+        prompt = mlflow.load_prompt("my_prompt", version=1, cache_ttl_seconds=300)
+
+        # Bypass cache entirely
+        prompt = mlflow.load_prompt("my_prompt", version=1, cache_ttl_seconds=0)
+
     """
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="load_prompt"),
@@ -770,31 +783,17 @@ def load_prompt(
         stacklevel=3,
     )
 
-    if "@" in name_or_uri:
-        # Don't cache prompts loaded by alias since aliases can change over time
-        prompt = _load_prompt_not_cached(
-            name_or_uri=name_or_uri,
-            version=version,
-            allow_missing=allow_missing,
-        )
-    else:
-        # Otherwise, we use a cached function to avoid loading the same prompt multiple times.
-        # If the prompt from the cache is not found and allowing_missing is True, we
-        # try to load the prompt from the client without cache, since it may have been
-        # registered after the cache was created (uncommon scenario).
-        prompt = _load_prompt_cached(
-            name_or_uri=name_or_uri,
-            version=version,
-            allow_missing=allow_missing,
-        ) or _load_prompt_not_cached(
-            name_or_uri=name_or_uri,
-            version=version,
-            allow_missing=allow_missing,
-        )
+    client = MlflowClient()
+
+    # Load prompt with caching (handled by client)
+    prompt = client.load_prompt(
+        name_or_uri=name_or_uri,
+        version=version,
+        allow_missing=allow_missing,
+        cache_ttl_seconds=cache_ttl_seconds,
+    )
     if prompt is None:
         return
-
-    client = MlflowClient()
 
     # If there is an active MLflow run, associate the prompt with the run.
     # Note that we do this synchronously because it's unlikely that run linking occurs
@@ -847,38 +846,6 @@ def load_prompt(
         current_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
         updated_value = update_linked_prompts_tag(current_value, [prompt])
         span.set_attribute(SpanAttributeKey.LINKED_PROMPTS, updated_value)
-
-    return prompt
-
-
-@functools.lru_cache(maxsize=MLFLOW_PROMPT_CACHE_MAX_SIZE.get())
-def _load_prompt_cached(
-    name_or_uri: str,
-    version: str | int | None = None,
-    allow_missing: bool = False,
-) -> PromptVersion | None:
-    """
-    Internal cached function to load prompts from registry.
-    """
-    return _load_prompt_not_cached(name_or_uri, version, allow_missing)
-
-
-def _load_prompt_not_cached(
-    name_or_uri: str,
-    version: str | int | None = None,
-    allow_missing: bool = False,
-) -> PromptVersion | None:
-    """
-    Load prompt from client, handling URI parsing.
-    """
-    client = MlflowClient()
-    prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
-    prompt = client.load_prompt(prompt_uri, allow_missing=allow_missing)
-
-    # Link the prompt to the active experiment. This is called only when
-    # the prompt is loaded from the registry to avoid performance overhead.
-    if experiment_id := _get_experiment_id():
-        client._link_prompt_to_experiment(prompt, experiment_id)
 
     return prompt
 

@@ -174,6 +174,14 @@ def create_experiment(
 
 
 @pytest.fixture(autouse=True)
+def tracking_uri(db_uri: str):
+    """Sets the tracking URI for each test."""
+    mlflow.set_tracking_uri(db_uri)
+    yield
+    mlflow.set_tracking_uri(None)
+
+
+@pytest.fixture(autouse=True)
 def reset_experiment_id():
     """
     This fixture resets the active experiment id *after* the execution of the test case in which

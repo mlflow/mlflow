@@ -24,6 +24,7 @@ from mlflow.entities import (
     ExperimentTag,
     Feedback,
     FileInfo,
+    GatewayResourceType,
     Metric,
     Param,
     RunTag,
@@ -98,11 +99,16 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    AttachModelToGatewayEndpoint,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
+    CreateGatewayEndpoint,
+    CreateGatewayEndpointBinding,
+    CreateGatewayModelDefinition,
+    CreateGatewaySecret,
     CreateLoggedModel,
     CreateRun,
     DeleteAssessment,
@@ -110,6 +116,10 @@ from mlflow.protos.service_pb2 import (
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
+    DeleteGatewayEndpoint,
+    DeleteGatewayEndpointBinding,
+    DeleteGatewayModelDefinition,
+    DeleteGatewaySecret,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
@@ -119,6 +129,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTracesV3,
     DeleteTraceTag,
     DeleteTraceTagV3,
+    DetachModelFromGatewayEndpoint,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
@@ -127,6 +138,9 @@ from mlflow.protos.service_pb2 import (
     GetDatasetRecords,
     GetExperiment,
     GetExperimentByName,
+    GetGatewayEndpoint,
+    GetGatewayModelDefinition,
+    GetGatewaySecretInfo,
     GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
@@ -135,8 +149,13 @@ from mlflow.protos.service_pb2 import (
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
+    ListGatewayEndpointBindings,
+    ListGatewayEndpoints,
+    ListGatewayModelDefinitions,
+    ListGatewaySecretInfos,
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
@@ -169,6 +188,9 @@ from mlflow.protos.service_pb2 import (
     StartTraceV3,
     UpdateAssessment,
     UpdateExperiment,
+    UpdateGatewayEndpoint,
+    UpdateGatewayModelDefinition,
+    UpdateGatewaySecret,
     UpdateRun,
     UpsertDatasetRecords,
 )
@@ -582,6 +604,31 @@ def _assert_intlike_within_range(x, min_value, max_value, message=None):
 
 def _assert_item_type_string(x):
     assert all(isinstance(item, str) for item in x)
+
+
+def _assert_secret_value(x):
+    """Validate secret_value is a non-empty string without ever printing the value in errors."""
+    if not isinstance(x, str):
+        raise MlflowException(
+            message="Parameter 'secret_value' must be a string.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not x:
+        raise MlflowException(
+            message="Missing value for required parameter 'secret_value'.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _assert_optional_secret_value(x):
+    """Validate secret_value is a string if provided, without ever printing the value in errors."""
+    if x is None or x == "":
+        return
+    if not isinstance(x, str):
+        raise MlflowException(
+            message="Parameter 'secret_value' must be a string.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 _TYPE_VALIDATORS = {
@@ -2931,7 +2978,7 @@ def _start_trace_v3():
 @_disable_if_artifacts_only
 def _get_trace_info_v3(trace_id):
     """
-    A request handler for `GET /mlflow/traces/{trace_id}/info` to retrieve
+    A request handler for `GET /mlflow/traces/{trace_id}` to retrieve
     an existing TraceInfo record from tracking store.
     """
     trace_info = _get_tracking_store().get_trace_info(trace_id)
@@ -3169,6 +3216,36 @@ def _link_traces_to_run():
         run_id=request_message.run_id,
     )
     return _wrap_response(LinkTracesToRun.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _link_prompts_to_trace():
+    """
+    A request handler for `POST /mlflow/traces/link-prompts` to link prompt versions to a trace.
+    """
+    from mlflow.entities.model_registry import PromptVersion
+
+    request_message = _get_request_message(
+        LinkPromptsToTrace(),
+        schema={
+            "trace_id": [_assert_string, _assert_required],
+            "prompt_versions": [_assert_array, _assert_required],
+        },
+    )
+
+    # Convert PromptVersionRef proto messages to PromptVersion objects
+    # It doesn't load prompt versions since name and version are sufficient for linking
+    prompt_versions = [
+        PromptVersion(name=pv.name, version=int(pv.version), template="")
+        for pv in request_message.prompt_versions
+    ]
+
+    _get_tracking_store().link_prompts_to_trace(
+        trace_id=request_message.trace_id,
+        prompt_versions=prompt_versions,
+    )
+    return _wrap_response(LinkPromptsToTrace.Response())
 
 
 def _fetch_trace_data_from_store(
@@ -3778,6 +3855,428 @@ def _delete_scorer():
     return response
 
 
+# =============================================================================
+# Secrets Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_secret():
+    request_message = _get_request_message(
+        CreateGatewaySecret(),
+        schema={
+            "secret_name": [_assert_required, _assert_string],
+            "secret_value": [_assert_secret_value],
+            "provider": [_assert_string],
+            "credential_name": [_assert_string],
+            "auth_config_json": [_assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    # Parse auth_config_json string to dict if provided
+    auth_config = None
+    if request_message.auth_config_json:
+        auth_config = json.loads(request_message.auth_config_json)
+
+    secret = _get_tracking_store().create_secret(
+        secret_name=request_message.secret_name,
+        secret_value=request_message.secret_value,
+        provider=request_message.provider or None,
+        credential_name=request_message.credential_name or None,
+        auth_config=auth_config,
+        created_by=request_message.created_by or None,
+    )
+    response_message = CreateGatewaySecret.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_secret_info():
+    request_message = _get_request_message(
+        GetGatewaySecretInfo(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+        },
+    )
+    secret = _get_tracking_store().get_secret_info(request_message.secret_id)
+    response_message = GetGatewaySecretInfo.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_secret():
+    request_message = _get_request_message(
+        UpdateGatewaySecret(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+            "secret_value": [_assert_optional_secret_value],
+            "auth_config_json": [_assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+    # Parse auth_config_json string to dict if provided
+    auth_config = None
+    if request_message.auth_config_json:
+        auth_config = json.loads(request_message.auth_config_json)
+
+    secret = _get_tracking_store().update_secret(
+        secret_id=request_message.secret_id,
+        secret_value=request_message.secret_value or None,
+        auth_config=auth_config,
+        updated_by=request_message.updated_by or None,
+    )
+    response_message = UpdateGatewaySecret.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_secret():
+    request_message = _get_request_message(
+        DeleteGatewaySecret(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_secret(request_message.secret_id)
+    response_message = DeleteGatewaySecret.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_secrets():
+    request_message = _get_request_message(
+        ListGatewaySecretInfos(),
+        schema={
+            "provider": [_assert_string],
+        },
+    )
+    secrets = _get_tracking_store().list_secret_infos(
+        provider=request_message.provider or None,
+    )
+    response_message = ListGatewaySecretInfos.Response()
+    response_message.secrets.extend([s.to_proto() for s in secrets])
+    return _wrap_response(response_message)
+
+
+# =============================================================================
+# Endpoints Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_endpoint():
+    request_message = _get_request_message(
+        CreateGatewayEndpoint(),
+        schema={
+            "name": [_assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    endpoint = _get_tracking_store().create_endpoint(
+        name=request_message.name or None,
+        model_definition_ids=list(request_message.model_definition_ids),
+        created_by=request_message.created_by or None,
+    )
+    response_message = CreateGatewayEndpoint.Response()
+    response_message.endpoint.CopyFrom(endpoint.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_endpoint():
+    request_message = _get_request_message(
+        GetGatewayEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+        },
+    )
+    endpoint = _get_tracking_store().get_endpoint(request_message.endpoint_id)
+    response_message = GetGatewayEndpoint.Response()
+    response_message.endpoint.CopyFrom(endpoint.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_endpoint():
+    request_message = _get_request_message(
+        UpdateGatewayEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "name": [_assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+    endpoint = _get_tracking_store().update_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        name=request_message.name or None,
+        updated_by=request_message.updated_by or None,
+    )
+    response_message = UpdateGatewayEndpoint.Response()
+    response_message.endpoint.CopyFrom(endpoint.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_endpoint():
+    request_message = _get_request_message(
+        DeleteGatewayEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_endpoint(request_message.endpoint_id)
+    response_message = DeleteGatewayEndpoint.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_endpoints():
+    request_message = _get_request_message(
+        ListGatewayEndpoints(),
+        schema={
+            "provider": [_assert_string],
+        },
+    )
+    endpoints = _get_tracking_store().list_endpoints(
+        provider=request_message.provider or None,
+    )
+    response_message = ListGatewayEndpoints.Response()
+    response_message.endpoints.extend([e.to_proto() for e in endpoints])
+    return _wrap_response(response_message)
+
+
+# =============================================================================
+# Model Definitions Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_model_definition():
+    request_message = _get_request_message(
+        CreateGatewayModelDefinition(),
+        schema={
+            "name": [_assert_required, _assert_string],
+            "secret_id": [_assert_required, _assert_string],
+            "provider": [_assert_required, _assert_string],
+            "model_name": [_assert_required, _assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    model_definition = _get_tracking_store().create_model_definition(
+        name=request_message.name,
+        secret_id=request_message.secret_id,
+        provider=request_message.provider,
+        model_name=request_message.model_name,
+        created_by=request_message.created_by or None,
+    )
+    response_message = CreateGatewayModelDefinition.Response()
+    response_message.model_definition.CopyFrom(model_definition.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_model_definition():
+    request_message = _get_request_message(
+        GetGatewayModelDefinition(),
+        schema={
+            "model_definition_id": [_assert_required, _assert_string],
+        },
+    )
+    model_definition = _get_tracking_store().get_model_definition(
+        request_message.model_definition_id
+    )
+    response_message = GetGatewayModelDefinition.Response()
+    response_message.model_definition.CopyFrom(model_definition.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_model_definitions():
+    request_message = _get_request_message(
+        ListGatewayModelDefinitions(),
+        schema={
+            "provider": [_assert_string],
+            "secret_id": [_assert_string],
+        },
+    )
+    model_definitions = _get_tracking_store().list_model_definitions(
+        provider=request_message.provider or None,
+        secret_id=request_message.secret_id or None,
+    )
+    response_message = ListGatewayModelDefinitions.Response()
+    response_message.model_definitions.extend([m.to_proto() for m in model_definitions])
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_model_definition():
+    request_message = _get_request_message(
+        UpdateGatewayModelDefinition(),
+        schema={
+            "model_definition_id": [_assert_required, _assert_string],
+            "name": [_assert_string],
+            "secret_id": [_assert_string],
+            "model_name": [_assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+    model_definition = _get_tracking_store().update_model_definition(
+        model_definition_id=request_message.model_definition_id,
+        name=request_message.name or None,
+        secret_id=request_message.secret_id or None,
+        model_name=request_message.model_name or None,
+        updated_by=request_message.updated_by or None,
+    )
+    response_message = UpdateGatewayModelDefinition.Response()
+    response_message.model_definition.CopyFrom(model_definition.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_model_definition():
+    request_message = _get_request_message(
+        DeleteGatewayModelDefinition(),
+        schema={
+            "model_definition_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_model_definition(request_message.model_definition_id)
+    response_message = DeleteGatewayModelDefinition.Response()
+    return _wrap_response(response_message)
+
+
+# =============================================================================
+# Endpoint Model Mappings Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _attach_model_to_endpoint():
+    request_message = _get_request_message(
+        AttachModelToGatewayEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "model_definition_id": [_assert_required, _assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    mapping = _get_tracking_store().attach_model_to_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        model_definition_id=request_message.model_definition_id,
+        weight=request_message.weight or 1,
+        created_by=request_message.created_by or None,
+    )
+    response_message = AttachModelToGatewayEndpoint.Response()
+    response_message.mapping.CopyFrom(mapping.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _detach_model_from_endpoint():
+    request_message = _get_request_message(
+        DetachModelFromGatewayEndpoint(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "model_definition_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().detach_model_from_endpoint(
+        endpoint_id=request_message.endpoint_id,
+        model_definition_id=request_message.model_definition_id,
+    )
+    response_message = DetachModelFromGatewayEndpoint.Response()
+    return _wrap_response(response_message)
+
+
+# =============================================================================
+# Endpoint Bindings Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_endpoint_binding():
+    request_message = _get_request_message(
+        CreateGatewayEndpointBinding(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "resource_type": [_assert_required, _assert_string],
+            "resource_id": [_assert_required, _assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+    binding = _get_tracking_store().create_endpoint_binding(
+        endpoint_id=request_message.endpoint_id,
+        resource_type=GatewayResourceType(request_message.resource_type),
+        resource_id=request_message.resource_id,
+        created_by=request_message.created_by or None,
+    )
+    response_message = CreateGatewayEndpointBinding.Response()
+    response_message.binding.CopyFrom(binding.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_endpoint_binding():
+    request_message = _get_request_message(
+        DeleteGatewayEndpointBinding(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "resource_type": [_assert_required, _assert_string],
+            "resource_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_endpoint_binding(
+        endpoint_id=request_message.endpoint_id,
+        resource_type=request_message.resource_type,
+        resource_id=request_message.resource_id,
+    )
+    response_message = DeleteGatewayEndpointBinding.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_endpoint_bindings():
+    request_message = _get_request_message(
+        ListGatewayEndpointBindings(),
+        schema={
+            "endpoint_id": [_assert_string],
+            "resource_type": [_assert_string],
+            "resource_id": [_assert_string],
+        },
+    )
+    bindings = _get_tracking_store().list_endpoint_bindings(
+        endpoint_id=request_message.endpoint_id or None,
+        resource_type=request_message.resource_type or None,
+        resource_id=request_message.resource_id or None,
+    )
+    response_message = ListGatewayEndpointBindings.Response()
+    response_message.bindings.extend([b.to_proto() for b in bindings])
+    return _wrap_response(response_message)
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4159,6 +4658,7 @@ HANDLERS = {
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag_v3,
     LinkTracesToRun: _link_traces_to_run,
+    LinkPromptsToTrace: _link_prompts_to_trace,
     BatchGetTraces: _batch_get_traces,
     GetTrace: _get_trace,
     # Assessment APIs
@@ -4190,4 +4690,29 @@ HANDLERS = {
     ListScorerVersions: _list_scorer_versions,
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
+    # Secrets APIs
+    CreateGatewaySecret: _create_secret,
+    GetGatewaySecretInfo: _get_secret_info,
+    UpdateGatewaySecret: _update_secret,
+    DeleteGatewaySecret: _delete_secret,
+    ListGatewaySecretInfos: _list_secrets,
+    # Endpoints APIs
+    CreateGatewayEndpoint: _create_endpoint,
+    GetGatewayEndpoint: _get_endpoint,
+    UpdateGatewayEndpoint: _update_endpoint,
+    DeleteGatewayEndpoint: _delete_endpoint,
+    ListGatewayEndpoints: _list_endpoints,
+    # Model Definitions APIs
+    CreateGatewayModelDefinition: _create_model_definition,
+    GetGatewayModelDefinition: _get_model_definition,
+    ListGatewayModelDefinitions: _list_model_definitions,
+    UpdateGatewayModelDefinition: _update_model_definition,
+    DeleteGatewayModelDefinition: _delete_model_definition,
+    # Endpoint Model Mappings APIs
+    AttachModelToGatewayEndpoint: _attach_model_to_endpoint,
+    DetachModelFromGatewayEndpoint: _detach_model_from_endpoint,
+    # Endpoint Bindings APIs
+    CreateGatewayEndpointBinding: _create_endpoint_binding,
+    DeleteGatewayEndpointBinding: _delete_endpoint_binding,
+    ListGatewayEndpointBindings: _list_endpoint_bindings,
 }

@@ -69,6 +69,16 @@ const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
+          defaultMessage="Prompts"
+          description="Label for the prompts tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <TextBoxIcon />,
+      tabName: ExperimentPageTabName.Prompts,
+    },
+    {
+      label: (
+        <FormattedMessage
           defaultMessage="Agent versions"
           description="Label for the agent versions tab in the MLflow experiment navbar"
         />
@@ -132,7 +142,7 @@ export const getExperimentPageSideNavSectionLabel = (
     case 'prompts-versions':
       return (
         <FormattedMessage
-          defaultMessage="Versions"
+          defaultMessage="Prompts & versions"
           description="Label for the versions section in the MLflow experiment navbar"
         />
       );

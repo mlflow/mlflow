@@ -25,6 +25,8 @@ from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorer
 # Define the attributes that should be lazily loaded
 _LAZY_IMPORTS = {
     "Completeness",
+    "ConversationalSafety",
+    "ConversationCompleteness",
     "Correctness",
     "ExpectationsGuidelines",
     "Guidelines",
@@ -35,7 +37,6 @@ _LAZY_IMPORTS = {
     "RetrievalSufficiency",
     "Safety",
     "UserFrustration",
-    "ConversationCompleteness",
     "get_all_scorers",
 }
 
@@ -69,6 +70,7 @@ def __dir__():
 if TYPE_CHECKING:
     from mlflow.genai.scorers.builtin_scorers import (
         Completeness,
+        ConversationalSafety,
         ConversationCompleteness,
         Correctness,
         Equivalence,
@@ -85,6 +87,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Completeness",
+    "ConversationalSafety",
     "ConversationCompleteness",
     "Correctness",
     "ExpectationsGuidelines",

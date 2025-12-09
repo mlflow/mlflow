@@ -1,5 +1,4 @@
 import os
-import sys
 
 import pytest
 
@@ -12,6 +11,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
     source_type=AssessmentSourceType.HUMAN,
@@ -33,20 +33,20 @@ def trace_id():
 
 
 @pytest.fixture(params=["file", "sqlalchemy"], autouse=True)
-def tracking_uri(request, tmp_path):
+def tracking_uri(request, tmp_path, db_uri):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
+
+    if IS_TRACING_SDK_ONLY and request.param == "sqlalchemy":
+        pytest.skip("SQLAlchemy store is not available in tracing SDK only mode.")
 
     original_tracking_uri = mlflow.get_tracking_uri()
 
     if request.param == "file":
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        tracking_uri = db_uri
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.

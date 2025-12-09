@@ -644,6 +644,21 @@ MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZ
 #: (default: ``128``)
 MLFLOW_PROMPT_CACHE_MAX_SIZE = _EnvironmentVariable("MLFLOW_PROMPT_CACHE_MAX_SIZE", int, 128)
 
+#: Time-to-live in seconds for cached Alias-based prompts, e.g., "prompts:/name@latest", in the
+#: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
+#: access. Set to 0 to disable caching entirely. (default: ``60``)
+MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS", float, 60
+)
+
+#: Time-to-live in seconds for cached version-based prompts, e.g., "prompts:/name/version", in the
+#: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
+#: access. Set to 0 to disable caching entirely. (default: ``float("inf")``, infinite TTL)
+MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS", float, float("inf")
+)
+
+
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
 #: where a class imbalance due to a missing target class would raise an error in the
@@ -674,6 +689,11 @@ MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
 MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
 )
+
+#: Timeout in seconds for async predict functions in mlflow.genai.evaluate. When an async
+#: function is passed as predict_fn, it will be wrapped with asyncio.run() with this timeout.
+#: (default: ``300``)
+MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
 
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements

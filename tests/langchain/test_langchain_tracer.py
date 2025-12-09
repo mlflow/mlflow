@@ -668,3 +668,45 @@ def test_serialize_invocation_params_none():
     callback = MlflowLangchainTracer()
     result = callback._serialize_invocation_params(None)
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_tracer_with_manual_traces_async():
+    llm = ChatOpenAI()
+    prompt = PromptTemplate(
+        input_variables=["color"],
+        template="What is the complementary color of {color}?",
+    )
+
+    @mlflow.trace
+    def manual_transform(s: str):
+        return s.replace("red", "blue")
+
+    chain = RunnableLambda(manual_transform) | prompt | llm | StrOutputParser()
+
+    @mlflow.trace(name="parent")
+    async def run(message):
+        # run_inline=True ensures proper context propagation in async scenarios
+        tracer = MlflowLangchainTracer(run_inline=True)
+        return await chain.ainvoke(message, config={"callbacks": [tracer]})
+
+    response = await run("red")
+    expected_response = '[{"role": "user", "content": "What is the complementary color of blue?"}]'
+    assert response == expected_response
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    trace = traces[0]
+    spans = trace.data.spans
+    assert spans[0].name == "parent"
+    assert spans[1].name == "RunnableSequence"
+    assert spans[1].parent_id == spans[0].span_id
+    assert spans[2].name == "manual_transform"
+    assert spans[2].parent_id == spans[1].span_id
+
+
+@pytest.mark.parametrize("run_tracer_inline", [True, False])
+def test_tracer_run_inline_parameter(run_tracer_inline):
+    tracer = MlflowLangchainTracer(run_inline=run_tracer_inline)
+    assert tracer.run_inline == run_tracer_inline
