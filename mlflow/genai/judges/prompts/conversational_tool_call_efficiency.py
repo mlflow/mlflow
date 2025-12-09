@@ -10,7 +10,6 @@ A conversation has inefficient tool usage if any of the following apply:
 - Redundant calls: The same tool is called multiple times with identical or equivalent parameters \
 to retrieve information already obtained earlier in the conversation.
 - Unnecessary calls: Tools are invoked when not needed to fulfill the user's request.
-- Poor tool selection: A less appropriate tool is used when a better alternative is available.
 - Missing cache awareness: Previously retrieved information is re-fetched instead of being reused.
 - Missed batching: Multiple separate calls are made when a single call could retrieve all needed information.
 

@@ -1553,21 +1553,21 @@ def test_conversational_safety_instructions():
 def test_conversational_tool_call_efficiency_with_session():
     session_id = "test_session_efficiency"
     traces = []
-    for i, (q, a) in enumerate(
+    for i, (question, stock, stock_price) in enumerate(
         [
-            ("What is the price of AAPL?", "AAPL is $150."),
-            ("How about MSFT?", "MSFT is $300."),
+            ("What is the price of AAPL?", "AAPL", "150"),
+            ("How about MSFT?", "MSFT", "300"),
         ]
     ):
+        answer = f"{stock} is ${stock_price}."
         with mlflow.start_span(name=f"turn_{i}") as span:
-            span.set_inputs({"question": q})
-            span.set_outputs(a)
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
 
-            # Add a tool span
             with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool_span:
-                tool_span.set_inputs({"symbol": "AAPL" if i == 0 else "MSFT"})
-                tool_span.set_outputs(f"${150 if i == 0 else 300}")
+                tool_span.set_inputs({"symbol": stock})
+                tool_span.set_outputs(f"${stock_price}")
 
         traces.append(mlflow.get_trace(span.trace_id))
 

@@ -1864,13 +1864,9 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
     Conversational tool call efficiency evaluates whether tool usage across a
     multi-turn conversation session was optimized.
 
-    This scorer analyzes the complete conversation and tool call history for efficiency:
-
-    - Avoiding redundant tool calls (fetching the same information multiple times)
-    - Reusing information from previous tool calls when available
-    - Calling tools only when necessary to fulfill user requests
-    - Using appropriate tools for the task at hand
-    - Recognizing batching opportunities
+    This scorer analyzes the complete conversation and tool call history to identify
+    inefficiencies such as redundant calls, unnecessary invocations, or missed
+    optimization opportunities.
 
     You can invoke the scorer directly with a session for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.

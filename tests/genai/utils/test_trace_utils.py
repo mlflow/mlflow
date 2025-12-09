@@ -30,6 +30,8 @@ from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
+    parse_tool_calls_from_trace,
+    resolve_conversation_from_session,
 )
 from mlflow.tracing.utils import build_otel_context
 
@@ -760,3 +762,115 @@ def test_create_minimal_trace_with_source_but_no_session():
     assert "mlflow.trace.session" not in trace.info.trace_metadata
     assert trace.data._get_root_span().inputs == {"question": "test"}
     assert trace.data._get_root_span().outputs == "answer"
+
+
+def test_parse_tool_calls_from_trace():
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs({"question": "What is the stock price?"})
+
+        with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"symbol": "AAPL"})
+            tool_span.set_outputs({"price": 150.0})
+
+        with mlflow.start_span(name="get_market_cap", span_type=SpanType.TOOL) as tool_span2:
+            tool_span2.set_inputs({"symbol": "AAPL"})
+            tool_span2.set_outputs({"market_cap": "2.5T"})
+
+        root_span.set_outputs("AAPL price is $150.")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_messages = parse_tool_calls_from_trace(trace)
+
+    assert len(tool_messages) == 2
+    assert all(msg["role"] == "tool" for msg in tool_messages)
+    assert "get_stock_price" in tool_messages[0]["content"]
+    assert "AAPL" in tool_messages[0]["content"]
+    assert "150" in tool_messages[0]["content"]
+    assert "get_market_cap" in tool_messages[1]["content"]
+
+
+def test_parse_tool_calls_from_trace_no_tools():
+    with mlflow.start_span(name="root") as span:
+        span.set_inputs({"question": "Hello"})
+        span.set_outputs("Hi there")
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_messages = parse_tool_calls_from_trace(trace)
+
+    assert tool_messages == []
+
+
+def test_parse_tool_calls_from_trace_tool_without_outputs():
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs({"query": "test"})
+
+        with mlflow.start_span(name="my_tool", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"param": "value"})
+
+        root_span.set_outputs("result")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_messages = parse_tool_calls_from_trace(trace)
+
+    assert len(tool_messages) == 1
+    assert "my_tool" in tool_messages[0]["content"]
+    assert "param" in tool_messages[0]["content"]
+    assert "Outputs" not in tool_messages[0]["content"]
+
+
+def test_resolve_conversation_from_session():
+    session_id = "test_session_resolve"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "What is AAPL price?"}]})
+        span.set_outputs("AAPL is $150.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    with mlflow.start_span(name="turn_1") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "How about MSFT?"}]})
+        span.set_outputs("MSFT is $300.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    conversation = resolve_conversation_from_session(traces)
+
+    assert len(conversation) == 4
+    assert conversation[0] == {"role": "user", "content": "What is AAPL price?"}
+    assert conversation[1] == {"role": "assistant", "content": "AAPL is $150."}
+    assert conversation[2] == {"role": "user", "content": "How about MSFT?"}
+    assert conversation[3] == {"role": "assistant", "content": "MSFT is $300."}
+
+
+def test_resolve_conversation_from_session_with_tool_calls():
+    session_id = "test_session_with_tools"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as root_span:
+        root_span.set_inputs({"messages": [{"role": "user", "content": "Get AAPL price"}]})
+
+        with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"symbol": "AAPL"})
+            tool_span.set_outputs({"price": 150})
+
+        root_span.set_outputs("AAPL is $150.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(root_span.trace_id))
+
+    conversation = resolve_conversation_from_session(traces, include_tool_calls=False)
+    assert len(conversation) == 2
+    assert conversation[0]["role"] == "user"
+    assert conversation[1]["role"] == "assistant"
+
+    conversation_with_tools = resolve_conversation_from_session(traces, include_tool_calls=True)
+    assert len(conversation_with_tools) == 3
+    assert conversation_with_tools[0]["role"] == "user"
+    assert conversation_with_tools[1]["role"] == "tool"
+    assert "get_stock_price" in conversation_with_tools[1]["content"]
+    assert conversation_with_tools[2]["role"] == "assistant"
+
+
+def test_resolve_conversation_from_session_empty():
+    conversation = resolve_conversation_from_session([])
+    assert conversation == []
