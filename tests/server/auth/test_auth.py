@@ -1068,3 +1068,55 @@ def test_graphql_list_artifacts_authorization(client, monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert data.get("data", {}).get("mlflowListArtifacts") is None
+
+
+def test_graphql_nonexistent_experiment(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    query = """
+    query($expId: String!) {
+        mlflowGetExperiment(input: {experimentId: $expId}) {
+            experiment {
+                experimentId
+                name
+            }
+        }
+    }
+    """
+
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": "999999999"},
+        auth=(username, password),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowGetExperiment") is None
+
+
+def test_graphql_nonexistent_run(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    query = """
+    query($runId: String!) {
+        mlflowGetRun(input: {runId: $runId}) {
+            run {
+                info {
+                    runId
+                    experimentId
+                }
+            }
+        }
+    }
+    """
+
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": "00000000000000000000000000000000"},
+        auth=(username, password),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowGetRun") is None

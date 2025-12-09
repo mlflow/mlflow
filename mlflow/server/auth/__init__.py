@@ -7,6 +7,8 @@ Usage
     mlflow server --app-name basic-auth
 """
 
+from __future__ import annotations
+
 import functools
 import importlib
 import logging
@@ -1529,7 +1531,7 @@ class GraphQLAuthorizationMiddleware:
                 return None
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                pass
+                return None
             else:
                 _logger.warning(f"GraphQL authorization error for {field_name}: {e}")
                 return None
