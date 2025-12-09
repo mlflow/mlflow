@@ -294,7 +294,8 @@ def test_validate_session_level_evaluation_inputs_with_predict_fn():
 
     with pytest.raises(
         MlflowException,
-        match="Multi-turn scorers are not yet supported with predict_fn",
+        match=r"Multi-turn scorers are not yet supported with predict_fn.*"
+        r"Please pass existing traces containing session IDs to `data`",
     ):
         validate_session_level_evaluation_inputs(
             scorers=scorers_list,

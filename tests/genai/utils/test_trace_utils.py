@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 from unittest import mock
@@ -874,3 +875,58 @@ def test_resolve_conversation_from_session_with_tool_calls():
 def test_resolve_conversation_from_session_empty():
     conversation = resolve_conversation_from_session([])
     assert conversation == []
+
+
+def test_convert_predict_fn_async_function():
+    async def async_predict_fn(request):
+        await asyncio.sleep(0.01)
+        return "async test response"
+
+    sample_input = {"request": {"messages": [{"role": "user", "content": "test"}]}}
+
+    converted_fn = convert_predict_fn(async_predict_fn, sample_input)
+
+    result = converted_fn(request=sample_input)
+    assert result == "async test response"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    purge_traces()
+
+
+def test_evaluate_with_async_predict_fn():
+    async def async_predict_fn(request):
+        await asyncio.sleep(0.01)
+        return "async test response"
+
+    sample_input = {"request": {"messages": [{"role": "user", "content": "test"}]}}
+
+    @scorer
+    def dummy_scorer(inputs, outputs):
+        return 0
+
+    mlflow.genai.evaluate(
+        data=[{"inputs": sample_input}],
+        predict_fn=async_predict_fn,
+        scorers=[dummy_scorer],
+    )
+    assert len(get_traces()) == 1
+    purge_traces()
+
+
+def test_convert_predict_fn_async_function_with_timeout(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", "1")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", "true")
+
+    async def slow_async_predict_fn(request):
+        await asyncio.sleep(2)
+        return "should timeout"
+
+    sample_input = {"request": {"messages": [{"role": "user", "content": "test"}]}}
+
+    converted_fn = convert_predict_fn(slow_async_predict_fn, sample_input)
+
+    with pytest.raises(asyncio.TimeoutError):  # noqa: PT011
+        converted_fn(request=sample_input)
+
+    assert len(get_traces()) == 0

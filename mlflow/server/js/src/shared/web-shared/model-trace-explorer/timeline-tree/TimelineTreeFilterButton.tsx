@@ -52,7 +52,7 @@ export const TimelineTreeFilterButton = ({
             return (
               <Checkbox
                 key={spanType}
-                componentId={`shared.model-trace-explorer.toggle-span-filter_${spanType}-${!shouldDisplay}`}
+                componentId="shared.model-trace-explorer.toggle-span-filter"
                 style={{ width: '100%' }}
                 isChecked={shouldDisplay}
                 onChange={() =>

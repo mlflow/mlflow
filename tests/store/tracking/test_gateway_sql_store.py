@@ -1,0 +1,795 @@
+from pathlib import Path
+
+import pytest
+
+from mlflow.entities import (
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointModelMapping,
+    GatewayModelDefinition,
+    GatewaySecretInfo,
+)
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    INVALID_STATE,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.store.tracking.gateway.config_resolver import get_resource_endpoint_configs
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+pytestmark = pytest.mark.notrackingurimock
+
+TEST_PASSPHRASE = "test-passphrase-for-gateway-tests"
+
+
+@pytest.fixture(autouse=True)
+def set_kek_passphrase(monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", TEST_PASSPHRASE)
+
+
+@pytest.fixture
+def store(tmp_path: Path):
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir(exist_ok=True)
+    if db_uri_env := MLFLOW_TRACKING_URI.get():
+        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
+        yield s
+    else:
+        db_path = tmp_path / "mlflow.db"
+        db_uri = f"sqlite:///{db_path}"
+        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+        yield s
+
+
+# =============================================================================
+# Secret Operations
+# =============================================================================
+
+
+def test_create_secret(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="my-api-key",
+        secret_value="sk-test-123456",
+        provider="openai",
+        credential_name="OPENAI_API_KEY",
+        created_by="test-user",
+    )
+
+    assert isinstance(secret, GatewaySecretInfo)
+    assert secret.secret_id.startswith("s-")
+    assert secret.secret_name == "my-api-key"
+    assert secret.provider == "openai"
+    assert secret.created_by == "test-user"
+    assert secret.masked_value is not None
+    assert "sk-test-123456" not in secret.masked_value
+
+
+def test_create_secret_with_auth_config(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="bedrock-creds",
+        secret_value="aws-secret-key",
+        provider="bedrock",
+        auth_config={"region": "us-east-1", "project_id": "my-project"},
+    )
+
+    assert secret.secret_name == "bedrock-creds"
+    assert secret.provider == "bedrock"
+
+
+def test_create_secret_duplicate_name_raises(store: SqlAlchemyStore):
+    store.create_secret(secret_name="duplicate-name", secret_value="value1")
+
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.create_secret(secret_name="duplicate-name", secret_value="value2")
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+
+def test_get_secret_info_by_id(store: SqlAlchemyStore):
+    created = store.create_secret(
+        secret_name="test-secret",
+        secret_value="secret-value",
+        provider="anthropic",
+    )
+
+    retrieved = store.get_secret_info(secret_id=created.secret_id)
+
+    assert retrieved.secret_id == created.secret_id
+    assert retrieved.secret_name == "test-secret"
+    assert retrieved.provider == "anthropic"
+
+
+def test_get_secret_info_by_name(store: SqlAlchemyStore):
+    created = store.create_secret(
+        secret_name="named-secret",
+        secret_value="secret-value",
+    )
+
+    retrieved = store.get_secret_info(secret_name="named-secret")
+
+    assert retrieved.secret_id == created.secret_id
+    assert retrieved.secret_name == "named-secret"
+
+
+def test_get_secret_info_requires_one_of_id_or_name(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="Exactly one of") as exc:
+        store.get_secret_info()
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match="Exactly one of") as exc:
+        store.get_secret_info(secret_id="id", secret_name="name")
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_get_secret_info_not_found(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.get_secret_info(secret_id="nonexistent")
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_update_secret(store: SqlAlchemyStore):
+    created = store.create_secret(
+        secret_name="rotate-me",
+        secret_value="old-value",
+    )
+    original_updated_at = created.last_updated_at
+
+    updated = store.update_secret(
+        secret_id=created.secret_id,
+        secret_value="new-value",
+        updated_by="rotator-user",
+    )
+
+    assert updated.secret_id == created.secret_id
+    assert updated.last_updated_by == "rotator-user"
+    assert updated.last_updated_at > original_updated_at
+
+
+def test_update_secret_with_auth_config(store: SqlAlchemyStore):
+    created = store.create_secret(
+        secret_name="auth-update",
+        secret_value="value",
+        auth_config={"region": "us-east-1"},
+    )
+
+    store.update_secret(
+        secret_id=created.secret_id,
+        secret_value="new-value",
+        auth_config={"region": "eu-west-1", "new_key": "new_value"},
+    )
+
+
+def test_update_secret_clear_auth_config(store: SqlAlchemyStore):
+    created = store.create_secret(
+        secret_name="clear-auth",
+        secret_value="value",
+        auth_config={"region": "us-east-1"},
+    )
+
+    store.update_secret(
+        secret_id=created.secret_id,
+        secret_value="new-value",
+        auth_config={},
+    )
+
+
+def test_delete_secret(store: SqlAlchemyStore):
+    created = store.create_secret(secret_name="to-delete", secret_value="value")
+
+    store.delete_secret(created.secret_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_secret_info(secret_id=created.secret_id)
+
+
+def test_list_secret_infos(store: SqlAlchemyStore):
+    store.create_secret(secret_name="openai-1", secret_value="v1", provider="openai")
+    store.create_secret(secret_name="openai-2", secret_value="v2", provider="openai")
+    store.create_secret(secret_name="anthropic-1", secret_value="v3", provider="anthropic")
+
+    all_secrets = store.list_secret_infos()
+    assert len(all_secrets) >= 3
+
+    openai_secrets = store.list_secret_infos(provider="openai")
+    assert len(openai_secrets) == 2
+    assert all(s.provider == "openai" for s in openai_secrets)
+
+
+# =============================================================================
+# Model Definition Operations
+# =============================================================================
+
+
+def test_create_model_definition(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="test-key", secret_value="value")
+
+    model_def = store.create_model_definition(
+        name="gpt-4-turbo",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4-turbo-preview",
+        created_by="test-user",
+    )
+
+    assert isinstance(model_def, GatewayModelDefinition)
+    assert model_def.model_definition_id.startswith("d-")
+    assert model_def.name == "gpt-4-turbo"
+    assert model_def.secret_id == secret.secret_id
+    assert model_def.secret_name == "test-key"
+    assert model_def.provider == "openai"
+    assert model_def.model_name == "gpt-4-turbo-preview"
+
+
+def test_create_model_definition_duplicate_name_raises(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="dup-key", secret_value="value")
+
+    store.create_model_definition(
+        name="duplicate-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.create_model_definition(
+            name="duplicate-model",
+            secret_id=secret.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+
+def test_create_model_definition_nonexistent_secret_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.create_model_definition(
+            name="orphan-model",
+            secret_id="nonexistent",
+            provider="openai",
+            model_name="gpt-4",
+        )
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_get_model_definition_by_id(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="get-key", secret_value="value")
+    created = store.create_model_definition(
+        name="model-by-id",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-sonnet",
+    )
+
+    retrieved = store.get_model_definition(model_definition_id=created.model_definition_id)
+
+    assert retrieved.model_definition_id == created.model_definition_id
+    assert retrieved.name == "model-by-id"
+
+
+def test_get_model_definition_by_name(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="name-key", secret_value="value")
+    created = store.create_model_definition(
+        name="model-by-name",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    retrieved = store.get_model_definition(name="model-by-name")
+
+    assert retrieved.model_definition_id == created.model_definition_id
+
+
+def test_get_model_definition_requires_one_of_id_or_name(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="Exactly one of") as exc:
+        store.get_model_definition()
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_list_model_definitions(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="list-key", secret_value="value")
+
+    store.create_model_definition(
+        name="list-model-1", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    store.create_model_definition(
+        name="list-model-2",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3",
+    )
+
+    all_defs = store.list_model_definitions()
+    assert len(all_defs) >= 2
+
+    openai_defs = store.list_model_definitions(provider="openai")
+    assert all(d.provider == "openai" for d in openai_defs)
+
+
+def test_update_model_definition(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="update-key", secret_value="value")
+    created = store.create_model_definition(
+        name="update-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    updated = store.update_model_definition(
+        model_definition_id=created.model_definition_id,
+        model_name="gpt-4-turbo",
+        updated_by="updater",
+    )
+
+    assert updated.model_name == "gpt-4-turbo"
+    assert updated.last_updated_by == "updater"
+
+
+def test_delete_model_definition(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="delete-key", secret_value="value")
+    created = store.create_model_definition(
+        name="delete-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    store.delete_model_definition(created.model_definition_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_model_definition(model_definition_id=created.model_definition_id)
+
+
+def test_delete_model_definition_in_use_raises(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="in-use-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="in-use-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    store.create_endpoint(name="uses-model", model_definition_ids=[model_def.model_definition_id])
+
+    with pytest.raises(MlflowException, match="currently in use") as exc:
+        store.delete_model_definition(model_def.model_definition_id)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_STATE)
+
+
+# =============================================================================
+# Endpoint Operations
+# =============================================================================
+
+
+def test_create_endpoint(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="ep-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    endpoint = store.create_endpoint(
+        name="my-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+        created_by="test-user",
+    )
+
+    assert isinstance(endpoint, GatewayEndpoint)
+    assert endpoint.endpoint_id.startswith("e-")
+    assert endpoint.name == "my-endpoint"
+    assert len(endpoint.model_mappings) == 1
+    assert endpoint.model_mappings[0].model_definition_id == model_def.model_definition_id
+
+
+def test_create_endpoint_empty_models_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="at least one") as exc:
+        store.create_endpoint(name="empty-endpoint", model_definition_ids=[])
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_create_endpoint_nonexistent_model_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.create_endpoint(name="orphan-endpoint", model_definition_ids=["nonexistent"])
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_get_endpoint_by_id(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="get-ep-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="get-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    created = store.create_endpoint(
+        name="get-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    retrieved = store.get_endpoint(endpoint_id=created.endpoint_id)
+
+    assert retrieved.endpoint_id == created.endpoint_id
+    assert retrieved.name == "get-endpoint"
+
+
+def test_get_endpoint_by_name(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="name-ep-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="name-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    created = store.create_endpoint(
+        name="named-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    retrieved = store.get_endpoint(name="named-endpoint")
+
+    assert retrieved.endpoint_id == created.endpoint_id
+
+
+def test_get_endpoint_requires_one_of_id_or_name(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="Exactly one of") as exc:
+        store.get_endpoint()
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_update_endpoint(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="upd-ep-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="upd-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    created = store.create_endpoint(
+        name="update-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    updated = store.update_endpoint(
+        endpoint_id=created.endpoint_id,
+        name="renamed-endpoint",
+        updated_by="updater",
+    )
+
+    assert updated.name == "renamed-endpoint"
+    assert updated.last_updated_by == "updater"
+
+
+def test_delete_endpoint(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="del-ep-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="del-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    created = store.create_endpoint(
+        name="delete-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    store.delete_endpoint(created.endpoint_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_endpoint(endpoint_id=created.endpoint_id)
+
+
+def test_list_endpoints(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="list-ep-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="list-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    store.create_endpoint(
+        name="list-endpoint-1", model_definition_ids=[model_def.model_definition_id]
+    )
+    store.create_endpoint(
+        name="list-endpoint-2", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    endpoints = store.list_endpoints()
+    assert len(endpoints) >= 2
+
+
+# =============================================================================
+# Model Mapping Operations
+# =============================================================================
+
+
+def test_attach_model_to_endpoint(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="attach-key", secret_value="value")
+    model_def1 = store.create_model_definition(
+        name="attach-model-1", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    model_def2 = store.create_model_definition(
+        name="attach-model-2",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3",
+    )
+    endpoint = store.create_endpoint(
+        name="attach-endpoint", model_definition_ids=[model_def1.model_definition_id]
+    )
+
+    mapping = store.attach_model_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def2.model_definition_id,
+        weight=2.0,
+        created_by="attacher",
+    )
+
+    assert isinstance(mapping, GatewayEndpointModelMapping)
+    assert mapping.mapping_id.startswith("m-")
+    assert mapping.endpoint_id == endpoint.endpoint_id
+    assert mapping.model_definition_id == model_def2.model_definition_id
+    assert mapping.weight == 2.0
+
+
+def test_attach_duplicate_model_raises(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="dup-attach-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="dup-attach-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="dup-attach-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    with pytest.raises(MlflowException, match="already attached") as exc:
+        store.attach_model_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            model_definition_id=model_def.model_definition_id,
+        )
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+
+def test_detach_model_from_endpoint(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="detach-key", secret_value="value")
+    model_def1 = store.create_model_definition(
+        name="detach-model-1",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_model_definition(
+        name="detach-model-2",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3",
+    )
+    endpoint = store.create_endpoint(
+        name="detach-endpoint",
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+    )
+
+    store.detach_model_from_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def1.model_definition_id,
+    )
+
+    updated_endpoint = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(updated_endpoint.model_mappings) == 1
+    model_def_id = updated_endpoint.model_mappings[0].model_definition_id
+    assert model_def_id == model_def2.model_definition_id
+
+
+def test_detach_nonexistent_mapping_raises(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="no-map-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="no-map-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_endpoint(
+        name="no-map-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    with pytest.raises(MlflowException, match="not attached") as exc:
+        store.detach_model_from_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            model_definition_id="nonexistent-model",
+        )
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+# =============================================================================
+# Binding Operations
+# =============================================================================
+
+
+def test_create_endpoint_binding(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="bind-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_endpoint(
+        name="bind-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    binding = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="job-123",
+        created_by="binder",
+    )
+
+    assert isinstance(binding, GatewayEndpointBinding)
+    assert binding.endpoint_id == endpoint.endpoint_id
+    assert binding.resource_type == "scorer_job"
+    assert binding.resource_id == "job-123"
+    assert binding.created_by == "binder"
+
+
+def test_delete_endpoint_binding(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="del-bind-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="del-bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_endpoint(
+        name="del-bind-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+    store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="job-456",
+    )
+
+    store.delete_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="job-456",
+    )
+
+    bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    assert len(bindings) == 0
+
+
+def test_list_endpoint_bindings(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="list-bind-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="list-bind-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="list-bind-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="job-1",
+    )
+    store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="job-2",
+    )
+
+    bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    assert len(bindings) == 2
+
+    filtered = store.list_endpoint_bindings(resource_type="scorer_job", resource_id="job-1")
+    assert len(filtered) == 1
+    assert filtered[0].resource_id == "job-1"
+
+
+# =============================================================================
+# Config Resolver Operations
+# =============================================================================
+
+
+def test_get_resource_endpoint_configs(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="resolver-key",
+        secret_value="sk-secret-value-123",
+        provider="openai",
+        credential_name="OPENAI_API_KEY",
+    )
+    model_def = store.create_model_definition(
+        name="resolver-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4-turbo",
+    )
+    endpoint = store.create_endpoint(
+        name="resolver-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+    store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="resolver-job-123",
+    )
+
+    configs = get_resource_endpoint_configs(
+        resource_type="scorer_job",
+        resource_id="resolver-job-123",
+        store=store,
+    )
+
+    assert len(configs) == 1
+    config = configs[0]
+    assert config.endpoint_id == endpoint.endpoint_id
+    assert config.endpoint_name == "resolver-endpoint"
+    assert len(config.models) == 1
+
+    model_config = config.models[0]
+    assert model_config.model_definition_id == model_def.model_definition_id
+    assert model_config.provider == "openai"
+    assert model_config.model_name == "gpt-4-turbo"
+    assert model_config.secret_value == "sk-secret-value-123"
+    assert model_config.credential_name == "OPENAI_API_KEY"
+
+
+def test_get_resource_endpoint_configs_with_auth_config(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="auth-resolver-key",
+        secret_value="aws-secret",
+        provider="bedrock",
+        auth_config={"region": "us-east-1", "profile": "default"},
+    )
+    model_def = store.create_model_definition(
+        name="auth-resolver-model",
+        secret_id=secret.secret_id,
+        provider="bedrock",
+        model_name="anthropic.claude-3",
+    )
+    endpoint = store.create_endpoint(
+        name="auth-resolver-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+    store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="auth-job",
+    )
+
+    configs = get_resource_endpoint_configs(
+        resource_type="scorer_job",
+        resource_id="auth-job",
+        store=store,
+    )
+
+    model_config = configs[0].models[0]
+    assert model_config.auth_config == {"region": "us-east-1", "profile": "default"}
+
+
+def test_get_resource_endpoint_configs_no_bindings(store: SqlAlchemyStore):
+    configs = get_resource_endpoint_configs(
+        resource_type="scorer_job",
+        resource_id="nonexistent-resource",
+        store=store,
+    )
+
+    assert configs == []
+
+
+def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="multi-key", secret_value="value")
+    model_def1 = store.create_model_definition(
+        name="multi-model-1",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_model_definition(
+        name="multi-model-2",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3",
+    )
+    endpoint1 = store.create_endpoint(
+        name="multi-endpoint-1", model_definition_ids=[model_def1.model_definition_id]
+    )
+    endpoint2 = store.create_endpoint(
+        name="multi-endpoint-2", model_definition_ids=[model_def2.model_definition_id]
+    )
+
+    store.create_endpoint_binding(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="multi-resource",
+    )
+    store.create_endpoint_binding(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="multi-resource",
+    )
+
+    configs = get_resource_endpoint_configs(
+        resource_type="scorer_job",
+        resource_id="multi-resource",
+        store=store,
+    )
+
+    assert len(configs) == 2
+    endpoint_names = {c.endpoint_name for c in configs}
+    assert endpoint_names == {"multi-endpoint-1", "multi-endpoint-2"}

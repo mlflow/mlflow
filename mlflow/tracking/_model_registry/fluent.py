@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
@@ -553,6 +554,7 @@ def register_prompt(
     commit_message: str | None = None,
     tags: dict[str, str] | None = None,
     response_format: type[BaseModel] | dict[str, Any] | None = None,
+    model_config: "PromptModelConfig | dict[str, Any] | None" = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -591,6 +593,8 @@ def register_prompt(
             the changes. Optional.
         response_format: Optional Pydantic class or dictionary defining the expected response
             structure. This can be used to specify the schema for structured outputs from LLM calls.
+        model_config: Optional PromptModelConfig instance or dictionary containing model-specific
+            configuration. Using PromptModelConfig provides validation and type safety.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -654,6 +658,7 @@ def register_prompt(
         commit_message=commit_message,
         tags=tags,
         response_format=response_format,
+        model_config=model_config,
     )
 
 

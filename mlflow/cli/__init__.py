@@ -1013,11 +1013,11 @@ with contextlib.suppress(ImportError):
 
     cli.add_command(mlflow.gateway.cli.commands)
 
-# Add cryptography CLI commands (optional, requires cryptography package)
+# Add crypto CLI commands
 with contextlib.suppress(ImportError):
-    from mlflow.cli import cryptography
+    from mlflow.cli import crypto
 
-    cli.add_command(cryptography.commands)
+    cli.add_command(crypto.commands)
 
 if __name__ == "__main__":
     cli()

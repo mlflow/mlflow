@@ -355,11 +355,21 @@ mlflow.entities.FileInfo
 mlflow.entities.FileInfo.from_proto
 mlflow.entities.FileInfo.to_proto
 mlflow.entities.GatewayEndpoint
+mlflow.entities.GatewayEndpoint.from_proto
+mlflow.entities.GatewayEndpoint.to_proto
 mlflow.entities.GatewayEndpointBinding
+mlflow.entities.GatewayEndpointBinding.from_proto
+mlflow.entities.GatewayEndpointBinding.to_proto
 mlflow.entities.GatewayEndpointModelMapping
+mlflow.entities.GatewayEndpointModelMapping.from_proto
+mlflow.entities.GatewayEndpointModelMapping.to_proto
 mlflow.entities.GatewayModelDefinition
+mlflow.entities.GatewayModelDefinition.from_proto
+mlflow.entities.GatewayModelDefinition.to_proto
 mlflow.entities.GatewayResourceType
-mlflow.entities.GatewaySecret
+mlflow.entities.GatewaySecretInfo
+mlflow.entities.GatewaySecretInfo.from_proto
+mlflow.entities.GatewaySecretInfo.to_proto
 mlflow.entities.InferenceTableLocation
 mlflow.entities.InferenceTableLocation.from_dict
 mlflow.entities.InferenceTableLocation.from_proto
@@ -556,7 +566,7 @@ mlflow.entities.gateway_endpoint.GatewayEndpointBinding
 mlflow.entities.gateway_endpoint.GatewayEndpointModelMapping
 mlflow.entities.gateway_endpoint.GatewayModelDefinition
 mlflow.entities.gateway_endpoint.GatewayResourceType
-mlflow.entities.gateway_secrets.GatewaySecret
+mlflow.entities.gateway_secrets.GatewaySecretInfo
 mlflow.entities.input_tag.InputTag
 mlflow.entities.lifecycle_stage.LifecycleStage
 mlflow.entities.logged_model.LoggedModel
@@ -578,6 +588,9 @@ mlflow.entities.model_registry.ModelVersionSearch.tags
 mlflow.entities.model_registry.ModelVersionTag
 mlflow.entities.model_registry.ModelVersionTag.from_proto
 mlflow.entities.model_registry.ModelVersionTag.to_proto
+mlflow.entities.model_registry.PromptModelConfig
+mlflow.entities.model_registry.PromptModelConfig.from_dict
+mlflow.entities.model_registry.PromptModelConfig.to_dict
 mlflow.entities.model_registry.PromptVersion
 mlflow.entities.model_registry.PromptVersion.convert_response_format_to_dict
 mlflow.entities.model_registry.PromptVersion.format
@@ -603,6 +616,7 @@ mlflow.entities.model_registry.model_version_deployment_job_state.ModelVersionDe
 mlflow.entities.model_registry.model_version_search.ModelVersionSearch
 mlflow.entities.model_registry.model_version_tag.ModelVersionTag
 mlflow.entities.model_registry.prompt.Prompt
+mlflow.entities.model_registry.prompt_version.PromptModelConfig
 mlflow.entities.model_registry.prompt_version.PromptVersion
 mlflow.entities.model_registry.registered_model.RegisteredModel
 mlflow.entities.model_registry.registered_model_alias.RegisteredModelAlias
@@ -751,6 +765,7 @@ mlflow.genai.delete_dataset
 mlflow.genai.delete_dataset_tag
 mlflow.genai.delete_labeling_session
 mlflow.genai.delete_prompt_alias
+mlflow.genai.delete_prompt_model_config
 mlflow.genai.delete_prompt_tag
 mlflow.genai.delete_prompt_version_tag
 mlflow.genai.disable_git_model_versioning
@@ -864,6 +879,9 @@ mlflow.genai.scorers.Safety
 mlflow.genai.scorers.Safety.get_input_fields
 mlflow.genai.scorers.Safety.model_post_init
 mlflow.genai.scorers.ScorerSamplingConfig
+mlflow.genai.scorers.Summarization
+mlflow.genai.scorers.Summarization.get_input_fields
+mlflow.genai.scorers.Summarization.model_post_init
 mlflow.genai.scorers.UserFrustration
 mlflow.genai.scorers.UserFrustration.model_post_init
 mlflow.genai.scorers.base.Scorer
@@ -881,6 +899,7 @@ mlflow.genai.scorers.builtin_scorers.RetrievalGroundedness
 mlflow.genai.scorers.builtin_scorers.RetrievalRelevance
 mlflow.genai.scorers.builtin_scorers.RetrievalSufficiency
 mlflow.genai.scorers.builtin_scorers.Safety
+mlflow.genai.scorers.builtin_scorers.Summarization
 mlflow.genai.scorers.builtin_scorers.UserFrustration
 mlflow.genai.scorers.delete_scorer
 mlflow.genai.scorers.get_all_scorers
@@ -891,6 +910,7 @@ mlflow.genai.search_datasets
 mlflow.genai.search_prompts
 mlflow.genai.set_dataset_tags
 mlflow.genai.set_prompt_alias
+mlflow.genai.set_prompt_model_config
 mlflow.genai.set_prompt_tag
 mlflow.genai.set_prompt_version_tag
 mlflow.genai.to_predict_fn
