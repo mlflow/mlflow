@@ -193,7 +193,7 @@ class RestGatewayStoreMixin:
 
     # ========== Endpoints Management APIs ==========
 
-    def create_endpoint(
+    def create_gateway_endpoint(
         self,
         name: str,
         model_definition_ids: list[str],
@@ -220,7 +220,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(CreateGatewayEndpoint, req_body)
         return GatewayEndpoint.from_proto(response_proto.endpoint)
 
-    def get_endpoint(
+    def get_gateway_endpoint(
         self, endpoint_id: str | None = None, name: str | None = None
     ) -> GatewayEndpoint:
         """
@@ -237,7 +237,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(GetGatewayEndpoint, req_body)
         return GatewayEndpoint.from_proto(response_proto.endpoint)
 
-    def update_endpoint(
+    def update_gateway_endpoint(
         self,
         endpoint_id: str,
         name: str | None = None,
@@ -264,7 +264,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(UpdateGatewayEndpoint, req_body)
         return GatewayEndpoint.from_proto(response_proto.endpoint)
 
-    def delete_endpoint(self, endpoint_id: str) -> None:
+    def delete_gateway_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint and all its associated models and bindings.
 
@@ -274,7 +274,7 @@ class RestGatewayStoreMixin:
         req_body = message_to_json(DeleteGatewayEndpoint(endpoint_id=endpoint_id))
         self._call_endpoint(DeleteGatewayEndpoint, req_body)
 
-    def list_endpoints(self, provider: str | None = None) -> list[GatewayEndpoint]:
+    def list_gateway_endpoints(self, provider: str | None = None) -> list[GatewayEndpoint]:
         """
         List all endpoints, optionally filtered by provider.
 
@@ -407,7 +407,7 @@ class RestGatewayStoreMixin:
 
     # ========== Endpoint Model Mappings Management APIs ==========
 
-    def attach_model_to_endpoint(
+    def attach_model_to_gateway_endpoint(
         self,
         endpoint_id: str,
         model_definition_id: str,
@@ -437,7 +437,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(AttachModelToGatewayEndpoint, req_body)
         return GatewayEndpointModelMapping.from_proto(response_proto.mapping)
 
-    def detach_model_from_endpoint(
+    def detach_model_from_gateway_endpoint(
         self,
         endpoint_id: str,
         model_definition_id: str,
@@ -459,7 +459,7 @@ class RestGatewayStoreMixin:
 
     # ========== Endpoint Bindings Management APIs ==========
 
-    def create_endpoint_binding(
+    def create_gateway_endpoint_binding(
         self,
         endpoint_id: str,
         resource_type: GatewayResourceType,
@@ -489,7 +489,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(CreateGatewayEndpointBinding, req_body)
         return GatewayEndpointBinding.from_proto(response_proto.binding)
 
-    def delete_endpoint_binding(
+    def delete_gateway_endpoint_binding(
         self, endpoint_id: str, resource_type: str, resource_id: str
     ) -> None:
         """
@@ -509,7 +509,7 @@ class RestGatewayStoreMixin:
         )
         self._call_endpoint(DeleteGatewayEndpointBinding, req_body)
 
-    def list_endpoint_bindings(
+    def list_gateway_endpoint_bindings(
         self,
         endpoint_id: str | None = None,
         resource_type: GatewayResourceType | None = None,
@@ -538,7 +538,7 @@ class RestGatewayStoreMixin:
 
     # ========== Endpoint Tags Management APIs ==========
 
-    def set_endpoint_tag(self, endpoint_id: str, tag: GatewayEndpointTag) -> None:
+    def set_gateway_endpoint_tag(self, endpoint_id: str, tag: GatewayEndpointTag) -> None:
         """
         Set a tag on an endpoint. If the key already exists, the value is updated.
 
@@ -555,7 +555,7 @@ class RestGatewayStoreMixin:
         )
         self._call_endpoint(SetGatewayEndpointTag, req_body)
 
-    def delete_endpoint_tag(self, endpoint_id: str, key: str) -> None:
+    def delete_gateway_endpoint_tag(self, endpoint_id: str, key: str) -> None:
         """
         Delete a tag from an endpoint.
 
