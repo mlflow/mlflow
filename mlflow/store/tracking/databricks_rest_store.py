@@ -1,3 +1,4 @@
+import base64
 import logging
 from collections import defaultdict
 from datetime import datetime
@@ -5,6 +6,7 @@ from typing import Any
 from urllib.parse import quote, urlencode
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from pydantic import BaseModel
 
 from mlflow.entities import Assessment, Span, Trace, TraceInfo, TraceLocation
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
@@ -43,7 +45,6 @@ from mlflow.protos.databricks_tracing_pb2 import (
 )
 from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
-from mlflow.store.entities import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.utils import parse_trace_id_v4
@@ -76,6 +77,50 @@ _logger = logging.getLogger(__name__)
 def _parse_iso_timestamp_ms(timestamp_str: str) -> int:
     """Convert ISO 8601 timestamp string to milliseconds since epoch."""
     return int(datetime.fromisoformat(timestamp_str.replace("Z", "+00:00")).timestamp() * 1000)
+
+
+class CompositeToken(BaseModel):
+    """Composite token for handling backend pagination with offset tracking."""
+
+    backend_token: str | None
+    offset: int = 0
+
+    @classmethod
+    def parse(cls, token_str: str | None) -> "CompositeToken":
+        """Parse token string into CompositeToken."""
+        if not token_str:
+            return cls(backend_token=None, offset=0)
+
+        if ":" not in token_str:
+            return cls(backend_token=token_str, offset=0)
+
+        parts = token_str.rsplit(":", 1)
+        if len(parts) != 2:
+            return cls(backend_token=token_str, offset=0)
+
+        encoded_token, offset_str = parts
+        try:
+            offset = int(offset_str)
+            if not encoded_token:
+                return cls(backend_token=None, offset=offset)
+            backend_token = base64.b64decode(encoded_token).decode("utf-8")
+            return cls(backend_token=backend_token, offset=offset)
+        except (ValueError, Exception):
+            return cls(backend_token=token_str, offset=0)
+
+    def encode(self) -> str | None:
+        """Encode CompositeToken to string format."""
+        if not self.backend_token and self.offset == 0:
+            return None
+
+        if not self.backend_token:
+            return f":{self.offset}"
+
+        if self.offset == 0:
+            return self.backend_token
+
+        encoded_token = base64.b64encode(self.backend_token.encode("utf-8")).decode("utf-8")
+        return f"{encoded_token}:{self.offset}"
 
 
 class DatabricksTracingRestStore(RestStore):
@@ -833,44 +878,20 @@ class DatabricksTracingRestStore(RestStore):
 
         return datasets
 
-    def search_datasets(
+    def _fetch_datasets_page(
         self,
         experiment_ids: list[str] | None = None,
-        filter_string: str | None = None,
-        max_results: int = 1000,
-        order_by: list[str] | None = None,
+        page_size: int = 1000,
         page_token: str | None = None,
     ):
-        """
-        Search for evaluation datasets in Databricks using managed-evals API.
-
-        This method makes a single API call to the backend and returns the results
-        from that call. The backend may return fewer items than max_results due to
-        backend implementation details. Use the returned page_token to fetch
-        subsequent pages if needed.
-
-        Calls /api/2.0/managed-evals/datasets endpoint.
-
-        Args:
-            experiment_ids: List of experiment IDs to filter by. Only supports a single
-                experiment ID - raises error if multiple IDs are provided.
-            filter_string: Not supported by managed-evals API (raises error)
-            max_results: Maximum number of results to request from the backend.
-                Note: The backend may return fewer items than this value.
-            order_by: Not supported by managed-evals API (raises error)
-            page_token: Token for retrieving the next page of results
-
-        Returns:
-            PagedList of EvaluationDataset entities. The list may contain fewer items
-            than max_results. Use the token attribute to fetch the next page.
-        """
-        self._validate_search_datasets_params(filter_string, order_by, experiment_ids)
+        """Fetch a single page of datasets from the backend."""
+        from mlflow.store.entities import PagedList
 
         params = {}
         if experiment_ids:
             params["filter"] = f"experiment_id={experiment_ids[0]}"
-        if max_results:
-            params["page_size"] = str(max_results)
+        if page_size:
+            params["page_size"] = str(page_size)
         if page_token:
             params["page_token"] = page_token
 
@@ -901,6 +922,78 @@ class DatabricksTracingRestStore(RestStore):
         datasets = self._parse_datasets_from_response(response_json)
         next_page_token = response_json.get("next_page_token")
         return PagedList(datasets, next_page_token)
+
+    def search_datasets(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = 1000,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ):
+        """
+        Search for evaluation datasets in Databricks using managed-evals API.
+
+        Fetches multiple backend pages if necessary to return exactly max_results
+        datasets (or fewer if no more results exist).
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by. Only supports a single
+                experiment ID - raises error if multiple IDs are provided.
+            filter_string: Not supported by managed-evals API (raises error)
+            max_results: Maximum number of results to return
+            order_by: Not supported by managed-evals API (raises error)
+            page_token: Token for retrieving the next batch of results
+
+        Returns:
+            PagedList of EvaluationDataset entities
+        """
+        from mlflow.store.entities import PagedList
+
+        self._validate_search_datasets_params(filter_string, order_by, experiment_ids)
+
+        token = CompositeToken.parse(page_token)
+
+        all_datasets = []
+        current_backend_token = token.backend_token
+        skip_count = token.offset
+        last_used_token = None
+        last_page_size = 0
+
+        while len(all_datasets) < max_results:
+            last_used_token = current_backend_token
+
+            page = self._fetch_datasets_page(
+                experiment_ids=experiment_ids,
+                page_size=max_results,
+                page_token=current_backend_token,
+            )
+
+            page_results = list(page)
+
+            if skip_count > 0:
+                page_results = page_results[skip_count:]
+                skip_count = 0
+
+            last_page_size = len(page_results)
+            all_datasets.extend(page_results)
+
+            if not page.token:
+                return PagedList(all_datasets, None)
+
+            current_backend_token = page.token
+
+        results_to_return = all_datasets[:max_results]
+
+        if len(all_datasets) > max_results:
+            results_from_last_page = max_results - (len(all_datasets) - last_page_size)
+            next_token = CompositeToken(
+                backend_token=last_used_token, offset=results_from_last_page
+            ).encode()
+        else:
+            next_token = current_backend_token
+
+        return PagedList(results_to_return, next_token)
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():

@@ -1,3 +1,4 @@
+import base64
 import json
 import time
 from unittest import mock
@@ -1490,7 +1491,7 @@ def test_search_datasets_basic():
                 "last_sync_time": "1970-01-01T00:00:00Z",
             }
         ],
-        "next_page_token": "token_123",
+        "next_page_token": None,
     }
 
     with (
@@ -1520,7 +1521,7 @@ def test_search_datasets_basic():
         assert result[0].digest == "abc123"
         assert result[0].created_by == "user@example.com"
         assert result[0].last_updated_by == "user@example.com"
-        assert result.token == "token_123"
+        assert result.token is None
 
 
 def test_search_datasets_multiple_experiment_ids():
@@ -1655,3 +1656,147 @@ def test_search_datasets_invalid_timestamp():
         with pytest.raises(MlflowException, match="invalid timestamp format"):
             store.search_datasets(experiment_ids=["exp_1"])
         mock_http.assert_called_once()
+
+
+def test_composite_token_parsing():
+    from mlflow.store.tracking.databricks_rest_store import CompositeToken
+
+    token = CompositeToken.parse("simple_token")
+    assert token.backend_token == "simple_token"
+    assert token.offset == 0
+
+    encoded = base64.b64encode(b"backend_token_123").decode("utf-8")
+    composite = f"{encoded}:5"
+    token = CompositeToken.parse(composite)
+    assert token.backend_token == "backend_token_123"
+    assert token.offset == 5
+
+    token = CompositeToken.parse(None)
+    assert token.backend_token is None
+    assert token.offset == 0
+
+
+def test_search_datasets_multi_page_aggregation():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    responses = [
+        {
+            "datasets": [
+                {
+                    "dataset_id": "dataset_1",
+                    "name": "test_dataset_1",
+                    "digest": "abc123",
+                    "create_time": "2025-11-28T21:30:53.195Z",
+                    "last_update_time": "2025-11-28T21:30:53.195Z",
+                },
+                {
+                    "dataset_id": "dataset_2",
+                    "name": "test_dataset_2",
+                    "digest": "def456",
+                    "create_time": "2025-11-28T21:30:53.195Z",
+                    "last_update_time": "2025-11-28T21:30:53.195Z",
+                },
+            ],
+            "next_page_token": "token1",
+        },
+        {"datasets": [], "next_page_token": "token2"},
+        {
+            "datasets": [
+                {
+                    "dataset_id": f"dataset_{i}",
+                    "name": f"test_dataset_{i}",
+                    "digest": f"hash{i}",
+                    "create_time": "2025-11-28T21:30:53.195Z",
+                    "last_update_time": "2025-11-28T21:30:53.195Z",
+                }
+                for i in range(3, 11)
+            ],
+            "next_page_token": "token3",
+        },
+    ]
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request",
+            side_effect=[mock.Mock(json=lambda r=r: r) for r in responses],
+        ) as mock_http,
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
+    ):
+        result = store.search_datasets(experiment_ids=["exp_1"], max_results=5)
+
+        assert len(result) == 5
+        assert mock_http.call_count == 3
+
+
+def test_search_datasets_overfetch():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    response_data = {
+        "datasets": [
+            {
+                "dataset_id": f"dataset_{i}",
+                "name": f"test_dataset_{i}",
+                "digest": f"hash{i}",
+                "create_time": "2025-11-28T21:30:53.195Z",
+                "last_update_time": "2025-11-28T21:30:53.195Z",
+            }
+            for i in range(1, 16)
+        ],
+        "next_page_token": "backend_token_A",
+    }
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request",
+            return_value=mock.Mock(json=lambda: response_data),
+        ),
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
+    ):
+        result = store.search_datasets(experiment_ids=["exp_1"], max_results=10)
+
+        assert len(result) == 10
+        assert result.token is not None
+
+        from mlflow.store.tracking.databricks_rest_store import CompositeToken
+
+        token = CompositeToken.parse(result.token)
+        assert token.backend_token is None
+        assert token.offset == 10
+
+
+def test_search_datasets_resume_from_composite_token():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    response_data = {
+        "datasets": [
+            {
+                "dataset_id": f"dataset_{i}",
+                "name": f"test_dataset_{i}",
+                "digest": f"hash{i}",
+                "create_time": "2025-11-28T21:30:53.195Z",
+                "last_update_time": "2025-11-28T21:30:53.195Z",
+            }
+            for i in range(1, 16)
+        ],
+        "next_page_token": "backend_token_B",
+    }
+
+    from mlflow.store.tracking.databricks_rest_store import CompositeToken
+
+    composite_token = CompositeToken(backend_token="backend_token_A", offset=5).encode()
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request",
+            return_value=mock.Mock(json=lambda: response_data),
+        ),
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
+    ):
+        result = store.search_datasets(
+            experiment_ids=["exp_1"], max_results=10, page_token=composite_token
+        )
+
+        assert len(result) == 10
