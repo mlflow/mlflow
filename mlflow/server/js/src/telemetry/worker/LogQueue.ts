@@ -5,10 +5,10 @@
  * by batching and uploading to the telemetry endpoint.
  */
 
-import { TELEMETRY_ENDPOINT } from './constants';
+import { UI_TELEMETRY_ENDPOINT } from './constants';
 import { type TelemetryRecord } from './types';
 
-const FLUSH_INTERVAL_MS = 5000; // 5 seconds
+const FLUSH_INTERVAL_MS = 15000; // 15 seconds
 
 export class LogQueue {
   private queue: TelemetryRecord[] = [];
@@ -63,7 +63,7 @@ export class LogQueue {
 
     try {
       // Send batch to server
-      const response = await fetch(TELEMETRY_ENDPOINT, {
+      const response = await fetch(UI_TELEMETRY_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

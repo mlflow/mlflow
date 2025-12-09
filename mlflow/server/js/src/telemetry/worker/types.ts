@@ -7,10 +7,11 @@ export enum ClientToWorkerMessageType {
 }
 
 export interface TelemetryRecord {
+  installation_id: string;
   session_id: string;
   event_name: string;
   timestamp_ns: number;
-  params?: Record<string, string>;
+  params?: Record<string, string | null | undefined>;
   status?: string;
   duration_ms?: number;
 }
