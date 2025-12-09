@@ -1,3 +1,17 @@
+/**
+ * Hook for editing model configuration of an existing prompt version.
+ *
+ * Returns a modal component and a function to open it. When opened for a prompt version:
+ * - Pre-fills the form with current model config values (if any exist)
+ * - Validates user input before saving
+ * - Updates the "mlflow.prompt.modelConfig" tag via API on save
+ *
+ * Usage:
+ *   const { EditModelConfigModal, openEditModelConfigModal } = useEditModelConfigModal({ onSuccess: refetch });
+ *   // ...
+ *   <Button onClick={() => openEditModelConfigModal(promptVersion)}>Edit</Button>
+ *   {EditModelConfigModal}
+ */
 import { useState, useCallback } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { Modal, Button, Spacer, Alert } from '@databricks/design-system';
@@ -33,21 +47,12 @@ export const useEditModelConfigModal = ({ onSuccess }: { onSuccess?: () => void 
       promptVersion: string;
       modelConfigJson: string;
     }) => {
-      // Update or delete the model config tag
-      if (modelConfigJson) {
-        return RegisteredPromptsApi.setRegisteredPromptVersionTag(
-          promptName,
-          promptVersion,
-          MLFLOW_PROMPT_MODEL_CONFIG,
-          modelConfigJson,
-        );
-      } else {
-        return RegisteredPromptsApi.deleteRegisteredPromptVersionTag(
-          promptName,
-          promptVersion,
-          MLFLOW_PROMPT_MODEL_CONFIG,
-        );
-      }
+      return RegisteredPromptsApi.setRegisteredPromptVersionTag(
+        promptName,
+        promptVersion,
+        MLFLOW_PROMPT_MODEL_CONFIG,
+        modelConfigJson,
+      );
     },
   });
 
@@ -75,7 +80,7 @@ export const useEditModelConfigModal = ({ onSuccess }: { onSuccess?: () => void 
 
     // Convert to backend format
     const modelConfig = formDataToModelConfig(values.modelConfig);
-    const modelConfigJson = modelConfig ? JSON.stringify(modelConfig) : '';
+    const modelConfigJson = modelConfig ? JSON.stringify(modelConfig) : '{}';
 
     updateMutation.mutate(
       {

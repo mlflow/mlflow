@@ -32,8 +32,7 @@ export interface ChatPromptMessage {
 }
 
 /**
- * Backend format for prompt model configuration (snake_case).
- * Matches the PromptModelConfig class in mlflow/entities/model_registry/prompt_version.py
+ * Represents a prompt model configuration, in the backend format (snake_case).
  */
 export interface PromptModelConfig {
   model_name?: string;
@@ -48,16 +47,15 @@ export interface PromptModelConfig {
 }
 
 /**
- * Form format for prompt model configuration (camelCase with string inputs).
- * Used for form state management with react-hook-form.
+ * Represents a prompt model configuration, in the UI form format (camelCase with string inputs).
  */
 export interface PromptModelConfigFormData {
   modelName?: string;
-  temperature?: string; // String for form input, will be parsed to number
-  maxTokens?: string; // String for form input, will be parsed to number
-  topP?: string; // String for form input, will be parsed to number
-  topK?: string; // String for form input, will be parsed to number
-  frequencyPenalty?: string; // String for form input, will be parsed to number
-  presencePenalty?: string; // String for form input, will be parsed to number
-  stopSequences?: string; // Comma-separated string for form input, will be parsed to array
+  temperature?: string;
+  maxTokens?: string;
+  topP?: string;
+  topK?: string;
+  frequencyPenalty?: string;
+  presencePenalty?: string;
+  stopSequences?: string;
 }

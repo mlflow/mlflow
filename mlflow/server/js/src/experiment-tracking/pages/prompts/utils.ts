@@ -24,6 +24,17 @@ export const PROMPT_EXPERIMENT_IDS_TAG_KEY = '_mlflow_experiment_ids';
 // Tag key used to store model config as JSON string (must match backend)
 export const MLFLOW_PROMPT_MODEL_CONFIG = 'mlflow.prompt.modelConfig';
 
+export const MODEL_CONFIG_FIELD_LABELS = {
+  model_name: 'Model',
+  temperature: 'Temperature',
+  max_tokens: 'Max Tokens',
+  top_p: 'Top P',
+  top_k: 'Top K',
+  frequency_penalty: 'Frequency Penalty',
+  presence_penalty: 'Presence Penalty',
+  stop_sequences: 'Stop Sequences',
+} as const;
+
 // Query parameter name for specifying prompt version in URLs
 export const PROMPT_VERSION_QUERY_PARAM = 'promptVersion';
 

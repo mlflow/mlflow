@@ -6,7 +6,7 @@ import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { usePromptRunsInfo } from '../hooks/usePromptRunsInfo';
-import { getModelConfigFromTags, REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
+import { getModelConfigFromTags, MODEL_CONFIG_FIELD_LABELS, REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
 import { useCallback, useMemo } from 'react';
 import { PromptVersionRuns } from './PromptVersionRuns';
 import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
@@ -151,54 +151,21 @@ export const PromptVersionMetadata = ({
             <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
               {hasModelConfig ? (
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, flex: 1 }}>
-                  {modelConfig.model_name && (
-                    <div>
-                      <Typography.Text css={{ color: theme.colors.textSecondary }}>Model: </Typography.Text>
-                      <Typography.Text>{modelConfig.model_name}</Typography.Text>
-                    </div>
-                  )}
-                  {modelConfig.temperature !== undefined && (
-                    <div>
-                      <Typography.Text css={{ color: theme.colors.textSecondary }}>Temperature: </Typography.Text>
-                      <Typography.Text>{modelConfig.temperature}</Typography.Text>
-                    </div>
-                  )}
-                  {modelConfig.max_tokens !== undefined && (
-                    <div>
-                      <Typography.Text css={{ color: theme.colors.textSecondary }}>Max Tokens: </Typography.Text>
-                      <Typography.Text>{modelConfig.max_tokens}</Typography.Text>
-                    </div>
-                  )}
-                  {modelConfig.top_p !== undefined && (
-                    <div>
-                      <Typography.Text css={{ color: theme.colors.textSecondary }}>Top P: </Typography.Text>
-                      <Typography.Text>{modelConfig.top_p}</Typography.Text>
-                    </div>
-                  )}
-                  {modelConfig.top_k !== undefined && (
-                    <div>
-                      <Typography.Text css={{ color: theme.colors.textSecondary }}>Top K: </Typography.Text>
-                      <Typography.Text>{modelConfig.top_k}</Typography.Text>
-                    </div>
-                  )}
-                  {modelConfig.frequency_penalty !== undefined && (
-                    <div>
-                      <Typography.Text css={{ color: theme.colors.textSecondary }}>Frequency Penalty: </Typography.Text>
-                      <Typography.Text>{modelConfig.frequency_penalty}</Typography.Text>
-                    </div>
-                  )}
-                  {modelConfig.presence_penalty !== undefined && (
-                    <div>
-                      <Typography.Text css={{ color: theme.colors.textSecondary }}>Presence Penalty: </Typography.Text>
-                      <Typography.Text>{modelConfig.presence_penalty}</Typography.Text>
-                    </div>
-                  )}
-                  {modelConfig.stop_sequences && modelConfig.stop_sequences.length > 0 && (
-                    <div>
-                      <Typography.Text css={{ color: theme.colors.textSecondary }}>Stop Sequences: </Typography.Text>
-                      <Typography.Text>{modelConfig.stop_sequences.join(', ')}</Typography.Text>
-                    </div>
-                  )}
+                  {Object.entries(modelConfig).map(([key, value]) => {
+                    if (value === undefined || value === null) return null;
+                    if (key === 'extra_params') return null;
+                    if (Array.isArray(value) && value.length === 0) return null;
+
+                    const label = MODEL_CONFIG_FIELD_LABELS[key as keyof typeof MODEL_CONFIG_FIELD_LABELS];
+                    const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+
+                    return (
+                      <div key={key}>
+                        <Typography.Text css={{ color: theme.colors.textSecondary }}>{label}: </Typography.Text>
+                        <Typography.Text>{displayValue}</Typography.Text>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <Typography.Hint>—</Typography.Hint>

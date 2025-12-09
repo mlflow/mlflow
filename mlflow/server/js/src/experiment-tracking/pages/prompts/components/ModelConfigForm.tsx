@@ -14,10 +14,8 @@ export const ModelConfigForm = ({ namePrefix = '' }: ModelConfigFormProps) => {
     formState: { errors },
   } = useFormContext();
 
-  // Helper to get field name with prefix
   const fieldName = (name: string) => `${namePrefix}${name}`;
 
-  // Helper to get nested error
   const getError = (name: string) => {
     const parts = fieldName(name).split('.');
     let error: any = errors;
@@ -35,7 +33,6 @@ export const ModelConfigForm = ({ namePrefix = '' }: ModelConfigFormProps) => {
         padding: theme.spacing.md,
       }}
     >
-      {/* Section Header */}
       <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
         <FormattedMessage
           defaultMessage="Model Configuration"
@@ -44,7 +41,6 @@ export const ModelConfigForm = ({ namePrefix = '' }: ModelConfigFormProps) => {
       </Typography.Title>
 
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-        {/* Model Name - Full Width */}
         <div>
           <FormUI.Label htmlFor={fieldName('modelName')}>
             <FormattedMessage defaultMessage="Model" description="Label for model name input in model config form" />
@@ -174,7 +170,7 @@ export const ModelConfigForm = ({ namePrefix = '' }: ModelConfigFormProps) => {
           </div>
         </div>
 
-        {/* Stop Sequences - Full Width */}
+        {/* Stop Sequences */}
         <div>
           <FormUI.Label htmlFor={fieldName('stopSequences')}>
             <FormattedMessage
