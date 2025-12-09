@@ -37,6 +37,9 @@ MLflow is an open-source developer platform to build AI/LLM applications and mod
 
 ## 🚀 Installation
 
+[![Run in Smithery](https://smithery.ai/badge/skills/mlflow)](https://smithery.ai/skills?ns=mlflow&utm_source=github&utm_medium=badge)
+
+
 To install the MLflow Python package, run the following command:
 
 ```
