@@ -3208,7 +3208,7 @@ message QueryTraceMetrics {
   // Required: The level at which to aggregate metrics.
   optional MetricViewType view_type = 2;
 
-  // Required: The metric_name to query (e.g. "latency").
+  // Required: The name of the metric to query (e.g. "latency").
   optional string metric_name = 3;
 
   // Required: The aggregations to apply.
