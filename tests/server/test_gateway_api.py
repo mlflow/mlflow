@@ -1,11 +1,8 @@
-"""
-Tests for database-backed Gateway API endpoints.
-"""
-
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.gateway.config import EndpointType
@@ -61,7 +58,9 @@ def test_create_provider_from_endpoint_config_openai(store: SqlAlchemyStore):
     )
 
     # Create provider
-    provider, endpoint_type = _create_provider_from_endpoint_config(endpoint.endpoint_id, store)
+    provider, endpoint_type = _create_provider_from_endpoint_config(
+        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+    )
 
     assert provider is not None
     assert endpoint_type == EndpointType.LLM_V1_CHAT
@@ -83,7 +82,9 @@ def test_create_provider_from_endpoint_config_anthropic(store: SqlAlchemyStore):
         name="test-anthropic-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider, endpoint_type = _create_provider_from_endpoint_config(endpoint.endpoint_id, store)
+    provider, endpoint_type = _create_provider_from_endpoint_config(
+        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+    )
 
     assert provider is not None
     assert endpoint_type == EndpointType.LLM_V1_CHAT
@@ -93,7 +94,7 @@ def test_create_provider_from_endpoint_config_nonexistent_endpoint(store: SqlAlc
     from mlflow.exceptions import MlflowException
 
     with pytest.raises(MlflowException, match="not found"):
-        _create_provider_from_endpoint_config("nonexistent-id", store)
+        _create_provider_from_endpoint_config("nonexistent-id", store, EndpointType.LLM_V1_CHAT)
 
 
 def test_register_gateway_endpoints(store: SqlAlchemyStore):
@@ -109,7 +110,7 @@ def test_register_gateway_endpoints(store: SqlAlchemyStore):
         provider="openai",
         model_name="gpt-4",
     )
-    endpoint = store.create_endpoint(
+    store.create_endpoint(
         name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
@@ -241,3 +242,233 @@ async def test_invocations_handler_embeddings(store: SqlAlchemyStore):
 def test_gateway_router_initialization():
     assert gateway_router is not None
     assert gateway_router.prefix == "/gateway"
+
+
+@pytest.mark.asyncio
+async def test_invocations_handler_invalid_json(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="test-key",
+        secret_value="sk-test",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    handler = _create_invocations_handler(endpoint.endpoint_id, store)
+
+    # Mock request that raises exception when parsing JSON
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(side_effect=ValueError("Invalid JSON"))
+
+    with pytest.raises(HTTPException, match="Invalid JSON payload: Invalid JSON") as exc_info:
+        await handler(mock_request)
+
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_invocations_handler_missing_fields(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="test-key",
+        secret_value="sk-test",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    handler = _create_invocations_handler(endpoint.endpoint_id, store)
+
+    # Create request with neither messages nor input
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(return_value={"temperature": 0.7})
+
+    with patch(
+        "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+    ) as mock_create_provider:
+        mock_provider = MagicMock()
+        mock_create_provider.return_value = (mock_provider, EndpointType.LLM_V1_CHAT)
+
+        with pytest.raises(
+            HTTPException, match="Invalid request: payload format must be either chat or embeddings"
+        ) as exc_info:
+            await handler(mock_request)
+
+        assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_invocations_handler_invalid_chat_payload(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="test-key",
+        secret_value="sk-test",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    handler = _create_invocations_handler(endpoint.endpoint_id, store)
+
+    # Create request with invalid messages structure
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "messages": "not a list",  # Should be a list
+            "stream": False,
+        }
+    )
+
+    with patch(
+        "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+    ) as mock_create_provider:
+        mock_provider = MagicMock()
+        mock_create_provider.return_value = (mock_provider, EndpointType.LLM_V1_CHAT)
+
+        with pytest.raises(HTTPException, match="Invalid chat payload") as exc_info:
+            await handler(mock_request)
+
+        assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_invocations_handler_invalid_embeddings_payload(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="test-key",
+        secret_value="sk-test",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="text-embedding-ada-002",
+    )
+    endpoint = store.create_endpoint(
+        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    handler = _create_invocations_handler(endpoint.endpoint_id, store)
+
+    # Create request with invalid input structure
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "input": 123,  # Should be string or list of strings
+        }
+    )
+
+    with patch(
+        "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+    ) as mock_create_provider:
+        mock_provider = MagicMock()
+        mock_create_provider.return_value = (mock_provider, EndpointType.LLM_V1_EMBEDDINGS)
+
+        with pytest.raises(HTTPException, match="Invalid embeddings payload") as exc_info:
+            await handler(mock_request)
+
+        assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_invocations_handler_streaming(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="test-key",
+        secret_value="sk-test",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    handler = _create_invocations_handler(endpoint.endpoint_id, store)
+
+    # Create streaming request
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "messages": [{"role": "user", "content": "Hi"}],
+            "stream": True,
+        }
+    )
+
+    # Mock streaming response
+    mock_streaming_response = MagicMock()
+
+    with (
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+        ) as mock_create_provider,
+        patch(
+            "mlflow.server.gateway_api.make_streaming_response",
+            return_value=mock_streaming_response,
+        ) as mock_make_streaming,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.chat_stream = MagicMock(return_value="mock_stream")
+        mock_create_provider.return_value = (mock_provider, EndpointType.LLM_V1_CHAT)
+
+        response = await handler(mock_request)
+
+        # Verify streaming was called
+        assert mock_provider.chat_stream.called
+        assert mock_make_streaming.called
+        assert response == mock_streaming_response
+
+
+def test_create_provider_from_endpoint_config_no_models(store: SqlAlchemyStore):
+    from mlflow.exceptions import MlflowException
+    from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
+
+    # Create a minimal endpoint to get an endpoint_id
+    secret = store.create_secret(
+        secret_name="test-key",
+        secret_value="sk-test",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    # Mock get_endpoint_config to return an empty models list
+    with patch(
+        "mlflow.server.gateway_api.get_endpoint_config",
+        return_value=GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name="test-endpoint", models=[]
+        ),
+    ):
+        with pytest.raises(MlflowException, match="has no models configured"):
+            _create_provider_from_endpoint_config(
+                endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+            )

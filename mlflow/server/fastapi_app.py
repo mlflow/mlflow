@@ -6,6 +6,8 @@ using WSGIMiddleware to maintain 100% API compatibility while enabling future mi
 to FastAPI endpoints.
 """
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.wsgi import WSGIMiddleware
 from flask import Flask
@@ -53,8 +55,6 @@ def create_fastapi_app(flask_app: Flask = flask_app):
         fastapi_app.include_router(gateway_router)
     except Exception as e:
         # Log warning but don't fail server startup if gateway endpoints can't be loaded
-        import logging
-
         logging.getLogger(__name__).warning(
             f"Failed to register gateway endpoints: {e}", exc_info=True
         )
