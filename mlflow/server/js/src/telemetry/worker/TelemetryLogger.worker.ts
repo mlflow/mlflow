@@ -4,12 +4,12 @@ import {
   type TelemetryConfig,
   ClientToWorkerMessageType,
 } from './types';
-import { TELEMETRY_ENDPOINT } from './constants';
+import { UI_TELEMETRY_ENDPOINT } from './constants';
 import { LogQueue } from './LogQueue';
 
 async function fetchConfig(): Promise<TelemetryConfig | null> {
   try {
-    const response = await fetch(TELEMETRY_ENDPOINT, {
+    const response = await fetch(UI_TELEMETRY_ENDPOINT, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -31,7 +31,7 @@ class TelemetryLogger {
   private logQueue: LogQueue = new LogQueue();
   private samplingValue: number = Math.random() * 100;
 
-  public async addLogToQueue(record: TelemetryRecord): Promise<void> {
+  public async addLogToQueue(record: Omit<TelemetryRecord, 'session_id'>): Promise<void> {
     const config = await this.config;
 
     if (!config || (config.disable_ui_telemetry ?? true)) {
