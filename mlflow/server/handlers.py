@@ -24,6 +24,7 @@ from mlflow.entities import (
     ExperimentTag,
     Feedback,
     FileInfo,
+    GatewayEndpointTag,
     GatewayResourceType,
     Metric,
     Param,
@@ -118,6 +119,7 @@ from mlflow.protos.service_pb2 import (
     DeleteExperimentTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -180,6 +182,7 @@ from mlflow.protos.service_pb2 import (
     SearchTracesV3,
     SetDatasetTags,
     SetExperimentTag,
+    SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
@@ -4277,6 +4280,52 @@ def _list_endpoint_bindings():
     return _wrap_response(response_message)
 
 
+# =============================================================================
+# Endpoint Tags Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_endpoint_tag():
+    request_message = _get_request_message(
+        SetGatewayEndpointTag(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+            "value": [_assert_string],
+        },
+    )
+    tag = GatewayEndpointTag(
+        key=request_message.key,
+        value=request_message.value or None,
+    )
+    _get_tracking_store().set_endpoint_tag(
+        endpoint_id=request_message.endpoint_id,
+        tag=tag,
+    )
+    response_message = SetGatewayEndpointTag.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_endpoint_tag():
+    request_message = _get_request_message(
+        DeleteGatewayEndpointTag(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_endpoint_tag(
+        endpoint_id=request_message.endpoint_id,
+        key=request_message.key,
+    )
+    response_message = DeleteGatewayEndpointTag.Response()
+    return _wrap_response(response_message)
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4715,4 +4764,7 @@ HANDLERS = {
     CreateGatewayEndpointBinding: _create_endpoint_binding,
     DeleteGatewayEndpointBinding: _delete_endpoint_binding,
     ListGatewayEndpointBindings: _list_endpoint_bindings,
+    # Endpoint Tags APIs
+    SetGatewayEndpointTag: _set_endpoint_tag,
+    DeleteGatewayEndpointTag: _delete_endpoint_tag,
 }

@@ -9,6 +9,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewayResourceType,
     GatewaySecretInfo,
@@ -21,6 +22,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewaySecret,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DetachModelFromGatewayEndpoint,
@@ -31,6 +33,7 @@ from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
+    SetGatewayEndpointTag,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
@@ -49,7 +52,7 @@ class RestGatewayStoreMixin:
     - _call_endpoint(api, json_body): Method to make REST API calls
     """
 
-    # Set of v3 Gateway APIs (secrets, endpoints, model definitions, bindings)
+    # Set of v3 Gateway APIs (secrets, endpoints, model definitions, bindings, tags)
     _V3_GATEWAY_APIS = {
         CreateGatewaySecret,
         GetGatewaySecretInfo,
@@ -71,6 +74,8 @@ class RestGatewayStoreMixin:
         CreateGatewayEndpointBinding,
         DeleteGatewayEndpointBinding,
         ListGatewayEndpointBindings,
+        SetGatewayEndpointTag,
+        DeleteGatewayEndpointTag,
     }
 
     # ========== Secrets Management APIs ==========
@@ -530,3 +535,38 @@ class RestGatewayStoreMixin:
         )
         response_proto = self._call_endpoint(ListGatewayEndpointBindings, req_body)
         return [GatewayEndpointBinding.from_proto(b) for b in response_proto.bindings]
+
+    # ========== Endpoint Tags Management APIs ==========
+
+    def set_endpoint_tag(self, endpoint_id: str, tag: GatewayEndpointTag) -> None:
+        """
+        Set a tag on an endpoint. If the key already exists, the value is updated.
+
+        Args:
+            endpoint_id: The unique identifier of the endpoint.
+            tag: GatewayEndpointTag with key and value to set.
+        """
+        req_body = message_to_json(
+            SetGatewayEndpointTag(
+                endpoint_id=endpoint_id,
+                key=tag.key,
+                value=tag.value,
+            )
+        )
+        self._call_endpoint(SetGatewayEndpointTag, req_body)
+
+    def delete_endpoint_tag(self, endpoint_id: str, key: str) -> None:
+        """
+        Delete a tag from an endpoint.
+
+        Args:
+            endpoint_id: The unique identifier of the endpoint.
+            key: Tag key to delete.
+        """
+        req_body = message_to_json(
+            DeleteGatewayEndpointTag(
+                endpoint_id=endpoint_id,
+                key=key,
+            )
+        )
+        self._call_endpoint(DeleteGatewayEndpointTag, req_body)

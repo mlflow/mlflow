@@ -6,6 +6,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
 )
@@ -793,3 +794,149 @@ def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore
     assert len(configs) == 2
     endpoint_names = {c.endpoint_name for c in configs}
     assert endpoint_names == {"multi-endpoint-1", "multi-endpoint-2"}
+
+
+# =============================================================================
+# Endpoint Tag Operations
+# =============================================================================
+
+
+def test_set_endpoint_tag(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="tag-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_endpoint(
+        name="tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    tag = GatewayEndpointTag(key="env", value="production")
+    store.set_endpoint_tag(endpoint_id=endpoint.endpoint_id, tag=tag)
+
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 1
+    assert retrieved.tags[0].key == "env"
+    assert retrieved.tags[0].value == "production"
+
+
+def test_set_endpoint_tag_updates_existing(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="update-tag-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="update-tag-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="update-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="version", value="v1"),
+    )
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="version", value="v2"),
+    )
+
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 1
+    assert retrieved.tags[0].key == "version"
+    assert retrieved.tags[0].value == "v2"
+
+
+def test_set_endpoint_tag_multiple_tags(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="multi-tag-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="multi-tag-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="multi-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="env", value="production"),
+    )
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="team", value="ml-platform"),
+    )
+
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 2
+    tag_dict = {t.key: t.value for t in retrieved.tags}
+    assert tag_dict == {"env": "production", "team": "ml-platform"}
+
+
+def test_set_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.set_endpoint_tag(
+            endpoint_id="nonexistent",
+            tag=GatewayEndpointTag(key="test", value="value"),
+        )
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_endpoint_tag(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="del-tag-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="del-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_endpoint(
+        name="del-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="to-delete", value="value"),
+    )
+    store.delete_endpoint_tag(endpoint_id=endpoint.endpoint_id, key="to-delete")
+
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 0
+
+
+def test_delete_endpoint_tag_nonexistent_key_is_noop(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="noop-del-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="noop-del-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_endpoint(
+        name="noop-del-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    store.delete_endpoint_tag(endpoint_id=endpoint.endpoint_id, key="nonexistent")
+
+
+def test_delete_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.delete_endpoint_tag(endpoint_id="nonexistent", key="test")
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_endpoint_cascades_tags(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="cascade-tag-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="cascade-tag-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="cascade-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="cascade-test", value="value"),
+    )
+
+    store.delete_endpoint(endpoint.endpoint_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_endpoint(endpoint_id=endpoint.endpoint_id)

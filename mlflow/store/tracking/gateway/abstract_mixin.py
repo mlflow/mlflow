@@ -4,6 +4,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
 )
@@ -368,5 +369,33 @@ class GatewayStoreMixin:
 
         Returns:
             List of EndpointBinding entities (with optional endpoint_name and model_mappings).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_endpoint_tag(
+        self,
+        endpoint_id: str,
+        tag: GatewayEndpointTag,
+    ) -> None:
+        """
+        Set a tag on an endpoint. If the tag key already exists, the value will be updated.
+
+        Args:
+            endpoint_id: ID of the endpoint to set the tag on.
+            tag: GatewayEndpointTag with key and value to set.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_endpoint_tag(
+        self,
+        endpoint_id: str,
+        key: str,
+    ) -> None:
+        """
+        Delete a tag from an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+            key: Tag key to delete.
         """
         raise NotImplementedError(self.__class__.__name__)

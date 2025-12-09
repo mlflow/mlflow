@@ -31,6 +31,7 @@ from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     Dataset,
     DatasetInput,
+    GatewayEndpointTag,
     GatewayResourceType,
     InputTag,
     Metric,
@@ -4492,4 +4493,233 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
     store.delete_endpoint(endpoint.endpoint_id)
     store.delete_model_definition(model_def1.model_definition_id)
     store.delete_model_definition(model_def2.model_definition_id)
+    store.delete_secret(secret.secret_id)
+
+
+def test_set_endpoint_tag(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="tag-test-secret",
+        secret_value="sk-tag-test-123",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="tag-test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="tag-test-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    tag = GatewayEndpointTag(key="env", value="production")
+    store.set_endpoint_tag(endpoint_id=endpoint.endpoint_id, tag=tag)
+
+    fetched = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched.tags) == 1
+    assert fetched.tags[0].key == "env"
+    assert fetched.tags[0].value == "production"
+
+    store.delete_endpoint(endpoint.endpoint_id)
+    store.delete_model_definition(model_def.model_definition_id)
+    store.delete_secret(secret.secret_id)
+
+
+def test_set_endpoint_tag_updates_existing(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="tag-update-secret",
+        secret_value="sk-tag-update-123",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="tag-update-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="tag-update-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="env", value="staging"),
+    )
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="env", value="production"),
+    )
+
+    fetched = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched.tags) == 1
+    assert fetched.tags[0].key == "env"
+    assert fetched.tags[0].value == "production"
+
+    store.delete_endpoint(endpoint.endpoint_id)
+    store.delete_model_definition(model_def.model_definition_id)
+    store.delete_secret(secret.secret_id)
+
+
+def test_set_multiple_endpoint_tags(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="multi-tag-secret",
+        secret_value="sk-multi-tag-123",
+        provider="anthropic",
+    )
+    model_def = store.create_model_definition(
+        name="multi-tag-model",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet",
+    )
+    endpoint = store.create_endpoint(
+        name="multi-tag-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="env", value="production"),
+    )
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="team", value="ml-ops"),
+    )
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="version", value="v2"),
+    )
+
+    fetched = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched.tags) == 3
+
+    tags_dict = {t.key: t.value for t in fetched.tags}
+    assert tags_dict["env"] == "production"
+    assert tags_dict["team"] == "ml-ops"
+    assert tags_dict["version"] == "v2"
+
+    store.delete_endpoint(endpoint.endpoint_id)
+    store.delete_model_definition(model_def.model_definition_id)
+    store.delete_secret(secret.secret_id)
+
+
+def test_delete_endpoint_tag(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="delete-tag-secret",
+        secret_value="sk-delete-tag-123",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="delete-tag-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="delete-tag-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="to-delete", value="will-be-removed"),
+    )
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="keep", value="stay"),
+    )
+
+    fetched_before = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched_before.tags) == 2
+
+    store.delete_endpoint_tag(endpoint_id=endpoint.endpoint_id, key="to-delete")
+
+    fetched_after = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched_after.tags) == 1
+    assert fetched_after.tags[0].key == "keep"
+    assert fetched_after.tags[0].value == "stay"
+
+    store.delete_endpoint(endpoint.endpoint_id)
+    store.delete_model_definition(model_def.model_definition_id)
+    store.delete_secret(secret.secret_id)
+
+
+def test_delete_nonexistent_endpoint_tag_is_noop(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="noop-tag-secret",
+        secret_value="sk-noop-tag-123",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="noop-tag-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="noop-tag-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="existing", value="value"),
+    )
+
+    store.delete_endpoint_tag(endpoint_id=endpoint.endpoint_id, key="nonexistent")
+
+    fetched = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched.tags) == 1
+    assert fetched.tags[0].key == "existing"
+
+    store.delete_endpoint(endpoint.endpoint_id)
+    store.delete_model_definition(model_def.model_definition_id)
+    store.delete_secret(secret.secret_id)
+
+
+def test_delete_endpoint_cascades_tags(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="cascade-tag-secret",
+        secret_value="sk-cascade-tag-123",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="cascade-tag-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_endpoint(
+        name="cascade-tag-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="tag1", value="value1"),
+    )
+    store.set_endpoint_tag(
+        endpoint_id=endpoint.endpoint_id,
+        tag=GatewayEndpointTag(key="tag2", value="value2"),
+    )
+
+    fetched = store.get_endpoint(endpoint.endpoint_id)
+    assert len(fetched.tags) == 2
+
+    store.delete_endpoint(endpoint.endpoint_id)
+    store.delete_model_definition(model_def.model_definition_id)
     store.delete_secret(secret.secret_id)

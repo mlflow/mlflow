@@ -176,8 +176,25 @@ def upgrade():
         ),
     )
 
+    op.create_table(
+        "endpoint_tags",
+        sa.Column("key", sa.String(length=250), nullable=False),
+        sa.Column("value", sa.String(length=5000), nullable=True),
+        sa.Column("endpoint_id", sa.String(length=36), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["endpoint_id"],
+            ["endpoints.endpoint_id"],
+            name="fk_endpoint_tags_endpoint_id",
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("key", "endpoint_id", name="endpoint_tag_pk"),
+    )
+    with op.batch_alter_table("endpoint_tags", schema=None) as batch_op:
+        batch_op.create_index("index_endpoint_tags_endpoint_id", ["endpoint_id"], unique=False)
+
 
 def downgrade():
+    op.drop_table("endpoint_tags")
     op.drop_table("endpoint_bindings")
     op.drop_table("endpoint_model_mappings")
     op.drop_table("model_definitions")

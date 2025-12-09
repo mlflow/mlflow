@@ -41,6 +41,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewayResourceType,
     GatewaySecretInfo,
@@ -2184,6 +2185,7 @@ class SqlGatewayEndpoint(Base):
             endpoint_id=self.endpoint_id,
             name=self.name,
             model_mappings=[mapping.to_mlflow_entity() for mapping in self.model_mappings],
+            tags=[tag.to_mlflow_entity() for tag in self.tags],
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
@@ -2432,3 +2434,44 @@ class SqlGatewayEndpointBinding(Base):
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
         )
+
+
+class SqlGatewayEndpointTag(Base):
+    """
+    DB model for endpoint tags. These are recorded in ``endpoint_tags`` table.
+    Tags are key-value pairs associated with endpoints for categorization and filtering.
+    """
+
+    __tablename__ = "endpoint_tags"
+
+    key = Column(String(250), nullable=False)
+    """
+    Tag key: `String` (limit 250 characters). Part of composite *Primary Key*.
+    """
+    value = Column(String(5000), nullable=True)
+    """
+    Value associated with tag: `String` (limit 5000 characters). Could be *null*.
+    """
+    endpoint_id = Column(
+        String(36), ForeignKey("endpoints.endpoint_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Endpoint ID to which this tag belongs: *Foreign Key* into ``endpoints`` table.
+    Part of composite *Primary Key*. Cascades on delete.
+    """
+    endpoint = relationship("SqlGatewayEndpoint", backref=backref("tags", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayEndpoint`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("key", "endpoint_id", name="endpoint_tag_pk"),
+        Index("index_endpoint_tags_endpoint_id", "endpoint_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewayEndpointTag({self.key}, {self.value})>"
+
+    def to_mlflow_entity(self):
+        return GatewayEndpointTag(key=self.key, value=self.value)
