@@ -1120,3 +1120,41 @@ def test_graphql_nonexistent_run(client, monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert data.get("data", {}).get("mlflowGetRun") is None
+
+
+def test_get_metric_history_bulk_interval_auth(client: MlflowClient, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("test_metric_history_experiment")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        client.log_metric(run_id, "test_metric", 1.0, step=0)
+        client.log_metric(run_id, "test_metric", 2.0, step=1)
+
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": experiment_id,
+                "username": username2,
+                "permission": "READ",
+            },
+            auth=(username1, password1),
+        )
+
+    with User(username2, password2, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval",
+            params={
+                "run_ids": run_id,
+                "metric_key": "test_metric",
+                "max_results": 100,
+            },
+            auth=(username2, password2),
+        )
+        response.raise_for_status()
+        data = response.json()
+        assert "metrics" in data
+        assert len(data["metrics"]) == 2

@@ -1,3 +1,4 @@
+import json
 import warnings
 from contextlib import contextmanager
 from typing import Any
@@ -6,12 +7,16 @@ from pydantic import BaseModel
 
 import mlflow.tracking._model_registry.fluent as registry_api
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.model_registry.prompt_version import (
+    PromptModelConfig,
+    PromptVersion,
+)
 from mlflow.prompt.registry_utils import PromptCache as PromptCache
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
+from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 
 @contextmanager
@@ -34,6 +39,7 @@ def register_prompt(
     commit_message: str | None = None,
     tags: dict[str, str] | None = None,
     response_format: type[BaseModel] | dict[str, Any] | None = None,
+    model_config: PromptModelConfig | dict[str, Any] | None = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -73,6 +79,11 @@ def register_prompt(
             the changes. Optional.
         response_format: Optional Pydantic class or dictionary defining the expected response
             structure. This can be used to specify the schema for structured outputs from LLM calls.
+        model_config: Optional PromptModelConfig instance or dictionary containing model-specific
+            configuration including model name and settings like temperature, top_p, max_tokens.
+            Using PromptModelConfig provides validation and type safety for common parameters.
+            Example (dict): {"model_name": "gpt-4", "temperature": 0.7}
+            Example (PromptModelConfig): PromptModelConfig(model_name="gpt-4", temperature=0.7)
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -130,6 +141,7 @@ def register_prompt(
             commit_message=commit_message,
             tags=tags,
             response_format=response_format,
+            model_config=model_config,
         )
 
 
@@ -323,3 +335,93 @@ def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
     """
     with suppress_genai_migration_warning():
         MlflowClient().delete_prompt_version_tag(name=name, version=version, key=key)
+
+
+@experimental(version="3.8.0")
+@require_prompt_registry
+def set_prompt_model_config(
+    name: str,
+    version: str | int,
+    model_config: PromptModelConfig | dict[str, Any],
+) -> None:
+    """Set or update the model configuration for a specific prompt version.
+
+    Model configuration includes model-specific settings such as model name, temperature,
+    max_tokens, and other inference parameters. Unlike the prompt template, model configuration
+    is mutable and can be updated after a prompt version is created.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt.
+        model_config: A PromptModelConfig or dict with model settings like model_name, temperature.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.entities.model_registry import PromptModelConfig
+
+        # Set model config using a dictionary
+        mlflow.genai.set_prompt_model_config(
+            name="my-prompt",
+            version=1,
+            model_config={"model_name": "gpt-4", "temperature": 0.7, "max_tokens": 1000},
+        )
+
+        # Set model config using PromptModelConfig for validation
+        config = PromptModelConfig(
+            model_name="gpt-4-turbo",
+            temperature=0.5,
+            max_tokens=2000,
+            top_p=0.95,
+        )
+        mlflow.genai.set_prompt_model_config(
+            name="my-prompt",
+            version=1,
+            model_config=config,
+        )
+
+        # Load and verify the config was set
+        prompt = mlflow.genai.load_prompt("my-prompt", version=1)
+        print(prompt.model_config)
+    """
+    if isinstance(model_config, PromptModelConfig):
+        config_dict = model_config.to_dict()
+    else:
+        config_dict = PromptModelConfig.from_dict(model_config).to_dict()
+
+    config_json = json.dumps(config_dict)
+
+    with suppress_genai_migration_warning():
+        MlflowClient().set_prompt_version_tag(
+            name=name, version=version, key=MLFLOW_PROMPT_MODEL_CONFIG, value=config_json
+        )
+
+
+@experimental(version="3.8.0")
+@require_prompt_registry
+def delete_prompt_model_config(name: str, version: str | int) -> None:
+    """Delete the model configuration from a specific prompt version.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Remove model config from a prompt version
+        mlflow.genai.delete_prompt_model_config(name="my-prompt", version=1)
+
+        # Verify the config was removed
+        prompt = mlflow.genai.load_prompt("my-prompt", version=1)
+        assert prompt.model_config is None
+    """
+    with suppress_genai_migration_warning():
+        MlflowClient().delete_prompt_version_tag(
+            name=name, version=version, key=MLFLOW_PROMPT_MODEL_CONFIG
+        )

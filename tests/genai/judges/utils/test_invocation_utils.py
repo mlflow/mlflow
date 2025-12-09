@@ -148,7 +148,7 @@ def test_invoke_judge_model_successful_with_native_provider():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ),
         mock.patch(
             "mlflow.metrics.genai.model_utils.score_model_on_payload", return_value=mock_response
@@ -176,9 +176,9 @@ def test_invoke_judge_model_successful_with_native_provider():
 
 
 def test_invoke_judge_model_with_unsupported_provider():
-    with pytest.raises(MlflowException, match=r"LiteLLM is required for using 'unsupported' LLM"):
+    with pytest.raises(MlflowException, match=r"No suitable adapter found"):
         with mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ):
             invoke_judge_model(
                 model_uri="unsupported:/model", prompt="Test prompt", assessment_name="test"
@@ -188,7 +188,7 @@ def test_invoke_judge_model_with_unsupported_provider():
 def test_invoke_judge_model_with_trace_requires_litellm(mock_trace):
     with pytest.raises(MlflowException, match=r"LiteLLM is required for using traces with judges"):
         with mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ):
             invoke_judge_model(
                 model_uri="openai:/gpt-4",
@@ -424,10 +424,6 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=False,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "yes", "rationale": "Good response"}',
@@ -436,6 +432,9 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
                 num_completion_tokens=5,
             ),
         ) as mock_invoke_db,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry"
+        ) as mock_success_telemetry,
     ):
         kwargs = {
             "model_uri": model_uri,
@@ -453,7 +452,7 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
             num_retries=10,
             response_format=None,
         )
-        mock_in_db.assert_called_once()
+        mock_success_telemetry.assert_called_once()
 
     assert feedback.name == "test_assessment"
     assert feedback.value == CategoricalRating.YES
@@ -475,10 +474,6 @@ def test_invoke_judge_model_databricks_success_in_databricks(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=True,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "no", "rationale": "Bad response"}',
@@ -488,7 +483,7 @@ def test_invoke_judge_model_databricks_success_in_databricks(
             ),
         ) as mock_invoke_db,
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_success_databricks_telemetry"
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry"
         ) as mock_success_telemetry,
     ):
         feedback = invoke_judge_model(
@@ -511,7 +506,6 @@ def test_invoke_judge_model_databricks_success_in_databricks(
             num_retries=10,
             response_format=None,
         )
-        mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.NO
     assert feedback.rationale == "Bad response"
@@ -559,15 +553,11 @@ def test_invoke_judge_model_databricks_failure_in_databricks(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=True,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             side_effect=MlflowException("Model invocation failed"),
         ) as mock_invoke_db,
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_failure_databricks_telemetry"
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_failure_databricks_telemetry"
         ) as mock_failure_telemetry,
     ):
         with pytest.raises(MlflowException, match="Model invocation failed"):
@@ -590,7 +580,6 @@ def test_invoke_judge_model_databricks_failure_in_databricks(
             num_retries=10,
             response_format=None,
         )
-        mock_in_db.assert_called_once()
 
         # Verify error message contains the traceback
         call_args = mock_failure_telemetry.call_args[1]
@@ -609,10 +598,6 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=True,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "yes", "rationale": "Good"}',
@@ -622,7 +607,7 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
             ),
         ) as mock_invoke_db,
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_success_databricks_telemetry",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry",
             side_effect=Exception("Telemetry failed"),
         ) as mock_success_telemetry,
     ):
@@ -646,7 +631,6 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
             num_retries=10,
             response_format=None,
         )
-        mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good"

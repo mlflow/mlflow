@@ -1,52 +1,35 @@
 name: Auto-assign maintainer
 
 on:
-  issue_comment:
-    types:
-      - created
-  pull_request_review_comment:
-    types:
-      - created
+  schedule:
+    # Run every 3 hours to check for new maintainer comments
+    - cron: "0 */3 * * *"
+  workflow_dispatch: # Allow manual triggering
+  pull_request:
+    paths:
+      - .github/workflows/auto-assign.yml
+      - .github/workflows/auto-assign.js
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  assign:
-    # Only run on open PR comments from maintainers who are not already assigned and not the PR owner
-    if: >
-      (
-        github.event_name == 'issue_comment' &&
-        github.event.issue.pull_request &&
-        github.event.issue.state == 'open' &&
-        contains(fromJSON('["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"]'), github.event.comment.user.login) &&
-        !contains(github.event.issue.assignees.*.login, github.event.comment.user.login) &&
-        github.event.comment.user.login != github.event.issue.user.login
-      ) || (
-        github.event_name == 'pull_request_review_comment' &&
-        github.event.pull_request.state == 'open' &&
-        contains(fromJSON('["B-Step62", "BenWilson2", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"]'), github.event.comment.user.login) &&
-        !contains(github.event.pull_request.assignees.*.login, github.event.comment.user.login) &&
-        github.event.comment.user.login != github.event.pull_request.user.login
-      )
+  scan-and-assign:
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
+      contents: read
+      issues: write
       pull-requests: write
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
-            const { owner, repo } = context.repo;
-            const issue_number = context.payload.issue?.number || context.payload.pull_request?.number;
-            const commenter = context.payload.comment.user.login;
-
-            console.log(`Adding ${commenter} as assignee`);
-            await github.rest.issues.addAssignees({
-              owner,
-              repo,
-              issue_number,
-              assignees: [commenter],
-            });
-            console.log(`Successfully added ${commenter} as assignee`);
+            const script = require('./.github/workflows/auto-assign.js');
+            const skipAssignment = context.eventName === 'pull_request';
+            await script({ github, context, skipAssignment });

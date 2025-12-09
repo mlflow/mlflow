@@ -153,42 +153,43 @@ class SqlAlchemyGatewayStoreMixin:
     def update_secret(
         self,
         secret_id: str,
-        secret_value: str,
+        secret_value: str | None = None,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
         """
-        Update an existing secret's value (for the purposes of key rotation or reassignment).
+        Update an existing secret's configuration.
 
         Args:
             secret_id: ID of the secret to update.
-            secret_value: New secret value to encrypt.
+            secret_value: Optional new secret value for key rotation.
             auth_config: Optional updated auth configuration. If provided, replaces existing
                 auth_config. If None, auth_config is unchanged. If empty dict, clears auth_config.
             updated_by: Username of the updater.
 
         Returns:
-            Updated Secret entity with new encrypted value.
+            Updated Secret entity.
         """
         with self.ManagedSessionMaker() as session:
             sql_secret = self._get_entity_or_raise(
                 session, SqlGatewaySecret, {"secret_id": secret_id}, "GatewaySecret"
             )
 
-            masked_value = _mask_secret_value(secret_value)
-            kek_manager = KEKManager()
+            if secret_value is not None:
+                masked_value = _mask_secret_value(secret_value)
+                kek_manager = KEKManager()
 
-            encrypted = _encrypt_secret(
-                secret_value=secret_value,
-                kek_manager=kek_manager,
-                secret_id=sql_secret.secret_id,
-                secret_name=sql_secret.secret_name,
-            )
+                encrypted = _encrypt_secret(
+                    secret_value=secret_value,
+                    kek_manager=kek_manager,
+                    secret_id=sql_secret.secret_id,
+                    secret_name=sql_secret.secret_name,
+                )
 
-            sql_secret.encrypted_value = encrypted.encrypted_value
-            sql_secret.wrapped_dek = encrypted.wrapped_dek
-            sql_secret.kek_version = encrypted.kek_version
-            sql_secret.masked_value = masked_value
+                sql_secret.encrypted_value = encrypted.encrypted_value
+                sql_secret.wrapped_dek = encrypted.wrapped_dek
+                sql_secret.kek_version = encrypted.kek_version
+                sql_secret.masked_value = masked_value
 
             if auth_config is not None:
                 # Empty dict {} explicitly clears auth_config, non-empty dict replaces it

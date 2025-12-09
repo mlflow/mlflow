@@ -44,14 +44,6 @@ from mlflow.utils.validation import (
 )
 
 
-@pytest.fixture(autouse=True)
-def tracking_uri(db_uri: str):
-    """Sets the tracking URI for each test."""
-    mlflow.set_tracking_uri(db_uri)
-    yield
-    mlflow.set_tracking_uri(None)
-
-
 class MockExperiment(NamedTuple):
     experiment_id: str
     lifecycle_stage: str
