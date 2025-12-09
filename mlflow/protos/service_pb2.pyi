@@ -2048,6 +2048,13 @@ class UploadUITelemetryRecords(_message.Message):
 
 class TelemetryRecord(_message.Message):
     __slots__ = ("event_name", "timestamp_ns", "params", "installation_id", "session_id")
+    class ParamsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     EVENT_NAME_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_NS_FIELD_NUMBER: _ClassVar[int]
     PARAMS_FIELD_NUMBER: _ClassVar[int]
@@ -2055,10 +2062,10 @@ class TelemetryRecord(_message.Message):
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     event_name: str
     timestamp_ns: int
-    params: str
+    params: _containers.ScalarMap[str, str]
     installation_id: str
     session_id: str
-    def __init__(self, event_name: _Optional[str] = ..., timestamp_ns: _Optional[int] = ..., params: _Optional[str] = ..., installation_id: _Optional[str] = ..., session_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, event_name: _Optional[str] = ..., timestamp_ns: _Optional[int] = ..., params: _Optional[_Mapping[str, str]] = ..., installation_id: _Optional[str] = ..., session_id: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 
