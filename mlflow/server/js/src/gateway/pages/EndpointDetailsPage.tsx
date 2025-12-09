@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from '../../common/utils/RoutingUtils';
+import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import {
   Alert,
   Breadcrumb,
@@ -59,18 +60,18 @@ const EndpointDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, padding: theme.spacing.md }}>
           <Spinner size="small" />
           <FormattedMessage defaultMessage="Loading endpoint..." description="Loading message for endpoint" />
         </div>
-      </div>
+      </ScrollablePageWrapper>
     );
   }
 
   if (error || !endpoint) {
     return (
-      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div css={{ padding: theme.spacing.md }}>
           <Alert
             componentId="mlflow.gateway.endpoint-details.error"
@@ -78,14 +79,14 @@ const EndpointDetailsPage = () => {
             message={(error as Error | null)?.message ?? 'Endpoint not found'}
           />
         </div>
-      </div>
+      </ScrollablePageWrapper>
     );
   }
 
   const hasModels = endpoint.model_mappings && endpoint.model_mappings.length > 0;
 
   return (
-    <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div css={{ padding: theme.spacing.md }}>
         <Breadcrumb includeTrailingCaret>
           <Breadcrumb.Item>
@@ -214,7 +215,7 @@ const EndpointDetailsPage = () => {
           </div>
         </Card>
       </LongFormLayout>
-    </div>
+    </ScrollablePageWrapper>
   );
 };
 
