@@ -35,7 +35,7 @@ from mlflow.prompt.constants import (
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
 )
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     AwsCredentials,
@@ -972,6 +972,15 @@ def test_get_logged_model_from_model_id_returns_logged_model_on_success(store):
 def test_get_logged_model_from_model_id_returns_none_for_none_input(store):
     result = store._get_logged_model_from_model_id(None)
     assert result is None
+
+
+def test_get_logged_model_from_model_id_reraises_other_exceptions(store):
+    with mock.patch(
+        "mlflow.get_logged_model",
+        side_effect=MlflowException("Some other error", error_code=INTERNAL_ERROR),
+    ):
+        with pytest.raises(MlflowException, match="Some other error"):
+            store._get_logged_model_from_model_id("model123")
 
 
 @pytest.mark.parametrize(
