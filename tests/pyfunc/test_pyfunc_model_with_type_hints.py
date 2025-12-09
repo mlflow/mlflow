@@ -56,7 +56,7 @@ def spark():
         yield s
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope="module")
 def mock_log_model_with_pip_requirements():
     """Inject pip_requirements=[] to skip dependency inference in all log_model calls."""
     original_log_model = mlflow.pyfunc.log_model
