@@ -158,13 +158,12 @@ def serve_get_logged_model_artifact(model_id: str):
     return get_logged_model_artifact_handler(model_id)
 
 
-# Serve the "/telemetry" routes for telemetry client configuration and record submission
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/telemetry"), methods=["GET"])
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/ui-telemetry"), methods=["GET"])
 def serve_get_telemetry():
     return get_ui_telemetry_handler()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/telemetry"), methods=["POST"])
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/ui-telemetry"), methods=["POST"])
 def serve_post_telemetry():
     return post_ui_telemetry_handler()
 
