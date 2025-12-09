@@ -169,18 +169,6 @@ class ErroringStreamTestModel:
         return i
 
 
-@pytest.fixture(autouse=True)
-def tracking_uri(db_uri: str):
-    """Sets the tracking URI for each test."""
-    if IS_TRACING_SDK_ONLY:
-        yield
-        return
-
-    mlflow.set_tracking_uri(db_uri)
-    yield
-    mlflow.set_tracking_uri(None)
-
-
 @pytest.fixture
 def mock_client():
     client = mock.MagicMock()

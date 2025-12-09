@@ -900,6 +900,11 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'doc',
+      id: 'references/request-features',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'doc',
       id: 'getting-started/databricks-trial/index',
       className: 'sidebar-top-level-category',
       label: 'Managed MLflow',
