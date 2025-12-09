@@ -5,7 +5,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos import service_pb2 as pb
 
 
-class MetricsViewType(str, Enum):
+class MetricViewType(str, Enum):
     TRACES = "TRACES"
     SPANS = "SPANS"
     ASSESSMENTS = "ASSESSMENTS"
@@ -14,7 +14,7 @@ class MetricsViewType(str, Enum):
         return self.value
 
     def to_proto(self):
-        return pb.MetricsViewType.Value(self)
+        return pb.MetricViewType.Value(self)
 
 
 class AggregationType(str, Enum):
@@ -33,7 +33,7 @@ class AggregationType(str, Enum):
 
 
 @dataclass
-class MetricsAggregation(_MlflowObject):
+class MetricAggregation(_MlflowObject):
     aggregation_type: AggregationType
     percentile_value: float | None = None
 
@@ -51,8 +51,8 @@ class MetricsAggregation(_MlflowObject):
                 f"got {self.aggregation_type}"
             )
 
-    def to_proto(self) -> pb.MetricsAggregation:
-        proto = pb.MetricsAggregation()
+    def to_proto(self) -> pb.MetricAggregation:
+        proto = pb.MetricAggregation()
         proto.aggregation_type = self.aggregation_type.to_proto()
         if self.percentile_value is not None:
             proto.percentile_value = self.percentile_value

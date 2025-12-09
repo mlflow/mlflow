@@ -44,11 +44,11 @@ class TraceStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ERROR: _ClassVar[TraceStatus]
     IN_PROGRESS: _ClassVar[TraceStatus]
 
-class MetricsViewType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+class MetricViewType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    TRACES: _ClassVar[MetricsViewType]
-    SPANS: _ClassVar[MetricsViewType]
-    ASSESSMENTS: _ClassVar[MetricsViewType]
+    TRACES: _ClassVar[MetricViewType]
+    SPANS: _ClassVar[MetricViewType]
+    ASSESSMENTS: _ClassVar[MetricViewType]
 
 class AggregationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -82,9 +82,9 @@ TRACE_STATUS_UNSPECIFIED: TraceStatus
 OK: TraceStatus
 ERROR: TraceStatus
 IN_PROGRESS: TraceStatus
-TRACES: MetricsViewType
-SPANS: MetricsViewType
-ASSESSMENTS: MetricsViewType
+TRACES: MetricViewType
+SPANS: MetricViewType
+ASSESSMENTS: MetricViewType
 COUNT: AggregationType
 SUM: AggregationType
 AVG: AggregationType
@@ -956,7 +956,7 @@ class CalculateTraceFilterCorrelation(_message.Message):
     base_filter: str
     def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., filter_string1: _Optional[str] = ..., filter_string2: _Optional[str] = ..., base_filter: _Optional[str] = ...) -> None: ...
 
-class MetricsAggregation(_message.Message):
+class MetricAggregation(_message.Message):
     __slots__ = ("aggregation_type", "percentile_value")
     AGGREGATION_TYPE_FIELD_NUMBER: _ClassVar[int]
     PERCENTILE_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -985,9 +985,9 @@ class QueryTraceMetrics(_message.Message):
     MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     experiment_ids: _containers.RepeatedScalarFieldContainer[str]
-    view_type: MetricsViewType
+    view_type: MetricViewType
     metric_name: str
-    aggregations: _containers.RepeatedCompositeFieldContainer[MetricsAggregation]
+    aggregations: _containers.RepeatedCompositeFieldContainer[MetricAggregation]
     dimensions: _containers.RepeatedScalarFieldContainer[str]
     filters: _containers.RepeatedScalarFieldContainer[str]
     time_interval_seconds: int
@@ -995,7 +995,7 @@ class QueryTraceMetrics(_message.Message):
     end_time_ms: int
     max_results: int
     page_token: str
-    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., view_type: _Optional[_Union[MetricsViewType, str]] = ..., metric_name: _Optional[str] = ..., aggregations: _Optional[_Iterable[_Union[MetricsAggregation, _Mapping]]] = ..., dimensions: _Optional[_Iterable[str]] = ..., filters: _Optional[_Iterable[str]] = ..., time_interval_seconds: _Optional[int] = ..., start_time_ms: _Optional[int] = ..., end_time_ms: _Optional[int] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., view_type: _Optional[_Union[MetricViewType, str]] = ..., metric_name: _Optional[str] = ..., aggregations: _Optional[_Iterable[_Union[MetricAggregation, _Mapping]]] = ..., dimensions: _Optional[_Iterable[str]] = ..., filters: _Optional[_Iterable[str]] = ..., time_interval_seconds: _Optional[int] = ..., start_time_ms: _Optional[int] = ..., end_time_ms: _Optional[int] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
 
 class MetricDataPoint(_message.Message):
     __slots__ = ("metric_name", "dimensions", "values")
