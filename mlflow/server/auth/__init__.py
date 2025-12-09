@@ -556,9 +556,15 @@ def validate_can_read_trace_artifact():
     return _get_permission_from_trace_request_id().can_read
 
 
-def validate_can_read_metric_history_bulk():
-    """Checks READ permission on all requested runs."""
-    run_ids = request.args.to_dict(flat=False).get("run_id", [])
+def validate_can_read_metric_history_bulk(run_ids=None):
+    """Checks READ permission on all requested runs.
+
+    Args:
+        run_ids: Optional list of run IDs to validate. If not provided,
+            extracts 'run_id' from request args (for GetMetricHistoryBulk endpoint).
+    """
+    if run_ids is None:
+        run_ids = request.args.to_dict(flat=False).get("run_id", [])
     if not run_ids:
         raise MlflowException(
             "GetMetricHistoryBulk request must specify at least one run_id.",
@@ -568,7 +574,6 @@ def validate_can_read_metric_history_bulk():
     username = authenticate_request().username
     tracking_store = _get_tracking_store()
 
-    # Check permission for each run
     for run_id in run_ids:
         run = tracking_store.get_run(run_id)
         experiment_id = run.info.experiment_id
@@ -582,29 +587,14 @@ def validate_can_read_metric_history_bulk():
 
 
 def validate_can_read_metric_history_bulk_interval():
-    """Checks READ permission on all requested runs."""
-    # Note: This endpoint uses 'run_ids' (plural), unlike get-history-bulk which uses 'run_id'
+    """Checks READ permission on all requested runs for the bulk interval endpoint."""
     run_ids = request.args.to_dict(flat=False).get("run_ids", [])
     if not run_ids:
         raise MlflowException(
             "GetMetricHistoryBulkInterval request must specify at least one run_id.",
             INVALID_PARAMETER_VALUE,
         )
-
-    username = authenticate_request().username
-    tracking_store = _get_tracking_store()
-
-    # Check permission for each run
-    for run_id in run_ids:
-        run = tracking_store.get_run(run_id)
-        experiment_id = run.info.experiment_id
-        permission = _get_permission_from_store_or_default(
-            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
-        )
-        if not permission.can_read:
-            return False
-
-    return True
+    return validate_can_read_metric_history_bulk(run_ids)
 
 
 def validate_can_search_datasets():
