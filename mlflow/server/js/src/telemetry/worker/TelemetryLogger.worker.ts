@@ -18,8 +18,7 @@ async function fetchConfig(): Promise<TelemetryConfig | null> {
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.status}`);
     }
-    const responseJson = await response.json();
-    return responseJson.config;
+    return await response.json();
   } catch (error) {
     console.error('[TelemetryWorker] Failed to fetch config:', error);
     return null;
@@ -35,7 +34,7 @@ class TelemetryLogger {
   public async addLogToQueue(record: TelemetryRecord): Promise<void> {
     const config = await this.config;
 
-    if (!config || config.disable_telemetry) {
+    if (!config || config.disable_ui_telemetry) {
       return;
     }
 
@@ -63,6 +62,7 @@ function handleMessage(event: MessageEvent): void {
   });
 }
 
+// eslint-disable-next-line no-restricted-globals
 const scope = self as any as SharedWorkerGlobalScope;
 
 scope.onconnect = (event: MessageEvent) => {

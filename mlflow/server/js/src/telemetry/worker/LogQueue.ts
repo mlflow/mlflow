@@ -8,7 +8,7 @@
 import { TELEMETRY_ENDPOINT } from './constants';
 import { type TelemetryRecord } from './types';
 
-const FLUSH_INTERVAL_MS = 15000; // 5 seconds
+const FLUSH_INTERVAL_MS = 5000; // 5 seconds
 
 export class LogQueue {
   private queue: TelemetryRecord[] = [];
@@ -32,6 +32,7 @@ export class LogQueue {
       return;
     }
 
+    // eslint-disable-next-line no-restricted-globals
     this.flushTimer = self.setInterval(() => {
       this.flush();
     }, FLUSH_INTERVAL_MS) as unknown as number;
@@ -39,6 +40,7 @@ export class LogQueue {
 
   private stopFlushTimer(): void {
     if (this.flushTimer !== null) {
+      // eslint-disable-next-line no-restricted-globals
       self.clearInterval(this.flushTimer);
       this.flushTimer = null;
     }

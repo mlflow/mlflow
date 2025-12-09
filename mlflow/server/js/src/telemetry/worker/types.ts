@@ -17,8 +17,7 @@ export interface TelemetryRecord {
 
 export interface TelemetryConfig {
   disable_ui_events: string[];
-  disable_telemetry: boolean;
-  mlflow_version: '3.7.1.dev0';
+  disable_ui_telemetry: boolean;
   ui_rollout_percentage: number;
 }
 
