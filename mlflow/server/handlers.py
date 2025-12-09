@@ -4665,31 +4665,19 @@ def get_ui_telemetry_handler():
     """
     from mlflow.telemetry.utils import fetch_ui_telemetry_config
 
-    # Check cache first
     if "config" in _telemetry_config_cache:
-        return jsonify({"config": _telemetry_config_cache["config"]})
-
-    # Fetch and cache config
-    config = fetch_ui_telemetry_config()
-    if config is None:
-        # temporary fallback for testing
-        config = {
-            "disable_ui_telemetry": False,
-            "disable_ui_events": ["test"],
-            "ui_rollout_percentage": 100,
-        }
+        config = _telemetry_config_cache["config"]
     else:
-        config = config | {
-            "disable_ui_telemetry": False,
-            "disable_ui_events": ["test"],
-            "ui_rollout_percentage": 100,
-        }
-    _telemetry_config_cache["config"] = config
+        config = fetch_ui_telemetry_config()
+        _telemetry_config_cache["config"] = config
 
     response_message = GetUITelemetryConfig.Response()
-    response_message.disable_ui_telemetry = config["disable_ui_telemetry"]
-    response_message.disable_ui_events.extend(config["disable_ui_events"])
-    response_message.ui_rollout_percentage = config["ui_rollout_percentage"]
+    # UI telemetry should be also disabled if overall telemetry is disabled
+    response_message.disable_ui_telemetry = config.get("disable_ui_telemetry", True) or config.get(
+        "disable_telemetry", True
+    )
+    response_message.disable_ui_events.extend(config.get("disable_ui_events", []))
+    response_message.ui_rollout_percentage = config.get("ui_rollout_percentage", 0)
     return _wrap_response(response_message)
 
 
@@ -4727,8 +4715,12 @@ def post_ui_telemetry_handler():
         config = fetch_ui_telemetry_config()
         _telemetry_config_cache["config"] = config
 
-    if config and (config.get("disable_telemetry") or config.get("disable_ui_telemetry")):
-        return jsonify({"status": "disabled"})
+    response_message = UploadUITelemetryRecords.Response()
+
+    # if updated telemetry config is disabled, tell the UI to stop sending records
+    if config.get("disable_telemetry") or config.get("disable_ui_telemetry"):
+        response_message.status = "disabled"
+        return _wrap_response(response_message)
 
     records = [
         Record(
@@ -4749,7 +4741,6 @@ def post_ui_telemetry_handler():
         for record in records:
             client.add_record(record)
 
-    response_message = UploadUITelemetryRecords.Response()
     response_message.status = "success"
     return _wrap_response(response_message)
 
