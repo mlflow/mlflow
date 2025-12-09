@@ -90,12 +90,17 @@ def sample_summarization_dataset() -> list[dict[str, Any]]:
 
 
 def sample_predict_fn(input_text: str, language: str) -> str:
+    from mlflow.utils.import_hooks import _post_import_hooks
+
     mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
     translations = {
         ("Hello", "Spanish"): "Hola",
         ("World", "French"): "Monde",
         ("Goodbye", "Spanish"): "Adiós",
     }
+
+    # Verify that auto logging is enabled during the evaluation.
+    assert len(_post_import_hooks) > 0
     return translations.get((input_text, language), f"translated_{input_text}")
 
 
