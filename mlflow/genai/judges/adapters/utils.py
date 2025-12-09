@@ -50,6 +50,8 @@ def get_adapter(
             return adapter_class()
 
     raise MlflowException(
-        f"No suitable adapter found for model_uri='{model_uri}'",
+        f"No suitable adapter found for model_uri='{model_uri}'. "
+        "Some providers may require LiteLLM to be invoked. "
+        "Please install it with: `pip install litellm`",
         error_code=BAD_REQUEST,
     )
