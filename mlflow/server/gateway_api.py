@@ -8,7 +8,6 @@ functionality directly into the MLflow tracking server.
 
 import functools
 import logging
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -38,19 +37,21 @@ def _translate_http_exception(func):
     async def wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
+        except HTTPException:
+            raise  # Re-raise HTTPException as-is to preserve status codes
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
                 raise HTTPException(status_code=404, detail=str(e))
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
             _logger.exception(f"Unexpected error in gateway endpoint: {e}")
-            raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Internal server error: {e!s}")
 
     return wrapper
 
 
 def _create_provider_from_endpoint_config(
-    endpoint_id: str, store: SqlAlchemyStore
+    endpoint_id: str, store: SqlAlchemyStore, endpoint_type: EndpointType
 ) -> tuple[BaseProvider, EndpointType]:
     """
     Create a provider instance from database endpoint configuration.
@@ -58,6 +59,7 @@ def _create_provider_from_endpoint_config(
     Args:
         endpoint_id: The endpoint ID to retrieve configuration for.
         store: The SQLAlchemy store instance.
+        endpoint_type: Endpoint type (chat or embeddings).
 
     Returns:
         Tuple of (Provider instance, EndpointType)
@@ -70,8 +72,6 @@ def _create_provider_from_endpoint_config(
         AnthropicConfig,
         AWSBaseConfig,
         EndpointConfig,
-        EndpointType,
-        Model as ModelConfig,
         OpenAIConfig,
         Provider,
     )
@@ -87,10 +87,6 @@ def _create_provider_from_endpoint_config(
 
     # For now, use the first model (later we can support traffic routing)
     model_config = endpoint_config.models[0]
-
-    # Determine endpoint type based on provider capabilities
-    # Default to chat for most providers
-    endpoint_type = EndpointType.LLM_V1_CHAT
 
     # Build provider-specific configuration
     provider_enum = Provider(model_config.provider)
@@ -115,8 +111,7 @@ def _create_provider_from_endpoint_config(
         )
 
     # Create a temporary EndpointConfig for the provider
-    # This mimics what the gateway does with file-based configs
-    # Note: EndpointConfig expects a dict for the model field, not a Model instance
+    # This mimics what the gateway does with yaml-based configs
     gateway_endpoint_config = EndpointConfig(
         name=endpoint_config.endpoint_name,
         endpoint_type=endpoint_type,
@@ -131,7 +126,7 @@ def _create_provider_from_endpoint_config(
     provider_class = get_provider(provider_enum)
     provider_instance = provider_class(gateway_endpoint_config)
 
-    return provider_instance, endpoint_type
+    return (provider_instance, endpoint_type)
 
 
 def _create_invocations_handler(endpoint_id: str, store: SqlAlchemyStore):
@@ -149,17 +144,18 @@ def _create_invocations_handler(endpoint_id: str, store: SqlAlchemyStore):
         try:
             body = await request.json()
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {str(e)}")
-
-        provider, endpoint_type = _create_provider_from_endpoint_config(endpoint_id, store)
+            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
         # Detect request type based on payload structure
         if "messages" in body:
             # Chat request
+            endpoint_type = EndpointType.LLM_V1_CHAT
             try:
                 payload = chat.RequestPayload(**body)
             except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid chat payload: {str(e)}")
+                raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
+
+            provider, _ = _create_provider_from_endpoint_config(endpoint_id, store, endpoint_type)
 
             if payload.stream:
                 return await make_streaming_response(provider.chat_stream(payload))
@@ -168,19 +164,20 @@ def _create_invocations_handler(endpoint_id: str, store: SqlAlchemyStore):
 
         elif "input" in body:
             # Embeddings request
+            endpoint_type = EndpointType.LLM_V1_EMBEDDINGS
             try:
                 payload = embeddings.RequestPayload(**body)
             except Exception as e:
-                raise HTTPException(
-                    status_code=400, detail=f"Invalid embeddings payload: {str(e)}"
-                )
+                raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
+
+            provider, _ = _create_provider_from_endpoint_config(endpoint_id, store, endpoint_type)
 
             return await provider.embeddings(payload)
 
         else:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid request: payload must contain either 'messages' (for chat) or 'input' (for embeddings)",
+                detail="Invalid request: payload format must be either chat or embeddings",
             )
 
     return _invocations
