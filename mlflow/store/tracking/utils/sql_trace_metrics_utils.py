@@ -12,6 +12,7 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
+    SqlSpan,
     SqlTraceInfo,
     SqlTraceMetadata,
     SqlTraceMetrics,
@@ -66,9 +67,18 @@ TRACES_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
     },
 }
 
+SPANS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
+    "span": {
+        "aggregation_types": {AggregationType.COUNT},
+        "dimensions": {"span_type"},
+        "filter_fields": None,
+    },
+}
+
 # TODO: add spans and assessments metrics configs
 VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
     MetricViewType.TRACES: TRACES_METRICS_CONFIGS,
+    MetricViewType.SPANS: SPANS_METRICS_CONFIGS,
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
@@ -157,21 +167,136 @@ def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, co
             )
 
 
-def _get_aggregation_column_for_traces(metric_name: str) -> Column:
+def _get_aggregation_column(view_type: MetricViewType, metric_name: str) -> Column:
     """
-    Get the SQL column for the given metric name.
+    Get the SQL column for the given metric name and view type.
+
+    Args:
+        metric_name: Name of the metric to query
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
+
+    Returns:
+        SQLAlchemy column to aggregate
     """
-    match metric_name:
-        case "trace":
-            return SqlTraceInfo.request_id
-        case "latency":
-            return SqlTraceInfo.execution_time_ms
-        case metric_name if metric_name in TokenUsageKey.all_keys():
-            return SqlTraceMetrics.value
-        case _:
-            raise MlflowException.invalid_parameter_value(
-                f"Unsupported metric name: {metric_name}",
-            )
+    match view_type:
+        case MetricViewType.TRACES:
+            match metric_name:
+                case "trace":
+                    return SqlTraceInfo.request_id
+                case "latency":
+                    return SqlTraceInfo.execution_time_ms
+                case metric_name if metric_name in TokenUsageKey.all_keys():
+                    return SqlTraceMetrics.value
+        case MetricViewType.SPANS:
+            match metric_name:
+                case "span":
+                    return SqlSpan.span_id
+
+    raise MlflowException.invalid_parameter_value(
+        f"Unsupported metric name: {metric_name} for view type {view_type}",
+    )
+
+
+def _get_timestamp_column(view_type: MetricViewType) -> Column:
+    """
+    Get the timestamp column for the given view type.
+
+    Args:
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
+
+    Returns:
+        SQLAlchemy column representing timestamp in milliseconds
+    """
+    match view_type:
+        case MetricViewType.TRACES:
+            return SqlTraceInfo.timestamp_ms
+        case MetricViewType.SPANS:
+            # Convert nanoseconds to milliseconds
+            return SqlSpan.start_time_unix_nano / 1000000
+    raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
+
+
+def _apply_dimension_to_query(
+    query: Query, dimension: str, view_type: MetricViewType
+) -> tuple[Query, Column]:
+    """
+    Apply dimension-specific logic to query and return the dimension column.
+
+    Args:
+        query: SQLAlchemy query to modify
+        dimension: Dimension name to apply
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
+
+    Returns:
+        Tuple of (modified query, labeled dimension column)
+    """
+    match view_type:
+        case MetricViewType.TRACES:
+            match dimension:
+                case "name":
+                    # Join with SqlTraceTag to get trace name
+                    query = query.join(
+                        SqlTraceTag,
+                        and_(
+                            SqlTraceInfo.request_id == SqlTraceTag.request_id,
+                            SqlTraceTag.key == TraceTagKey.TRACE_NAME,
+                        ),
+                    )
+                    return query, SqlTraceTag.value.label("name")
+                case "status":
+                    return query, SqlTraceInfo.status.label("status")
+        case MetricViewType.SPANS:
+            match dimension:
+                case "span_type":
+                    return query, SqlSpan.type.label("span_type")
+    raise MlflowException.invalid_parameter_value(
+        f"Unsupported dimension `{dimension}` with view type {view_type}"
+    )
+
+
+def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
+    """
+    Apply initial join required for the view type.
+
+    Args:
+        query: SQLAlchemy query (starting from SqlTraceInfo)
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
+
+    Returns:
+        Modified query with view-specific joins
+    """
+    match view_type:
+        case MetricViewType.SPANS:
+            query = query.join(SqlSpan, SqlSpan.trace_id == SqlTraceInfo.request_id)
+    return query
+
+
+def _apply_metric_specific_joins(
+    query: Query, metric_name: str, view_type: MetricViewType
+) -> Query:
+    """
+    Apply metric-specific joins to the query.
+
+    Args:
+        query: SQLAlchemy query to modify
+        metric_name: Name of the metric being queried
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
+
+    Returns:
+        Modified query with necessary joins
+    """
+    match view_type:
+        case MetricViewType.TRACES:
+            # Join with SqlTraceMetrics for token usage metrics
+            if metric_name in TokenUsageKey.all_keys():
+                query = query.join(
+                    SqlTraceMetrics,
+                    and_(
+                        SqlTraceInfo.request_id == SqlTraceMetrics.request_id,
+                        SqlTraceMetrics.key == metric_name,
+                    ),
+                )
+    return query
 
 
 def _parse_trace_metrics_filter(filter_string: str) -> list[dict[str, Any]]:
@@ -267,7 +392,8 @@ def apply_global_filters(query: Query, filters: list[str] | None) -> Query:
     return query
 
 
-def query_metrics_for_traces_view(
+def query_metrics(
+    view_type: MetricViewType,
     db_type: str,
     query: Query,
     metric_name: str,
@@ -277,9 +403,10 @@ def query_metrics_for_traces_view(
     time_interval_seconds: int | None,
     max_results: int,
 ) -> list[MetricDataPoint]:
-    """Query metrics for traces view.
+    """Unified query metrics function for all view types.
 
     Args:
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
         db_type: Database type (e.g., "postgresql", "mssql", "mysql")
         query: Base SQLAlchemy query
         metric_name: Name of the metric to query
@@ -292,6 +419,9 @@ def query_metrics_for_traces_view(
     Returns:
         List of MetricDataPoint objects
     """
+    # Apply view-specific initial join
+    query = _apply_view_initial_join(query, view_type)
+
     # Apply global filters (status, metadata, tags) - all AND-ed together
     query = apply_global_filters(query, filters)
 
@@ -299,42 +429,21 @@ def query_metrics_for_traces_view(
     dimension_columns = []
 
     if time_interval_seconds:
+        timestamp_column = _get_timestamp_column(view_type)
         time_bucket_expr = get_time_bucket_expression(
-            SqlTraceInfo.timestamp_ms, time_interval_seconds, db_type
+            timestamp_column, time_interval_seconds, db_type
         )
         dimension_columns.append(time_bucket_expr.label(TIME_BUCKET_LABEL))
 
     for dimension in dimensions or []:
-        match dimension:
-            case "name":
-                # Join with SqlTraceTag to get trace name
-                query = query.join(
-                    SqlTraceTag,
-                    and_(
-                        SqlTraceInfo.request_id == SqlTraceTag.request_id,
-                        SqlTraceTag.key == TraceTagKey.TRACE_NAME,
-                    ),
-                )
-                dimension_columns.append(SqlTraceTag.value.label("name"))
-            case "status":
-                dimension_columns.append(SqlTraceInfo.status.label("status"))
-            case _:
-                raise NotImplementedError(
-                    f"dimension {dimension} is not supported for view type {MetricViewType.TRACES}"
-                )
+        query, dimension_column = _apply_dimension_to_query(query, dimension, view_type)
+        dimension_columns.append(dimension_column)
 
-    # Join with SqlTraceMetrics for token usage metrics
-    if metric_name in TokenUsageKey.all_keys():
-        query = query.join(
-            SqlTraceMetrics,
-            and_(
-                SqlTraceInfo.request_id == SqlTraceMetrics.request_id,
-                SqlTraceMetrics.key == metric_name,
-            ),
-        )
+    # Apply metric-specific joins
+    query = _apply_metric_specific_joins(query, metric_name, view_type)
 
     # Build aggregation expressions
-    agg_column = _get_aggregation_column_for_traces(metric_name)
+    agg_column = _get_aggregation_column(view_type, metric_name)
     aggregation_results = {
         str(aggregation): _get_aggregation_expression(aggregation, db_type, agg_column)
         for aggregation in aggregations

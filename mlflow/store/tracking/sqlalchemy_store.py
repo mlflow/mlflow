@@ -117,7 +117,7 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStoreMixin
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
-    query_metrics_for_traces_view,
+    query_metrics,
     validate_query_trace_metrics_params,
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -2869,19 +2869,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if end_time_ms is not None:
                 query = query.filter(SqlTraceInfo.timestamp_ms <= end_time_ms)
 
-            if view_type == MetricViewType.TRACES:
-                data_points = query_metrics_for_traces_view(
-                    db_type=self.db_type,
-                    query=query,
-                    metric_name=metric_name,
-                    aggregations=aggregations,
-                    dimensions=dimensions,
-                    filters=filters,
-                    time_interval_seconds=time_interval_seconds,
-                    max_results=max_results,
-                )
-            else:
-                raise NotImplementedError(f"view_type {view_type} is not supported")
+            data_points = query_metrics(
+                view_type=view_type,
+                db_type=self.db_type,
+                query=query,
+                metric_name=metric_name,
+                aggregations=aggregations,
+                dimensions=dimensions,
+                filters=filters,
+                time_interval_seconds=time_interval_seconds,
+                max_results=max_results,
+            )
 
             # TODO: Implement pagination with page_token
             return PagedList(data_points, None)
