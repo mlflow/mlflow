@@ -6,7 +6,7 @@ repos:
       - id: trailing-whitespace
         files: \.(mdx|ya?ml|txt)$
       - id: end-of-file-fixer
-        files: \.(proto|txt|sh|rst)$
+        files: \.(txt|sh|rst)$
         exclude: ^examples/|^mlflow/protos/opentelemetry/
       - id: check-vcs-permalinks
         files: \.py$
@@ -98,6 +98,31 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: check-mlflow-ui
+        name: check-mlflow-ui
+        entry: |
+          bash -c '
+            if bin/rg "mlflow ui" --line-number --with-filename "$@"; then
+              echo
+              echo "Error - Use \"mlflow server\" instead of \"mlflow ui\""
+              exit 1
+            fi
+          ' --
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        types: [text]
+        exclude: |
+          (?x)^(
+            \.pre-commit-config\.yaml|
+            CHANGELOG\.md|
+            docs/api_reference/source/R-api\.rst|
+            examples/llms/RAG/.*\.(json|csv)|
+            mlflow/cli/__init__\.py|
+            mlflow/R/mlflow/.*|
+            tests/test_cli\.py
+          )$
+
       - id: pyproject
         name: pyproject
         entry: uv run --only-group lint dev/pyproject.py
@@ -122,6 +147,15 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
+
+      - id: buf
+        name: buf
+        entry: bin/buf format -d -w --exit-code --exclude-path mlflow/protos/opentelemetry mlflow/protos
+        files: '\.proto$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
 
       - id: typos
         name: typos
@@ -165,3 +199,10 @@ repos:
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false
+
+      - id: forbid-gif
+        name: forbid-gif
+        language: fail
+        entry: "Please use MP4 instead of GIF for docs animations"
+        files: ^docs/.*\.gif$
+        stages: [pre-commit]

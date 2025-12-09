@@ -14,9 +14,13 @@ on:
     # Run daily at 16:00 UTC (3 hours after cross-version-tests.yml at 13:00)
     - cron: "0 16 * * *"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   xtest-viz:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
       contents: read

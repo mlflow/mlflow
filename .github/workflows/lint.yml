@@ -37,6 +37,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      pull-requests: read
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: ${{ matrix.os == 'ubuntu-latest' && 'lint' || 'lint-macos' }}
     steps:
@@ -78,3 +79,16 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           uv run --no-project dev/check_function_signatures.py
+
+      - name: Check whitespace-only changes
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uv run --no-project dev/check_whitespace_only.py \
+            --repo ${{ github.repository }} \
+            --pr ${{ github.event.pull_request.number }}
+
+      - name: Check unused media
+        run: |
+          dev/find-unused-media.sh

@@ -9,6 +9,18 @@ sidebar_position: 1
 
 MLflow is fully open-source. Thousands of users and organizations run their own MLflow instances to meet their specific needs. Being open-source and trusted by the popular cloud providers, MLflow is the best choice for teams/organizations that worry about vendor lock-in.
 
+:::warning Default Storage Backend Change
+
+As of MLflow 3.7.0, the default tracking backend has changed from file-based storage (`./mlruns`) to SQLite database (`sqlite:///mlflow.db`) for better performance and reliability.
+
+**Existing users:** If you have existing data in `./mlruns`, MLflow will automatically detect and continue using it. No action is required.
+
+**New users:** New MLflow servers will use SQLite by default. To use file-based storage instead, set `MLFLOW_TRACKING_URI=./mlruns` or specify `--backend-store-uri ./mlruns` when starting the server.
+
+For more details and migration guidance, see [GitHub Issue #18534](https://github.com/mlflow/mlflow/issues/18534).
+
+:::
+
 ## The Quickest Path: Run `mlflow` Command
 
 The easiest way to start MLflow server is to run the `mlflow` CLI command in your terminal. This is suitable for personal use or small teams.
@@ -22,10 +34,10 @@ pip install mlflow
 Then, start the server with:
 
 ```bash
-mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
+mlflow server --port 5000
 ```
 
-This will start the server and UI at `http://localhost:5000`. You can connect the client to the server by setting the tracking URI:
+This will start the server and UI at `http://localhost:5000` using SQLite as the backend store (the default). You can connect the client to the server by setting the tracking URI:
 
 ```python
 import mlflow
@@ -38,14 +50,14 @@ mlflow.set_tracking_uri("http://localhost:5000")
 
 Now, you are ready to start your experiment!
 
-- [Tracing QuickStart](/genai/tracing/quickstart/python-openai/)
+- [Tracing QuickStart](/genai/tracing/quickstart/)
 - [LLM Evaluation Quickstart](/genai/eval-monitor/quickstart/)
 - [Prompt Management Quickstart](/genai/prompt-registry/#getting-started)
 - [Model Training Quickstart](/ml/tracking/quickstart/)
 
 :::tip
 
-The `--backend-store-uri` option is not mandatory, but highly recommended for better performance and reliability. Check out <ins>[Backend Store](./architecture/backend-store)</ins>.
+For production deployments or custom backend configurations, see <ins>[Backend Store](./architecture/backend-store)</ins> documentation.
 
 :::
 
@@ -105,3 +117,30 @@ Need highly secure MLflow server? Check out <ins>[Databricks Managed MLflow](htt
 ## FAQs
 
 See [Troubleshooting & FAQs](./troubleshooting) for more information.
+
+:::info[ACCESS DENIED?]
+
+When using the remote tracking server, you may hit an access denied error when accessing the MLflow UI
+from a browser.
+
+> Invalid Host header - possible DNS rebinding attack detected
+
+This error typically indicates that the tracking server's network security settings need to be configured.
+The most common causes are:
+
+- **Host validation**: The `--allowed-hosts` flag restricts which Host headers are accepted
+- **CORS restrictions**: The `--cors-allowed-origins` flag controls which origins can make API requests
+
+To resolve this, configure your tracking server with the appropriate flags. For example:
+
+```bash
+mlflow server --allowed-hosts "mlflow.company.com,localhost:*" \
+              --cors-allowed-origins "https://app.company.com"
+```
+
+**Note**: These security options are only available with the default FastAPI-based server (uvicorn). They are
+not supported when using Flask directly or with `--gunicorn-opts` or `--waitress-opts`.
+
+Refer to the <ins>[Network Security Guide](/self-hosting/security/network)</ins> for detailed configuration options.
+
+:::

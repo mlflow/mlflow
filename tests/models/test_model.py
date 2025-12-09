@@ -586,22 +586,17 @@ def test_pyfunc_set_model():
 
 
 def test_langchain_set_model():
-    from langchain.chains import LLMChain
+    from langchain_core.runnables import RunnableLambda
 
-    def create_openai_llmchain():
-        from langchain.llms import OpenAI
-        from langchain.prompts import PromptTemplate
+    def create_runnable():
+        def my_runnable(input):
+            return f"Input was: {input}"
 
-        llm = OpenAI(temperature=0.9, openai_api_key="api_key")
-        prompt = PromptTemplate(
-            input_variables=["product"],
-            template="What is a good name for a company that makes {product}?",
-        )
-        model = LLMChain(llm=llm, prompt=prompt)
-        set_model(model)
+        runnable = RunnableLambda(my_runnable)
+        set_model(runnable)
 
-    create_openai_llmchain()
-    assert isinstance(mlflow.models.model.__mlflow_model__, LLMChain)
+    create_runnable()
+    assert isinstance(mlflow.models.model.__mlflow_model__, RunnableLambda)
 
 
 def test_error_set_model(sklearn_knn_model):
@@ -678,10 +673,10 @@ def test_save_model_with_prompts():
     assert model.prompts == [prompt_1.uri, prompt_2.uri]
 
     # Check that prompts were linked to the run via the linkedPrompts tag
-    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+    from mlflow.tracing.constant import TraceTagKey
 
     run = mlflow.MlflowClient().get_run(model_info.run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -716,7 +711,6 @@ def test_logged_model_status():
 
 
 def test_model_log_links_prompts_to_logged_model():
-    """Test that Model.log links prompts to the run when prompts are provided."""
     client = mlflow.MlflowClient()
 
     # Create actual prompts in the registry

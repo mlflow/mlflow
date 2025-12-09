@@ -5,7 +5,7 @@ import litellm
 import pytest
 from litellm import RetryPolicy
 from litellm.types.utils import ModelResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from mlflow.entities.assessment import AssessmentSourceType
 from mlflow.entities.trace import Trace
@@ -18,7 +18,10 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 )
 from mlflow.genai.judges.adapters.litellm_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.judges.utils.invocation_utils import invoke_judge_model
+from mlflow.genai.judges.utils.invocation_utils import (
+    get_chat_completions_with_structured_output,
+    invoke_judge_model,
+)
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.types.llm import ChatMessage
 
@@ -145,7 +148,7 @@ def test_invoke_judge_model_successful_with_native_provider():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ),
         mock.patch(
             "mlflow.metrics.genai.model_utils.score_model_on_payload", return_value=mock_response
@@ -173,9 +176,9 @@ def test_invoke_judge_model_successful_with_native_provider():
 
 
 def test_invoke_judge_model_with_unsupported_provider():
-    with pytest.raises(MlflowException, match=r"LiteLLM is required for using 'unsupported' LLM"):
+    with pytest.raises(MlflowException, match=r"No suitable adapter found"):
         with mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ):
             invoke_judge_model(
                 model_uri="unsupported:/model", prompt="Test prompt", assessment_name="test"
@@ -185,7 +188,7 @@ def test_invoke_judge_model_with_unsupported_provider():
 def test_invoke_judge_model_with_trace_requires_litellm(mock_trace):
     with pytest.raises(MlflowException, match=r"LiteLLM is required for using traces with judges"):
         with mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ):
             invoke_judge_model(
                 model_uri="openai:/gpt-4",
@@ -421,10 +424,6 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=False,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "yes", "rationale": "Good response"}',
@@ -433,6 +432,9 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
                 num_completion_tokens=5,
             ),
         ) as mock_invoke_db,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry"
+        ) as mock_success_telemetry,
     ):
         kwargs = {
             "model_uri": model_uri,
@@ -450,7 +452,7 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
             num_retries=10,
             response_format=None,
         )
-        mock_in_db.assert_called_once()
+        mock_success_telemetry.assert_called_once()
 
     assert feedback.name == "test_assessment"
     assert feedback.value == CategoricalRating.YES
@@ -472,10 +474,6 @@ def test_invoke_judge_model_databricks_success_in_databricks(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=True,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "no", "rationale": "Bad response"}',
@@ -485,7 +483,7 @@ def test_invoke_judge_model_databricks_success_in_databricks(
             ),
         ) as mock_invoke_db,
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_success_databricks_telemetry"
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry"
         ) as mock_success_telemetry,
     ):
         feedback = invoke_judge_model(
@@ -508,7 +506,6 @@ def test_invoke_judge_model_databricks_success_in_databricks(
             num_retries=10,
             response_format=None,
         )
-        mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.NO
     assert feedback.rationale == "Bad response"
@@ -556,15 +553,11 @@ def test_invoke_judge_model_databricks_failure_in_databricks(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=True,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             side_effect=MlflowException("Model invocation failed"),
         ) as mock_invoke_db,
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_failure_databricks_telemetry"
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_failure_databricks_telemetry"
         ) as mock_failure_telemetry,
     ):
         with pytest.raises(MlflowException, match="Model invocation failed"):
@@ -587,7 +580,6 @@ def test_invoke_judge_model_databricks_failure_in_databricks(
             num_retries=10,
             response_format=None,
         )
-        mock_in_db.assert_called_once()
 
         # Verify error message contains the traceback
         call_args = mock_failure_telemetry.call_args[1]
@@ -606,10 +598,6 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=True,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "yes", "rationale": "Good"}',
@@ -619,7 +607,7 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
             ),
         ) as mock_invoke_db,
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_success_databricks_telemetry",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry",
             side_effect=Exception("Telemetry failed"),
         ) as mock_success_telemetry,
     ):
@@ -643,7 +631,6 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
             num_retries=10,
             response_format=None,
         )
-        mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good"
@@ -878,3 +865,106 @@ def test_invoke_judge_model_caches_capabilities_globally():
 
         assert feedback2.name == "test2"
         assert feedback2.trace_id is None
+
+
+def test_get_chat_completions_with_structured_output():
+    class FieldExtraction(BaseModel):
+        inputs: str = Field(description="The user's original request")
+        outputs: str = Field(description="The system's final response")
+
+    mock_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "content": '{"inputs": "What is MLflow?", "outputs": "MLflow is a platform"}',
+                    "tool_calls": None,
+                }
+            }
+        ]
+    )
+    mock_response._hidden_params = {"response_cost": 0.05}
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_completion:
+        result = get_chat_completions_with_structured_output(
+            model_uri="openai:/gpt-4",
+            messages=[
+                ChatMessage(role="system", content="Extract fields"),
+                ChatMessage(role="user", content="Find inputs and outputs"),
+            ],
+            output_schema=FieldExtraction,
+        )
+
+    assert isinstance(result, FieldExtraction)
+    assert result.inputs == "What is MLflow?"
+    assert result.outputs == "MLflow is a platform"
+
+    call_kwargs = mock_completion.call_args.kwargs
+    assert "response_format" in call_kwargs
+    assert call_kwargs["response_format"] == FieldExtraction
+
+
+def test_get_chat_completions_with_structured_output_with_trace(mock_trace):
+    class FieldExtraction(BaseModel):
+        inputs: str = Field(description="The user's original request")
+        outputs: str = Field(description="The system's final response")
+
+    tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "function": {
+                                "name": "get_trace_info",
+                                "arguments": "{}",
+                            },
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+    tool_call_response._hidden_params = {"response_cost": 0.05}
+
+    final_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "content": '{"inputs": "question from trace", "outputs": "answer from trace"}',
+                    "tool_calls": None,
+                }
+            }
+        ]
+    )
+    final_response._hidden_params = {"response_cost": 0.10}
+
+    with (
+        mock.patch(
+            "litellm.completion", side_effect=[tool_call_response, final_response]
+        ) as mock_completion,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke.return_value = {"trace_id": "test-trace", "state": "OK"}
+
+        result = get_chat_completions_with_structured_output(
+            model_uri="openai:/gpt-4",
+            messages=[
+                ChatMessage(role="system", content="Extract fields"),
+                ChatMessage(role="user", content="Find inputs and outputs"),
+            ],
+            output_schema=FieldExtraction,
+            trace=mock_trace,
+        )
+
+    assert isinstance(result, FieldExtraction)
+    assert result.inputs == "question from trace"
+    assert result.outputs == "answer from trace"
+
+    assert mock_completion.call_count == 2
+    mock_invoke.assert_called_once()

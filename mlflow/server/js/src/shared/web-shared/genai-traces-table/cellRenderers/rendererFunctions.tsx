@@ -1,15 +1,17 @@
 import type { CellContext } from '@tanstack/react-table';
 import { first, isNil } from 'lodash';
+import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
 import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
-import type { IntlShape } from '@databricks/i18n';
+import { type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
 
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
 import { RunName } from './RunName';
+import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { SourceCellRenderer } from './Source/SourceRenderer';
 import { StackedComponents } from './StackedComponents';
 import { StatusCellRenderer } from './StatusRenderer';
@@ -52,8 +54,39 @@ import {
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
 } from '../utils/TraceUtils';
-import MlflowUtils from '../utils/MlflowUtils';
-import { Link } from '../utils/RoutingUtils';
+
+type timestampType = number | string | Date | null;
+
+/**
+ * Formats a timestamp into a date and time string.
+ * @param timestamp
+ * @param intl
+ * @param options
+ * @returns {string} formatted date and time string
+ * @example
+ * formatDateTime(1626825600000, intl);
+ * // => 'Jul 21, 2021, 12:00 AM'
+ * formatDateTime(1626825600000, intl, { hour: 'numeric', minute: '2-digit' });
+ * // => 'Jul 21, 2021, 5:30 AM'
+ * formatDateTime(1626825600000, intl, { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+ * // => 'Jul 21, 2021, 05:30 AM PDT'
+ * formatDateTime(1626825600000, intl, { month: 'long', minute: '2-digit'});
+ * // => 'July 21, 2021, 05:30 AM'
+ **/
+export function formatDateTime(timestamp: timestampType, intl: IntlShape, options?: FormatDateOptions): string {
+  if (!timestamp) {
+    return '';
+  }
+
+  return intl.formatDate(timestamp, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    ...options,
+  });
+}
 
 export const assessmentCellRenderer = (
   theme: ThemeType,
@@ -353,6 +386,7 @@ export const traceInfoCellRenderer = (
   colId: string,
   comparisonEntry: EvalTraceComparisonEntry,
   onChangeEvaluationId: (evalId: string) => void,
+  intl: IntlShape,
   theme: ThemeType,
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
 ) => {
@@ -372,7 +406,15 @@ export const traceInfoCellRenderer = (
               content={date.toLocaleString(navigator.language, { timeZoneName: 'short' })}
             >
               <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {timeSinceStr(date)}
+                {formatDateTime(date, intl, {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false,
+                })}
               </span>
             </Tooltip>
           ) : (
@@ -651,11 +693,13 @@ export const traceInfoCellRenderer = (
   } else if (colId === SESSION_COLUMN_ID) {
     const value = currentTraceInfo?.trace_metadata?.['mlflow.trace.session'];
     const otherValue = otherTraceInfo?.trace_metadata?.['mlflow.trace.session'];
+    const currentTraceId = currentTraceInfo?.trace_id;
+    const otherTraceId = otherTraceInfo?.trace_id;
     return (
       <StackedComponents
         first={
           value ? (
-            <Link to={MlflowUtils.getExperimentChatSessionPageRoute(experimentId, value)}>
+            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId} traceId={currentTraceId}>
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -672,7 +716,7 @@ export const traceInfoCellRenderer = (
                   {value}
                 </span>
               </Tag>
-            </Link>
+            </SessionIdLinkWrapper>
           ) : (
             <NullCell isComparing={isComparing} />
           )
@@ -680,7 +724,7 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <Link to={MlflowUtils.getExperimentChatSessionPageRoute(experimentId, otherValue)}>
+            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId} traceId={otherTraceId}>
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -697,7 +741,7 @@ export const traceInfoCellRenderer = (
                   {otherValue}
                 </span>
               </Tag>
-            </Link>
+            </SessionIdLinkWrapper>
           ) : (
             <NullCell isComparing={isComparing} />
           ))

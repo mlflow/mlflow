@@ -1,4 +1,5 @@
 /* eslint-disable jest/no-standalone-expect */
+import { jest, describe, beforeAll, it, expect, test } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { setupServer } from '../../../common/utils/setup-msw';
@@ -75,14 +76,14 @@ describe('PromptsDetailsPage', () => {
 
     await userEvent.click(screen.getByRole('radio', { name: 'Preview' }));
 
-    await userEvent.click(screen.getByRole('cell', { name: 'Version 2' }));
+    await userEvent.click(screen.getByText('Version 2'));
     expect(screen.getByText('content for prompt version 2')).toBeInTheDocument();
-    expect(screen.getByRole('status', { name: 'alias2' })).toBeInTheDocument();
+    expect(screen.getAllByRole('status', { name: 'alias2' })).toHaveLength(2);
     expect(screen.getByText('some commit message for version 2')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('cell', { name: 'Version 1' }));
+    await userEvent.click(screen.getByText('Version 1'));
     expect(screen.getByText('content of prompt version 1')).toBeInTheDocument();
-    expect(screen.getByRole('status', { name: 'alias1' })).toBeInTheDocument();
+    expect(screen.getAllByRole('status', { name: 'alias1' })).toHaveLength(2);
     expect(screen.getByText('some commit message for version 1')).toBeInTheDocument();
   });
 
@@ -216,7 +217,7 @@ describe('PromptsDetailsPage', () => {
       name: 'prompt1',
       description: 'commit message',
     });
-    expect(payload.tags).toEqual(
+    expect((payload as any).tags).toEqual(
       expect.arrayContaining([
         { key: 'mlflow.prompt.is_prompt', value: 'true' },
         { key: 'mlflow.prompt.text', value: JSON.stringify(expectedMessages) },
@@ -231,17 +232,14 @@ describe('PromptsDetailsPage', () => {
       expect(screen.getByRole('heading', { name: 'prompt1' })).toBeInTheDocument();
     });
 
-    expect(screen.getByRole('cell', { name: 'Version 2' })).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: 'Version 1' })).toBeInTheDocument();
+    expect(screen.getByText('Version 2')).toBeInTheDocument();
+    expect(screen.getByText('Version 1')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('radio', { name: 'Preview' }));
     expect(screen.queryByRole('columnheader', { name: 'Registered at' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('radio', { name: 'Compare' }));
     expect(screen.queryByRole('columnheader', { name: 'Registered at' })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('radio', { name: 'List' }));
-    expect(screen.getByRole('columnheader', { name: 'Registered at' })).toBeInTheDocument();
   });
 
   it('should display 404 UI component upon showstopper failure', async () => {

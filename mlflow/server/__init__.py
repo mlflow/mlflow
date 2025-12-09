@@ -83,13 +83,13 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
 
 
 # Provide a health check endpoint to ensure the application is responsive
-@app.route("/health")
+@app.route(_add_static_prefix("/health"))
 def health():
     return "OK", 200
 
 
 # Provide an endpoint to query the version of mlflow running on the server
-@app.route("/version")
+@app.route(_add_static_prefix("/version"))
 def version():
     return VERSION, 200
 
@@ -339,8 +339,7 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
-    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
-    if secret_key:
+    if secret_key := MLFLOW_FLASK_SERVER_SECRET_KEY.get():
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
     # Determine which server we're using (only one should be true)

@@ -13,7 +13,6 @@ from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import get_tracking_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_databricks_uri
 
@@ -31,9 +30,16 @@ class ScorerKind(Enum):
     CLASS = "class"
     BUILTIN = "builtin"
     DECORATOR = "decorator"
+    INSTRUCTIONS = "instructions"
+    GUIDELINES = "guidelines"
 
 
-_ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
+_ALLOWED_SCORERS_FOR_REGISTRATION = [
+    ScorerKind.BUILTIN,
+    ScorerKind.DECORATOR,
+    ScorerKind.INSTRUCTIONS,
+    ScorerKind.GUIDELINES,
+]
 
 
 class ScorerStatus(Enum):
@@ -69,6 +75,7 @@ class SerializedScorer:
     name: str
     aggregations: list[str] | None = None
     description: str | None = None
+    is_session_level_scorer: bool = False
 
     # Version metadata
     mlflow_version: str = mlflow.__version__
@@ -109,7 +116,6 @@ class SerializedScorer:
             )
 
 
-@experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
@@ -120,19 +126,25 @@ class Scorer(BaseModel):
     _registered_backend: str | None = PrivateAttr(default=None)
 
     @property
-    @experimental(version="3.2.0")
+    def is_session_level_scorer(self) -> bool:
+        """Get whether this scorer is a session-level scorer.
+
+        Defaults to False. Child classes can override this property to return True
+        or compute the value dynamically based on their configuration.
+        """
+        return False
+
+    @property
     def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
     @property
-    @experimental(version="3.2.0")
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
 
     @property
-    @experimental(version="3.3.0")
     def status(self) -> ScorerStatus:
         """Get the status of this scorer, using only the local state."""
 
@@ -179,6 +191,7 @@ class Scorer(BaseModel):
             name=self.name,
             description=self.description,
             aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             call_source=source_info.get("call_source"),
@@ -376,7 +389,7 @@ class Scorer(BaseModel):
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
         return scorer_instance
 
-    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
+    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None, session=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
 
         merged = {
@@ -384,6 +397,7 @@ class Scorer(BaseModel):
             "outputs": outputs,
             "expectations": expectations,
             "trace": trace,
+            "session": session,
         }
         # Filter to only the parameters the function actually expects
         sig = inspect.signature(self.__call__)
@@ -436,6 +450,7 @@ class Scorer(BaseModel):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
+        session: list[Trace] | None = None,
     ) -> int | float | bool | str | Feedback | list[Feedback]:
         """
         Implement the custom scorer's logic here.
@@ -491,6 +506,13 @@ class Scorer(BaseModel):
               - A trace object corresponding to the prediction for the row.
               - Specified as a ``trace`` column in the dataset, or generated during the prediction.
 
+            * - ``session``
+              - A list of trace objects belonging to the same conversation session.
+              - Specify this parameter only for session_level scorers
+                (scorers with ``is_session_level_scorer = True``).
+                * Only traces with the same ``mlflow.trace.session`` metadata value can be passed in
+                  this parameter, otherwise an error will be raised.
+
         Example:
 
             .. code-block:: python
@@ -529,7 +551,6 @@ class Scorer(BaseModel):
     def kind(self) -> ScorerKind:
         return ScorerKind.CLASS
 
-    @experimental(version="3.2.0")
     def register(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Register this scorer with the MLflow server.
@@ -595,7 +616,6 @@ class Scorer(BaseModel):
             new_scorer._registered_backend = "tracking"
         return new_scorer
 
-    @experimental(version="3.2.0")
     def start(
         self,
         *,
@@ -668,7 +688,6 @@ class Scorer(BaseModel):
             experiment_id=experiment_id,
         )
 
-    @experimental(version="3.2.0")
     def update(
         self,
         *,
@@ -742,7 +761,6 @@ class Scorer(BaseModel):
             experiment_id=experiment_id,
         )
 
-    @experimental(version="3.2.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
@@ -853,7 +871,6 @@ class Scorer(BaseModel):
             )
 
 
-@experimental(version="3.0.0")
 def scorer(
     func=None,
     *,

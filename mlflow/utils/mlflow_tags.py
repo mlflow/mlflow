@@ -69,6 +69,11 @@ MLFLOW_DATABRICKS_GIT_REPO_STATUS = "mlflow.databricks.gitRepoStatus"
 # Databricks model serving endpoint information
 MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME = "mlflow.databricks.modelServingEndpointName"
 
+# For Serverless GPU Compute (SGC) run resumption
+# Experiment tag prefix that maps SGC job run IDs to MLflow run IDs for automatic resumption
+# Format: mlflow.databricks.sgc.resumeRun.jobRunId.{job_run_id} -> {mlflow_run_id}
+MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX = "mlflow.databricks.sgc.resumeRun.jobRunId"
+
 # For MLflow Dataset tracking
 MLFLOW_DATASET_CONTEXT = "mlflow.data.context"
 
@@ -81,6 +86,9 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
+
+# For prompt model configuration
+MLFLOW_PROMPT_MODEL_CONFIG = "mlflow.prompt.modelConfig"
 
 
 # A set of tags that cannot be updated by the user

@@ -292,7 +292,6 @@ def get_dataset(
 
             # Access dataset properties
             print(f"Dataset name: {dataset.name}")
-            print(f"Number of records: {len(dataset.records)}")
             print(f"Tags: {dataset.tags}")
             print(f"Created by: {dataset.created_by}")
 
@@ -462,7 +461,6 @@ def search_datasets(
             # Iterate through results (pagination handled automatically)
             for dataset in prod_datasets:
                 print(f"{dataset.name} (ID: {dataset.dataset_id})")
-                print(f"  Records: {len(dataset.records)}")
                 print(f"  Tags: {dataset.tags}")
 
     Note:

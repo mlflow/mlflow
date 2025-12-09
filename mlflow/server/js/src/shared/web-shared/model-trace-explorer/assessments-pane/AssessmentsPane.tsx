@@ -1,15 +1,25 @@
-import { isNil, partition } from 'lodash';
+import { isNil, partition, uniqBy } from 'lodash';
 import { useMemo } from 'react';
 
-import { Button, CloseIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { AssessmentCreateButton } from './AssessmentCreateButton';
 import { ASSESSMENT_PANE_MIN_WIDTH } from './AssessmentsPane.utils';
 import { ExpectationItem } from './ExpectationItem';
 import { FeedbackGroup } from './FeedbackGroup';
+import { shouldUseTracesV4API } from '../FeatureUtils';
 import type { Assessment, FeedbackAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -53,11 +63,24 @@ export const AssessmentsPane = ({
   traceId: string;
   activeSpanId?: string;
 }) => {
+  const reconstructAssessments = useTraceCachedActions((state) => state.reconstructAssessments);
+  const cachedActions = useTraceCachedActions((state) => state.assessmentActions[traceId]);
+
+  // Combine the initial assessments with the cached actions (additions and deletions)
+  const allAssessments = useMemo(() => {
+    // Caching actions is enabled only with Traces V4 feature
+    if (!shouldUseTracesV4API()) {
+      return assessments;
+    }
+    const reconstructed = reconstructAssessments(assessments, cachedActions);
+    return uniqBy(reconstructed, ({ assessment_id }) => assessment_id);
+  }, [assessments, reconstructAssessments, cachedActions]);
+
   const { theme } = useDesignSystemTheme();
-  const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+  const { setAssessmentsPaneExpanded, assessmentsPaneExpanded, isInComparisonView } = useModelTraceExplorerViewState();
   const [feedbacks, expectations] = useMemo(
-    () => partition(assessments, (assessment) => 'feedback' in assessment),
-    [assessments],
+    () => partition(allAssessments, (assessment) => 'feedback' in assessment),
+    [allAssessments],
   );
   const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
   const sortedExpectations = expectations.toSorted((left, right) =>
@@ -70,21 +93,23 @@ export const AssessmentsPane = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        padding: theme.spacing.sm,
-        paddingTop: theme.spacing.xs,
-        height: '100%',
-        borderLeft: `1px solid ${theme.colors.border}`,
-        overflowY: 'scroll',
+        ...(isInComparisonView
+          ? { padding: `${theme.spacing.sm} 0`, maxHeight: theme.spacing.lg * 10 }
+          : { padding: theme.spacing.sm, paddingTop: theme.spacing.xs, height: '100%' }),
+        ...(isInComparisonView ? {} : { borderLeft: `1px solid ${theme.colors.border}` }),
+        overflowY: 'auto',
         minWidth: ASSESSMENT_PANE_MIN_WIDTH,
         width: '100%',
         boxSizing: 'border-box',
       }}
     >
-      <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Typography.Text css={{ marginBottom: theme.spacing.sm }} bold>
-          <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
-        </Typography.Text>
-        {setAssessmentsPaneExpanded && (
+      <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        {!isInComparisonView && (
+          <Typography.Text bold>
+            <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
+          </Typography.Text>
+        )}
+        {!isInComparisonView && setAssessmentsPaneExpanded && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"
             content={

@@ -63,14 +63,27 @@ import {
   normalizeDspyChatOutput,
   normalizeVercelAIChatInput,
   normalizeVercelAIChatOutput,
+  isOtelGenAIChatMessage,
+  normalizeOtelGenAIChatMessage,
+  normalizePydanticAIChatInput,
+  normalizePydanticAIChatOutput,
+  normalizeVoltAgentChatInput,
+  normalizeVoltAgentChatOutput,
+  synthesizeVoltAgentChatMessages,
 } from './chat-utils';
-import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
+import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
 import { TOKEN_USAGE_METADATA_KEY } from './constants';
+import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
   // TODO: display error notification in OSS
+  return;
+};
+
+export const displaySuccessNotification = (successMessage: string) => {
+  // TODO: display success notification in OSS
   return;
 };
 
@@ -344,6 +357,7 @@ const getChatMessagesFromSpan = (
   inputs: any,
   outputs: any,
   messageFormat?: string,
+  children?: ModelTraceSpanNode[],
 ): ModelTraceChatMessage[] | undefined => {
   // if the `mlflow.chat.messages` attribute is provided
   // and in the correct format, return it as-is
@@ -357,6 +371,22 @@ const getChatMessagesFromSpan = (
   // before the `mlflow.chat.messages` attribute was introduced
   const messagesFromInputs = normalizeConversation(inputs, messageFormat) ?? [];
   const messagesFromOutputs = normalizeConversation(outputs, messageFormat) ?? [];
+
+  // PydanticAI's new_messages() returns complete conversation including user prompt
+  if (messageFormat === 'pydantic_ai' && messagesFromOutputs.length > 0) {
+    return messagesFromInputs.length > 0 ? messagesFromInputs.concat(messagesFromOutputs) : messagesFromOutputs;
+  }
+
+  // For VoltAgent format, synthesize messages from child spans (tool executions)
+  // This is necessary because VoltAgent stores tool calls as child TOOL spans
+  // rather than inline in the messages array
+  if (messageFormat === 'voltagent' && children && children.length > 0) {
+    const synthesizedMessages = synthesizeVoltAgentChatMessages(inputs, outputs, children);
+    if (synthesizedMessages && synthesizedMessages.length > 0) {
+      return synthesizedMessages;
+    }
+  }
+
   // when either input or output is not chat messages, we do not set the chat message fiels.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
     return undefined;
@@ -405,7 +435,7 @@ export const normalizeNewSpanData = (
   // data that powers the "chat" tab
   const messagesAttributeValue = tryDeserializeAttribute(span.attributes?.['mlflow.chat.messages']);
   const messageFormat = tryDeserializeAttribute(span.attributes?.['mlflow.message.format']);
-  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat);
+  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat, children);
   const chatTools = getChatToolsFromSpan(tryDeserializeAttribute(span.attributes?.['mlflow.chat.tools']), inputs);
 
   // remove other private mlflow attributes
@@ -461,9 +491,9 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
     return '';
   }
 
+  // v3 span ids are base64 encoded
   // only attempt decoding if the id length is less than 16 chars
   if (isV3Span && spanId.length < 16) {
-    // v3 span ids are base64 encoded
     try {
       return base64ToHex(spanId);
     } catch (e) {
@@ -482,6 +512,10 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
 };
 
 export function isV3ModelTraceInfo(info: ModelTrace['info']): info is ModelTraceInfoV3 {
+  if (!info) {
+    return false;
+  }
+
   return 'trace_location' in info;
 }
 
@@ -529,7 +563,10 @@ export function getModelTraceSize(trace: ModelTrace): number | null {
 
 export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | null {
   const traceId = getModelTraceId(trace);
-  const spans = trace.trace_data?.spans ?? trace.data.spans;
+  const rawSpans = trace.trace_data?.spans ?? trace.data.spans;
+
+  // Normalize span attributes to the common format (K/V list to map).
+  const spans = rawSpans.map(convertOtelAttributesToMap);
   const spanMap: { [span_id: string]: ModelTraceSpan } = {};
   const relationMap: { [span_id: string]: string[] } = {};
 
@@ -879,6 +916,12 @@ export const isRawModelTraceChatMessage = (message: any): message is RawModelTra
     }
   }
 
+  if (message.parts && isNil(message.content)) {
+    // This is OpenTelemetry GenAI semantic conventions. We parse it separately.
+    // https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-input-messages.json
+    return false;
+  }
+
   if (message.type === 'reasoning') {
     return true;
   }
@@ -912,7 +955,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
 };
 
 /**
- * Attempt to normalize a conversation, return null in case the format is unrecognized
+ * Attempt to normalize a conversation, return null in case the format is unrecognized.
+ * Defaults to checking OpenAI format if not provided, as it is a common case.
  *
  * Supported formats:
  *   1. Langchain chat inputs
@@ -936,6 +980,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  18. Bedrock outputs
  *  19. Vercel AI inputs
  *  20. Vercel AI outputs
+ *  21. PydanticAI inputs
+ *  22. PydanticAI outputs
  */
 export const normalizeConversation = (input: any, messageFormat?: string): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -961,7 +1007,8 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
           normalizeOpenAIChatInput(input) ??
           normalizeOpenAIChatResponse(input) ??
           normalizeOpenAIResponsesOutput(input) ??
-          normalizeOpenAIResponsesInput(input);
+          normalizeOpenAIResponsesInput(input) ??
+          normalizeOpenAIResponsesStreamingOutput(input);
         if (openAIMessages) return openAIMessages;
         break;
       case 'dspy':
@@ -992,12 +1039,25 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         const vercelAIMessages = normalizeVercelAIChatInput(input) ?? normalizeVercelAIChatOutput(input);
         if (vercelAIMessages) return vercelAIMessages;
         break;
+      case 'pydantic_ai':
+        const pydanticAIMessages = normalizePydanticAIChatInput(input) ?? normalizePydanticAIChatOutput(input);
+        if (pydanticAIMessages) return pydanticAIMessages;
+        break;
+      case 'voltagent':
+        const voltAgentMessages = normalizeVoltAgentChatInput(input) ?? normalizeVoltAgentChatOutput(input);
+        if (voltAgentMessages) return voltAgentMessages;
+        break;
       default:
         // Fallback to OpenAI chat format
         const chatMessages = normalizeOpenAIChatInput(input) ?? normalizeOpenAIChatResponse(input);
         if (chatMessages) return chatMessages;
         break;
     }
+
+    if (Array.isArray(input) && input.length > 0 && input.every(isOtelGenAIChatMessage)) {
+      return compact(input.map(normalizeOtelGenAIChatMessage));
+    }
+
     return null;
   } catch (e) {
     return null;

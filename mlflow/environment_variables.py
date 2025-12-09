@@ -203,6 +203,13 @@ MLFLOW_S3_IGNORE_TLS = _BooleanEnvironmentVariable("MLFLOW_S3_IGNORE_TLS", False
 #: (default: ``None``)
 MLFLOW_S3_UPLOAD_EXTRA_ARGS = _EnvironmentVariable("MLFLOW_S3_UPLOAD_EXTRA_ARGS", str, None)
 
+#: Specifies the expected AWS account ID that owns the S3 bucket for bucket ownership verification.
+#: When set, all S3 API calls will include the ExpectedBucketOwner parameter to prevent
+#: bucket takeover attacks. This helps protect against scenarios where a bucket is deleted
+#: and recreated by a different AWS account with the same name.
+#: (default: ``None``)
+MLFLOW_S3_EXPECTED_BUCKET_OWNER = _EnvironmentVariable("MLFLOW_S3_EXPECTED_BUCKET_OWNER", str, None)
+
 #: Specifies the location of a Kerberos ticket cache to use for HDFS artifact operations.
 #: (default: ``None``)
 MLFLOW_KERBEROS_TICKET_CACHE = _EnvironmentVariable("MLFLOW_KERBEROS_TICKET_CACHE", str, None)
@@ -637,6 +644,21 @@ MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZ
 #: (default: ``128``)
 MLFLOW_PROMPT_CACHE_MAX_SIZE = _EnvironmentVariable("MLFLOW_PROMPT_CACHE_MAX_SIZE", int, 128)
 
+#: Time-to-live in seconds for cached Alias-based prompts, e.g., "prompts:/name@latest", in the
+#: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
+#: access. Set to 0 to disable caching entirely. (default: ``60``)
+MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS", float, 60
+)
+
+#: Time-to-live in seconds for cached version-based prompts, e.g., "prompts:/name/version", in the
+#: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
+#: access. Set to 0 to disable caching entirely. (default: ``float("inf")``, infinite TTL)
+MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS", float, float("inf")
+)
+
+
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
 #: where a class imbalance due to a missing target class would raise an error in the
@@ -667,6 +689,11 @@ MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
 MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
 )
+
+#: Timeout in seconds for async predict functions in mlflow.genai.evaluate. When an async
+#: function is passed as predict_fn, it will be wrapped with asyncio.run() with this timeout.
+#: (default: ``300``)
+MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
 
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
@@ -1116,3 +1143,19 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
 #: issues with the judge's reasoning.
 #: (default: ``30``)
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
+
+
+#: Enable automatic run resumption for Serverless GPU Compute (SGC) jobs on Databricks.
+#: When enabled, MLflow will check for the SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID job
+#: parameter and automatically resume MLflow runs associated with that Databricks job run ID.
+#: (default: ``True``)
+_MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS", True
+)
+
+#: Serverless GPU Compute (SGC) job run ID for automatic run resumption on Databricks.
+#: This is used as a fallback when the dbutils widget parameter is not available.
+#: (default: ``None``)
+_SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID = _EnvironmentVariable(
+    "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", str, None
+)

@@ -120,8 +120,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
         "-d",
         output_directory,
     ]
-    mlflow_home = os.environ.get("MLFLOW_HOME")
-    if mlflow_home:
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args

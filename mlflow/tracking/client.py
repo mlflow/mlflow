@@ -15,6 +15,7 @@ import re
 import string
 import sys
 import tempfile
+import threading
 import urllib
 import uuid
 import warnings
@@ -45,6 +46,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import (
@@ -54,11 +56,17 @@ from mlflow.entities.webhook import (
     WebhookStatus,
     WebhookTestResult,
 )
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS,
+    MLFLOW_ENABLE_ASYNC_LOGGING,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
+    PROMPT_EXPERIMENT_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
@@ -66,6 +74,8 @@ from mlflow.prompt.constants import (
     RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import (
+    PromptCache,
+    PromptCacheKey,
     has_prompt_tag,
     model_version_to_prompt_version,
     parse_prompt_name_or_uri,
@@ -121,6 +131,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
+    MLFLOW_PROMPT_MODEL_CONFIG,
 )
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
@@ -192,6 +203,10 @@ def _disable_in_databricks(use_uc_message=False):
         return wrapper
 
     return decorator
+
+
+# Module-level lock for thread-safe prompt-to-experiment linking
+_prompt_experiment_link_lock = threading.Lock()
 
 
 class MlflowClient:
@@ -488,7 +503,8 @@ class MlflowClient:
         template: str | list[dict[str, Any]],
         commit_message: str | None = None,
         tags: dict[str, str] | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -568,6 +584,9 @@ class MlflowClient:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
+            model_config: Optional PromptModelConfig instance or dictionary containing
+                model-specific configuration like model_name, temperature, max_tokens, etc.
+                Using PromptModelConfig provides validation and type safety.
 
         Returns:
             A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -595,6 +614,7 @@ class MlflowClient:
                 description=commit_message,
                 tags=tags or {},
                 response_format=response_format,
+                model_config=model_config,
             )
 
             return registry_client.get_prompt_version(name, str(prompt_version.version))
@@ -643,6 +663,15 @@ class MlflowClient:
                     ),
                 }
             )
+        if model_config:
+            # Convert ModelConfig to dict if needed
+            if isinstance(model_config, PromptModelConfig):
+                config_dict = model_config.to_dict()
+            else:
+                # Validate dict by converting through PromptModelConfig
+                config_dict = PromptModelConfig.from_dict(model_config).to_dict()
+
+            tags.update({MLFLOW_PROMPT_MODEL_CONFIG: json.dumps(config_dict)})
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
@@ -661,7 +690,50 @@ class MlflowClient:
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 
-        return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+        # Invalidate "latest" cache entry since we just created a new version
+        PromptCache.get_instance().delete(name, alias="latest")
+
+        prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+
+        if experiment_id := MLFLOW_EXPERIMENT_ID.get():
+            self._link_prompt_to_experiment(prompt_version, experiment_id)
+
+        return prompt_version
+
+    def _link_prompt_to_experiment(self, prompt_version: PromptVersion, experiment_id: str) -> None:
+        """
+        Update the experiment IDs for a prompt version.
+        """
+
+        def _link_prompt_to_experiment_async() -> None:
+            try:
+                with _prompt_experiment_link_lock:
+                    prompt_info = self.get_prompt(prompt_version.name)
+                    existing_ids = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
+                    existing_ids = existing_ids.rstrip(",").lstrip(",")
+                    exp_ids = [eid.strip() for eid in existing_ids.split(",") if eid.strip()]
+                    if experiment_id not in exp_ids:
+                        exp_ids.append(experiment_id)
+                        exp_ids = ",".join(exp_ids)
+                        # Use LIKE to match the experiment ID and experiment ID is auto-incremented
+                        # integer. So add comma before and after the list of experiment IDs to
+                        # avoid false matches (e.g., "1" matches "10").
+                        exp_ids = f",{exp_ids},"
+                        self.set_prompt_tag(
+                            name=prompt_version.name,
+                            key=PROMPT_EXPERIMENT_IDS_TAG_KEY,
+                            value=exp_ids,
+                        )
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to tag prompt '{prompt_version.name}' with experiment ID "
+                    f"{experiment_id}. Error: {e}",
+                )
+
+        threading.Thread(
+            target=_link_prompt_to_experiment_async,
+            name=f"link_prompt_to_experiment_thread-{uuid.uuid4().hex[:8]}",
+        ).start()
 
     @translate_prompt_exception
     @require_prompt_registry
@@ -691,24 +763,34 @@ class MlflowClient:
                 to retrieve the next page of results.  Defaults to `None`.
 
         Returns:
-            A pageable list of Prompt objects representing prompt metadata:
+            A pageable list of :py:class:`Prompt <mlflow.entities.Prompt>` objects
+            representing prompt metadata:
 
             - name: The prompt name
             - description: The prompt description
             - tags: Prompt-level tags
             - creation_timestamp: When the prompt was created
 
-            To get the actual prompt template content, use get_prompt() with a specific version:
+            To get the actual prompt template content,
+            use get_prompt_version() with a specific version:
 
             .. code-block:: python
+
+                from mlflow import MlflowClient
+
+                # Your prompt registry URI
+                client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
 
                 # Search for prompts
                 prompts = client.search_prompts(filter_string="name LIKE 'greeting%'")
 
+                # Get prompts by experiment
+                prompts = client.search_prompts(filter_string='experiment_id = "1"')
+
                 # Get specific version content
                 for prompt in prompts:
                     prompt_version = client.get_prompt_version(prompt.name, version="1")
-                    print(f"Template: {prompt.template}")
+                    print(f"Template: {prompt_version.template}")
 
             Inspect the returned object's `.token` attribute to fetch subsequent pages.
         """
@@ -728,6 +810,7 @@ class MlflowClient:
         name_or_uri: str,
         version: str | int | None = None,
         allow_missing: bool = False,
+        cache_ttl_seconds: float | None = None,
     ) -> PromptVersion | None:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -754,15 +837,52 @@ class MlflowClient:
                 using URI).
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
+            cache_ttl_seconds: Time-to-live for caching the prompt in seconds. If None, uses
+                the value from `MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS` environment variable for
+                alias-based prompts (default 60), and the value from
+                `MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS` environment variable for version-based
+                prompts (default None, no TTL). Set to 0 to disable caching.
         """
         prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
+
+        if cache_ttl_seconds is None:
+            cache_ttl_seconds = (
+                MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.get()
+                if "@" in prompt_uri
+                else MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.get()
+            )
+        if cache_ttl_seconds < 0:
+            raise MlflowException.invalid_parameter_value(
+                "`cache_ttl_seconds` argument must be greater than or equal to 0.",
+            )
+
+        # Check cache if cache_ttl_seconds > 0 (0 means no caching)
+        if cache_ttl_seconds > 0:
+            cache = PromptCache.get_instance()
+            cache_key = PromptCacheKey.from_uri(prompt_uri)
+            if cached_prompt := cache.get(cache_key):
+                return cached_prompt
+
+        # Fetch from server
         try:
             name, version_or_alias = self.parse_prompt_uri(prompt_uri)
             registry_client = self._get_registry_client()
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
-                return registry_client.get_prompt_version_by_alias(name, version_or_alias)
+                prompt = registry_client.get_prompt_version_by_alias(name, version_or_alias)
             else:
-                return registry_client.get_prompt_version(name, version_or_alias)
+                prompt = registry_client.get_prompt_version(name, version_or_alias)
+
+            # Link the prompt to the active experiment. This is called only when
+            # the prompt is loaded from the registry to avoid performance overhead.
+            if prompt and (experiment_id := MLFLOW_EXPERIMENT_ID.get()):
+                self._link_prompt_to_experiment(prompt, experiment_id)
+
+            # Cache the result if cache_ttl_seconds > 0
+            # `ttl_seconds=None` means cache with no TTL
+            if prompt and cache_ttl_seconds > 0:
+                cache.set(cache_key, prompt, ttl_seconds=cache_ttl_seconds)
+
+            return prompt
         except MlflowException as exc:
             if allow_missing and exc.error_code in (
                 ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
@@ -969,6 +1089,9 @@ class MlflowClient:
         self._validate_prompt(name, version)
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
+        # Invalidate cache for this alias since it now points to a different version
+        PromptCache.get_instance().delete(name, alias=alias)
+
     @require_prompt_registry
     @translate_prompt_exception
     def delete_prompt_alias(self, name: str, alias: str) -> None:
@@ -980,6 +1103,9 @@ class MlflowClient:
             alias: The alias to delete for the prompt.
         """
         self._get_registry_client().delete_prompt_alias(name, alias)
+
+        # Invalidate cache for this alias
+        PromptCache.get_instance().delete(name, alias=alias)
 
     @experimental(version="3.0.0")
     @require_prompt_registry
@@ -996,6 +1122,9 @@ class MlflowClient:
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
 
+        # Invalidate cache for this specific version
+        PromptCache.get_instance().delete(name, version=int(version))
+
     @experimental(version="3.0.0")
     @require_prompt_registry
     @translate_prompt_exception
@@ -1009,6 +1138,9 @@ class MlflowClient:
             key: The tag key to delete.
         """
         self._get_registry_client().delete_prompt_version_tag(name, version, key)
+
+        # Invalidate cache for this specific version
+        PromptCache.get_instance().delete(name, version=int(version))
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
@@ -1344,8 +1476,7 @@ class MlflowClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-        root_span = trace_manager.get_span_from_id(trace_id, root_span_id)
-        if root_span:
+        if root_span := trace_manager.get_span_from_id(trace_id, root_span_id):
             root_span.end(outputs, attributes, status, end_time_ns)
 
     def _log_trace(self, trace: Trace) -> str:
@@ -1546,8 +1677,7 @@ class MlflowClient:
             end_time_ns: The end time of the span in nano seconds since the UNIX epoch.
                 If not provided, the current time will be used.
         """
-        span = InMemoryTraceManager.get_instance().get_span_from_id(trace_id, span_id)
-        if span:
+        if span := InMemoryTraceManager.get_instance().get_span_from_id(trace_id, span_id):
             span.end(
                 outputs=outputs,
                 attributes=attributes,
@@ -4146,7 +4276,11 @@ class MlflowClient:
             name: SocialMediaTextAnalyzer
             tags: {'nlp.framework1': 'Spark NLP', 'nlp.framework2': 'VADER'}
         """
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Setting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
     def delete_registered_model_tag(self, name: str, key: str) -> None:
@@ -4197,7 +4331,11 @@ class MlflowClient:
             name: name2
             tags: {}
         """
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Deleting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_tag(name, key)
 
     # Model Version Methods
@@ -5049,7 +5187,11 @@ class MlflowClient:
             Tags: {'t': '1', 't1': '1'}
         """
         _validate_model_version_or_stage_exists(version, stage)
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Setting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
@@ -5140,7 +5282,11 @@ class MlflowClient:
             Tags: {}
         """
         _validate_model_version_or_stage_exists(version, stage)
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Deleting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `delete_model_version_tag` API is deprecated. "
@@ -5746,7 +5892,7 @@ class MlflowClient:
         template: str | list[dict[str, Any]],
         description: str | None = None,
         tags: dict[str, str] | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.

@@ -1,3 +1,6 @@
+import asyncio
+import functools
+import inspect
 import json
 import logging
 import math
@@ -12,18 +15,23 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT,
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracing.utils.search import traces_to_df
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 
 _logger = logging.getLogger(__name__)
@@ -146,6 +154,39 @@ def resolve_outputs_from_trace(
     return outputs
 
 
+def resolve_conversation_from_session(
+    session: list[Trace],
+) -> list[dict[str, str]]:
+    """
+    Extract conversation history from traces in session.
+
+    Args:
+        session: List of traces from the same session.
+
+    Returns:
+        List of conversation messages in the format [{"role": "user"|"assistant", "content": str}].
+        Each trace contributes two messages: user (from input) and assistant (from output).
+    """
+    # Sort traces by creation time (timestamp_ms)
+    sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
+
+    conversation = []
+    for trace in sorted_traces:
+        # Extract and parse input (user message)
+        if inputs := extract_inputs_from_trace(trace):
+            user_content = parse_inputs_to_str(inputs)
+            if user_content and user_content.strip():
+                conversation.append({"role": "user", "content": user_content})
+
+        # Extract and parse output (assistant message)
+        if outputs := extract_outputs_from_trace(trace):
+            assistant_content = parse_outputs_to_str(outputs)
+            if assistant_content and assistant_content.strip():
+                conversation.append({"role": "assistant", "content": assistant_content})
+
+    return conversation
+
+
 def resolve_expectations_from_trace(
     expectations: dict[str, Any] | None,
     trace: Trace,
@@ -207,10 +248,54 @@ def extract_expectations_from_trace(
     return {exp.name: exp.expectation.value for exp in expectation_assessments}
 
 
+def _wrap_async_predict_fn(async_fn: Callable[..., Any]) -> Callable[..., Any]:
+    """
+    Wrap an async function to make it synchronous using asyncio.run with timeout.
+
+    Args:
+        async_fn: The async function to wrap
+
+    Returns:
+        A synchronous wrapper function that calls the async function with timeout
+    """
+    timeout = MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()
+
+    @functools.wraps(async_fn)
+    def sync_wrapper(*args, **kwargs):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            try:
+                import nest_asyncio
+
+                nest_asyncio.apply()
+            except ImportError:
+                raise MlflowException(
+                    "Detected a running event loop (e.g., in Jupyter notebook). "
+                    "To use async predict functions in notebook environments, "
+                    "install nest-asyncio: pip install nest-asyncio"
+                )
+
+        return asyncio.run(asyncio.wait_for(async_fn(*args, **kwargs), timeout=timeout))
+
+    return sync_wrapper
+
+
 def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
+    If the predict_fn is an async function, wrap it to make it synchronous.
     """
+    # Detect if predict_fn is an async function and wrap it
+    if inspect.iscoroutinefunction(predict_fn):
+        _logger.debug(
+            f"Detected async predict_fn. Wrapping with asyncio.run() with timeout of "
+            f"{MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()} seconds."
+        )
+        predict_fn = _wrap_async_predict_fn(predict_fn)
     if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get():
         with (
             NoOpTracerPatcher() as counter,
@@ -269,6 +354,17 @@ def is_none_or_nan(value: Any) -> bool:
     """
     # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
     return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def _is_empty(value: Any) -> bool:
+    """
+    Check if a value is empty (None, empty dict, empty list, empty string, etc.).
+    """
+    if value is None:
+        return True
+    if isinstance(value, (dict, list, str)):
+        return len(value) == 0
+    return False
 
 
 def parse_inputs_to_str(value: Any) -> str:
@@ -424,7 +520,7 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     return doc
 
 
-def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
+def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Trace]:
     """
     Clean up noisy traces generated outside predict function.
 
@@ -434,21 +530,20 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
     code might generate traces. This function cleans up those noisy traces.
 
     Args:
-        run_id: The ID of the run to clean up.
-        start_time_ms: The start time of the evaluation in milliseconds.
+        traces: List of traces to clean up.
+        eval_start_time: The start time of the evaluation run.
+
+    Returns:
+        List of traces that are kept after cleaning up extra traces.
     """
     from mlflow.tracking.fluent import _get_experiment_id
 
     try:
-        # Search for all traces generated during evaluation
-        traces = mlflow.search_traces(
-            run_id=run_id,
-            include_spans=False,
-            filter_string=f"trace.timestamp >= {start_time_ms}",
-            return_type="list",
-        )
-
-        extra_trace_ids = [trace.info.trace_id for trace in traces if not _should_keep_trace(trace)]
+        extra_trace_ids = [
+            trace.info.trace_id
+            for trace in traces
+            if not _should_keep_trace(trace, eval_start_time)
+        ]
         if extra_trace_ids:
             _logger.debug(
                 f"Found {len(extra_trace_ids)} extra traces generated during evaluation run. "
@@ -471,7 +566,11 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
         )
 
 
-def _should_keep_trace(trace: Trace) -> bool:
+def _should_keep_trace(trace: Trace, eval_start_time: int) -> bool:
+    # We should not delete traces that are generated before the evaluation run started.
+    if trace.info.timestamp_ms < eval_start_time:
+        return True
+
     # If the scorer tracing is enabled, keep traces generated by scorers.
     if (
         MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
@@ -483,17 +582,94 @@ def _should_keep_trace(trace: Trace) -> bool:
     return TraceTagKey.EVAL_REQUEST_ID in trace.info.tags
 
 
+def construct_eval_result_df(
+    run_id: str,
+    traces: list[Trace],
+    eval_results: list["EvalResult"],
+) -> "pd.DataFrame | None":
+    """
+    Construct a pandas DataFrame from the traces and eval results.
+
+    Args:
+        run_id: The MLflow run ID of the evaluation run.
+        traces: List of traces. Only TraceInfo is used here, and **spans are ignored&**.
+            The expected input to this function is the result of
+            `mlflow.search_traces(include_spans=False, return_type="list")`.
+        eval_results: List of eval results containing the full spans.
+
+    Returns:
+        A pandas DataFrame with the eval results.
+    """
+    import pandas as pd
+
+    if not traces:
+        return None
+
+    try:
+        trace_id_to_info = {t.info.trace_id: t.info for t in traces}
+        traces = [
+            Trace(
+                info=trace_id_to_info[eval_result.eval_item.trace.info.trace_id],
+                data=eval_result.eval_item.trace.data,
+            )
+            for eval_result in eval_results
+        ]
+        df = traces_to_df(traces)
+        # Add unpacked assessment columns. The result df should look like:
+        # [trace_id, score_1/value, score_2/value, trace, state, ...]
+        assessments = (
+            df["assessments"].apply(lambda x: _get_assessment_values(x, run_id)).apply(pd.Series)
+        )
+        trace_id_column = df.pop("trace_id")
+        return pd.concat([trace_id_column, assessments, df], axis=1)
+    except Exception as e:
+        _logger.debug(f"Failed to construct eval result DataFrame: {e}", exc_info=True)
+
+
+def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> dict[str, Any]:
+    result = {}
+    for a in assessments:
+        if (
+            # Exclude feedbacks from other evaluation runs
+            (source_run_id := a.get("metadata", {}).get(AssessmentMetadataKey.SOURCE_RUN_ID))
+            and source_run_id != run_id
+        ):
+            continue
+        if feedback := a.get("feedback"):
+            result[f"{a['assessment_name']}/value"] = feedback.get("value")
+        elif expectation := a.get("expectation"):
+            result[f"{a['assessment_name']}/value"] = expectation.get("value")
+
+    return result
+
+
 def create_minimal_trace(eval_item: "EvalItem") -> Trace:
     """
     Create a minimal trace object with a single span, based on given inputs/outputs.
+
+    If the eval_item has a source with session metadata (from a dataset created from traces),
+    the session metadata will be restored on the newly created trace. This enables session-level
+    scorers to identify which traces belong to the same session.
     """
     from mlflow.pyfunc.context import Context, set_prediction_context
+
+    # Extract session metadata from source if available
+    session_metadata = {}
+    if eval_item.source and hasattr(eval_item.source, "source_data"):
+        source_data = eval_item.source.source_data
+        if session_id := source_data.get("session_id"):
+            session_metadata[TraceMetadataKey.TRACE_SESSION] = session_id
 
     context = Context(request_id=eval_item.request_id, is_evaluate=True)
     with set_prediction_context(context):
         with mlflow.start_span(name="root_span", span_type=SpanType.CHAIN) as root_span:
             root_span.set_inputs(eval_item.inputs)
             root_span.set_outputs(eval_item.outputs)
+
+            # Set session metadata on the trace while it's still active
+            if session_metadata:
+                mlflow.update_current_trace(metadata=session_metadata)
+
         return mlflow.get_trace(root_span.trace_id)
 
 

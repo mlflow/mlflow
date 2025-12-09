@@ -1,9 +1,10 @@
+import { describe, expect, it, jest } from '@jest/globals';
 import React, { useEffect } from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { GetStarted } from './GetStarted';
 import { homeQuickActions } from '../quick-actions';
-import { HomePageViewStateProvider, useHomePageViewState } from '../HomePageViewStateContext';
+import { useHomePageViewState } from '../HomePageViewStateContext';
 
 type FormattedMessageReactElement = React.ReactElement<{ defaultMessage: string }>;
 
@@ -19,11 +20,7 @@ const getQuickActionDefaultMessage = (title: React.ReactNode): string => {
 
 describe('GetStarted', () => {
   it('renders header and all quick actions', () => {
-    renderWithDesignSystem(
-      <HomePageViewStateProvider>
-        <GetStarted />
-      </HomePageViewStateProvider>,
-    );
+    renderWithDesignSystem(<GetStarted />);
 
     expect(
       screen.getByRole('heading', {
@@ -45,11 +42,7 @@ describe('GetStarted', () => {
   });
 
   it('renders non log traces quick actions as external links', () => {
-    renderWithDesignSystem(
-      <HomePageViewStateProvider>
-        <GetStarted />
-      </HomePageViewStateProvider>,
-    );
+    renderWithDesignSystem(<GetStarted />);
 
     homeQuickActions.forEach((action) => {
       const defaultMessage = getQuickActionDefaultMessage(action.title);
@@ -79,10 +72,10 @@ describe('GetStarted', () => {
   it('opens log traces drawer state when quick action is clicked', async () => {
     const onOpen = jest.fn();
     renderWithDesignSystem(
-      <HomePageViewStateProvider>
+      <>
         <DrawerObserver onOpen={onOpen} />
         <GetStarted />
-      </HomePageViewStateProvider>,
+      </>,
     );
 
     const logTracesAction = homeQuickActions.find((action) => action.id === 'log-traces');

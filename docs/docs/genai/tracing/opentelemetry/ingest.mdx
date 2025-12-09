@@ -8,7 +8,7 @@ OpenTelemetry trace ingestion is supported in **MLflow 3.6.0 and above**.
 
 ## OpenTelemetry endpoint (OTLP)
 
-MLflow Server exposes an OTLP endpoint at `/v1/trace` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)). This endpoint accepts traces from any native OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc.
+MLflow Server exposes an OTLP endpoint at `/v1/traces` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)). This endpoint accepts traces from any native OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc.
 
 To use this endpoint, start MLflow Server with a SQL-based backend store. The following command starts MLflow Server with an SQLite backend store:
 
@@ -21,7 +21,7 @@ To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change
 In your application, configure the server endpoint and set the MLflow experiment ID in the OTLP header `x-mlflow-experiment-id`.
 
 ```bash
-export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/trace
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/traces
 export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123
 ```
 
@@ -45,7 +45,7 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 MLFLOW_TRACKING_URI = "http://localhost:5000"
 MLFLOW_EXPERIMENT_ID = "123"
 
-os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = f"{MLFLOW_TRACKING_URI}/v1/trace"
+os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = f"{MLFLOW_TRACKING_URI}/v1/traces"
 os.environ[
     "OTEL_EXPORTER_OTLP_TRACES_HEADERS"
 ] = f"x-mlflow-experiment-id={MLFLOW_EXPERIMENT_ID}"
@@ -83,8 +83,8 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 exporters:
-  otlp:
-    endpoint: ${MLFLOW_TRACKING_URI}/v1/trace
+  otlphttp:
+    endpoint: ${MLFLOW_TRACKING_URI}
     headers:
       x-mlflow-experiment-id: ${MLFLOW_EXPERIMENT_ID}
 
@@ -93,7 +93,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp]
+      exporters: [otlphttp]
 ```
 
 ```bash
@@ -102,4 +102,25 @@ docker run -d --name opentelemetry-collector \
   -p 4318:4318 \
   -v $(pwd)/opentelemetry-collector.yaml:/etc/otel/collector/config.yaml \
   otel/opentelemetry-collector
+```
+
+## Compression
+
+Since MLflow 3.7.0, MLflow's OTLP/HTTP endpoint accepts compressed trace payloads. To enable compression, set the `OTEL_EXPORTER_OTLP_TRACES_COMPRESSION` environment variable to either `gzip` or `deflate`. Other encodings are not supported.
+
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/traces
+export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123
+export OTEL_EXPORTER_OTLP_TRACES_COMPRESSION=gzip
+```
+
+When routing through the OpenTelemetry Collector, set compression on the OTLP HTTP exporter so it forwards a compressed request to MLflow:
+
+```yaml
+exporters:
+  otlphttp:
+    endpoint: ${MLFLOW_TRACKING_URI}
+    headers:
+      x-mlflow-experiment-id: ${MLFLOW_EXPERIMENT_ID}
+    compression: gzip
 ```

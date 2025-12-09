@@ -18,8 +18,9 @@ import {
   isChatPrompt,
   PROMPT_TYPE_CHAT,
   PROMPT_TYPE_TEXT,
+  PROMPT_EXPERIMENT_IDS_TAG_KEY,
 } from '../utils';
-import { ChatPromptMessage } from '../types';
+import type { ChatPromptMessage } from '../types';
 import { ChatMessageCreator } from '../components/ChatMessageCreator';
 
 export enum CreatePromptModalMode {
@@ -31,11 +32,13 @@ export const useCreatePromptModal = ({
   mode = CreatePromptModalMode.CreatePromptVersion,
   registeredPrompt,
   latestVersion,
+  experimentId,
   onSuccess,
 }: {
   mode: CreatePromptModalMode;
   registeredPrompt?: RegisteredPrompt;
   latestVersion?: RegisteredPromptVersion;
+  experimentId?: string;
   onSuccess?: (result: { promptName: string; promptVersion?: string }) => void | Promise<any>;
 }) => {
   const [open, setOpen] = useState(false);
@@ -113,6 +116,9 @@ export const useCreatePromptModal = ({
             content: message.content.trim(),
           }));
 
+          // Prepare experiment ID tag which has `,${experimentId},` format
+          const promptTags = experimentId ? [{ key: PROMPT_EXPERIMENT_IDS_TAG_KEY, value: `,${experimentId},` }] : [];
+
           mutateCreateVersion(
             {
               createPromptEntity: isCreatingNewPrompt,
@@ -120,6 +126,7 @@ export const useCreatePromptModal = ({
               commitMessage: values.commitMessage,
               promptName,
               tags: values.tags,
+              promptTags,
               promptType: values.promptType,
             },
             {
