@@ -171,7 +171,6 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-
 _T = TypeVar("_T")
 
 _logger = logging.getLogger(__name__)
@@ -4773,32 +4772,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
 
-<<<<<<< HEAD
             new_associations = [
                 SqlEntityAssociation(
                     association_id=uuid.uuid4().hex,
                     source_id=dataset_id,
                     source_type=EntityAssociationType.EVALUATION_DATASET,
-                    destination_id=str(exp_id),
+                    destination_id=exp_id,
                     destination_type=EntityAssociationType.EXPERIMENT,
                 )
-                for exp_id in experiment_ids
+                for exp_id in experiment_ids_str
                 if str(exp_id) not in existing_exp_ids
             ]
-=======
-            new_associations = []
-            for exp_id in experiment_ids_str:
-                if exp_id not in existing_exp_ids:
-                    new_associations.append(
-                        SqlEntityAssociation(
-                            association_id=uuid.uuid4().hex,
-                            source_id=dataset_id,
-                            source_type=EntityAssociationType.EVALUATION_DATASET,
-                            destination_id=exp_id,
-                            destination_type=EntityAssociationType.EXPERIMENT,
-                        )
-                    )
->>>>>>> c1ca273cb (Add workspace support for the tracking store (#19116))
 
             if new_associations:
                 session.bulk_save_objects(new_associations)

@@ -72,8 +72,7 @@ def _reattach_missing_unique_constraints(engine, metadata):
                 continue
             if columns in existing_unique_columns:
                 continue
-            missing_columns = tuple(column for column in columns if column not in table.c)
-            if missing_columns:
+            if missing_columns := tuple(column for column in columns if column not in table.c):
                 _logger.warning(
                     "Skipping recreation of unique constraint '%s' on table '%s' due to "
                     "missing columns: %s",
