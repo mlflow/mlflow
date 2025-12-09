@@ -583,7 +583,28 @@ def validate_can_read_metric_history_bulk():
 
 def validate_can_read_metric_history_bulk_interval():
     """Checks READ permission on all requested runs."""
-    return validate_can_read_metric_history_bulk()
+    # Note: This endpoint uses 'run_ids' (plural), unlike get-history-bulk which uses 'run_id'
+    run_ids = request.args.to_dict(flat=False).get("run_ids", [])
+    if not run_ids:
+        raise MlflowException(
+            "GetMetricHistoryBulkInterval request must specify at least one run_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+    tracking_store = _get_tracking_store()
+
+    # Check permission for each run
+    for run_id in run_ids:
+        run = tracking_store.get_run(run_id)
+        experiment_id = run.info.experiment_id
+        permission = _get_permission_from_store_or_default(
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
+        )
+        if not permission.can_read:
+            return False
+
+    return True
 
 
 def validate_can_search_datasets():
