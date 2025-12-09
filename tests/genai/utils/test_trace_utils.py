@@ -873,8 +873,7 @@ def test_resolve_conversation_from_session_with_tool_calls():
 
 
 def test_resolve_conversation_from_session_empty():
-    conversation = resolve_conversation_from_session([])
-    assert conversation == []
+    assert resolve_conversation_from_session([]) == []
 
 
 def test_convert_predict_fn_async_function():
