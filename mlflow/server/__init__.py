@@ -45,6 +45,8 @@ from mlflow.server.handlers import (
     get_metric_history_bulk_interval_handler,
     get_model_version_artifact_handler,
     get_trace_artifact_handler,
+    get_ui_telemetry_handler,
+    post_ui_telemetry_handler,
     upload_artifact_handler,
 )
 from mlflow.utils.os import is_windows
@@ -154,6 +156,16 @@ def serve_get_trace_artifact():
 )
 def serve_get_logged_model_artifact(model_id: str):
     return get_logged_model_artifact_handler(model_id)
+
+
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/ui-telemetry"), methods=["GET"])
+def serve_get_telemetry():
+    return get_ui_telemetry_handler()
+
+
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/ui-telemetry"), methods=["POST"])
+def serve_post_telemetry():
+    return post_ui_telemetry_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for

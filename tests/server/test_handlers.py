@@ -67,6 +67,7 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     SetTraceTagV3,
     TraceLocation,
+    UploadUITelemetryRecords,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
@@ -137,6 +138,8 @@ from mlflow.server.handlers import (
     catch_mlflow_exception,
     get_endpoints,
     get_trace_artifact_handler,
+    get_ui_telemetry_handler,
+    post_ui_telemetry_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -225,6 +228,12 @@ def mock_evaluation_dataset():
     dataset.to_proto = mock.MagicMock(return_value=proto_dataset)
 
     return dataset
+
+
+@pytest.fixture
+def mock_telemetry_config_cache():
+    with mock.patch("mlflow.server.handlers._telemetry_config_cache", {}) as m:
+        yield m
 
 
 def test_health():
@@ -2529,3 +2538,159 @@ def test_litellm_not_available():
             assert response.status_code == 400
             data = response.get_json()
             assert "LiteLLM is not installed" in data["message"]
+
+
+def test_get_ui_telemetry_handler(mock_telemetry_config_cache):
+    config = {
+        "disable_telemetry": False,
+        "disable_ui_telemetry": False,
+        "disable_ui_events": ["event1", "event2"],
+        "ui_rollout_percentage": 50,
+    }
+
+    with mock.patch(
+        "mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config
+    ) as mock_fetch:
+        response = get_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["disable_ui_telemetry"] is False
+        assert response_data["disable_ui_events"] == ["event1", "event2"]
+        # rollout percent gets converted to a float as that is the proto definition
+        assert response_data["ui_rollout_percentage"] == 50.0
+        assert "config" in mock_telemetry_config_cache
+        assert mock_fetch.call_count == 1
+        mock_fetch.reset_mock()
+
+        # subsequent call should hit cache
+        response = get_ui_telemetry_handler()
+        mock_fetch.assert_not_called()
+        assert response_data["disable_ui_telemetry"] is False
+        assert response_data["disable_ui_events"] == ["event1", "event2"]
+        assert response_data["ui_rollout_percentage"] == 50.0
+
+
+def test_get_ui_telemetry_handler_disabled(mock_telemetry_config_cache):
+    config = {
+        "disable_telemetry": True,
+        "disable_ui_telemetry": False,
+        "disable_ui_events": [],
+        "ui_rollout_percentage": 0,
+    }
+
+    with mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config):
+        response = get_ui_telemetry_handler()
+        assert response is not None
+        assert response.status_code == 200
+        response_data = json.loads(response.get_data())
+
+        # if disable_telemetry is True, the server should always report
+        # that UI telemetry is disabled regardless of disable_ui_telemetry
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0.0
+        # empty arrays are excluded from the response
+        assert "disable_ui_events" not in response_data
+
+
+def test_get_ui_telemetry_handler_fallback_values(mock_telemetry_config_cache):
+    config_without_ui_fields = {
+        "disable_telemetry": False,
+        "rollout_percentage": 100,
+    }
+
+    # test fallback values if we forget to define UI config fields
+    with mock.patch("requests.get", return_value=config_without_ui_fields):
+        response = get_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0
+
+    # test fallback values if we fail to fetch the config
+    with mock.patch("requests.get", return_value=mock.Mock(status_code=404)):
+        response = get_ui_telemetry_handler()
+
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0
+
+
+def test_post_ui_telemetry_handler_success(mock_get_request_message, mock_telemetry_config_cache):
+    request_msg = UploadUITelemetryRecords()
+
+    event1 = request_msg.records.add()
+    event1.event_name = "test_event_1"
+    event1.timestamp_ns = 1234567890000000
+    event1.params["key1"] = "value1"
+    event1.installation_id = "install-123"
+    event1.session_id = "session-456"
+
+    event2 = request_msg.records.add()
+    event2.event_name = "test_event_2"
+    event2.timestamp_ns = 1234567890000001
+    event2.params["key2"] = "value2"
+    event2.installation_id = "install-123"
+    event2.session_id = "session-456"
+
+    mock_get_request_message.return_value = request_msg
+
+    config = {"disable_ui_telemetry": False, "disable_telemetry": False}
+
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config),
+        mock.patch("mlflow.telemetry.get_telemetry_client", return_value=mock_client),
+    ):
+        response = post_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["status"] == "success"
+        assert mock_client.add_record.call_count == 2
+
+
+def test_post_ui_telemetry_handler_telemetry_disabled(
+    mock_get_request_message, mock_telemetry_config_cache
+):
+    request_msg = UploadUITelemetryRecords()
+
+    event = request_msg.records.add()
+    event.event_name = "test_event"
+    event.timestamp_ns = 1234567890000000
+    event.params["key"] = "value"
+    event.installation_id = "install-123"
+    event.session_id = "session-456"
+
+    mock_get_request_message.return_value = request_msg
+
+    config = {"disable_ui_telemetry": True}
+
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config),
+        mock.patch("mlflow.telemetry.get_telemetry_client", return_value=mock_client),
+    ):
+        response = post_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["status"] == "disabled"
+        mock_client.add_record.assert_not_called()
