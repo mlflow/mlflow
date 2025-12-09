@@ -3163,7 +3163,7 @@ message CalculateTraceFilterCorrelation {
 }
 
 // View type for metrics aggregation.
-enum MetricsViewType {
+enum MetricViewType {
   // Aggregate at trace level.
   TRACES = 1;
   // Aggregate at span level.
@@ -3188,7 +3188,7 @@ enum AggregationType {
   MAX = 6;
 }
 
-message MetricsAggregation {
+message MetricAggregation {
   // The type of aggregation to perform.
   optional AggregationType aggregation_type = 1;
 
@@ -3206,13 +3206,13 @@ message QueryTraceMetrics {
   repeated string experiment_ids = 1;
 
   // Required: The level at which to aggregate metrics.
-  optional MetricsViewType view_type = 2;
+  optional MetricViewType view_type = 2;
 
-  // Required: The metric_name to query (e.g. "latency").
+  // Required: The name of the metric to query (e.g. "latency").
   optional string metric_name = 3;
 
   // Required: The aggregations to apply.
-  repeated MetricsAggregation aggregations = 4;
+  repeated MetricAggregation aggregations = 4;
 
   // Optional: Dimensions to group metrics by. (e.g. "name", "status")
   repeated string dimensions = 5;
