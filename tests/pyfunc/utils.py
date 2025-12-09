@@ -19,6 +19,5 @@ def score_model_in_process(model_uri: str, data: str, content_type: str) -> "htt
         client = TestClient(app)
         return client.post("/invocations", content=data, headers={"Content-Type": content_type})
     finally:
-        # Restore environment without clearing first to avoid intermediate state issues
         os.environ.clear()
         os.environ.update(env_snapshot)
