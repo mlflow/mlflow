@@ -9,7 +9,6 @@ import {
   Spacer,
   SegmentedControlGroup,
   SegmentedControlButton,
-  useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useState } from 'react';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
@@ -51,7 +50,6 @@ export const useCreatePromptModal = ({
   const [open, setOpen] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const intl = useIntl();
-  const { theme } = useDesignSystemTheme();
 
   const form = useForm<{
     draftName: string;
@@ -316,6 +314,11 @@ export const useCreatePromptModal = ({
     const promptType = isChatPrompt(latestVersion) ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT;
     const parsedMessages = getChatPromptMessagesFromValue(tagValue);
 
+    // Check if latest version has model config to auto-expand advanced settings
+    const hasModelConfig =
+      mode === CreatePromptModalMode.CreatePromptVersion &&
+      latestVersion?.tags?.some((tag) => tag.key === MLFLOW_PROMPT_MODEL_CONFIG && tag.value);
+
     form.reset({
       commitMessage: '',
       draftName: '',
@@ -327,7 +330,7 @@ export const useCreatePromptModal = ({
       promptType,
       modelConfig: {},
     });
-    setShowAdvancedSettings(false);
+    setShowAdvancedSettings(!!hasModelConfig);
     setOpen(true);
   };
 

@@ -184,7 +184,7 @@ export const ModelConfigForm = ({ namePrefix = '' }: ModelConfigFormProps) => {
             componentId={`mlflow.prompts.model_config.${fieldName('stopSequences')}`}
             name={fieldName('stopSequences')}
             placeholder={intl.formatMessage({
-              defaultMessage: 'e.g., \\n\\n, END, ###',
+              defaultMessage: 'e.g., END, ###, STOP',
               description: 'Placeholder for stop sequences input',
             })}
             validationState={getError('stopSequences') ? 'error' : undefined}

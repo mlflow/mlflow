@@ -58,12 +58,13 @@ export const useEditModelConfigModal = ({ onSuccess }: { onSuccess?: () => void 
 
   const openModal = useCallback(
     (version: RegisteredPromptVersion) => {
+      updateMutation.reset();
       setEditingVersion(version);
       const currentConfig = getModelConfigFromTags(version.tags);
       form.reset({ modelConfig: modelConfigToFormData(currentConfig) });
       setOpen(true);
     },
-    [form],
+    [form, updateMutation],
   );
 
   const handleSave = form.handleSubmit(async (values) => {
@@ -102,7 +103,10 @@ export const useEditModelConfigModal = ({ onSuccess }: { onSuccess?: () => void 
       <Modal
         componentId="mlflow.prompts.edit_model_config.modal"
         visible={open}
-        onCancel={() => setOpen(false)}
+        onCancel={() => {
+          setOpen(false);
+          form.clearErrors();
+        }}
         title={
           <FormattedMessage
             defaultMessage="Edit Model Configuration"
