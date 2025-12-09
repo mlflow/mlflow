@@ -1,3 +1,4 @@
+import json
 from dataclasses import asdict
 from datetime import datetime, timezone
 
@@ -10,7 +11,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import TokenUsageKey, TraceMetadataKey, TraceTagKey
 from mlflow.utils.time import get_current_time_millis
 
 pytestmark = pytest.mark.notrackingurimock
@@ -754,3 +755,176 @@ def test_query_trace_metrics_with_invalid_filter(
             aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
             filters=[filter_string],
         )
+
+
+@pytest.fixture
+def traces_with_token_usage_setup(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_traces_with_token_usage")
+    traces_data = [
+        ("trace1", "workflow_a", 100, 50, 150),
+        ("trace2", "workflow_a", 200, 100, 300),
+        ("trace3", "workflow_a", 150, 75, 225),
+        ("trace4", "workflow_b", 300, 150, 450),
+        ("trace5", "workflow_b", 250, 125, 375),
+    ]
+
+    for trace_id, name, input_tokens, output_tokens, total_tokens in traces_data:
+        token_usage = {
+            TokenUsageKey.INPUT_TOKENS: input_tokens,
+            TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+            TokenUsageKey.TOTAL_TOKENS: total_tokens,
+        }
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: name},
+            trace_metadata={TraceMetadataKey.TOKEN_USAGE: json.dumps(token_usage)},
+        )
+        store.start_trace(trace_info)
+    return exp_id, store
+
+
+def test_query_trace_metrics_total_tokens_sum(traces_with_token_usage_setup):
+    exp_id, store = traces_with_token_usage_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name="total_tokens",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=["name"],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": "total_tokens",
+        "dimensions": {"name": "workflow_a"},
+        "values": {"SUM": 675},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": "total_tokens",
+        "dimensions": {"name": "workflow_b"},
+        "values": {"SUM": 825},
+    }
+
+
+def test_query_trace_metrics_total_tokens_avg(traces_with_token_usage_setup):
+    exp_id, store = traces_with_token_usage_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name="total_tokens",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=["name"],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": "total_tokens",
+        "dimensions": {"name": "workflow_a"},
+        "values": {"AVG": 225.0},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": "total_tokens",
+        "dimensions": {"name": "workflow_b"},
+        "values": {"AVG": 412.5},
+    }
+
+
+def test_query_trace_metrics_total_tokens_percentiles(traces_with_token_usage_setup):
+    exp_id, store = traces_with_token_usage_setup
+    percentiles = [50, 75, 90, 95, 99]
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name="total_tokens",
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=p)
+            for p in percentiles
+        ],
+        dimensions=["name"],
+    )
+
+    # Calculate expected values based on database type
+    workflow_a_values = [150, 225, 300]
+    workflow_b_values = [375, 450]
+
+    expected_workflow_a_values = {
+        f"P{p}": _get_expected_percentile_value(
+            store, p, min(workflow_a_values), max(workflow_a_values), workflow_a_values
+        )
+        for p in percentiles
+    }
+    expected_workflow_b_values = {
+        f"P{p}": _get_expected_percentile_value(
+            store, p, min(workflow_b_values), max(workflow_b_values), workflow_b_values
+        )
+        for p in percentiles
+    }
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": "total_tokens",
+        "dimensions": {"name": "workflow_a"},
+        "values": expected_workflow_a_values,
+    }
+    assert asdict(result[1]) == {
+        "metric_name": "total_tokens",
+        "dimensions": {"name": "workflow_b"},
+        "values": expected_workflow_b_values,
+    }
+
+
+def test_query_trace_metrics_total_tokens_no_dimensions(traces_with_token_usage_setup):
+    exp_id, store = traces_with_token_usage_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name="total_tokens",
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.SUM),
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+        ],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "total_tokens",
+        "dimensions": {},
+        "values": {"SUM": 1500, "AVG": 300.0},
+    }
+
+
+def test_query_trace_metrics_total_tokens_without_token_usage(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_total_tokens_without_token_usage")
+
+    for i in range(3):
+        trace_info = TraceInfo(
+            trace_id=f"trace{i}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name="total_tokens",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "total_tokens",
+        "dimensions": {},
+        "values": {"SUM": None},
+    }

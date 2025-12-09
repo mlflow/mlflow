@@ -11,8 +11,13 @@ from mlflow.entities.trace_metrics import (
     MetricViewType,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceMetadata, SqlTraceTag
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.store.tracking.dbmodels.models import (
+    SqlTraceInfo,
+    SqlTraceMetadata,
+    SqlTraceMetrics,
+    SqlTraceTag,
+)
+from mlflow.tracing.constant import TokenUsageKey, TraceTagKey
 from mlflow.utils.search_utils import SearchTraceUtils
 
 
@@ -41,6 +46,21 @@ TRACES_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
     },
     "latency": {
         "aggregation_types": {AggregationType.AVG, AggregationType.PERCENTILE},
+        "dimensions": {"name"},
+        "filter_fields": None,
+    },
+    TokenUsageKey.INPUT_TOKENS: {
+        "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        "dimensions": {"name"},
+        "filter_fields": None,
+    },
+    TokenUsageKey.OUTPUT_TOKENS: {
+        "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        "dimensions": {"name"},
+        "filter_fields": None,
+    },
+    TokenUsageKey.TOTAL_TOKENS: {
+        "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
         "filter_fields": None,
     },
@@ -146,6 +166,8 @@ def _get_aggregation_column_for_traces(metric_name: str) -> Column:
             return SqlTraceInfo.request_id
         case "latency":
             return SqlTraceInfo.execution_time_ms
+        case metric_name if metric_name in TokenUsageKey.all_keys():
+            return SqlTraceMetrics.value
         case _:
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported metric name: {metric_name}",
@@ -300,6 +322,16 @@ def query_metrics_for_traces_view(
                 raise NotImplementedError(
                     f"dimension {dimension} is not supported for view type {MetricViewType.TRACES}"
                 )
+
+    # Join with SqlTraceMetrics for token usage metrics
+    if metric_name in TokenUsageKey.all_keys():
+        query = query.join(
+            SqlTraceMetrics,
+            and_(
+                SqlTraceInfo.request_id == SqlTraceMetrics.request_id,
+                SqlTraceMetrics.key == metric_name,
+            ),
+        )
 
     # Build aggregation expressions
     agg_column = _get_aggregation_column_for_traces(metric_name)
