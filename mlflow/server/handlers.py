@@ -13,7 +13,7 @@ from functools import partial, wraps
 from typing import Any
 
 import requests
-from flask import Response, current_app, jsonify, request, send_file
+from flask import Response, current_app, jsonify, redirect, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
@@ -46,6 +46,7 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, 
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
+    MLFLOW_ENABLE_PROXY_PRESIGNED_DOWNLOAD,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -768,6 +769,19 @@ def _response_with_file_attachment_headers(file_path, response):
 
 
 def _send_artifact(artifact_repository, path):
+    if MLFLOW_ENABLE_PROXY_PRESIGNED_DOWNLOAD.get():
+        if hasattr(artifact_repository, "get_presigned_download_url"):
+            try:
+                presigned_url = artifact_repository.get_presigned_download_url(path)
+                return redirect(presigned_url, code=302)
+            except Exception:
+                _logger.debug(
+                    "Failed to generate presigned URL for artifact download, "
+                    "falling back to server-side download",
+                    exc_info=True,
+                )
+
+    # Fall back to downloading through the server
     file_path = os.path.abspath(artifact_repository.download_artifacts(path))
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
@@ -2741,10 +2755,29 @@ def _download_artifact(artifact_path):
     """
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
+
+    If MLFLOW_ENABLE_PROXY_PRESIGNED_DOWNLOAD is enabled and the artifact repository supports
+    presigned URL generation, returns a redirect to the presigned URL instead of downloading
+    the file through the server. This allows clients to download directly from cloud storage,
+    reducing server disk and memory usage.
     """
     artifact_path = validate_path_is_safe(artifact_path)
-    tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
+
+    if MLFLOW_ENABLE_PROXY_PRESIGNED_DOWNLOAD.get():
+        if hasattr(artifact_repo, "get_presigned_download_url"):
+            try:
+                presigned_url = artifact_repo.get_presigned_download_url(artifact_path)
+                return redirect(presigned_url, code=302)
+            except Exception:
+                _logger.debug(
+                    "Failed to generate presigned URL for artifact download, "
+                    "falling back to server-side download",
+                    exc_info=True,
+                )
+
+    # Fall back to downloading through the server
+    tmp_dir = tempfile.TemporaryDirectory()
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
 
     # Ref: https://stackoverflow.com/a/24613980/6943581
