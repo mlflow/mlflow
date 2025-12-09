@@ -13,6 +13,7 @@ from functools import partial, wraps
 from typing import Any
 
 import requests
+from cachetools import TTLCache
 from flask import Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
@@ -149,6 +150,7 @@ from mlflow.protos.service_pb2 import (
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
+    GetUITelemetryConfig,
     LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
@@ -192,6 +194,7 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
     UpdateRun,
+    UploadUITelemetryRecords,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -4572,6 +4575,106 @@ def _get_dataset_records_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+# Cache for telemetry config with 1 hour TTL
+_telemetry_config_cache = TTLCache(maxsize=1, ttl=3600)
+
+
+@catch_mlflow_exception
+def get_ui_telemetry_handler():
+    """
+    GET handler for /telemetry endpoint.
+    Returns the telemetry client configuration by fetching it directly.
+    """
+    from mlflow.telemetry.utils import fetch_ui_telemetry_config
+
+    # Check cache first
+    if "config" in _telemetry_config_cache:
+        return jsonify({"config": _telemetry_config_cache["config"]})
+
+    # Fetch and cache config
+    config = fetch_ui_telemetry_config()
+    if config is None:
+        config = {
+            "disable_ui_telemetry": True,
+            "disable_ui_events": [],
+            "ui_rollout_percentage": 0,
+        }
+    else:
+        config = config | {
+            "disable_ui_telemetry": False,
+            "disable_ui_events": ["test"],
+            "ui_rollout_percentage": 100,
+        }
+    _telemetry_config_cache["config"] = config
+
+    response_message = GetUITelemetryConfig.Response()
+    response_message.disable_ui_telemetry = config["disable_ui_telemetry"]
+    response_message.disable_ui_events = json.dumps(config["disable_ui_events"])
+    response_message.ui_rollout_percentage = config["ui_rollout_percentage"]
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+def post_ui_telemetry_handler():
+    """
+    POST handler for /telemetry endpoint.
+    Accepts telemetry records and adds them to the telemetry client.
+    """
+    from mlflow.telemetry import get_telemetry_client
+    from mlflow.telemetry.schemas import Record, Status
+    from mlflow.telemetry.utils import fetch_telemetry_config
+
+    request_message = _get_request_message(
+        UploadUITelemetryRecords(),
+        schema={
+            "records": [_assert_required, _assert_string],
+        },
+    )
+
+    data = request_message.records
+    if not data:
+        raise MlflowException(
+            message="Request body must contain records.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # check cached config to see if telemetry is disabled
+    # if so, don't process the records. we don't rely on the
+    # config from the telemetry client because it is only fetched
+    # once, so it won't be updated unless the server is restarted.
+    if "config" in _telemetry_config_cache:
+        config = _telemetry_config_cache["config"]
+    else:
+        config = fetch_telemetry_config()
+        _telemetry_config_cache["config"] = config
+
+    if config and (config.get("disable_telemetry") or config.get("disable_ui_telemetry")):
+        return jsonify({"status": "disabled"})
+
+    records = [
+        Record(
+            event_name=event.get("event_name"),
+            timestamp_ns=event.get("timestamp_ns"),
+            params=event.get("params"),
+            status=Status.SUCCESS,
+            installation_id=event.get("installation_id"),
+            session_id=event.get("session_id"),
+            duration_ms=0,
+        )
+        for event in data["records"]
+    ]
+
+    # Add record to telemetry client
+    client = get_telemetry_client()
+    if client is not None:
+        for record in records:
+            client.add_record(record)
+
+    response_message = UploadUITelemetryRecords.Response()
+    response_message.status = "success"
+    return _wrap_response(response_message)
+
+
 HANDLERS = {
     # Tracking Server APIs
     CreateExperiment: _create_experiment,
@@ -4715,4 +4818,7 @@ HANDLERS = {
     CreateGatewayEndpointBinding: _create_endpoint_binding,
     DeleteGatewayEndpointBinding: _delete_endpoint_binding,
     ListGatewayEndpointBindings: _list_endpoint_bindings,
+    # UI Telemetry APIs
+    GetUITelemetryConfig: get_ui_telemetry_handler,
+    UploadUITelemetryRecords: post_ui_telemetry_handler,
 }
