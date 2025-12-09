@@ -77,7 +77,10 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
             className="mlflow-html-iframe"
             display="block"
             position="relative"
-            sandbox="allow-scripts"
+            // The react-iframe types incorrectly restrict sandbox to a single value,
+            // but HTML's sandbox attribute supports multiple space-separated values.
+            // allow-same-origin is needed for Plotly maps to fetch external tile data.
+            sandbox={'allow-scripts allow-same-origin' as 'allow-scripts'}
           />
         </div>
       );
