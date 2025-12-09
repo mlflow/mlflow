@@ -10,15 +10,15 @@ export interface TelemetryRecord {
   session_id: string;
   event_name: string;
   timestamp_ns: number;
-  params?: Record<string, unknown>;
+  params?: Record<string, string>;
   status?: string;
   duration_ms?: number;
 }
 
 export interface TelemetryConfig {
-  disable_ui_events: string[];
-  disable_ui_telemetry: boolean;
-  ui_rollout_percentage: number;
+  disable_ui_events?: string[];
+  disable_ui_telemetry?: boolean;
+  ui_rollout_percentage?: number;
 }
 
 export interface TelemetryConfigResponse {
