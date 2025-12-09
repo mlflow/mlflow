@@ -34,13 +34,18 @@ class TelemetryLogger {
   public async addLogToQueue(record: TelemetryRecord): Promise<void> {
     const config = await this.config;
 
-    if (!config || config.disable_ui_telemetry) {
+    if (!config || (config.disable_ui_telemetry ?? true)) {
       return;
     }
 
     // check if the sampling value is less than the rollout percentage
     const isEnabled = this.samplingValue < (config.ui_rollout_percentage ?? 0);
     if (!isEnabled) {
+      return;
+    }
+
+    const isIgnored = config.disable_ui_events?.includes(record.params?.['componentId'] ?? '');
+    if (isIgnored) {
       return;
     }
 
