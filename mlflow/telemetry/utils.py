@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
 from mlflow.telemetry.constant import (
     CONFIG_STAGING_URL,
     CONFIG_URL,
+    FALLBACK_UI_CONFIG,
     UI_CONFIG_STAGING_URL,
     UI_CONFIG_URL,
 )
@@ -117,20 +118,20 @@ def fetch_ui_telemetry_config() -> dict[str, Any] | None:
 
     # Check if telemetry is disabled
     if is_telemetry_disabled():
-        return None
+        return FALLBACK_UI_CONFIG
 
     # Get config URL
     config_url = _get_config_url(VERSION, is_ui=True)
     if not config_url:
-        return None
+        return FALLBACK_UI_CONFIG
 
     # Fetch config from remote URL
     try:
         response = requests.get(config_url, timeout=1)
         if response.status_code != 200:
-            return None
+            return FALLBACK_UI_CONFIG
 
         return response.json()
     except Exception as e:
         _log_error(f"Failed to fetch UI telemetry config: {e}")
-        return None
+        return FALLBACK_UI_CONFIG
