@@ -872,10 +872,12 @@ def test_resolve_conversation_from_session_with_tool_calls():
 
     conversation_with_tools = resolve_conversation_from_session(traces, include_tool_calls=True)
     assert len(conversation_with_tools) == 3
-    assert conversation_with_tools[0]["role"] == "user"
-    assert conversation_with_tools[1]["role"] == "tool"
-    assert "get_stock_price" in conversation_with_tools[1]["content"]
-    assert conversation_with_tools[2]["role"] == "assistant"
+    assert conversation_with_tools[0] == {"role": "user", "content": "Get AAPL price"}
+    assert conversation_with_tools[1] == {
+        "role": "tool",
+        "content": "Tool: get_stock_price\nInputs: {'symbol': 'AAPL'}\nOutputs: {'price': 150}",
+    }
+    assert conversation_with_tools[2] == {"role": "assistant", "content": "AAPL is $150."}
 
 
 def test_resolve_conversation_from_session_empty():
