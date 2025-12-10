@@ -3,5 +3,5 @@ export interface DesignSystemObservabilityEvent {
   componentViewId: string;
   componentType: string;
   componentSubType?: string | null;
-  eventType: 'onClick' | 'onView';
+  eventType: string;
 }
