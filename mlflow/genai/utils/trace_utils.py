@@ -32,6 +32,7 @@ from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.tracking.client import MlflowClient
+from mlflow.types.chat import ChatTool, ToolCall, ToolCallOutput
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
@@ -884,3 +885,385 @@ def _parse_tools_to_chat_tool(tools_data: list[dict[str, Any]]) -> list["ChatToo
             continue
 
     return validated_tools
+
+
+def extract_tools_called_from_trace(trace: Trace) -> list[ToolCallOutput]:
+    """
+    Extract all tool calls with their outputs from LLM or CHAT_MODEL spans' input messages.
+
+    This function finds all LLM or CHAT_MODEL spans in the trace, extracts tool calls from
+    each span's input messages, and returns the results from the span with the most complete
+    list of tool calls. For each tool call, it matches the corresponding tool message (with
+    role="tool") to get the output.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        List of ToolCallOutput objects from mlflow.types.chat in chronological order
+    """
+    relevant_span_types = [SpanType.LLM, SpanType.CHAT_MODEL]
+
+    relevant_spans = [
+        span
+        for span in trace.data.spans
+        if span.get_attribute(SpanAttributeKey.SPAN_TYPE) in relevant_span_types
+    ]
+
+    if not relevant_spans:
+        # TODO: Add agent parser to extract tool calls from agent's input messages as fallback
+        return []
+
+    # Try extracting tool calls from all relevant spans
+    max_tool_calls = []
+    for span in relevant_spans:
+        tool_calls = _extract_tool_calls_from_span(span)
+        # Keep the span with the most tool calls
+        if len(tool_calls) > len(max_tool_calls):
+            max_tool_calls = tool_calls
+
+    return max_tool_calls
+
+
+def _extract_tool_calls_from_span(span: Span) -> list[ToolCallOutput]:
+    """
+    Extract tool calls from a single span's input messages.
+
+    Args:
+        span: MLflow span object
+
+    Returns:
+        List of ToolCallOutput objects in chronological order
+    """
+    if span.inputs is None:
+        return []
+
+    tool_call_outputs = []
+
+    try:
+        message_format = span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT)
+        inputs = _to_dict(span.inputs)
+
+        # Parse input messages using format-specific logic
+        messages = _normalize_conversation(inputs, message_format)
+
+        tool_message_content_map = _build_tool_message_content_map(messages)
+
+        # Extract tool_calls from messages in chronological order
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+
+            message_tool_calls = message.get("tool_calls")
+            if not isinstance(message_tool_calls, list):
+                continue
+
+            for tc in message_tool_calls:
+                if not isinstance(tc, dict):
+                    continue
+
+                try:
+                    tool_call_obj = ToolCall.model_validate(tc)
+                    # Find the corresponding tool message output
+                    output = tool_message_content_map.get(tool_call_obj.id, "")
+                    tool_call_output = ToolCallOutput(tool_call=tool_call_obj, output=output)
+                    tool_call_outputs.append(tool_call_output)
+                except Exception as e:
+                    _logger.debug(f"Failed to validate tool call {tc}: {e!r}")
+
+    except Exception as e:
+        _logger.debug(f"Failed to extract tool calls from span {span.span_id}. Error: {e!r}")
+
+    return tool_call_outputs
+
+
+def _build_tool_message_content_map(messages: list[Any]) -> dict[str, str]:
+    """
+    Build a map of tool_call_id -> tool message content for quick lookup.
+
+    Args:
+        messages: List of message dictionaries
+
+    Returns:
+        Dictionary mapping tool_call_id to tool message content
+    """
+    tool_message_content_map = {}
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+
+        is_tool_message = message.get("role") == "tool" or message.get("type") == "tool"
+        if is_tool_message:
+            tool_call_id = message.get("tool_call_id") or message.get("id")
+            content = message.get("content", "")
+            if tool_call_id:
+                tool_message_content_map[tool_call_id] = content
+    return tool_message_content_map
+
+
+def _normalize_conversation(data: Any, message_format: str | None) -> list[dict[str, Any]]:
+    """
+    Normalize conversation input data based on message format.
+
+    Mirrors frontend's normalizeConversation function (ModelTraceExplorer.utils.tsx).
+    Routes to format-specific parsers to extract messages with tool_calls from input data.
+
+    Args:
+        data: Span inputs data
+        message_format: Format identifier from SpanAttributeKey.MESSAGE_FORMAT
+
+    Returns:
+        List of normalized message dictionaries with tool_calls
+    """
+    if not data:
+        return []
+
+    try:
+        # Route to format-specific parsers
+        if message_format == "openai":
+            return _normalize_openai_chat_input(data)
+        elif message_format == "openai-agent":
+            return _normalize_openai_agent_input(data)
+        elif message_format == "langchain":
+            return _normalize_langchain_chat_input(data)
+        else:
+            # Fallback: try OpenAI format
+            return _normalize_openai_chat_input(data)
+    except Exception:
+        return []
+
+
+def _normalize_openai_chat_input(data: Any) -> list[dict[str, Any]]:
+    """
+    Parse OpenAI input format to extract messages with tool_calls.
+
+    Mirrors: normalizeOpenAIChatInput (chat-utils/openai.ts)
+
+    Handles OpenAI input formats:
+    - {messages: [...]}
+    - {input: [...]}
+    - Direct array of messages
+    """
+    # Handle INPUT format: {messages: [...]} or {input: [...]}
+    if isinstance(data, dict):
+        input_messages = data.get("messages") or data.get("input")
+        if input_messages and isinstance(input_messages, list):
+            return [msg for msg in input_messages if isinstance(msg, dict) and "role" in msg]
+
+    # Handle direct array of messages
+    if isinstance(data, list) and all(isinstance(msg, dict) and "role" in msg for msg in data):
+        return data
+
+    return []
+
+
+def _normalize_openai_agent_input(data: Any) -> list[dict[str, Any]]:
+    """
+    Parse OpenAI Agent input format to extract messages with tool_calls.
+
+    Mirrors: normalizeOpenAIAgentInput (chat-utils/openai.ts)
+
+    Handles agent format where function calls and messages are in an array:
+    - {type: "function_call", call_id, name, arguments}
+    - {type: "function_call_output", call_id, output}
+    - Regular messages with {role, content}
+    """
+    if not isinstance(data, list) or len(data) == 0:
+        return []
+
+    # Check if all items are valid OpenAI Agent messages
+    if not all(_is_openai_agent_message(item) for item in data):
+        return []
+
+    return [msg for item in data if (msg := _normalize_openai_agent_message(item))]
+
+
+def _is_openai_agent_message(obj: Any) -> bool:
+    """
+    Check if an object is a valid OpenAI Agent message.
+
+    Mirrors: isOpenAIAgentMessage (chat-utils/openai.ts)
+    """
+    if not isinstance(obj, dict):
+        return False
+
+    # Check for regular message format (with optional id, status, type fields)
+    if "role" in obj and "content" in obj:
+        role = obj.get("role")
+        if role in ["user", "assistant", "system", "tool"]:
+            return True
+
+    # Check for function call format (with optional id, status fields)
+    if obj.get("type") == "function_call":
+        call_id = obj.get("call_id")
+        name = obj.get("name")
+        arguments = obj.get("arguments")
+        return isinstance(call_id, str) and isinstance(name, str) and isinstance(arguments, str)
+
+    # Check for function call output format
+    if obj.get("type") == "function_call_output":
+        call_id = obj.get("call_id")
+        output = obj.get("output")
+        return isinstance(call_id, str) and isinstance(output, str)
+
+    return False
+
+
+def _normalize_openai_agent_message(obj: Any) -> dict[str, Any] | None:
+    """
+    Normalize a single OpenAI Agent message.
+
+    Mirrors: normalizeOpenAIAgentMessage (chat-utils/openai.ts)
+    """
+    if not isinstance(obj, dict):
+        return None
+
+    # Handle regular message format
+    if "role" in obj and "content" in obj:
+        # Handle content that might be an array with output_text objects
+        if isinstance(obj.get("content"), list):
+            text_parts = []
+            for item in obj["content"]:
+                if isinstance(item, dict) and item.get("type") == "output_text":
+                    text = item.get("text")
+                    if isinstance(text, str):
+                        text_parts.append(text)
+
+            if text_parts:
+                return {
+                    **obj,
+                    "content": " ".join(text_parts),
+                }
+
+        # Fall back to returning the message as-is
+        return obj
+
+    # Handle function call format - each creates its own assistant message
+    if obj.get("type") == "function_call":
+        call_id = obj.get("call_id")
+        arguments = obj.get("arguments")
+        name = obj.get("name")
+
+        if isinstance(call_id, str) and isinstance(arguments, str) and isinstance(name, str):
+            return {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": call_id,
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": arguments,
+                        },
+                    }
+                ],
+            }
+
+    # Handle function call output format
+    if obj.get("type") == "function_call_output":
+        call_id = obj.get("call_id")
+        output = obj.get("output")
+
+        if isinstance(call_id, str) and isinstance(output, str):
+            return {
+                "role": "tool",
+                "tool_call_id": call_id,
+                "content": output,
+            }
+
+    return None
+
+
+def _normalize_langchain_chat_input(data: Any) -> list[dict[str, Any]]:
+    """
+    Parse Langchain input format to extract messages with tool_calls.
+
+    Mirrors: normalizeLangchainChatInput (chat-utils/langchain.ts)
+
+    Handles Langchain input formats:
+    - [[message1, message2]] (nested array)
+    - {messages: [message1, message2]} (object with messages key)
+    - Direct array [message1, message2]
+    """
+    # Handle INPUT format: [[message1, message2]]
+    if (
+        isinstance(data, list)
+        and len(data) == 1
+        and isinstance(data[0], list)
+        and all(_is_langchain_message(msg) for msg in data[0])
+    ):
+        return [_normalize_langchain_message(msg) for msg in data[0]]
+
+    # Handle INPUT format: {messages: [message1, message2]}
+    if isinstance(data, dict) and "messages" in data:
+        input_messages = data.get("messages", [])
+        if isinstance(input_messages, list) and all(
+            _is_langchain_message(msg) for msg in input_messages
+        ):
+            return [_normalize_langchain_message(msg) for msg in input_messages]
+
+    # Handle INPUT format: direct array [message1, message2]
+    if isinstance(data, list) and all(_is_langchain_message(msg) for msg in data):
+        return [_normalize_langchain_message(msg) for msg in data]
+
+    return []
+
+
+def _is_langchain_message(msg: Any) -> bool:
+    """Check if a message is in Langchain format."""
+    return isinstance(msg, dict) and "type" in msg
+
+
+def _normalize_langchain_message(message: dict[str, Any]) -> dict[str, Any]:
+    """
+    Normalize a Langchain message to standard format.
+
+    Handles tool_calls in both message.tool_calls and message.additional_kwargs.tool_calls
+    """
+    # Check for tool_calls in message itself
+    if "tool_calls" in message:
+        return _normalize_langchain_tool_calls(message)
+
+    # Check for tool_calls in additional_kwargs
+    if "additional_kwargs" in message:
+        kwargs = message.get("additional_kwargs", {})
+        if isinstance(kwargs, dict) and "tool_calls" in kwargs:
+            message_copy = message.copy()
+            message_copy["tool_calls"] = kwargs["tool_calls"]
+            return _normalize_langchain_tool_calls(message_copy)
+
+    return message
+
+
+def _normalize_langchain_tool_calls(message: dict[str, Any]) -> dict[str, Any]:
+    tool_calls = message.get("tool_calls", [])
+    if not isinstance(tool_calls, list):
+        return message
+
+    normalized_tool_calls = []
+    for tc in tool_calls:
+        if not isinstance(tc, dict):
+            continue
+
+        # Langchain format: {id, name, args}
+        if "name" in tc:
+            args = tc.get("args", {})
+            if isinstance(args, dict):
+                args_str = json.dumps(args, indent=2)
+            else:
+                args_str = str(args) if not isinstance(args, str) else args
+
+            normalized_tool_calls.append(
+                {
+                    "id": tc.get("id", tc.get("name", "")),
+                    "type": "function",
+                    "function": {
+                        "name": tc["name"],
+                        "arguments": args_str,
+                    },
+                }
+            )
+
+    message_copy = message.copy()
+    message_copy["tool_calls"] = normalized_tool_calls
+    return message_copy

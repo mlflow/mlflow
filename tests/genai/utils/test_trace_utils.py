@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from typing import Any
 from unittest import mock
 
@@ -30,6 +31,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
     extract_retrieval_context_from_trace,
+    extract_tools_called_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
     parse_tool_calls_from_trace,
@@ -37,6 +39,7 @@ from mlflow.genai.utils.trace_utils import (
 )
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.utils import build_otel_context
+from mlflow.types.chat import ToolCallOutput
 
 from tests.tracing.helper import create_test_trace_info, get_traces, purge_traces
 
@@ -1148,3 +1151,283 @@ def test_extract_available_tools_from_trace_with_invalid_tools(has_valid_tool, e
     assert len(extracted_tools) == expected_count
     if has_valid_tool:
         assert extracted_tools[0].function.name == "valid_tool"
+
+
+def test_extract_tools_called_from_trace_basic():
+    messages = [
+        {"role": "user", "content": "What's the weather in SF?"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_123",
+                    "type": "function",
+                    "function": {"name": "get_weather", "arguments": '{"location": "SF"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_123", "content": "Sunny, 72°F"},
+        {"role": "assistant", "content": "It's sunny and 72°F in SF."},
+    ]
+
+    with mlflow.start_span(name="test_span", span_type="LLM") as span:
+        span.set_inputs({"messages": messages})
+        span.set_attribute("mlflow.message.format", "openai")
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    assert len(tool_calls) == 1
+    assert isinstance(tool_calls[0], ToolCallOutput)
+    assert tool_calls[0].tool_call.id == "call_123"
+    assert tool_calls[0].tool_call.function.name == "get_weather"
+    assert tool_calls[0].tool_call.function.arguments == '{"location": "SF"}'
+    assert tool_calls[0].output == "Sunny, 72°F"
+
+
+def test_extract_tools_called_from_trace_multiple_tools():
+    messages = [
+        {"role": "user", "content": "Calculate 5+3 and 10*2"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "add", "arguments": '{"a": 5, "b": 3}'},
+                },
+                {
+                    "id": "call_2",
+                    "type": "function",
+                    "function": {"name": "multiply", "arguments": '{"x": 10, "y": 2}'},
+                },
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "8"},
+        {"role": "tool", "tool_call_id": "call_2", "content": "20"},
+    ]
+
+    with mlflow.start_span(name="test_span", span_type="CHAT_MODEL") as span:
+        span.set_inputs({"messages": messages})
+        span.set_attribute("mlflow.message.format", "openai")
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    assert len(tool_calls) == 2
+    assert tool_calls[0].tool_call.id == "call_1"
+    assert tool_calls[0].tool_call.function.name == "add"
+    assert tool_calls[0].output == "8"
+    assert tool_calls[1].tool_call.id == "call_2"
+    assert tool_calls[1].tool_call.function.name == "multiply"
+    assert tool_calls[1].output == "20"
+
+
+def test_extract_tools_called_from_trace_without_output():
+    messages = [
+        {"role": "user", "content": "Get weather"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_456",
+                    "type": "function",
+                    "function": {"name": "get_weather", "arguments": '{"location": "NYC"}'},
+                }
+            ],
+        },
+    ]
+
+    with mlflow.start_span(name="test_span", span_type="LLM") as span:
+        span.set_inputs({"messages": messages})
+        span.set_attribute("mlflow.message.format", "openai")
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    assert len(tool_calls) == 1
+    assert tool_calls[0].tool_call.id == "call_456"
+    assert tool_calls[0].output == ""  # Empty string when output not found
+
+
+def test_extract_tools_called_from_trace_uses_span_with_most_complete_tool_calls():
+    # First span: incomplete conversation with only 1 tool call (no tool result)
+    messages1 = [
+        {"role": "user", "content": "First call"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_old",
+                    "type": "function",
+                    "function": {"name": "old_tool", "arguments": "{}"},
+                }
+            ],
+        },
+    ]
+
+    # Second span: complete conversation with 2 tool calls and their results
+    messages2 = [
+        {"role": "user", "content": "First call"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_old",
+                    "type": "function",
+                    "function": {"name": "old_tool", "arguments": "{}"},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_old", "content": "old result"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_new",
+                    "type": "function",
+                    "function": {"name": "new_tool", "arguments": "{}"},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_new", "content": "new result"},
+    ]
+
+    with mlflow.start_span(name="parent") as parent:
+        with mlflow.start_span(name="llm1", span_type="LLM") as span1:
+            span1.set_inputs({"messages": messages1})
+            span1.set_attribute("mlflow.message.format", "openai")
+
+        # Small delay to ensure different start times
+        time.sleep(0.001)
+
+        with mlflow.start_span(name="llm2", span_type="CHAT_MODEL") as span2:
+            span2.set_inputs({"messages": messages2})
+            span2.set_attribute("mlflow.message.format", "openai")
+
+    trace = mlflow.get_trace(parent.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    # Should extract tool calls from span2 which has the most (2 tool calls)
+    assert len(tool_calls) == 2
+    assert tool_calls[0].tool_call.id == "call_old"
+    assert tool_calls[0].tool_call.function.name == "old_tool"
+    assert tool_calls[0].output == "old result"
+    assert tool_calls[1].tool_call.id == "call_new"
+    assert tool_calls[1].tool_call.function.name == "new_tool"
+    assert tool_calls[1].output == "new result"
+
+
+def test_extract_tools_called_from_trace_no_llm_spans():
+    with mlflow.start_span(name="test_span", span_type="CHAIN") as span:
+        span.set_inputs({"query": "test"})
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    assert tool_calls == []
+
+
+def test_extract_tools_called_from_trace_no_inputs():
+    with mlflow.start_span(name="test_span", span_type="LLM") as span:
+        pass  # Don't set inputs
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    assert tool_calls == []
+
+
+def test_extract_tools_called_from_trace_no_tool_calls():
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi there!"},
+    ]
+
+    with mlflow.start_span(name="test_span", span_type="LLM") as span:
+        span.set_inputs({"messages": messages})
+        span.set_attribute("mlflow.message.format", "openai")
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    assert tool_calls == []
+
+
+def test_extract_tools_called_from_trace_langchain_format():
+    messages = [
+        {"type": "human", "content": "Search for Python"},
+        {
+            "type": "ai",
+            "content": "",
+            "tool_calls": [
+                {"id": "tc_1", "name": "web_search", "args": {"query": "Python"}},
+            ],
+        },
+        {"type": "tool", "content": "Found Python docs", "tool_call_id": "tc_1"},
+    ]
+
+    with mlflow.start_span(name="test_span", span_type="LLM") as span:
+        span.set_inputs({"messages": messages})
+        span.set_attribute("mlflow.message.format", "langchain")
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    assert len(tool_calls) == 1
+    assert tool_calls[0].tool_call.function.name == "web_search"
+    assert tool_calls[0].output == "Found Python docs"
+
+
+def test_extract_tools_called_from_trace_openai_agent_format():
+    messages = [
+        {"role": "user", "content": "Calculate 10+20"},
+        {
+            "type": "function_call",
+            "call_id": "fc_1",
+            "name": "calculate",
+            "arguments": '{"expr": "10+20"}',
+        },
+        {"type": "function_call_output", "call_id": "fc_1", "output": "30"},
+    ]
+
+    with mlflow.start_span(name="test_span", span_type="LLM") as span:
+        span.set_inputs(messages)
+        span.set_attribute("mlflow.message.format", "openai-agent")
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    assert len(tool_calls) == 1
+    assert tool_calls[0].tool_call.id == "fc_1"
+    assert tool_calls[0].tool_call.function.name == "calculate"
+    assert tool_calls[0].output == "30"
+
+
+def test_extract_tools_called_from_trace_invalid_tool_call():
+    messages = [
+        {"role": "user", "content": "Test"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "valid_call",
+                    "type": "function",
+                    "function": {"name": "valid_tool", "arguments": "{}"},
+                },
+                {"invalid": "tool_call"},  # Missing required fields
+            ],
+        },
+        {"role": "tool", "tool_call_id": "valid_call", "content": "result"},
+    ]
+
+    with mlflow.start_span(name="test_span", span_type="LLM") as span:
+        span.set_inputs({"messages": messages})
+        span.set_attribute("mlflow.message.format", "openai")
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_calls = extract_tools_called_from_trace(trace)
+
+    # Only valid tool call should be extracted
+    assert len(tool_calls) == 1
+    assert tool_calls[0].tool_call.id == "valid_call"

@@ -68,6 +68,11 @@ class ToolCall(BaseModel):
     function: Function
 
 
+class ToolCallOutput(BaseModel):
+    tool_call: ToolCall
+    output: str
+
+
 class ChatMessage(BaseModel):
     """
     A chat request. ``content`` can be a string, or an array of content parts.
