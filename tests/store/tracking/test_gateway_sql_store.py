@@ -19,7 +19,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
-from mlflow.store.tracking.gateway.config_resolver import get_resource_endpoint_configs
+from mlflow.store.tracking.gateway.config_resolver import (
+    get_endpoint_config,
+    get_resource_endpoint_configs,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 pytestmark = pytest.mark.notrackingurimock
@@ -794,6 +797,109 @@ def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore
     assert len(configs) == 2
     endpoint_names = {c.endpoint_name for c in configs}
     assert endpoint_names == {"multi-endpoint-1", "multi-endpoint-2"}
+
+
+def test_get_endpoint_config(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="ep-config-key",
+        secret_value="sk-endpoint-secret-789",
+        provider="openai",
+        credential_name="OPENAI_API_KEY",
+    )
+    model_def = store.create_model_definition(
+        name="ep-config-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    endpoint = store.create_endpoint(
+        name="ep-config-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    config = get_endpoint_config(
+        endpoint_id=endpoint.endpoint_id,
+        store=store,
+    )
+
+    assert config.endpoint_id == endpoint.endpoint_id
+    assert config.endpoint_name == "ep-config-endpoint"
+    assert len(config.models) == 1
+
+    model_config = config.models[0]
+    assert model_config.model_definition_id == model_def.model_definition_id
+    assert model_config.provider == "openai"
+    assert model_config.model_name == "gpt-4o"
+    assert model_config.secret_value == "sk-endpoint-secret-789"
+    assert model_config.credential_name == "OPENAI_API_KEY"
+
+
+def test_get_endpoint_config_with_auth_config(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="ep-auth-key",
+        secret_value="bedrock-secret",
+        provider="bedrock",
+        auth_config={"region": "eu-west-1", "project_id": "test-project"},
+    )
+    model_def = store.create_model_definition(
+        name="ep-auth-model",
+        secret_id=secret.secret_id,
+        provider="bedrock",
+        model_name="anthropic.claude-3-sonnet",
+    )
+    endpoint = store.create_endpoint(
+        name="ep-auth-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    config = get_endpoint_config(
+        endpoint_id=endpoint.endpoint_id,
+        store=store,
+    )
+
+    model_config = config.models[0]
+    assert model_config.auth_config == {"region": "eu-west-1", "project_id": "test-project"}
+
+
+def test_get_endpoint_config_multiple_models(store: SqlAlchemyStore):
+    secret1 = store.create_secret(secret_name="ep-multi-key-1", secret_value="secret-1")
+    secret2 = store.create_secret(secret_name="ep-multi-key-2", secret_value="secret-2")
+
+    model_def1 = store.create_model_definition(
+        name="ep-multi-model-1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_model_definition(
+        name="ep-multi-model-2",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-opus",
+    )
+
+    endpoint = store.create_endpoint(
+        name="ep-multi-endpoint",
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+    )
+
+    config = get_endpoint_config(
+        endpoint_id=endpoint.endpoint_id,
+        store=store,
+    )
+
+    assert len(config.models) == 2
+    providers = {m.provider for m in config.models}
+    assert providers == {"openai", "anthropic"}
+    model_names = {m.model_name for m in config.models}
+    assert model_names == {"gpt-4", "claude-3-opus"}
+
+
+def test_get_endpoint_config_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found") as exc:
+        get_endpoint_config(
+            endpoint_id="nonexistent-endpoint-id",
+            store=store,
+        )
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 # =============================================================================
