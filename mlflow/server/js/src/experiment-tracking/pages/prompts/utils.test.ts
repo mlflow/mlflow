@@ -6,6 +6,7 @@ describe('Model Config Utils', () => {
   describe('formDataToModelConfig', () => {
     test('converts all fields correctly', () => {
       const formData: PromptModelConfigFormData = {
+        provider: 'openai',
         modelName: 'gpt-4',
         temperature: '0.7',
         maxTokens: '2048',
@@ -19,6 +20,7 @@ describe('Model Config Utils', () => {
       const result = formDataToModelConfig(formData);
 
       expect(result).toEqual({
+        provider: 'openai',
         model_name: 'gpt-4',
         temperature: 0.7,
         max_tokens: 2048,
@@ -76,6 +78,7 @@ describe('Model Config Utils', () => {
   describe('modelConfigToFormData', () => {
     test('converts all fields correctly', () => {
       const config: PromptModelConfig = {
+        provider: 'openai',
         model_name: 'gpt-4',
         temperature: 0.7,
         max_tokens: 2048,
@@ -89,6 +92,7 @@ describe('Model Config Utils', () => {
       const result = modelConfigToFormData(config);
 
       expect(result).toEqual({
+        provider: 'openai',
         modelName: 'gpt-4',
         temperature: '0.7',
         maxTokens: '2048',
@@ -113,6 +117,7 @@ describe('Model Config Utils', () => {
       const result = modelConfigToFormData(config);
 
       expect(result).toEqual({
+        provider: '',
         modelName: 'claude-3',
         temperature: '1',
         maxTokens: '',
@@ -175,7 +180,7 @@ describe('Model Config Utils', () => {
 
   describe('getModelConfigFromTags', () => {
     test('parses valid JSON tag', () => {
-      const tags = [{ key: 'mlflow.prompt.modelConfig', value: '{"model_name":"gpt-4","temperature":0.7}' }];
+      const tags = [{ key: '_mlflow_prompt_model_config', value: '{"model_name":"gpt-4","temperature":0.7}' }];
 
       const result = getModelConfigFromTags(tags);
 
@@ -191,7 +196,7 @@ describe('Model Config Utils', () => {
     });
 
     test('returns undefined for invalid JSON', () => {
-      const tags = [{ key: 'mlflow.prompt.modelConfig', value: 'not-json' }];
+      const tags = [{ key: '_mlflow_prompt_model_config', value: 'not-json' }];
       expect(getModelConfigFromTags(tags)).toBeUndefined();
     });
 
