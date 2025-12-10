@@ -1385,3 +1385,207 @@ def test_link_prompts_to_trace_is_workspace_scoped(workspace_tracking_store):
                 .count()
             )
             assert count == 1
+
+
+@pytest.fixture
+def gateway_workspace_store(workspace_tracking_store, monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase")
+    return workspace_tracking_store
+
+
+def test_secrets_are_workspace_scoped(gateway_workspace_store):
+    with WorkspaceContext("team-secret-a"):
+        secret_a = gateway_workspace_store.create_secret(
+            secret_name="my-secret",
+            secret_value="secret-a-value",
+            provider="openai",
+        )
+
+    with WorkspaceContext("team-secret-b"):
+        secret_b = gateway_workspace_store.create_secret(
+            secret_name="my-secret",
+            secret_value="secret-b-value",
+            provider="anthropic",
+        )
+
+        secrets = gateway_workspace_store.list_secret_infos()
+        assert len(secrets) == 1
+        assert secrets[0].secret_id == secret_b.secret_id
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.get_secret_info(secret_id=secret_a.secret_id)
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.update_secret(secret_id=secret_a.secret_id, secret_value="new")
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.delete_secret(secret_id=secret_a.secret_id)
+
+    with WorkspaceContext("team-secret-a"):
+        secrets = gateway_workspace_store.list_secret_infos()
+        assert len(secrets) == 1
+        assert secrets[0].secret_id == secret_a.secret_id
+        assert secrets[0].provider == "openai"
+
+
+def test_endpoints_are_workspace_scoped(gateway_workspace_store):
+    with WorkspaceContext("team-endpoint-a"):
+        secret_a = gateway_workspace_store.create_secret(
+            secret_name="secret-a", secret_value="val-a"
+        )
+        def_a = gateway_workspace_store.create_model_definition(
+            name="def-a",
+            secret_id=secret_a.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        endpoint_a = gateway_workspace_store.create_endpoint(
+            name="my-endpoint",
+            model_definition_ids=[def_a.model_definition_id],
+            created_by="user-a",
+        )
+
+    with WorkspaceContext("team-endpoint-b"):
+        secret_b = gateway_workspace_store.create_secret(
+            secret_name="secret-b", secret_value="val-b"
+        )
+        def_b = gateway_workspace_store.create_model_definition(
+            name="def-b",
+            secret_id=secret_b.secret_id,
+            provider="anthropic",
+            model_name="claude-3",
+        )
+        endpoint_b = gateway_workspace_store.create_endpoint(
+            name="my-endpoint",
+            model_definition_ids=[def_b.model_definition_id],
+            created_by="user-b",
+        )
+
+        endpoints = gateway_workspace_store.list_endpoints()
+        assert len(endpoints) == 1
+        assert endpoints[0].endpoint_id == endpoint_b.endpoint_id
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.get_endpoint(endpoint_id=endpoint_a.endpoint_id)
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.update_endpoint(
+                endpoint_id=endpoint_a.endpoint_id, name="renamed"
+            )
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.delete_endpoint(endpoint_id=endpoint_a.endpoint_id)
+
+    with WorkspaceContext("team-endpoint-a"):
+        endpoints = gateway_workspace_store.list_endpoints()
+        assert len(endpoints) == 1
+        assert endpoints[0].endpoint_id == endpoint_a.endpoint_id
+
+
+def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
+    with WorkspaceContext("team-def-a"):
+        secret_a = gateway_workspace_store.create_secret(
+            secret_name="secret-a", secret_value="val-a"
+        )
+        definition_a = gateway_workspace_store.create_model_definition(
+            name="my-model",
+            secret_id=secret_a.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+            created_by="user-a",
+        )
+
+    with WorkspaceContext("team-def-b"):
+        secret_b = gateway_workspace_store.create_secret(
+            secret_name="secret-b", secret_value="val-b"
+        )
+        definition_b = gateway_workspace_store.create_model_definition(
+            name="my-model",
+            secret_id=secret_b.secret_id,
+            provider="anthropic",
+            model_name="claude-3",
+            created_by="user-b",
+        )
+
+        definitions = gateway_workspace_store.list_model_definitions()
+        assert len(definitions) == 1
+        assert definitions[0].model_definition_id == definition_b.model_definition_id
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.get_model_definition(
+                model_definition_id=definition_a.model_definition_id
+            )
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.update_model_definition(
+                model_definition_id=definition_a.model_definition_id,
+                name="renamed",
+            )
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.delete_model_definition(
+                model_definition_id=definition_a.model_definition_id
+            )
+
+    with WorkspaceContext("team-def-a"):
+        definitions = gateway_workspace_store.list_model_definitions()
+        assert len(definitions) == 1
+        assert definitions[0].model_definition_id == definition_a.model_definition_id
+        assert definitions[0].provider == "openai"
+
+
+def test_endpoint_bindings_are_workspace_scoped(gateway_workspace_store):
+    with WorkspaceContext("team-bind-a"):
+        gateway_workspace_store.create_experiment("exp-bind-a")
+        secret_a = gateway_workspace_store.create_secret(
+            secret_name="secret-a", secret_value="val-a"
+        )
+        def_a = gateway_workspace_store.create_model_definition(
+            name="def-a",
+            secret_id=secret_a.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        endpoint_a = gateway_workspace_store.create_endpoint(
+            name="bound-endpoint",
+            model_definition_ids=[def_a.model_definition_id],
+            created_by="a",
+        )
+        gateway_workspace_store.create_endpoint_binding(
+            endpoint_id=endpoint_a.endpoint_id,
+            resource_type="logged_model",
+            resource_id="model-a",
+            created_by="user-a",
+        )
+
+    with WorkspaceContext("team-bind-b"):
+        gateway_workspace_store.create_experiment("exp-bind-b")
+        secret_b = gateway_workspace_store.create_secret(
+            secret_name="secret-b", secret_value="val-b"
+        )
+        def_b = gateway_workspace_store.create_model_definition(
+            name="def-b",
+            secret_id=secret_b.secret_id,
+            provider="anthropic",
+            model_name="claude-3",
+        )
+        endpoint_b = gateway_workspace_store.create_endpoint(
+            name="bound-endpoint",
+            model_definition_ids=[def_b.model_definition_id],
+            created_by="b",
+        )
+        gateway_workspace_store.create_endpoint_binding(
+            endpoint_id=endpoint_b.endpoint_id,
+            resource_type="logged_model",
+            resource_id="model-b",
+            created_by="user-b",
+        )
+
+        bindings = gateway_workspace_store.list_endpoint_bindings()
+        assert len(bindings) == 1
+        assert bindings[0].endpoint_id == endpoint_b.endpoint_id
+
+    with WorkspaceContext("team-bind-a"):
+        bindings = gateway_workspace_store.list_endpoint_bindings()
+        assert len(bindings) == 1
+        assert bindings[0].endpoint_id == endpoint_a.endpoint_id
