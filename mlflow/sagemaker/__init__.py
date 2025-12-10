@@ -154,21 +154,20 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
         subprocess.run(
             ["docker", "login", "--username", "AWS", "--password-stdin", registry],
             input=aws_result.stdout,
-            capture_output=True,
             check=True,
         )
 
         # Docker tag
         _logger.info("Tagging image %s as %s", image, fullname)
-        subprocess.run(["docker", "tag", image, fullname], capture_output=True, check=True)
+        subprocess.check_call(["docker", "tag", image, fullname])
 
         # Docker push
         _logger.info("Pushing image %s", fullname)
-        subprocess.run(["docker", "push", fullname], capture_output=True, check=True)
+        subprocess.check_call(["docker", "push", fullname])
     except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode() if e.stderr else str(e)
+        cmd = " ".join(e.cmd)
         raise MlflowException(
-            f"Failed to push image to ECR. Command '{' '.join(e.cmd)}' failed: {error_msg}"
+            f"Failed to push image to ECR. Command '{cmd}' failed with exit code {e.returncode}"
         ) from e
 
 
