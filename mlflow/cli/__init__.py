@@ -46,6 +46,7 @@ from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
+    assert_server_workspace_env_unset,
     resolve_default_artifact_root,
 )
 
@@ -500,9 +501,8 @@ def _validate_static_prefix(ctx, param, value):
     ),
 )
 @click.option(
-    "--enable-workspaces",
+    "--enable-workspaces/--disable-workspaces",
     envvar=MLFLOW_ENABLE_WORKSPACES.name,
-    is_flag=True,
     default=False,
     show_default=True,
     help="Enable backwards compatible workspace-aware multi-tenancy mode.",
@@ -578,10 +578,13 @@ def server(
         disable_security_middleware=disable_security_middleware,
     )
 
-    if enable_workspaces:
-        os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true"
-        if workspace_store_uri:
-            os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
+    assert_server_workspace_env_unset()
+
+    # Keep environment flag in sync with the resolved boolean so server-side gating
+    # (which reads MLFLOW_ENABLE_WORKSPACES.get()) has a single source of truth.
+    os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true" if enable_workspaces else "false"
+    if enable_workspaces and workspace_store_uri:
+        os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
     elif workspace_store_uri:
         click.echo(
             "Ignoring --workspace-store-uri because workspaces are not enabled. "
@@ -623,11 +626,16 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
-    artifacts_only_config_validation(artifacts_only, backend_store_uri)
+    artifacts_only_config_validation(artifacts_only, backend_store_uri, enable_workspaces)
 
     if not artifacts_only:
         try:
-            initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
+            initialize_backend_stores(
+                backend_store_uri,
+                registry_store_uri,
+                default_artifact_root,
+                workspace_store_uri=workspace_store_uri,
+            )
         except Exception as e:
             _logger.error("Error initializing backend store")
             _logger.exception(e)
