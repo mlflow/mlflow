@@ -254,3 +254,18 @@ def test_export_spans_batch_split_spans_by_location(monkeypatch):
     location, spans = exporter._client.log_spans.call_args_list[1][0]
     assert location == "catalog.schema.table_2"
     assert len(spans) == 3
+
+
+def test_at_exit_callback_registered_in_correct_order():
+    # This test validates that the two atexit callbacks are registered in the correct order.
+    # AsyncTraceExportQueue must be shut down AFTER SpanBatcher. Since atexit executes callbacks in
+    # last-in-first-out order, we must register the callback for AsyncTraceExportQueue first.
+    # https://docs.python.org/3/library/atexit.html#atexit.register
+    with mock.patch("atexit.register") as mock_atexit:
+        DatabricksUCTableSpanExporter()
+
+    assert mock_atexit.call_count == 2
+    handlers = [call[0][0] for call in mock_atexit.call_args_list]
+    assert len(handlers) == 2
+    assert handlers[0].__self__.__class__.__name__ == "AsyncTraceExportQueue"
+    assert handlers[1].__self__.__class__.__name__ == "SpanBatcher"

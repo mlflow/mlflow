@@ -71,6 +71,5 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
         return False
 
     def flush(self) -> None:
-        # self._async_queue.activate()
         self._span_batcher.shutdown()
         self._async_queue.flush(terminate=True)

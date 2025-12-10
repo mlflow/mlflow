@@ -37,15 +37,16 @@ class SpanBatcher:
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
 
-        self._worker = threading.Thread(
-            name="MLflowSpanBatcherWorker",
-            daemon=True,
-            target=self._worker_loop,
-        )
-        self._worker_awaken = threading.Event()
-        self._worker.start()
-
-        atexit.register(self.shutdown)
+        # Batch size = 1 means no batching, so we don't need to setup the worker thread.
+        if self._max_span_batch_size >= 1:
+            self._worker = threading.Thread(
+                name="MLflowSpanBatcherWorker",
+                daemon=True,
+                target=self._worker_loop,
+            )
+            self._worker_awaken = threading.Event()
+            self._worker.start()
+            atexit.register(self.shutdown)
 
         _logger.debug(
             "Async trace logging is configured with batch size "
@@ -53,6 +54,10 @@ class SpanBatcher:
         )
 
     def add_span(self, location: str, span: Span):
+        if self._max_span_batch_size <= 1:
+            self._export(location, [span])
+            return
+
         if self._stop_event.is_set():
             return
 
