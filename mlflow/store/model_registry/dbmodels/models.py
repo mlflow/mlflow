@@ -79,6 +79,7 @@ class SqlRegisteredModel(Base):
             [mvd.to_mlflow_entity() for mvd in latest_versions.values()],
             [tag.to_mlflow_entity() for tag in self.registered_model_tags],
             [alias.to_mlflow_entity() for alias in self.registered_model_aliases],
+            workspace=self.workspace,
         )
 
 
@@ -149,6 +150,7 @@ class SqlModelVersion(Base):
             [tag.to_mlflow_entity() for tag in self.model_version_tags],
             self.run_link,
             [],
+            workspace=self.workspace,
         )
 
 
@@ -199,7 +201,6 @@ class SqlModelVersionTag(Base):
         default=DEFAULT_WORKSPACE_NAME,
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
-
     name = Column(String(256), nullable=False)
 
     version = Column(Integer)
@@ -211,7 +212,11 @@ class SqlModelVersionTag(Base):
     __table_args__ = (
         ForeignKeyConstraint(
             ["workspace", "name", "version"],
-            ["model_versions.workspace", "model_versions.name", "model_versions.version"],
+            [
+                "model_versions.workspace",
+                "model_versions.name",
+                "model_versions.version",
+            ],
             onupdate="cascade",
         ),
         PrimaryKeyConstraint("workspace", "key", "name", "version", name="model_version_tag_pk"),
@@ -335,6 +340,7 @@ class SqlWebhook(Base):
             events=[we.to_mlflow_entity() for we in self.webhook_events],
             creation_timestamp=self.creation_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
+            workspace=self.workspace,
             description=self.description,
             status=WebhookStatus(self.status),
             secret=self.secret,

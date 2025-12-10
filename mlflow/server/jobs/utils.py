@@ -11,20 +11,25 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, ContextManager
 
 import cloudpickle
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
+    MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.utils.environment import _PythonEnv
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 if TYPE_CHECKING:
     import huey
@@ -134,6 +139,7 @@ def _exec_job_in_subproc(
     transient_error_classes: list[type[Exception]] | None,
     timeout: float | None,
     tmpdir: str,
+    workspace: str,
 ) -> JobResult | None:
     """
     Executes the job function in a subprocess,
@@ -184,15 +190,20 @@ def _exec_job_in_subproc(
     with open(transient_error_classes_file, "wb") as f:
         cloudpickle.dump(transient_error_classes, f)
 
+    job_env = {
+        **os.environ,
+        "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
+        "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
+        "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
+        "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
+    }
+
+    if workspace:
+        job_env[MLFLOW_WORKSPACE.name] = workspace
+
     with subprocess.Popen(
         job_cmd,
-        env={
-            **os.environ,
-            "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
-            "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
-            "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
-            "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
-        },
+        env=job_env,
     ) as popen:
         try:
             popen.wait(timeout=timeout)
@@ -213,43 +224,46 @@ def _exec_job_in_subproc(
 
 def _exec_job(
     job_id: str,
+    workspace: str,
     function: Callable[..., Any],
     params: dict[str, Any],
     timeout: float | None,
 ) -> None:
     from mlflow.server.handlers import _get_job_store
 
-    job_store = _get_job_store()
-    job_store.start_job(job_id)
+    with WorkspaceContext(workspace):
+        job_store = _get_job_store()
+        job_store.start_job(job_id)
 
-    fn_metadata = function._job_fn_metadata
+        fn_metadata = function._job_fn_metadata
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        job_result = _exec_job_in_subproc(
-            fn_metadata.fn_fullname,
-            params,
-            fn_metadata.python_env,
-            fn_metadata.transient_error_classes,
-            timeout,
-            tmpdir,
-        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job_result = _exec_job_in_subproc(
+                fn_metadata.fn_fullname,
+                params,
+                fn_metadata.python_env,
+                fn_metadata.transient_error_classes,
+                timeout,
+                tmpdir,
+                workspace,
+            )
 
-    if job_result is None:
-        job_store.mark_job_timed_out(job_id)
-        return
+        if job_result is None:
+            job_store.mark_job_timed_out(job_id)
+            return
 
-    if job_result.succeeded:
-        job_store.finish_job(job_id, job_result.result)
-        return
+        if job_result.succeeded:
+            job_store.finish_job(job_id, job_result.result)
+            return
 
-    if job_result.is_transient_error:
-        # For transient errors, if the retry count is less than max allowed count,
-        # trigger task retry by raising `RetryTask` exception.
-        retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
-        if retry_count is not None:
-            _exponential_backoff_retry(retry_count)
-    else:
-        job_store.fail_job(job_id, job_result.error)
+        if job_result.is_transient_error:
+            # For transient errors, if the retry count is less than max allowed count,
+            # trigger task retry by raising `RetryTask` exception.
+            retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
+            if retry_count is not None:
+                _exponential_backoff_retry(retry_count)
+        else:
+            job_store.fail_job(job_id, job_result.error)
 
 
 @dataclass
@@ -374,28 +388,48 @@ def _load_function(fullname: str) -> Callable[..., Any]:
         )
 
 
+def _workspace_contexts_for_recovery() -> list[ContextManager[str | None]]:
+    """
+    Determine the set of workspace contexts that may contain unfinished jobs.
+
+    When multi-tenancy is disabled, this returns only a ``nullcontext``. Otherwise, it queries the
+    configured workspace store to enumerate all defined workspaces so the job runner can resume
+    tasks for each tenant.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return [nullcontext()]
+
+    from mlflow.server.workspace_helpers import _get_workspace_store  # avoid circular import
+
+    store = _get_workspace_store()
+    return [WorkspaceContext(workspace.name) for workspace in store.list_workspaces()]
+
+
 def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()
 
-    unfinished_jobs = job_store.list_jobs(
-        statuses=[JobStatus.PENDING, JobStatus.RUNNING],
-        # filter out jobs created after the server is launched.
-        end_timestamp=server_launching_timestamp,
-    )
+    for workspace_ctx in _workspace_contexts_for_recovery():
+        with workspace_ctx as workspace:
+            unfinished_jobs = job_store.list_jobs(
+                statuses=[JobStatus.PENDING, JobStatus.RUNNING],
+                # filter out jobs created after the server is launched.
+                end_timestamp=server_launching_timestamp,
+            )
 
-    for job in unfinished_jobs:
-        if job.status == JobStatus.RUNNING:
-            job_store.reset_job(job.job_id)  # reset the job status to PENDING
+            for job in unfinished_jobs:
+                if job.status == JobStatus.RUNNING:
+                    job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
-        params = json.loads(job.params)
-        function = _load_function(job.function_fullname)
-        timeout = job.timeout
-        # enqueue job
-        _get_or_init_huey_instance(job.function_fullname).submit_task(
-            job.job_id, function, params, timeout
-        )
+                params = json.loads(job.params)
+                function = _load_function(job.function_fullname)
+                timeout = job.timeout
+                job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
+                # enqueue job
+                _get_or_init_huey_instance(job.function_fullname).submit_task(
+                    job.job_id, job_workspace, function, params, timeout
+                )
 
 
 def _validate_function_parameters(function: Callable[..., Any], params: dict[str, Any]) -> None:

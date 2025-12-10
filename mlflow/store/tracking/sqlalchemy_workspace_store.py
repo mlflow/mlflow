@@ -313,11 +313,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             )
         return sql_assessment
 
-    def _with_workspace_field(self, instance):
-        if hasattr(instance, "workspace"):
-            instance.workspace = self._get_active_workspace()
-        return instance
-
     def _get_workspace_provider_instance(self):
         if self._workspace_provider is None:
             workspace_uri = workspace_utils.resolve_workspace_store_uri(tracking_uri=self.db_uri)

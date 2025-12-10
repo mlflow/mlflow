@@ -9,10 +9,13 @@ the job is executed as a subprocess.
 import json
 import os
 import threading
+from contextlib import nullcontext
 
 import cloudpickle
 
+from mlflow.environment_variables import MLFLOW_WORKSPACE
 from mlflow.server.jobs.utils import JobResult, _exit_when_orphaned, _load_function
+from mlflow.utils.workspace_context import WorkspaceContext
 
 if __name__ == "__main__":
     # ensure the subprocess is killed when parent process dies.
@@ -27,10 +30,14 @@ if __name__ == "__main__":
     result_dump_path = os.environ["_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH"]
     transient_error_classes_path = os.environ["_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH"]
 
+    workspace = os.environ.get(MLFLOW_WORKSPACE.name)
+    ctx = WorkspaceContext(workspace) if workspace else nullcontext()
+
     try:
         with open(transient_error_classes_path, "rb") as f:
             transient_error_classes = cloudpickle.load(f)
-        value = function(**params)
+        with ctx:
+            value = function(**params)
         job_result = JobResult(
             succeeded=True,
             result=json.dumps(value),
