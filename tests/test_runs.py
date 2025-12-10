@@ -354,6 +354,7 @@ def test_get_experiment_json():
         "tags": {"env": "test"},
         "creation_time": exp.creation_time,
         "last_update_time": exp.last_update_time,
+        "workspace": exp.workspace,
     }
     assert output == expected
 
