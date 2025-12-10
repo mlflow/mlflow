@@ -67,7 +67,6 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     SetTraceTagV3,
     TraceLocation,
-    UploadUITelemetryRecords,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
@@ -2547,7 +2546,9 @@ def test_litellm_not_available():
             assert "LiteLLM is not installed" in data["message"]
 
 
-def test_get_ui_telemetry_handler(mock_telemetry_config_cache, bypass_telemetry_env_check):
+def test_get_ui_telemetry_handler(
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
     config = {
         "disable_telemetry": False,
         "disable_ui_telemetry": False,
@@ -2582,7 +2583,7 @@ def test_get_ui_telemetry_handler(mock_telemetry_config_cache, bypass_telemetry_
 
 
 def test_get_ui_telemetry_handler_disabled_by_config(
-    mock_telemetry_config_cache, bypass_telemetry_env_check
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     config = {
         "disable_telemetry": True,
@@ -2603,12 +2604,11 @@ def test_get_ui_telemetry_handler_disabled_by_config(
         # that UI telemetry is disabled regardless of disable_ui_telemetry
         assert response_data["disable_ui_telemetry"] is True
         assert response_data["ui_rollout_percentage"] == 0.0
-        # empty arrays are excluded from the response
-        assert "disable_ui_events" not in response_data
+        assert response_data["disable_ui_events"] == []
         assert mock_fetch.call_count == 1
 
 
-def test_get_ui_telemetry_handler_disabled_by_env(mock_telemetry_config_cache):
+def test_get_ui_telemetry_handler_disabled_by_env(test_app_context, mock_telemetry_config_cache):
     # by default, telemetry is disabled in tests, so we just
     # don't use the bypass_telemetry_env_check fixture
     with mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config") as mock_fetch:
@@ -2622,12 +2622,11 @@ def test_get_ui_telemetry_handler_disabled_by_env(mock_telemetry_config_cache):
         mock_fetch.assert_not_called()
         assert response_data["disable_ui_telemetry"] is True
         assert response_data["ui_rollout_percentage"] == 0.0
-        # empty arrays are excluded from the response
-        assert "disable_ui_events" not in response_data
+        assert response_data["disable_ui_events"] == []
 
 
 def test_get_ui_telemetry_handler_fallback_values(
-    mock_telemetry_config_cache, bypass_telemetry_env_check
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     config_without_ui_fields = {
         "disable_telemetry": False,
@@ -2645,6 +2644,7 @@ def test_get_ui_telemetry_handler_fallback_values(
 
         assert response_data["disable_ui_telemetry"] is True
         assert response_data["ui_rollout_percentage"] == 0
+        assert response_data["disable_ui_events"] == []
 
     # test fallback values if we fail to fetch the config
     with mock.patch("requests.get", return_value=mock.Mock(status_code=404)):
@@ -2655,34 +2655,35 @@ def test_get_ui_telemetry_handler_fallback_values(
         response_data = json.loads(response.get_data())
         assert response_data["disable_ui_telemetry"] is True
         assert response_data["ui_rollout_percentage"] == 0
+        assert response_data["disable_ui_events"] == []
 
 
 def test_post_ui_telemetry_handler_success(
-    mock_get_request_message, mock_telemetry_config_cache, bypass_telemetry_env_check
+    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
-    request_msg = UploadUITelemetryRecords()
+    event1 = {
+        "event_name": "test_event_1",
+        "timestamp_ns": 1234567890000000,
+        "params": {"key1": "value1"},
+        "installation_id": "install-123",
+        "session_id": "session-456",
+    }
 
-    event1 = request_msg.records.add()
-    event1.event_name = "test_event_1"
-    event1.timestamp_ns = 1234567890000000
-    event1.params["key1"] = "value1"
-    event1.installation_id = "install-123"
-    event1.session_id = "session-456"
-
-    event2 = request_msg.records.add()
-    event2.event_name = "test_event_2"
-    event2.timestamp_ns = 1234567890000001
-    event2.params["key2"] = "value2"
-    event2.installation_id = "install-123"
-    event2.session_id = "session-456"
-
-    mock_get_request_message.return_value = request_msg
-
+    event2 = {
+        "event_name": "test_event_2",
+        "timestamp_ns": 1234567890000001,
+        "params": {"key2": "value2"},
+        "installation_id": "install-123",
+        "session_id": "session-456",
+    }
+    request = json.dumps({"records": [event1, event2]})
     config = {"disable_ui_telemetry": False, "disable_telemetry": False}
-
     mock_client = mock.MagicMock()
 
     with (
+        test_app.test_request_context(
+            "/ui-telemetry", method="POST", data=request, content_type="application/json"
+        ),
         mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config),
         mock.patch("mlflow.telemetry.get_telemetry_client", return_value=mock_client),
     ):
@@ -2698,24 +2699,26 @@ def test_post_ui_telemetry_handler_success(
 
 
 def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
-    mock_get_request_message, mock_telemetry_config_cache, bypass_telemetry_env_check
+    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
-    request_msg = UploadUITelemetryRecords()
+    event = {
+        "event_name": "test_event_1",
+        "timestamp_ns": 1234567890000000,
+        "params": {"key1": "value1"},
+        "installation_id": "install-123",
+        "session_id": "session-456",
+    }
 
-    event = request_msg.records.add()
-    event.event_name = "test_event"
-    event.timestamp_ns = 1234567890000000
-    event.params["key"] = "value"
-    event.installation_id = "install-123"
-    event.session_id = "session-456"
-
-    mock_get_request_message.return_value = request_msg
+    request = json.dumps({"records": [event]})
 
     config = {"disable_ui_telemetry": True}
 
     mock_client = mock.MagicMock()
 
     with (
+        test_app.test_request_context(
+            "/ui-telemetry", method="POST", data=request, content_type="application/json"
+        ),
         mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config),
         mock.patch("mlflow.telemetry.get_telemetry_client", return_value=mock_client),
     ):
@@ -2730,10 +2733,12 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
         mock_client.add_record.assert_not_called()
 
 
-def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
-    mock_get_request_message, mock_telemetry_config_cache
-):
+def test_post_ui_telemetry_handler_telemetry_disabled_by_env(test_app, mock_telemetry_config_cache):
+    request = json.dumps({"records": []})
     with (
+        test_app.test_request_context(
+            "/ui-telemetry", method="POST", data=request, content_type="application/json"
+        ),
         mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config") as mock_fetch,
         mock.patch("mlflow.telemetry.get_telemetry_client") as mock_get_client,
     ):
