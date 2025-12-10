@@ -73,6 +73,7 @@ class InstructionsJudge(Judge):
     _ordered_template_variables: list[str] = PrivateAttr()
     _feedback_value_type: Any = PrivateAttr()
     _generate_rationale_first: bool = PrivateAttr(default=False)
+    _include_tool_calls_in_conversation: bool = PrivateAttr(default=False)
 
     def __init__(
         self,
@@ -82,6 +83,7 @@ class InstructionsJudge(Judge):
         description: str | None = None,
         feedback_value_type: Any = str,
         generate_rationale_first: bool = False,
+        include_tool_calls_in_conversation: bool = False,
         **kwargs,
     ):
         """
@@ -95,6 +97,10 @@ class InstructionsJudge(Judge):
             feedback_value_type: Optional type for the 'value' field in the Feedback response.
                            Default is str. Supported types (FeedbackValueType): int, float,
                            str, bool, Literal types, as well as a dict and list of these types.
+            generate_rationale_first: Whether to generate rationale before the final value
+            include_tool_calls_in_conversation: If True, include tool call information from
+                           TOOL type spans when extracting conversation from session traces.
+                           Default is False for backward compatibility.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -114,6 +120,7 @@ class InstructionsJudge(Judge):
         self._model = model or get_default_model()
         self._feedback_value_type = feedback_value_type
         self._generate_rationale_first = generate_rationale_first
+        self._include_tool_calls_in_conversation = include_tool_calls_in_conversation
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -518,7 +525,9 @@ class InstructionsJudge(Judge):
         conversation = None
         if session is not None and session:
             self._validate_session(session)
-            conversation = resolve_conversation_from_session(session)
+            conversation = resolve_conversation_from_session(
+                session, include_tool_calls=self._include_tool_calls_in_conversation
+            )
 
         self._check_required_parameters(inputs, outputs, expectations, trace, conversation)
         self._warn_unused_parameters(
