@@ -27,7 +27,7 @@ EXPECTATION_KEY_EXPECTED_OUTCOME = "expected_outcome"
 EXPECTATION_KEY_CONTEXT = "context"
 
 try:
-    from deepeval.test_case import ConversationalTestCase, LLMTestCase
+    from deepeval.test_case import ConversationalTestCase, LLMTestCase, Turn
     from deepeval.test_case import ToolCall as DeepEvalToolCall
 
     _DEEPEVAL_INSTALLED = True
@@ -158,21 +158,17 @@ def map_session_to_deepeval_conversational_test_case(
     Returns:
         ConversationalTestCase with turns populated from session traces
     """
-    from deepeval.test_case import Turn
-
     turns = []
     for trace in session:
         inputs = resolve_inputs_from_trace(None, trace)
         outputs = resolve_outputs_from_trace(None, trace)
 
-        # Create user turn
         user_turn = Turn(
             role="user",
             content=parse_inputs_to_str(inputs),
         )
         turns.append(user_turn)
 
-        # Create assistant turn
         assistant_turn = Turn(
             role="assistant",
             content=parse_outputs_to_str(outputs),
