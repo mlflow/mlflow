@@ -158,19 +158,26 @@ def map_session_to_deepeval_conversational_test_case(
     Returns:
         ConversationalTestCase with turns populated from session traces
     """
+    from deepeval.test_case import Turn
+
     turns = []
     for trace in session:
         inputs = resolve_inputs_from_trace(None, trace)
         outputs = resolve_outputs_from_trace(None, trace)
 
-        test_case = map_scorer_inputs_to_deepeval_test_case(
-            metric_name="",
-            inputs=inputs,
-            outputs=outputs,
-            expectations=None,
-            trace=trace,
+        # Create user turn
+        user_turn = Turn(
+            role="user",
+            content=parse_inputs_to_str(inputs),
         )
-        turns.append(test_case)
+        turns.append(user_turn)
+
+        # Create assistant turn
+        assistant_turn = Turn(
+            role="assistant",
+            content=parse_outputs_to_str(outputs),
+        )
+        turns.append(assistant_turn)
 
     kwargs = {}
     if expectations:
