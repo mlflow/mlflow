@@ -236,9 +236,10 @@ def mock_telemetry_config_cache():
 
 
 @pytest.fixture
-def bypass_telemetry_disabled(monkeypatch):
-    with mock.patch("mlflow.telemetry.utils.is_telemetry_disabled", return_value=False) as m:
-        yield m
+def bypass_telemetry_env_check(monkeypatch):
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING_TELEMETRY", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
 
 
 def test_health():
@@ -2460,7 +2461,7 @@ def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_s
     assert response.status_code == 200
 
 
-def test_get_ui_telemetry_handler(mock_telemetry_config_cache, bypass_telemetry_disabled):
+def test_get_ui_telemetry_handler(mock_telemetry_config_cache, bypass_telemetry_env_check):
     config = {
         "disable_telemetry": False,
         "disable_ui_telemetry": False,
@@ -2495,7 +2496,7 @@ def test_get_ui_telemetry_handler(mock_telemetry_config_cache, bypass_telemetry_
 
 
 def test_get_ui_telemetry_handler_disabled_by_config(
-    mock_telemetry_config_cache, bypass_telemetry_disabled
+    mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     config = {
         "disable_telemetry": True,
@@ -2522,6 +2523,8 @@ def test_get_ui_telemetry_handler_disabled_by_config(
 
 
 def test_get_ui_telemetry_handler_disabled_by_env(mock_telemetry_config_cache):
+    # by default, telemetry is disabled in tests, so we just
+    # don't use the bypass_telemetry_env_check fixture
     with mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config") as mock_fetch:
         response = get_ui_telemetry_handler()
         assert response is not None
@@ -2538,7 +2541,7 @@ def test_get_ui_telemetry_handler_disabled_by_env(mock_telemetry_config_cache):
 
 
 def test_get_ui_telemetry_handler_fallback_values(
-    mock_telemetry_config_cache, bypass_telemetry_disabled
+    mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     config_without_ui_fields = {
         "disable_telemetry": False,
@@ -2569,7 +2572,7 @@ def test_get_ui_telemetry_handler_fallback_values(
 
 
 def test_post_ui_telemetry_handler_success(
-    mock_get_request_message, mock_telemetry_config_cache, bypass_telemetry_disabled
+    mock_get_request_message, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     request_msg = UploadUITelemetryRecords()
 
@@ -2609,7 +2612,7 @@ def test_post_ui_telemetry_handler_success(
 
 
 def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
-    mock_get_request_message, mock_telemetry_config_cache, bypass_telemetry_disabled
+    mock_get_request_message, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     request_msg = UploadUITelemetryRecords()
 
@@ -2644,8 +2647,6 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
 def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
     mock_get_request_message, mock_telemetry_config_cache
 ):
-    # by default, telemetry is disabled in tests, so we just
-    # don't use the bypass_telemetry_disabled fixture
     with (
         mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config") as mock_fetch,
         mock.patch("mlflow.telemetry.get_telemetry_client") as mock_get_client,
