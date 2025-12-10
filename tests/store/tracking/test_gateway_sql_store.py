@@ -16,7 +16,7 @@ from mlflow.entities import (
     GatewaySecretInfo,
     RoutingStrategy,
 )
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -38,6 +38,8 @@ from mlflow.store.tracking.gateway.config_resolver import (
     get_resource_endpoint_configs,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -64,8 +66,19 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.query(model).delete()
 
 
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request, monkeypatch):
+    enabled = request.param
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true" if enabled else "false")
+    if enabled:
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            yield enabled
+    else:
+        yield enabled
+
+
 @pytest.fixture
-def store(tmp_path: Path, db_uri: str):
+def store(tmp_path: Path, db_uri: str, workspaces_enabled):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():

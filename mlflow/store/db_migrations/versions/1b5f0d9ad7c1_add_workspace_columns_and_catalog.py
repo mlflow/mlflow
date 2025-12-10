@@ -29,6 +29,9 @@ _WORKSPACE_TABLES = [
     "registered_model_aliases",
     "evaluation_datasets",
     "webhooks",
+    "secrets",
+    "endpoints",
+    "model_definitions",
 ]
 
 # Older SQLite migrations emitted unnamed foreign keys. When batch-altering tables we need the
@@ -185,20 +188,21 @@ def upgrade():
                 entry["unique"] = True
             return metadata
 
-    def _detect_unique_on_name(table_name: str):
+    def _detect_unique_on_column(table_name: str, column_name: str = "name"):
+        """Detect unique constraint or index on a specific column."""
         expected_name = _NAMING_CONVENTION["uq"] % {
             "table_name": table_name,
-            "column_0_name": "name",
+            "column_0_name": column_name,
         }
 
         for constraint in _get_unique_constraints(table_name) or []:
             cols = constraint.get("column_names") or []
             name = constraint.get("name")
-            if cols == ["name"] or name == expected_name:
+            if cols == [column_name] or name == expected_name:
                 return name or expected_name, None
 
         for index in _get_unique_indexes(table_name) or []:
-            if index.get("unique") and index.get("column_names") == ["name"]:
+            if index.get("unique") and index.get("column_names") == [column_name]:
                 return None, index["name"]
 
         return None, None
@@ -227,6 +231,9 @@ def upgrade():
         )
         op.create_index("idx_evaluation_datasets_workspace", "evaluation_datasets", ["workspace"])
         op.create_index("idx_webhooks_workspace", "webhooks", ["workspace"])
+        op.create_index("idx_secrets_workspace", "secrets", ["workspace"])
+        op.create_index("idx_endpoints_workspace", "endpoints", ["workspace"])
+        op.create_index("idx_model_definitions_workspace", "model_definitions", ["workspace"])
 
         op.create_table(
             "workspaces",
@@ -250,9 +257,18 @@ def upgrade():
             )
         )
 
-    experiments_unique_constraint, experiments_unique_index = _detect_unique_on_name("experiments")
-    registered_models_unique_constraint, registered_models_unique_index = _detect_unique_on_name(
+    experiments_unique_constraint, experiments_unique_index = _detect_unique_on_column(
+        "experiments"
+    )
+    registered_models_unique_constraint, registered_models_unique_index = _detect_unique_on_column(
         "registered_models"
+    )
+    secrets_unique_constraint, secrets_unique_index = _detect_unique_on_column(
+        "secrets", "secret_name"
+    )
+    endpoints_unique_constraint, endpoints_unique_index = _detect_unique_on_column("endpoints")
+    model_definitions_unique_constraint, model_definitions_unique_index = _detect_unique_on_column(
+        "model_definitions"
     )
 
     fk_model_versions = _collect_foreign_keys("model_versions", "registered_models")
@@ -353,6 +369,39 @@ def upgrade():
 
         with _with_batch("webhooks") as batch_op:
             batch_op.add_column(_workspace_column())
+
+        with _with_batch("secrets") as batch_op:
+            if secrets_unique_constraint:
+                batch_op.drop_constraint(secrets_unique_constraint, type_="unique")
+            elif secrets_unique_index:
+                batch_op.drop_index(secrets_unique_index)
+            batch_op.add_column(_workspace_column())
+            batch_op.create_unique_constraint(
+                "uq_secrets_workspace_secret_name",
+                ["workspace", "secret_name"],
+            )
+
+        with _with_batch("endpoints") as batch_op:
+            if endpoints_unique_constraint:
+                batch_op.drop_constraint(endpoints_unique_constraint, type_="unique")
+            elif endpoints_unique_index:
+                batch_op.drop_index(endpoints_unique_index)
+            batch_op.add_column(_workspace_column())
+            batch_op.create_unique_constraint(
+                "uq_endpoints_workspace_name",
+                ["workspace", "name"],
+            )
+
+        with _with_batch("model_definitions") as batch_op:
+            if model_definitions_unique_constraint:
+                batch_op.drop_constraint(model_definitions_unique_constraint, type_="unique")
+            elif model_definitions_unique_index:
+                batch_op.drop_index(model_definitions_unique_index)
+            batch_op.add_column(_workspace_column())
+            batch_op.create_unique_constraint(
+                "uq_model_definitions_workspace_name",
+                ["workspace", "name"],
+            )
 
         _create_workspace_indexes_and_catalog()
 
@@ -481,6 +530,32 @@ def upgrade():
             _workspace_column(),
         )
 
+    _drop_unique_on_name("secrets", secrets_unique_constraint, secrets_unique_index)
+    op.add_column("secrets", _workspace_column())
+    op.create_unique_constraint(
+        "uq_secrets_workspace_secret_name",
+        "secrets",
+        ["workspace", "secret_name"],
+    )
+
+    _drop_unique_on_name("endpoints", endpoints_unique_constraint, endpoints_unique_index)
+    op.add_column("endpoints", _workspace_column())
+    op.create_unique_constraint(
+        "uq_endpoints_workspace_name",
+        "endpoints",
+        ["workspace", "name"],
+    )
+
+    _drop_unique_on_name(
+        "model_definitions", model_definitions_unique_constraint, model_definitions_unique_index
+    )
+    op.add_column("model_definitions", _workspace_column())
+    op.create_unique_constraint(
+        "uq_model_definitions_workspace_name",
+        "model_definitions",
+        ["workspace", "name"],
+    )
+
     _create_workspace_indexes_and_catalog()
 
 
@@ -544,6 +619,9 @@ def downgrade():
             ("name", "alias"),
             "registered model aliases with the same model name and alias",
         ),
+        ("secrets", ("secret_name",), "secrets with the same name"),
+        ("endpoints", ("name",), "endpoints with the same name"),
+        ("model_definitions", ("name",), "model definitions with the same name"),
     ]
 
     for table_name, columns, description in conflict_specs:
@@ -564,6 +642,11 @@ def downgrade():
         "idx_evaluation_datasets_workspace", table_name="evaluation_datasets", **drop_index_kwargs
     )
     op.drop_index("idx_webhooks_workspace", table_name="webhooks", **drop_index_kwargs)
+    op.drop_index("idx_secrets_workspace", table_name="secrets", **drop_index_kwargs)
+    op.drop_index("idx_endpoints_workspace", table_name="endpoints", **drop_index_kwargs)
+    op.drop_index(
+        "idx_model_definitions_workspace", table_name="model_definitions", **drop_index_kwargs
+    )
 
     if dialect_name == "sqlite":
         with _with_batch("model_version_tags") as batch_op:
@@ -638,6 +721,21 @@ def downgrade():
 
         with _with_batch("webhooks") as batch_op:
             batch_op.drop_column("workspace")
+
+        with _with_batch("model_definitions") as batch_op:
+            batch_op.drop_constraint("uq_model_definitions_workspace_name", type_="unique")
+            batch_op.drop_column("workspace")
+            batch_op.create_index("unique_model_definition_name", ["name"], unique=True)
+
+        with _with_batch("endpoints") as batch_op:
+            batch_op.drop_constraint("uq_endpoints_workspace_name", type_="unique")
+            batch_op.drop_column("workspace")
+            batch_op.create_index("unique_endpoint_name", ["name"], unique=True)
+
+        with _with_batch("secrets") as batch_op:
+            batch_op.drop_constraint("uq_secrets_workspace_secret_name", type_="unique")
+            batch_op.drop_column("workspace")
+            batch_op.create_index("unique_secret_name", ["secret_name"], unique=True)
 
         op.drop_table("workspaces")
         return
@@ -726,6 +824,18 @@ def downgrade():
         ["name", "version"],
         onupdate="CASCADE",
     )
+
+    op.drop_constraint("uq_model_definitions_workspace_name", "model_definitions", type_="unique")
+    op.drop_constraint("uq_endpoints_workspace_name", "endpoints", type_="unique")
+    op.drop_constraint("uq_secrets_workspace_secret_name", "secrets", type_="unique")
+
+    op.drop_column("model_definitions", "workspace")
+    op.drop_column("endpoints", "workspace")
+    op.drop_column("secrets", "workspace")
+
+    op.create_index("unique_model_definition_name", "model_definitions", ["name"], unique=True)
+    op.create_index("unique_endpoint_name", "endpoints", ["name"], unique=True)
+    op.create_index("unique_secret_name", "secrets", ["secret_name"], unique=True)
 
     op.drop_table("workspaces")
 

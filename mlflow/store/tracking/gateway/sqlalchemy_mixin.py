@@ -167,19 +167,21 @@ class SqlAlchemyGatewayStoreMixin:
                 secret_name=secret_name,
             )
 
-            sql_secret = SqlGatewaySecret(
-                secret_id=secret_id,
-                secret_name=secret_name,
-                encrypted_value=encrypted.encrypted_value,
-                wrapped_dek=encrypted.wrapped_dek,
-                masked_value=json.dumps(masked_value),
-                kek_version=encrypted.kek_version,
-                provider=provider,
-                auth_config=json.dumps(auth_config) if auth_config else None,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
+            sql_secret = self._with_workspace_field(
+                SqlGatewaySecret(
+                    secret_id=secret_id,
+                    secret_name=secret_name,
+                    encrypted_value=encrypted.encrypted_value,
+                    wrapped_dek=encrypted.wrapped_dek,
+                    masked_value=json.dumps(masked_value),
+                    kek_version=encrypted.kek_version,
+                    provider=provider,
+                    auth_config=json.dumps(auth_config) if auth_config else None,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
             )
 
             try:
@@ -314,7 +316,7 @@ class SqlAlchemyGatewayStoreMixin:
             List of Secret entities with metadata (encrypted values not included).
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewaySecret)
+            query = self._get_query(session, SqlGatewaySecret)
 
             if provider is not None:
                 query = query.filter(SqlGatewaySecret.provider == provider)
@@ -351,16 +353,18 @@ class SqlAlchemyGatewayStoreMixin:
             model_definition_id = f"d-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
-            sql_model_def = SqlGatewayModelDefinition(
-                model_definition_id=model_definition_id,
-                name=name,
-                secret_id=secret_id,
-                provider=provider,
-                model_name=model_name,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
+            sql_model_def = self._with_workspace_field(
+                SqlGatewayModelDefinition(
+                    model_definition_id=model_definition_id,
+                    name=name,
+                    secret_id=secret_id,
+                    provider=provider,
+                    model_name=model_name,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
             )
 
             try:
@@ -433,7 +437,7 @@ class SqlAlchemyGatewayStoreMixin:
             List of GatewayModelDefinition entities with metadata.
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayModelDefinition)
+            query = self._get_query(session, SqlGatewayModelDefinition)
 
             if provider is not None:
                 query = query.filter(SqlGatewayModelDefinition.provider == provider)
@@ -587,7 +591,7 @@ class SqlAlchemyGatewayStoreMixin:
             all_model_def_ids = {config.model_definition_id for config in model_configs}
 
             existing_model_defs = (
-                session.query(SqlGatewayModelDefinition.model_definition_id)
+                self._get_query(session, SqlGatewayModelDefinition)
                 .filter(SqlGatewayModelDefinition.model_definition_id.in_(all_model_def_ids))
                 .all()
             )
@@ -623,17 +627,19 @@ class SqlAlchemyGatewayStoreMixin:
                     }
                 )
 
-            sql_endpoint = SqlGatewayEndpoint(
-                endpoint_id=endpoint_id,
-                name=name,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
-                routing_strategy=routing_strategy.value if routing_strategy else None,
-                fallback_config_json=fallback_config_json,
-                experiment_id=int(experiment_id) if experiment_id else None,
-                usage_tracking=usage_tracking,
+            sql_endpoint = self._with_workspace_field(
+                SqlGatewayEndpoint(
+                    endpoint_id=endpoint_id,
+                    name=name,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                    routing_strategy=routing_strategy.value if routing_strategy else None,
+                    fallback_config_json=fallback_config_json,
+                    experiment_id=int(experiment_id) if experiment_id else None,
+                    usage_tracking=usage_tracking,
+                )
             )
             session.add(sql_endpoint)
 
@@ -851,7 +857,9 @@ class SqlAlchemyGatewayStoreMixin:
             List of Endpoint entities with model_mappings.
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayEndpoint).join(SqlGatewayEndpointModelMapping)
+            query = self._get_query(session, SqlGatewayEndpoint).join(
+                SqlGatewayEndpointModelMapping
+            )
 
             if provider or secret_id:
                 query = query.join(
@@ -1068,7 +1076,7 @@ class SqlAlchemyGatewayStoreMixin:
             model_mappings populated).
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayEndpointBinding).options(
+            query = self._get_query(session, SqlGatewayEndpointBinding).options(
                 joinedload(SqlGatewayEndpointBinding.endpoint).joinedload(
                     SqlGatewayEndpoint.model_mappings
                 )

@@ -44,6 +44,47 @@ _LEGACY_EVALUATION_DATASETS = sa.table(
     sa.column("last_updated_by"),
 )
 
+_LEGACY_SECRETS = sa.table(
+    "secrets",
+    sa.column("secret_id"),
+    sa.column("secret_name"),
+    sa.column("encrypted_value"),
+    sa.column("wrapped_dek"),
+    sa.column("kek_version"),
+    sa.column("masked_value"),
+    sa.column("provider"),
+    sa.column("credential_name"),
+    sa.column("auth_config"),
+    sa.column("description"),
+    sa.column("created_by"),
+    sa.column("created_at"),
+    sa.column("last_updated_by"),
+    sa.column("last_updated_at"),
+)
+
+_LEGACY_ENDPOINTS = sa.table(
+    "endpoints",
+    sa.column("endpoint_id"),
+    sa.column("name"),
+    sa.column("created_by"),
+    sa.column("created_at"),
+    sa.column("last_updated_by"),
+    sa.column("last_updated_at"),
+)
+
+_LEGACY_MODEL_DEFINITIONS = sa.table(
+    "model_definitions",
+    sa.column("model_definition_id"),
+    sa.column("name"),
+    sa.column("secret_id"),
+    sa.column("provider"),
+    sa.column("model_name"),
+    sa.column("created_by"),
+    sa.column("created_at"),
+    sa.column("last_updated_by"),
+    sa.column("last_updated_at"),
+)
+
 _WORKSPACE_TABLES = (
     "experiments",
     "registered_models",
@@ -52,6 +93,9 @@ _WORKSPACE_TABLES = (
     "model_version_tags",
     "registered_model_aliases",
     "evaluation_datasets",
+    "secrets",
+    "endpoints",
+    "model_definitions",
 )
 
 _REGISTERED_MODEL_TAGS = sa.table(
@@ -94,7 +138,7 @@ _EVALUATION_DATASETS = sa.table(
 )
 
 REVISION = "1b5f0d9ad7c1"
-PREVIOUS_REVISION = "bf29a5ff90ea"
+PREVIOUS_REVISION = "1b49d398cd23"
 
 DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
 USE_EXTERNAL_DB = DB_URI is not None and not DB_URI.startswith("sqlite")
@@ -707,6 +751,124 @@ def _insert_evaluation_dataset(
     )
 
 
+_SECRETS = sa.table(
+    "secrets",
+    sa.column("secret_id"),
+    sa.column("secret_name"),
+    sa.column("encrypted_value"),
+    sa.column("wrapped_dek"),
+    sa.column("kek_version"),
+    sa.column("masked_value"),
+    sa.column("provider"),
+    sa.column("credential_name"),
+    sa.column("auth_config"),
+    sa.column("description"),
+    sa.column("created_by"),
+    sa.column("created_at"),
+    sa.column("last_updated_by"),
+    sa.column("last_updated_at"),
+    sa.column("workspace"),
+)
+
+
+def _insert_secret(
+    conn,
+    *,
+    secret_id: str,
+    secret_name: str,
+    workspace: str,
+):
+    conn.execute(
+        sa.insert(_SECRETS).values(
+            secret_id=secret_id,
+            secret_name=secret_name,
+            encrypted_value=b"encrypted",
+            wrapped_dek=b"dek",
+            kek_version=1,
+            masked_value="***",
+            provider="openai",
+            credential_name=None,
+            auth_config=None,
+            description=None,
+            created_by="user",
+            created_at=0,
+            last_updated_by="user",
+            last_updated_at=0,
+            workspace=workspace,
+        )
+    )
+
+
+_ENDPOINTS = sa.table(
+    "endpoints",
+    sa.column("endpoint_id"),
+    sa.column("name"),
+    sa.column("created_by"),
+    sa.column("created_at"),
+    sa.column("last_updated_by"),
+    sa.column("last_updated_at"),
+    sa.column("workspace"),
+)
+
+
+def _insert_endpoint(
+    conn,
+    *,
+    endpoint_id: str,
+    name: str,
+    workspace: str,
+):
+    conn.execute(
+        sa.insert(_ENDPOINTS).values(
+            endpoint_id=endpoint_id,
+            name=name,
+            created_by="user",
+            created_at=0,
+            last_updated_by="user",
+            last_updated_at=0,
+            workspace=workspace,
+        )
+    )
+
+
+_MODEL_DEFINITIONS = sa.table(
+    "model_definitions",
+    sa.column("model_definition_id"),
+    sa.column("name"),
+    sa.column("secret_id"),
+    sa.column("provider"),
+    sa.column("model_name"),
+    sa.column("created_by"),
+    sa.column("created_at"),
+    sa.column("last_updated_by"),
+    sa.column("last_updated_at"),
+    sa.column("workspace"),
+)
+
+
+def _insert_model_definition(
+    conn,
+    *,
+    model_definition_id: str,
+    name: str,
+    workspace: str,
+):
+    conn.execute(
+        sa.insert(_MODEL_DEFINITIONS).values(
+            model_definition_id=model_definition_id,
+            name=name,
+            secret_id=None,
+            provider="openai",
+            model_name="gpt-4",
+            created_by="user",
+            created_at=0,
+            last_updated_by="user",
+            last_updated_at=0,
+            workspace=workspace,
+        )
+    )
+
+
 def _fetch_conflicts(conn, table_name: str, columns: tuple[str, ...]):
     metadata = sa.MetaData()
     table = sa.Table(table_name, metadata, autoload_with=conn)
@@ -990,6 +1152,25 @@ def _setup_evaluation_dataset_conflict(conn):
     )
 
 
+def _setup_secret_conflict(conn):
+    _insert_secret(conn, secret_id="s-default", secret_name="duplicate-secret", workspace="default")
+    _insert_secret(conn, secret_id="s-team-a", secret_name="duplicate-secret", workspace="team-a")
+
+
+def _setup_endpoint_conflict(conn):
+    _insert_endpoint(conn, endpoint_id="e-default", name="duplicate-endpoint", workspace="default")
+    _insert_endpoint(conn, endpoint_id="e-team-a", name="duplicate-endpoint", workspace="team-a")
+
+
+def _setup_model_definition_conflict(conn):
+    _insert_model_definition(
+        conn, model_definition_id="md-default", name="duplicate-def", workspace="default"
+    )
+    _insert_model_definition(
+        conn, model_definition_id="md-team-a", name="duplicate-def", workspace="team-a"
+    )
+
+
 @pytest.mark.parametrize(
     ("setup_conflict", "expected_fragment", "case_slug"),
     [
@@ -1003,6 +1184,21 @@ def _setup_evaluation_dataset_conflict(conn):
             _setup_evaluation_dataset_conflict,
             "duplicate evaluation datasets with the same name",
             "evaluation_datasets",
+        ),
+        (
+            _setup_secret_conflict,
+            "duplicate secrets with the same name",
+            "secrets",
+        ),
+        (
+            _setup_endpoint_conflict,
+            "duplicate endpoints with the same name",
+            "endpoints",
+        ),
+        (
+            _setup_model_definition_conflict,
+            "duplicate model definitions with the same name",
+            "model_definitions",
         ),
     ],
 )

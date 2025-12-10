@@ -171,20 +171,45 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
             "model_definitions",
             "endpoint_model_mappings",
             "endpoint_bindings",
+            "workspaces",
         }
         assert expected_tables.issubset(all_table_names)
+
         cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
         all_index_names = [r[0] for r in cursor.fetchall()]
-        expected_indexes = {
+        expected_named_indexes = {
             "index_model_definitions_secret_id",
             "index_model_definitions_provider",
-            "unique_model_definition_name",
             "index_endpoint_model_mappings_endpoint_id",
             "index_endpoint_model_mappings_model_definition_id",
             "unique_endpoint_model_linkage_mapping",
             # endpoint_bindings uses composite PK (endpoint_id, resource_type, resource_id)
             # which serves as an implicit index
-            "unique_secret_name",
-            "unique_endpoint_name",
+            "idx_secrets_workspace",
+            "idx_endpoints_workspace",
+            "idx_model_definitions_workspace",
         }
-        assert expected_indexes.issubset(all_index_names)
+        assert expected_named_indexes.issubset(all_index_names)
+
+        def _index_info(table_name):
+            cursor.execute(f"PRAGMA index_list('{table_name}')")
+            indexes = []
+            for _, name, unique, *_ in cursor.fetchall():
+                cursor.execute(f"PRAGMA index_info('{name}')")
+                indexes.append(
+                    {
+                        "name": name,
+                        "unique": bool(unique),
+                        "columns": [row[2] for row in cursor.fetchall()],
+                    }
+                )
+            return indexes
+
+        def _has_unique_index(table_name, columns):
+            return any(
+                index["unique"] and index["columns"] == columns for index in _index_info(table_name)
+            )
+
+        assert _has_unique_index("secrets", ["workspace", "secret_name"])
+        assert _has_unique_index("endpoints", ["workspace", "name"])
+        assert _has_unique_index("model_definitions", ["workspace", "name"])
