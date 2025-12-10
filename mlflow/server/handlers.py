@@ -152,7 +152,6 @@ from mlflow.protos.service_pb2 import (
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
-    GetUITelemetryConfig,
     LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
@@ -197,7 +196,6 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
     UpdateRun,
-    UploadUITelemetryRecords,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -4683,15 +4681,14 @@ def get_ui_telemetry_handler():
     GET handler for /telemetry endpoint.
     Returns the telemetry client configuration by fetching it directly.
     """
-    from mlflow.telemetry.utils import fetch_ui_telemetry_config, is_telemetry_disabled
-
-    response_message = GetUITelemetryConfig.Response()
+    from mlflow.telemetry.utils import (
+        FALLBACK_UI_CONFIG,
+        fetch_ui_telemetry_config,
+        is_telemetry_disabled,
+    )
 
     if is_telemetry_disabled():
-        response_message.disable_ui_telemetry = True
-        response_message.ui_rollout_percentage = 0
-        response_message.disable_ui_events.extend([])
-        return _wrap_response(response_message)
+        return jsonify(FALLBACK_UI_CONFIG)
 
     if "config" in _telemetry_config_cache:
         config = _telemetry_config_cache["config"]
@@ -4700,12 +4697,15 @@ def get_ui_telemetry_handler():
         _telemetry_config_cache["config"] = config
 
     # UI telemetry should be also disabled if overall telemetry is disabled
-    response_message.disable_ui_telemetry = config.get("disable_ui_telemetry", True) or config.get(
+    disable_ui_telemetry = config.get("disable_ui_telemetry", True) or config.get(
         "disable_telemetry", True
     )
-    response_message.disable_ui_events.extend(config.get("disable_ui_events", []))
-    response_message.ui_rollout_percentage = config.get("ui_rollout_percentage", 0)
-    return _wrap_response(response_message)
+    response = {
+        "disable_ui_telemetry": disable_ui_telemetry,
+        "disable_ui_events": config.get("disable_ui_events", []),
+        "ui_rollout_percentage": config.get("ui_rollout_percentage", 0),
+    }
+    return jsonify(response)
 
 
 @catch_mlflow_exception
@@ -4718,25 +4718,10 @@ def post_ui_telemetry_handler():
     from mlflow.telemetry.schemas import Record, Status
     from mlflow.telemetry.utils import fetch_ui_telemetry_config, is_telemetry_disabled
 
-    response_message = UploadUITelemetryRecords.Response()
-
     if is_telemetry_disabled():
-        response_message.status = "disabled"
-        return _wrap_response(response_message)
+        return jsonify({"status": "disabled"})
 
-    request_message = _get_request_message(
-        UploadUITelemetryRecords(),
-        schema={
-            "records": [_assert_array],
-        },
-    )
-
-    data = request_message.records
-    if not data:
-        raise MlflowException(
-            message="Request body must contain records.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    data = request.json.get("records", [])
 
     # check cached config to see if telemetry is disabled
     # if so, don't process the records. we don't rely on the
@@ -4748,19 +4733,18 @@ def post_ui_telemetry_handler():
         config = fetch_ui_telemetry_config()
         _telemetry_config_cache["config"] = config
 
-    # if updated telemetry config is disabled, tell the UI to stop sending records
-    if config.get("disable_telemetry") or config.get("disable_ui_telemetry"):
-        response_message.status = "disabled"
-        return _wrap_response(response_message)
+    # if updated telemetry config is disabled / missing, tell the UI to stop sending records
+    if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
+        return jsonify({"status": "disabled"})
 
     records = [
         Record(
-            event_name=event.event_name,
-            timestamp_ns=event.timestamp_ns,
-            params=dict(event.params),
+            event_name=event["event_name"],
+            timestamp_ns=event["timestamp_ns"],
+            params=event["params"],
             status=Status.SUCCESS,
-            installation_id=event.installation_id,
-            session_id=event.session_id,
+            installation_id=event["installation_id"],
+            session_id=event["session_id"],
             duration_ms=0,
         )
         for event in data
@@ -4772,8 +4756,7 @@ def post_ui_telemetry_handler():
         for record in records:
             client.add_record(record)
 
-    response_message.status = "success"
-    return _wrap_response(response_message)
+    return jsonify({"status": "success"})
 
 
 HANDLERS = {
@@ -4922,7 +4905,4 @@ HANDLERS = {
     # Endpoint Tags APIs
     SetGatewayEndpointTag: _set_gateway_endpoint_tag,
     DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
-    # UI Telemetry APIs
-    GetUITelemetryConfig: get_ui_telemetry_handler,
-    UploadUITelemetryRecords: post_ui_telemetry_handler,
 }
