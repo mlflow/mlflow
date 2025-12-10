@@ -41,7 +41,7 @@ from mlflow.protos.databricks_tracing_pb2 import UCSchemaLocation as ProtoUCSche
 from mlflow.protos.service_pb2 import DeleteTraceTag as DeleteTraceTagV3
 from mlflow.protos.service_pb2 import GetTraceInfoV3, StartTraceV3
 from mlflow.protos.service_pb2 import SetTraceTag as SetTraceTagV3
-from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.store.tracking.databricks_rest_store import CompositeToken, DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.databricks_tracing_utils import assessment_to_proto, trace_to_proto
@@ -1672,8 +1672,6 @@ def test_search_datasets_invalid_timestamp():
     ],
 )
 def test_composite_token_parsing(token_str, expected_backend_token, expected_offset):
-    from mlflow.store.tracking.databricks_rest_store import CompositeToken
-
     token = CompositeToken.parse(token_str)
     assert token.backend_token == expected_backend_token
     assert token.offset == expected_offset
@@ -1756,8 +1754,6 @@ def test_search_datasets_resume_from_composite_token():
         "next_page_token": "backend_token_B",
     }
 
-    from mlflow.store.tracking.databricks_rest_store import CompositeToken
-
     composite_token = CompositeToken(backend_token="backend_token_A", offset=5).encode()
 
     with (
@@ -1772,3 +1768,41 @@ def test_search_datasets_resume_from_composite_token():
         )
 
         assert {d.name for d in result} == {f"test_dataset_{i}" for i in range(6, 16)}
+
+
+def test_search_datasets_exact_match_returns_plain_token():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    response_data = {
+        "datasets": [
+            {
+                "dataset_id": f"dataset_{i}",
+                "name": f"test_dataset_{i}",
+                "digest": f"hash{i}",
+                "create_time": "2025-11-28T21:30:53.195Z",
+                "last_update_time": "2025-11-28T21:30:53.195Z",
+            }
+            for i in range(1, 11)  # Exactly 10 datasets
+        ],
+        "next_page_token": "backend_token_next",
+    }
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request",
+            return_value=mock.Mock(json=lambda: response_data),
+        ) as mock_http,
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
+    ):
+        result = store.search_datasets(experiment_ids=["exp_1"], max_results=10)
+
+        # Should return exactly 10 datasets
+        assert {d.name for d in result} == {f"test_dataset_{i}" for i in range(1, 11)}
+
+        # Verify it's not a composite token by trying to parse it
+        parsed = CompositeToken.parse(result.token)
+        assert parsed.backend_token == "backend_token_next"
+        assert parsed.offset == 0  # No offset for exact match
+
+        mock_http.assert_called_once()
