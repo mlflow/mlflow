@@ -674,6 +674,11 @@ class FileStore(AbstractStore):
         return parent
 
     def _is_valid_run_directory(self, run_dir):
+        # Defense in depth: ensure we're not inside an artifacts folder
+        path_parts = os.path.normpath(run_dir).split(os.sep)
+        if FileStore.ARTIFACTS_FOLDER_NAME in path_parts[:-1]:
+            return False
+
         required_subdirs = [
             FileStore.METRICS_FOLDER_NAME,
             FileStore.PARAMS_FOLDER_NAME,
@@ -796,6 +801,12 @@ class FileStore(AbstractStore):
             )
         run_info = self._get_run_info_from_dir(run_dir)
         if run_info.experiment_id != exp_id:
+            raise MlflowException(
+                f"Run '{run_uuid}' metadata is in invalid state.",
+                databricks_pb2.INVALID_STATE,
+            )
+        # Defense in depth: verify run_id in meta.yaml matches the directory name
+        if run_info.run_id != os.path.basename(run_dir):
             raise MlflowException(
                 f"Run '{run_uuid}' metadata is in invalid state.",
                 databricks_pb2.INVALID_STATE,
