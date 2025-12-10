@@ -11,8 +11,18 @@ from sqlalchemy.schema import CreateTable, MetaData, UniqueConstraint
 _logger = logging.getLogger(__name__)
 
 _DIALECT_REFLECTED_UNIQUE_CONSTRAINTS = {
-    "mysql": {"uq_experiments_workspace_name"},
-    "mssql": {"uq_experiments_workspace_name"},
+    "mysql": {
+        "uq_experiments_workspace_name",
+        "uq_endpoints_workspace_name",
+        "uq_secrets_workspace_secret_name",
+        "uq_model_definitions_workspace_name",
+    },
+    "mssql": {
+        "uq_experiments_workspace_name",
+        "uq_endpoints_workspace_name",
+        "uq_secrets_workspace_secret_name",
+        "uq_model_definitions_workspace_name",
+    },
 }
 
 import mlflow
