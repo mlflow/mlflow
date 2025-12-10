@@ -28,6 +28,12 @@ def test_app():
 
 
 @pytest.fixture
+def test_app_context(test_app):
+    with test_app.app_context():
+        yield
+
+
+@pytest.fixture
 def mlflow_app_client():
     """Test client for the MLflow Flask application with security middleware."""
     from flask import Flask
