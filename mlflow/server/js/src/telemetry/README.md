@@ -19,10 +19,9 @@ Telemetry in MLflow's UI is based on a [SharedWorker](https://developer.mozilla.
 
 **TelemetryLogger.worker.ts**:
 
-- Main worker class that handles communication with the `/telemetry` server endpoint.
+- Main worker class that handles communication with the `/ui-telemetry` server endpoint.
 - Please keep external dependencies here minimal, as it is bundled separately from the main app and we'd ideally keep the generated bundle relatively light (see the `telemetry-worker` entrypoint in `craco.config.js`)
 
 **LogQueue.ts**:
 
 - Simple class that batches logs and uploads them to the server every 15s.
-- Calls `navigator.sendBeacon()` on page close so logs are not lost
