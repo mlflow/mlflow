@@ -1,6 +1,6 @@
 import inspect
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from typing import Any
 
 import mlflow
@@ -10,47 +10,6 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
-
-# Allowlists for safe attributes to extract from pydantic_ai objects.
-# Using allowlists instead of denylists to avoid capturing client/provider
-# references that can interfere with async cleanup (e.g., httpx client lifecycle).
-_AGENT_SAFE_ATTRIBUTES = frozenset(
-    {
-        "name",
-        "system_prompt",
-        "retries",
-        "result_type",
-        "output_type",
-        "deps_type",
-        "end_strategy",
-        "defer_model_check",
-        "instrument",
-    }
-)
-
-_MODEL_SAFE_ATTRIBUTES = frozenset(
-    {
-        "model_name",
-        "name",
-        "system",
-    }
-)
-
-_TOOL_SAFE_ATTRIBUTES = frozenset(
-    {
-        "name",
-        "description",
-        "max_retries",
-        "prepare",
-    }
-)
-
-_MCP_SERVER_SAFE_ATTRIBUTES = frozenset(
-    {
-        "name",
-        "url",
-    }
-)
 
 _SAFE_PRIMITIVE_TYPES = (str, int, float, bool)
 
@@ -64,7 +23,7 @@ def _is_safe_for_serialization(value: Any) -> bool:
         return all(_is_safe_for_serialization(v) for v in value.values())
     if isinstance(value, (list, tuple)):
         return all(_is_safe_for_serialization(v) for v in value)
-    if hasattr(value, "__dataclass_fields__"):
+    if is_dataclass(value) and not isinstance(value, type):
         return True
     if isinstance(value, type):
         return True
@@ -83,6 +42,26 @@ def _safe_get_attribute(instance: Any, key: str) -> Any:
         return None
     except Exception:
         return None
+
+
+def _extract_safe_attributes(instance: Any) -> dict[str, Any]:
+    """Extract all public attributes that are safe for serialization.
+
+    Skips attributes starting with underscore to avoid capturing internal
+    references (e.g., httpx clients) that can interfere with async cleanup.
+    """
+    attrs = {}
+    for key in dir(instance):
+        if key.startswith("_"):
+            continue
+        value = getattr(instance, key, None)
+        # Skip methods/functions, but keep types (e.g., output_type=str)
+        if callable(value) and not isinstance(value, type):
+            continue
+        safe_value = _safe_get_attribute(instance, key)
+        if safe_value is not None:
+            attrs[key] = safe_value
+    return attrs
 
 
 def _set_span_attributes(span: LiveSpan, instance):
@@ -226,10 +205,7 @@ def _serialize_output(result: Any) -> Any:
 
 def _get_agent_attributes(instance):
     attrs = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
-    for key in _AGENT_SAFE_ATTRIBUTES:
-        value = _safe_get_attribute(instance, key)
-        if value is not None:
-            attrs[key] = value
+    attrs.update(_extract_safe_attributes(instance))
     if hasattr(instance, "tools"):
         try:
             if tools_value := _parse_tools(instance.tools):
@@ -241,28 +217,16 @@ def _get_agent_attributes(instance):
 
 def _get_model_attributes(instance):
     attrs = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
-    for key in _MODEL_SAFE_ATTRIBUTES:
-        value = _safe_get_attribute(instance, key)
-        if value is not None:
-            attrs[key] = value
+    attrs.update(_extract_safe_attributes(instance))
     return attrs
 
 
 def _get_tool_attributes(instance):
-    attrs = {}
-    for key in _TOOL_SAFE_ATTRIBUTES:
-        value = _safe_get_attribute(instance, key)
-        if value is not None:
-            attrs[key] = value
-    return attrs
+    return _extract_safe_attributes(instance)
 
 
 def _get_mcp_server_attributes(instance):
-    attrs = {}
-    for key in _MCP_SERVER_SAFE_ATTRIBUTES:
-        value = _safe_get_attribute(instance, key)
-        if value is not None:
-            attrs[key] = value
+    attrs = _extract_safe_attributes(instance)
     if hasattr(instance, "tools"):
         try:
             if tools_value := _parse_tools(instance.tools):

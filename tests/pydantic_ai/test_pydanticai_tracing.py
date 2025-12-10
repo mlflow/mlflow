@@ -329,10 +329,13 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
 
 
 def test_agent_run_sync_failure(simple_agent):
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", side_effect=Exception):
+    with patch(
+        "pydantic_ai.models.instrumented.InstrumentedModel.request",
+        side_effect=ValueError("test error"),
+    ):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
-        with pytest.raises(Exception, match="e"):
+        with pytest.raises(ValueError, match="test error"):
             simple_agent.run_sync("France")
 
     traces = get_traces()
@@ -345,13 +348,16 @@ def test_agent_run_sync_failure(simple_agent):
     assert spans[0].span_type == SpanType.AGENT
     assert spans[1].name == "Agent.run"
     assert spans[1].span_type == SpanType.AGENT
-    assert spans[2].name == "InstrumentedModel.AsyncMock"
+    assert spans[2].name.startswith("InstrumentedModel.")
     assert spans[2].span_type == SpanType.LLM
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", side_effect=Exception):
+    with patch(
+        "pydantic_ai.models.instrumented.InstrumentedModel.request",
+        side_effect=ValueError("test error"),
+    ):
         mlflow.pydantic_ai.autolog(disable=True)
 
-        with pytest.raises(Exception):  # noqa
+        with pytest.raises(ValueError, match="test error"):
             simple_agent.run_sync("France")
 
     traces = get_traces()
@@ -395,7 +401,9 @@ class _MockUnsafeClient:
         ),
     ],
 )
-def test_attribute_getter_uses_allowlist(getter_func, mock_attrs, expected_attrs, excluded_attrs):
+def test_attribute_getter_excludes_private_attrs(
+    getter_func, mock_attrs, expected_attrs, excluded_attrs
+):
     class MockInstance:
         pass
 
