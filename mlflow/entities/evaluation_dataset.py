@@ -191,10 +191,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         if "trace" in df.columns:
             from mlflow.entities.trace import Trace
 
-            traces = []
-            for trace_item in df["trace"]:
-                trace = Trace.from_json(trace_item) if isinstance(trace_item, str) else trace_item
-                traces.append(trace)
+            traces = [
+                Trace.from_json(trace_item) if isinstance(trace_item, str) else trace_item
+                for trace_item in df["trace"]
+            ]
 
             return self._process_trace_records(traces)
         else:
@@ -256,9 +256,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             ) from e
 
         context_tags = context_registry.resolve_tags()
-        user_tag = context_tags.get(MLFLOW_USER)
-
-        if user_tag:
+        if user_tag := context_tags.get(MLFLOW_USER):
             for record in record_dicts:
                 if "tags" not in record:
                     record["tags"] = {}
@@ -345,9 +343,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 ]
             )
 
-        data = []
-        for record in records:
-            row = {
+        data = [
+            {
                 "inputs": record.inputs,
                 "outputs": record.outputs,
                 "expectations": record.expectations,
@@ -358,7 +355,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 "created_time": record.created_time,
                 "dataset_record_id": record.dataset_record_id,
             }
-            data.append(row)
+            for record in records
+        ]
 
         return pd.DataFrame(data)
 

@@ -6,7 +6,6 @@ when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 """
 
 import gzip
-import shutil
 import time
 import zlib
 from pathlib import Path
@@ -42,36 +41,19 @@ from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.helper_functions import get_safe_port
-from tests.store.tracking.test_sqlalchemy_store import ARTIFACT_URI
 from tests.tracking.integration_test_utils import ServerThread
 
 if IS_TRACING_SDK_ONLY:
     pytest.skip("OTel endpoint tests require full MLflow server", allow_module_level=True)
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
-    store.engine.dispose()
-    return db_path
-
-
 @pytest.fixture
-def mlflow_server(tmp_path: Path, cached_db: Path) -> Iterator[str]:
-    # Copy the pre-initialized cached DB into this test's tmp path
-    db_path = tmp_path / "mlflow.db"
-    shutil.copy(cached_db, db_path)
-
-    backend_store_uri = f"sqlite:///{db_path}"
+def mlflow_server(tmp_path: Path, db_uri: str) -> Iterator[str]:
     artifact_root = tmp_path.as_uri()
 
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    initialize_backend_stores(backend_store_uri, default_artifact_root=artifact_root)
+    initialize_backend_stores(db_uri, default_artifact_root=artifact_root)
 
     # Start the FastAPI app in a background thread and yield its URL.
     with ServerThread(mlflow_app, get_safe_port()) as url:

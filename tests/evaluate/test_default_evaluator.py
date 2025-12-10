@@ -1961,7 +1961,8 @@ def test_custom_artifacts():
             evaluator_config={"log_model_explainability": False},  # For faster evaluation
         )
         custom_artifact = result.artifacts["custom_artifact"]
-        assert json.loads(Path(custom_artifact.uri).read_text()) == {"k": "v"}
+        path = custom_artifact.uri.removeprefix("file://")
+        assert json.loads(Path(path).read_text()) == {"k": "v"}
 
 
 def test_make_metric_name_inference():
@@ -4372,7 +4373,6 @@ def test_regressor_returning_pandas_object(model_output, predictions):
 def test_classifier_evaluation_scenarios(
     data, evaluator_config, expected_metrics, expected_artifacts, description
 ):
-    """Test various classifier evaluation scenarios with different data types and configurations."""
     result = mlflow.evaluate(
         data=data,
         targets="target",
@@ -4523,7 +4523,6 @@ def test_classifier_evaluation_error_conditions(
 def test_label_validation_and_classification_type(
     data, evaluator_config, expected_binary_metrics, expected_classes, description
 ):
-    """Test label validation and binary vs multiclass classification detection."""
     result = mlflow.evaluate(
         data=data,
         targets="target",

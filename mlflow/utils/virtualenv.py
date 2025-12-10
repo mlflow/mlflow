@@ -161,8 +161,7 @@ def _get_conda_env_file(model_config):
 
     for flavor, config in model_config.flavors.items():
         if flavor == mlflow.pyfunc.FLAVOR_NAME:
-            env = config.get(mlflow.pyfunc.ENV)
-            if env:
+            if env := config.get(mlflow.pyfunc.ENV):
                 return _extract_conda_env(env)
     return _CONDA_ENV_FILE_NAME
 
