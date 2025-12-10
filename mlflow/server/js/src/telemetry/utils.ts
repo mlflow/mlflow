@@ -14,6 +14,6 @@ export const isDesignSystemEvent = (event: any): event is DesignSystemObservabil
     has(event, 'componentViewId') &&
     typeof event.componentViewId === 'string' &&
     has(event, 'eventType') &&
-    (event.eventType === 'onClick' || event.eventType === 'onView')
+    typeof event.eventType === 'string'
   );
 };
