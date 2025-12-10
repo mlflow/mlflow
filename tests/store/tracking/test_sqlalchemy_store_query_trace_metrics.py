@@ -1,10 +1,17 @@
 import json
+import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 
 import pytest
 
-from mlflow.entities import trace_location
+from mlflow.entities import (
+    AssessmentSource,
+    AssessmentSourceType,
+    Expectation,
+    Feedback,
+    trace_location,
+)
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
@@ -1324,5 +1331,490 @@ def test_query_span_metrics_across_multiple_traces(store: SqlAlchemyStore):
     assert asdict(result[1]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
         "dimensions": {"span_type": "LLM"},
+        "values": {"COUNT": 3},
+    }
+
+
+def test_query_assessment_metrics_count_no_dimensions(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_count_no_dimensions")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessments = [
+        Feedback(
+            trace_id=trace_id,
+            name="correctness",
+            value=True,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user1@test.com"
+            ),
+        ),
+        Feedback(
+            trace_id=trace_id,
+            name="relevance",
+            value=0.8,
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4"),
+        ),
+        Expectation(
+            trace_id=trace_id,
+            name="expected_output",
+            value="Hello World",
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="test_suite"),
+        ),
+    ]
+
+    for assessment in assessments:
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name="assessment",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "assessment",
+        "dimensions": {},
+        "values": {"COUNT": 3},
+    }
+
+
+def test_query_assessment_metrics_count_by_name(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_count_by_name")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create assessments with different names
+    assessments_data = [
+        ("correctness", True),
+        ("correctness", False),
+        ("relevance", 0.9),
+        ("relevance", 0.8),
+        ("relevance", 0.7),
+        ("quality", "high"),
+    ]
+
+    for name, value in assessments_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name="assessment",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["assessment_name"],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": "assessment",
+        "dimensions": {"assessment_name": "correctness"},
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": "assessment",
+        "dimensions": {"assessment_name": "quality"},
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": "assessment",
+        "dimensions": {"assessment_name": "relevance"},
+        "values": {"COUNT": 3},
+    }
+
+
+def test_query_assessment_metrics_count_by_value_and_name(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_count_by_value")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create assessments with different values
+    assessments_data = [
+        ("correctness", True),
+        ("correctness", True),
+        ("correctness", False),
+        ("quality", "high"),
+        ("quality", "high"),
+        ("quality", "low"),
+    ]
+
+    for name, value in assessments_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name="assessment",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["assessment_name", "assessment_value"],
+    )
+
+    # Values are stored as JSON strings
+    assert len(result) == 4
+    assert asdict(result[0]) == {
+        "metric_name": "assessment",
+        "dimensions": {"assessment_name": "correctness", "assessment_value": json.dumps(False)},
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": "assessment",
+        "dimensions": {"assessment_name": "correctness", "assessment_value": json.dumps(True)},
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": "assessment",
+        "dimensions": {"assessment_name": "quality", "assessment_value": json.dumps("high")},
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[3]) == {
+        "metric_name": "assessment",
+        "dimensions": {"assessment_name": "quality", "assessment_value": json.dumps("low")},
+        "values": {"COUNT": 1},
+    }
+
+
+def test_query_assessment_metrics_with_time_interval(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_with_time_interval")
+
+    # Base time in milliseconds (2020-01-01 00:00:00 UTC)
+    base_time_ms = 1577836800000
+    hour_ms = 60 * 60 * 1000
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=base_time_ms,
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create assessments at different times
+    assessment_times = [
+        base_time_ms,
+        base_time_ms + 10 * 60 * 1000,  # +10 minutes
+        base_time_ms + hour_ms,  # +1 hour
+        base_time_ms + hour_ms + 30 * 60 * 1000,  # +1.5 hours
+        base_time_ms + 2 * hour_ms,  # +2 hours
+    ]
+
+    for i, timestamp in enumerate(assessment_times):
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=f"quality_{i}",
+            value=True,
+            create_time_ms=timestamp,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name="assessment",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        time_interval_seconds=3600,  # 1 hour
+        start_time_ms=base_time_ms,
+        end_time_ms=base_time_ms + 3 * hour_ms,
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": "assessment",
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(base_time_ms / 1000, tz=timezone.utc).isoformat()
+        },
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": "assessment",
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(
+                (base_time_ms + hour_ms) / 1000, tz=timezone.utc
+            ).isoformat()
+        },
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": "assessment",
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(
+                (base_time_ms + 2 * hour_ms) / 1000, tz=timezone.utc
+            ).isoformat()
+        },
+        "values": {"COUNT": 1},
+    }
+
+
+def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_with_time_interval_and_dimensions")
+
+    # Base time in milliseconds (2020-01-01 00:00:00 UTC)
+    base_time_ms = 1577836800000
+    hour_ms = 60 * 60 * 1000
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=base_time_ms,
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create assessments at different times with different names
+    assessments_data = [
+        (base_time_ms, "correctness"),
+        (base_time_ms + 10 * 60 * 1000, "relevance"),
+        (base_time_ms + hour_ms, "correctness"),
+        (base_time_ms + hour_ms, "relevance"),
+    ]
+
+    for timestamp, name in assessments_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=True,
+            create_time_ms=timestamp,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name="assessment",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["assessment_name"],
+        time_interval_seconds=3600,  # 1 hour
+        start_time_ms=base_time_ms,
+        end_time_ms=base_time_ms + 2 * hour_ms,
+    )
+
+    time_bucket_1 = datetime.fromtimestamp(base_time_ms / 1000, tz=timezone.utc).isoformat()
+    time_bucket_2 = datetime.fromtimestamp(
+        (base_time_ms + hour_ms) / 1000, tz=timezone.utc
+    ).isoformat()
+
+    assert len(result) == 4
+    assert asdict(result[0]) == {
+        "metric_name": "assessment",
+        "dimensions": {
+            "time_bucket": time_bucket_1,
+            "assessment_name": "correctness",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": "assessment",
+        "dimensions": {
+            "time_bucket": time_bucket_1,
+            "assessment_name": "relevance",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": "assessment",
+        "dimensions": {
+            "time_bucket": time_bucket_2,
+            "assessment_name": "correctness",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[3]) == {
+        "metric_name": "assessment",
+        "dimensions": {
+            "time_bucket": time_bucket_2,
+            "assessment_name": "relevance",
+        },
+        "values": {"COUNT": 1},
+    }
+
+
+def test_query_assessment_metrics_with_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_with_filters")
+
+    # Create traces with different statuses
+    trace_id1 = f"tr-{uuid.uuid4().hex}"
+    trace1 = TraceInfo(
+        trace_id=trace_id1,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace1)
+
+    trace_id2 = f"tr-{uuid.uuid4().hex}"
+    trace2 = TraceInfo(
+        trace_id=trace_id2,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.ERROR,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace2)
+
+    # Create assessments for trace1 (OK status)
+    for i in range(3):
+        assessment = Feedback(
+            trace_id=trace_id1,
+            name=f"quality_{i}",
+            value=True,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    # Create assessments for trace2 (ERROR status)
+    for i in range(2):
+        assessment = Feedback(
+            trace_id=trace_id2,
+            name=f"error_check_{i}",
+            value=False,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    # Query assessments only for traces with OK status
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name="assessment",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=["trace.status = 'OK'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "assessment",
+        "dimensions": {},
+        "values": {"COUNT": 3},
+    }
+
+    # Query assessments for traces with ERROR status
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name="assessment",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=["trace.status = 'ERROR'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": "assessment",
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+
+def test_query_assessment_metrics_across_multiple_traces(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_across_multiple_traces")
+
+    # Create multiple traces
+    for i in range(3):
+        trace_id = f"tr-{uuid.uuid4().hex}"
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: f"workflow_{i}"},
+        )
+        store.start_trace(trace_info)
+
+        # Create assessments for each trace
+        assessments_data = [
+            ("correctness", True),
+            ("relevance", 0.9),
+        ]
+        for name, value in assessments_data:
+            assessment = Feedback(
+                trace_id=trace_id,
+                name=name,
+                value=value,
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+                ),
+            )
+            store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name="assessment",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["assessment_name"],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": "assessment",
+        "dimensions": {"assessment_name": "correctness"},
+        "values": {"COUNT": 3},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": "assessment",
+        "dimensions": {"assessment_name": "relevance"},
         "values": {"COUNT": 3},
     }

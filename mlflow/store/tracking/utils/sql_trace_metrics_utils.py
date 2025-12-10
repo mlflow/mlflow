@@ -12,6 +12,7 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessments,
     SqlSpan,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -76,10 +77,18 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
     },
 }
 
-# TODO: add spans and assessments metrics configs
+ASSESSMENTS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
+    "assessment": {
+        "aggregation_types": {AggregationType.COUNT},
+        "dimensions": {"assessment_name", "assessment_value"},
+        "filter_fields": None,
+    },
+}
+
 VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
     MetricViewType.TRACES: TRACES_METRICS_CONFIGS,
     MetricViewType.SPANS: SPANS_METRICS_CONFIGS,
+    MetricViewType.ASSESSMENTS: ASSESSMENTS_METRICS_CONFIGS,
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
@@ -140,8 +149,8 @@ def get_time_bucket_expression(
                 # For spans, timestamp is an expression (start_time_unix_nano / 1000000)
                 # rather than a simple column. Build the complete expression inline.
                 column_name = "start_time_unix_nano / 1000000"
-            case _:
-                raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
+            case MetricViewType.ASSESSMENTS:
+                column_name = "created_timestamp"
         expr_str = f"floor({column_name} / {bucket_size_ms}) * {bucket_size_ms}"
         return literal_column(expr_str)
     else:
@@ -152,8 +161,8 @@ def get_time_bucket_expression(
             case MetricViewType.SPANS:
                 # Convert nanoseconds to milliseconds
                 timestamp_column = SqlSpan.start_time_unix_nano / 1000000
-            case _:
-                raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
+            case MetricViewType.ASSESSMENTS:
+                timestamp_column = SqlAssessments.created_timestamp
         # This floors the timestamp to the nearest bucket boundary
         return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
@@ -191,7 +200,7 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
 
     Args:
         metric_name: Name of the metric to query
-        view_type: Type of metrics view (e.g., TRACES, SPANS)
+        view_type: Type of metrics view (e.g., TRACES, SPANS, ASSESSMENTS)
 
     Returns:
         SQLAlchemy column to aggregate
@@ -209,6 +218,10 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
             match metric_name:
                 case SpanMetricKey.SPAN_COUNT:
                     return SqlSpan.span_id
+        case MetricViewType.ASSESSMENTS:
+            match metric_name:
+                case "assessment":
+                    return SqlAssessments.assessment_id
 
     raise MlflowException.invalid_parameter_value(
         f"Unsupported metric name: {metric_name} for view type {view_type}",
@@ -224,7 +237,7 @@ def _apply_dimension_to_query(
     Args:
         query: SQLAlchemy query to modify
         dimension: Dimension name to apply
-        view_type: Type of metrics view (e.g., TRACES, SPANS)
+        view_type: Type of metrics view (e.g., TRACES, SPANS, ASSESSMENTS)
 
     Returns:
         Tuple of (modified query, labeled dimension column)
@@ -248,6 +261,12 @@ def _apply_dimension_to_query(
             match dimension:
                 case "span_type":
                     return query, SqlSpan.type.label("span_type")
+        case MetricViewType.ASSESSMENTS:
+            match dimension:
+                case "assessment_name":
+                    return query, SqlAssessments.name.label("assessment_name")
+                case "assessment_value":
+                    return query, SqlAssessments.value.label("assessment_value")
     raise MlflowException.invalid_parameter_value(
         f"Unsupported dimension `{dimension}` with view type {view_type}"
     )
@@ -259,7 +278,7 @@ def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
 
     Args:
         query: SQLAlchemy query (starting from SqlTraceInfo)
-        view_type: Type of metrics view (e.g., TRACES, SPANS)
+        view_type: Type of metrics view (e.g., TRACES, SPANS, ASSESSMENTS)
 
     Returns:
         Modified query with view-specific joins
@@ -267,6 +286,8 @@ def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
     match view_type:
         case MetricViewType.SPANS:
             query = query.join(SqlSpan, SqlSpan.trace_id == SqlTraceInfo.request_id)
+        case MetricViewType.ASSESSMENTS:
+            query = query.join(SqlAssessments, SqlAssessments.trace_id == SqlTraceInfo.request_id)
     return query
 
 
