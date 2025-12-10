@@ -20,8 +20,8 @@ import {
   getChatPromptMessagesFromValue,
   getPromptContentTagValue,
   isChatPrompt,
-  MLFLOW_PROMPT_MODEL_CONFIG,
   PROMPT_EXPERIMENT_IDS_TAG_KEY,
+  PROMPT_MODEL_CONFIG_TAG_KEY,
   PROMPT_TYPE_CHAT,
   PROMPT_TYPE_TEXT,
   validateModelConfig,
@@ -140,7 +140,7 @@ export const useCreatePromptModal = ({
           // Convert model config form data to backend format
           const modelConfig = formDataToModelConfig(values.modelConfig);
           const modelConfigTags = modelConfig
-            ? [{ key: MLFLOW_PROMPT_MODEL_CONFIG, value: JSON.stringify(modelConfig) }]
+            ? [{ key: PROMPT_MODEL_CONFIG_TAG_KEY, value: JSON.stringify(modelConfig) }]
             : [];
 
           mutateCreateVersion(
@@ -317,7 +317,7 @@ export const useCreatePromptModal = ({
     // Check if latest version has model config to auto-expand advanced settings
     const hasModelConfig =
       mode === CreatePromptModalMode.CreatePromptVersion &&
-      latestVersion?.tags?.some((tag) => tag.key === MLFLOW_PROMPT_MODEL_CONFIG && tag.value);
+      latestVersion?.tags?.some((tag) => tag.key === PROMPT_MODEL_CONFIG_TAG_KEY && tag.value);
 
     form.reset({
       commitMessage: '',

@@ -8,8 +8,8 @@ import { ModelConfigForm } from '../components/ModelConfigForm';
 import {
   formDataToModelConfig,
   getModelConfigFromTags,
-  MLFLOW_PROMPT_MODEL_CONFIG,
   modelConfigToFormData,
+  PROMPT_MODEL_CONFIG_TAG_KEY,
   validateModelConfig,
 } from '../utils';
 import type { PromptModelConfigFormData, RegisteredPromptVersion } from '../types';
@@ -36,7 +36,7 @@ export const useEditModelConfigModal = ({ onSuccess }: { onSuccess?: () => void 
       return RegisteredPromptsApi.setRegisteredPromptVersionTag(
         promptName,
         promptVersion,
-        MLFLOW_PROMPT_MODEL_CONFIG,
+        PROMPT_MODEL_CONFIG_TAG_KEY,
         modelConfigJson,
       );
     },

@@ -22,9 +22,9 @@ export const PROMPT_TYPE_TAG_KEY = '_mlflow_prompt_type';
 // Tag key used to store comma-separated experiment IDs associated with a prompt
 export const PROMPT_EXPERIMENT_IDS_TAG_KEY = '_mlflow_experiment_ids';
 // Tag key used to store model config as JSON string (must match backend)
-export const MLFLOW_PROMPT_MODEL_CONFIG = 'mlflow.prompt.modelConfig';
+export const PROMPT_MODEL_CONFIG_TAG_KEY = '_mlflow_prompt_model_config';
 
-export const MODEL_CONFIG_FIELD_LABELS = {
+export const MODEL_CONFIG_FIELD_LABELS: Record<Exclude<keyof PromptModelConfig, 'extra_params'>, string> = {
   provider: 'Provider',
   model_name: 'Model',
   temperature: 'Temperature',
@@ -138,7 +138,7 @@ export const buildSearchFilterClause = (searchFilter?: string): string => {
  * Returns undefined if tag doesn't exist or JSON parsing fails.
  */
 export const getModelConfigFromTags = (tags?: KeyValueEntity[]): PromptModelConfig | undefined => {
-  const configTag = tags?.find((tag) => tag.key === MLFLOW_PROMPT_MODEL_CONFIG);
+  const configTag = tags?.find((tag) => tag.key === PROMPT_MODEL_CONFIG_TAG_KEY);
   if (!configTag?.value) {
     return undefined;
   }
@@ -156,7 +156,7 @@ export const getModelConfigFromTags = (tags?: KeyValueEntity[]): PromptModelConf
  * Returns undefined if no fields have values.
  */
 export const formDataToModelConfig = (formData: PromptModelConfigFormData): PromptModelConfig | undefined => {
-  const hasAnyValue = Object.values(formData).some((v) => v !== undefined && v !== '');
+  const hasAnyValue = Object.values(formData).some((v) => !!v);
   if (!hasAnyValue) {
     return undefined;
   }
@@ -275,9 +275,6 @@ export const validateModelConfig = (formData: PromptModelConfigFormData): Record
       errors['presencePenalty'] = 'Presence penalty must be a number between -2 and 2';
     }
   }
-
-  // Stop sequences validation - just check it's a valid comma-separated string
-  // No specific validation needed as any string is valid
 
   return errors;
 };

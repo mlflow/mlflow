@@ -153,8 +153,34 @@ export const PromptVersionMetadata = ({
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, flex: 1 }}>
                   {Object.entries(modelConfig).map(([key, value]) => {
                     if (value === undefined || value === null) return null;
-                    if (key === 'extra_params') return null;
                     if (Array.isArray(value) && value.length === 0) return null;
+
+                    // Handle extra_params separately - display as nested section
+                    if (key === 'extra_params' && typeof value === 'object' && !Array.isArray(value)) {
+                      const extraParams = value as Record<string, any>;
+                      if (Object.keys(extraParams).length === 0) return null;
+
+                      return (
+                        <div key={key}>
+                          <Typography.Text css={{ color: theme.colors.textSecondary }}>extra_params:</Typography.Text>
+                          <div css={{ marginLeft: theme.spacing.md }}>
+                            {Object.entries(extraParams).map(([extraKey, extraValue]) => {
+                              if (extraValue === undefined || extraValue === null) return null;
+                              const extraDisplayValue =
+                                typeof extraValue === 'object' ? JSON.stringify(extraValue) : String(extraValue);
+                              return (
+                                <div key={`${key}.${extraKey}`}>
+                                  <Typography.Text css={{ color: theme.colors.textSecondary }}>
+                                    {extraKey}:{' '}
+                                  </Typography.Text>
+                                  <Typography.Text>{extraDisplayValue}</Typography.Text>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    }
 
                     const label = MODEL_CONFIG_FIELD_LABELS[key as keyof typeof MODEL_CONFIG_FIELD_LABELS];
                     const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
