@@ -478,6 +478,11 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         )
         processors.append(otel_processor)
 
+        # We have now added the OTLP processor.
+        # If dual export is not set, return.
+        # If dual export is set AND we have already added a set_destination processor, return.
+        # If dual export is set but no set_destination processor added, skip return and go
+        # to default processing to catch the default processor, if present.
         if (not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or added_destination_processor:
             return processors
 
