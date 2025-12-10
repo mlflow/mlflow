@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from mlflow.environment_variables import MLFLOW_WORKSPACE
-from mlflow.utils.workspace_context import WorkspaceContext, clear_workspace
+from mlflow.utils.workspace_context import WorkspaceContext, clear_server_request_workspace
 from mlflow.utils.workspace_utils import (
     DEFAULT_WORKSPACE_NAME,
     resolve_entity_workspace_name,
@@ -12,7 +12,7 @@ from mlflow.utils.workspace_utils import (
 
 def teardown_function():
     # Ensure the ContextVar does not leak between tests
-    clear_workspace()
+    clear_server_request_workspace()
     os.environ.pop(MLFLOW_WORKSPACE.name, None)
 
 

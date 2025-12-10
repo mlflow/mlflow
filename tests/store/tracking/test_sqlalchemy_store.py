@@ -136,7 +136,7 @@ from mlflow.utils.validation import (
     MAX_INPUT_TAG_VALUE_SIZE,
     MAX_TAG_VAL_LENGTH,
 )
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_context import WorkspaceContext, set_workspace
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.integration.utils import invoke_cli_runner
@@ -12511,6 +12511,9 @@ def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
 def test_concurrent_log_spans_spans_location_tag(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_concurrent_log_spans")
     trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Simulate client-side workspace selection and ensure it propagates to worker threads.
+    set_workspace(DEFAULT_WORKSPACE_NAME)
 
     def log_span_worker(span_id):
         span = create_test_span(

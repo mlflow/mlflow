@@ -1326,3 +1326,62 @@ def test_load_dataset_records_is_workspace_scoped(workspace_tracking_store):
         ) as excinfo:
             workspace_tracking_store._load_dataset_records(dataset_a.dataset_id)
         assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_link_prompts_to_trace_is_workspace_scoped(workspace_tracking_store):
+    from mlflow.entities.model_registry import PromptVersion
+
+    with WorkspaceContext("team-prompt-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-prompt-a")
+        trace_id_a = generate_request_id_v2()
+        with workspace_tracking_store.ManagedSessionMaker() as session:
+            session.add(
+                SqlTraceInfo(
+                    request_id=trace_id_a,
+                    experiment_id=int(exp_a),
+                    timestamp_ms=_now_ms(),
+                    execution_time_ms=100,
+                    status="OK",
+                )
+            )
+
+        prompt_version = PromptVersion(
+            name="test-prompt",
+            version=1,
+            template="Hello {{name}}",
+            creation_timestamp=_now_ms(),
+        )
+        workspace_tracking_store.link_prompts_to_trace(trace_id_a, [prompt_version])
+
+        with workspace_tracking_store.ManagedSessionMaker() as session:
+            count = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_id == trace_id_a,
+                    SqlEntityAssociation.destination_id == "test-prompt/1",
+                )
+                .count()
+            )
+            assert count == 1
+
+    with WorkspaceContext("team-prompt-b"):
+        workspace_tracking_store.create_experiment("exp-prompt-b")
+
+        prompt_version_b = PromptVersion(
+            name="other-prompt",
+            version=1,
+            template="Goodbye {{name}}",
+            creation_timestamp=_now_ms(),
+        )
+
+        with pytest.raises(MlflowException, match=r"Trace with ID .* not found") as excinfo:
+            workspace_tracking_store.link_prompts_to_trace(trace_id_a, [prompt_version_b])
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+        with workspace_tracking_store.ManagedSessionMaker() as session:
+            count = (
+                session.query(SqlEntityAssociation)
+                .filter(SqlEntityAssociation.source_id == trace_id_a)
+                .count()
+            )
+            assert count == 1

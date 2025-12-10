@@ -633,15 +633,25 @@ def disable_workspace_mode_by_default(monkeypatch):
         monkeypatch.delenv(env_var.name, raising=False)
 
     if workspace_context is not None:
-        workspace_context.clear_workspace()
+        workspace_context.clear_server_request_workspace()
 
     if workspace_utils is not None:
         workspace_utils.set_workspace_store_uri(None)
 
     yield
 
+    # Clear env vars at teardown to prevent leaking to subprocess servers.
+    # monkeypatch only tracks changes made through itself, so direct os.environ
+    # modifications (or those made by other code) would otherwise persist.
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_STORE_URI,
+    ):
+        os.environ.pop(env_var.name, None)
+
     if workspace_context is not None:
-        workspace_context.clear_workspace()
+        workspace_context.clear_server_request_workspace()
 
     if workspace_utils is not None:
         workspace_utils.set_workspace_store_uri(None)

@@ -100,22 +100,6 @@ def test_create_workspace_conflict_raises_resource_exists(store, monkeypatch):
     assert "already exists" in exc_info.value.message
 
 
-def test_create_workspace_handles_400_resource_exists(store, monkeypatch):
-    exc = RestException({"error_code": "RESOURCE_ALREADY_EXISTS", "message": "already exists"})
-    monkeypatch.setattr(
-        "mlflow.store.workspace.rest_store.call_endpoint",
-        mock.Mock(side_effect=exc),
-    )
-
-    with pytest.raises(
-        MlflowException,
-        match="already exists",
-    ) as exc_info:
-        store.create_workspace(Workspace(name="team-a"))
-
-    assert exc_info.value.error_code == "RESOURCE_ALREADY_EXISTS"
-
-
 def test_update_workspace_returns_new_description(store, host_creds):
     response = UpdateWorkspace.Response()
     response.workspace.name = "team-e"
@@ -150,11 +134,10 @@ def test_delete_workspace_returns_on_success(store, host_creds):
 
 def test_get_default_workspace_not_supported(store):
     with pytest.raises(
-        MlflowException,
+        NotImplementedError,
         match="REST workspace provider does not expose a default workspace",
-    ) as exc:
+    ):
         store.get_default_workspace()
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_rest_store_validates_workspace_names_before_http(monkeypatch, store):
