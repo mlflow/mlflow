@@ -440,9 +440,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
             from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 
-            exporter = DatabricksUCTableSpanExporter(
-                tracking_uri=mlflow.get_tracking_uri()
-            )
+            exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
 
@@ -454,9 +452,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
                     "both MLflow experiment and inference table, remove this API call "
                     "from your model and set `MLFLOW_EXPERIMENT_ID` env var instead."
                 )
-            processor = _get_mlflow_span_processor(
-                tracking_uri=mlflow.get_tracking_uri()
-            )
+            processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
             processors.append(processor)
 
         # Trace destination has highest precedence; ignore OTLP and defaults.
@@ -473,7 +469,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             # Otherwise, both Otel and MLflow processors will export metrics, causing
             # duplication.
             export_metrics=should_export_otlp_metrics()
-                           and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
+            and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
         )
         processors.append(otel_processor)
 

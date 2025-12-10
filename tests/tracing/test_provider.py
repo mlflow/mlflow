@@ -125,6 +125,7 @@ def test_set_destination_databricks_uc(monkeypatch):
     assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
     assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
 
+
 def test_set_destination_databricks_uc_with_oltp_env(monkeypatch):
     # Test 1: OTLP exclusive mode (dual export = false, default) but with set_destination having
     # been set
@@ -170,6 +171,7 @@ def test_set_destination_databricks_uc_with_oltp_env(monkeypatch):
         assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
         assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
         assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
+
 
 def test_set_destination_from_env_var_mlflow_experiment(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "123")
