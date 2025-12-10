@@ -1,3 +1,5 @@
+import time
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
@@ -98,3 +100,157 @@ def test_log_trace_no_log_spans_if_no_uc_schema():
         # Verify both start_trace and _upload_trace_data were called
         mock_client.start_trace.assert_called_once_with(mock_trace.info)
         mock_client.log_spans.assert_not_called()
+
+
+def test_export_spans_batch_max_size(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "5")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "10000")
+
+    exporter = DatabricksUCTableSpanExporter()
+    exporter._client = mock.MagicMock()
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        exporter._export_spans_incrementally(
+            [
+                create_mock_otel_span(trace_id=12345, span_id=1),
+                create_mock_otel_span(trace_id=12345, span_id=2),
+                create_mock_otel_span(trace_id=12345, span_id=3),
+                create_mock_otel_span(trace_id=12345, span_id=4),
+            ]
+        )
+        exporter._client.log_spans.assert_not_called()
+
+        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=12345, span_id=5)])
+        # NB: There can be a tiny delay once the batch becomes full and the worker thread
+        # is interrupted by the threading event and activate the async queue. Flush has to
+        # happen after the activation.
+        time.sleep(1)
+        exporter._async_queue.flush()
+        exporter._client.log_spans.assert_called_once()
+        location, spans = exporter._client.log_spans.call_args[0]
+        assert location == "catalog.schema.spans"
+        assert len(spans) == 5
+        assert all(isinstance(span, Span) for span in spans)
+
+
+def test_export_spans_batch_flush_on_interval(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
+
+    exporter = DatabricksUCTableSpanExporter()
+    exporter._client = mock.MagicMock()
+
+    otel_span = create_mock_otel_span(trace_id=12345, span_id=1)
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        exporter._export_spans_incrementally([otel_span])
+
+    # Allow the batcher's interval timer to fire
+    time.sleep(1.5)
+
+    exporter._client.log_spans.assert_called_once()
+    location, spans = exporter._client.log_spans.call_args[0]
+    assert location == "catalog.schema.spans"
+    assert len(spans) == 1
+
+
+def test_export_spans_batch_shutdown(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
+
+    exporter = DatabricksUCTableSpanExporter()
+    exporter._client = mock.MagicMock()
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        exporter._export_spans_incrementally(
+            [
+                create_mock_otel_span(trace_id=12345, span_id=1),
+                create_mock_otel_span(trace_id=12345, span_id=2),
+                create_mock_otel_span(trace_id=12345, span_id=3),
+            ]
+        )
+
+    exporter.flush()
+    exporter._client.log_spans.assert_called_once()
+    location, spans = exporter._client.log_spans.call_args[0]
+    assert location == "catalog.schema.spans"
+    assert len(spans) == 3
+
+
+def test_export_spans_batch_thread_safety(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "16")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
+
+    exporter = DatabricksUCTableSpanExporter()
+    exporter._client = mock.MagicMock()
+
+    def _generate_spans():
+        exporter._export_spans_incrementally(
+            [create_mock_otel_span(trace_id=12345, span_id=i) for i in range(5)]
+        )
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(_generate_spans) for _ in range(10)]
+            for future in futures:
+                future.result()
+
+        exporter.flush()
+
+        assert exporter._client.log_spans.call_count == 4
+        for i in range(4):
+            location, spans = exporter._client.log_spans.call_args_list[i][0]
+            assert location == "catalog.schema.spans"
+            assert len(spans) == 16 if i < 3 else 2
+
+
+def test_export_spans_batch_split_spans_by_location(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
+
+    exporter = DatabricksUCTableSpanExporter()
+    exporter._client = mock.MagicMock()
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.table_1",
+    ):
+        exporter._export_spans_incrementally(
+            [
+                create_mock_otel_span(trace_id=12345, span_id=1),
+                create_mock_otel_span(trace_id=12345, span_id=2),
+            ]
+        )
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.table_2",
+    ):
+        exporter._export_spans_incrementally(
+            [
+                create_mock_otel_span(trace_id=12345, span_id=3),
+                create_mock_otel_span(trace_id=12345, span_id=4),
+                create_mock_otel_span(trace_id=12345, span_id=5),
+            ]
+        )
+
+    exporter.flush()
+
+    assert exporter._client.log_spans.call_count == 2
+    location, spans = exporter._client.log_spans.call_args_list[0][0]
+    assert location == "catalog.schema.table_1"
+    assert len(spans) == 2
+    location, spans = exporter._client.log_spans.call_args_list[1][0]
+    assert location == "catalog.schema.table_2"
+    assert len(spans) == 3
