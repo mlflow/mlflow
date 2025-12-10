@@ -155,6 +155,15 @@ CREATE TABLE endpoint_bindings (
 )
 
 
+CREATE TABLE endpoint_tags (
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	endpoint_id VARCHAR(36) NOT NULL,
+	PRIMARY KEY (key, endpoint_id),
+	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE evaluation_dataset_records (
 	dataset_record_id VARCHAR(36) NOT NULL,
 	dataset_id VARCHAR(36) NOT NULL,
