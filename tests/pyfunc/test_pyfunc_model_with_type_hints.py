@@ -9,7 +9,6 @@ from unittest import mock
 import pandas as pd
 import pydantic
 import pytest
-from fastapi.testclient import TestClient
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
     ArrayType,
@@ -26,7 +25,6 @@ from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
 from mlflow.models import convert_input_example_to_serving_input
 from mlflow.models.signature import _extract_type_hints, infer_signature
-from mlflow.pyfunc import scoring_server
 from mlflow.pyfunc.model import ChatAgent, ChatModel, _FunctionPythonModel
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
@@ -36,18 +34,7 @@ from mlflow.types.llm import ChatMessage, ChatParams
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import TypeFromExample
 
-
-def score_model_in_process(model_uri: str, data: str, content_type: str):
-    """Score a model using in-process FastAPI TestClient (faster than subprocess)."""
-    env_snapshot = os.environ.copy()
-    try:
-        model = mlflow.pyfunc.load_model(model_uri)
-        app = scoring_server.init(model)
-        client = TestClient(app)
-        return client.post("/invocations", content=data, headers={"Content-Type": content_type})
-    finally:
-        os.environ.clear()
-        os.environ.update(env_snapshot)
+from tests.pyfunc.utils import score_model_in_process
 
 
 @pytest.fixture(scope="module")
