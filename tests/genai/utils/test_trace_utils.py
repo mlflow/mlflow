@@ -37,6 +37,7 @@ from mlflow.genai.utils.trace_utils import (
 )
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.utils import build_otel_context
+from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 from tests.tracing.helper import create_test_trace_info, get_traces, purge_traces
 
@@ -1166,3 +1167,102 @@ def test_extract_available_tools_from_trace_with_invalid_tools(has_valid_tool, e
     assert len(extracted_tools) == expected_count
     if has_valid_tool:
         assert extracted_tools[0].function.name == "valid_tool"
+
+
+def test_extract_available_tools_llm_fallback_triggered_when_no_tools_found(monkeypatch):
+    # Create a trace with LLM spans but no tools in attributes or inputs
+    with mlflow.start_span(name="llm_span", span_type=SpanType.LLM) as span:
+        span.set_inputs(
+            {
+                "messages": [{"role": "user", "content": "test"}],
+                "tools": [
+                    {
+                        "tool_name": "hard_to_extract_tool",
+                        "description": "A tool that is hard to extract",
+                    }
+                ],
+            }
+        )
+        span.set_outputs({"response": "result"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    # Mock the LLM fallback function to verify it's called
+    mock_tools = [
+        ChatTool(
+            type="function",
+            function=FunctionToolDefinition(
+                name="hard_to_extract_tool",
+                description="A tool that is hard to extract",
+                parameters={"type": "object", "properties": {"x": {"type": "string"}}},
+            ),
+        )
+    ]
+
+    mock_llm_fallback_called = []
+
+    def mock_llm_fallback(trace, model):
+        mock_llm_fallback_called.append(True)
+        return mock_tools
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._try_extract_available_tools_with_llm",
+        mock_llm_fallback,
+    )
+
+    extracted_tools = extract_available_tools_from_trace(trace, model="openai:/gpt-4")
+
+    # Verify LLM fallback was called
+    assert len(mock_llm_fallback_called) == 1
+    # Verify we got the mocked tools back
+    assert len(extracted_tools) == 1
+    assert extracted_tools[0].function.name == "hard_to_extract_tool"
+
+
+def test_extract_available_tools_llm_fallback_not_triggered_when_tools_found():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "programmatic_tool",
+                "description": "Found programmatically",
+                "parameters": {"type": "object", "properties": {"x": {"type": "string"}}},
+            },
+        }
+    ]
+
+    with mlflow.start_span(name="llm_span", span_type=SpanType.LLM) as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "test"}], "tools": tools})
+        span.set_outputs({"response": "result"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    # Extract tools - should use programmatic extraction only
+    extracted_tools = extract_available_tools_from_trace(trace, model="openai:/gpt-4")
+
+    # Verify we got the programmatically extracted tool
+    assert len(extracted_tools) == 1
+    assert extracted_tools[0].function.name == "programmatic_tool"
+
+
+def test_try_extract_available_tools_with_llm_returns_empty_on_error(monkeypatch):
+    with mlflow.start_span(name="llm_span", span_type=SpanType.LLM) as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "test"}]})
+        span.set_outputs({"response": "result"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    # Mock get_chat_completions_with_structured_output to raise an exception
+    def mock_raise_error(*args, **kwargs):
+        raise RuntimeError("LLM API error")
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils.get_chat_completions_with_structured_output",
+        mock_raise_error,
+    )
+
+    from mlflow.genai.utils.trace_utils import _try_extract_available_tools_with_llm
+
+    # Should return empty list, not raise exception
+    result = _try_extract_available_tools_with_llm(trace, model="openai:/gpt-4")
+    assert result == []
