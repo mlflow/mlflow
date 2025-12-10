@@ -176,14 +176,19 @@ def _get_span_type(instance) -> str:
 
 
 def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
-    sig = inspect.signature(func)
-    bound = sig.bind_partial(*args, **kwargs).arguments
-    bound.pop("self", None)
-    bound.pop("deps", None)
+    try:
+        sig = inspect.signature(func)
+        bound = sig.bind_partial(*args, **kwargs).arguments
+        bound.pop("self", None)
+        bound.pop("deps", None)
 
-    return {
-        k: (v.__dict__ if hasattr(v, "__dict__") else v) for k, v in bound.items() if v is not None
-    }
+        return {
+            k: (v.__dict__ if hasattr(v, "__dict__") else v)
+            for k, v in bound.items()
+            if v is not None
+        }
+    except (ValueError, TypeError):
+        return kwargs
 
 
 def _serialize_output(result: Any) -> Any:
