@@ -6,4 +6,4 @@
  */
 
 export { telemetryClient } from './TelemetryClient';
-export type { TelemetryRecord } from './types';
+export type { TelemetryRecord } from './worker/types';
