@@ -1,4 +1,5 @@
 import { useFormContext } from 'react-hook-form';
+import { useMemo, useCallback } from 'react';
 import { SecretFormFields } from './SecretFormFields';
 import type { SecretFormData } from './types';
 
@@ -33,7 +34,7 @@ export const CreateSecretForm = ({
   };
 
   // Extract errors for the secret fields
-  const getErrors = () => {
+  const errors = useMemo(() => {
     const getNestedError = (path: string): string | undefined => {
       const parts = path.split('.');
       let current: any = formState.errors;
@@ -45,17 +46,17 @@ export const CreateSecretForm = ({
     };
 
     const extractFieldErrors = (fieldType: 'secretFields' | 'configFields'): Record<string, string> | undefined => {
-      const errors: Record<string, string> = {};
+      const errorsMap: Record<string, string> = {};
       const fieldPrefixErrors = formState.errors?.[fieldPrefix] as Record<string, any> | undefined;
       const fieldsErrors = fieldPrefixErrors?.[fieldType];
       if (fieldsErrors && typeof fieldsErrors === 'object') {
         for (const [key, error] of Object.entries(fieldsErrors as Record<string, { message?: string }>)) {
           if (error?.message) {
-            errors[key] = error.message;
+            errorsMap[key] = error.message;
           }
         }
       }
-      return Object.keys(errors).length > 0 ? errors : undefined;
+      return Object.keys(errorsMap).length > 0 ? errorsMap : undefined;
     };
 
     return {
@@ -63,21 +64,24 @@ export const CreateSecretForm = ({
       secretFields: extractFieldErrors('secretFields'),
       configFields: extractFieldErrors('configFields'),
     };
-  };
+  }, [formState.errors, fieldPrefix]);
 
-  const handleChange = (newValue: SecretFormData) => {
-    setValue(`${fieldPrefix}.name`, newValue.name, { shouldValidate: true });
-    setValue(`${fieldPrefix}.authMode`, newValue.authMode, { shouldValidate: true });
-    setValue(`${fieldPrefix}.secretFields`, newValue.secretFields, { shouldValidate: true });
-    setValue(`${fieldPrefix}.configFields`, newValue.configFields, { shouldValidate: true });
-  };
+  const handleChange = useCallback(
+    (newValue: SecretFormData) => {
+      setValue(`${fieldPrefix}.name`, newValue.name, { shouldValidate: true });
+      setValue(`${fieldPrefix}.authMode`, newValue.authMode, { shouldValidate: true });
+      setValue(`${fieldPrefix}.secretFields`, newValue.secretFields, { shouldValidate: true });
+      setValue(`${fieldPrefix}.configFields`, newValue.configFields, { shouldValidate: true });
+    },
+    [setValue, fieldPrefix],
+  );
 
   return (
     <SecretFormFields
       provider={provider}
       value={secretData}
       onChange={handleChange}
-      errors={getErrors()}
+      errors={errors}
       componentIdPrefix={componentIdPrefix}
     />
   );

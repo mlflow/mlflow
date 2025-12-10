@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { Input, useDesignSystemTheme, FormUI, Tag, ModelsIcon } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ModelSelectorModal } from '../model-selector/ModelSelectorModal';
@@ -29,17 +29,24 @@ export const ModelSelect = ({
 
   // Fetch models to get the selected model's details
   const { data: models } = useModelsQuery({ provider: provider || undefined });
-  const selectedModel = models?.find((m) => m.model === value);
+  const selectedModel = useMemo(() => models?.find((m) => m.model === value), [models, value]);
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (!disabled && provider) {
       setIsModalOpen(true);
     }
-  };
+  }, [disabled, provider]);
 
-  const handleSelect = (model: Model) => {
-    onChange(model.model);
-  };
+  const handleSelect = useCallback(
+    (model: Model) => {
+      onChange(model.model);
+    },
+    [onChange],
+  );
+
+  const handleClose = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
 
   return (
     <div>
@@ -75,23 +82,21 @@ export const ModelSelect = ({
       />
       {error && <FormUI.Message type="error" message={error} />}
       {selectedModel && <ModelCapabilities model={selectedModel} />}
-      <ModelSelectorModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSelect={handleSelect}
-        provider={provider}
-      />
+      <ModelSelectorModal isOpen={isModalOpen} onClose={handleClose} onSelect={handleSelect} provider={provider} />
     </div>
   );
 };
 
-const ModelCapabilities = ({ model }: { model: Model }) => {
+const ModelCapabilities = memo(({ model }: { model: Model }) => {
   const { theme } = useDesignSystemTheme();
 
-  const capabilities = [];
-  if (model.supports_function_calling) capabilities.push('Tools');
-  if (model.supports_reasoning) capabilities.push('Reasoning');
-  if (model.supports_prompt_caching) capabilities.push('Caching');
+  const capabilities = useMemo(() => {
+    const caps: string[] = [];
+    if (model.supports_function_calling) caps.push('Tools');
+    if (model.supports_reasoning) caps.push('Reasoning');
+    if (model.supports_prompt_caching) caps.push('Caching');
+    return caps;
+  }, [model.supports_function_calling, model.supports_reasoning, model.supports_prompt_caching]);
 
   if (capabilities.length === 0) {
     return null;
@@ -114,4 +119,4 @@ const ModelCapabilities = ({ model }: { model: Model }) => {
       ))}
     </div>
   );
-};
+});

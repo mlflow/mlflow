@@ -1,5 +1,5 @@
 import { Input, FormUI, useDesignSystemTheme, Radio } from '@databricks/design-system';
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback, useRef } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
 import type { AuthMode, ConfigField, SecretField } from '../../types';
@@ -47,6 +47,9 @@ export const SecretFormFields = ({
   const authModes = useMemo(() => providerConfig?.auth_modes ?? [], [providerConfig?.auth_modes]);
   const hasMultipleModes = authModes.length > 1;
 
+  // Track if we've already set the default auth mode to prevent infinite loops
+  const hasSetDefaultRef = useRef(false);
+
   // Get the selected auth mode, falling back to default
   const selectedAuthMode = useMemo((): AuthMode | undefined => {
     if (!authModes.length) return undefined;
@@ -57,12 +60,18 @@ export const SecretFormFields = ({
     return authModes.find((m) => m.mode === providerConfig?.default_mode) ?? authModes[0];
   }, [authModes, value.authMode, providerConfig?.default_mode]);
 
-  // Auto-select default auth mode when provider config loads
+  // Auto-select default auth mode when provider config loads (only once)
   useEffect(() => {
-    if (providerConfig && !value.authMode && providerConfig.default_mode) {
+    if (providerConfig?.default_mode && !value.authMode && !hasSetDefaultRef.current) {
+      hasSetDefaultRef.current = true;
       onChange({ ...value, authMode: providerConfig.default_mode });
     }
-  }, [providerConfig, value, onChange]);
+  }, [providerConfig?.default_mode, value.authMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset the ref when provider changes
+  useEffect(() => {
+    hasSetDefaultRef.current = false;
+  }, [provider]);
 
   const handleNameChange = useCallback(
     (newName: string) => {

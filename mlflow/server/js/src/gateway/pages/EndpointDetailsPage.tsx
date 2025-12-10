@@ -1,5 +1,4 @@
 import { useParams, Link, useNavigate } from '../../common/utils/RoutingUtils';
-import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import {
   Alert,
   Breadcrumb,
@@ -21,23 +20,7 @@ import GatewayRoutes from '../routes';
 import { formatProviderName } from '../utils/providerUtils';
 import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
 import type { EndpointModelMapping, ModelDefinition, Model, SecretInfo } from '../types';
-
-/** Format token count for display (e.g., 128000 -> "128K") */
-const formatTokens = (tokens: number | null): string | null => {
-  if (tokens === null || tokens === undefined) return null;
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(0)}K`;
-  return tokens.toString();
-};
-
-/** Format cost per token for display (e.g., 0.000002 -> "$2.00/1M") */
-const formatCost = (cost: number | null): string | null => {
-  if (cost === null || cost === undefined) return null;
-  if (cost === 0) return 'Free';
-  const perMillion = cost * 1_000_000;
-  if (perMillion < 0.01) return `$${perMillion.toFixed(4)}/1M`;
-  return `$${perMillion.toFixed(2)}/1M`;
-};
+import { formatTokens, formatCost } from '../utils/formatters';
 
 const useEndpointQuery = (endpointId: string) => {
   return useQuery(['gateway_endpoint', endpointId], {
@@ -73,18 +56,18 @@ const EndpointDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, padding: theme.spacing.md }}>
           <Spinner size="small" />
           <FormattedMessage defaultMessage="Loading endpoint..." description="Loading message for endpoint" />
         </div>
-      </ScrollablePageWrapper>
+      </div>
     );
   }
 
   if (error || !endpoint) {
     return (
-      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div css={{ padding: theme.spacing.md }}>
           <Alert
             componentId="mlflow.gateway.endpoint-details.error"
@@ -92,14 +75,14 @@ const EndpointDetailsPage = () => {
             message={(error as Error | null)?.message ?? 'Endpoint not found'}
           />
         </div>
-      </ScrollablePageWrapper>
+      </div>
     );
   }
 
   const hasModels = endpoint.model_mappings && endpoint.model_mappings.length > 0;
 
   return (
-    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div css={{ padding: theme.spacing.md }}>
         <Breadcrumb includeTrailingCaret>
           <Breadcrumb.Item>
@@ -241,7 +224,7 @@ const EndpointDetailsPage = () => {
           </Card>
         </div>
       </div>
-    </ScrollablePageWrapper>
+    </div>
   );
 };
 
@@ -337,24 +320,24 @@ const ModelCard = ({
         </div>
 
         {/* Model specs - context and cost */}
-        {modelMetadata && (contextWindow || inputCost || outputCost) && (
+        {modelMetadata && (contextWindow !== '-' || inputCost !== '-' || outputCost !== '-') && (
           <>
             <Typography.Text color="secondary">
               <FormattedMessage defaultMessage="Specs:" description="Model specs label" />
             </Typography.Text>
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               {[
-                contextWindow &&
+                contextWindow !== '-' &&
                   intl.formatMessage(
                     { defaultMessage: 'Context: {tokens}', description: 'Context window size' },
                     { tokens: contextWindow },
                   ),
-                inputCost &&
+                inputCost !== '-' &&
                   intl.formatMessage(
                     { defaultMessage: 'Input: {cost}', description: 'Input cost' },
                     { cost: inputCost },
                   ),
-                outputCost &&
+                outputCost !== '-' &&
                   intl.formatMessage(
                     { defaultMessage: 'Output: {cost}', description: 'Output cost' },
                     { cost: outputCost },

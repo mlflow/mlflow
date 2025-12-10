@@ -1,5 +1,6 @@
 import { SimpleSelect, SimpleSelectOption, FormUI, Spinner, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { useMemo } from 'react';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
 
 interface SecretSelectorProps {
@@ -14,6 +15,11 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
   const { theme } = useDesignSystemTheme();
   const { data: secrets, isLoading } = useSecretsQuery({ provider });
 
+  const filteredSecrets = useMemo(
+    () => (provider ? secrets?.filter((s) => s.provider === provider) : secrets),
+    [provider, secrets],
+  );
+
   if (isLoading) {
     return (
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
@@ -22,8 +28,6 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
       </div>
     );
   }
-
-  const filteredSecrets = provider ? secrets?.filter((s) => s.provider === provider) : secrets;
 
   return (
     <div>

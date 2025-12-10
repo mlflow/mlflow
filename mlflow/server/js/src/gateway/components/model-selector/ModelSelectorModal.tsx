@@ -13,6 +13,7 @@ import {
 } from '@databricks/design-system';
 import { useModelsQuery } from '../../hooks/useModelsQuery';
 import type { Model } from '../../types';
+import { formatTokens, formatCost } from '../../utils/formatters';
 
 export interface ModelSelectorModalProps {
   isOpen: boolean;
@@ -74,22 +75,6 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
       handleClose();
     }
   }, [selectedModel, onSelect, handleClose]);
-
-  const formatCost = (cost: number | null) => {
-    if (cost === null || cost === undefined) return '-';
-    if (cost === 0) return 'Free';
-    // Convert to cost per 1M tokens for readability
-    const perMillion = cost * 1_000_000;
-    if (perMillion < 0.01) return `$${perMillion.toFixed(4)}/1M`;
-    return `$${perMillion.toFixed(2)}/1M`;
-  };
-
-  const formatTokens = (tokens: number | null) => {
-    if (tokens === null || tokens === undefined) return '-';
-    if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-    if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(0)}K`;
-    return tokens.toString();
-  };
 
   return (
     <Modal

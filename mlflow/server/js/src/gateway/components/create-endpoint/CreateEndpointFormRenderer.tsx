@@ -23,6 +23,7 @@ import { formatProviderName } from '../../utils/providerUtils';
 import { LongFormSection, LongFormSummary } from '../../../common/components/long-form';
 import type { Model, ModelDefinition } from '../../types';
 import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
+import { formatTokens, formatCost } from '../../utils/formatters';
 
 type ModelDefinitionMode = 'new' | 'existing';
 
@@ -317,7 +318,7 @@ export const CreateEndpointFormRenderer = ({
           <div
             css={{
               flexShrink: 0,
-              width: 320,
+              width: 360,
               position: 'sticky',
               top: 0,
               alignSelf: 'flex-start',
@@ -454,33 +455,29 @@ const ModelSummary = ({ model, modelName }: { model: Model | undefined; modelNam
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const formatTokens = (tokens: number | null) => {
-    if (tokens === null || tokens === undefined) return null;
-    if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-    if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(0)}K`;
-    return tokens.toString();
-  };
-
-  const formatCost = (cost: number | null) => {
-    if (cost === null || cost === undefined) return null;
-    if (cost === 0) return 'Free';
-    const perMillion = cost * 1_000_000;
-    if (perMillion < 0.01) return `$${perMillion.toFixed(4)}/1M`;
-    return `$${perMillion.toFixed(2)}/1M`;
-  };
-
   const capabilities: string[] = [];
   if (model?.supports_function_calling) capabilities.push('Tools');
   if (model?.supports_reasoning) capabilities.push('Reasoning');
 
-  const contextWindow = formatTokens(model?.max_input_tokens ?? null);
-  const inputCost = formatCost(model?.input_cost_per_token ?? null);
-  const outputCost = formatCost(model?.output_cost_per_token ?? null);
+  const contextWindow = formatTokens(model?.max_input_tokens);
+  const inputCost = formatCost(model?.input_cost_per_token);
+  const outputCost = formatCost(model?.output_cost_per_token);
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-      {/* Model name */}
-      <Tag componentId="mlflow.gateway.create-endpoint.summary.model">{modelName}</Tag>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, minWidth: 0, maxWidth: '100%' }}>
+      {/* Model name - styled div for proper text wrapping (Tag doesn't support wrapping) */}
+      <div
+        css={{
+          backgroundColor: theme.colors.tagDefault,
+          padding: `${theme.spacing.xs / 2}px ${theme.spacing.xs}px`,
+          borderRadius: theme.borders.borderRadiusMd,
+          fontSize: theme.typography.fontSizeSm,
+          wordBreak: 'break-all',
+          overflowWrap: 'anywhere',
+        }}
+      >
+        {modelName}
+      </div>
 
       {/* Capabilities */}
       {capabilities.length > 0 && (
@@ -494,7 +491,7 @@ const ModelSummary = ({ model, modelName }: { model: Model | undefined; modelNam
       )}
 
       {/* Context & Cost info */}
-      {model && (contextWindow || inputCost || outputCost) && (
+      {model && (contextWindow !== '-' || inputCost !== '-' || outputCost !== '-') && (
         <div
           css={{
             display: 'flex',
@@ -505,7 +502,7 @@ const ModelSummary = ({ model, modelName }: { model: Model | undefined; modelNam
             color: theme.colors.textSecondary,
           }}
         >
-          {contextWindow && (
+          {contextWindow !== '-' && (
             <span>
               {intl.formatMessage(
                 { defaultMessage: 'Context: {tokens}', description: 'Context window size' },
@@ -513,11 +510,11 @@ const ModelSummary = ({ model, modelName }: { model: Model | undefined; modelNam
               )}
             </span>
           )}
-          {(inputCost || outputCost) && (
+          {(inputCost !== '-' || outputCost !== '-') && (
             <span>
               {intl.formatMessage(
                 { defaultMessage: 'Cost: {input} in / {output} out', description: 'Model cost per token' },
-                { input: inputCost ?? '-', output: outputCost ?? '-' },
+                { input: inputCost, output: outputCost },
               )}
             </span>
           )}

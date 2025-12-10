@@ -12,7 +12,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProvidersQuery } from '../../hooks/useProvidersQuery';
 import { groupProviders, formatProviderName } from '../../utils/providerUtils';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 
 interface ProviderSelectProps {
   value: string;
@@ -60,6 +60,15 @@ export const ProviderSelect = ({
     return [...commonItems, ...otherItems];
   }, [providers]);
 
+  // State for filtered items - this is what the combobox will filter
+  // Type includes null to match combobox state expectations
+  const [filteredItems, setFilteredItems] = useState<(ProviderItem | null)[]>(allProviderItems);
+
+  // Update filtered items when all items change (e.g., on initial load)
+  useEffect(() => {
+    setFilteredItems(allProviderItems);
+  }, [allProviderItems]);
+
   // Find the currently selected item
   const selectedItem = useMemo(() => {
     return allProviderItems.find((item) => item.provider === value) ?? null;
@@ -78,8 +87,8 @@ export const ProviderSelect = ({
   const comboboxState = useComboboxState<ProviderItem | null>({
     componentId: componentIdPrefix,
     allItems: allProviderItems,
-    items: allProviderItems,
-    setItems: () => {},
+    items: filteredItems,
+    setItems: setFilteredItems,
     multiSelect: false,
     itemToString: (item) => item?.displayName ?? '',
     matcher: (item, query) => {
@@ -92,12 +101,14 @@ export const ProviderSelect = ({
     initialInputValue: selectedItem?.displayName ?? '',
   });
 
-  // Group items for rendering with section headers
+  // Group filtered items for rendering with section headers
   const groupedItems = useMemo(() => {
-    const common = allProviderItems.filter((item) => item.group === 'common');
-    const other = allProviderItems.filter((item) => item.group === 'other');
+    // Filter out null items and type-narrow
+    const validItems = filteredItems.filter((item): item is ProviderItem => item !== null);
+    const common = validItems.filter((item) => item.group === 'common');
+    const other = validItems.filter((item) => item.group === 'other');
     return { common, other };
-  }, [allProviderItems]);
+  }, [filteredItems]);
 
   // Memoize menu items to avoid creating new references every render
   const menuItems = useMemo(() => {
