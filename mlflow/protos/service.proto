@@ -1669,15 +1669,15 @@ service MlflowService {
     };
   }
 
-  // ========== Gateway Endpoints Management APIs ==========
+  // ========== Endpoints Management APIs ==========
 
-  // Create a new gateway endpoint with model configurations
-  rpc createGatewayEndpoint(CreateGatewayEndpoint) returns (CreateGatewayEndpoint.Response) {
+  // Create a new endpoint with model configurations
+  rpc createEndpoint(CreateGatewayEndpoint) returns (CreateGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/gateway-endpoints/create"
+          path: "/mlflow/endpoints/create"
           since: {
             major: 3
             minor: 0
@@ -1685,17 +1685,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Create Gateway Endpoint"
+      rpc_doc_title: "Create Endpoint"
     };
   }
 
-  // Get gateway endpoint details including all model configurations
-  rpc getGatewayEndpoint(GetGatewayEndpoint) returns (GetGatewayEndpoint.Response) {
+  // Get endpoint details including all model configurations
+  rpc getEndpoint(GetGatewayEndpoint) returns (GetGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/gateway-endpoints/get"
+          path: "/mlflow/endpoints/get"
           since: {
             major: 3
             minor: 0
@@ -1703,17 +1703,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Get Gateway Endpoint"
+      rpc_doc_title: "Get Endpoint"
     };
   }
 
-  // Update a gateway endpoint's name
-  rpc updateGatewayEndpoint(UpdateGatewayEndpoint) returns (UpdateGatewayEndpoint.Response) {
+  // Update an endpoint's name
+  rpc updateEndpoint(UpdateGatewayEndpoint) returns (UpdateGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/gateway-endpoints/update"
+          path: "/mlflow/endpoints/update"
           since: {
             major: 3
             minor: 0
@@ -1721,17 +1721,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Update Gateway Endpoint"
+      rpc_doc_title: "Update Endpoint"
     };
   }
 
-  // Delete a gateway endpoint and all its model configurations
-  rpc deleteGatewayEndpoint(DeleteGatewayEndpoint) returns (DeleteGatewayEndpoint.Response) {
+  // Delete an endpoint and all its model configurations
+  rpc deleteEndpoint(DeleteGatewayEndpoint) returns (DeleteGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/gateway-endpoints/delete"
+          path: "/mlflow/endpoints/delete"
           since: {
             major: 3
             minor: 0
@@ -1739,17 +1739,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Delete Gateway Endpoint"
+      rpc_doc_title: "Delete Endpoint"
     };
   }
 
-  // List gateway endpoints with optional filtering by provider or secret
-  rpc listGatewayEndpoints(ListGatewayEndpoints) returns (ListGatewayEndpoints.Response) {
+  // List endpoints with optional filtering by provider or secret
+  rpc listEndpoints(ListGatewayEndpoints) returns (ListGatewayEndpoints.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/gateway-endpoints/list"
+          path: "/mlflow/endpoints/list"
           since: {
             major: 3
             minor: 0
@@ -1757,7 +1757,7 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "List Gateway Endpoints"
+      rpc_doc_title: "List Endpoints"
     };
   }
 
@@ -1853,15 +1853,15 @@ service MlflowService {
     };
   }
 
-  // ========== Gateway Endpoint Model Mappings Management APIs ==========
+  // ========== Endpoint Model Mappings Management APIs ==========
 
-  // Attach an existing model definition to a gateway endpoint
-  rpc attachModelToGatewayEndpoint(AttachModelToGatewayEndpoint) returns (AttachModelToGatewayEndpoint.Response) {
+  // Attach an existing model definition to an endpoint
+  rpc attachModelToEndpoint(AttachModelToGatewayEndpoint) returns (AttachModelToGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/gateway-endpoints/models/attach"
+          path: "/mlflow/endpoints/models/attach"
           since: {
             major: 3
             minor: 0
@@ -1869,17 +1869,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Attach Model to Gateway Endpoint"
+      rpc_doc_title: "Attach Model to Endpoint"
     };
   }
 
-  // Detach a model definition from a gateway endpoint (does not delete the model definition)
-  rpc detachModelFromGatewayEndpoint(DetachModelFromGatewayEndpoint) returns (DetachModelFromGatewayEndpoint.Response) {
+  // Detach a model definition from an endpoint (does not delete the model definition)
+  rpc detachModelFromEndpoint(DetachModelFromGatewayEndpoint) returns (DetachModelFromGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/gateway-endpoints/models/detach"
+          path: "/mlflow/endpoints/models/detach"
           since: {
             major: 3
             minor: 0
@@ -1887,19 +1887,19 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Detach Model from Gateway Endpoint"
+      rpc_doc_title: "Detach Model from Endpoint"
     };
   }
 
-  // ========== Gateway Endpoint Bindings Management APIs ==========
+  // ========== Endpoint Bindings Management APIs ==========
 
-  // Create a binding between a gateway endpoint and an MLflow resource
-  rpc createGatewayEndpointBinding(CreateGatewayEndpointBinding) returns (CreateGatewayEndpointBinding.Response) {
+  // Create a binding between an endpoint and an MLflow resource
+  rpc createEndpointBinding(CreateGatewayEndpointBinding) returns (CreateGatewayEndpointBinding.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/gateway-endpoints/bindings/create"
+          path: "/mlflow/endpoints/bindings/create"
           since: {
             major: 3
             minor: 0
@@ -1907,17 +1907,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Create Gateway Endpoint Binding"
+      rpc_doc_title: "Create Endpoint Binding"
     };
   }
 
-  // Delete a binding between a gateway endpoint and a resource
-  rpc deleteGatewayEndpointBinding(DeleteGatewayEndpointBinding) returns (DeleteGatewayEndpointBinding.Response) {
+  // Delete a binding between an endpoint and a resource
+  rpc deleteEndpointBinding(DeleteGatewayEndpointBinding) returns (DeleteGatewayEndpointBinding.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/gateway-endpoints/bindings/delete"
+          path: "/mlflow/endpoints/bindings/delete"
           since: {
             major: 3
             minor: 0
@@ -1925,17 +1925,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Delete Gateway Endpoint Binding"
+      rpc_doc_title: "Delete Endpoint Binding"
     };
   }
 
-  // List all bindings for a gateway endpoint
-  rpc listGatewayEndpointBindings(ListGatewayEndpointBindings) returns (ListGatewayEndpointBindings.Response) {
+  // List all bindings for an endpoint
+  rpc listEndpointBindings(ListGatewayEndpointBindings) returns (ListGatewayEndpointBindings.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/gateway-endpoints/bindings/list"
+          path: "/mlflow/endpoints/bindings/list"
           since: {
             major: 3
             minor: 0
@@ -1943,19 +1943,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "List Gateway Endpoint Bindings"
+      rpc_doc_title: "List Endpoint Bindings"
     };
   }
 
-  // ========== Gateway Endpoint Tags Management APIs ==========
-
-  // Set a tag on a gateway endpoint
-  rpc setGatewayEndpointTag(SetGatewayEndpointTag) returns (SetGatewayEndpointTag.Response) {
+  // Set a tag on an endpoint
+  rpc setEndpointTag(SetEndpointTag) returns (SetEndpointTag.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/gateway-endpoints/tags/set"
+          path: "/mlflow/endpoints/set-tag"
           since: {
             major: 3
             minor: 0
@@ -1963,17 +1961,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Set Gateway Endpoint Tag"
+      rpc_doc_title: "Set Endpoint Tag"
     };
   }
 
-  // Delete a tag from a gateway endpoint
-  rpc deleteGatewayEndpointTag(DeleteGatewayEndpointTag) returns (DeleteGatewayEndpointTag.Response) {
+  // Delete a tag from an endpoint
+  rpc deleteEndpointTag(DeleteEndpointTag) returns (DeleteEndpointTag.Response) {
     option (rpc) = {
       endpoints: [
         {
-          method: "POST"
-          path: "/mlflow/gateway-endpoints/tags/delete"
+          method: "DELETE"
+          path: "/mlflow/endpoints/delete-tag"
           since: {
             major: 3
             minor: 0
@@ -1981,7 +1979,7 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Delete Gateway Endpoint Tag"
+      rpc_doc_title: "Delete Endpoint Tag"
     };
   }
 
@@ -4117,8 +4115,16 @@ message GatewayEndpoint {
   optional string created_by = 6;
   // User ID who last updated the endpoint
   optional string last_updated_by = 7;
-  // List of tags associated with this endpoint
+  // Tags associated with the endpoint
   repeated GatewayEndpointTag tags = 8;
+}
+
+// Tag associated with an endpoint
+message GatewayEndpointTag {
+  // Tag key
+  optional string key = 1;
+  // Tag value
+  optional string value = 2;
 }
 
 // Binding between an endpoint and an MLflow resource.
@@ -4139,14 +4145,6 @@ message GatewayEndpointBinding {
   // User ID who last updated the binding
   optional string last_updated_by = 7;
   // Fields 8-9 reserved - endpoint_name and model_mappings removed (join client-side)
-}
-
-// Tag (key-value pair) associated with an endpoint
-message GatewayEndpointTag {
-  // Tag key (max 250 characters)
-  optional string key = 1;
-  // Tag value (max 5000 characters, can be empty)
-  optional string value = 2;
 }
 
 // ========== Secrets API Messages ==========
@@ -4414,21 +4412,19 @@ message ListGatewayEndpointBindings {
   }
 }
 
-// ========== Endpoint Tags API Messages ==========
-
-message SetGatewayEndpointTag {
-  // ID of the endpoint to set the tag on
+message SetEndpointTag {
+  // ID of the endpoint to set tag on
   optional string endpoint_id = 1;
-  // Tag key
+  // Tag key to set
   optional string key = 2;
-  // Tag value
+  // Tag value to set
   optional string value = 3;
 
   message Response {}
 }
 
-message DeleteGatewayEndpointTag {
-  // ID of the endpoint to delete the tag from
+message DeleteEndpointTag {
+  // ID of the endpoint to delete tag from
   optional string endpoint_id = 1;
   // Tag key to delete
   optional string key = 2;

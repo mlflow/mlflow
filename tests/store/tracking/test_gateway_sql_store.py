@@ -352,9 +352,7 @@ def test_delete_model_definition_in_use_raises(store: SqlAlchemyStore):
         provider="openai",
         model_name="gpt-4",
     )
-    store.create_gateway_endpoint(
-        name="uses-model", model_definition_ids=[model_def.model_definition_id]
-    )
+    store.create_endpoint(name="uses-model", model_definition_ids=[model_def.model_definition_id])
 
     with pytest.raises(MlflowException, match="currently in use") as exc:
         store.delete_model_definition(model_def.model_definition_id)
@@ -372,7 +370,7 @@ def test_create_endpoint(store: SqlAlchemyStore):
         name="ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
 
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="my-endpoint",
         model_definition_ids=[model_def.model_definition_id],
         created_by="test-user",
@@ -387,13 +385,13 @@ def test_create_endpoint(store: SqlAlchemyStore):
 
 def test_create_endpoint_empty_models_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="at least one") as exc:
-        store.create_gateway_endpoint(name="empty-endpoint", model_definition_ids=[])
+        store.create_endpoint(name="empty-endpoint", model_definition_ids=[])
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_create_endpoint_nonexistent_model_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found") as exc:
-        store.create_gateway_endpoint(name="orphan-endpoint", model_definition_ids=["nonexistent"])
+        store.create_endpoint(name="orphan-endpoint", model_definition_ids=["nonexistent"])
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
@@ -402,11 +400,11 @@ def test_get_endpoint_by_id(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="get-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    created = store.create_gateway_endpoint(
+    created = store.create_endpoint(
         name="get-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    retrieved = store.get_gateway_endpoint(endpoint_id=created.endpoint_id)
+    retrieved = store.get_endpoint(endpoint_id=created.endpoint_id)
 
     assert retrieved.endpoint_id == created.endpoint_id
     assert retrieved.name == "get-endpoint"
@@ -417,18 +415,18 @@ def test_get_endpoint_by_name(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="name-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    created = store.create_gateway_endpoint(
+    created = store.create_endpoint(
         name="named-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    retrieved = store.get_gateway_endpoint(name="named-endpoint")
+    retrieved = store.get_endpoint(name="named-endpoint")
 
     assert retrieved.endpoint_id == created.endpoint_id
 
 
 def test_get_endpoint_requires_one_of_id_or_name(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="Exactly one of") as exc:
-        store.get_gateway_endpoint()
+        store.get_endpoint()
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -437,11 +435,11 @@ def test_update_endpoint(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="upd-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    created = store.create_gateway_endpoint(
+    created = store.create_endpoint(
         name="update-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    updated = store.update_gateway_endpoint(
+    updated = store.update_endpoint(
         endpoint_id=created.endpoint_id,
         name="renamed-endpoint",
         updated_by="updater",
@@ -456,14 +454,14 @@ def test_delete_endpoint(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="del-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    created = store.create_gateway_endpoint(
+    created = store.create_endpoint(
         name="delete-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    store.delete_gateway_endpoint(created.endpoint_id)
+    store.delete_endpoint(created.endpoint_id)
 
     with pytest.raises(MlflowException, match="not found"):
-        store.get_gateway_endpoint(endpoint_id=created.endpoint_id)
+        store.get_endpoint(endpoint_id=created.endpoint_id)
 
 
 def test_list_endpoints(store: SqlAlchemyStore):
@@ -471,14 +469,14 @@ def test_list_endpoints(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="list-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    store.create_gateway_endpoint(
+    store.create_endpoint(
         name="list-endpoint-1", model_definition_ids=[model_def.model_definition_id]
     )
-    store.create_gateway_endpoint(
+    store.create_endpoint(
         name="list-endpoint-2", model_definition_ids=[model_def.model_definition_id]
     )
 
-    endpoints = store.list_gateway_endpoints()
+    endpoints = store.list_endpoints()
     assert len(endpoints) >= 2
 
 
@@ -498,11 +496,11 @@ def test_attach_model_to_endpoint(store: SqlAlchemyStore):
         provider="anthropic",
         model_name="claude-3",
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="attach-endpoint", model_definition_ids=[model_def1.model_definition_id]
     )
 
-    mapping = store.attach_model_to_gateway_endpoint(
+    mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
         model_definition_id=model_def2.model_definition_id,
         weight=2.0,
@@ -524,12 +522,12 @@ def test_attach_duplicate_model_raises(store: SqlAlchemyStore):
         provider="openai",
         model_name="gpt-4",
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="dup-attach-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
     with pytest.raises(MlflowException, match="already attached") as exc:
-        store.attach_model_to_gateway_endpoint(
+        store.attach_model_to_endpoint(
             endpoint_id=endpoint.endpoint_id,
             model_definition_id=model_def.model_definition_id,
         )
@@ -550,17 +548,17 @@ def test_detach_model_from_endpoint(store: SqlAlchemyStore):
         provider="anthropic",
         model_name="claude-3",
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="detach-endpoint",
         model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
     )
 
-    store.detach_model_from_gateway_endpoint(
+    store.detach_model_from_endpoint(
         endpoint_id=endpoint.endpoint_id,
         model_definition_id=model_def1.model_definition_id,
     )
 
-    updated_endpoint = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    updated_endpoint = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
     assert len(updated_endpoint.model_mappings) == 1
     model_def_id = updated_endpoint.model_mappings[0].model_definition_id
     assert model_def_id == model_def2.model_definition_id
@@ -571,12 +569,12 @@ def test_detach_nonexistent_mapping_raises(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="no-map-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="no-map-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
     with pytest.raises(MlflowException, match="not attached") as exc:
-        store.detach_model_from_gateway_endpoint(
+        store.detach_model_from_endpoint(
             endpoint_id=endpoint.endpoint_id,
             model_definition_id="nonexistent-model",
         )
@@ -593,11 +591,11 @@ def test_create_endpoint_binding(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="bind-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    binding = store.create_gateway_endpoint_binding(
+    binding = store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
         resource_type="scorer_job",
         resource_id="job-123",
@@ -616,22 +614,22 @@ def test_delete_endpoint_binding(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="del-bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="del-bind-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
-    store.create_gateway_endpoint_binding(
+    store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
         resource_type="scorer_job",
         resource_id="job-456",
     )
 
-    store.delete_gateway_endpoint_binding(
+    store.delete_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
         resource_type="scorer_job",
         resource_id="job-456",
     )
 
-    bindings = store.list_gateway_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
     assert len(bindings) == 0
 
 
@@ -643,25 +641,25 @@ def test_list_endpoint_bindings(store: SqlAlchemyStore):
         provider="openai",
         model_name="gpt-4",
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="list-bind-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    store.create_gateway_endpoint_binding(
+    store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
         resource_type="scorer_job",
         resource_id="job-1",
     )
-    store.create_gateway_endpoint_binding(
+    store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
         resource_type="scorer_job",
         resource_id="job-2",
     )
 
-    bindings = store.list_gateway_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    bindings = store.list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
     assert len(bindings) == 2
 
-    filtered = store.list_gateway_endpoint_bindings(resource_type="scorer_job", resource_id="job-1")
+    filtered = store.list_endpoint_bindings(resource_type="scorer_job", resource_id="job-1")
     assert len(filtered) == 1
     assert filtered[0].resource_id == "job-1"
 
@@ -684,10 +682,10 @@ def test_get_resource_endpoint_configs(store: SqlAlchemyStore):
         provider="openai",
         model_name="gpt-4-turbo",
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="resolver-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
-    store.create_gateway_endpoint_binding(
+    store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
         resource_type="scorer_job",
         resource_id="resolver-job-123",
@@ -726,10 +724,10 @@ def test_get_resource_endpoint_configs_with_auth_config(store: SqlAlchemyStore):
         provider="bedrock",
         model_name="anthropic.claude-3",
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="auth-resolver-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
-    store.create_gateway_endpoint_binding(
+    store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
         resource_type="scorer_job",
         resource_id="auth-job",
@@ -769,19 +767,19 @@ def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore
         provider="anthropic",
         model_name="claude-3",
     )
-    endpoint1 = store.create_gateway_endpoint(
+    endpoint1 = store.create_endpoint(
         name="multi-endpoint-1", model_definition_ids=[model_def1.model_definition_id]
     )
-    endpoint2 = store.create_gateway_endpoint(
+    endpoint2 = store.create_endpoint(
         name="multi-endpoint-2", model_definition_ids=[model_def2.model_definition_id]
     )
 
-    store.create_gateway_endpoint_binding(
+    store.create_endpoint_binding(
         endpoint_id=endpoint1.endpoint_id,
         resource_type="scorer_job",
         resource_id="multi-resource",
     )
-    store.create_gateway_endpoint_binding(
+    store.create_endpoint_binding(
         endpoint_id=endpoint2.endpoint_id,
         resource_type="scorer_job",
         resource_id="multi-resource",
@@ -808,79 +806,60 @@ def test_set_endpoint_tag(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="tag-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
     tag = GatewayEndpointTag(key="env", value="production")
-    store.set_gateway_endpoint_tag(endpoint_id=endpoint.endpoint_id, tag=tag)
+    store.set_endpoint_tag(endpoint.endpoint_id, tag)
 
-    retrieved = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
     assert len(retrieved.tags) == 1
     assert retrieved.tags[0].key == "env"
     assert retrieved.tags[0].value == "production"
 
 
-def test_set_endpoint_tag_updates_existing(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="update-tag-key", secret_value="value")
+def test_set_endpoint_tag_update_existing(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="tag-upd-key", secret_value="value")
     model_def = store.create_model_definition(
-        name="update-tag-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
+        name="tag-upd-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    endpoint = store.create_gateway_endpoint(
-        name="update-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    endpoint = store.create_endpoint(
+        name="tag-upd-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="version", value="v1"),
-    )
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="version", value="v2"),
-    )
+    store.set_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="env", value="dev"))
+    store.set_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production"))
 
-    retrieved = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
     assert len(retrieved.tags) == 1
-    assert retrieved.tags[0].key == "version"
-    assert retrieved.tags[0].value == "v2"
+    assert retrieved.tags[0].key == "env"
+    assert retrieved.tags[0].value == "production"
 
 
-def test_set_endpoint_tag_multiple_tags(store: SqlAlchemyStore):
+def test_set_multiple_endpoint_tags(store: SqlAlchemyStore):
     secret = store.create_secret(secret_name="multi-tag-key", secret_value="value")
     model_def = store.create_model_definition(
-        name="multi-tag-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
+        name="multi-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="multi-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="env", value="production"),
-    )
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="team", value="ml-platform"),
-    )
+    store.set_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production"))
+    store.set_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="team", value="ml"))
+    store.set_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="version", value="v1"))
 
-    retrieved = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
-    assert len(retrieved.tags) == 2
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 3
     tag_dict = {t.key: t.value for t in retrieved.tags}
-    assert tag_dict == {"env": "production", "team": "ml-platform"}
+    assert tag_dict == {"env": "production", "team": "ml", "version": "v1"}
 
 
 def test_set_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    tag = GatewayEndpointTag(key="env", value="production")
     with pytest.raises(MlflowException, match="not found") as exc:
-        store.set_gateway_endpoint_tag(
-            endpoint_id="nonexistent",
-            tag=GatewayEndpointTag(key="test", value="value"),
-        )
+        store.set_endpoint_tag("nonexistent-endpoint", tag)
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
@@ -889,39 +868,42 @@ def test_delete_endpoint_tag(store: SqlAlchemyStore):
     model_def = store.create_model_definition(
         name="del-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="del-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
+    store.set_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production"))
+    store.set_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="team", value="ml"))
 
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="to-delete", value="value"),
-    )
-    store.delete_gateway_endpoint_tag(endpoint_id=endpoint.endpoint_id, key="to-delete")
+    store.delete_endpoint_tag(endpoint.endpoint_id, "env")
 
-    retrieved = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
-    assert len(retrieved.tags) == 0
-
-
-def test_delete_endpoint_tag_nonexistent_key_is_noop(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="noop-del-key", secret_value="value")
-    model_def = store.create_model_definition(
-        name="noop-del-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="noop-del-endpoint", model_definition_ids=[model_def.model_definition_id]
-    )
-
-    store.delete_gateway_endpoint_tag(endpoint_id=endpoint.endpoint_id, key="nonexistent")
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 1
+    assert retrieved.tags[0].key == "team"
 
 
 def test_delete_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found") as exc:
-        store.delete_gateway_endpoint_tag(endpoint_id="nonexistent", key="test")
+        store.delete_endpoint_tag("nonexistent-endpoint", "env")
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def test_delete_endpoint_cascades_tags(store: SqlAlchemyStore):
+def test_delete_endpoint_tag_nonexistent_key_no_op(store: SqlAlchemyStore):
+    secret = store.create_secret(secret_name="del-noop-key", secret_value="value")
+    model_def = store.create_model_definition(
+        name="del-noop-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_endpoint(
+        name="del-noop-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    # Should not raise even if tag doesn't exist
+    store.delete_endpoint_tag(endpoint.endpoint_id, "nonexistent-key")
+
+    retrieved = store.get_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 0
+
+
+def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
     secret = store.create_secret(secret_name="cascade-tag-key", secret_value="value")
     model_def = store.create_model_definition(
         name="cascade-tag-model",
@@ -929,16 +911,12 @@ def test_delete_endpoint_cascades_tags(store: SqlAlchemyStore):
         provider="openai",
         model_name="gpt-4",
     )
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="cascade-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
+    store.set_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production"))
 
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="cascade-test", value="value"),
-    )
-
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
+    store.delete_endpoint(endpoint.endpoint_id)
 
     with pytest.raises(MlflowException, match="not found"):
-        store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+        store.get_endpoint(endpoint_id=endpoint.endpoint_id)

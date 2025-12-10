@@ -200,7 +200,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def create_gateway_endpoint(
+    def create_endpoint(
         self,
         name: str,
         model_definition_ids: list[str],
@@ -220,7 +220,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_gateway_endpoint(
+    def get_endpoint(
         self, endpoint_id: str | None = None, name: str | None = None
     ) -> GatewayEndpoint:
         """
@@ -235,7 +235,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def update_gateway_endpoint(
+    def update_endpoint(
         self,
         endpoint_id: str,
         name: str,
@@ -254,7 +254,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_gateway_endpoint(self, endpoint_id: str) -> None:
+    def delete_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint (CASCADE deletes bindings and model mappings).
 
@@ -263,7 +263,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_gateway_endpoints(
+    def list_endpoints(
         self,
         provider: str | None = None,
         secret_id: str | None = None,
@@ -282,7 +282,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def attach_model_to_gateway_endpoint(
+    def attach_model_to_endpoint(
         self,
         endpoint_id: str,
         model_definition_id: str,
@@ -303,7 +303,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def detach_model_from_gateway_endpoint(
+    def detach_model_from_endpoint(
         self,
         endpoint_id: str,
         model_definition_id: str,
@@ -319,7 +319,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def create_gateway_endpoint_binding(
+    def create_endpoint_binding(
         self,
         endpoint_id: str,
         resource_type: str,
@@ -340,7 +340,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_gateway_endpoint_binding(
+    def delete_endpoint_binding(
         self, endpoint_id: str, resource_type: str, resource_id: str
     ) -> None:
         """
@@ -353,7 +353,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_gateway_endpoint_bindings(
+    def list_endpoint_bindings(
         self,
         endpoint_id: str | None = None,
         resource_type: str | None = None,
@@ -372,25 +372,19 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def set_gateway_endpoint_tag(
-        self,
-        endpoint_id: str,
-        tag: GatewayEndpointTag,
-    ) -> None:
+    def set_endpoint_tag(self, endpoint_id: str, tag: GatewayEndpointTag) -> None:
         """
-        Set a tag on an endpoint. If the tag key already exists, the value will be updated.
+        Set a tag on an endpoint.
+
+        If a tag with the same key already exists, its value will be updated.
 
         Args:
-            endpoint_id: ID of the endpoint to set the tag on.
+            endpoint_id: ID of the endpoint to tag.
             tag: GatewayEndpointTag with key and value to set.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_gateway_endpoint_tag(
-        self,
-        endpoint_id: str,
-        key: str,
-    ) -> None:
+    def delete_endpoint_tag(self, endpoint_id: str, key: str) -> None:
         """
         Delete a tag from an endpoint.
 

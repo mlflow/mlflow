@@ -31,7 +31,6 @@ from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     Dataset,
     DatasetInput,
-    GatewayEndpointTag,
     GatewayResourceType,
     InputTag,
     Metric,
@@ -4138,7 +4137,7 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
         model_name="gpt-4",
     )
 
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="test-endpoint",
         model_definition_ids=[model_def.model_definition_id],
     )
@@ -4148,7 +4147,7 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
     assert len(endpoint.model_mappings) == 1
     assert endpoint.model_mappings[0].model_definition.model_name == "gpt-4"
 
-    fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
+    fetched = store.get_endpoint(endpoint.endpoint_id)
     assert fetched.name == "test-endpoint"
     assert fetched.endpoint_id == endpoint.endpoint_id
     assert len(fetched.model_mappings) == 1
@@ -4170,12 +4169,12 @@ def test_update_endpoint(mlflow_client_with_secrets):
         model_name="claude-3-5-sonnet",
     )
 
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="initial-name",
         model_definition_ids=[model_def.model_definition_id],
     )
 
-    updated = store.update_gateway_endpoint(
+    updated = store.update_endpoint(
         endpoint_id=endpoint.endpoint_id,
         name="updated-name",
     )
@@ -4211,16 +4210,16 @@ def test_list_endpoints(mlflow_client_with_secrets):
         model_name="gpt-3.5-turbo",
     )
 
-    endpoint1 = store.create_gateway_endpoint(
+    endpoint1 = store.create_endpoint(
         name="endpoint-1",
         model_definition_ids=[model_def1.model_definition_id],
     )
-    endpoint2 = store.create_gateway_endpoint(
+    endpoint2 = store.create_endpoint(
         name="endpoint-2",
         model_definition_ids=[model_def2.model_definition_id],
     )
 
-    all_endpoints = store.list_gateway_endpoints()
+    all_endpoints = store.list_endpoints()
     assert len(all_endpoints) >= 2
     endpoint_ids = {e.endpoint_id for e in all_endpoints}
     assert endpoint1.endpoint_id in endpoint_ids
@@ -4243,14 +4242,14 @@ def test_delete_endpoint(mlflow_client_with_secrets):
         model_name="gpt-4",
     )
 
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="temp-endpoint",
         model_definition_ids=[model_def.model_definition_id],
     )
 
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
+    store.delete_endpoint(endpoint.endpoint_id)
 
-    all_endpoints = store.list_gateway_endpoints()
+    all_endpoints = store.list_endpoints()
     assert not any(e.endpoint_id == endpoint.endpoint_id for e in all_endpoints)
 
 
@@ -4319,7 +4318,7 @@ def test_attach_detach_model_to_endpoint(mlflow_client_with_secrets):
         model_name="gpt-3.5-turbo",
     )
 
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="attach-test-endpoint",
         model_definition_ids=[model_def1.model_definition_id],
     )
@@ -4327,7 +4326,7 @@ def test_attach_detach_model_to_endpoint(mlflow_client_with_secrets):
     assert len(endpoint.model_mappings) == 1
     assert endpoint.model_mappings[0].model_definition.model_name == "gpt-4"
 
-    mapping = store.attach_model_to_gateway_endpoint(
+    mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
         model_definition_id=model_def2.model_definition_id,
     )
@@ -4335,15 +4334,15 @@ def test_attach_detach_model_to_endpoint(mlflow_client_with_secrets):
     assert mapping.endpoint_id == endpoint.endpoint_id
     assert mapping.model_definition_id == model_def2.model_definition_id
 
-    fetched_endpoint = store.get_gateway_endpoint(endpoint.endpoint_id)
+    fetched_endpoint = store.get_endpoint(endpoint.endpoint_id)
     assert len(fetched_endpoint.model_mappings) == 2
 
-    store.detach_model_from_gateway_endpoint(
+    store.detach_model_from_endpoint(
         endpoint_id=endpoint.endpoint_id,
         model_definition_id=model_def2.model_definition_id,
     )
 
-    fetched_endpoint_after = store.get_gateway_endpoint(endpoint.endpoint_id)
+    fetched_endpoint_after = store.get_endpoint(endpoint.endpoint_id)
     assert len(fetched_endpoint_after.model_mappings) == 1
 
 
@@ -4370,29 +4369,29 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
         model_name="gpt-3.5-turbo",
     )
 
-    endpoint1 = store.create_gateway_endpoint(
+    endpoint1 = store.create_endpoint(
         name="binding-test-endpoint-1",
         model_definition_ids=[model_def1.model_definition_id],
     )
 
-    endpoint2 = store.create_gateway_endpoint(
+    endpoint2 = store.create_endpoint(
         name="binding-test-endpoint-2",
         model_definition_ids=[model_def2.model_definition_id],
     )
 
-    binding1 = store.create_gateway_endpoint_binding(
+    binding1 = store.create_endpoint_binding(
         endpoint_id=endpoint1.endpoint_id,
         resource_type=GatewayResourceType.SCORER_JOB,
         resource_id="job-123",
     )
 
-    binding2 = store.create_gateway_endpoint_binding(
+    binding2 = store.create_endpoint_binding(
         endpoint_id=endpoint1.endpoint_id,
         resource_type=GatewayResourceType.SCORER_JOB,
         resource_id="job-456",
     )
 
-    binding3 = store.create_gateway_endpoint_binding(
+    binding3 = store.create_endpoint_binding(
         endpoint_id=endpoint2.endpoint_id,
         resource_type=GatewayResourceType.SCORER_JOB,
         resource_id="job-789",
@@ -4402,35 +4401,33 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
     assert binding1.resource_type == GatewayResourceType.SCORER_JOB
     assert binding1.resource_id == "job-123"
 
-    bindings_endpoint1 = store.list_gateway_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
+    bindings_endpoint1 = store.list_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
     assert len(bindings_endpoint1) == 2
     resource_ids = {b.resource_id for b in bindings_endpoint1}
     assert binding1.resource_id in resource_ids
     assert binding2.resource_id in resource_ids
     assert binding3.resource_id not in resource_ids
 
-    bindings_by_type = store.list_gateway_endpoint_bindings(
-        resource_type=GatewayResourceType.SCORER_JOB
-    )
+    bindings_by_type = store.list_endpoint_bindings(resource_type=GatewayResourceType.SCORER_JOB)
     assert len(bindings_by_type) >= 3
 
-    bindings_by_resource = store.list_gateway_endpoint_bindings(resource_id="job-123")
+    bindings_by_resource = store.list_endpoint_bindings(resource_id="job-123")
     assert len(bindings_by_resource) == 1
     assert bindings_by_resource[0].resource_id == binding1.resource_id
 
-    bindings_multi = store.list_gateway_endpoint_bindings(
+    bindings_multi = store.list_endpoint_bindings(
         endpoint_id=endpoint1.endpoint_id,
         resource_type=GatewayResourceType.SCORER_JOB,
     )
     assert len(bindings_multi) == 2
 
-    store.delete_gateway_endpoint_binding(
+    store.delete_endpoint_binding(
         endpoint_id=binding1.endpoint_id,
         resource_type=binding1.resource_type.value,
         resource_id=binding1.resource_id,
     )
 
-    bindings_after = store.list_gateway_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
+    bindings_after = store.list_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
     assert len(bindings_after) == 1
     assert not any(b.resource_id == binding1.resource_id for b in bindings_after)
 
@@ -4458,270 +4455,41 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
         model_name="gpt-4",
     )
 
-    endpoint = store.create_gateway_endpoint(
+    endpoint = store.create_endpoint(
         name="integration-endpoint",
         model_definition_ids=[model_def1.model_definition_id],
     )
 
-    mapping = store.attach_model_to_gateway_endpoint(
+    mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
         model_definition_id=model_def2.model_definition_id,
     )
 
-    binding = store.create_gateway_endpoint_binding(
+    binding = store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
         resource_type=GatewayResourceType.SCORER_JOB,
         resource_id="integration-job",
     )
 
-    fetched_endpoint = store.get_gateway_endpoint(endpoint.endpoint_id)
+    fetched_endpoint = store.get_endpoint(endpoint.endpoint_id)
     assert len(fetched_endpoint.model_mappings) == 2
     mapping_ids = {m.mapping_id for m in fetched_endpoint.model_mappings}
     assert mapping.mapping_id in mapping_ids
 
-    bindings = store.list_gateway_endpoint_bindings(resource_id="integration-job")
+    bindings = store.list_endpoint_bindings(resource_id="integration-job")
     assert len(bindings) == 1
     assert bindings[0].resource_id == binding.resource_id
 
-    store.delete_gateway_endpoint_binding(
+    store.delete_endpoint_binding(
         endpoint_id=binding.endpoint_id,
         resource_type=binding.resource_type.value,
         resource_id=binding.resource_id,
     )
-    store.detach_model_from_gateway_endpoint(
+    store.detach_model_from_endpoint(
         endpoint_id=endpoint.endpoint_id,
         model_definition_id=model_def2.model_definition_id,
     )
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
+    store.delete_endpoint(endpoint.endpoint_id)
     store.delete_model_definition(model_def1.model_definition_id)
     store.delete_model_definition(model_def2.model_definition_id)
-    store.delete_secret(secret.secret_id)
-
-
-def test_set_endpoint_tag(mlflow_client_with_secrets):
-    store = mlflow_client_with_secrets._tracking_client.store
-
-    secret = store.create_secret(
-        secret_name="tag-test-secret",
-        secret_value="sk-tag-test-123",
-        provider="openai",
-    )
-    model_def = store.create_model_definition(
-        name="tag-test-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="tag-test-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
-    )
-
-    tag = GatewayEndpointTag(key="env", value="production")
-    store.set_gateway_endpoint_tag(endpoint_id=endpoint.endpoint_id, tag=tag)
-
-    fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
-    assert len(fetched.tags) == 1
-    assert fetched.tags[0].key == "env"
-    assert fetched.tags[0].value == "production"
-
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
-    store.delete_model_definition(model_def.model_definition_id)
-    store.delete_secret(secret.secret_id)
-
-
-def test_set_endpoint_tag_updates_existing(mlflow_client_with_secrets):
-    store = mlflow_client_with_secrets._tracking_client.store
-
-    secret = store.create_secret(
-        secret_name="tag-update-secret",
-        secret_value="sk-tag-update-123",
-        provider="openai",
-    )
-    model_def = store.create_model_definition(
-        name="tag-update-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="tag-update-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
-    )
-
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="env", value="staging"),
-    )
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="env", value="production"),
-    )
-
-    fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
-    assert len(fetched.tags) == 1
-    assert fetched.tags[0].key == "env"
-    assert fetched.tags[0].value == "production"
-
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
-    store.delete_model_definition(model_def.model_definition_id)
-    store.delete_secret(secret.secret_id)
-
-
-def test_set_multiple_endpoint_tags(mlflow_client_with_secrets):
-    store = mlflow_client_with_secrets._tracking_client.store
-
-    secret = store.create_secret(
-        secret_name="multi-tag-secret",
-        secret_value="sk-multi-tag-123",
-        provider="anthropic",
-    )
-    model_def = store.create_model_definition(
-        name="multi-tag-model",
-        secret_id=secret.secret_id,
-        provider="anthropic",
-        model_name="claude-3-5-sonnet",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="multi-tag-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
-    )
-
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="env", value="production"),
-    )
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="team", value="ml-ops"),
-    )
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="version", value="v2"),
-    )
-
-    fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
-    assert len(fetched.tags) == 3
-
-    tags_dict = {t.key: t.value for t in fetched.tags}
-    assert tags_dict["env"] == "production"
-    assert tags_dict["team"] == "ml-ops"
-    assert tags_dict["version"] == "v2"
-
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
-    store.delete_model_definition(model_def.model_definition_id)
-    store.delete_secret(secret.secret_id)
-
-
-def test_delete_endpoint_tag(mlflow_client_with_secrets):
-    store = mlflow_client_with_secrets._tracking_client.store
-
-    secret = store.create_secret(
-        secret_name="delete-tag-secret",
-        secret_value="sk-delete-tag-123",
-        provider="openai",
-    )
-    model_def = store.create_model_definition(
-        name="delete-tag-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="delete-tag-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
-    )
-
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="to-delete", value="will-be-removed"),
-    )
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="keep", value="stay"),
-    )
-
-    fetched_before = store.get_gateway_endpoint(endpoint.endpoint_id)
-    assert len(fetched_before.tags) == 2
-
-    store.delete_gateway_endpoint_tag(endpoint_id=endpoint.endpoint_id, key="to-delete")
-
-    fetched_after = store.get_gateway_endpoint(endpoint.endpoint_id)
-    assert len(fetched_after.tags) == 1
-    assert fetched_after.tags[0].key == "keep"
-    assert fetched_after.tags[0].value == "stay"
-
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
-    store.delete_model_definition(model_def.model_definition_id)
-    store.delete_secret(secret.secret_id)
-
-
-def test_delete_nonexistent_endpoint_tag_is_noop(mlflow_client_with_secrets):
-    store = mlflow_client_with_secrets._tracking_client.store
-
-    secret = store.create_secret(
-        secret_name="noop-tag-secret",
-        secret_value="sk-noop-tag-123",
-        provider="openai",
-    )
-    model_def = store.create_model_definition(
-        name="noop-tag-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="noop-tag-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
-    )
-
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="existing", value="value"),
-    )
-
-    store.delete_gateway_endpoint_tag(endpoint_id=endpoint.endpoint_id, key="nonexistent")
-
-    fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
-    assert len(fetched.tags) == 1
-    assert fetched.tags[0].key == "existing"
-
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
-    store.delete_model_definition(model_def.model_definition_id)
-    store.delete_secret(secret.secret_id)
-
-
-def test_delete_endpoint_cascades_tags(mlflow_client_with_secrets):
-    store = mlflow_client_with_secrets._tracking_client.store
-
-    secret = store.create_secret(
-        secret_name="cascade-tag-secret",
-        secret_value="sk-cascade-tag-123",
-        provider="openai",
-    )
-    model_def = store.create_model_definition(
-        name="cascade-tag-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="cascade-tag-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
-    )
-
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="tag1", value="value1"),
-    )
-    store.set_gateway_endpoint_tag(
-        endpoint_id=endpoint.endpoint_id,
-        tag=GatewayEndpointTag(key="tag2", value="value2"),
-    )
-
-    fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
-    assert len(fetched.tags) == 2
-
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
-    store.delete_model_definition(model_def.model_definition_id)
     store.delete_secret(secret.secret_id)
