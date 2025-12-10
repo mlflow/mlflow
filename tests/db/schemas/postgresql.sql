@@ -14,7 +14,9 @@ CREATE TABLE endpoints (
 	last_updated_at BIGINT NOT NULL,
 	routing_strategy VARCHAR(64),
 	fallback_config_json TEXT,
-	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id),
+	CONSTRAINT uq_endpoints_workspace_name UNIQUE (workspace, name)
 )
 
 
@@ -115,7 +117,9 @@ CREATE TABLE secrets (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT secrets_pk PRIMARY KEY (secret_id)
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	CONSTRAINT secrets_pk PRIMARY KEY (secret_id),
+	CONSTRAINT uq_secrets_workspace_secret_name UNIQUE (workspace, secret_name)
 )
 
 
@@ -244,8 +248,10 @@ CREATE TABLE model_definitions (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	CONSTRAINT model_definitions_pk PRIMARY KEY (model_definition_id),
-	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE SET NULL
+	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE SET NULL,
+	CONSTRAINT uq_model_definitions_workspace_name UNIQUE (workspace, name)
 )
 
 
