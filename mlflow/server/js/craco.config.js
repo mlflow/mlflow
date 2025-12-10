@@ -322,11 +322,7 @@ module.exports = function () {
             __dirname,
             'src/shared/web-shared/model-trace-explorer/oss-notebook-renderer/index.ts',
           ),
-          'telemetry-worker': {
-            import: path.resolve(__dirname, 'src/telemetry/worker/TelemetryLogger.worker.ts'),
-            // make the worker a single file
-            chunkLoading: false,
-          },
+          'telemetry-worker': path.resolve(__dirname, 'src/telemetry/worker/TelemetryLogger.worker.ts'),
         };
 
         // Configure output for multiple entries
@@ -334,16 +330,19 @@ module.exports = function () {
           ...webpackConfig.output,
           filename: (pathData) => {
             if (pathData.chunk.name === 'telemetry-worker') {
-              // serve service worker file at top-level, it seems to be more
+              // serve SharedWorker file at top-level, it seems to be more
               // stable than if it's contained in `static/js/...`. previously
               // i was running into issues with webpack path resolution
-              return 'TelemetryLogger.worker.js';
+              return 'TelemetryLogger.[name].[contenthash].worker.js';
             }
             return pathData.chunk.name === 'ml-model-trace-renderer'
               ? 'lib/notebook-trace-renderer/js/[name].[contenthash].js'
               : 'static/js/[name].[contenthash:8].js';
           },
           chunkFilename: (pathData) => {
+            if (pathData.chunk.name === 'telemetry-worker') {
+              return 'TelemetryLogger.[name].[contenthash].worker.chunk.js';
+            }
             return pathData.chunk.name?.includes('ml-model-trace-renderer')
               ? 'lib/notebook-trace-renderer/js/[name].[contenthash].chunk.js'
               : 'static/js/[name].[contenthash:8].chunk.js';
