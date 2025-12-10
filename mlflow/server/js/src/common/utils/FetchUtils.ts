@@ -465,29 +465,29 @@ function serializeRequestBody(payload: any | FormData | Blob) {
     : JSON.stringify(payload);
 }
 
+export type FetchAPIOptions = Omit<RequestInit, 'body'> & {
+  body?: any;
+};
+
 // Helper method to make a request to the backend.
-export const fetchAPI = async (
-  url: string,
-  method: 'POST' | 'GET' | 'PATCH' | 'DELETE' = 'GET',
-  body?: any,
-  signal?: AbortSignal,
-) => {
+export const fetchAPI = async (url: string, options: FetchAPIOptions = {}) => {
+  const { method, headers, body, ...restOptions } = options;
+
   let cookieString = '';
   if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
     cookieString = document.cookie || '';
   }
+
   const fetchOptions: RequestInit = {
-    method,
+    ...restOptions,
+    method: method || HTTPMethods.GET,
     headers: {
       ...getDefaultHeaders(cookieString),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...headers,
     },
-    signal,
+    ...(body && { body: serializeRequestBody(body) }),
   };
-
-  if (body !== undefined) {
-    fetchOptions.body = serializeRequestBody(body);
-  }
 
   // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   const response = await fetch(url, fetchOptions);
