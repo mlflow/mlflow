@@ -21,7 +21,7 @@ import { formatProviderName } from '../../utils/providerUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import GatewayRoutes from '../../routes';
 import type { Endpoint } from '../../types';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback, memo } from 'react';
 
 interface EndpointsListProps {
   onEndpointDeleted?: () => void;
@@ -42,19 +42,22 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     return endpoints.filter((endpoint) => (endpoint.name ?? endpoint.endpoint_id).toLowerCase().includes(lowerFilter));
   }, [endpoints, searchFilter]);
 
-  const handleDelete = (endpoint: Endpoint) => {
-    setDeletingId(endpoint.endpoint_id);
-    deleteEndpoint(endpoint.endpoint_id, {
-      onSuccess: () => {
-        setDeletingId(null);
-        refetch();
-        onEndpointDeleted?.();
-      },
-      onError: () => {
-        setDeletingId(null);
-      },
-    });
-  };
+  const handleDelete = useCallback(
+    (endpoint: Endpoint) => {
+      setDeletingId(endpoint.endpoint_id);
+      deleteEndpoint(endpoint.endpoint_id, {
+        onSuccess: () => {
+          setDeletingId(null);
+          refetch();
+          onEndpointDeleted?.();
+        },
+        onError: () => {
+          setDeletingId(null);
+        },
+      });
+    },
+    [deleteEndpoint, refetch, onEndpointDeleted],
+  );
 
   if (isLoading) {
     return (
@@ -69,10 +72,14 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     return (
       <Empty
         image={<ChainIcon />}
+        title={formatMessage({
+          defaultMessage: 'No endpoints created yet',
+          description: 'Empty state title for endpoints list',
+        })}
         description={
           <FormattedMessage
-            defaultMessage="No endpoints created yet"
-            description="Empty state message for endpoints list"
+            defaultMessage="Create an endpoint with models and API keys to securely connect MLflow features to your preferred GenAI providers."
+            description="Empty state message for endpoints list explaining the feature"
           />
         }
       />
@@ -115,13 +122,13 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           }}
         >
           <TableRow isHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.name-header" css={{ flex: 2 }}>
+            <TableHeader componentId="mlflow.gateway.endpoints-list.name-header">
               <FormattedMessage defaultMessage="Name" description="Endpoint name column header" />
             </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.models-header" css={{ flex: 2 }}>
+            <TableHeader componentId="mlflow.gateway.endpoints-list.models-header">
               <FormattedMessage defaultMessage="Models" description="Models column header" />
             </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header">
               <FormattedMessage defaultMessage="Last modified" description="Last modified column header" />
             </TableHeader>
             <TableHeader
@@ -131,7 +138,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           </TableRow>
           {filteredEndpoints.map((endpoint) => (
             <TableRow key={endpoint.endpoint_id}>
-              <TableCell css={{ flex: 2 }}>
+              <TableCell>
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
                   <ChainIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
                   <Link
@@ -149,10 +156,10 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
                   </Link>
                 </div>
               </TableCell>
-              <TableCell css={{ flex: 2 }}>
+              <TableCell multiline>
                 <ModelsCell modelMappings={endpoint.model_mappings} />
               </TableCell>
-              <TableCell css={{ flex: 1 }}>
+              <TableCell>
                 <TimeAgo date={new Date(endpoint.last_updated_at)} />
               </TableCell>
               <TableCell css={{ flex: 0, minWidth: 48, maxWidth: 48 }}>
@@ -177,7 +184,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
   );
 };
 
-const ModelsCell = ({ modelMappings }: { modelMappings: Endpoint['model_mappings'] }) => {
+const ModelsCell = memo(({ modelMappings }: { modelMappings: Endpoint['model_mappings'] }) => {
   const { theme } = useDesignSystemTheme();
 
   if (!modelMappings || modelMappings.length === 0) {
@@ -203,4 +210,4 @@ const ModelsCell = ({ modelMappings }: { modelMappings: Endpoint['model_mappings
       )}
     </div>
   );
-};
+});

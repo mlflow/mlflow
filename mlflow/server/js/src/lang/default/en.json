@@ -551,6 +551,10 @@
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
   },
+  "32f2xq": {
+    "defaultMessage": "No endpoints created yet",
+    "description": "Empty state title for endpoints list"
+  },
   "36g3aR": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
@@ -1138,6 +1142,10 @@
     "defaultMessage": "Are you sure you want to delete model version {versionNum}? This cannot be undone.",
     "description": "Comment text for model version deletion modal in model versions view\n                 page"
   },
+  "8A54Tr": {
+    "defaultMessage": "Endpoints",
+    "description": "Label for the endpoints tab in the Gateway sidebar"
+  },
   "8ALhnh": {
     "defaultMessage": "Type a key",
     "description": "Key-value tag editor modal > Tag dropdown > Tag input placeholder"
@@ -1289,6 +1297,10 @@
   "9ZHB3D": {
     "defaultMessage": "MLflow runs:",
     "description": "A label for the associated MLflow runs in the prompt details page"
+  },
+  "9bsCh9": {
+    "defaultMessage": "API Keys",
+    "description": "Label for the API keys tab in the Gateway sidebar"
   },
   "9cTaBs": {
     "defaultMessage": "Fail",
@@ -1778,10 +1790,6 @@
     "defaultMessage": "Other Providers",
     "description": "Section header for other providers"
   },
-  "E+x0F4": {
-    "defaultMessage": "Gateway",
-    "description": "Header title for the gateway configuration page"
-  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
@@ -1993,6 +2001,10 @@
   "G0gYkS": {
     "defaultMessage": "End Time:",
     "description": "Row title for the end time of runs on the experiment compare runs page"
+  },
+  "G2aTvU": {
+    "defaultMessage": "API Keys management coming soon",
+    "description": "Placeholder message for API keys page"
   },
   "G38qVI": {
     "defaultMessage": "Name",
@@ -3113,10 +3125,6 @@
     "defaultMessage": "Provider",
     "description": "Provider label"
   },
-  "RABCez": {
-    "defaultMessage": "No endpoints created yet",
-    "description": "Empty state message for endpoints list"
-  },
   "RCjxf0": {
     "defaultMessage": "Compare runs",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > title"
@@ -3551,6 +3559,10 @@
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
+  },
+  "VVqs10": {
+    "defaultMessage": "Create an endpoint with models and API keys to securely connect MLflow features to your preferred GenAI providers.",
+    "description": "Empty state message for endpoints list explaining the feature"
   },
   "VXduJD": {
     "defaultMessage": "The provided value is not valid JSON",
@@ -4282,6 +4294,10 @@
   "bdVsGZ": {
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
+  },
+  "bfxTYp": {
+    "defaultMessage": "Gateway",
+    "description": "Header title for the gateway page"
   },
   "bi26D5": {
     "defaultMessage": "Run ID:",

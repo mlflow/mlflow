@@ -1,5 +1,6 @@
 import { SimpleSelect, SimpleSelectOption, FormUI, Spinner, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { useMemo } from 'react';
 import { useModelDefinitionsQuery } from '../../hooks/useModelDefinitionsQuery';
 import { formatProviderName } from '../../utils/providerUtils';
 
@@ -22,9 +23,10 @@ export const ModelDefinitionSelector = ({
   const { data: modelDefinitions, isLoading } = useModelDefinitionsQuery();
 
   // Filter by provider if specified
-  const filteredModelDefinitions = provider
-    ? modelDefinitions?.filter((md) => md.provider === provider)
-    : modelDefinitions;
+  const filteredModelDefinitions = useMemo(
+    () => (provider ? modelDefinitions?.filter((md) => md.provider === provider) : modelDefinitions),
+    [provider, modelDefinitions],
+  );
 
   if (isLoading) {
     return (
