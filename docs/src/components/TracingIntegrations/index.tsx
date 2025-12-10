@@ -285,7 +285,6 @@ interface TracingIntegrationsProps {
     noGap?: boolean;
   };
   categorized?: boolean;
-  language?: 'python' | 'typescript';
 }
 
 const IntegrationContent: React.FC<{
@@ -350,7 +349,6 @@ const IntegrationContent: React.FC<{
 export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({
   cardGroupProps = {},
   categorized = false,
-  language,
 }) => {
   const pythonIntegrations = TRACING_INTEGRATIONS.filter((integration) => integration.languages.includes('python'));
   const typescriptIntegrations = TRACING_INTEGRATIONS.filter((integration) =>
