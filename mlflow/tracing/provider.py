@@ -429,12 +429,14 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         return []
 
     processors = []
+    added_destination_processor = False
 
     # TODO: Update this logic to pluggable registry where
     #  1. Partners can implement span processor/exporter and destination class.
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
     if trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+        added_destination_processor = True
         # In PrPr, users must set the destination to UCSchemaLocation to export traces to UC
         if isinstance(trace_destination, UCSchemaLocation):
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
@@ -455,10 +457,13 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
             processors.append(processor)
 
-        # Trace destination has highest precedence; ignore OTLP and defaults.
-        return processors
+        # Trace destination has highest precedence; definitely ignore defaults
+        # Ignore OTLP (unless dual export is set and we should use OTLP)
+        if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
+            return processors
 
-    # If no explicit trace destination, next honor OTLP configuration.
+    # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
+    # configuration.
     if should_use_otlp_exporter():
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
@@ -473,8 +478,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         )
         processors.append(otel_processor)
 
-        # If dual export is NOT enabled, OTLP-only; don't add any MLflow processors.
-        if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
+        if (not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or added_destination_processor:
             return processors
 
     # Finally, default MLflow-based processors (inference table in serving, else tracking URI).
