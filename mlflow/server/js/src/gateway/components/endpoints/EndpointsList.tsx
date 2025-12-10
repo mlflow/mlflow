@@ -20,6 +20,7 @@ import { useDeleteEndpointMutation } from '../../hooks/useDeleteEndpointMutation
 import { timestampToDate } from '../../utils/dateUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { EndpointsFilterButton, type EndpointsFilter } from './EndpointsFilterButton';
+import { formatProviderName } from '../../utils/providerUtils';
 import GatewayRoutes from '../../routes';
 import type { Endpoint } from '../../types';
 import { useMemo, useState, useCallback, memo } from 'react';
@@ -127,7 +128,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           componentId="mlflow.gateway.endpoints-list.search"
           prefix={<SearchIcon />}
           placeholder={formatMessage({
-            defaultMessage: 'Filter endpoints by name',
+            defaultMessage: 'Filter endpoints',
             description: 'Placeholder for endpoint search filter',
           })}
           value={searchFilter}
@@ -157,13 +158,16 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           }}
         >
           <TableRow isHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.name-header">
+            <TableHeader componentId="mlflow.gateway.endpoints-list.name-header" css={{ flex: 2 }}>
               <FormattedMessage defaultMessage="Name" description="Endpoint name column header" />
             </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.models-header">
+            <TableHeader componentId="mlflow.gateway.endpoints-list.provider-header" css={{ flex: 1 }}>
+              <FormattedMessage defaultMessage="Provider" description="Provider column header" />
+            </TableHeader>
+            <TableHeader componentId="mlflow.gateway.endpoints-list.models-header" css={{ flex: 2 }}>
               <FormattedMessage defaultMessage="Models" description="Models column header" />
             </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header">
+            <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Last modified" description="Last modified column header" />
             </TableHeader>
             <TableHeader
@@ -171,48 +175,58 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
               css={{ flex: 0, minWidth: 48, maxWidth: 48 }}
             />
           </TableRow>
-          {filteredEndpoints.map((endpoint) => (
-            <TableRow key={endpoint.endpoint_id}>
-              <TableCell>
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                  <ChainIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
-                  <Link
-                    to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
-                    css={{
-                      color: theme.colors.actionPrimaryBackgroundDefault,
-                      textDecoration: 'none',
-                      fontWeight: theme.typography.typographyBoldFontWeight,
-                      '&:hover': {
-                        textDecoration: 'underline',
-                      },
-                    }}
-                  >
-                    {endpoint.name ?? endpoint.endpoint_id}
-                  </Link>
-                </div>
-              </TableCell>
-              <TableCell multiline>
-                <ModelsCell modelMappings={endpoint.model_mappings} />
-              </TableCell>
-              <TableCell>
-                <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
-              </TableCell>
-              <TableCell css={{ flex: 0, minWidth: 48, maxWidth: 48 }}>
-                <Button
-                  componentId="mlflow.gateway.endpoints-list.delete-button"
-                  type="tertiary"
-                  icon={<TrashIcon />}
-                  aria-label={formatMessage({
-                    defaultMessage: 'Delete endpoint',
-                    description: 'Delete endpoint button aria label',
-                  })}
-                  onClick={() => handleDelete(endpoint)}
-                  loading={deletingId === endpoint.endpoint_id}
-                  disabled={isDeleting}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
+          {filteredEndpoints.map((endpoint) => {
+            const primaryProvider = endpoint.model_mappings?.[0]?.model_definition?.provider;
+            return (
+              <TableRow key={endpoint.endpoint_id}>
+                <TableCell css={{ flex: 2 }}>
+                  <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                    <ChainIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
+                    <Link
+                      to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
+                      css={{
+                        color: theme.colors.actionPrimaryBackgroundDefault,
+                        textDecoration: 'none',
+                        fontWeight: theme.typography.typographyBoldFontWeight,
+                        '&:hover': {
+                          textDecoration: 'underline',
+                        },
+                      }}
+                    >
+                      {endpoint.name ?? endpoint.endpoint_id}
+                    </Link>
+                  </div>
+                </TableCell>
+                <TableCell css={{ flex: 1 }}>
+                  {primaryProvider ? (
+                    <Typography.Text>{formatProviderName(primaryProvider)}</Typography.Text>
+                  ) : (
+                    <Typography.Text color="secondary">-</Typography.Text>
+                  )}
+                </TableCell>
+                <TableCell multiline css={{ flex: 2 }}>
+                  <ModelsCell modelMappings={endpoint.model_mappings} />
+                </TableCell>
+                <TableCell css={{ flex: 1 }}>
+                  <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
+                </TableCell>
+                <TableCell css={{ flex: 0, minWidth: 48, maxWidth: 48 }}>
+                  <Button
+                    componentId="mlflow.gateway.endpoints-list.delete-button"
+                    type="tertiary"
+                    icon={<TrashIcon />}
+                    aria-label={formatMessage({
+                      defaultMessage: 'Delete endpoint',
+                      description: 'Delete endpoint button aria label',
+                    })}
+                    onClick={() => handleDelete(endpoint)}
+                    loading={deletingId === endpoint.endpoint_id}
+                    disabled={isDeleting}
+                  />
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </Table>
       )}
     </div>

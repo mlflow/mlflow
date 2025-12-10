@@ -180,7 +180,7 @@ export const ApiKeysList = ({
           componentId="mlflow.gateway.api-keys-list.search"
           prefix={<SearchIcon />}
           placeholder={formatMessage({
-            defaultMessage: 'Search keys',
+            defaultMessage: 'Filter API keys',
             description: 'Placeholder for API key search filter',
           })}
           value={searchFilter}

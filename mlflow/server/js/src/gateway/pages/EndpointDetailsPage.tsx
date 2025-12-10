@@ -1,5 +1,4 @@
 import { useParams, Link, useNavigate } from '../../common/utils/RoutingUtils';
-import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import {
   Alert,
   Breadcrumb,
@@ -15,30 +14,15 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { useQuery } from '../../common/utils/reactQueryHooks';
-import { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { GatewayApi } from '../api';
 import GatewayRoutes from '../routes';
-import { formatProviderName } from '../utils/providerUtils';
+import { formatProviderName, formatAuthMethodName, formatSecretFieldName } from '../utils/providerUtils';
+import { parseAuthConfig, parseMaskedValues, isSingleMaskedValue } from '../utils/secretUtils';
 import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
 import { LongFormLayout, LongFormSummary } from '../../common/components/long-form';
 import type { EndpointModelMapping, ModelDefinition, Model, SecretInfo } from '../types';
-
-/** Format token count for display (e.g., 128000 -> "128K") */
-const formatTokens = (tokens: number | null): string | null => {
-  if (tokens === null || tokens === undefined) return null;
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(0)}K`;
-  return tokens.toString();
-};
-
-/** Format cost per token for display (e.g., 0.000002 -> "$2.00/1M") */
-const formatCost = (cost: number | null): string | null => {
-  if (cost === null || cost === undefined) return null;
-  if (cost === 0) return 'Free';
-  const perMillion = cost * 1_000_000;
-  if (perMillion < 0.01) return `$${perMillion.toFixed(4)}/1M`;
-  return `$${perMillion.toFixed(2)}/1M`;
-};
+import { formatTokens, formatCost } from '../utils/formatters';
 
 const useEndpointQuery = (endpointId: string) => {
   return useQuery(['gateway_endpoint', endpointId], {
@@ -75,18 +59,18 @@ const EndpointDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, padding: theme.spacing.md }}>
           <Spinner size="small" />
           <FormattedMessage defaultMessage="Loading endpoint..." description="Loading message for endpoint" />
         </div>
-      </ScrollablePageWrapper>
+      </div>
     );
   }
 
   if (error || !endpoint) {
     return (
-      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div css={{ padding: theme.spacing.md }}>
           <Alert
             componentId="mlflow.gateway.endpoint-details.error"
@@ -94,14 +78,14 @@ const EndpointDetailsPage = () => {
             message={(error as Error | null)?.message ?? 'Endpoint not found'}
           />
         </div>
-      </ScrollablePageWrapper>
+      </div>
     );
   }
 
   const hasModels = endpoint.model_mappings && endpoint.model_mappings.length > 0;
 
   return (
-    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div css={{ padding: theme.spacing.md }}>
         <Breadcrumb includeTrailingCaret>
           <Breadcrumb.Item>
@@ -230,7 +214,7 @@ const EndpointDetailsPage = () => {
           </div>
         </Card>
       </LongFormLayout>
-    </ScrollablePageWrapper>
+    </div>
   );
 };
 
@@ -277,6 +261,10 @@ const ModelCard = ({
     () => formatCost(modelMetadata?.output_cost_per_token ?? null),
     [modelMetadata?.output_cost_per_token],
   );
+
+  // Parse auth config and masked values using shared utils
+  const authConfig = useMemo(() => parseAuthConfig(secretData?.secret), [secretData?.secret]);
+  const maskedValues = useMemo(() => parseMaskedValues(secretData?.secret), [secretData?.secret]);
 
   if (!modelDefinition) {
     return null;
@@ -326,24 +314,24 @@ const ModelCard = ({
         </div>
 
         {/* Model specs - context and cost */}
-        {modelMetadata && (contextWindow || inputCost || outputCost) && (
+        {modelMetadata && (contextWindow !== '-' || inputCost !== '-' || outputCost !== '-') && (
           <>
             <Typography.Text color="secondary">
               <FormattedMessage defaultMessage="Specs:" description="Model specs label" />
             </Typography.Text>
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               {[
-                contextWindow &&
+                contextWindow !== '-' &&
                   intl.formatMessage(
                     { defaultMessage: 'Context: {tokens}', description: 'Context window size' },
                     { tokens: contextWindow },
                   ),
-                inputCost &&
+                inputCost !== '-' &&
                   intl.formatMessage(
                     { defaultMessage: 'Input: {cost}', description: 'Input cost' },
                     { cost: inputCost },
                   ),
-                outputCost &&
+                outputCost !== '-' &&
                   intl.formatMessage(
                     { defaultMessage: 'Output: {cost}', description: 'Output cost' },
                     { cost: outputCost },
@@ -360,21 +348,7 @@ const ModelCard = ({
           <FormattedMessage defaultMessage="API Key:" description="API key name label" />
         </Typography.Text>
         {secret ? (
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-            <Typography.Text bold>{secret.secret_name}</Typography.Text>
-            <Typography.Text
-              css={{
-                fontFamily: 'monospace',
-                fontSize: theme.typography.fontSizeSm,
-                backgroundColor: theme.colors.tagDefault,
-                padding: `2px ${theme.spacing.xs}px`,
-                borderRadius: theme.general.borderRadiusBase,
-              }}
-            >
-              {/* Strip JSON brackets and quotes if the masked value is JSON-formatted */}
-              {secret.masked_value.replace(/^[{"\s]+|[}"\s]+$/g, '')}
-            </Typography.Text>
-          </div>
+          <Typography.Text bold>{secret.secret_name}</Typography.Text>
         ) : (
           <Typography.Text color="secondary">
             <FormattedMessage defaultMessage="Loading..." description="Loading secret" />
@@ -382,12 +356,61 @@ const ModelCard = ({
         )}
 
         {/* Auth type - only show if auth_mode is set in auth_config (indicates multi-auth provider) */}
-        {secret?.auth_config?.['auth_mode'] && (
+        {authConfig?.['auth_mode'] && (
           <>
             <Typography.Text color="secondary">
               <FormattedMessage defaultMessage="Auth Type:" description="Auth type label" />
             </Typography.Text>
-            <Typography.Text>{secret.auth_config['auth_mode']}</Typography.Text>
+            <Typography.Text>{formatAuthMethodName(String(authConfig['auth_mode']))}</Typography.Text>
+          </>
+        )}
+
+        {/* Masked keys */}
+        {maskedValues && maskedValues.length > 0 && (
+          <>
+            <Typography.Text color="secondary">
+              {isSingleMaskedValue(maskedValues) ? (
+                <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label (singular)" />
+              ) : (
+                <FormattedMessage defaultMessage="Masked Keys:" description="Masked API keys section label" />
+              )}
+            </Typography.Text>
+            <div css={{ display: 'flex', flexDirection: 'column' }}>
+              {maskedValues.map(([key, value], index) =>
+                key === '' ? (
+                  // Single value without key label
+                  <Typography.Text
+                    key={index}
+                    css={{
+                      fontFamily: 'monospace',
+                      fontSize: theme.typography.fontSizeSm,
+                      backgroundColor: theme.colors.tagDefault,
+                      padding: `2px ${theme.spacing.xs}px`,
+                      borderRadius: theme.general.borderRadiusBase,
+                      width: 'fit-content',
+                    }}
+                  >
+                    {value}
+                  </Typography.Text>
+                ) : (
+                  // Multiple values with key labels
+                  <div key={key} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                    <Typography.Text color="secondary">{formatSecretFieldName(key)}:</Typography.Text>
+                    <Typography.Text
+                      css={{
+                        fontFamily: 'monospace',
+                        fontSize: theme.typography.fontSizeSm,
+                        backgroundColor: theme.colors.tagDefault,
+                        padding: `2px ${theme.spacing.xs}px`,
+                        borderRadius: theme.general.borderRadiusBase,
+                      }}
+                    >
+                      {value}
+                    </Typography.Text>
+                  </div>
+                ),
+              )}
+            </div>
           </>
         )}
 
@@ -402,23 +425,13 @@ const ModelCard = ({
 const AuthConfigDisplay = ({ secret }: { secret: SecretInfo | undefined }) => {
   const { theme } = useDesignSystemTheme();
 
-  // Memoize auth config parsing
-  const authConfig = useMemo(() => {
-    if (!secret) return null;
+  // Parse auth config using shared utils
+  const authConfig = useMemo(() => parseAuthConfig(secret), [secret]);
 
-    // Parse auth_config_json if it exists, otherwise use auth_config
-    if (secret.auth_config_json) {
-      try {
-        return JSON.parse(secret.auth_config_json) as Record<string, unknown>;
-      } catch {
-        // Invalid JSON, ignore
-        return null;
-      }
-    }
-    return secret.auth_config ?? null;
-  }, [secret]);
+  // Filter out auth_mode since it's already displayed in the Auth Type row
+  const filteredEntries = authConfig ? Object.entries(authConfig).filter(([key]) => key !== 'auth_mode') : [];
 
-  if (!authConfig || Object.keys(authConfig).length === 0) return null;
+  if (filteredEntries.length === 0) return null;
 
   return (
     <>
@@ -426,9 +439,9 @@ const AuthConfigDisplay = ({ secret }: { secret: SecretInfo | undefined }) => {
         <FormattedMessage defaultMessage="Config:" description="Auth config label" />
       </Typography.Text>
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-        {Object.entries(authConfig).map(([key, value]) => (
+        {filteredEntries.map(([key, value]) => (
           <div key={key}>
-            <Typography.Text color="secondary">{key}: </Typography.Text>
+            <Typography.Text color="secondary">{formatSecretFieldName(key)}: </Typography.Text>
             <Typography.Text css={{ fontFamily: 'monospace' }}>{String(value)}</Typography.Text>
           </div>
         ))}

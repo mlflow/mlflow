@@ -121,7 +121,17 @@ class SqlAlchemyGatewayStoreMixin:
 
             # Normalize to dict format and serialize to JSON for encryption
             if isinstance(secret_value, str):
-                secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
+                # Try to parse as JSON dict first (frontend sends JSON string)
+                try:
+                    parsed = json.loads(secret_value)
+                    if isinstance(parsed, dict):
+                        secret_dict = parsed
+                    else:
+                        # Parsed but not a dict - treat as plain string
+                        secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
+                except json.JSONDecodeError:
+                    # Not valid JSON - treat as plain string value
+                    secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
             else:
                 secret_dict = secret_value
 
@@ -230,13 +240,29 @@ class SqlAlchemyGatewayStoreMixin:
             if secret_value is not None:
                 # Normalize to dict format and serialize to JSON for encryption
                 if isinstance(secret_value, str):
-                    secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
+                    # Try to parse as JSON dict first (frontend sends JSON string)
+                    try:
+                        parsed = json.loads(secret_value)
+                        if isinstance(parsed, dict):
+                            secret_dict = parsed
+                        else:
+                            # Parsed but not a dict - treat as plain string
+                            secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
+                    except json.JSONDecodeError:
+                        # Not valid JSON - treat as plain string value
+                        secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
                 else:
                     secret_dict = secret_value
 
                 value_to_encrypt = json.dumps(secret_dict)
-                first_value = next(iter(secret_dict.values()), "")
-                masked_value = _mask_secret_value(first_value)
+
+                # For dict secrets with multiple keys, show keys with masked values
+                if len(secret_dict) == 1:
+                    first_value = next(iter(secret_dict.values()), "")
+                    masked_value = _mask_secret_value(first_value)
+                else:
+                    masked_parts = [f"{k}: {_mask_secret_value(v)}" for k, v in secret_dict.items()]
+                    masked_value = "{" + ", ".join(masked_parts) + "}"
 
                 kek_manager = KEKManager()
 

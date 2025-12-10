@@ -742,10 +742,6 @@
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
   },
-  "54VkMi": {
-    "defaultMessage": "Search keys",
-    "description": "Placeholder for API key search filter"
-  },
   "55mClg": {
     "defaultMessage": "Tag filter",
     "description": "Button to open the tags filter popover in the experiments page"
@@ -1626,10 +1622,6 @@
     "defaultMessage": "Chat",
     "description": "Label for the chat tab of the model trace explorer."
   },
-  "Blmg3K": {
-    "defaultMessage": "Filter endpoints by name",
-    "description": "Placeholder for endpoint search filter"
-  },
   "Bnruyp": {
     "defaultMessage": "500",
     "description": "Label for 500 first runs visible in run count selector within runs compare configuration modal"
@@ -2102,10 +2094,6 @@
     "defaultMessage": "Metrics",
     "description": "Field name text for metrics table in the model comparison page"
   },
-  "GDsYvd": {
-    "defaultMessage": "Filter{count}",
-    "description": "Filter button label with count"
-  },
   "GDzD7I": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
@@ -2353,10 +2341,6 @@
   "IiB7MF": {
     "defaultMessage": "Provider:",
     "description": "Secret provider label"
-  },
-  "IilPg5": {
-    "defaultMessage": "Gateway requires a SQL backend",
-    "description": "Title for unsupported backend message in gateway"
   },
   "Ik96R6": {
     "defaultMessage": "Edit",
@@ -3014,6 +2998,10 @@
     "defaultMessage": "Key name is required",
     "description": "Error message when key name is empty"
   },
+  "OzwOag": {
+    "defaultMessage": "Masked Key:",
+    "description": "Masked API key label (singular)"
+  },
   "OzyPl3": {
     "defaultMessage": "Please select parameters",
     "description": "Placeholder text for parameters in parallel coordinates plot in MLflow"
@@ -3628,6 +3616,10 @@
     "defaultMessage": "Models",
     "description": "Breadcrumb for models tab of experiments page on the logged model details page"
   },
+  "Uwb+U/": {
+    "defaultMessage": "Provider",
+    "description": "Filter button label for provider filter"
+  },
   "UwpML4": {
     "defaultMessage": "Model registered successfully",
     "description": "Notification title for model registration succeeded on the logged model details page"
@@ -3739,6 +3731,10 @@
   "VrxfuC": {
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
+  },
+  "VsEOqO": {
+    "defaultMessage": "Filter API keys",
+    "description": "Placeholder for API key search filter"
   },
   "Vvn8Cb": {
     "defaultMessage": "Open dataset",
@@ -4410,6 +4406,10 @@
   "bK3O8b": {
     "defaultMessage": "Edit judge",
     "description": "Title for edit judge modal"
+  },
+  "bKDwMK": {
+    "defaultMessage": "API Key:",
+    "description": "Summary API key label"
   },
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
@@ -5155,10 +5155,6 @@
     "defaultMessage": "Assessment added by LLM-as-a-judge",
     "description": "Evaluation review > assessments > tooltip > assessment added by LLM-as-a-judge"
   },
-  "gqFQc3": {
-    "defaultMessage": "API Key",
-    "description": "Summary API key label"
-  },
   "gqfk5C": {
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
@@ -5787,10 +5783,6 @@
     "defaultMessage": "{toolName} was called in {toolCallId}",
     "description": "A message that shows the tool call ID of a tool call chat message."
   },
-  "mX2U9r": {
-    "defaultMessage": "Gateway features for managing endpoints and API keys require a SQL-based tracking store. Please configure your MLflow server with a SQL backend (e.g., SQLite or PostgreSQL) to use these features.",
-    "description": "Description for unsupported backend message in gateway"
-  },
   "mY6f0y": {
     "defaultMessage": "Params",
     "description": "Header for parameter columns in the evaluation runs table column configuration"
@@ -6319,6 +6311,10 @@
     "defaultMessage": "Please select metrics",
     "description": "Placeholder text for metrics in parallel coordinates plot in MLflow"
   },
+  "r5StEk": {
+    "defaultMessage": "Filter endpoints",
+    "description": "Placeholder for endpoint search filter"
+  },
   "r5t1Je": {
     "defaultMessage": "Show execution timeline",
     "description": "Tooltip for a button that shows execution timeline info in the trace UI."
@@ -6398,10 +6394,6 @@
   "rs7Iic": {
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
-  },
-  "rvRhzv": {
-    "defaultMessage": "Masked Key:",
-    "description": "Masked API key label"
   },
   "rxMHgr": {
     "defaultMessage": "Stage transition",
@@ -6518,6 +6510,10 @@
   "sguNEF": {
     "defaultMessage": "No evaluation tables logged",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > title"
+  },
+  "skPzQi": {
+    "defaultMessage": "Masked Keys:",
+    "description": "Masked API keys section label"
   },
   "smlUA/": {
     "defaultMessage": "Connection",

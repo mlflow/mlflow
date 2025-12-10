@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { formatProviderName, formatAuthMethodName } from '../../utils/providerUtils';
+import { formatProviderName, formatAuthMethodName, formatSecretFieldName } from '../../utils/providerUtils';
+import { parseAuthConfig, parseMaskedValues, isSingleMaskedValue } from '../../utils/secretUtils';
 import { timestampToDate } from '../../utils/dateUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import type { SecretInfo } from '../../types';
@@ -19,19 +20,9 @@ interface SecretDetailsProps {
 export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) => {
   const { theme } = useDesignSystemTheme();
 
-  // Memoize auth config parsing
-  const authConfig = useMemo(() => {
-    // Parse auth_config_json if it exists, otherwise use auth_config
-    if (secret.auth_config_json) {
-      try {
-        return JSON.parse(secret.auth_config_json) as Record<string, unknown>;
-      } catch {
-        // Invalid JSON, ignore
-        return null;
-      }
-    }
-    return secret.auth_config ?? null;
-  }, [secret.auth_config_json, secret.auth_config]);
+  // Parse auth config and masked values using shared utils
+  const authConfig = useMemo(() => parseAuthConfig(secret), [secret]);
+  const maskedValues = useMemo(() => parseMaskedValues(secret), [secret]);
 
   const content = (
     <div css={{ display: 'flex', flexDirection: 'column', paddingTop: theme.spacing.md }}>
@@ -62,8 +53,8 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
           </div>
         )}
 
-        {/* Auth Config - show non-encrypted configuration if present */}
-        {authConfig && Object.keys(authConfig).length > 0 && (
+        {/* Auth Config - show non-encrypted configuration if present (excluding auth_mode which is shown above) */}
+        {authConfig && Object.keys(authConfig).filter((key) => key !== 'auth_mode').length > 0 && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
             <Typography.Text color="secondary">
               <FormattedMessage defaultMessage="Config:" description="Auth config label" />
@@ -76,32 +67,70 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
                 paddingLeft: theme.spacing.md,
               }}
             >
-              {Object.entries(authConfig).map(([key, value]) => (
-                <div key={key} css={{ display: 'flex', gap: theme.spacing.xs }}>
-                  <Typography.Text color="secondary">{key}:</Typography.Text>
-                  <Typography.Text css={{ fontFamily: 'monospace' }}>{String(value)}</Typography.Text>
-                </div>
-              ))}
+              {Object.entries(authConfig)
+                .filter(([key]) => key !== 'auth_mode')
+                .map(([key, value]) => (
+                  <div key={key} css={{ display: 'flex', gap: theme.spacing.xs }}>
+                    <Typography.Text color="secondary">{formatSecretFieldName(key)}:</Typography.Text>
+                    <Typography.Text css={{ fontFamily: 'monospace' }}>{String(value)}</Typography.Text>
+                  </div>
+                ))}
             </div>
           </div>
         )}
 
-        {/* Masked value */}
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <Typography.Text color="secondary">
-            <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label" />
-          </Typography.Text>
-          <Typography.Text
-            css={{
-              fontFamily: 'monospace',
-              backgroundColor: theme.colors.tagDefault,
-              padding: `2px ${theme.spacing.xs}px`,
-              borderRadius: theme.general.borderRadiusBase,
-            }}
-          >
-            {secret.masked_value}
-          </Typography.Text>
-        </div>
+        {/* Masked values */}
+        {maskedValues && maskedValues.length > 0 && (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+            <Typography.Text color="secondary">
+              {isSingleMaskedValue(maskedValues) ? (
+                <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label (singular)" />
+              ) : (
+                <FormattedMessage defaultMessage="Masked Keys:" description="Masked API keys section label" />
+              )}
+            </Typography.Text>
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                paddingLeft: theme.spacing.md,
+              }}
+            >
+              {maskedValues.map(([key, value], index) =>
+                key === '' ? (
+                  // Single value without key label
+                  <Typography.Text
+                    key={index}
+                    css={{
+                      fontFamily: 'monospace',
+                      backgroundColor: theme.colors.tagDefault,
+                      padding: `2px ${theme.spacing.xs}px`,
+                      borderRadius: theme.general.borderRadiusBase,
+                      width: 'fit-content',
+                    }}
+                  >
+                    {value}
+                  </Typography.Text>
+                ) : (
+                  // Multiple values with key labels
+                  <div key={key} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                    <Typography.Text color="secondary">{formatSecretFieldName(key)}:</Typography.Text>
+                    <Typography.Text
+                      css={{
+                        fontFamily: 'monospace',
+                        backgroundColor: theme.colors.tagDefault,
+                        padding: `2px ${theme.spacing.xs}px`,
+                        borderRadius: theme.general.borderRadiusBase,
+                      }}
+                    >
+                      {value}
+                    </Typography.Text>
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Created info */}
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>

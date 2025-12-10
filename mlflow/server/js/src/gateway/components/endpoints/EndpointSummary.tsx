@@ -2,6 +2,7 @@ import { Tag, Typography, useDesignSystemTheme } from '@databricks/design-system
 import { FormattedMessage, useIntl } from 'react-intl';
 import { LongFormSummary } from '../../../common/components/long-form';
 import { formatProviderName } from '../../utils/providerUtils';
+import { formatMaskedValueSimple } from '../../utils/secretUtils';
 import { formatTokens, formatCost } from '../../utils/formatters';
 import type { Model, SecretInfo } from '../../types';
 
@@ -68,7 +69,7 @@ export const EndpointSummary = ({
               width: 'fit-content',
             }}
           >
-            {secret.masked_value.replace(/^[{"\s]+|[}"\s]+$/g, '')}
+            {formatMaskedValueSimple(secret.masked_value)}
           </Typography.Text>
         </div>
       );

@@ -8,7 +8,7 @@ import {
   XCircleFillIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { formatProviderName } from '../../utils/providerUtils';
 
 export interface ProviderFilter {
@@ -34,7 +34,6 @@ export const ProviderFilterButton = ({
   componentIdPrefix,
 }: ProviderFilterButtonProps) => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
 
   const hasActiveFilters = filter.providers.length > 0;
@@ -75,13 +74,8 @@ export const ProviderFilterButton = ({
         >
           <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
             <FilterIcon />
-            {intl.formatMessage(
-              {
-                defaultMessage: 'Filter{count}',
-                description: 'Filter button label with count',
-              },
-              { count: hasActiveFilters ? ` (${filterCount})` : '' },
-            )}
+            <FormattedMessage defaultMessage="Provider" description="Filter button label for provider filter" />
+            {hasActiveFilters && ` (${filterCount})`}
             {hasActiveFilters && (
               <XCircleFillIcon
                 css={{
