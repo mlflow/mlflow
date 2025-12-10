@@ -783,11 +783,16 @@ def test_parse_tool_calls_from_trace():
     tool_messages = parse_tool_calls_from_trace(trace)
 
     assert len(tool_messages) == 2
-    assert all(msg["role"] == "tool" for msg in tool_messages)
-    assert "get_stock_price" in tool_messages[0]["content"]
-    assert "AAPL" in tool_messages[0]["content"]
-    assert "150" in tool_messages[0]["content"]
-    assert "get_market_cap" in tool_messages[1]["content"]
+    assert tool_messages[0] == {
+        "role": "tool",
+        "content": "Tool: get_stock_price\nInputs: {'symbol': 'AAPL'}\nOutputs: {'price': 150.0}",
+    }
+    assert tool_messages[1] == {
+        "role": "tool",
+        "content": (
+            "Tool: get_market_cap\nInputs: {'symbol': 'AAPL'}\nOutputs: {'market_cap': '2.5T'}"
+        ),
+    }
 
 
 def test_parse_tool_calls_from_trace_no_tools():
@@ -814,9 +819,10 @@ def test_parse_tool_calls_from_trace_tool_without_outputs():
     tool_messages = parse_tool_calls_from_trace(trace)
 
     assert len(tool_messages) == 1
-    assert "my_tool" in tool_messages[0]["content"]
-    assert "param" in tool_messages[0]["content"]
-    assert "Outputs" not in tool_messages[0]["content"]
+    assert tool_messages[0] == {
+        "role": "tool",
+        "content": "Tool: my_tool\nInputs: {'param': 'value'}",
+    }
 
 
 def test_resolve_conversation_from_session():
