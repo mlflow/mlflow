@@ -298,7 +298,7 @@ export const useCreatePromptModal = ({
         {showAdvancedSettings && (
           <>
             <Spacer size="sm" />
-            <ModelConfigForm namePrefix="modelConfig." />
+            <ModelConfigForm />
           </>
         )}
       </Modal>

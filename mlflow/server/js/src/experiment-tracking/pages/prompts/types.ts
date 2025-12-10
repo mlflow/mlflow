@@ -35,6 +35,7 @@ export interface ChatPromptMessage {
  * Represents a prompt model configuration, in the backend format (snake_case).
  */
 export interface PromptModelConfig {
+  provider?: string;
   model_name?: string;
   temperature?: number;
   max_tokens?: number;
@@ -50,6 +51,7 @@ export interface PromptModelConfig {
  * Represents a prompt model configuration, in the UI form format (camelCase with string inputs).
  */
 export interface PromptModelConfigFormData {
+  provider?: string;
   modelName?: string;
   temperature?: string;
   maxTokens?: string;

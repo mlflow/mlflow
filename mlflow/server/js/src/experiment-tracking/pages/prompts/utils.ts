@@ -25,6 +25,7 @@ export const PROMPT_EXPERIMENT_IDS_TAG_KEY = '_mlflow_experiment_ids';
 export const MLFLOW_PROMPT_MODEL_CONFIG = 'mlflow.prompt.modelConfig';
 
 export const MODEL_CONFIG_FIELD_LABELS = {
+  provider: 'Provider',
   model_name: 'Model',
   temperature: 'Temperature',
   max_tokens: 'Max Tokens',
@@ -162,6 +163,9 @@ export const formDataToModelConfig = (formData: PromptModelConfigFormData): Prom
 
   const config: PromptModelConfig = {};
 
+  if (formData.provider?.trim()) {
+    config.provider = formData.provider.trim();
+  }
   if (formData.modelName?.trim()) {
     config.model_name = formData.modelName.trim();
   }
@@ -211,6 +215,7 @@ export const modelConfigToFormData = (config?: PromptModelConfig): PromptModelCo
   }
 
   return {
+    provider: config.provider ?? '',
     modelName: config.model_name ?? '',
     temperature: config.temperature !== undefined ? String(config.temperature) : '',
     maxTokens: config.max_tokens !== undefined ? String(config.max_tokens) : '',

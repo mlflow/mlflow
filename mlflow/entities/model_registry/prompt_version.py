@@ -34,6 +34,7 @@ class PromptModelConfig(BaseModel):
     particular prompt version.
 
     Args:
+        provider: The model provider (e.g., "openai", "anthropic", "google").
         model_name: The name or identifier of the model (e.g., "gpt-4", "claude-3-opus").
         temperature: Sampling temperature for controlling randomness (typically 0.0-2.0).
             Lower values make output more deterministic, higher values more random.
@@ -81,6 +82,7 @@ class PromptModelConfig(BaseModel):
         )
     """
 
+    provider: str | None = None
     model_name: str | None = None
     temperature: float | None = Field(None, ge=0)
     max_tokens: int | None = Field(None, gt=0)

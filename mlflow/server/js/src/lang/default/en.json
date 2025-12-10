@@ -3097,6 +3097,10 @@
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
   },
+  "Sb+wLa": {
+    "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
+    "description": "Help text explaining model configuration purpose"
+  },
   "Sb0Z4Z": {
     "defaultMessage": ", . : / - = and blank spaces are not allowed",
     "description": "Add new key-value tag modal > Invalid characters error"
@@ -3463,6 +3467,10 @@
   "W8bOkn": {
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "W99FRU": {
+    "defaultMessage": "Model Name",
+    "description": "Label for model name input in model config form"
   },
   "WDqWWa": {
     "defaultMessage": "Show all runs",
@@ -4403,6 +4411,10 @@
     "defaultMessage": "Source",
     "description": "Experiment page > traces table > source column header"
   },
+  "eMbUhX": {
+    "defaultMessage": "e.g., openai, anthropic, google",
+    "description": "Placeholder for provider input"
+  },
   "eNUbaN": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in scatter plot comparison in MLflow"
@@ -4818,10 +4830,6 @@
   "hnhCDT": {
     "defaultMessage": "Error occurred",
     "description": "Run page > artifact view > logged table view > generic error empty state title"
-  },
-  "hp4zLf": {
-    "defaultMessage": "Sampling Parameters",
-    "description": "Subsection for sampling parameters in model config"
   },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
@@ -5871,10 +5879,6 @@
     "defaultMessage": "just now",
     "description": "Evaluation review > assessments > tooltip > just now"
   },
-  "rmAmIt": {
-    "defaultMessage": "Model",
-    "description": "Label for model name input in model config form"
-  },
   "rpqN8U": {
     "defaultMessage": "Dataset",
     "description": "Header title for the dataset column in the logged model list table"
@@ -6306,6 +6310,10 @@
   "wFvyI1": {
     "defaultMessage": "Registered at:",
     "description": "A label for the registration timestamp in the prompt details page"
+  },
+  "wJX0a/": {
+    "defaultMessage": "Provider",
+    "description": "Label for model provider input"
   },
   "wKXJ6U": {
     "defaultMessage": "Toggle visibility of evaluation runs",
