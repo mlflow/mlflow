@@ -68,7 +68,8 @@ class TelemetryClient {
       return;
     }
 
-    if (record.eventType !== 'onClick') {
+    // drop view events to reduce noise
+    if (record.eventType === 'onView') {
       return;
     }
 
