@@ -4,6 +4,7 @@ from urllib.parse import quote
 
 from mlflow.entities import Workspace
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_STATE, RESOURCE_ALREADY_EXISTS
 from mlflow.protos.service_pb2 import (
     CreateWorkspace,
@@ -73,7 +74,7 @@ class RestWorkspaceStore(AbstractStore):
                 expected_status=201,
             )
         except RestException as exc:
-            if exc.error_code == "RESOURCE_ALREADY_EXISTS":
+            if exc.error_code == databricks_pb2.ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 message = exc.message or f"Workspace '{workspace.name}' already exists."
                 raise MlflowException(message, RESOURCE_ALREADY_EXISTS) from exc
             raise
@@ -104,7 +105,7 @@ class RestWorkspaceStore(AbstractStore):
         )
 
     def get_default_workspace(self) -> Workspace:
-        raise MlflowException.invalid_parameter_value(
+        raise NotImplementedError(
             "REST workspace provider does not expose a default workspace; "
             "please specify a workspace explicitly or omit a workspace to leverage the server's "
             "configured default."

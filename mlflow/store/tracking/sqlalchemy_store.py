@@ -2155,7 +2155,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker() as session:
             query = self._get_query(session, SqlLoggedModel).filter(
                 SqlLoggedModel.model_id == model_id,
-                SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             )
             if not allow_deleted:
                 query = query.filter(SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED)
@@ -3972,6 +3971,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return
 
         with self.ManagedSessionMaker() as session:
+            self._validate_trace_accessible(session, trace_id)
+
             # Build list of prompt version IDs (format: "name/version")
             prompt_ids = [f"{pv.name}/{pv.version}" for pv in prompt_versions]
 
@@ -5545,7 +5546,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If entity not found (RESOURCE_DOES_NOT_EXIST).
         """
-        obj = session.query(model_class).filter_by(**filters).first()
+        obj = self._get_query(session, model_class).filter_by(**filters).first()
         if not obj:
             filter_str = ", ".join(f"{k}='{v}'" for k, v in filters.items())
             raise MlflowException(
