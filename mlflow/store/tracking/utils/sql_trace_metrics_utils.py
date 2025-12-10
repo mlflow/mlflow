@@ -114,12 +114,12 @@ def get_percentile_aggregation(db_type: str, percentile_value: float, column):
 
 
 def get_time_bucket_expression(
-    timestamp_column: Column, time_interval_seconds: int, db_type: str
+    view_type: MetricViewType, time_interval_seconds: int, db_type: str
 ) -> Column:
     """Get time bucket expression for grouping timestamps.
 
     Args:
-        timestamp_column: SQLAlchemy column containing timestamps in milliseconds
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
         time_interval_seconds: Time interval in seconds for bucketing
         db_type: Database type (e.g., "postgresql", "mssql", "mysql", "sqlite")
 
@@ -130,12 +130,29 @@ def get_time_bucket_expression(
     bucket_size_ms = time_interval_seconds * 1000
 
     if db_type == "mssql":
-        # MSSQL is very strict about GROUP BY expressions. We use literal_column
-        # to generate the exact same SQL text in SELECT, GROUP BY, and ORDER BY
-        column_name = timestamp_column.key
+        # MSSQL requires the exact same SQL text in SELECT, GROUP BY, and ORDER BY clauses.
+        # We use literal_column to generate identical SQL text across all clauses.
+        match view_type:
+            case MetricViewType.TRACES:
+                column_name = "timestamp_ms"
+            case MetricViewType.SPANS:
+                # For spans, timestamp is an expression (start_time_unix_nano / 1000000)
+                # rather than a simple column. Build the complete expression inline.
+                column_name = "start_time_unix_nano / 1000000"
+            case _:
+                raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
         expr_str = f"floor({column_name} / {bucket_size_ms}) * {bucket_size_ms}"
         return literal_column(expr_str)
     else:
+        # For non-MSSQL databases, use SQLAlchemy expressions
+        match view_type:
+            case MetricViewType.TRACES:
+                timestamp_column = SqlTraceInfo.timestamp_ms
+            case MetricViewType.SPANS:
+                # Convert nanoseconds to milliseconds
+                timestamp_column = SqlSpan.start_time_unix_nano / 1000000
+            case _:
+                raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
         # This floors the timestamp to the nearest bucket boundary
         return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
@@ -195,25 +212,6 @@ def _get_aggregation_column(view_type: MetricViewType, metric_name: str) -> Colu
     raise MlflowException.invalid_parameter_value(
         f"Unsupported metric name: {metric_name} for view type {view_type}",
     )
-
-
-def _get_timestamp_column(view_type: MetricViewType) -> Column:
-    """
-    Get the timestamp column for the given view type.
-
-    Args:
-        view_type: Type of metrics view (e.g., TRACES, SPANS)
-
-    Returns:
-        SQLAlchemy column representing timestamp in milliseconds
-    """
-    match view_type:
-        case MetricViewType.TRACES:
-            return SqlTraceInfo.timestamp_ms
-        case MetricViewType.SPANS:
-            # Convert nanoseconds to milliseconds
-            return SqlSpan.start_time_unix_nano / 1000000
-    raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
 
 
 def _apply_dimension_to_query(
@@ -429,10 +427,7 @@ def query_metrics(
     dimension_columns = []
 
     if time_interval_seconds:
-        timestamp_column = _get_timestamp_column(view_type)
-        time_bucket_expr = get_time_bucket_expression(
-            timestamp_column, time_interval_seconds, db_type
-        )
+        time_bucket_expr = get_time_bucket_expression(view_type, time_interval_seconds, db_type)
         dimension_columns.append(time_bucket_expr.label(TIME_BUCKET_LABEL))
 
     for dimension in dimensions or []:
