@@ -31,9 +31,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     def __init__(self, db_uri):
         super().__init__(db_uri)
 
-    def supports_workspaces(self) -> bool:
-        return True
-
     def _get_query(self, session, model):
         """
         Return a query for ``model`` filtered by the active workspace.

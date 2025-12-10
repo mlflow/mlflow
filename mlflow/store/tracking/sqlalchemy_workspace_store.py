@@ -57,9 +57,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         self._workspace_provider = None
         super().__init__(db_uri, default_artifact_root)
 
-    def supports_workspaces(self) -> bool:
-        return True
-
     def _get_query(self, session, model):
         query = super()._get_query(session, model)
         workspace = self._get_active_workspace()
