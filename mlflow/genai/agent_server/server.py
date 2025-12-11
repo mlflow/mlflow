@@ -93,9 +93,8 @@ class AgentServer:
 
         enable_chat_proxy: If ``True``, enables a proxy middleware that forwards unmatched requests
         to a chat app running on the port specified by the CHAT_APP_PORT environment variable
-        (defaults to 3000). Default to ``False``.
-
-        chat_proxy_timeout: Timeout in seconds for chat proxy requests. Default to ``300.0``.
+        (defaults to 3000) with a timeout specified by the CHAT_PROXY_TIMEOUT_SECONDS environment variable,
+        (defaults to 300 seconds). ``enable_chat_proxy`` defaults to ``False``.
 
     See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
@@ -117,12 +116,18 @@ class AgentServer:
     def _setup_chat_proxy_middleware(self) -> None:
         """Set up middleware to proxy unmatched requests to the chat app."""
         self.chat_app_port = os.getenv("CHAT_APP_PORT", "3000")
-        self.chat_proxy_timeout = float(os.getenv("CHAT_PROXY_TIMEOUT", "300.0"))
+        self.chat_proxy_timeout = float(os.getenv("CHAT_PROXY_TIMEOUT_SECONDS", "300.0"))
         self.proxy_client = httpx.AsyncClient(timeout=self.chat_proxy_timeout)
 
         @self.app.middleware("http")
         async def chat_proxy_middleware(request: Request, call_next):
-            """Forward unmatched requests to the chat app on the port specified by the CHAT_APP_PORT environment variable."""
+            """
+            Forward unmatched requests to the chat app on the port specified by the CHAT_APP_PORT environment
+            variable.
+
+            The timeout for the proxy request is specified by the CHAT_PROXY_TIMEOUT_SECONDS environment variable.
+            Default to 300.0 seconds.
+            """
             for route in self.app.routes:
                 if hasattr(route, "path_regex") and route.path_regex.match(request.url.path):
                     return await call_next(request)
