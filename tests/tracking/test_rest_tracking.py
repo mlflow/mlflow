@@ -86,6 +86,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.providers import _PROVIDER_BACKEND_AVAILABLE
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import get_safe_port
@@ -4054,7 +4055,6 @@ def test_create_and_get_secret(mlflow_client_with_secrets):
         secret_name="test-api-key",
         secret_value="sk-test-12345",
         provider="openai",
-        credential_name="OPENAI_API_KEY",
     )
 
     assert secret.secret_name == "test-api-key"
@@ -4493,3 +4493,106 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
     store.delete_model_definition(model_def1.model_definition_id)
     store.delete_model_definition(model_def2.model_definition_id)
     store.delete_secret(secret.secret_id)
+
+
+@pytest.mark.skipif(
+    not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM endpoint tests"
+)
+def test_list_providers(mlflow_client_with_secrets):
+    import requests
+
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-providers")
+    assert response.status_code == 200
+    data = response.json()
+    assert "providers" in data
+    assert isinstance(data["providers"], list)
+    assert len(data["providers"]) > 0
+    assert "openai" in data["providers"]
+
+
+@pytest.mark.skipif(
+    not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM endpoint tests"
+)
+def test_list_models(mlflow_client_with_secrets):
+    import requests
+
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-models")
+    assert response.status_code == 200
+    data = response.json()
+    assert "models" in data
+    assert isinstance(data["models"], list)
+    assert len(data["models"]) > 0
+
+    model = data["models"][0]
+    assert "model" in model
+    assert "provider" in model
+    assert "mode" in model
+
+    response = requests.get(
+        f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-models", params={"provider": "openai"}
+    )
+    assert response.status_code == 200
+    filtered_data = response.json()
+    assert all(m["provider"] == "openai" for m in filtered_data["models"])
+
+
+@pytest.mark.skipif(
+    not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM endpoint tests"
+)
+def test_get_provider_config(mlflow_client_with_secrets):
+    import requests
+
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+
+    # Test simple provider (openai) - should have single api_key auth mode
+    response = requests.get(
+        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        params={"provider": "openai"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "auth_modes" in data
+    assert "default_mode" in data
+    assert data["default_mode"] == "api_key"
+    assert len(data["auth_modes"]) >= 1
+    api_key_mode = data["auth_modes"][0]
+    assert api_key_mode["credential_name"] == "OPENAI_API_KEY"
+    assert api_key_mode["mode"] == "api_key"
+
+    # Test multi-mode provider (bedrock) - should have multiple auth modes
+    response = requests.get(
+        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        params={"provider": "bedrock"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "auth_modes" in data
+    assert data["default_mode"] == "access_keys"
+    assert len(data["auth_modes"]) >= 2  # access_keys, iam_role, session_token
+
+    # Check access_keys mode structure
+    access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
+    assert access_keys_mode["credential_name"] == "AWS_ACCESS_KEY_ID"
+    assert len(access_keys_mode["secret_fields"]) == 2  # access_key_id, secret_access_key
+    assert any(f["name"] == "aws_secret_access_key" for f in access_keys_mode["secret_fields"])
+    assert any(f["name"] == "aws_region_name" for f in access_keys_mode["config_fields"])
+
+    # Check iam_role mode exists
+    iam_role_mode = next(m for m in data["auth_modes"] if m["mode"] == "iam_role")
+    assert any(f["name"] == "aws_role_name" for f in iam_role_mode["config_fields"])
+
+    # Unknown providers get a generic fallback with {PROVIDER}_API_KEY
+    response = requests.get(
+        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        params={"provider": "unknown_provider"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["default_mode"] == "api_key"
+    assert data["auth_modes"][0]["credential_name"] == "UNKNOWN_PROVIDER_API_KEY"
+
+    # Missing provider parameter returns 400
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config")
+    assert response.status_code == 400
