@@ -1632,7 +1632,7 @@ class Scorer(_message.Message):
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
 class GatewaySecretInfo(_message.Message):
-    __slots__ = ("secret_id", "secret_name", "masked_value", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config_json")
+    __slots__ = ("secret_id", "secret_name", "masked_value", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config_json", "credential_name")
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
     MASKED_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -1642,6 +1642,7 @@ class GatewaySecretInfo(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
     AUTH_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
+    CREDENTIAL_NAME_FIELD_NUMBER: _ClassVar[int]
     secret_id: str
     secret_name: str
     masked_value: str
@@ -1651,7 +1652,8 @@ class GatewaySecretInfo(_message.Message):
     created_by: str
     last_updated_by: str
     auth_config_json: str
-    def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., masked_value: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., provider: _Optional[str] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., auth_config_json: _Optional[str] = ...) -> None: ...
+    credential_name: str
+    def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., masked_value: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., provider: _Optional[str] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., auth_config_json: _Optional[str] = ..., credential_name: _Optional[str] = ...) -> None: ...
 
 class GatewayModelDefinition(_message.Message):
     __slots__ = ("model_definition_id", "name", "secret_id", "secret_name", "provider", "model_name", "created_at", "last_updated_at", "created_by", "last_updated_by")
