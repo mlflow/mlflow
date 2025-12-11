@@ -1770,7 +1770,7 @@ def test_search_datasets_resume_from_composite_token():
         assert {d.name for d in result} == {f"test_dataset_{i}" for i in range(6, 16)}
 
 
-def test_search_datasets_exact_match_returns_plain_token():
+def test_search_datasets_exact_match_no_offset():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
@@ -1800,9 +1800,9 @@ def test_search_datasets_exact_match_returns_plain_token():
         # Should return exactly 10 datasets
         assert {d.name for d in result} == {f"test_dataset_{i}" for i in range(1, 11)}
 
-        # Verify it's not a composite token by trying to parse it
+        # Token is the backend token, parseable as composite token with offset=0
         parsed = CompositeToken.parse(result.token)
         assert parsed.backend_token == "backend_token_next"
-        assert parsed.offset == 0  # No offset for exact match
+        assert parsed.offset == 0  # No offset needed for exact match
 
         mock_http.assert_called_once()

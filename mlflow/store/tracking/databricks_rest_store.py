@@ -976,6 +976,14 @@ class DatabricksTracingRestStore(RestStore):
 
         results_to_return = all_datasets[:max_results]
 
+        # Composite tokens handle cases where the backend returns more results than requested
+        # (overfetch). When this happens, we create a token with format "backend_token:offset"
+        # to remember which backend page we're on and how many results to skip on the next call.
+        #
+        # Edge case: If datasets are created/deleted between pagination calls, the offset may
+        # point to different datasets than originally intended, potentially causing results to
+        # be skipped or repeated. This will be addressed by additional logic in the Databricks
+        # backend to ensure stable pagination.
         if len(all_datasets) > max_results:
             results_from_last_page = max_results - (len(all_datasets) - last_page_size)
             next_token = CompositeToken(
