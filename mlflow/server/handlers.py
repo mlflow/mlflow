@@ -230,6 +230,7 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+from mlflow.utils.providers import get_all_providers, get_models, get_provider_config_response
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import (
@@ -3872,7 +3873,6 @@ def _create_secret():
             "secret_name": [_assert_required, _assert_string],
             "secret_value": [_assert_secret_value],
             "provider": [_assert_string],
-            "credential_name": [_assert_string],
             "auth_config_json": [_assert_string],
             "created_by": [_assert_string],
         },
@@ -3886,7 +3886,6 @@ def _create_secret():
         secret_name=request_message.secret_name,
         secret_value=request_message.secret_value,
         provider=request_message.provider or None,
-        credential_name=request_message.credential_name or None,
         auth_config=auth_config,
         created_by=request_message.created_by or None,
     )
@@ -4316,6 +4315,38 @@ def _delete_endpoint_tag():
     return response
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_supported_providers():
+    try:
+        providers = get_all_providers()
+        return jsonify({"providers": sorted(providers)})
+    except ImportError as e:
+        raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_supported_models():
+    try:
+        provider_filter = request.args.get("provider")
+        models = get_models(provider=provider_filter)
+        return jsonify({"models": models})
+    except ImportError as e:
+        raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_provider_config():
+    try:
+        provider = request.args.get("provider")
+        config = get_provider_config_response(provider)
+        return jsonify(config)
+    except (ImportError, ValueError) as e:
+        raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4388,7 +4419,29 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
+        + get_gateway_endpoints()
     )
+
+
+def get_gateway_endpoints():
+    """Returns endpoint tuples for gateway provider/model discovery APIs."""
+    return [
+        (
+            _get_ajax_path("/mlflow/endpoints/supported-providers", version=3),
+            _list_supported_providers,
+            ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/endpoints/supported-models", version=3),
+            _list_supported_models,
+            ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/endpoints/provider-config", version=3),
+            _get_provider_config,
+            ["GET"],
+        ),
+    ]
 
 
 # Evaluation Dataset APIs

@@ -85,7 +85,6 @@ class RestGatewayStoreMixin:
         secret_name: str,
         secret_value: str,
         provider: str | None = None,
-        credential_name: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -96,8 +95,9 @@ class RestGatewayStoreMixin:
             secret_name: Name to identify the secret.
             secret_value: The secret value to encrypt and store.
             provider: Optional provider name (e.g., "openai", "anthropic").
-            credential_name: Optional credential name for the secret.
-            auth_config: Optional dict with authentication configuration.
+            auth_config: Optional dict with authentication configuration. For providers
+                with multiple auth modes, include "auth_mode" key (e.g.,
+                {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}).
             created_by: Optional identifier of the user creating the secret.
 
         Returns:
@@ -109,7 +109,6 @@ class RestGatewayStoreMixin:
                 secret_name=secret_name,
                 secret_value=secret_value,
                 provider=provider,
-                credential_name=credential_name,
                 auth_config_json=auth_config_json,
                 created_by=created_by,
             )
