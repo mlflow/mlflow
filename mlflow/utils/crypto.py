@@ -272,14 +272,7 @@ def _encrypt_with_aes_gcm(
     if len(key) != AES_256_KEY_LENGTH:
         raise ValueError(f"Key must be {AES_256_KEY_LENGTH} bytes (256 bits), got {len(key)}")
 
-    if _nonce_for_testing is None:
-        nonce = os.urandom(GCM_NONCE_LENGTH)
-    elif len(_nonce_for_testing) != GCM_NONCE_LENGTH:
-        raise ValueError(
-            f"Nonce must be {GCM_NONCE_LENGTH} bytes (96 bits), got {len(_nonce_for_testing)}"
-        )
-    else:
-        nonce = _nonce_for_testing
+    nonce = os.urandom(GCM_NONCE_LENGTH) if _nonce_for_testing is None else _nonce_for_testing
 
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
