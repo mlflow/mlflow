@@ -134,9 +134,7 @@ class AgentServer:
 
             path = request.url.path.lstrip("/")
             try:
-                body = (
-                    await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
-                )
+                body = await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
                 target_url = f"http://localhost:{os.getenv('CHAT_APP_PORT', '3000')}/{path}"
                 proxy_response = await self.proxy_client.request(
                     method=request.method,
@@ -151,13 +149,9 @@ class AgentServer:
                     headers=dict(proxy_response.headers),
                 )
             except httpx.ConnectError:
-                return Response(
-                    "Service unavailable", status_code=503, media_type="text/plain"
-                )
+                return Response("Service unavailable", status_code=503, media_type="text/plain")
             except Exception as e:
-                return Response(
-                    f"Proxy error: {str(e)}", status_code=502, media_type="text/plain"
-                )
+                return Response(f"Proxy error: {str(e)}", status_code=502, media_type="text/plain")
 
     def _setup_routes(self) -> None:
         @self.app.post("/invocations")
