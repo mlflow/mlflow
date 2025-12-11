@@ -57,47 +57,10 @@ def _get_notebook_name():
     except Exception:
         pass
 
-    # Method 5: Try to get notebook from VS Code/Cursor parent process
-    notebook_name = _get_notebook_from_vscode_process()
-    if notebook_name:
-        return notebook_name
-
-    # Method 6: Check IPython namespace for clues
+    # Method 5: Check IPython namespace for clues
     notebook_name = _get_notebook_from_ipython_history()
     if notebook_name:
         return notebook_name
-
-    return None
-
-
-def _get_notebook_from_vscode_process():
-    """
-    Try to get notebook name by inspecting VS Code/Cursor's process info.
-
-    In VS Code/Cursor, the notebook path is often passed to the kernel process
-    or can be found by looking at the parent process arguments.
-
-    Returns:
-        The notebook filename if found, None otherwise.
-    """
-    try:
-        import psutil
-
-        current_process = psutil.Process()
-
-        # Walk up the process tree looking for notebook references
-        for proc in [current_process] + current_process.parents():
-            try:
-                cmdline = proc.cmdline()
-                for arg in cmdline:
-                    if arg.endswith(".ipynb"):
-                        return os.path.basename(arg)
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-    except ImportError:
-        pass
-    except Exception:
-        pass
 
     return None
 
