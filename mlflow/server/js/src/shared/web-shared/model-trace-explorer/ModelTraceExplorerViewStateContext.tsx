@@ -84,8 +84,9 @@ export const ModelTraceExplorerViewStateProvider = ({
   const hasAssessments = (defaultSelectedNode?.assessments?.length ?? 0) > 0;
   const hasInputsOrOutputs = !isNil(rootNode?.inputs) || !isNil(rootNode?.outputs);
 
+  // Default to 'detail' view when there's no root node (e.g., trace is in-progress)
   const [activeView, setActiveView] = useState<'summary' | 'detail'>(
-    initialActiveView ?? (hasInputsOrOutputs ? 'summary' : 'detail'),
+    initialActiveView ?? (rootNode && hasInputsOrOutputs ? 'summary' : 'detail'),
   );
   const [selectedNode, setSelectedNode] = useState<ModelTraceSpanNode | undefined>(defaultSelectedNode);
   const defaultActiveTab = getDefaultActiveTab(selectedNode);
