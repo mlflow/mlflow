@@ -66,7 +66,7 @@ trace_test(4)
 The `@mlflow.trace` decorator is useful when you want to trace a class method.
 
 :::note
-Decorator requires TypeScript version 5.0+.
+Decorator requires TypeScript version 5.0+ and it can only be applied to class method.
 :::
 
 ```typescript
@@ -358,8 +358,8 @@ class MyClass {
     summarizeDocument(documentContent: string, userInstructions: string) {
         // Construct a custom preview for the request column
         // For example, show beginning of document and user instructions
-        const requestP = `Doc: ${documentContent.slice(0, 30)}... Instr: ${userInstructions.slice(0, 30)}...`;
-        mlflow.updateCurrentTrace({ requestPreview: requestP });
+        const requestPreview = `Doc: ${documentContent.slice(0, 30)}... Instr: ${userInstructions.slice(0, 30)}...`;
+        mlflow.updateCurrentTrace({ requestPreview: requestPreview });
 
         // Simulate LLM call
         // const messages = [
@@ -371,8 +371,8 @@ class MyClass {
         const summary = `Summary of document starting with '${documentContent.slice(0, 20)}...' based on '${userInstructions}'`;
 
         // Customize the response preview
-        const responseP = `Summary: ${summary.slice(0, 50)}...`;
-        mlflow.updateCurrentTrace({ responsePreview: responseP });
+        const responsePreview = `Summary: ${summary.slice(0, 50)}...`;
+        mlflow.updateCurrentTrace({ responsePreview: responsePreview });
 
         return summary;
     }
@@ -411,18 +411,21 @@ with mlflow.start_span(name="my_span") as span:
 
 <TabItem value="typescript" label="TypeScript">
 
+Use the `mlflow.withSpan` function wrapper.
+
 ```typescript
 import * as mlflow from "mlflow-tracing";
 
 const result = await mlflow.withSpan(
     async (span: mlflow.Span) => {
-        return "It's sunny in Seattle!";
+        const x = 1;
+        const y = 2;
+        span.setInputs({ "x": x, "y": y });
+        const z = x + y;
+        span.setOutputs(z);
     },
-    // Pass name, span type, and inputs as options.
     {
-        name: "generateText",
-        spanType: mlflow.SpanType.TOOL,
-        inputs: { prompt: "What's the weather like in Seattle?" },
+        name: "MySpan",
     }
 );
 ```
@@ -556,7 +559,7 @@ If an `Exception` is raised during processing of a trace-instrumented operation,
 ---
 
 :::note Python Only Features
-The below documentation applies only to the Python SDK.
+The below documentation applies only to the MLflow Python SDK.
 :::
 
 ## Using `@mlflow.trace` with Other Decorators
@@ -734,8 +737,6 @@ for chunk in predict([{"role": "user", "content": "Hello"}]):
 </TabsWrapper>
 
 In the example above, the generated `predict` span will have a single chat completion message as the output, which is aggregated by the custom reducer function.
-
-## Advanced Features
 
 ## Multi Threading
 
