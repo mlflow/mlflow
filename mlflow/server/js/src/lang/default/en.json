@@ -503,6 +503,10 @@
     "defaultMessage": "Evaluation not available when grouping is enabled",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > title"
   },
+  "2hwoFW": {
+    "defaultMessage": "Text",
+    "description": "Label for the text render mode of the prompt"
+  },
   "2mRfvl": {
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
@@ -729,6 +733,10 @@
   "5RWIet": {
     "defaultMessage": "Schema {sectionName}",
     "description": "Field name text for schema table in the model comparison page"
+  },
+  "5UrahG": {
+    "defaultMessage": "Viewing version {version}",
+    "description": "Title of the prompt details page for a given version"
   },
   "5YDkeM": {
     "defaultMessage": "Experiments",
@@ -1109,6 +1117,10 @@
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
+  },
+  "8VzQLx": {
+    "defaultMessage": "Markdown",
+    "description": "Tooltip content for a button that changes the render mode of the prompt to markdown"
   },
   "8WJEHc": {
     "defaultMessage": "New model registry UI",
@@ -2417,6 +2429,10 @@
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
+  },
+  "LOJumx": {
+    "defaultMessage": "Prompt",
+    "description": "Column label for linked prompts"
   },
   "LTbwXS": {
     "defaultMessage": "Artifact evaluation",
@@ -4998,6 +5014,10 @@
   "jwALGI": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
+  },
+  "k/AedV": {
+    "defaultMessage": "Plain text",
+    "description": "Tooltip content for a button that changes the render mode of the prompt to plain text"
   },
   "k/fDlw": {
     "defaultMessage": "Optimize",
