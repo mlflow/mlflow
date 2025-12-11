@@ -2821,7 +2821,8 @@ class MlflowClient:
     def log_stream(
         self, run_id: str, stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str
     ) -> None:
-        """Log a binary file-like object (e.g., ``io.BytesIO``) as an artifact.
+        """
+        Log a binary file-like object (e.g., ``io.BytesIO``) as an artifact.
 
         Args:
             run_id: String ID of the run.
