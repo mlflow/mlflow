@@ -165,7 +165,41 @@ def resolve_outputs_from_trace(
     return outputs
 
 
-def parse_tool_calls_from_trace(trace: Trace) -> list[dict[str, str]]:
+def extract_tools_called_from_trace(trace: Trace) -> list[dict[str, Any]]:
+    """
+    Extract tool call information from TOOL type spans in a trace.
+
+    This function extracts tool spans (spans with span_type==SpanType.TOOL) from a trace
+    and returns them as a list of dictionaries containing the tool name, inputs, and outputs.
+
+    Args:
+        trace: A single Trace object to extract tool calls from.
+
+    Returns:
+        List of tool call dictionaries in the format:
+        [{"name": str, "inputs": Any, "outputs": Any}].
+        Returns empty list if no tool spans are found.
+
+    Example:
+        >>> trace = mlflow.get_trace(trace_id)
+        >>> tools = extract_tools_called_from_trace(trace)
+        >>> # Returns: [{"name": "tool_name", "inputs": {...}, "outputs": {...}}]
+    """
+    tools_called = []
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
+        tool_info = {"name": tool_span.name}
+        if tool_span.inputs:
+            tool_info["inputs"] = tool_span.inputs
+        if tool_span.outputs:
+            tool_info["outputs"] = tool_span.outputs
+        tools_called.append(tool_info)
+
+    return tools_called
+
+
+def parse_tool_call_messages_from_trace(trace: Trace) -> list[dict[str, str]]:
     """
     Extract and format tool call information from TOOL type spans in a trace.
 
@@ -183,19 +217,18 @@ def parse_tool_calls_from_trace(trace: Trace) -> list[dict[str, str]]:
 
     Example:
         >>> trace = mlflow.get_trace(trace_id)
-        >>> tool_messages = parse_tool_calls_from_trace(trace)
+        >>> tool_messages = parse_tool_call_messages_from_trace(trace)
         >>> # Returns: [{"role": "tool", "content": "Tool: name\\nInputs: ...\\nOutputs: ..."}]
     """
+    tools_called = extract_tools_called_from_trace(trace)
 
     tool_messages = []
-    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
-
-    for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
-        tool_info = f"Tool: {tool_span.name}"
-        if tool_span.inputs:
-            tool_info += f"\nInputs: {tool_span.inputs}"
-        if tool_span.outputs:
-            tool_info += f"\nOutputs: {tool_span.outputs}"
+    for tool in tools_called:
+        tool_info = f"Tool: {tool['name']}"
+        if "inputs" in tool:
+            tool_info += f"\nInputs: {tool['inputs']}"
+        if "outputs" in tool:
+            tool_info += f"\nOutputs: {tool['outputs']}"
         tool_messages.append({"role": "tool", "content": tool_info})
 
     return tool_messages
@@ -234,7 +267,7 @@ def resolve_conversation_from_session(
 
         # Extract tool calls from TOOL type spans (if requested)
         if include_tool_calls:
-            tool_messages = parse_tool_calls_from_trace(trace)
+            tool_messages = parse_tool_call_messages_from_trace(trace)
             conversation.extend(tool_messages)
 
         # Extract and parse output (assistant message)
