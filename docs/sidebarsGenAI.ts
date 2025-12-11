@@ -47,29 +47,74 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'How to Trace Your App/Agents',
+          label: 'Guides',
           items: [
             {
               type: 'doc',
               id: 'tracing/app-instrumentation/automatic',
+              label: 'Enable Automatic Tracing',
             },
             {
               type: 'doc',
               id: 'tracing/app-instrumentation/manual-tracing',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/typescript-sdk',
+              label: 'Use Manual Tracing for Advanced Use Cases',
             },
             {
               type: 'doc',
               id: 'tracing/app-instrumentation/opentelemetry',
+              label: 'Use with OpenTelemetry',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/track-users-sessions/index',
+              label: 'Track Users and Sessions',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/attach-tags/index',
+              label: 'Tag Traces',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/observe-with-traces/masking',
+              label: 'Redact Sensitive Data',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/observe-with-traces/ui',
+              label: 'View Traces in the UI',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/search-traces',
+              label: 'Search Traces',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/observe-with-traces/delete-traces',
+              label: 'Delete Traces',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/collect-user-feedback/index',
+              label: 'Collect User Feedback',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/track-environments-context/index',
+              label: 'Track Application Versions',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/lightweight-sdk',
+              label: 'Use Lightweight SDK',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/prod-tracing',
+              label: 'Deploy in Production',
             },
           ],
-          link: {
-            type: 'doc',
-            id: 'tracing/app-instrumentation/index',
-          },
         },
         {
           type: 'category',
@@ -266,62 +311,6 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Guides',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/track-users-sessions/index',
-              label: 'Track Users and Sessions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/collect-user-feedback/index',
-              label: 'User Feedback Collection',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/attach-tags/index',
-              label: 'Tagging Traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/delete-traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/track-environments-context/index',
-              label: 'Track Application Versions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/masking',
-              label: 'Redacting Sensitive Data',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/lightweight-sdk',
-              label: 'Lightweight Tracing SDK',
-            },
-          ],
-        },
-
-        {
-          type: 'category',
-          label: 'Viewing & Searching Traces',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/ui',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/search-traces',
-              label: 'Searching for Traces',
-            },
-          ],
-        },
-        {
-          type: 'category',
           label: 'OpenTelemetry',
           items: [
             {
@@ -341,13 +330,8 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'tracing/prod-tracing',
-          label: 'Production Tracing',
-        },
-        {
-          type: 'doc',
           id: 'tracing/faq',
-          label: 'Tracing FAQ',
+          label: 'FAQ',
         },
       ],
       link: {
