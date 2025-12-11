@@ -1607,15 +1607,15 @@ def test_conversational_tool_call_efficiency_instructions():
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []
-    for i, (q, a) in enumerate(
+    for i, (question, answer) in enumerate(
         [
             ("What can you cook?", "I can help you make many dishes!"),
             ("How do I make soup?", "Start by boiling vegetables..."),
         ]
     ):
         with mlflow.start_span(name=f"turn_{i}") as span:
-            span.set_inputs({"question": q})
-            span.set_outputs(a)
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
         traces.append(mlflow.get_trace(span.trace_id))
 
