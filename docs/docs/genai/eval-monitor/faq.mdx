@@ -154,7 +154,7 @@ guidelines_scorer = Guidelines(
     guidelines="The response should be professional and helpful.",
     inference_params={
         "temperature": 0.0,
-    }
+    },
 )
 
 mlflow.genai.evaluate(
@@ -165,6 +165,7 @@ mlflow.genai.evaluate(
 ```
 
 The available inference parameters depend on the model provider being used. Common parameters include:
+
 - `temperature`: Controls randomness (0.0 = deterministic, higher = more random)
 - `max_tokens`: Maximum tokens in the response
 - `top_p`: Nucleus sampling parameter
