@@ -114,7 +114,7 @@ def _log_error(message: str) -> None:
         _logger.error(message, exc_info=True)
 
 
-def fetch_ui_telemetry_config() -> dict[str, Any] | None:
+def fetch_ui_telemetry_config() -> dict[str, Any]:
     # Check if telemetry is disabled
     if is_telemetry_disabled():
         return FALLBACK_UI_CONFIG
