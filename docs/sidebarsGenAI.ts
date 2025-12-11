@@ -438,6 +438,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'eval-monitor/scorers/third-party',
+                  label: 'Third-party Scorers',
+                },
+                {
+                  type: 'doc',
                   id: 'eval-monitor/scorers/custom',
                   label: 'Code-based Scorers',
                 },
