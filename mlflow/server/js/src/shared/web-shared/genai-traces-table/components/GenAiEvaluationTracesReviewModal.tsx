@@ -1,16 +1,15 @@
 import { isNil } from 'lodash';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
   GenericSkeleton,
-  RefreshIcon,
   Modal,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ModelTraceExplorer, ModelTraceInfoV3, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import { ModelTraceExplorer, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
@@ -18,11 +17,7 @@ import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
 import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace } from '../hooks/useGetTrace';
 import type { AssessmentInfo, EvalTraceComparisonEntry, SaveAssessmentsQuery } from '../types';
-import { shouldUseTracesV4API } from '../utils/FeatureUtils';
-import {
-  getSpansLocation,
-  TRACKING_STORE_SPANS_LOCATION,
-} from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
+import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../utils/TraceUtils';
 
 const MODAL_SPACING_REM = 4;
 const DEFAULT_MODAL_MARGIN_REM = 1;
@@ -115,8 +110,12 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
     const tracesTableConfig = useGenAITracesTableConfig();
 
-    const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo);
-    const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo);
+    // --- Auto-polling until trace is complete if the backend supports returning partial spans ---
+    const spansLocation = getSpansLocation(evaluation?.currentRunValue?.traceInfo);
+    const shouldEnablePolling = spansLocation === TRACKING_STORE_SPANS_LOCATION;
+
+    const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo, shouldEnablePolling);
+    const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo, shouldEnablePolling);
 
     // Prefetching the next and previous traces to optimize performance
     useGetTrace(getTrace, nextEvaluation?.currentRunValue?.traceInfo);
@@ -127,42 +126,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
     const currentTraceQueryResult =
       selectedEvaluationId === evaluation?.currentRunValue?.evaluationId ? traceQueryResult : compareToTraceQueryResult;
-
-    // --- Auto-polling until root span is present if the backend support returning partial spans ---
-    const spansLocation = getSpansLocation(evaluation?.currentRunValue?.traceInfo);
-    const pollTimerRef = useRef<number | null>(null);
-    const isTraceCompleted = useCallback((trace?: ModelTrace | undefined) => {
-      return !trace || (trace.info as ModelTraceInfoV3).state !== 'IN_PROGRESS';
-    }, []);
-
-    useEffect(() => {
-      if (spansLocation !== TRACKING_STORE_SPANS_LOCATION) {
-        return;
-      }
-
-      const activeResult = currentTraceQueryResult;
-      if (isTraceCompleted(activeResult?.data)) {
-        // stop any existing timer
-        if (pollTimerRef.current) {
-          window.clearInterval(pollTimerRef.current);
-          pollTimerRef.current = null;
-        }
-        return;
-      }
-
-      // polling every second
-      if (!pollTimerRef.current) {
-        pollTimerRef.current = window.setInterval(() => {
-          activeResult?.refetch?.();
-        }, 1000);
-      }
-      return () => {
-        if (pollTimerRef.current) {
-          window.clearInterval(pollTimerRef.current);
-          pollTimerRef.current = null;
-        }
-      };
-    }, [currentTraceQueryResult]);
 
     if (isNil(evaluation)) {
       return <></>;
@@ -205,7 +168,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           footer={null} // Hide the footer
         >
           {/* Only show skeleton for the first fetch to avoid flickering when polling new spans */}
-          {!currentTraceQueryResult.data && currentTraceQueryResult.isFetching && (
+          {!currentTraceQueryResult?.data && currentTraceQueryResult?.isFetching && (
             <GenericSkeleton
               label="Loading trace..."
               style={{
@@ -221,7 +184,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           )}
           {
             // Show ModelTraceExplorer only if there is no run to compare to and there's trace data.
-            isSingleTraceView && !isNil(currentTraceQueryResult.data) ? (
+            isSingleTraceView && !isNil(currentTraceQueryResult?.data) ? (
               <div css={{ height: '100%', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
                 {/* prettier-ignore */}
                 <ModelTraceExplorerModalBody

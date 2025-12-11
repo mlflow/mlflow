@@ -285,24 +285,6 @@ export class MlflowService {
   };
 
   /**
-   * Traces API: get a single trace (info + spans) with optional partial support. Only supported
-   * by OSS SQLAlchemyStore now.
-   */
-  static getExperimentTraceV3 = (traceId: string, _opts: { allowPartial?: boolean } = {}) => {
-    type GetExperimentTraceV3Response = {
-      trace?: {
-        trace_info?: ModelTraceInfo;
-        data?: ModelTraceData;
-      };
-    };
-
-    return getJson({
-      relativeUrl: `ajax-api/3.0/mlflow/traces/get`,
-      data: { trace_id: traceId, allow_partial: _opts.allowPartial ?? false },
-    }) as Promise<GetExperimentTraceV3Response>;
-  };
-
-  /**
    * Traces API: get credentials for data download
    */
   static getExperimentTraceData = <T = ModelTraceData>(traceRequestId: string) => {

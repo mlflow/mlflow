@@ -8,9 +8,8 @@ import {
   type Assessment,
   type ExpectationAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
-
-const SPANS_LOCATION_TAG_KEY = 'mlflow.trace.spansLocation';
-export const TRACKING_STORE_SPANS_LOCATION = 'TRACKING_STORE';
+import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../../shared/web-shared/genai-traces-table/utils/TraceUtils';
+import { getExperimentTraceV3 } from '../../shared/web-shared/model-trace-explorer/api';
 
 /**
  * Fetches trace information and data for a given trace ID.
@@ -28,7 +27,7 @@ export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info'])
   // Otherwise, fall back to artifact route. Currently, tracking store tag is
   // only set when the backend is OSS SQLAlchemyStore.
   if (getSpansLocation(traceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
-    const traceResp = await MlflowService.getExperimentTraceV3(traceId, { allowPartial: true });
+    const traceResp = await getExperimentTraceV3({ traceId });
     if (traceResp?.trace && traceResp.trace.data) {
       return {
         info: traceResp.trace.trace_info || {},
@@ -40,19 +39,13 @@ export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info'])
     MlflowService.getExperimentTraceInfoV3(traceId),
     MlflowService.getExperimentTraceData(traceId),
   ]);
+
   return traceData
     ? {
         info: traceInfoResponse?.trace?.trace_info || {},
         data: traceData,
       }
     : undefined;
-}
-
-/**
- * Returns the "spans location" tag value if present.
- */
-export function getSpansLocation(traceInfo?: ModelTraceInfoV3): string | undefined {
-  return traceInfo?.tags[SPANS_LOCATION_TAG_KEY] || undefined;
 }
 
 /**

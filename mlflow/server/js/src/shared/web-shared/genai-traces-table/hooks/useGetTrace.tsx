@@ -6,7 +6,7 @@ import { useQuery } from '@databricks/web-shared/query-client';
 
 export type GetTraceFunction = (traceId?: string, traceInfo?: ModelTrace['info']) => Promise<ModelTrace | undefined>;
 
-export function useGetTrace(getTrace?: GetTraceFunction, traceInfo?: ModelTrace['info']) {
+export function useGetTrace(getTrace?: GetTraceFunction, traceInfo?: ModelTrace['info'], enablePolling = false) {
   const traceId = useMemo(() => {
     if (!traceInfo) {
       return undefined;
@@ -32,5 +32,11 @@ export function useGetTrace(getTrace?: GetTraceFunction, traceInfo?: ModelTrace[
     refetchOnWindowFocus: false, // Disable refetching on window focus
     retry: 1,
     keepPreviousData: true,
+    refetchInterval: (data) => {
+      if (!enablePolling) return false;
+      // Stop polling if trace is completed
+      const traceState = data && isV3ModelTraceInfo(data.info) ? data.info.state : undefined;
+      return traceState === 'IN_PROGRESS' ? 1000 : false;
+    },
   });
 }

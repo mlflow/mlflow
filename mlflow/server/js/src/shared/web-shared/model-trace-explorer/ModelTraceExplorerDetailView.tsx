@@ -53,7 +53,6 @@ export const ModelTraceExplorerDetailView = ({
   const [paneWidth, setPaneWidth] = useState(500);
 
   const {
-    rootNode: treeNode,
     selectedNode,
     setSelectedNode,
     activeTab,
@@ -110,11 +109,6 @@ export const ModelTraceExplorerDetailView = ({
   }, [filteredTreeNodes, theme.spacing.lg]);
 
   const { traceStartTime, traceEndTime } = useMemo(() => {
-    // Use single root when it exists, otherwise calculate from topLevelNodes (multiple roots)
-    if (treeNode) {
-      return { traceStartTime: treeNode.start, traceEndTime: treeNode.end };
-    }
-
     if (!topLevelNodes || topLevelNodes.length === 0) {
       return { traceStartTime: 0, traceEndTime: 0 };
     }
@@ -123,7 +117,7 @@ export const ModelTraceExplorerDetailView = ({
     const traceEndTime = Math.max(...topLevelNodes.map((node) => node.end));
 
     return { traceStartTime, traceEndTime };
-  }, [treeNode, topLevelNodes]);
+  }, [topLevelNodes]);
 
   return (
     <div

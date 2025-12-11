@@ -80,6 +80,7 @@ export const useModelTraceSearch = ({
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [spanFilterState, setSpanFilterState] = useState<SpanFilterState>(() => getDefaultSpanFilterState(treeNodes));
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
+  const treeNodesKeys = useMemo(() => treeNodes.map((n) => n.key).join(','), [treeNodes]);
   const { filteredTreeNodes, matches } = useMemo(() => {
     // Run search over each root and merge results
     const merged = treeNodes.map((root) => searchTree(root, searchFilter, spanFilterState));
@@ -91,7 +92,7 @@ export const useModelTraceSearch = ({
     // using the whole object seems to cause the state to be reset at
     // unexpected times.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treeNodes, searchFilter, spanFilterState, modelTraceInfo]);
+  }, [treeNodesKeys, searchFilter, spanFilterState, modelTraceInfo]);
 
   const nodeMap = useMemo(() => {
     return getTimelineTreeNodesMap(filteredTreeNodes);
