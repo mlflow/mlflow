@@ -2,6 +2,7 @@ import contextvars
 from typing import AsyncGenerator
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -525,19 +526,21 @@ def test_tracing_attributes_setting():
 
 def test_chat_proxy_disabled_by_default():
     server = AgentServer()
-    assert server.proxy_client is None
+    assert not hasattr(server, "proxy_client")
 
 
 def test_chat_proxy_enabled():
     server = AgentServer(enable_chat_proxy=True)
+    assert hasattr(server, "proxy_client")
     assert server.proxy_client is not None
-    assert server.proxy_client.timeout.read == 300.0
+    assert server.chat_proxy_timeout == 300.0
 
 
-def test_chat_proxy_custom_timeout():
-    server = AgentServer(enable_chat_proxy=True, chat_proxy_timeout=60.0)
+def test_chat_proxy_custom_timeout(monkeypatch):
+    monkeypatch.setenv("CHAT_PROXY_TIMEOUT", "60.0")
+    server = AgentServer(enable_chat_proxy=True)
     assert server.proxy_client is not None
-    assert server.proxy_client.timeout.read == 60.0
+    assert server.chat_proxy_timeout == 60.0
 
 
 @pytest.mark.asyncio
@@ -599,8 +602,6 @@ async def test_chat_proxy_does_not_forward_matched_routes():
 
 @pytest.mark.asyncio
 async def test_chat_proxy_handles_connect_error():
-    import httpx
-
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
@@ -656,5 +657,6 @@ async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
 
     with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
         client.get("/test")
+        mock_request.assert_called_once()
         call_args = mock_request.call_args
-        assert "http://localhost:8080/test" in str(call_args.kwargs["url"])
+        assert call_args.kwargs["url"] == "http://localhost:8080/test"

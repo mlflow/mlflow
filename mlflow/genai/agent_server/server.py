@@ -100,12 +100,7 @@ class AgentServer:
     See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
 
-    def __init__(
-        self,
-        agent_type: AgentType | None = None,
-        enable_chat_proxy: bool = False,
-        chat_proxy_timeout: float = 300.0,
-    ):
+    def __init__(self, agent_type: AgentType | None = None, enable_chat_proxy: bool = False):
         self.agent_type = agent_type
         if agent_type == "ResponsesAgent":
             self.validator = ResponsesAgentValidator()
@@ -113,9 +108,6 @@ class AgentServer:
             self.validator = BaseAgentValidator()
 
         self.app = FastAPI(title="Agent Server")
-        self.proxy_client = (
-            httpx.AsyncClient(timeout=chat_proxy_timeout) if enable_chat_proxy else None
-        )
 
         if enable_chat_proxy:
             self._setup_chat_proxy_middleware()
@@ -124,10 +116,13 @@ class AgentServer:
 
     def _setup_chat_proxy_middleware(self) -> None:
         """Set up middleware to proxy unmatched requests to the chat app."""
+        self.chat_app_port = os.getenv("CHAT_APP_PORT", "3000")
+        self.chat_proxy_timeout = float(os.getenv("CHAT_PROXY_TIMEOUT", "300.0"))
+        self.proxy_client = httpx.AsyncClient(timeout=self.chat_proxy_timeout)
 
         @self.app.middleware("http")
         async def chat_proxy_middleware(request: Request, call_next):
-            """Forward unmatched requests to the chat app on CHAT_APP_PORT."""
+            """Forward unmatched requests to the chat app on the port specified by the CHAT_APP_PORT environment variable."""
             for route in self.app.routes:
                 if hasattr(route, "path_regex") and route.path_regex.match(request.url.path):
                     return await call_next(request)
@@ -135,7 +130,7 @@ class AgentServer:
             path = request.url.path.lstrip("/")
             try:
                 body = await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
-                target_url = f"http://localhost:{os.getenv('CHAT_APP_PORT', '3000')}/{path}"
+                target_url = f"http://localhost:{self.chat_app_port}/{path}"
                 proxy_response = await self.proxy_client.request(
                     method=request.method,
                     url=target_url,
