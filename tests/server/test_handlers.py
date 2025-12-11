@@ -236,9 +236,9 @@ def mock_telemetry_config_cache():
 
 @pytest.fixture
 def bypass_telemetry_env_check(monkeypatch):
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING_TELEMETRY", False)
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
+    monkeypatch.setenv("_IS_MLFLOW_TESTING_TELEMETRY", False)
+    monkeypatch.setenv("_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setenv("_IS_MLFLOW_DEV_VERSION", False)
 
 
 def test_health():
