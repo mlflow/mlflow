@@ -57,44 +57,6 @@ def _get_notebook_name():
     except Exception:
         pass
 
-    # Method 5: Check IPython namespace for clues
-    notebook_name = _get_notebook_from_ipython_history()
-    if notebook_name:
-        return notebook_name
-
-    return None
-
-
-def _get_notebook_from_ipython_history():
-    """
-    Try to infer notebook name from IPython's internal state.
-
-    Returns:
-        The notebook filename if found, None otherwise.
-    """
-    try:
-        from IPython import get_ipython
-
-        ip = get_ipython()
-        if ip is None:
-            return None
-
-        # Check if there's a __file__ variable set (some environments set this)
-        user_ns = ip.user_ns
-        if "__file__" in user_ns:
-            f = user_ns["__file__"]
-            if f and f.endswith(".ipynb"):
-                return os.path.basename(f)
-
-        # Check __session__ if available
-        if "__session__" in user_ns:
-            session = user_ns["__session__"]
-            if session and session.endswith(".ipynb"):
-                return os.path.basename(session)
-
-    except Exception:
-        pass
-
     return None
 
 
