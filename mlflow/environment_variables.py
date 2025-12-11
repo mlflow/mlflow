@@ -674,6 +674,16 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
 #: (default: ``10``)
 MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORKERS", int, 10)
 
+#: Maximum number of concurrent scorer workers to use when running multiple scorers
+#: in parallel for each evaluation item. This helps prevent rate limiting errors when
+#: using external LLM APIs as judges. The actual number of workers will not exceed
+#: the number of scorers being used. When combined with MLFLOW_GENAI_EVAL_MAX_WORKERS,
+#: the total concurrent scorer invocations is bounded by the product of both values.
+#: Set to 1 to run scorers sequentially. (default: ``10``)
+MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
+)
+
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
 #: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace

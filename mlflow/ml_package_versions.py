@@ -263,11 +263,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "tensorflow"
         },
         "models": {
-            "minimum": "2.15.0.post1",
+            "minimum": "2.16.0",
             "maximum": "2.20.0"
         },
         "autologging": {
-            "minimum": "2.15.0.post1",
+            "minimum": "2.16.0",
             "maximum": "2.20.0"
         }
     },
