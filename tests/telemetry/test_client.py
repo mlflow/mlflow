@@ -67,6 +67,28 @@ def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_reques
     assert data["status"] == "success"
 
 
+def test_add_records_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
+    record1 = Record(
+        event_name="test_event_1",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    record2 = Record(
+        event_name="test_event_2",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    mock_telemetry_client.add_records([record1, record2])
+    mock_telemetry_client.flush()
+    received_records = mock_requests
+
+    assert len(received_records) == 2
+    assert received_records[0]["data"]["event_name"] == "test_event_1"
+    assert received_records[1]["data"]["event_name"] == "test_event_2"
+
+
 def test_record_with_session_and_installation_id(
     mock_telemetry_client: TelemetryClient, mock_requests
 ):
