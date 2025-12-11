@@ -27,6 +27,7 @@ _LAZY_IMPORTS = {
     "Completeness",
     "ConversationalSafety",
     "ConversationCompleteness",
+    "ConversationalToolCallEfficiency",
     "Correctness",
     "ExpectationsGuidelines",
     "Guidelines",
@@ -36,6 +37,7 @@ _LAZY_IMPORTS = {
     "RetrievalRelevance",
     "RetrievalSufficiency",
     "Safety",
+    "Summarization",
     "UserFrustration",
     "get_all_scorers",
 }
@@ -71,6 +73,7 @@ if TYPE_CHECKING:
     from mlflow.genai.scorers.builtin_scorers import (
         Completeness,
         ConversationalSafety,
+        ConversationalToolCallEfficiency,
         ConversationCompleteness,
         Correctness,
         Equivalence,
@@ -81,6 +84,7 @@ if TYPE_CHECKING:
         RetrievalRelevance,
         RetrievalSufficiency,
         Safety,
+        Summarization,
         UserFrustration,
         get_all_scorers,
     )
@@ -88,6 +92,7 @@ if TYPE_CHECKING:
 __all__ = [
     "Completeness",
     "ConversationalSafety",
+    "ConversationalToolCallEfficiency",
     "ConversationCompleteness",
     "Correctness",
     "ExpectationsGuidelines",
@@ -98,6 +103,7 @@ __all__ = [
     "RetrievalRelevance",
     "RetrievalSufficiency",
     "Safety",
+    "Summarization",
     "UserFrustration",
     "Scorer",
     "scorer",

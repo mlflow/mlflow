@@ -122,12 +122,14 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.tracking.gateway.rest_mixin import RestGatewayStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    _V3_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     call_endpoint,
@@ -144,7 +146,12 @@ from mlflow.utils.validation import _resolve_experiment_ids_and_locations
 _logger = logging.getLogger(__name__)
 
 
-class RestStore(AbstractStore):
+# MRO Note: RestGatewayStoreMixin must be listed before AbstractStore in the inheritance chain.
+# AbstractStore inherits from GatewayStoreMixin which defines abstract Gateway methods.
+# RestGatewayStoreMixin provides concrete implementations of those methods. For Python's MRO
+# to correctly resolve the Gateway methods to RestGatewayStoreMixin's implementations,
+# RestGatewayStoreMixin must appear first in the parent class list.
+class RestStore(RestGatewayStoreMixin, AbstractStore):
     """
     Client for a remote tracking server accessed via REST API calls
 
@@ -155,6 +162,10 @@ class RestStore(AbstractStore):
     """
 
     _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
+    _V3_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _V3_REST_API_PATH_PREFIX)
+
+    # Set of v3 APIs - includes Gateway APIs from mixin
+    _V3_APIS = RestGatewayStoreMixin._V3_GATEWAY_APIS
 
     def __init__(self, get_host_creds):
         super().__init__()
@@ -198,12 +209,15 @@ class RestStore(AbstractStore):
         retry_timeout_seconds=None,
         response_proto=None,
     ):
+        # Route v3 APIs to v3 endpoints, all others to v2 endpoints
+        method_to_info = self._V3_METHOD_TO_INFO if api in self._V3_APIS else self._METHOD_TO_INFO
+
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{trace_id}/info.
-            _, method = self._METHOD_TO_INFO[api]
+            _, method = method_to_info[api]
         else:
-            endpoint, method = self._METHOD_TO_INFO[api]
+            endpoint, method = method_to_info[api]
         response_proto = response_proto or api.Response()
         return call_endpoint(
             self.get_host_creds(),
@@ -1472,7 +1486,6 @@ class RestStore(AbstractStore):
         # DeleteDataset uses path parameter, not request body
         self._call_endpoint(DeleteDataset, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}")
 
-    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
     def search_datasets(
         self,
         experiment_ids: list[str] | None = None,

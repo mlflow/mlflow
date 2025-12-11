@@ -125,7 +125,6 @@ def upgrade():
         sa.Column("kek_version", sa.Integer(), nullable=False, default=1),
         sa.Column("masked_value", sa.String(length=100), nullable=False),
         sa.Column("provider", sa.String(length=64), nullable=True),
-        sa.Column("credential_name", sa.String(length=255), nullable=True),
         sa.Column("auth_config", sa.Text(), nullable=True),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("created_by", sa.String(length=255), nullable=True),

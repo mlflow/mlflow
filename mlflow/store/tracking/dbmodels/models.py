@@ -42,6 +42,7 @@ from mlflow.entities import (
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
     GatewayModelDefinition,
+    GatewayResourceType,
     GatewaySecretInfo,
     InputTag,
     Metric,
@@ -2091,16 +2092,12 @@ class SqlGatewaySecret(Base):
     Provider identifier: `String` (limit 64 characters). Optional.
     E.g., "anthropic", "openai", "cohere", "vertex_ai", "bedrock", "databricks".
     """
-    credential_name = Column(String(255), nullable=True)
-    """
-    Credential name: `String` (limit 255 characters). Optional identifier for the credential.
-    E.g., "ANTHROPIC_API_KEY", "openai_api_key", "bedrock_access_key".
-    """
     auth_config = Column(Text, nullable=True)
     """
     Provider authentication config: `Text` (JSON string). Non-sensitive metadata for
     provider configuration like region, project_id, endpoint URL. Useful for UI display
     and disambiguation. Not encrypted since it contains no secrets.
+    For multi-auth providers, includes "auth_mode" key (e.g., "access_keys", "iam_role").
     """
     description = Column(Text, nullable=True)
     """
@@ -2433,7 +2430,7 @@ class SqlGatewayEndpointBinding(Base):
     def to_mlflow_entity(self):
         return GatewayEndpointBinding(
             endpoint_id=self.endpoint_id,
-            resource_type=self.resource_type,
+            resource_type=GatewayResourceType(self.resource_type),
             resource_id=self.resource_id,
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,

@@ -35,6 +35,7 @@ from mlflow.prompt.constants import (
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
 )
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     AwsCredentials,
@@ -944,6 +945,94 @@ def test_create_model_version_with_optional_signature_validation_bypass_disabled
         mock_validate_signature.assert_called_once_with(tmp_path)
 
 
+def test_get_logged_model_from_model_id_returns_none_on_resource_not_found(store):
+    with mock.patch(
+        "mlflow.get_logged_model",
+        side_effect=MlflowException("Node ID does not exist", error_code=RESOURCE_DOES_NOT_EXIST),
+    ):
+        result = store._get_logged_model_from_model_id("nonexistent_model_id")
+        assert result is None
+
+
+def test_get_logged_model_from_model_id_returns_logged_model_on_success(store):
+    mock_logged_model = LoggedModel(
+        experiment_id="exp123",
+        model_id="model123",
+        name="test_model",
+        artifact_location="runs:/run123/model",
+        source_run_id="run123",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+    )
+    with mock.patch("mlflow.get_logged_model", return_value=mock_logged_model):
+        result = store._get_logged_model_from_model_id("model123")
+        assert result == mock_logged_model
+
+
+def test_get_logged_model_from_model_id_returns_none_for_none_input(store):
+    result = store._get_logged_model_from_model_id(None)
+    assert result is None
+
+
+def test_get_logged_model_from_model_id_reraises_other_exceptions(store):
+    with mock.patch(
+        "mlflow.get_logged_model",
+        side_effect=MlflowException("Some other error", error_code=INTERNAL_ERROR),
+    ):
+        with pytest.raises(MlflowException, match="Some other error"):
+            store._get_logged_model_from_model_id("model123")
+
+
+def test_create_model_version_succeeds_when_logged_model_not_found(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    with (
+        mock.patch(
+            "mlflow.get_logged_model",
+            side_effect=MlflowException(
+                "Node ID does not exist", error_code=RESOURCE_DOES_NOT_EXIST
+            ),
+        ),
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            side_effect=get_request_mock(
+                name=model_name,
+                version=version,
+                temp_credentials=aws_temp_creds,
+                storage_location=storage_location,
+                source=source,
+                model_id="nonexistent_model_id",
+            ),
+        ) as request_mock,
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+            return_value=mock_artifact_repo,
+        ),
+        mock.patch.dict("sys.modules", {"boto3": {}}),
+    ):
+        store.create_model_version(name=model_name, source=source, model_id="nonexistent_model_id")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock,
+            name=model_name,
+            source=source,
+            version=version,
+            model_id="nonexistent_model_id",
+        )
+
+
 @pytest.mark.parametrize(
     ("encryption_details", "extra_args"),
     [
@@ -1438,6 +1527,7 @@ def get_request_mock(
     run_id=None,
     tags=None,
     model_version_dependencies=None,
+    model_id=None,
 ):
     def request_mock(
         host_creds,
@@ -1469,6 +1559,7 @@ def get_request_mock(
                         tags=uc_tags,
                         feature_deps="",
                         model_version_dependencies=model_version_dependencies,
+                        model_id=model_id,
                     )
                 ),
             ): CreateModelVersionResponse(
@@ -1526,6 +1617,7 @@ def _assert_create_model_version_endpoints_called(
     extra_headers=None,
     tags=None,
     model_version_dependencies=None,
+    model_id=None,
 ):
     """
     Asserts that endpoints related to the model version creation flow were called on the provided
@@ -1544,6 +1636,7 @@ def _assert_create_model_version_endpoints_called(
                 tags=uc_tags,
                 feature_deps="",
                 model_version_dependencies=model_version_dependencies,
+                model_id=model_id,
             ),
         ),
         (

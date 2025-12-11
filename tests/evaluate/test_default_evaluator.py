@@ -1961,7 +1961,8 @@ def test_custom_artifacts():
             evaluator_config={"log_model_explainability": False},  # For faster evaluation
         )
         custom_artifact = result.artifacts["custom_artifact"]
-        assert json.loads(Path(custom_artifact.uri).read_text()) == {"k": "v"}
+        path = custom_artifact.uri.removeprefix("file://")
+        assert json.loads(Path(path).read_text()) == {"k": "v"}
 
 
 def test_make_metric_name_inference():
