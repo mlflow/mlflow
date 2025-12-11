@@ -429,14 +429,12 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         return []
 
     processors = []
-    added_destination_processor = False
 
     # TODO: Update this logic to pluggable registry where
     #  1. Partners can implement span processor/exporter and destination class.
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
     if trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        added_destination_processor = True
         # In PrPr, users must set the destination to UCSchemaLocation to export traces to UC
         if isinstance(trace_destination, UCSchemaLocation):
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
@@ -483,7 +481,8 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         # If dual export is set AND we have already added a set_destination processor, return.
         # If dual export is set but no set_destination processor added, skip return and go
         # to default processing to catch the default processor, if present.
-        if (not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or added_destination_processor:
+        if ((not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or
+                any(isinstance(p, DatabricksUCTableSpanExporter) for p in processors)):
             return processors
 
     # Finally, default MLflow-based processors (inference table in serving, else tracking URI).
