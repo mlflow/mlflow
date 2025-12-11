@@ -2608,9 +2608,10 @@ def test_get_ui_telemetry_handler_disabled_by_config(
         assert mock_fetch.call_count == 1
 
 
-def test_get_ui_telemetry_handler_disabled_by_env(test_app_context, mock_telemetry_config_cache):
-    # by default, telemetry is disabled in tests, so we just
-    # don't use the bypass_telemetry_env_check fixture
+def test_get_ui_telemetry_handler_disabled_by_env(
+    test_app_context, mock_telemetry_config_cache, monkeypatch
+):
+    monkeypatch.setenv("DO_NOT_TRACK", "true")
     with mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config") as mock_fetch:
         response = get_ui_telemetry_handler()
         assert response is not None
@@ -2733,7 +2734,10 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
         mock_client.add_record.assert_not_called()
 
 
-def test_post_ui_telemetry_handler_telemetry_disabled_by_env(test_app, mock_telemetry_config_cache):
+def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
+    test_app, mock_telemetry_config_cache, monkeypatch
+):
+    monkeypatch.setenv("DO_NOT_TRACK", "true")
     request = json.dumps({"records": []})
     with (
         test_app.test_request_context(
