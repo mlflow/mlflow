@@ -206,7 +206,7 @@ def test_decrypt_with_wrong_key_length_raises(bad_key):
 def test_encrypt_with_wrong_nonce_length_raises(bad_nonce):
     dek = _generate_dek()
     plaintext = b"Test"
-    with pytest.raises(ValueError, match="Nonce must be 12 bytes"):
+    with pytest.raises(ValueError, match="Nonce must be between"):
         _encrypt_with_aes_gcm(plaintext, dek, _nonce_for_testing=bad_nonce)
 
 
