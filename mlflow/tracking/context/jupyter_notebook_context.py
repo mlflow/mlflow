@@ -25,6 +25,7 @@ def _get_notebook_name():
         return os.path.basename(ipynb_file)
 
     # Method 3: Try to get notebook name from ipynbname package (if available)
+    # This package works reliably in many Jupyter environments
     try:
         import ipynbname
 
@@ -61,7 +62,7 @@ def _get_notebook_name():
     if notebook_name:
         return notebook_name
 
-    # Method 6: Check IPython history file for clues
+    # Method 6: Check IPython namespace for clues
     notebook_name = _get_notebook_from_ipython_history()
     if notebook_name:
         return notebook_name
@@ -128,44 +129,9 @@ def _get_notebook_from_ipython_history():
             if session and session.endswith(".ipynb"):
                 return os.path.basename(session)
 
-        # Check _dh (directory history) - first entry is usually where notebook is
-        if "_dh" in user_ns and user_ns["_dh"]:
-            notebook_dir = user_ns["_dh"][0]
-            notebook_name = _find_single_notebook_in_dir(notebook_dir)
-            if notebook_name:
-                return notebook_name
-
     except Exception:
         pass
 
-    # Last resort: check current working directory
-    return _find_single_notebook_in_dir(os.getcwd())
-
-
-def _find_single_notebook_in_dir(directory):
-    """
-    If there's exactly one notebook in the directory, return its name.
-    If there are multiple, return the most recently modified one.
-
-    This is a heuristic that works well when users run notebooks from
-    their project directory.
-
-    Returns:
-        The notebook filename if found, None otherwise.
-    """
-    try:
-        notebooks = [f for f in os.listdir(directory) if f.endswith(".ipynb")]
-        if len(notebooks) == 1:
-            return notebooks[0]
-        elif len(notebooks) > 1:
-            # Return the most recently modified notebook
-            notebooks_with_mtime = [
-                (f, os.path.getmtime(os.path.join(directory, f))) for f in notebooks
-            ]
-            notebooks_with_mtime.sort(key=lambda x: x[1], reverse=True)
-            return notebooks_with_mtime[0][0]
-    except Exception:
-        pass
     return None
 
 
