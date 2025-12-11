@@ -7,7 +7,6 @@ import pickle
 import sys
 from pathlib import Path
 from unittest.mock import patch
-from urllib.parse import urlparse
 
 import numpy as np
 import pytest
@@ -30,6 +29,7 @@ from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
 )
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.process import _exec_cmd
 
 np.random.seed(1337)
@@ -1108,17 +1108,9 @@ def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
 
-def _uri_to_path(uri):
-    """Convert a file:// URI to a local path."""
-    parsed = urlparse(uri)
-    if parsed.scheme == "file":
-        return parsed.path
-    return uri
-
-
 def _assert_autolog_infers_model_signature_correctly(input_sig_spec, output_sig_spec):
     logged_model = mlflow.last_logged_model()
-    artifact_path = _uri_to_path(logged_model.artifact_location)
+    artifact_path = local_file_uri_to_path(logged_model.artifact_location)
     ml_model_path = os.path.join(artifact_path, "MLmodel")
     with open(ml_model_path) as f:
         data = yaml.safe_load(f)
@@ -1258,7 +1250,7 @@ def test_keras_autolog_load_saved_hdf5_model(keras_data_gen_sequence):
     with mlflow.start_run():
         model.fit(keras_data_gen_sequence)
         logged_model = mlflow.last_logged_model()
-        artifact_path = _uri_to_path(logged_model.artifact_location)
+        artifact_path = local_file_uri_to_path(logged_model.artifact_location)
         assert Path(artifact_path, "data", "model.h5").exists()
 
 
@@ -1268,7 +1260,7 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
     initial_model.fit(keras_data_gen_sequence)
 
     logged_model = mlflow.last_logged_model()
-    artifact_path = _uri_to_path(logged_model.artifact_location)
+    artifact_path = local_file_uri_to_path(logged_model.artifact_location)
     mlmodel_path = os.path.join(artifact_path, "MLmodel")
     with open(mlmodel_path) as f:
         mlmodel_contents = yaml.safe_load(f)
