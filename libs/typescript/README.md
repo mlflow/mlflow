@@ -182,7 +182,7 @@ Collecting and managing feedback is essential for improving your application. ML
 
 This feedback data helps you understand user satisfaction, identify areas for improvement, and build better evaluation datasets based on real user interactions.
 
-[Learn more →](https://mlflow.org/docs/latest/genai/tracing/collect-user-feedback)
+[Learn more →](https://mlflow.org/docs/latest/genai/assessments/feedback)
 
 </td>
 <td width="40%">

@@ -96,11 +96,6 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'tracing/collect-user-feedback/index',
-              label: 'Collect User Feedback',
-            },
-            {
-              type: 'doc',
               id: 'tracing/track-environments-context/index',
               label: 'Track Application Versions',
             },
