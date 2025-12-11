@@ -104,7 +104,6 @@ CREATE TABLE secrets (
 	kek_version INTEGER NOT NULL,
 	masked_value VARCHAR(100) NOT NULL,
 	provider VARCHAR(64),
-	credential_name VARCHAR(255),
 	auth_config TEXT,
 	description TEXT,
 	created_by VARCHAR(255),
