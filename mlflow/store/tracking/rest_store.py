@@ -1486,7 +1486,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         # DeleteDataset uses path parameter, not request body
         self._call_endpoint(DeleteDataset, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}")
 
-    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
     def search_datasets(
         self,
         experiment_ids: list[str] | None = None,

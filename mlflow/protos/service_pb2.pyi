@@ -1732,7 +1732,7 @@ class GatewayEndpointBinding(_message.Message):
     def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
 
 class CreateGatewaySecret(_message.Message):
-    __slots__ = ("secret_name", "secret_value", "provider", "credential_name", "auth_config_json", "created_by")
+    __slots__ = ("secret_name", "secret_value", "provider", "auth_config_json", "created_by")
     class Response(_message.Message):
         __slots__ = ("secret",)
         SECRET_FIELD_NUMBER: _ClassVar[int]
@@ -1741,16 +1741,14 @@ class CreateGatewaySecret(_message.Message):
     SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
     SECRET_VALUE_FIELD_NUMBER: _ClassVar[int]
     PROVIDER_FIELD_NUMBER: _ClassVar[int]
-    CREDENTIAL_NAME_FIELD_NUMBER: _ClassVar[int]
     AUTH_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     secret_name: str
     secret_value: str
     provider: str
-    credential_name: str
     auth_config_json: str
     created_by: str
-    def __init__(self, secret_name: _Optional[str] = ..., secret_value: _Optional[str] = ..., provider: _Optional[str] = ..., credential_name: _Optional[str] = ..., auth_config_json: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, secret_name: _Optional[str] = ..., secret_value: _Optional[str] = ..., provider: _Optional[str] = ..., auth_config_json: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class GetGatewaySecretInfo(_message.Message):
     __slots__ = ("secret_id", "secret_name")
@@ -1766,7 +1764,7 @@ class GetGatewaySecretInfo(_message.Message):
     def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ...) -> None: ...
 
 class UpdateGatewaySecret(_message.Message):
-    __slots__ = ("secret_id", "secret_value", "credential_name", "auth_config_json", "updated_by")
+    __slots__ = ("secret_id", "secret_value", "auth_config_json", "updated_by")
     class Response(_message.Message):
         __slots__ = ("secret",)
         SECRET_FIELD_NUMBER: _ClassVar[int]
@@ -1774,15 +1772,13 @@ class UpdateGatewaySecret(_message.Message):
         def __init__(self, secret: _Optional[_Union[GatewaySecretInfo, _Mapping]] = ...) -> None: ...
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     SECRET_VALUE_FIELD_NUMBER: _ClassVar[int]
-    CREDENTIAL_NAME_FIELD_NUMBER: _ClassVar[int]
     AUTH_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
     UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
     secret_id: str
     secret_value: str
-    credential_name: str
     auth_config_json: str
     updated_by: str
-    def __init__(self, secret_id: _Optional[str] = ..., secret_value: _Optional[str] = ..., credential_name: _Optional[str] = ..., auth_config_json: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, secret_id: _Optional[str] = ..., secret_value: _Optional[str] = ..., auth_config_json: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
 
 class DeleteGatewaySecret(_message.Message):
     __slots__ = ("secret_id",)

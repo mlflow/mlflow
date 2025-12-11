@@ -6275,7 +6275,6 @@ class MlflowClient:
         self._tracking_client.delete_dataset(dataset_id)
 
     @experimental(version="3.4.0")
-    @_disable_in_databricks(use_uc_message=True)
     def search_datasets(
         self,
         experiment_ids: list[str] | None = None,

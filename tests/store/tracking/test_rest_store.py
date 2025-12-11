@@ -3036,14 +3036,12 @@ def test_create_secret():
             secret_name="test-key",
             secret_value="sk-test-12345",
             provider="openai",
-            credential_name="OPENAI_API_KEY",
         )
         body = message_to_json(
             CreateGatewaySecret(
                 secret_name="test-key",
                 secret_value="sk-test-12345",
                 provider="openai",
-                credential_name="OPENAI_API_KEY",
             )
         )
         _verify_requests(mock_http, creds, "secrets/create", "POST", body, use_v3=True)

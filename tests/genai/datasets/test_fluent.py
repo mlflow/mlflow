@@ -367,9 +367,29 @@ def test_search_datasets_single_page(mock_client):
     assert mock_client.search_datasets.call_count == 1
 
 
-def test_search_datasets_databricks(mock_databricks_environment):
-    with pytest.raises(NotImplementedError, match="Dataset search is not available in Databricks"):
-        search_datasets()
+def test_search_datasets_databricks(mock_databricks_environment, mock_client):
+    datasets = [
+        EntityEvaluationDataset(
+            dataset_id="id1",
+            name="dataset1",
+            digest="digest1",
+            created_time=123456789,
+            last_update_time=123456789,
+        ),
+    ]
+    mock_client.search_datasets.return_value = PagedList(datasets, None)
+
+    result = search_datasets(experiment_ids=["exp1"])
+
+    assert len(result) == 1
+    assert isinstance(result, list)
+
+    # Verify that default filter_string and order_by are NOT set for Databricks
+    # (since these parameters may not be supported by all Databricks backends)
+    mock_client.search_datasets.assert_called_once()
+    call_kwargs = mock_client.search_datasets.call_args.kwargs
+    assert call_kwargs.get("filter_string") is None
+    assert call_kwargs.get("order_by") is None
 
 
 def test_databricks_import_error():

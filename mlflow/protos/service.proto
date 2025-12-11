@@ -4110,9 +4110,11 @@ message CreateGatewaySecret {
   optional string secret_value = 2;
   // Optional LLM provider (e.g., "openai", "anthropic")
   optional string provider = 3;
-  // Optional credential identifier (e.g., "ANTHROPIC_API_KEY")
-  optional string credential_name = 4;
-  // Optional provider-specific auth configuration as JSON string
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
+  reserved 4;
+  reserved "credential_name";
+  // Optional provider-specific auth configuration as JSON string.
+  // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
   optional string auth_config_json = 5;
   // Username of the creator
   optional string created_by = 6;
@@ -4139,9 +4141,11 @@ message UpdateGatewaySecret {
   optional string secret_id = 1;
   // Optional new secret value (if rotating the key)
   optional string secret_value = 2;
-  // Optional new credential identifier
-  optional string credential_name = 3;
-  // Optional new auth configuration as JSON string
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
+  reserved 3;
+  reserved "credential_name";
+  // Optional new auth configuration as JSON string.
+  // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
   optional string auth_config_json = 4;
   // Username of the updater
   optional string updated_by = 5;

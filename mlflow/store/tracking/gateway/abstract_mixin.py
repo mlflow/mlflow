@@ -22,7 +22,6 @@ class GatewayStoreMixin:
         secret_name: str,
         secret_value: str,
         provider: str | None = None,
-        credential_name: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -33,9 +32,9 @@ class GatewayStoreMixin:
             secret_name: Unique user-friendly name for the secret.
             secret_value: The secret value to encrypt (e.g., API key).
             provider: LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
-            credential_name: Optional credential identifier (e.g., "ANTHROPIC_API_KEY").
-            auth_config: Optional provider-specific auth configuration (e.g.,
-              {"project_id": "...", "region": "..."}).
+            auth_config: Optional provider-specific auth configuration. For providers
+                with multiple auth modes, include "auth_mode" key (e.g.,
+                {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}).
             created_by: Username of the creator.
 
         Returns:
