@@ -676,7 +676,8 @@ MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORK
 
 #: Maximum number of concurrent scorer workers to use when running multiple scorers
 #: in parallel for each evaluation item. This helps prevent rate limiting errors when
-#: using external LLM APIs as judges. When combined with MLFLOW_GENAI_EVAL_MAX_WORKERS,
+#: using external LLM APIs as judges. The actual number of workers will not exceed
+#: the number of scorers being used. When combined with MLFLOW_GENAI_EVAL_MAX_WORKERS,
 #: the total concurrent scorer invocations is bounded by the product of both values.
 #: Set to 1 to run scorers sequentially. (default: ``10``)
 MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
