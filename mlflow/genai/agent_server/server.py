@@ -151,7 +151,7 @@ class AgentServer:
             except httpx.ConnectError:
                 return Response("Service unavailable", status_code=503, media_type="text/plain")
             except Exception as e:
-                return Response(f"Proxy error: {str(e)}", status_code=502, media_type="text/plain")
+                return Response(f"Proxy error: {e!s}", status_code=502, media_type="text/plain")
 
     def _setup_routes(self) -> None:
         @self.app.post("/invocations")

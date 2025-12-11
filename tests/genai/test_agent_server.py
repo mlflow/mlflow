@@ -542,8 +542,6 @@ def test_chat_proxy_custom_timeout():
 
 @pytest.mark.asyncio
 async def test_chat_proxy_forwards_unmatched_requests():
-    import httpx
-
     @invoke()
     def test_invoke(request):
         return {
@@ -627,8 +625,6 @@ async def test_chat_proxy_handles_general_error():
 
 @pytest.mark.asyncio
 async def test_chat_proxy_forwards_post_requests_with_body():
-    import httpx
-
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
@@ -648,22 +644,17 @@ async def test_chat_proxy_forwards_post_requests_with_body():
 
 
 @pytest.mark.asyncio
-async def test_chat_proxy_respects_chat_app_port_env_var():
-    import httpx
-    import os
+async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
+    monkeypatch.setenv("CHAT_APP_PORT", "8080")
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
 
-    with patch.dict(os.environ, {"CHAT_APP_PORT": "8080"}):
-        server = AgentServer(enable_chat_proxy=True)
-        client = TestClient(server.app)
+    mock_response = Mock()
+    mock_response.content = b"test"
+    mock_response.status_code = 200
+    mock_response.headers = {}
 
-        mock_response = Mock()
-        mock_response.content = b"test"
-        mock_response.status_code = 200
-        mock_response.headers = {}
-
-        with patch.object(
-            server.proxy_client, "request", return_value=mock_response
-        ) as mock_request:
-            client.get("/test")
-            call_args = mock_request.call_args
-            assert "http://localhost:8080/test" in str(call_args.kwargs["url"])
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        client.get("/test")
+        call_args = mock_request.call_args
+        assert "http://localhost:8080/test" in str(call_args.kwargs["url"])
