@@ -30,9 +30,9 @@ def get_resource_endpoint_configs(
     Get complete endpoint configurations for a resource (server-side only).
 
     A resource can be bound to multiple endpoints. This returns everything
-    needed to make LLM API calls: endpoint details, models, and decrypted
-    secrets. This is a privileged operation that should only be called
-    server-side and never exposed to clients.
+    needed to make LLM API calls: endpoint details, models, and resolved
+    LiteLLM parameters. This is a privileged operation that should only be
+    called server-side and never exposed to clients.
 
     If no store is provided, this function automatically retrieves the tracking
     store from the current MLflow configuration. It only works with SqlAlchemyStore
@@ -46,8 +46,8 @@ def get_resource_endpoint_configs(
 
     Returns:
         List of GatewayEndpointConfig entities, each containing endpoint_id,
-        endpoint_name, and list of GatewayModelConfig with decrypted secret_value
-        and auth_config.
+        endpoint_name, and list of GatewayModelConfig with resolved litellm_params
+        ready to pass to litellm.completion().
 
     Raises:
         MlflowException: If the tracking store is not a SqlAlchemyStore,
@@ -102,7 +102,8 @@ def get_resource_endpoint_configs(
                     "GatewaySecret",
                 )
 
-                decrypted_value = _decrypt_secret(
+                # Decrypt secret (returns dict since we always store as JSON)
+                secret_value = _decrypt_secret(
                     encrypted_value=sql_secret.encrypted_value,
                     wrapped_dek=sql_secret.wrapped_dek,
                     kek_manager=kek_manager,
@@ -110,16 +111,16 @@ def get_resource_endpoint_configs(
                     secret_name=sql_secret.secret_name,
                 )
 
+                # Parse auth_config
+                auth_config = json.loads(sql_secret.auth_config) if sql_secret.auth_config else None
+
                 model_configs.append(
                     GatewayModelConfig(
                         model_definition_id=sql_model_def.model_definition_id,
                         provider=sql_model_def.provider,
                         model_name=sql_model_def.model_name,
-                        secret_value=decrypted_value,
-                        credential_name=sql_secret.credential_name,
-                        auth_config=json.loads(sql_secret.auth_config)
-                        if sql_secret.auth_config
-                        else None,
+                        secret_value=secret_value,
+                        auth_config=auth_config,
                     )
                 )
 
@@ -213,7 +214,6 @@ def get_endpoint_config(
                     provider=sql_model_def.provider,
                     model_name=sql_model_def.model_name,
                     secret_value=decrypted_value,
-                    credential_name=sql_secret.credential_name,
                     auth_config=json.loads(sql_secret.auth_config)
                     if sql_secret.auth_config
                     else None,
