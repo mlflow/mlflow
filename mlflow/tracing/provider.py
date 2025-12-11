@@ -464,7 +464,8 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     # configuration.
     if should_use_otlp_exporter():
         from mlflow.tracing.processor.otel import OtelSpanProcessor
-
+        from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
+        
         exporter = get_otlp_exporter()
         otel_processor = OtelSpanProcessor(
             span_exporter=exporter,
@@ -482,9 +483,9 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         # If dual export is set but no set_destination processor added, skip return and go
         # to default processing to catch the default processor, if present.
         if ((not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or
-                any(isinstance(p, DatabricksUCTableSpanExporter) for p in processors)):
+                any(isinstance(p, DatabricksUCTableSpanProcessor) for p in processors)):
             return processors
-
+    print("passed the OTLP block...\n")
     # Finally, default MLflow-based processors (inference table in serving, else tracking URI).
     if is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
