@@ -537,7 +537,7 @@ def test_chat_proxy_enabled():
 
 
 def test_chat_proxy_custom_timeout(monkeypatch):
-    monkeypatch.setenv("CHAT_PROXY_TIMEOUT", "60.0")
+    monkeypatch.setenv("CHAT_PROXY_TIMEOUT_SECONDS", "60.0")
     server = AgentServer(enable_chat_proxy=True)
     assert server.proxy_client is not None
     assert server.chat_proxy_timeout == 60.0
