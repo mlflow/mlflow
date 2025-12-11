@@ -14,7 +14,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
-from mlflow.genai.evaluation.utils import _convert_to_eval_set
+from mlflow.genai.evaluation.utils import (
+    _convert_to_eval_set,
+    _get_eval_data_size_and_fields,
+)
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
@@ -28,6 +31,7 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.telemetry.events import GenAIEvaluateEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.telemetry.utils import _log_error
 from mlflow.tracing.constant import (
     DATABRICKS_OPTIONS_KEY,
     DATABRICKS_OUTPUT_KEY,
@@ -243,6 +247,23 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
+    result, _ = _run_harness(data, scorers, predict_fn, model_id)
+    return result
+
+
+@record_usage_event(GenAIEvaluateEvent)
+def _run_harness(data, scorers, predict_fn, model_id) -> tuple[EvaluationResult, dict[str, Any]]:
+    """
+    Internal harness for running evaluation.
+
+    Returns:
+        A tuple containing:
+            - EvaluationResult: The evaluation result object with metrics and assessments
+            - dict: Telemetry data dictionary containing evaluation metadata (data size, fields,
+              etc.). This is used by the @record_usage_event decorator.
+    """
+    from mlflow.genai.evaluation import harness
+
     is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     scorers = validate_scorers(scorers)
@@ -271,13 +292,6 @@ def evaluate(
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
-    return _run_harness(data, scorers, predict_fn, model_id)
-
-
-@record_usage_event(GenAIEvaluateEvent)
-def _run_harness(data, scorers, predict_fn, model_id):
-    from mlflow.genai.evaluation import harness
-
     # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
     # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
     # one is not publicly documented, but we keep it for backward compatibility.
@@ -295,6 +309,12 @@ def _run_harness(data, scorers, predict_fn, model_id):
         # Use default name for evaluation dataset when converting from DataFrame
         mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
         df = data
+
+    try:
+        telemetry_data = _get_eval_data_size_and_fields(df)
+    except Exception:
+        _log_error("Failed to get evaluation data size and fields for GenAIEvaluateEvent")
+        telemetry_data = {}
 
     with (
         _start_run_or_reuse_active_run() as run_id,
@@ -319,7 +339,7 @@ def _run_harness(data, scorers, predict_fn, model_id):
     except Exception:
         logger.debug("Failed to display summary and usage instructions", exc_info=True)
 
-    return result
+    return result, telemetry_data
 
 
 def _log_dataset_input(
