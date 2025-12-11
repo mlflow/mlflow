@@ -566,6 +566,10 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search models"
   },
+  "3ddFS2": {
+    "defaultMessage": "Gateway",
+    "description": "Sidebar link for gateway configuration"
+  },
   "3geT+I": {
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
     "description": "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
@@ -1693,6 +1697,10 @@
   "Dm4Ez0": {
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
+  },
+  "E+x0F4": {
+    "defaultMessage": "Gateway",
+    "description": "Header title for the gateway configuration page"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -3096,6 +3104,10 @@
   "SnPghu": {
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions action"
+  },
+  "Sr/ipm": {
+    "defaultMessage": "Loading providers...",
+    "description": "Loading message for providers list"
   },
   "SrV58C": {
     "defaultMessage": "Settings",
@@ -5590,6 +5602,10 @@
   "p2po2x": {
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
+  },
+  "p5xut2": {
+    "defaultMessage": "Available Providers",
+    "description": "Title for providers list"
   },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
