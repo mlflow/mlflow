@@ -6,6 +6,13 @@ export interface Model {
   model: string;
   provider: string;
   supports_function_calling: boolean;
+  supports_vision: boolean;
+  supports_reasoning: boolean;
+  supports_prompt_caching: boolean;
+  max_input_tokens: number | null;
+  max_output_tokens: number | null;
+  input_cost_per_token: number | null;
+  output_cost_per_token: number | null;
 }
 
 export interface SecretField {
@@ -43,11 +50,15 @@ export interface ModelsResponse {
   models: Model[];
 }
 
-export interface Secret {
+export interface SecretInfo {
   secret_id: string;
   secret_name: string;
+  masked_value: string;
   provider?: string;
+  /** Parsed auth config object (if backend returns it as object) */
   auth_config?: Record<string, any>;
+  /** JSON string of auth config (backend returns this from proto) */
+  auth_config_json?: string;
   created_at: number;
   updated_at: number;
   created_by?: string;
@@ -63,11 +74,11 @@ export interface CreateSecretRequest {
 }
 
 export interface CreateSecretResponse {
-  secret: Secret;
+  secret: SecretInfo;
 }
 
 export interface GetSecretResponse {
-  secret: Secret;
+  secret: SecretInfo;
 }
 
 export interface UpdateSecretRequest {
@@ -78,11 +89,11 @@ export interface UpdateSecretRequest {
 }
 
 export interface UpdateSecretResponse {
-  secret: Secret;
+  secret: SecretInfo;
 }
 
 export interface ListSecretsResponse {
-  secrets: Secret[];
+  secrets: SecretInfo[];
 }
 
 export interface ModelDefinition {
@@ -111,7 +122,7 @@ export interface EndpointModelMapping {
 
 export interface Endpoint {
   endpoint_id: string;
-  name: string;
+  name?: string;
   model_mappings: EndpointModelMapping[];
   created_at: number;
   last_updated_at: number;

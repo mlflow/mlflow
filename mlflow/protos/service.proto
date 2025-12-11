@@ -4018,6 +4018,8 @@ message GatewaySecretInfo {
   optional string last_updated_by = 8;
   // Provider-specific auth configuration as JSON (e.g., region, project_id)
   optional string auth_config_json = 9;
+  // Credential identifier for display (e.g., "api_key", "access_keys")
+  optional string credential_name = 10;
 }
 
 // Reusable model definition that can be shared across endpoints

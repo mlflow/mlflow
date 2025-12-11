@@ -1,0 +1,224 @@
+import { Input, FormUI, useDesignSystemTheme, Radio } from '@databricks/design-system';
+import { useEffect, useMemo, useCallback } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
+import type { AuthMode, ConfigField, SecretField } from '../../types';
+import type { SecretFormData } from './types';
+
+export interface SecretFormFieldsProps {
+  /** Provider to fetch auth field configuration for */
+  provider: string;
+  /** Current form values */
+  value: SecretFormData;
+  /** Callback when any field changes */
+  onChange: (value: SecretFormData) => void;
+  /** Field-level errors */
+  errors?: {
+    name?: string;
+    secretFields?: Record<string, string>;
+    configFields?: Record<string, string>;
+  };
+  /** Whether the form is disabled */
+  disabled?: boolean;
+  /** Component ID prefix for telemetry */
+  componentIdPrefix?: string;
+  /** Whether to hide the secret name field (useful for editing where name is fixed) */
+  hideNameField?: boolean;
+}
+
+/**
+ * Controlled form fields for creating or editing a secret.
+ * This component can be used standalone or within a larger form.
+ */
+export const SecretFormFields = ({
+  provider,
+  value,
+  onChange,
+  errors,
+  disabled,
+  componentIdPrefix = 'mlflow.gateway.secret-form',
+  hideNameField = false,
+}: SecretFormFieldsProps) => {
+  const { theme } = useDesignSystemTheme();
+  const { formatMessage } = useIntl();
+  const { data: providerConfig } = useProviderConfigQuery({ provider });
+
+  // Memoize authModes to ensure stable reference for dependent useMemo
+  const authModes = useMemo(() => providerConfig?.auth_modes ?? [], [providerConfig?.auth_modes]);
+  const hasMultipleModes = authModes.length > 1;
+
+  // Get the selected auth mode, falling back to default
+  const selectedAuthMode = useMemo((): AuthMode | undefined => {
+    if (!authModes.length) return undefined;
+    if (value.authMode) {
+      return authModes.find((m) => m.mode === value.authMode);
+    }
+    // Fall back to default mode
+    return authModes.find((m) => m.mode === providerConfig?.default_mode) ?? authModes[0];
+  }, [authModes, value.authMode, providerConfig?.default_mode]);
+
+  // Auto-select default auth mode when provider config loads
+  useEffect(() => {
+    if (providerConfig && !value.authMode && providerConfig.default_mode) {
+      onChange({ ...value, authMode: providerConfig.default_mode });
+    }
+  }, [providerConfig, value, onChange]);
+
+  const handleNameChange = useCallback(
+    (newName: string) => {
+      onChange({ ...value, name: newName });
+    },
+    [onChange, value],
+  );
+
+  const handleSecretFieldChange = useCallback(
+    (fieldName: string, fieldValue: string) => {
+      onChange({
+        ...value,
+        secretFields: { ...value.secretFields, [fieldName]: fieldValue },
+      });
+    },
+    [onChange, value],
+  );
+
+  const handleConfigFieldChange = useCallback(
+    (fieldName: string, fieldValue: string) => {
+      onChange({
+        ...value,
+        configFields: { ...value.configFields, [fieldName]: fieldValue },
+      });
+    },
+    [onChange, value],
+  );
+
+  const handleAuthModeChange = useCallback(
+    (mode: string) => {
+      // Clear secret and config fields when switching modes
+      onChange({
+        ...value,
+        authMode: mode,
+        secretFields: {},
+        configFields: {},
+      });
+    },
+    [onChange, value],
+  );
+
+  if (!provider) {
+    return (
+      <div css={{ color: theme.colors.textSecondary }}>
+        <FormattedMessage
+          defaultMessage="Select a provider to configure secret"
+          description="Message when no provider selected for secret form"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {!hideNameField && (
+        <div>
+          <FormUI.Label htmlFor={`${componentIdPrefix}.name`}>
+            <FormattedMessage defaultMessage="Secret name" description="Label for secret name input" />
+          </FormUI.Label>
+          <Input
+            id={`${componentIdPrefix}.name`}
+            componentId={`${componentIdPrefix}.name`}
+            value={value.name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            placeholder={formatMessage({
+              defaultMessage: 'my-api-key',
+              description: 'Placeholder for secret name input',
+            })}
+            validationState={errors?.name ? 'error' : undefined}
+            disabled={disabled}
+          />
+          {errors?.name && <FormUI.Message type="error" message={errors.name} />}
+        </div>
+      )}
+
+      {/* Auth Mode Selector - only show when multiple modes available */}
+      {hasMultipleModes && (
+        <div>
+          <FormUI.Label>
+            <FormattedMessage defaultMessage="Authentication method" description="Label for auth mode selector" />
+          </FormUI.Label>
+          <Radio.Group
+            name={`${componentIdPrefix}.auth-mode`}
+            componentId={`${componentIdPrefix}.auth-mode`}
+            value={value.authMode || providerConfig?.default_mode}
+            onChange={(e) => handleAuthModeChange(e.target.value)}
+            disabled={disabled}
+          >
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              {authModes.map((mode) => (
+                <Radio key={mode.mode} value={mode.mode}>
+                  <div>
+                    <div css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>{mode.display_name}</div>
+                    {mode.description && (
+                      <div css={{ color: theme.colors.textSecondary, fontSize: theme.typography.fontSizeSm }}>
+                        {mode.description}
+                      </div>
+                    )}
+                  </div>
+                </Radio>
+              ))}
+            </div>
+          </Radio.Group>
+        </div>
+      )}
+
+      {/* Secret Fields */}
+      {selectedAuthMode?.secret_fields?.map((field: SecretField) => (
+        <div key={field.name}>
+          <FormUI.Label htmlFor={`${componentIdPrefix}.secret.${field.name}`}>
+            {field.name}
+            {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
+          </FormUI.Label>
+          <Input
+            id={`${componentIdPrefix}.secret.${field.name}`}
+            componentId={`${componentIdPrefix}.secret.${field.name}`}
+            type="password"
+            autoComplete="off"
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
+            value={value.secretFields[field.name] ?? ''}
+            onChange={(e) => handleSecretFieldChange(field.name, e.target.value)}
+            placeholder={field.description}
+            validationState={errors?.secretFields?.[field.name] ? 'error' : undefined}
+            disabled={disabled}
+          />
+          {field.description && !errors?.secretFields?.[field.name] && <FormUI.Hint>{field.description}</FormUI.Hint>}
+          {errors?.secretFields?.[field.name] && (
+            <FormUI.Message type="error" message={errors.secretFields[field.name]} />
+          )}
+        </div>
+      ))}
+
+      {/* Config Fields */}
+      {selectedAuthMode?.config_fields?.map((field: ConfigField) => (
+        <div key={field.name}>
+          <FormUI.Label htmlFor={`${componentIdPrefix}.config.${field.name}`}>
+            {field.name}
+            {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
+          </FormUI.Label>
+          <Input
+            id={`${componentIdPrefix}.config.${field.name}`}
+            componentId={`${componentIdPrefix}.config.${field.name}`}
+            value={value.configFields[field.name] ?? ''}
+            onChange={(e) => handleConfigFieldChange(field.name, e.target.value)}
+            placeholder={field.description}
+            validationState={errors?.configFields?.[field.name] ? 'error' : undefined}
+            disabled={disabled}
+          />
+          {field.description && !errors?.configFields?.[field.name] && <FormUI.Hint>{field.description}</FormUI.Hint>}
+          {errors?.configFields?.[field.name] && (
+            <FormUI.Message type="error" message={errors.configFields[field.name]} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
