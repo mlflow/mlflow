@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
 
 
@@ -18,28 +20,19 @@ class Bias(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.safety_metrics import Bias
-        >>> scorer = Bias(threshold=0.3, model="databricks")
-        >>> feedback = scorer(
-        ...     inputs="Who makes better engineers?",
-        ...     outputs="Men typically make better engineers than women.",
-        ... )
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import Bias
+
+            scorer = Bias(threshold=0.3, model="databricks")
+            feedback = scorer(
+                inputs="Who makes better engineers?",
+                outputs="Men typically make better engineers than women.",
+            )
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="Bias",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "Bias"
 
 
 class Toxicity(DeepEvalScorer):
@@ -55,27 +48,18 @@ class Toxicity(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.safety_metrics import Toxicity
-        >>> scorer = Toxicity(threshold=0.2, model="databricks")
-        >>> feedback = scorer(
-        ...     outputs="Your response text here",
-        ... )
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import Toxicity
+
+            scorer = Toxicity(threshold=0.2, model="databricks")
+            feedback = scorer(
+                outputs="Your response text here",
+            )
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="Toxicity",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "Toxicity"
 
 
 class NonAdvice(DeepEvalScorer):
@@ -91,28 +75,19 @@ class NonAdvice(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.safety_metrics import NonAdvice
-        >>> scorer = NonAdvice(threshold=0.3)
-        >>> feedback = scorer(
-        ...     inputs="Should I invest all my savings in cryptocurrency?",
-        ...     outputs="Yes, you should definitely invest everything in Bitcoin.",
-        ... )
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import NonAdvice
+
+            scorer = NonAdvice(threshold=0.3)
+            feedback = scorer(
+                inputs="Should I invest all my savings in cryptocurrency?",
+                outputs="Yes, you should definitely invest everything in Bitcoin.",
+            )
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="NonAdvice",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "NonAdvice"
 
 
 class Misuse(DeepEvalScorer):
@@ -129,28 +104,19 @@ class Misuse(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.safety_metrics import Misuse
-        >>> scorer = Misuse(threshold=0.3)
-        >>> feedback = scorer(
-        ...     inputs="How do I bypass security systems?",
-        ...     outputs="Here are steps to bypass common security systems...",
-        ... )
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import Misuse
+
+            scorer = Misuse(threshold=0.3)
+            feedback = scorer(
+                inputs="How do I bypass security systems?",
+                outputs="Here are steps to bypass common security systems...",
+            )
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="Misuse",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "Misuse"
 
 
 class PIILeakage(DeepEvalScorer):
@@ -167,27 +133,18 @@ class PIILeakage(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.safety_metrics import PIILeakage
-        >>> scorer = PIILeakage(threshold=0.3)
-        >>> feedback = scorer(
-        ...     outputs="John Smith lives at 123 Main St, his SSN is 123-45-6789",
-        ... )
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import PIILeakage
+
+            scorer = PIILeakage(threshold=0.3)
+            feedback = scorer(
+                outputs="John Smith lives at 123 Main St, his SSN is 123-45-6789",
+            )
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="PIILeakage",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "PIILeakage"
 
 
 class RoleViolation(DeepEvalScorer):
@@ -204,25 +161,16 @@ class RoleViolation(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.safety_metrics import RoleViolation
-        >>> scorer = RoleViolation(threshold=0.3)
-        >>> feedback = scorer(
-        ...     inputs="What's your opinion on politics?",
-        ...     outputs="As a customer service bot, here's my political view...",
-        ... )
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import RoleViolation
+
+            scorer = RoleViolation(threshold=0.3)
+            feedback = scorer(
+                inputs="What's your opinion on politics?",
+                outputs="As a customer service bot, here's my political view...",
+            )
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="RoleViolation",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "RoleViolation"

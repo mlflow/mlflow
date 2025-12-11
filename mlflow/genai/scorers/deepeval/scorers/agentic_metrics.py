@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
 
 
@@ -18,25 +20,16 @@ class TaskCompletion(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.agentic_metrics import TaskCompletion
-        >>> scorer = TaskCompletion(threshold=0.7)
-        >>> feedback = scorer(trace=trace)  # trace contains inputs, outputs, and tool calls
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import TaskCompletion
+
+            scorer = TaskCompletion(threshold=0.7)
+            feedback = scorer(trace=trace)  # trace contains inputs, outputs, and tool calls
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="TaskCompletion",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "TaskCompletion"
 
 
 class ToolCorrectness(DeepEvalScorer):
@@ -53,27 +46,18 @@ class ToolCorrectness(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.agentic_metrics import ToolCorrectness
-        >>> scorer = ToolCorrectness(threshold=0.8)
-        >>> feedback = scorer(
-        ...     trace=trace
-        ... )  # trace contains inputs, tool calls, and expected tool calls
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import ToolCorrectness
+
+            scorer = ToolCorrectness(threshold=0.8)
+            feedback = scorer(
+                trace=trace
+            )  # trace contains inputs, tool calls, and expected tool calls
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="ToolCorrectness",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "ToolCorrectness"
 
 
 class ArgumentCorrectness(DeepEvalScorer):
@@ -89,25 +73,16 @@ class ArgumentCorrectness(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.agentic_metrics import ArgumentCorrectness
-        >>> scorer = ArgumentCorrectness(threshold=0.7)
-        >>> feedback = scorer(trace=trace)  # trace contains inputs and tool calls with arguments
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import ArgumentCorrectness
+
+            scorer = ArgumentCorrectness(threshold=0.7)
+            feedback = scorer(trace=trace)  # trace contains inputs and tool calls with arguments
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="ArgumentCorrectness",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "ArgumentCorrectness"
 
 
 class StepEfficiency(DeepEvalScorer):
@@ -124,25 +99,16 @@ class StepEfficiency(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.agentic_metrics import StepEfficiency
-        >>> scorer = StepEfficiency(threshold=0.6)
-        >>> feedback = scorer(trace=trace)  # trace contains inputs and sequence of tool calls
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import StepEfficiency
+
+            scorer = StepEfficiency(threshold=0.6)
+            feedback = scorer(trace=trace)  # trace contains inputs and sequence of tool calls
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="StepEfficiency",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "StepEfficiency"
 
 
 class PlanAdherence(DeepEvalScorer):
@@ -159,25 +125,16 @@ class PlanAdherence(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.agentic_metrics import PlanAdherence
-        >>> scorer = PlanAdherence(threshold=0.7)
-        >>> feedback = scorer(trace=trace)  # trace contains inputs, outputs, and tool calls
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import PlanAdherence
+
+            scorer = PlanAdherence(threshold=0.7)
+            feedback = scorer(trace=trace)  # trace contains inputs, outputs, and tool calls
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="PlanAdherence",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "PlanAdherence"
 
 
 class PlanQuality(DeepEvalScorer):
@@ -193,25 +150,16 @@ class PlanQuality(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.agentic_metrics import PlanQuality
-        >>> scorer = PlanQuality(threshold=0.7)
-        >>> feedback = scorer(
-        ...     inputs="Plan a trip to Paris",
-        ...     outputs="Plan: 1) Book flights 2) Reserve hotel 3) Create itinerary",
-        ... )
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import PlanQuality
+
+            scorer = PlanQuality(threshold=0.7)
+            feedback = scorer(
+                inputs="Plan a trip to Paris",
+                outputs="Plan: 1) Book flights 2) Reserve hotel 3) Create itinerary",
+            )
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="PlanQuality",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "PlanQuality"

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
 
 
@@ -21,25 +23,16 @@ class TurnRelevancy(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import TurnRelevancy
-        >>> scorer = TurnRelevancy(threshold=0.7)
-        >>> feedback = scorer(traces=[trace1, trace2, trace3])  # List of conversation turns
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import TurnRelevancy
+
+            scorer = TurnRelevancy(threshold=0.7)
+            feedback = scorer(traces=[trace1, trace2, trace3])  # List of conversation turns
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="TurnRelevancy",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "TurnRelevancy"
 
 
 class RoleAdherence(DeepEvalScorer):
@@ -58,25 +51,16 @@ class RoleAdherence(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import RoleAdherence
-        >>> scorer = RoleAdherence(threshold=0.8)
-        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import RoleAdherence
+
+            scorer = RoleAdherence(threshold=0.8)
+            feedback = scorer(traces=[trace1, trace2, trace3])
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="RoleAdherence",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "RoleAdherence"
 
 
 class KnowledgeRetention(DeepEvalScorer):
@@ -96,25 +80,16 @@ class KnowledgeRetention(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import KnowledgeRetention
-        >>> scorer = KnowledgeRetention(threshold=0.7)
-        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import KnowledgeRetention
+
+            scorer = KnowledgeRetention(threshold=0.7)
+            feedback = scorer(traces=[trace1, trace2, trace3])
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="KnowledgeRetention",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "KnowledgeRetention"
 
 
 class ConversationCompleteness(DeepEvalScorer):
@@ -133,27 +108,18 @@ class ConversationCompleteness(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import (
-        ...     ConversationCompleteness,
-        ... )
-        >>> scorer = ConversationCompleteness(threshold=0.7)
-        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import (
+                ConversationCompleteness,
+            )
+
+            scorer = ConversationCompleteness(threshold=0.7)
+            feedback = scorer(traces=[trace1, trace2, trace3])
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="ConversationCompleteness",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "ConversationCompleteness"
 
 
 class GoalAccuracy(DeepEvalScorer):
@@ -173,25 +139,16 @@ class GoalAccuracy(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import GoalAccuracy
-        >>> scorer = GoalAccuracy(threshold=0.7)
-        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import GoalAccuracy
+
+            scorer = GoalAccuracy(threshold=0.7)
+            feedback = scorer(traces=[trace1, trace2, trace3])
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="GoalAccuracy",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "GoalAccuracy"
 
 
 class ToolUse(DeepEvalScorer):
@@ -211,25 +168,16 @@ class ToolUse(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import ToolUse
-        >>> scorer = ToolUse(threshold=0.7)
-        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import ToolUse
+
+            scorer = ToolUse(threshold=0.7)
+            feedback = scorer(traces=[trace1, trace2, trace3])
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="ToolUse",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "ToolUse"
 
 
 class TopicAdherence(DeepEvalScorer):
@@ -248,22 +196,13 @@ class TopicAdherence(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.conversational_metrics import TopicAdherence
-        >>> scorer = TopicAdherence(threshold=0.7)
-        >>> feedback = scorer(traces=[trace1, trace2, trace3])
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import TopicAdherence
+
+            scorer = TopicAdherence(threshold=0.7)
+            feedback = scorer(traces=[trace1, trace2, trace3])
+
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="TopicAdherence",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "TopicAdherence"

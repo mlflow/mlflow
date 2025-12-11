@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
 from mlflow.genai.scorers.deepeval.scorers.agentic_metrics import (
     ArgumentCorrectness,
@@ -48,24 +50,13 @@ class Hallucination(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> scorer = Hallucination(threshold=0.3)
-        >>> feedback = scorer(trace=trace)
+        .. code-block:: python
+
+            scorer = Hallucination(threshold=0.3)
+            feedback = scorer(trace=trace)
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="Hallucination",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "Hallucination"
 
 
 class Summarization(DeepEvalScorer):
@@ -78,24 +69,13 @@ class Summarization(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> scorer = Summarization(threshold=0.7)
-        >>> feedback = scorer(inputs="Long text...", outputs="Summary...")
+        .. code-block:: python
+
+            scorer = Summarization(threshold=0.7)
+            feedback = scorer(inputs="Long text...", outputs="Summary...")
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="Summarization",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "Summarization"
 
 
 class JsonCorrectness(DeepEvalScorer):
@@ -110,27 +90,16 @@ class JsonCorrectness(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> scorer = JsonCorrectness(threshold=0.8)
-        >>> feedback = scorer(
-        ...     outputs='{"name": "John"}',
-        ...     expectations={"expected_schema": {...}},
-        ... )
+        .. code-block:: python
+
+            scorer = JsonCorrectness(threshold=0.8)
+            feedback = scorer(
+                outputs='{"name": "John"}',
+                expectations={"expected_schema": {...}},
+            )
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="JsonCorrectness",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "JsonCorrectness"
 
 
 class PromptAlignment(DeepEvalScorer):
@@ -143,24 +112,13 @@ class PromptAlignment(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> scorer = PromptAlignment(threshold=0.7)
-        >>> feedback = scorer(inputs="Instructions...", outputs="Response...")
+        .. code-block:: python
+
+            scorer = PromptAlignment(threshold=0.7)
+            feedback = scorer(inputs="Instructions...", outputs="Response...")
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="PromptAlignment",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "PromptAlignment"
 
 
 class ExactMatch(DeepEvalScorer):
@@ -171,12 +129,16 @@ class ExactMatch(DeepEvalScorer):
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
 
     Examples:
-        >>> scorer = ExactMatch()
-        >>> feedback = scorer(
-        ...     outputs="Paris",
-        ...     expectations={"expected_output": "Paris"},
-        ... )
+        .. code-block:: python
+
+            scorer = ExactMatch()
+            feedback = scorer(
+                outputs="Paris",
+                expectations={"expected_output": "Paris"},
+            )
     """
+
+    metric_name: ClassVar[str] = "ExactMatch"
 
     def __init__(
         self,
@@ -184,7 +146,7 @@ class ExactMatch(DeepEvalScorer):
         **kwargs,
     ):
         super().__init__(
-            metric_name="ExactMatch",
+            metric_name=self.metric_name,
             model=None,
             threshold=threshold,
             **kwargs,
@@ -200,9 +162,13 @@ class PatternMatch(DeepEvalScorer):
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
 
     Examples:
-        >>> scorer = PatternMatch(pattern=r"\\d{3}-\\d{3}-\\d{4}")
-        >>> feedback = scorer(outputs="Phone: 555-123-4567")
+        .. code-block:: python
+
+            scorer = PatternMatch(pattern=r"\\d{3}-\\d{3}-\\d{4}")
+            feedback = scorer(outputs="Phone: 555-123-4567")
     """
+
+    metric_name: ClassVar[str] = "PatternMatch"
 
     def __init__(
         self,
@@ -211,7 +177,7 @@ class PatternMatch(DeepEvalScorer):
         **kwargs,
     ):
         super().__init__(
-            metric_name="PatternMatch",
+            metric_name=self.metric_name,
             model=None,
             threshold=threshold,
             pattern=pattern,
