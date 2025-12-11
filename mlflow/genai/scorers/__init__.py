@@ -42,14 +42,10 @@ _LAZY_IMPORTS = {
     "get_all_scorers",
 }
 
-# TruLens scorers are also lazily loaded to avoid import overhead when not used
+# TruLens agent trace scorers are lazily loaded to avoid import overhead when not used
+# Note: Basic TruLens scorers (Groundedness, ContextRelevance, AnswerRelevance, Coherence)
+# are provided in PR #19237 along with Phoenix scorers
 _TRULENS_LAZY_IMPORTS = {
-    # Basic scorers
-    "TruLensGroundednessScorer",
-    "TruLensContextRelevanceScorer",
-    "TruLensAnswerRelevanceScorer",
-    "TruLensCoherenceScorer",
-    # Agent trace scorers
     "TruLensLogicalConsistencyScorer",
     "TruLensExecutionEfficiencyScorer",
     "TruLensPlanAdherenceScorer",
@@ -111,11 +107,7 @@ if TYPE_CHECKING:
         get_all_scorers,
     )
     from mlflow.genai.scorers.trulens import (
-        TruLensAnswerRelevanceScorer,
-        TruLensCoherenceScorer,
-        TruLensContextRelevanceScorer,
         TruLensExecutionEfficiencyScorer,
-        TruLensGroundednessScorer,
         TruLensLogicalConsistencyScorer,
         TruLensPlanAdherenceScorer,
         TruLensPlanQualityScorer,
@@ -140,11 +132,6 @@ __all__ = [
     "Safety",
     "Summarization",
     "UserFrustration",
-    # TruLens basic scorers
-    "TruLensGroundednessScorer",
-    "TruLensContextRelevanceScorer",
-    "TruLensAnswerRelevanceScorer",
-    "TruLensCoherenceScorer",
     # TruLens agent trace scorers
     "TruLensLogicalConsistencyScorer",
     "TruLensExecutionEfficiencyScorer",
