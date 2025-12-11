@@ -109,13 +109,6 @@ def _get_notebook_from_jupyter_server(connection_file):
 def _list_running_jupyter_servers():
     """List running Jupyter servers."""
     try:
-        from notebook.notebookapp import list_running_servers
-
-        return list(list_running_servers())
-    except ImportError:
-        pass
-
-    try:
         from jupyter_server.serverapp import list_running_servers
 
         return list(list_running_servers())
