@@ -22,7 +22,7 @@ from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorer
 #   avoiding the circular import at runtime
 
 
-# Define the attributes that should be lazily loaded
+# Define the attributes that should be lazily loaded from builtin_scorers
 _LAZY_IMPORTS = {
     "Completeness",
     "ConversationalSafety",
@@ -42,14 +42,36 @@ _LAZY_IMPORTS = {
     "get_all_scorers",
 }
 
+# TruLens scorers are also lazily loaded to avoid import overhead when not used
+_TRULENS_LAZY_IMPORTS = {
+    # Basic scorers
+    "TruLensGroundednessScorer",
+    "TruLensContextRelevanceScorer",
+    "TruLensAnswerRelevanceScorer",
+    "TruLensCoherenceScorer",
+    # Agent trace scorers
+    "TruLensLogicalConsistencyScorer",
+    "TruLensExecutionEfficiencyScorer",
+    "TruLensPlanAdherenceScorer",
+    "TruLensPlanQualityScorer",
+    "TruLensToolSelectionScorer",
+    "TruLensToolCallingScorer",
+}
+
 
 def __getattr__(name):
-    """Lazily import builtin scorers to avoid circular dependency."""
+    """Lazily import builtin scorers and TruLens scorers to avoid circular dependency."""
     if name in _LAZY_IMPORTS:
         # Import the module when first accessed
         from mlflow.genai.scorers import builtin_scorers
 
         return getattr(builtin_scorers, name)
+
+    if name in _TRULENS_LAZY_IMPORTS:
+        # Import TruLens scorers when first accessed
+        from mlflow.genai.scorers import trulens
+
+        return getattr(trulens, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -62,8 +84,8 @@ def __dir__():
     """
     # Get the default module attributes
     module_attrs = list(globals().keys())
-    # Add the lazy imports
-    return sorted(set(module_attrs) | _LAZY_IMPORTS)
+    # Add the lazy imports (both builtin and TruLens)
+    return sorted(set(module_attrs) | _LAZY_IMPORTS | _TRULENS_LAZY_IMPORTS)
 
 
 # The TYPE_CHECKING block below is for static analysis tools only.
@@ -88,8 +110,21 @@ if TYPE_CHECKING:
         UserFrustration,
         get_all_scorers,
     )
+    from mlflow.genai.scorers.trulens import (
+        TruLensAnswerRelevanceScorer,
+        TruLensCoherenceScorer,
+        TruLensContextRelevanceScorer,
+        TruLensExecutionEfficiencyScorer,
+        TruLensGroundednessScorer,
+        TruLensLogicalConsistencyScorer,
+        TruLensPlanAdherenceScorer,
+        TruLensPlanQualityScorer,
+        TruLensToolCallingScorer,
+        TruLensToolSelectionScorer,
+    )
 
 __all__ = [
+    # Builtin scorers
     "Completeness",
     "ConversationalSafety",
     "ConversationalToolCallEfficiency",
@@ -105,6 +140,19 @@ __all__ = [
     "Safety",
     "Summarization",
     "UserFrustration",
+    # TruLens basic scorers
+    "TruLensGroundednessScorer",
+    "TruLensContextRelevanceScorer",
+    "TruLensAnswerRelevanceScorer",
+    "TruLensCoherenceScorer",
+    # TruLens agent trace scorers
+    "TruLensLogicalConsistencyScorer",
+    "TruLensExecutionEfficiencyScorer",
+    "TruLensPlanAdherenceScorer",
+    "TruLensPlanQualityScorer",
+    "TruLensToolSelectionScorer",
+    "TruLensToolCallingScorer",
+    # Base classes and utilities
     "Scorer",
     "scorer",
     "ScorerSamplingConfig",
