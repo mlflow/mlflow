@@ -12,6 +12,11 @@ class AbstractJobStore(ABC):
     Abstract class that defines API interfaces for storing Job metadata.
     """
 
+    def supports_workspaces(self) -> bool:
+        """Return whether workspaces are supported by this job store."""
+
+        return False
+
     @abstractmethod
     def create_job(self, function_fullname: str, params: str, timeout: float | None = None) -> Job:
         """

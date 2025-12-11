@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from mlflow.entities._job_status import JobStatus
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.server import (
     ARTIFACT_ROOT_ENV_VAR,
@@ -18,11 +19,28 @@ from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import _ALLOWED_JOB_FUNCTION_LIST, TransientError, get_job, job, submit_job
 from mlflow.server.jobs.utils import _launch_job_runner
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 # TODO: Remove `pytest.mark.xfail` after fixing flakiness
 pytestmark = [
     pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
 ]
+
+
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request, monkeypatch, disable_workspace_mode_by_default):
+    """
+    Run every test in this module with workspaces disabled and enabled to cover both code paths.
+    """
+    enabled = request.param
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true" if enabled else "false")
+    if enabled:
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            yield enabled
+    else:
+        yield enabled
 
 
 def _get_mlflow_repo_home():
@@ -563,9 +581,10 @@ def test_job_with_python_env(monkeypatch, tmp_path):
         assert job.status == JobStatus.SUCCEEDED
 
 
-def test_start_job_is_atomic(tmp_path: Path):
+def test_start_job_is_atomic(tmp_path: Path, workspaces_enabled):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
-    store = SqlAlchemyJobStore(backend_store_uri)
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
 
     job = store.create_job("test.function", '{"param": "value"}')
     assert job.status == JobStatus.PENDING

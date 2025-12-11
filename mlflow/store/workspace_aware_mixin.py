@@ -52,3 +52,11 @@ class WorkspaceAwareMixin:
             "Active workspace is required. Configure a default workspace or call "
             "mlflow.set_workspace() before interacting with the store."
         )
+
+    def _with_workspace_field(self, instance):
+        """
+        Populate workspace field from active workspace context.
+        """
+        if hasattr(instance, "workspace"):
+            instance.workspace = self._get_active_workspace()
+        return instance

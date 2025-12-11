@@ -10,6 +10,7 @@ from mlflow.protos.webhooks_pb2 import WebhookEntity as ProtoWebhookEntity
 from mlflow.protos.webhooks_pb2 import WebhookEvent as ProtoWebhookEvent
 from mlflow.protos.webhooks_pb2 import WebhookStatus as ProtoWebhookStatus
 from mlflow.protos.webhooks_pb2 import WebhookTestResult as ProtoWebhookTestResult
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class WebhookStatus(str, Enum):
@@ -263,6 +264,7 @@ class Webhook:
         description: str | None = None,
         status: str | WebhookStatus = WebhookStatus.ACTIVE,
         secret: str | None = None,
+        workspace: str | None = None,
     ):
         """
         Initialize a Webhook entity.
@@ -277,6 +279,7 @@ class Webhook:
             description: Optional webhook description
             status: Webhook status (ACTIVE or DISABLED)
             secret: Optional secret key for HMAC signature verification
+            workspace: Workspace the webhook belongs to
         """
         super().__init__()
         self._webhook_id = webhook_id
@@ -290,6 +293,7 @@ class Webhook:
         self._secret = secret
         self._creation_timestamp = creation_timestamp
         self._last_updated_timestamp = last_updated_timestamp
+        self._workspace = resolve_entity_workspace_name(workspace)
 
     @property
     def webhook_id(self) -> str:
@@ -327,6 +331,10 @@ class Webhook:
     def last_updated_timestamp(self) -> int:
         return self._last_updated_timestamp
 
+    @property
+    def workspace(self) -> str:
+        return self._workspace
+
     @classmethod
     def from_proto(cls, proto: ProtoWebhook) -> Self:
         return cls(
@@ -360,6 +368,7 @@ class Webhook:
             f"name='{self.name}', "
             f"url='{self.url}', "
             f"status='{self.status}', "
+            f"workspace='{self.workspace}', "
             f"events={self.events}, "
             f"creation_timestamp={self.creation_timestamp}, "
             f"last_updated_timestamp={self.last_updated_timestamp}"

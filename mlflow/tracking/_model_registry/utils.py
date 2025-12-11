@@ -1,6 +1,6 @@
 from functools import partial
 
-from mlflow.environment_variables import MLFLOW_REGISTRY_URI
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_REGISTRY_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
     DatabricksWorkspaceModelRegistryRestStore,
@@ -193,8 +193,12 @@ def _resolve_registry_uri(
 
 def _get_sqlalchemy_store(store_uri):
     from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+    from mlflow.store.model_registry.sqlalchemy_workspace_store import (
+        WorkspaceAwareSqlAlchemyStore,
+    )
 
-    return SqlAlchemyStore(store_uri)
+    store_cls = WorkspaceAwareSqlAlchemyStore if MLFLOW_ENABLE_WORKSPACES.get() else SqlAlchemyStore
+    return store_cls(store_uri)
 
 
 def _get_rest_store(store_uri, **_):
