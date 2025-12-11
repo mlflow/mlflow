@@ -8,7 +8,10 @@ import {
   type Assessment,
   type ExpectationAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
-import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../../shared/web-shared/genai-traces-table/utils/TraceUtils';
+import {
+  getSpansLocation,
+  TRACKING_STORE_SPANS_LOCATION,
+} from '../../shared/web-shared/genai-traces-table/utils/TraceUtils';
 import { getExperimentTraceV3 } from '../../shared/web-shared/model-trace-explorer/api';
 
 /**

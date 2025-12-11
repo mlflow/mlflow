@@ -52,14 +52,8 @@ export const ModelTraceExplorerDetailView = ({
   const paneRef = useRef<ModelTraceExplorerResizablePaneRef>(null);
   const [paneWidth, setPaneWidth] = useState(500);
 
-  const {
-    selectedNode,
-    setSelectedNode,
-    activeTab,
-    setActiveTab,
-    isInComparisonView,
-    topLevelNodes,
-  } = useModelTraceExplorerViewState();
+  const { selectedNode, setSelectedNode, activeTab, setActiveTab, isInComparisonView, topLevelNodes } =
+    useModelTraceExplorerViewState();
 
   const { expandedKeys, setExpandedKeys } = useTimelineTreeExpandedNodes({
     rootNodes: topLevelNodes,
