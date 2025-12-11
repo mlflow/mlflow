@@ -230,7 +230,7 @@ def _get_input_schema(task, content):
 
 
 @deprecated(
-    alternative=("mlflow.genai.register_prompt"),
+    alternative="mlflow.genai.register_prompt",
     since="3.8.0",
 )
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -432,7 +432,7 @@ def save_model(
 
 
 @deprecated(
-    alternative=("mlflow.genai.register_prompt"),
+    alternative="mlflow.genai.register_prompt",
     since="3.8.0",
 )
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
