@@ -22,6 +22,7 @@ class GatewaySecretInfo(_MlflowObject):
         created_at: Timestamp (milliseconds) when the secret was created.
         last_updated_at: Timestamp (milliseconds) when the secret was last updated.
         provider: LLM provider this secret is for (e.g., "openai", "anthropic").
+        credential_name: Credential identifier for display (e.g., "api_key", "access_keys").
         auth_config: Provider-specific configuration (e.g., region, project_id).
             This is non-sensitive metadata useful for UI disambiguation.
         created_by: User ID who created the secret.
@@ -34,6 +35,7 @@ class GatewaySecretInfo(_MlflowObject):
     created_at: int
     last_updated_at: int
     provider: str | None = None
+    credential_name: str | None = None
     auth_config: dict[str, Any] | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
@@ -47,6 +49,8 @@ class GatewaySecretInfo(_MlflowObject):
         proto.last_updated_at = self.last_updated_at
         if self.provider is not None:
             proto.provider = self.provider
+        if self.credential_name is not None:
+            proto.credential_name = self.credential_name
         if self.auth_config is not None:
             proto.auth_config_json = json.dumps(self.auth_config)
         if self.created_by is not None:
@@ -67,6 +71,7 @@ class GatewaySecretInfo(_MlflowObject):
             created_at=proto.created_at,
             last_updated_at=proto.last_updated_at,
             provider=proto.provider or None,
+            credential_name=proto.credential_name or None,
             auth_config=auth_config,
             created_by=proto.created_by or None,
             last_updated_by=proto.last_updated_by or None,
