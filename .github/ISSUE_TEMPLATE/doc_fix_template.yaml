@@ -13,6 +13,9 @@ body:
         - ✅ **Documentation pages** under https://mlflow.org/docs (API reference, tutorials, how-to guides) — you're in the right place!
         - ❌ **Main website content** (blog posts, marketing pages, other site content) — please file at https://github.com/mlflow/mlflow-website/issues instead
 
+        **Important note about documentation branches:**
+        The production documentation at https://mlflow.org/docs/latest/ is built from the **release branch** (e.g., `branch-3.7`), not `master`. If you notice a discrepancy between the live docs and the source code on `master`, the fix may already exist on `master`. You can verify this by checking the preview site at https://dev--mlflow-docs-preview.netlify.app/docs/latest which is built from `master`.
+
         **Please fill in this documentation issue template to ensure a timely and thorough response.**
   - type: dropdown
     id: contribution

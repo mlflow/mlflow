@@ -42,6 +42,7 @@ from mlflow.entities import (
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
     GatewayModelDefinition,
+    GatewayResourceType,
     GatewaySecretInfo,
     InputTag,
     Metric,
@@ -2424,7 +2425,7 @@ class SqlGatewayEndpointBinding(Base):
     def to_mlflow_entity(self):
         return GatewayEndpointBinding(
             endpoint_id=self.endpoint_id,
-            resource_type=self.resource_type,
+            resource_type=GatewayResourceType(self.resource_type),
             resource_id=self.resource_id,
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,

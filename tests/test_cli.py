@@ -87,6 +87,8 @@ def test_server_uvicorn_options():
             app_name=None,
             uvicorn_opts=None,
             env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
         )
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
@@ -109,6 +111,8 @@ def test_server_uvicorn_options():
             app_name=None,
             uvicorn_opts="--loop asyncio --limit-concurrency 100",
             env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
         )
 
 
@@ -134,6 +138,8 @@ def test_server_dev_mode():
             app_name=None,
             uvicorn_opts="--reload --log-level debug",
             env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
         )
 
 
@@ -159,6 +165,8 @@ def test_server_gunicorn_options():
             app_name=None,
             uvicorn_opts=None,
             env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
         )
 
     # Test conflicting options

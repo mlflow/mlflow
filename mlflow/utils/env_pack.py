@@ -173,6 +173,11 @@ def pack_env_for_databricks_model_serving(
         temp_artifacts_dir.mkdir(exist_ok=False)
         _tar(local_artifacts_dir, temp_artifacts_dir / _MODEL_VERSION_TAR)
         _tar(Path(sys.prefix), temp_artifacts_dir / _MODEL_ENVIRONMENT_TAR)
+
+        # Remove existing _databricks directory if present (e.g., from previous registration)
+        target_path = local_artifacts_dir / _ARTIFACT_PATH
+        if target_path.exists():
+            shutil.rmtree(target_path)
         shutil.move(str(temp_artifacts_dir), local_artifacts_dir)
 
         yield str(local_artifacts_dir)

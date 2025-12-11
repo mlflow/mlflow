@@ -13,6 +13,7 @@ from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Completeness,
     ConversationalSafety,
+    ConversationalToolCallEfficiency,
     ConversationCompleteness,
     Correctness,
     Equivalence,
@@ -23,6 +24,7 @@ from mlflow.genai.scorers import (
     RetrievalRelevance,
     RetrievalSufficiency,
     Safety,
+    Summarization,
     UserFrustration,
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
@@ -578,7 +580,7 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    # Now we have 9 scorers for OSS (added Completeness) and 11 for Databricks
+    # Now we have 9 scorers for OSS and 11 for Databricks
     assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
@@ -1547,3 +1549,126 @@ def test_conversational_safety_instructions():
     assert "conversation" in instructions.lower()
     assert "assistant" in instructions.lower()
     assert "safety" in instructions.lower()
+
+
+def test_conversational_tool_call_efficiency_with_session():
+    session_id = "test_session_efficiency"
+    traces = []
+    for i, (question, stock, stock_price) in enumerate(
+        [
+            ("What is the price of AAPL?", "AAPL", "150"),
+            ("How about MSFT?", "MSFT", "300"),
+        ]
+    ):
+        answer = f"{stock} is ${stock_price}."
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+
+            with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool_span:
+                tool_span.set_inputs({"symbol": stock})
+                tool_span.set_outputs(f"${stock_price}")
+
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.InstructionsJudge.__call__"
+    ) as mock_judge_call:
+        mock_judge_call.return_value = Feedback(
+            name="conversational_tool_call_efficiency",
+            value=CategoricalRating.YES,
+            rationale="Efficient tool usage across session",
+        )
+
+        scorer = ConversationalToolCallEfficiency()
+        result = scorer(session=traces)
+
+        assert result.name == "conversational_tool_call_efficiency"
+        assert result.value == CategoricalRating.YES
+        mock_judge_call.assert_called_once()
+
+
+def test_conversational_tool_call_efficiency_get_input_fields():
+    scorer = ConversationalToolCallEfficiency()
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_conversational_tool_call_efficiency_instructions():
+    scorer = ConversationalToolCallEfficiency()
+    instructions = scorer.instructions
+    assert "tool" in instructions.lower()
+    assert "efficient" in instructions.lower() or "redundant" in instructions.lower()
+
+
+def test_session_level_scorer_with_invalid_kwargs():
+    scorer = UserFrustration()
+
+    with pytest.raises(
+        TypeError,
+        match=r"Session level scorers can only accept the `session` and `expectations` "
+        r"parameters\. Got unexpected keyword argument\(s\): 'trace'",
+    ):
+        scorer(trace=create_simple_trace())
+
+    with pytest.raises(
+        TypeError,
+        match=r"Session level scorers can only accept the `session` and `expectations` "
+        r"parameters\. Got unexpected keyword argument\(s\): 'outputs'",
+    ):
+        scorer(outputs="some output")
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name", "rationale"),
+    [
+        (None, None, "summarization", "Good summary"),
+        ("custom_summarization_check", "openai:/gpt-4", "custom_summarization_check", "Excellent"),
+    ],
+)
+def test_summarization_with_inputs_outputs(name, model, expected_name, rationale):
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale=rationale),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = Summarization(**kwargs)
+        result = scorer(
+            inputs={
+                "text": (
+                    "MLflow is an open-source platform for managing the end-to-end machine "
+                    "learning lifecycle. It provides tools for experiment tracking, model "
+                    "packaging, and deployment."
+                )
+            },
+            outputs="MLflow is an ML lifecycle management platform.",
+        )
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == rationale
+        mock_invoke_judge.assert_called_once()
+
+
+def test_summarization_with_trace():
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name="summarization", value="yes", rationale="Accurate summary"),
+    ) as mock_invoke_judge:
+        trace = create_simple_trace(
+            inputs={"question": "Summarize MLflow"},
+            outputs="MLflow is an open-source platform for managing ML workflows.",
+        )
+        scorer = Summarization()
+        result = scorer(trace=trace)
+
+        assert result.name == "summarization"
+        assert result.value == "yes"
+        assert result.rationale == "Accurate summary"
+        mock_invoke_judge.assert_called_once()

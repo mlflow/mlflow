@@ -303,3 +303,54 @@ def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path,
         ):
             with env_pack.pack_env_for_databricks_model_serving("models:/test-model/1"):
                 pass
+
+
+def test_pack_env_for_databricks_model_serving_handles_existing_databricks_dir(
+    tmp_path, mock_dbr_version
+):
+    # Mock download_artifacts to return a path
+    mock_artifacts_dir = tmp_path / "artifacts"
+    mock_artifacts_dir.mkdir()
+    (mock_artifacts_dir / "requirements.txt").write_text("numpy==1.21.0")
+
+    # Create MLmodel file with correct runtime version
+    mlmodel_path = mock_artifacts_dir / "MLmodel"
+    mlmodel_path.write_text(
+        yaml.dump(
+            {
+                "databricks_runtime": "client.2.0",
+                "flavors": {"python_function": {"model_path": "model.pkl"}},
+            }
+        )
+    )
+
+    # Simulate existing _databricks directory from previous registration
+    existing_databricks_dir = mock_artifacts_dir / env_pack._ARTIFACT_PATH
+    existing_databricks_dir.mkdir()
+    (existing_databricks_dir / "old_file.txt").write_text("old content")
+
+    # Create a mock environment directory
+    mock_env_dir = tmp_path / "mock_env"
+    venv.create(mock_env_dir, with_pip=True)
+
+    with (
+        mock.patch(
+            "mlflow.utils.env_pack.download_artifacts",
+            return_value=str(mock_artifacts_dir),
+        ),
+        mock.patch("sys.prefix", str(mock_env_dir)),
+    ):
+        # This should succeed even though _databricks directory already exists
+        with env_pack.pack_env_for_databricks_model_serving(
+            "models:/test-model/1", enforce_pip_requirements=False
+        ) as artifacts_dir:
+            # Verify artifacts directory exists and contains expected files
+            artifacts_path = Path(artifacts_dir)
+            assert artifacts_path.exists()
+            databricks_path = artifacts_path / env_pack._ARTIFACT_PATH
+            assert databricks_path.exists()
+            assert (databricks_path / env_pack._MODEL_VERSION_TAR).exists()
+            assert (databricks_path / env_pack._MODEL_ENVIRONMENT_TAR).exists()
+
+            # Verify old file is gone (directory was replaced, not merged)
+            assert not (databricks_path / "old_file.txt").exists()

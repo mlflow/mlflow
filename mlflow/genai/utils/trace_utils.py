@@ -1,3 +1,6 @@
+import asyncio
+import functools
+import inspect
 import json
 import logging
 import math
@@ -12,9 +15,11 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT,
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
@@ -149,18 +154,61 @@ def resolve_outputs_from_trace(
     return outputs
 
 
+def parse_tool_calls_from_trace(trace: Trace) -> list[dict[str, str]]:
+    """
+    Extract and format tool call information from TOOL type spans in a trace.
+
+    This function extracts tool spans (spans with span_type==SpanType.TOOL) from a trace
+    and formats them as conversation messages with role='tool'. Each tool message includes
+    the tool name, inputs, and outputs.
+
+    Args:
+        trace: A single Trace object to extract tool calls from.
+
+    Returns:
+        List of tool call messages in the format [{"role": "tool", "content": str}].
+        Tool content includes the tool name, inputs, and outputs formatted as a string.
+        Returns empty list if no tool spans are found.
+
+    Example:
+        >>> trace = mlflow.get_trace(trace_id)
+        >>> tool_messages = parse_tool_calls_from_trace(trace)
+        >>> # Returns: [{"role": "tool", "content": "Tool: name\\nInputs: ...\\nOutputs: ..."}]
+    """
+
+    tool_messages = []
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
+        tool_info = f"Tool: {tool_span.name}"
+        if tool_span.inputs:
+            tool_info += f"\nInputs: {tool_span.inputs}"
+        if tool_span.outputs:
+            tool_info += f"\nOutputs: {tool_span.outputs}"
+        tool_messages.append({"role": "tool", "content": tool_info})
+
+    return tool_messages
+
+
 def resolve_conversation_from_session(
     session: list[Trace],
+    *,
+    include_tool_calls: bool = False,
 ) -> list[dict[str, str]]:
     """
     Extract conversation history from traces in session.
 
     Args:
         session: List of traces from the same session.
+        include_tool_calls: If True, include tool call information from TOOL type spans
+                           in the conversation. Default is False for backward compatibility.
 
     Returns:
-        List of conversation messages in the format [{"role": "user"|"assistant", "content": str}].
-        Each trace contributes two messages: user (from input) and assistant (from output).
+        List of conversation messages in the format:
+        [{"role": "user"|"assistant"|"tool", "content": str}].
+        Each trace contributes user input and assistant output messages.
+        If include_tool_calls is True, tool call messages (with inputs/outputs)
+        are also included in chronological order.
     """
     # Sort traces by creation time (timestamp_ms)
     sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
@@ -172,6 +220,11 @@ def resolve_conversation_from_session(
             user_content = parse_inputs_to_str(inputs)
             if user_content and user_content.strip():
                 conversation.append({"role": "user", "content": user_content})
+
+        # Extract tool calls from TOOL type spans (if requested)
+        if include_tool_calls:
+            tool_messages = parse_tool_calls_from_trace(trace)
+            conversation.extend(tool_messages)
 
         # Extract and parse output (assistant message)
         if outputs := extract_outputs_from_trace(trace):
@@ -243,10 +296,54 @@ def extract_expectations_from_trace(
     return {exp.name: exp.expectation.value for exp in expectation_assessments}
 
 
+def _wrap_async_predict_fn(async_fn: Callable[..., Any]) -> Callable[..., Any]:
+    """
+    Wrap an async function to make it synchronous using asyncio.run with timeout.
+
+    Args:
+        async_fn: The async function to wrap
+
+    Returns:
+        A synchronous wrapper function that calls the async function with timeout
+    """
+    timeout = MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()
+
+    @functools.wraps(async_fn)
+    def sync_wrapper(*args, **kwargs):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            try:
+                import nest_asyncio
+
+                nest_asyncio.apply()
+            except ImportError:
+                raise MlflowException(
+                    "Detected a running event loop (e.g., in Jupyter notebook). "
+                    "To use async predict functions in notebook environments, "
+                    "install nest-asyncio: pip install nest-asyncio"
+                )
+
+        return asyncio.run(asyncio.wait_for(async_fn(*args, **kwargs), timeout=timeout))
+
+    return sync_wrapper
+
+
 def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
+    If the predict_fn is an async function, wrap it to make it synchronous.
     """
+    # Detect if predict_fn is an async function and wrap it
+    if inspect.iscoroutinefunction(predict_fn):
+        _logger.debug(
+            f"Detected async predict_fn. Wrapping with asyncio.run() with timeout of "
+            f"{MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()} seconds."
+        )
+        predict_fn = _wrap_async_predict_fn(predict_fn)
     if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get():
         with (
             NoOpTracerPatcher() as counter,
