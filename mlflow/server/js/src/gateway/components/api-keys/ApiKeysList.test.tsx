@@ -4,11 +4,13 @@ import { ApiKeysList } from './ApiKeysList';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useBindingsQuery } from '../../hooks/useBindingsQuery';
+import { useModelDefinitionsQuery } from '../../hooks/useModelDefinitionsQuery';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../hooks/useSecretsQuery');
 jest.mock('../../hooks/useEndpointsQuery');
 jest.mock('../../hooks/useBindingsQuery');
+jest.mock('../../hooks/useModelDefinitionsQuery');
 
 const mockSecrets = [
   {
@@ -44,8 +46,21 @@ const mockEndpoints = [
         created_at: Date.now(),
       },
     ],
-    created_at: Date.now(),
-    last_updated_at: Date.now(),
+    created_at: Date.now() / 1000,
+    last_updated_at: Date.now() / 1000,
+  },
+];
+
+const mockModelDefinitions = [
+  {
+    model_definition_id: 'md-1',
+    name: 'test-model',
+    secret_id: 's-123',
+    secret_name: 'openai-key',
+    provider: 'openai',
+    model_name: 'gpt-4',
+    created_at: Date.now() / 1000,
+    last_updated_at: Date.now() / 1000,
   },
 ];
 
@@ -53,6 +68,12 @@ describe('ApiKeysList', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(useBindingsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
       data: [],
       isLoading: false,
       error: undefined,
@@ -68,6 +89,12 @@ describe('ApiKeysList', () => {
       refetch: jest.fn(),
     } as any);
     jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
       data: undefined,
       isLoading: true,
       error: undefined,
@@ -162,14 +189,14 @@ describe('ApiKeysList', () => {
       </MemoryRouter>,
     );
 
-    const searchInput = screen.getByPlaceholderText('Search keys');
+    const searchInput = screen.getByPlaceholderText('Search API Keys');
     await userEvent.type(searchInput, 'anthropic');
 
     expect(screen.getByText('anthropic-key')).toBeInTheDocument();
     expect(screen.queryByText('openai-key')).not.toBeInTheDocument();
   });
 
-  test('shows endpoint count for secrets', () => {
+  test('shows model count for secrets', () => {
     jest.mocked(useSecretsQuery).mockReturnValue({
       data: mockSecrets,
       isLoading: false,
@@ -178,6 +205,12 @@ describe('ApiKeysList', () => {
     } as any);
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: mockEndpoints,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
+      data: mockModelDefinitions,
       isLoading: false,
       error: undefined,
       refetch: jest.fn(),

@@ -20,7 +20,7 @@ export const useEndpointsQuery = ({ provider }: { provider?: string } = {}) => {
   );
 
   return {
-    data: queryResult.data?.endpoints,
+    data: queryResult.data?.endpoints ?? [],
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
     refetch: queryResult.refetch,

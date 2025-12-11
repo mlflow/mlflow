@@ -3,10 +3,12 @@ import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.
 import { EndpointsList } from './EndpointsList';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useDeleteEndpointMutation } from '../../hooks/useDeleteEndpointMutation';
+import { useBindingsQuery } from '../../hooks/useBindingsQuery';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../hooks/useEndpointsQuery');
 jest.mock('../../hooks/useDeleteEndpointMutation');
+jest.mock('../../hooks/useBindingsQuery');
 
 const mockEndpoints = [
   {
@@ -41,6 +43,10 @@ describe('EndpointsList', () => {
     jest.clearAllMocks();
     jest.mocked(useDeleteEndpointMutation).mockReturnValue({
       mutate: jest.fn(),
+      isLoading: false,
+    } as any);
+    jest.mocked(useBindingsQuery).mockReturnValue({
+      data: [],
       isLoading: false,
     } as any);
   });
@@ -99,6 +105,7 @@ describe('EndpointsList', () => {
 
   test('filters endpoints by search', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
+    const { waitFor } = await import('@testing-library/react');
 
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: [
@@ -140,10 +147,13 @@ describe('EndpointsList', () => {
       </MemoryRouter>,
     );
 
-    const searchInput = screen.getByPlaceholderText('Filter endpoints by name');
+    const searchInput = screen.getByPlaceholderText('Search Endpoints');
     await userEvent.type(searchInput, 'another');
 
+    // Wait for debounce (250ms) to complete
+    await waitFor(() => {
+      expect(screen.queryByText('test-endpoint')).not.toBeInTheDocument();
+    });
     expect(screen.getByText('another-endpoint')).toBeInTheDocument();
-    expect(screen.queryByText('test-endpoint')).not.toBeInTheDocument();
   });
 });

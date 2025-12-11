@@ -1,19 +1,22 @@
 import { useForm } from 'react-hook-form';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import { useQuery, useMutation, useQueryClient } from '../../common/utils/reactQueryHooks';
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import { GatewayApi } from '../api';
 import { useCreateSecretMutation } from './useCreateSecretMutation';
 import { useEndpointsQuery } from './useEndpointsQuery';
-import { useSecretsQuery } from './useSecretsQuery';
-import { useModelsQuery } from './useModelsQuery';
+import { useModelDefinitionsQuery } from './useModelDefinitionsQuery';
 import GatewayRoutes from '../routes';
 import type { SecretMode } from '../components/secrets/SecretConfigSection';
-import type { Endpoint } from '../types';
+import type { Endpoint, ModelDefinition } from '../types';
+
+type ModelDefinitionMode = 'new' | 'existing';
 
 export interface EditEndpointFormData {
   name: string;
   provider: string;
+  modelDefinitionMode: ModelDefinitionMode;
+  existingModelDefinitionId: string;
   modelName: string;
   secretMode: SecretMode;
   existingSecretId: string;
@@ -41,7 +44,9 @@ const isUniqueConstraintError = (message: string): boolean => {
     lowerMessage.includes('violation of unique key constraint') ||
     // Generic patterns
     lowerMessage.includes('uniqueviolation') ||
-    lowerMessage.includes('integrityerror')
+    lowerMessage.includes('integrityerror') ||
+    // User-friendly message from backend
+    lowerMessage.includes('already exists')
   );
 };
 
@@ -55,7 +60,11 @@ const isEndpointNameError = (message: string): boolean => {
 
 const isSecretNameError = (message: string): boolean => {
   const lowerMessage = message.toLowerCase();
-  return lowerMessage.includes('secrets.secret_name') || lowerMessage.includes('secret_name');
+  return (
+    lowerMessage.includes('secrets.secret_name') ||
+    lowerMessage.includes('secret_name') ||
+    lowerMessage.includes('secret with name')
+  );
 };
 
 /**
@@ -83,6 +92,14 @@ export const getReadableErrorMessage = (error: Error | null): string | null => {
   }
 
   return message;
+};
+
+/**
+ * Check if an error is a secret name conflict
+ */
+const isSecretNameConflict = (error: unknown): boolean => {
+  const errorMessage = (error as Error)?.message ?? '';
+  return isUniqueConstraintError(errorMessage) && isSecretNameError(errorMessage);
 };
 
 const useEndpointQuery = (endpointId: string) => {
@@ -134,10 +151,11 @@ export interface UseEditEndpointFormResult {
   resetErrors: () => void;
   // Data
   endpoint: Endpoint | undefined;
-  selectedModel: ReturnType<typeof useModelsQuery>['data'] extends (infer T)[] | undefined ? T | undefined : never;
-  selectedSecretName: string | undefined;
+  selectedModelDefinition: ModelDefinition | undefined;
+  hasProviderModelDefinitions: boolean;
   // Computed state
   isFormComplete: boolean;
+  hasChanges: boolean;
   // Handlers
   handleSubmit: (values: EditEndpointFormData) => Promise<void>;
   handleCancel: () => void;
@@ -150,6 +168,7 @@ export interface UseEditEndpointFormResult {
  */
 export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResult {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Fetch endpoint data
   const { data: endpointData, isLoading: isLoadingEndpoint, error: loadError } = useEndpointQuery(endpointId);
@@ -161,6 +180,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     defaultValues: {
       name: '',
       provider: '',
+      modelDefinitionMode: 'new',
+      existingModelDefinitionId: '',
       modelName: '',
       secretMode: 'existing',
       existingSecretId: '',
@@ -179,6 +200,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       form.reset({
         name: endpoint.name ?? '',
         provider: primaryModelDef.provider ?? '',
+        modelDefinitionMode: 'new',
+        existingModelDefinitionId: '',
         modelName: primaryModelDef.model_name ?? '',
         secretMode: 'existing',
         existingSecretId: primaryModelDef.secret_id ?? '',
@@ -191,6 +214,28 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       });
     }
   }, [endpoint, primaryModelDef, form]);
+
+  // Fetch model definitions for the selected provider
+  const { data: allModelDefinitions } = useModelDefinitionsQuery();
+  const provider = form.watch('provider');
+  const existingModelDefinitionId = form.watch('existingModelDefinitionId');
+  const modelDefinitionMode = form.watch('modelDefinitionMode');
+
+  // Filter model definitions for current provider (exclude the one currently attached to this endpoint)
+  const providerModelDefinitions = useMemo(() => {
+    if (!allModelDefinitions || !provider) return [];
+    return allModelDefinitions.filter(
+      (md) => md.provider === provider && md.model_definition_id !== primaryModelDef?.model_definition_id,
+    );
+  }, [allModelDefinitions, provider, primaryModelDef?.model_definition_id]);
+
+  const hasProviderModelDefinitions = providerModelDefinitions.length > 0;
+
+  // Find the selected model definition
+  const selectedModelDefinition = useMemo(() => {
+    if (!existingModelDefinitionId || !allModelDefinitions) return undefined;
+    return allModelDefinitions.find((md) => md.model_definition_id === existingModelDefinitionId);
+  }, [existingModelDefinitionId, allModelDefinitions]);
 
   // Mutations
   const {
@@ -214,14 +259,75 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     reset: resetSecretError,
   } = useCreateSecretMutation();
 
+  // Custom error state for handling special cases like secret name conflicts
+  const [customError, setCustomError] = useState<Error | null>(null);
+
   const resetErrors = useCallback(() => {
     resetEndpointError();
     resetModelDefError();
     resetSecretError();
+    setCustomError(null);
   }, [resetEndpointError, resetModelDefError, resetSecretError]);
 
   const isSubmitting = isUpdatingEndpoint || isUpdatingModelDef || isCreatingSecret;
-  const mutationError = (updateEndpointError || updateModelDefError || createSecretError) as Error | null;
+  const mutationError = (customError ||
+    updateEndpointError ||
+    updateModelDefError ||
+    createSecretError) as Error | null;
+
+  /**
+   * Resolves the secret ID to use - either existing or creates a new one.
+   * Returns null if a name conflict was handled and the user needs to retry.
+   */
+  const resolveSecretId = useCallback(
+    async (values: EditEndpointFormData): Promise<string | null> => {
+      if (values.secretMode !== 'new') {
+        return values.existingSecretId;
+      }
+
+      // Serialize secret fields as JSON for the secret value
+      const secretValue = JSON.stringify(values.newSecret.secretFields);
+      // Build auth_config with auth_mode included
+      const authConfig: Record<string, any> = { ...values.newSecret.configFields };
+      if (values.newSecret.authMode) {
+        authConfig['auth_mode'] = values.newSecret.authMode;
+      }
+      const authConfigJson = Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined;
+
+      try {
+        const secretResponse = await createSecret({
+          secret_name: values.newSecret.name,
+          secret_value: secretValue,
+          provider: values.provider,
+          auth_config_json: authConfigJson,
+        });
+        return (secretResponse as { secret: { secret_id: string } }).secret.secret_id;
+      } catch (secretError) {
+        if (!isSecretNameConflict(secretError)) {
+          throw secretError;
+        }
+        // Handle secret name conflict by finding and selecting the existing secret
+        const secretsResponse = await GatewayApi.listSecrets(values.provider);
+        const existingSecret = secretsResponse.secrets?.find((s) => s.secret_name === values.newSecret.name);
+        if (!existingSecret) {
+          throw secretError;
+        }
+        form.setValue('secretMode', 'existing');
+        form.setValue('existingSecretId', existingSecret.secret_id);
+        form.setValue('newSecret', { name: '', authMode: '', secretFields: {}, configFields: {} });
+        queryClient.invalidateQueries(['gateway_secrets']);
+        resetSecretError();
+        setCustomError(
+          new Error(
+            `An API key named "${values.newSecret.name}" already exists. ` +
+              `It has been selected for you. Please click Save again to continue.`,
+          ),
+        );
+        return null;
+      }
+    },
+    [createSecret, form, queryClient, resetSecretError],
+  );
 
   const handleSubmit = useCallback(
     async (values: EditEndpointFormData) => {
@@ -233,41 +339,41 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           await updateEndpoint({ endpointId: endpoint.endpoint_id, name: values.name || undefined });
         }
 
-        // Determine the secret ID to use
-        let secretId = values.existingSecretId;
-        if (values.secretMode === 'new') {
-          // Serialize secret fields as JSON for the secret value
-          const secretValue = JSON.stringify(values.newSecret.secretFields);
-          // Build auth_config with auth_mode included
-          const authConfig: Record<string, any> = { ...values.newSecret.configFields };
-          if (values.newSecret.authMode) {
-            authConfig['auth_mode'] = values.newSecret.authMode;
+        // Handle existing model definition mode - swap model definitions
+        if (values.modelDefinitionMode === 'existing' && values.existingModelDefinitionId) {
+          // Only swap if selecting a different model definition
+          if (values.existingModelDefinitionId !== primaryModelDef.model_definition_id) {
+            // Detach current model definition and attach the selected one
+            await GatewayApi.detachModelFromEndpoint({
+              endpoint_id: endpoint.endpoint_id,
+              model_definition_id: primaryModelDef.model_definition_id,
+            });
+            await GatewayApi.attachModelToEndpoint({
+              endpoint_id: endpoint.endpoint_id,
+              model_definition_id: values.existingModelDefinitionId,
+            });
           }
-          const authConfigJson = Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined;
+        } else {
+          // Handle new/modified model definition mode
+          const secretId = await resolveSecretId(values);
+          if (secretId === null) {
+            return; // User was notified about conflict, exit early
+          }
 
-          const secretResponse = await createSecret({
-            secret_name: values.newSecret.name,
-            secret_value: secretValue,
-            provider: values.provider,
-            auth_config_json: authConfigJson,
-          });
+          // Update model definition if provider, model name, or secret changed
+          const modelDefChanged =
+            values.provider !== primaryModelDef.provider ||
+            values.modelName !== primaryModelDef.model_name ||
+            secretId !== primaryModelDef.secret_id;
 
-          secretId = (secretResponse as { secret: { secret_id: string } }).secret.secret_id;
-        }
-
-        // Update model definition if provider, model name, or secret changed
-        const modelDefChanged =
-          values.provider !== primaryModelDef.provider ||
-          values.modelName !== primaryModelDef.model_name ||
-          secretId !== primaryModelDef.secret_id;
-
-        if (modelDefChanged) {
-          await updateModelDefinition({
-            modelDefinitionId: primaryModelDef.model_definition_id,
-            secretId: secretId,
-            provider: values.provider,
-            modelName: values.modelName,
-          });
+          if (modelDefChanged) {
+            await updateModelDefinition({
+              modelDefinitionId: primaryModelDef.model_definition_id,
+              secretId: secretId,
+              provider: values.provider,
+              modelName: values.modelName,
+            });
+          }
         }
 
         navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id));
@@ -275,7 +381,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
         // Error is captured by the mutation's error state and displayed via the Alert component
       }
     },
-    [endpoint, primaryModelDef, updateEndpoint, createSecret, updateModelDefinition, navigate],
+    [endpoint, primaryModelDef, updateEndpoint, updateModelDefinition, navigate, resolveSecretId],
   );
 
   const handleCancel = useCallback(() => {
@@ -283,7 +389,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   }, [navigate, endpointId]);
 
   // Watch form values for computing isFormComplete
-  const provider = form.watch('provider');
   const modelName = form.watch('modelName');
   const secretMode = form.watch('secretMode');
   const existingSecretId = form.watch('existingSecretId');
@@ -292,22 +397,77 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
 
   // Check if the form is complete enough to enable the Save button
   const isFormComplete = useMemo(() => {
+    // Existing model definition mode: just need to select one
+    if (modelDefinitionMode === 'existing') {
+      return Boolean(existingModelDefinitionId);
+    }
+
+    // New model definition mode: need provider, model, and secret
     const hasSecretFieldValues = Object.values(newSecretFields || {}).some((v) => Boolean(v));
     const isSecretConfigured =
       secretMode === 'existing' ? Boolean(existingSecretId) : Boolean(newSecretName) && hasSecretFieldValues;
     return Boolean(provider) && Boolean(modelName) && isSecretConfigured;
-  }, [secretMode, existingSecretId, newSecretName, newSecretFields, provider, modelName]);
+  }, [
+    modelDefinitionMode,
+    existingModelDefinitionId,
+    secretMode,
+    existingSecretId,
+    newSecretName,
+    newSecretFields,
+    provider,
+    modelName,
+  ]);
+
+  // Watch the name field for hasChanges computation
+  const name = form.watch('name');
+
+  // Check if anything has changed from the original values
+  const hasChanges = useMemo(() => {
+    if (!endpoint || !primaryModelDef) return false;
+
+    const originalName = endpoint.name ?? '';
+
+    // Check if name changed
+    if (name !== originalName) return true;
+
+    // Existing model definition mode: check if a different model definition is selected
+    if (modelDefinitionMode === 'existing') {
+      return Boolean(existingModelDefinitionId) && existingModelDefinitionId !== primaryModelDef.model_definition_id;
+    }
+
+    // New model definition mode: check provider, model, or secret changes
+    const originalProvider = primaryModelDef.provider ?? '';
+    const originalModelName = primaryModelDef.model_name ?? '';
+    const originalSecretId = primaryModelDef.secret_id ?? '';
+
+    // Check if creating a new secret (always a change)
+    if (secretMode === 'new') {
+      const hasNewSecretData = Boolean(newSecretName) || Object.values(newSecretFields || {}).some((v) => Boolean(v));
+      if (hasNewSecretData) return true;
+    }
+
+    // Check if any field has changed
+    return (
+      provider !== originalProvider ||
+      modelName !== originalModelName ||
+      (secretMode === 'existing' && existingSecretId !== originalSecretId)
+    );
+  }, [
+    endpoint,
+    primaryModelDef,
+    name,
+    modelDefinitionMode,
+    existingModelDefinitionId,
+    provider,
+    modelName,
+    secretMode,
+    existingSecretId,
+    newSecretName,
+    newSecretFields,
+  ]);
 
   // Fetch existing endpoints to check for name conflicts on blur
   const { data: existingEndpoints } = useEndpointsQuery();
-
-  // Get the selected model's full data for the summary
-  const { data: models } = useModelsQuery({ provider: provider || undefined });
-  const selectedModel = models?.find((m) => m.model === modelName);
-
-  // Get secrets for the selected provider to find the selected secret name
-  const { data: providerSecrets } = useSecretsQuery({ provider: provider || undefined });
-  const selectedSecretName = providerSecrets?.find((s) => s.secret_id === existingSecretId)?.secret_name;
 
   const handleNameBlur = useCallback(() => {
     const name = form.getValues('name');
@@ -329,9 +489,10 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     mutationError,
     resetErrors,
     endpoint,
-    selectedModel,
-    selectedSecretName,
+    selectedModelDefinition,
+    hasProviderModelDefinitions,
     isFormComplete,
+    hasChanges,
     handleSubmit,
     handleCancel,
     handleNameBlur,

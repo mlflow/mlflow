@@ -1,4 +1,4 @@
-import { Input, FormUI, useDesignSystemTheme, Radio } from '@databricks/design-system';
+import { Input, FormUI, Spinner, useDesignSystemTheme, Radio } from '@databricks/design-system';
 import { useEffect, useMemo, useCallback, useRef } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
@@ -41,7 +41,7 @@ export const SecretFormFields = ({
 }: SecretFormFieldsProps) => {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
-  const { data: providerConfig } = useProviderConfigQuery({ provider });
+  const { data: providerConfig, isLoading } = useProviderConfigQuery({ provider });
 
   // Memoize authModes to ensure stable reference for dependent useMemo
   const authModes = useMemo(() => providerConfig?.auth_modes ?? [], [providerConfig?.auth_modes]);
@@ -54,7 +54,9 @@ export const SecretFormFields = ({
   const selectedAuthMode = useMemo((): AuthMode | undefined => {
     if (!authModes.length) return undefined;
     if (value.authMode) {
-      return authModes.find((m) => m.mode === value.authMode);
+      const matched = authModes.find((m) => m.mode === value.authMode);
+      if (matched) return matched;
+      // If authMode doesn't match any mode (e.g., display name vs mode key), fall through to default
     }
     // Fall back to default mode
     return authModes.find((m) => m.mode === providerConfig?.default_mode) ?? authModes[0];
@@ -117,9 +119,17 @@ export const SecretFormFields = ({
     return (
       <div css={{ color: theme.colors.textSecondary }}>
         <FormattedMessage
-          defaultMessage="Select a provider to configure secret"
-          description="Message when no provider selected for secret form"
+          defaultMessage="Select a provider to configure API key"
+          description="Message when no provider selected for API key form"
         />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.lg }}>
+        <Spinner size="small" />
       </div>
     );
   }
@@ -129,7 +139,7 @@ export const SecretFormFields = ({
       {!hideNameField && (
         <div>
           <FormUI.Label htmlFor={`${componentIdPrefix}.name`}>
-            <FormattedMessage defaultMessage="Secret name" description="Label for secret name input" />
+            <FormattedMessage defaultMessage="API key name" description="Label for API key name input" />
           </FormUI.Label>
           <Input
             id={`${componentIdPrefix}.name`}
