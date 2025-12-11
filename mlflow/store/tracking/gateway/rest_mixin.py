@@ -134,6 +134,7 @@ class RestGatewayStoreMixin:
         self,
         secret_id: str,
         secret_value: str | None = None,
+        credential_name: str | None = None,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -143,6 +144,7 @@ class RestGatewayStoreMixin:
         Args:
             secret_id: The unique identifier of the secret to update.
             secret_value: Optional new secret value for key rotation.
+            credential_name: Optional credential/auth mode name to update.
             auth_config: Optional dict with authentication configuration.
             updated_by: Optional identifier of the user updating the secret.
 
@@ -154,6 +156,7 @@ class RestGatewayStoreMixin:
             UpdateGatewaySecret(
                 secret_id=secret_id,
                 secret_value=secret_value or "",
+                credential_name=credential_name,
                 auth_config_json=auth_config_json,
                 updated_by=updated_by,
             )

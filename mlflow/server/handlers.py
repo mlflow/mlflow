@@ -146,6 +146,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetScorer,
+    GetSecretsConfig,
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
@@ -3874,6 +3875,8 @@ def _create_secret():
             "created_by": [_assert_string],
         },
     )
+    # Parse secret_value JSON string to dict (frontend sends JSON-encoded secret fields)
+    secret_value = json.loads(request_message.secret_value)
     # Parse auth_config_json string to dict if provided
     auth_config = None
     if request_message.auth_config_json:
@@ -3881,7 +3884,7 @@ def _create_secret():
 
     secret = _get_tracking_store().create_secret(
         secret_name=request_message.secret_name,
-        secret_value=request_message.secret_value,
+        secret_value=secret_value,
         provider=request_message.provider or None,
         auth_config=auth_config,
         created_by=request_message.created_by or None,
@@ -3914,10 +3917,15 @@ def _update_secret():
         schema={
             "secret_id": [_assert_required, _assert_string],
             "secret_value": [_assert_optional_secret_value],
+            "credential_name": [_assert_string],
             "auth_config_json": [_assert_string],
             "updated_by": [_assert_string],
         },
     )
+    # Parse secret_value JSON string to dict if provided (frontend sends JSON-encoded secret fields)
+    secret_value = None
+    if request_message.secret_value:
+        secret_value = json.loads(request_message.secret_value)
     # Parse auth_config_json string to dict if provided
     auth_config = None
     if request_message.auth_config_json:
@@ -3925,7 +3933,8 @@ def _update_secret():
 
     secret = _get_tracking_store().update_secret(
         secret_id=request_message.secret_id,
-        secret_value=request_message.secret_value or None,
+        secret_value=secret_value,
+        credential_name=request_message.credential_name or None,
         auth_config=auth_config,
         updated_by=request_message.updated_by or None,
     )
@@ -4306,6 +4315,18 @@ def _get_provider_config():
         return jsonify(config)
     except (ImportError, ValueError) as e:
         raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_secrets_config():
+    """Check if secrets encryption is available (passphrase is configured)."""
+    from mlflow.server.constants import CRYPTO_KEK_PASSPHRASE_ENV_VAR
+
+    secrets_available = bool(os.getenv(CRYPTO_KEK_PASSPHRASE_ENV_VAR))
+    response_message = GetSecretsConfig.Response()
+    response_message.secrets_available = secrets_available
+    return _wrap_response(response_message)
 
 
 def _get_rest_path(base_path, version=2):
@@ -4749,6 +4770,7 @@ HANDLERS = {
     UpdateGatewaySecret: _update_secret,
     DeleteGatewaySecret: _delete_secret,
     ListGatewaySecretInfos: _list_secrets,
+    GetSecretsConfig: _get_secrets_config,
     # Endpoints APIs
     CreateGatewayEndpoint: _create_endpoint,
     GetGatewayEndpoint: _get_endpoint,
