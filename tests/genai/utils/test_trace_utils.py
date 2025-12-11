@@ -33,7 +33,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
-    parse_tool_calls_from_trace,
+    parse_tool_call_messages_from_trace,
     resolve_conversation_from_session,
 )
 from mlflow.tracing import set_span_chat_tools
@@ -787,7 +787,7 @@ def test_create_minimal_trace_with_source_but_no_session():
     assert trace.data._get_root_span().outputs == "answer"
 
 
-def test_parse_tool_calls_from_trace():
+def test_parse_tool_call_messages_from_trace():
     with mlflow.start_span(name="root") as root_span:
         root_span.set_inputs({"question": "What is the stock price?"})
 
@@ -802,7 +802,7 @@ def test_parse_tool_calls_from_trace():
         root_span.set_outputs("AAPL price is $150.")
 
     trace = mlflow.get_trace(root_span.trace_id)
-    tool_messages = parse_tool_calls_from_trace(trace)
+    tool_messages = parse_tool_call_messages_from_trace(trace)
 
     assert len(tool_messages) == 2
     assert tool_messages[0] == {
@@ -817,18 +817,18 @@ def test_parse_tool_calls_from_trace():
     }
 
 
-def test_parse_tool_calls_from_trace_no_tools():
+def test_parse_tool_call_messages_from_trace_no_tools():
     with mlflow.start_span(name="root") as span:
         span.set_inputs({"question": "Hello"})
         span.set_outputs("Hi there")
 
     trace = mlflow.get_trace(span.trace_id)
-    tool_messages = parse_tool_calls_from_trace(trace)
+    tool_messages = parse_tool_call_messages_from_trace(trace)
 
     assert tool_messages == []
 
 
-def test_parse_tool_calls_from_trace_tool_without_outputs():
+def test_parse_tool_call_messages_from_trace_tool_without_outputs():
     with mlflow.start_span(name="root") as root_span:
         root_span.set_inputs({"query": "test"})
 
@@ -838,7 +838,7 @@ def test_parse_tool_calls_from_trace_tool_without_outputs():
         root_span.set_outputs("result")
 
     trace = mlflow.get_trace(root_span.trace_id)
-    tool_messages = parse_tool_calls_from_trace(trace)
+    tool_messages = parse_tool_call_messages_from_trace(trace)
 
     assert len(tool_messages) == 1
     assert tool_messages[0] == {

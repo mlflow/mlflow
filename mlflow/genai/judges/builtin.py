@@ -1,12 +1,17 @@
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
+from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
+
+if TYPE_CHECKING:
+    from mlflow.genai.utils.type import FunctionCall
+    from mlflow.types.chat import ChatTool
 
 _MODEL_API_DOC = {
     "model": """Judge model to use. Must be either `"databricks"` or a form of
@@ -362,6 +367,113 @@ def is_grounded(
         feedback = invoke_judge_model(
             model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
         )
+
+    return _sanitize_feedback(feedback)
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+def is_tool_call_efficient(
+    *,
+    request: str,
+    tools_called: list["FunctionCall"],
+    available_tools: list["ChatTool"],
+    name: str | None = None,
+    model: str | None = None,
+) -> Feedback:
+    """
+    LLM judge determines whether the agent's tool usage is efficient and free of redundancy.
+
+    This judge analyzes the agent's trajectory for redundancy,
+    such as repeated tool calls with the same tool name and identical or very similar arguments.
+
+    Args:
+        request: The original user request that the agent is trying to fulfill.
+        tools_called: The sequence of tools that were called by the agent.
+            Each element should be a FunctionCall object.
+        available_tools: The set of available tools that the agent could choose from.
+            Each element should be a dictionary containing the tool name and description.
+        name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
+
+    Returns:
+        A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
+        indicating whether the tool usage is efficient ("yes") or contains redundancy ("no").
+
+    Example:
+
+        The following example shows how to evaluate whether an agent's tool calls are efficient.
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_tool_call_efficient
+            from mlflow.genai.utils.type import FunctionCall
+
+            # Efficient tool usage
+            feedback = is_tool_call_efficient(
+                request="What is the capital of France and translate it to Spanish?",
+                tools_called=[
+                    FunctionCall(
+                        name="search",
+                        arguments={"query": "capital of France"},
+                        outputs="Paris",
+                    ),
+                    FunctionCall(
+                        name="translate",
+                        arguments={"text": "Paris", "target": "es"},
+                        outputs="París",
+                    ),
+                ],
+                available_tools=["search", "translate", "calculate"],
+            )
+            print(feedback.value)  # "yes"
+
+            # Redundant tool usage
+            feedback = is_tool_call_efficient(
+                request="What is the capital of France?",
+                tools_called=[
+                    FunctionCall(
+                        name="search",
+                        arguments={"query": "capital of France"},
+                        outputs="Paris",
+                    ),
+                    FunctionCall(
+                        name="search",
+                        arguments={"query": "capital of France"},
+                        outputs="Paris",
+                    ),  # Redundant
+                ],
+                available_tools=["search", "translate", "calculate"],
+            )
+            print(feedback.value)  # "no"
+
+            # Tool call with exception
+            feedback = is_tool_call_efficient(
+                request="Get weather for an invalid city",
+                tools_called=[
+                    FunctionCall(
+                        name="get_weather",
+                        arguments={"city": "InvalidCity123"},
+                        exception="ValueError: City not found",
+                    ),
+                ],
+                available_tools=["get_weather"],
+            )
+            print(feedback.value)  # Judge evaluates based on exception context
+
+    """
+    from mlflow.genai.judges.prompts.tool_call_efficiency import (
+        TOOL_CALL_EFFICIENCY_FEEDBACK_NAME,
+        get_prompt,
+    )
+
+    model = model or get_default_model()
+    assessment_name = name or TOOL_CALL_EFFICIENCY_FEEDBACK_NAME
+
+    prompt = get_prompt(request=request, tools_called=tools_called, available_tools=available_tools)
+    feedback = invoke_judge_model(
+        model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+    )
 
     return _sanitize_feedback(feedback)
 
