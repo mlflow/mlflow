@@ -97,12 +97,14 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
               fontSize: theme.typography.fontSizeSm,
             }}
           >
-            {selectedSecret.credential_name && (
+            {selectedSecret.auth_config?.['auth_mode'] && (
               <>
                 <Typography.Text color="secondary">
                   <FormattedMessage defaultMessage="Auth method:" description="Label for auth method" />
                 </Typography.Text>
-                <Typography.Text>{formatAuthMethodName(selectedSecret.credential_name)}</Typography.Text>
+                <Typography.Text>
+                  {formatAuthMethodName(String(selectedSecret.auth_config['auth_mode']))}
+                </Typography.Text>
               </>
             )}
             <Typography.Text color="secondary">

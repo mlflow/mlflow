@@ -3999,6 +3999,10 @@
     "defaultMessage": "See less",
     "description": "Button to collapse a long text field in the trace explorer summary field renderer"
   },
+  "Y60dI2": {
+    "defaultMessage": "New API key",
+    "description": "Summary new secret"
+  },
   "Y6gWro": {
     "defaultMessage": "The correctness LLM judge gives a binary evaluation and written rationale on whether the agent's generated response is factually accurate and semantically similar to the provided ground-truth response or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > description of correctness assessment."
@@ -4951,6 +4955,10 @@
     "defaultMessage": "Timestamp",
     "description": "Run page > Charts tab > Chart tooltip > Timestamp label"
   },
+  "fb7ooa": {
+    "defaultMessage": "Existing API key",
+    "description": "Summary existing secret"
+  },
   "fcIHyN": {
     "defaultMessage": "Medium",
     "description": "Medium row size"
@@ -5146,6 +5154,10 @@
   "gn1eO9": {
     "defaultMessage": "Assessment added by LLM-as-a-judge",
     "description": "Evaluation review > assessments > tooltip > assessment added by LLM-as-a-judge"
+  },
+  "gqFQc3": {
+    "defaultMessage": "API Key",
+    "description": "Summary API key label"
   },
   "gqfk5C": {
     "defaultMessage": "User is not authorized.",
@@ -5358,10 +5370,6 @@
   "imKpxw": {
     "defaultMessage": "ID",
     "description": "Label for the ID section"
-  },
-  "iokoJi": {
-    "defaultMessage": "Existing secret",
-    "description": "Summary existing secret"
   },
   "iqlzHb": {
     "defaultMessage": "Loading API keys...",
@@ -6511,6 +6519,10 @@
     "defaultMessage": "No evaluation tables logged",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > title"
   },
+  "smlUA/": {
+    "defaultMessage": "Connection",
+    "description": "Summary connection/API key label"
+  },
   "smtq2M": {
     "defaultMessage": "Automatically log traces for OpenAI API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the OpenAI package using MLflow autologging. This message is followed by a code example."
@@ -6570,10 +6582,6 @@
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
-  },
-  "tMN953": {
-    "defaultMessage": "Authentication",
-    "description": "Summary secret label"
   },
   "tNL+F4": {
     "defaultMessage": "Full trace with an agent using the right part of the trace to use to judge",
@@ -6951,10 +6959,6 @@
     "defaultMessage": "Are you sure you want to delete the prompt version?",
     "description": "A content for the delete prompt version confirmation modal"
   },
-  "x6DysL": {
-    "defaultMessage": "Select a model definition",
-    "description": "Summary select model def"
-  },
   "x6rkyu": {
     "defaultMessage": "Response",
     "description": "Evaluation review > Response section > title"
@@ -7226,10 +7230,6 @@
   "zZCBR9": {
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
-  },
-  "zcfLUK": {
-    "defaultMessage": "New secret",
-    "description": "Summary new secret"
   },
   "zd5Jw4": {
     "defaultMessage": "Select columns",

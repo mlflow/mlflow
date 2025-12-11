@@ -5,6 +5,8 @@ import { useEffect, useCallback, useMemo } from 'react';
 import { GatewayApi } from '../api';
 import { useCreateSecretMutation } from './useCreateSecretMutation';
 import { useEndpointsQuery } from './useEndpointsQuery';
+import { useSecretsQuery } from './useSecretsQuery';
+import { useModelsQuery } from './useModelsQuery';
 import GatewayRoutes from '../routes';
 import type { SecretMode } from '../components/secrets/SecretConfigSection';
 import type { Endpoint } from '../types';
@@ -132,6 +134,8 @@ export interface UseEditEndpointFormResult {
   resetErrors: () => void;
   // Data
   endpoint: Endpoint | undefined;
+  selectedModel: ReturnType<typeof useModelsQuery>['data'] extends (infer T)[] | undefined ? T | undefined : never;
+  selectedSecretName: string | undefined;
   // Computed state
   isFormComplete: boolean;
   // Handlers
@@ -297,6 +301,14 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   // Fetch existing endpoints to check for name conflicts on blur
   const { data: existingEndpoints } = useEndpointsQuery();
 
+  // Get the selected model's full data for the summary
+  const { data: models } = useModelsQuery({ provider: provider || undefined });
+  const selectedModel = models?.find((m) => m.model === modelName);
+
+  // Get secrets for the selected provider to find the selected secret name
+  const { data: providerSecrets } = useSecretsQuery({ provider: provider || undefined });
+  const selectedSecretName = providerSecrets?.find((s) => s.secret_id === existingSecretId)?.secret_name;
+
   const handleNameBlur = useCallback(() => {
     const name = form.getValues('name');
     // Exclude the current endpoint's name (user can keep the same name)
@@ -317,6 +329,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     mutationError,
     resetErrors,
     endpoint,
+    selectedModel,
+    selectedSecretName,
     isFormComplete,
     handleSubmit,
     handleCancel,

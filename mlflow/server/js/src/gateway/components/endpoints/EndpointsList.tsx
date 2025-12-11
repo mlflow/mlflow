@@ -17,7 +17,6 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useDeleteEndpointMutation } from '../../hooks/useDeleteEndpointMutation';
-import { formatProviderName } from '../../utils/providerUtils';
 import { timestampToDate } from '../../utils/dateUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { EndpointsFilterButton, type EndpointsFilter } from './EndpointsFilterButton';

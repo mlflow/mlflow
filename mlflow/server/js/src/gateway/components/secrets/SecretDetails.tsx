@@ -52,13 +52,13 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
           </div>
         )}
 
-        {/* Auth Type - only show if credential_name is set (indicates multi-auth provider) */}
-        {secret.credential_name && (
+        {/* Auth Type - only show if auth_mode is set in auth_config (indicates multi-auth provider) */}
+        {authConfig?.['auth_mode'] && (
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <Typography.Text color="secondary">
               <FormattedMessage defaultMessage="Auth Type:" description="Auth type label" />
             </Typography.Text>
-            <Typography.Text>{formatAuthMethodName(secret.credential_name)}</Typography.Text>
+            <Typography.Text>{formatAuthMethodName(String(authConfig['auth_mode']))}</Typography.Text>
           </div>
         )}
 

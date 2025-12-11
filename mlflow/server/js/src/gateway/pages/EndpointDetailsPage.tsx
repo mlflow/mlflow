@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from '../../common/utils/RoutingUtils';
+import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import {
   Alert,
   Breadcrumb,
@@ -13,19 +14,50 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
+import { useQuery } from '../../common/utils/reactQueryHooks';
 import { useCallback, useMemo } from 'react';
+import { GatewayApi } from '../api';
 import GatewayRoutes from '../routes';
 import { formatProviderName } from '../utils/providerUtils';
-import { timestampToDate } from '../utils/dateUtils';
 import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
-import { useEndpointQuery } from '../hooks/useEndpointQuery';
-import { useModelsQuery } from '../hooks/useModelsQuery';
-import { useSecretQuery } from '../hooks/useSecretQuery';
+import { LongFormLayout, LongFormSummary } from '../../common/components/long-form';
 import type { EndpointModelMapping, ModelDefinition, Model, SecretInfo } from '../types';
-import { formatTokens, formatCost } from '../utils/formatters';
+
+/** Format token count for display (e.g., 128000 -> "128K") */
+const formatTokens = (tokens: number | null): string | null => {
+  if (tokens === null || tokens === undefined) return null;
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(0)}K`;
+  return tokens.toString();
+};
+
+/** Format cost per token for display (e.g., 0.000002 -> "$2.00/1M") */
+const formatCost = (cost: number | null): string | null => {
+  if (cost === null || cost === undefined) return null;
+  if (cost === 0) return 'Free';
+  const perMillion = cost * 1_000_000;
+  if (perMillion < 0.01) return `$${perMillion.toFixed(4)}/1M`;
+  return `$${perMillion.toFixed(2)}/1M`;
+};
+
+const useEndpointQuery = (endpointId: string) => {
+  return useQuery(['gateway_endpoint', endpointId], {
+    queryFn: () => GatewayApi.getEndpoint(endpointId),
+    retry: false,
+    enabled: Boolean(endpointId),
+  });
+};
+
+const useModelsMetadataQuery = (provider: string | undefined) => {
+  return useQuery(['gateway_models', provider], {
+    queryFn: () => GatewayApi.listModels(provider),
+    enabled: Boolean(provider),
+  });
+};
 
 const EndpointDetailsPage = () => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const navigate = useNavigate();
   const { endpointId } = useParams<{ endpointId: string }>();
 
@@ -35,7 +67,7 @@ const EndpointDetailsPage = () => {
   // Get the primary model mapping and its model definition
   const primaryMapping = endpoint?.model_mappings?.[0];
   const primaryModelDef = primaryMapping?.model_definition;
-  const { data: modelsData } = useModelsQuery({ provider: primaryModelDef?.provider });
+  const { data: modelsData } = useModelsMetadataQuery(primaryModelDef?.provider);
 
   const handleEdit = useCallback(() => {
     navigate(GatewayRoutes.getEditEndpointRoute(endpointId ?? ''));
@@ -43,18 +75,18 @@ const EndpointDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, padding: theme.spacing.md }}>
           <Spinner size="small" />
           <FormattedMessage defaultMessage="Loading endpoint..." description="Loading message for endpoint" />
         </div>
-      </div>
+      </ScrollablePageWrapper>
     );
   }
 
   if (error || !endpoint) {
     return (
-      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div css={{ padding: theme.spacing.md }}>
           <Alert
             componentId="mlflow.gateway.endpoint-details.error"
@@ -62,14 +94,14 @@ const EndpointDetailsPage = () => {
             message={(error as Error | null)?.message ?? 'Endpoint not found'}
           />
         </div>
-      </div>
+      </ScrollablePageWrapper>
     );
   }
 
   const hasModels = endpoint.model_mappings && endpoint.model_mappings.length > 0;
 
   return (
-    <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div css={{ padding: theme.spacing.md }}>
         <Breadcrumb includeTrailingCaret>
           <Breadcrumb.Item>
@@ -98,120 +130,107 @@ const EndpointDetailsPage = () => {
         </div>
       </div>
 
-      <div
-        css={{
-          flex: 1,
-          display: 'flex',
-          gap: theme.spacing.lg,
-          padding: `0 ${theme.spacing.md}px ${theme.spacing.md}px`,
-          overflow: 'auto',
-        }}
-      >
-        {/* Main content */}
-        <div css={{ flex: 2, display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-          {/* Active Configuration */}
-          <Card componentId="mlflow.gateway.endpoint-details.config-card">
-            <div css={{ padding: theme.spacing.md }}>
-              <Typography.Title level={3}>
-                <FormattedMessage defaultMessage="Active configuration" description="Section title for active config" />
-              </Typography.Title>
+      <LongFormLayout
+        sidebar={
+          <LongFormSummary
+            title={intl.formatMessage({
+              defaultMessage: 'About this endpoint',
+              description: 'Sidebar title',
+            })}
+          >
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+              <div>
+                <Typography.Text color="secondary">
+                  <FormattedMessage defaultMessage="Created" description="Created at label" />
+                </Typography.Text>
+                <div css={{ marginTop: theme.spacing.xs }}>
+                  <TimeAgo date={new Date(endpoint.created_at)} />
+                </div>
+              </div>
 
-              {hasModels ? (
-                <div
-                  css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, marginTop: theme.spacing.lg }}
-                >
-                  {/* Provider */}
-                  <div>
-                    <Typography.Text bold color="secondary" css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
-                      <FormattedMessage defaultMessage="Provider" description="Provider label" />
-                    </Typography.Text>
-                    <div
-                      css={{
-                        padding: theme.spacing.md,
-                        border: `1px solid ${theme.colors.borderDecorative}`,
-                        borderRadius: theme.general.borderRadiusBase,
-                        backgroundColor: theme.colors.backgroundSecondary,
-                      }}
-                    >
-                      <Tag componentId="mlflow.gateway.endpoint-details.provider">
-                        {formatProviderName(primaryModelDef?.provider ?? '')}
-                      </Tag>
-                    </div>
-                  </div>
+              <div>
+                <Typography.Text color="secondary">
+                  <FormattedMessage defaultMessage="Last modified" description="Last modified label" />
+                </Typography.Text>
+                <div css={{ marginTop: theme.spacing.xs }}>
+                  <TimeAgo date={new Date(endpoint.last_updated_at)} />
+                </div>
+              </div>
 
-                  {/* Models */}
-                  <div>
-                    <Typography.Text bold color="secondary" css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
-                      <FormattedMessage defaultMessage="Models" description="Models section label" />
-                    </Typography.Text>
-                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                      {endpoint.model_mappings.map((mapping: EndpointModelMapping) => (
-                        <ModelCard
-                          key={mapping.mapping_id}
-                          modelDefinition={mapping.model_definition}
-                          modelMetadata={modelsData?.find(
-                            (m: Model) => m.model === mapping.model_definition?.model_name,
-                          )}
-                        />
-                      ))}
-                    </div>
+              {endpoint.created_by && (
+                <div>
+                  <Typography.Text color="secondary">
+                    <FormattedMessage defaultMessage="Created by" description="Created by label" />
+                  </Typography.Text>
+                  <div css={{ marginTop: theme.spacing.xs }}>
+                    <Typography.Text>{endpoint.created_by}</Typography.Text>
                   </div>
                 </div>
-              ) : (
-                <Typography.Text color="secondary">
-                  <FormattedMessage
-                    defaultMessage="No models configured for this endpoint"
-                    description="Message when no models configured"
-                  />
-                </Typography.Text>
               )}
             </div>
-          </Card>
-        </div>
+          </LongFormSummary>
+        }
+      >
+        {/* Active Configuration */}
+        <Card componentId="mlflow.gateway.endpoint-details.config-card">
+          <div css={{ padding: theme.spacing.md }}>
+            <Typography.Title level={3}>
+              <FormattedMessage defaultMessage="Active configuration" description="Section title for active config" />
+            </Typography.Title>
 
-        {/* Sidebar */}
-        <div css={{ flex: 1, maxWidth: 300 }}>
-          <Card componentId="mlflow.gateway.endpoint-details.about-card">
-            <div css={{ padding: theme.spacing.md }}>
-              <Typography.Title level={4} css={{ marginBottom: theme.spacing.md }}>
-                <FormattedMessage defaultMessage="About this endpoint" description="Sidebar title" />
-              </Typography.Title>
-
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            {hasModels ? (
+              <div
+                css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, marginTop: theme.spacing.lg }}
+              >
+                {/* Provider */}
                 <div>
-                  <Typography.Text color="secondary">
-                    <FormattedMessage defaultMessage="Created" description="Created at label" />
+                  <Typography.Text bold color="secondary" css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
+                    <FormattedMessage defaultMessage="Provider" description="Provider label" />
                   </Typography.Text>
-                  <div css={{ marginTop: theme.spacing.xs }}>
-                    <TimeAgo date={timestampToDate(endpoint.created_at)} />
+                  <div
+                    css={{
+                      padding: theme.spacing.md,
+                      border: `1px solid ${theme.colors.borderDecorative}`,
+                      borderRadius: theme.general.borderRadiusBase,
+                      backgroundColor: theme.colors.backgroundSecondary,
+                    }}
+                  >
+                    <Tag componentId="mlflow.gateway.endpoint-details.provider">
+                      {formatProviderName(primaryModelDef?.provider ?? '')}
+                    </Tag>
                   </div>
                 </div>
 
+                {/* Models */}
                 <div>
-                  <Typography.Text color="secondary">
-                    <FormattedMessage defaultMessage="Last modified" description="Last modified label" />
+                  <Typography.Text bold color="secondary" css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
+                    <FormattedMessage defaultMessage="Models" description="Models section label" />
                   </Typography.Text>
-                  <div css={{ marginTop: theme.spacing.xs }}>
-                    <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
+                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                    {endpoint.model_mappings.map((mapping: EndpointModelMapping) => (
+                      <ModelCard
+                        key={mapping.mapping_id}
+                        modelDefinition={mapping.model_definition}
+                        modelMetadata={modelsData?.models?.find(
+                          (m: Model) => m.model === mapping.model_definition?.model_name,
+                        )}
+                      />
+                    ))}
                   </div>
                 </div>
-
-                {endpoint.created_by && (
-                  <div>
-                    <Typography.Text color="secondary">
-                      <FormattedMessage defaultMessage="Created by" description="Created by label" />
-                    </Typography.Text>
-                    <div css={{ marginTop: theme.spacing.xs }}>
-                      <Typography.Text>{endpoint.created_by}</Typography.Text>
-                    </div>
-                  </div>
-                )}
               </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-    </div>
+            ) : (
+              <Typography.Text color="secondary">
+                <FormattedMessage
+                  defaultMessage="No models configured for this endpoint"
+                  description="Message when no models configured"
+                />
+              </Typography.Text>
+            )}
+          </div>
+        </Card>
+      </LongFormLayout>
+    </ScrollablePageWrapper>
   );
 };
 
@@ -227,7 +246,10 @@ const ModelCard = ({
   const intl = useIntl();
 
   // Fetch secret for this model definition
-  const { data: secretData } = useSecretQuery(modelDefinition?.secret_id);
+  const { data: secretData } = useQuery(['gateway_secret', modelDefinition?.secret_id], {
+    queryFn: () => GatewayApi.getSecret(modelDefinition!.secret_id),
+    enabled: Boolean(modelDefinition?.secret_id),
+  });
 
   // Memoize capabilities array
   const capabilities = useMemo(() => {
@@ -304,24 +326,24 @@ const ModelCard = ({
         </div>
 
         {/* Model specs - context and cost */}
-        {modelMetadata && (contextWindow !== '-' || inputCost !== '-' || outputCost !== '-') && (
+        {modelMetadata && (contextWindow || inputCost || outputCost) && (
           <>
             <Typography.Text color="secondary">
               <FormattedMessage defaultMessage="Specs:" description="Model specs label" />
             </Typography.Text>
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               {[
-                contextWindow !== '-' &&
+                contextWindow &&
                   intl.formatMessage(
                     { defaultMessage: 'Context: {tokens}', description: 'Context window size' },
                     { tokens: contextWindow },
                   ),
-                inputCost !== '-' &&
+                inputCost &&
                   intl.formatMessage(
                     { defaultMessage: 'Input: {cost}', description: 'Input cost' },
                     { cost: inputCost },
                   ),
-                outputCost !== '-' &&
+                outputCost &&
                   intl.formatMessage(
                     { defaultMessage: 'Output: {cost}', description: 'Output cost' },
                     { cost: outputCost },

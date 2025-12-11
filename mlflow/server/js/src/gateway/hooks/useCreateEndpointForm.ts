@@ -6,6 +6,7 @@ import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMuta
 import { useModelDefinitionsQuery } from './useModelDefinitionsQuery';
 import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
+import { useSecretsQuery } from './useSecretsQuery';
 import GatewayRoutes from '../routes';
 import type { SecretMode } from '../components/secrets/SecretConfigSection';
 
@@ -102,6 +103,7 @@ export interface UseCreateEndpointFormResult {
     ? T | undefined
     : never;
   selectedModel: ReturnType<typeof useModelsQuery>['data'] extends (infer T)[] | undefined ? T | undefined : never;
+  selectedSecretName: string | undefined;
   providerModelDefinitions: ReturnType<typeof useModelDefinitionsQuery>['data'];
   hasProviderModelDefinitions: boolean;
   // Computed state
@@ -253,6 +255,10 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   const { data: models } = useModelsQuery({ provider: provider || undefined });
   const selectedModel = models?.find((m) => m.model === modelName);
 
+  // Get secrets for the selected provider to find the selected secret name
+  const { data: providerSecrets } = useSecretsQuery({ provider: provider || undefined });
+  const selectedSecretName = providerSecrets?.find((s) => s.secret_id === existingSecretId)?.secret_name;
+
   // Fetch existing endpoints to check for name conflicts on blur
   const { data: existingEndpoints } = useEndpointsQuery();
 
@@ -289,6 +295,7 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     existingEndpoints,
     selectedModelDefinition,
     selectedModel,
+    selectedSecretName,
     providerModelDefinitions,
     hasProviderModelDefinitions,
     isFormComplete,

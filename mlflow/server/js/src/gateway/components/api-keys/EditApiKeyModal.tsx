@@ -45,9 +45,21 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
   // Initialize form when secret changes
   useEffect(() => {
     if (secret) {
+      // Get auth_mode from auth_config
+      let authMode = '';
+      if (secret.auth_config?.['auth_mode']) {
+        authMode = String(secret.auth_config['auth_mode']);
+      } else if (secret.auth_config_json) {
+        try {
+          const parsed = JSON.parse(secret.auth_config_json);
+          authMode = parsed?.auth_mode || '';
+        } catch {
+          // Invalid JSON, ignore
+        }
+      }
       setFormData({
         name: secret.secret_name,
-        authMode: secret.credential_name || '',
+        authMode,
         secretFields: {},
         configFields: {},
       });

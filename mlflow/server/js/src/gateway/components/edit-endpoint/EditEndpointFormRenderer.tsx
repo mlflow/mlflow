@@ -1,4 +1,5 @@
 import { Link } from '../../../common/utils/RoutingUtils';
+import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import {
   Alert,
   Breadcrumb,
@@ -15,9 +16,11 @@ import { Controller, FormProvider, UseFormReturn } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint/ProviderSelect';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
 import { SecretConfigSection, type SecretMode } from '../secrets/SecretConfigSection';
+import { EndpointSummary } from '../endpoints/EndpointSummary';
 import GatewayRoutes from '../../routes';
-import { LongFormSection } from '../../../common/components/long-form';
+import { LongFormLayout, LongFormSection } from '../../../common/components/long-form';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
+import type { Model } from '../../types';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 
@@ -31,6 +34,8 @@ export interface EditEndpointFormRendererProps {
   resetErrors: () => void;
   endpointId: string;
   endpointName: string | undefined;
+  selectedModel?: Model;
+  selectedSecretName?: string;
   isFormComplete: boolean;
   onSubmit: (values: EditEndpointFormData) => Promise<void>;
   onCancel: () => void;
@@ -51,6 +56,8 @@ export const EditEndpointFormRenderer = ({
   resetErrors,
   endpointId,
   endpointName,
+  selectedModel,
+  selectedSecretName,
   isFormComplete,
   onSubmit,
   onCancel,
@@ -60,24 +67,25 @@ export const EditEndpointFormRenderer = ({
   const intl = useIntl();
 
   const provider = form.watch('provider');
+  const modelName = form.watch('modelName');
   const secretMode = form.watch('secretMode');
 
   // Loading state
   if (isLoadingEndpoint) {
     return (
-      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, padding: theme.spacing.md }}>
           <Spinner size="small" />
           <FormattedMessage defaultMessage="Loading endpoint..." description="Loading message for endpoint" />
         </div>
-      </div>
+      </ScrollablePageWrapper>
     );
   }
 
   // Error state
   if (loadError) {
     return (
-      <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div css={{ padding: theme.spacing.md }}>
           <Alert
             componentId="mlflow.gateway.edit-endpoint.error"
@@ -85,12 +93,12 @@ export const EditEndpointFormRenderer = ({
             message={loadError.message ?? 'Endpoint not found'}
           />
         </div>
-      </div>
+      </ScrollablePageWrapper>
     );
   }
 
   return (
-    <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <FormProvider {...form}>
         <div css={{ padding: theme.spacing.md }}>
           <Breadcrumb includeTrailingCaret>
@@ -120,13 +128,18 @@ export const EditEndpointFormRenderer = ({
           </div>
         )}
 
-        <div
-          css={{
-            flex: 1,
-            padding: `0 ${theme.spacing.md}px`,
-            overflow: 'auto',
-            maxWidth: 900,
-          }}
+        <LongFormLayout
+          sidebar={
+            <EndpointSummary
+              provider={provider}
+              modelName={modelName}
+              modelMetadata={selectedModel}
+              selectedSecretName={selectedSecretName}
+              showConnection
+              connectionMode={secretMode === 'new' ? 'new' : 'existing'}
+              componentIdPrefix="mlflow.gateway.edit-endpoint.summary"
+            />
+          }
         >
           {/* General Section */}
           <LongFormSection
@@ -231,7 +244,7 @@ export const EditEndpointFormRenderer = ({
               componentIdPrefix="mlflow.gateway.edit-endpoint"
             />
           </LongFormSection>
-        </div>
+        </LongFormLayout>
 
         {/* Footer buttons */}
         <div
@@ -270,6 +283,6 @@ export const EditEndpointFormRenderer = ({
           </Tooltip>
         </div>
       </FormProvider>
-    </div>
+    </ScrollablePageWrapper>
   );
 };
