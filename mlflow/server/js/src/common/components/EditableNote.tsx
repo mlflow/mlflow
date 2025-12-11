@@ -6,12 +6,14 @@
  */
 
 import React, { Component } from 'react';
-import { Alert, Button, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { Prompt } from './Prompt';
+import 'react-mde/lib/styles/css/react-mde-all.css';
 import ReactMde, { SvgIcon } from 'react-mde';
 import { forceAnchorTagNewTab, getMarkdownConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import './EditableNote.css';
-import { FormattedMessage, IntlShape, injectIntl } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
 type EditableNoteImplProps = {
   defaultMarkdown?: string;
@@ -57,6 +59,18 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
   };
 
   converter = getMarkdownConverter();
+
+  componentDidUpdate(prevProps: EditableNoteImplProps) {
+    if (
+      prevProps.defaultMarkdown !== this.props.defaultMarkdown ||
+      prevProps.defaultSelectedTab !== this.props.defaultSelectedTab
+    ) {
+      this.setState({
+        markdown: this.props.defaultMarkdown,
+        selectedTab: this.props.defaultSelectedTab,
+      });
+    }
+  }
 
   handleMdeValueChange = (markdown: any) => {
     this.setState({ markdown });
@@ -111,7 +125,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     // @ts-expect-error TS(2339): Property 'confirmLoading' does not exist on type '... Remove this comment to see the full error message
     const { confirmLoading } = this.state;
     return (
-      <div className="editable-note-actions" data-testid="editable-note-actions">
+      <div className="mlflow-editable-note-actions" data-testid="editable-note-actions">
         <div>
           <Button
             componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_114"
@@ -212,13 +226,12 @@ function TooltipIcon(props: TooltipIconProps) {
   const { theme } = useDesignSystemTheme();
   const { name } = props;
   return (
-    // @ts-expect-error TS(2322): Type '{ children: Element; position: string; title... Remove this comment to see the full error message
-    <LegacyTooltip position="top" title={name}>
+    <Tooltip side="top" content={name} componentId="mlflow.common.components.editable-note.tooltip-icon">
       <span css={{ color: theme.colors.textPrimary }}>
         {/* @ts-expect-error TS(2322): Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message */}
         <SvgIcon icon={name} />
       </span>
-    </LegacyTooltip>
+    </Tooltip>
   );
 }
 
@@ -238,7 +251,7 @@ function HTMLNoteContent(props: HTMLNoteContentProps) {
             // @ts-expect-error TS(2322): Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             // eslint-disable-next-line react/no-danger
             dangerouslySetInnerHTML={{ __html: props.content }}
-          ></div>
+          />
         </div>
       </div>
     </div>

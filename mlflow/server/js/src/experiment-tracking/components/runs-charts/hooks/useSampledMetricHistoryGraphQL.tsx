@@ -1,10 +1,10 @@
 import { gql, NetworkStatus } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
-import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
+import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
 import { groupBy, keyBy } from 'lodash';
 import { useEffect, useMemo } from 'react';
 import type { SampledMetricsByRun } from './useSampledMetricHistory';
-import { GetMetricHistoryBulkInterval } from '../../../../graphql/__generated__/graphql';
+import type { GetMetricHistoryBulkInterval } from '../../../../graphql/__generated__/graphql';
 import Utils from '../../../../common/utils/Utils';
 import { useIntl } from 'react-intl';
 
@@ -49,7 +49,7 @@ export const useSampledMetricHistoryGraphQL = ({
     {
       skip: !enabled,
       notifyOnNetworkStatusChange: true,
-      pollInterval: autoRefreshEnabled ? EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL : undefined,
+      pollInterval: autoRefreshEnabled ? EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL : undefined,
       onCompleted(data) {
         if (data.mlflowGetMetricHistoryBulkInterval?.apiError?.code === 'RESOURCE_DOES_NOT_EXIST') {
           Utils.displayGlobalErrorNotification(
@@ -77,7 +77,7 @@ export const useSampledMetricHistoryGraphQL = ({
 
   useEffect(() => {
     if (autoRefreshEnabled) {
-      startPolling(EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL);
+      startPolling(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL);
     } else {
       stopPolling();
     }

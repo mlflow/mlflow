@@ -1,6 +1,5 @@
 # pep8: disable=E501
 
-import collections
 import functools
 import json
 import os
@@ -34,11 +33,6 @@ from mlflow.utils.process import _exec_cmd
 
 np.random.seed(1337)
 
-SavedModelInfo = collections.namedtuple(
-    "SavedModelInfo",
-    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"],
-)
-
 
 @pytest.fixture(autouse=True)
 def clear_session():
@@ -54,7 +48,8 @@ def random_train_data():
 
 @pytest.fixture
 def random_one_hot_labels():
-    n, n_class = (150, 3)
+    n = 150
+    n_class = 3
     classes = np.random.randint(0, n_class, n)
     labels = np.zeros((n, n_class))
     labels[np.arange(n), classes] = 1
@@ -1116,7 +1111,7 @@ def _assert_autolog_infers_model_signature_correctly(input_sig_spec, output_sig_
     logged_model = mlflow.last_logged_model()
     ml_model_path = os.path.join(logged_model.artifact_location, "MLmodel")
     with open(ml_model_path) as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
+        data = yaml.safe_load(f)
         assert data is not None
         assert "signature" in data
         signature = data["signature"]

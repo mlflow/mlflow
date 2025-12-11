@@ -32,7 +32,6 @@ const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
 
 type ModelListViewImplProps = {
   models: any[];
-  endpoints?: any;
   showEditPermissionModal: (...args: any[]) => any;
   permissionLevel: string;
   selectedOwnerFilter: string;
@@ -162,7 +161,7 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
       />
     );
     return (
-      <PageContainer data-test-id="ModelListView-container" usesFullHeight>
+      <PageContainer data-testid="ModelListView-container" usesFullHeight>
         <div>
           <PageHeader title={title} spacerSize="xs">
             <CreateModelButton />

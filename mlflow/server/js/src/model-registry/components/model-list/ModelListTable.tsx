@@ -1,24 +1,27 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   SearchIcon,
   Table,
   TableCell,
   TableHeader,
   TableRow,
-  LegacyTooltip,
+  Tooltip,
   Empty,
   PlusIcon,
   TableSkeletonRows,
   WarningIcon,
 } from '@databricks/design-system';
-import { Interpolation, Theme } from '@emotion/react';
-import { ColumnDef, flexRender, getCoreRowModel, SortingState, useReactTable } from '@tanstack/react-table';
+import type { Interpolation, Theme } from '@emotion/react';
+import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
 import { RegisteringModelDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
-import type { KeyValueEntity, ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { KeyValueEntity } from '../../../common/types';
 import { Stages } from '../../constants';
 import { ModelRegistryRoutes } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
@@ -89,7 +92,9 @@ export const ModelListTable = ({
         accessorKey: 'name',
         cell: ({ getValue }) => (
           <Link to={ModelRegistryRoutes.getModelPageRoute(String(getValue()))}>
-            <LegacyTooltip title={getValue()}>{getValue()}</LegacyTooltip>
+            <Tooltip componentId="mlflow.model-registry.model-list.model-name.tooltip" content={getValue()}>
+              <span>{getValue()}</span>
+            </Tooltip>
           </Link>
         ),
         meta: { styles: { minWidth: 200, flex: 1 } },
@@ -206,11 +211,7 @@ export const ModelListTable = ({
     );
 
     return columns;
-  }, [
-    // prettier-ignore
-    intl,
-    usingNextModelsUI,
-  ]);
+  }, [intl, usingNextModelsUI]);
 
   const sorting: SortingState = [{ id: orderByKey, desc: !orderByAsc }];
 
@@ -276,16 +277,19 @@ export const ModelListTable = ({
 
   const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
-  const table = useReactTable<EnrichedModelEntity>({
-    data: enrichedModelsData,
-    columns: tableColumns,
-    state: {
-      sorting,
+  const table = useReactTable<EnrichedModelEntity>(
+    'mlflow/server/js/src/model-registry/components/model-list/ModelListTable.tsx',
+    {
+      data: enrichedModelsData,
+      columns: tableColumns,
+      state: {
+        sorting,
+      },
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: ({ id }) => id,
+      onSortingChange: setSorting,
     },
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: ({ id }) => id,
-    onSortingChange: setSorting,
-  });
+  );
 
   return (
     <>

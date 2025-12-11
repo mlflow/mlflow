@@ -8,6 +8,7 @@ import posixpath
 import tempfile
 import urllib.parse
 import uuid
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -96,16 +97,26 @@ def _get_root_uri_and_artifact_path(artifact_uri):
     return root_uri, artifact_path
 
 
-def _download_artifact_from_uri(artifact_uri, output_path=None, lineage_header_info=None):
+def _download_artifact_from_uri(
+    artifact_uri: str,
+    output_path: str | None = None,
+    lineage_header_info: dict[str, Any] | None = None,
+    tracking_uri: str | None = None,
+    registry_uri: str | None = None,
+) -> str:
     """
     Args:
         artifact_uri: The *absolute* URI of the artifact to download.
         output_path: The local filesystem path to which to download the artifact. If unspecified,
             a local output path will be created.
         lineage_header_info: The model lineage header info to be consumed by lineage services.
+        tracking_uri: The tracking URI to be used when downloading artifacts.
+        registry_uri: The registry URI to be used when downloading artifacts.
     """
     root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
-    repo = get_artifact_repository(artifact_uri=root_uri)
+    repo = get_artifact_repository(
+        artifact_uri=root_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+    )
 
     try:
         if isinstance(repo, ModelsArtifactRepository):
@@ -163,7 +174,7 @@ def _upload_artifacts_to_databricks(
             dest_root, target_databricks_profile_uri
         )
         dest_repo = DbfsRestArtifactRepository(dest_root_with_profile)
-        dest_artifact_path = run_id if run_id else uuid.uuid4().hex
+        dest_artifact_path = run_id or uuid.uuid4().hex
         # Allow uploading from the same run id multiple times by randomizing a suffix
         if len(dest_repo.list_artifacts(dest_artifact_path)) > 0:
             dest_artifact_path = dest_artifact_path + "-" + uuid.uuid4().hex[0:4]

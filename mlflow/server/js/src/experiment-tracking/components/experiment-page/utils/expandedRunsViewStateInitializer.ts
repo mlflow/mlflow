@@ -1,9 +1,9 @@
 import { compact } from 'lodash';
 import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_EVALUATION } from '../../../constants';
-import { ExperimentEntity } from '../../../types';
-import { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import type { ExperimentEntity } from '../../../types';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { EXPERIMENT_PARENT_ID_TAG } from './experimentPage.common-utils';
-import { ExperimentRunsSelectorResult } from './experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from './experimentRuns.selector';
 
 export const expandedEvaluationRunRowsUIStateInitializer = (
   experiments: ExperimentEntity[],

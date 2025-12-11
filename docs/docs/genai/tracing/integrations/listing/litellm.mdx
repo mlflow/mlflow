@@ -4,10 +4,6 @@ sidebar_label: LiteLLM
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 # Tracing LiteLLM🚄
 
@@ -15,8 +11,8 @@ import TabItem from "@theme/TabItem";
 
 [LiteLLM](https://www.litellm.ai/) is an open-source LLM Gateway that allow accessing 100+ LLMs in the unified interface.
 
-[MLflow Tracing](../) provides automatic tracing capability for LiteLLM. By enabling auto tracing
-for LiteLLM by calling the <APILink fn="mlflow.litellm.autolog" /> function,  MLflow will capture traces for LLM invocation and log them to the active MLflow Experiment.
+[MLflow Tracing](../../) provides automatic tracing capability for LiteLLM. By enabling auto tracing
+for LiteLLM by calling the <APILink fn="mlflow.litellm.autolog" /> function, MLflow will capture traces for LLM invocation and log them to the active MLflow Experiment.
 
 ```python
 import mlflow
@@ -26,15 +22,14 @@ mlflow.litellm.autolog()
 
 MLflow trace automatically captures the following information about LiteLLM calls:
 
-* Prompts and completion responses
-* Latencies
-* Metadata about the LLM provider, such as model name and endpoint URL
-* Token usages and cost
-* Cache hit
-* Any exception if raised
+- Prompts and completion responses
+- Latencies
+- Metadata about the LLM provider, such as model name and endpoint URL
+- Token usages and cost
+- Cache hit
+- Any exception if raised
 
 ### Basic Example
-
 
 ```python
 import mlflow
@@ -84,7 +79,6 @@ for chunk in response:
 ```
 
 MLflow will record concatenated outputs from the stream chunks as a span output.
-
 
 ### Disable auto-tracing
 

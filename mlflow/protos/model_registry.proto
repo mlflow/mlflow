@@ -2,272 +2,379 @@ syntax = "proto2";
 
 package mlflow;
 
-import "scalapb/scalapb.proto";
 import "databricks.proto";
+import "scalapb/scalapb.proto";
 
-option java_package = "org.mlflow.api.proto";
 option java_generate_equals_and_hash = true;
+option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+option (scalapb.options) = {flat_package: true};
 
 service ModelRegistryService {
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a registered model with the given name exists.
-  rpc createRegisteredModel (CreateRegisteredModel) returns (CreateRegisteredModel.Response) {
+  rpc createRegisteredModel(CreateRegisteredModel) returns (CreateRegisteredModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/registered-models/create"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Create RegisteredModel",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/registered-models/create"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create RegisteredModel"
     };
   }
 
-  rpc renameRegisteredModel (RenameRegisteredModel) returns (RenameRegisteredModel.Response) {
+  rpc renameRegisteredModel(RenameRegisteredModel) returns (RenameRegisteredModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/registered-models/rename"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Rename RegisteredModel",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/registered-models/rename"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Rename RegisteredModel"
     };
   }
 
-  rpc updateRegisteredModel (UpdateRegisteredModel) returns (UpdateRegisteredModel.Response) {
+  rpc updateRegisteredModel(UpdateRegisteredModel) returns (UpdateRegisteredModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/registered-models/update"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Update RegisteredModel",
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/registered-models/update"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update RegisteredModel"
     };
   }
 
-  rpc deleteRegisteredModel (DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
+  rpc deleteRegisteredModel(DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/registered-models/delete"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Delete RegisteredModel",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/registered-models/delete"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete RegisteredModel"
     };
   }
 
-  rpc getRegisteredModel (GetRegisteredModel) returns (GetRegisteredModel.Response) {
+  rpc getRegisteredModel(GetRegisteredModel) returns (GetRegisteredModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/registered-models/get"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Get RegisteredModel",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/registered-models/get"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get RegisteredModel"
     };
   }
 
-  rpc searchRegisteredModels (SearchRegisteredModels) returns (SearchRegisteredModels.Response) {
+  rpc searchRegisteredModels(SearchRegisteredModels) returns (SearchRegisteredModels.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/registered-models/search"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Search RegisteredModels",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/registered-models/search"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Search RegisteredModels"
     };
   }
 
-  rpc getLatestVersions (GetLatestVersions) returns (GetLatestVersions.Response) {
-    option(rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/registered-models/get-latest-versions"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/mlflow/registered-models/get-latest-versions"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Get Latest ModelVersions",
+  rpc getLatestVersions(GetLatestVersions) returns (GetLatestVersions.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/registered-models/get-latest-versions"
+          since: {
+            major: 2
+            minor: 0
+          }
+        },
+        {
+          method: "GET"
+          path: "/mlflow/registered-models/get-latest-versions"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Latest ModelVersions"
     };
   }
 
-  rpc createModelVersion (CreateModelVersion) returns (CreateModelVersion.Response) {
+  rpc createModelVersion(CreateModelVersion) returns (CreateModelVersion.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/model-versions/create"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Create ModelVersion",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/model-versions/create"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create ModelVersion"
     };
   }
 
-  rpc updateModelVersion (UpdateModelVersion) returns (UpdateModelVersion.Response) {
+  rpc updateModelVersion(UpdateModelVersion) returns (UpdateModelVersion.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/model-versions/update"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Update ModelVersion",
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/model-versions/update"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update ModelVersion"
     };
   }
 
-  rpc transitionModelVersionStage (TransitionModelVersionStage) returns (TransitionModelVersionStage.Response) {
+  rpc transitionModelVersionStage(TransitionModelVersionStage) returns (TransitionModelVersionStage.Response) {
     option (rpc) = {
-    endpoints: [{
-        method: "POST",
-        path: "/mlflow/model-versions/transition-stage"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Transition ModelVersion Stage",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/model-versions/transition-stage"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Transition ModelVersion Stage"
     };
   }
 
-  rpc deleteModelVersion (DeleteModelVersion) returns (DeleteModelVersion.Response) {
+  rpc deleteModelVersion(DeleteModelVersion) returns (DeleteModelVersion.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/model-versions/delete"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Delete ModelVersion",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/model-versions/delete"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete ModelVersion"
     };
   }
 
-  rpc getModelVersion (GetModelVersion) returns (GetModelVersion.Response) {
+  rpc getModelVersion(GetModelVersion) returns (GetModelVersion.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/model-versions/get"
-        since { major: 2, minor: 0 },
-      }],
-      visibility:PUBLIC,
-      rpc_doc_title:"Get ModelVersion",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/model-versions/get"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get ModelVersion"
     };
   }
 
-  rpc searchModelVersions(SearchModelVersions)returns(SearchModelVersions.Response){
+  rpc searchModelVersions(SearchModelVersions) returns (SearchModelVersions.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/model-versions/search"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Search ModelVersions",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/model-versions/search"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Search ModelVersions"
     };
     option (graphql) = {};
   }
 
-  rpc getModelVersionDownloadUri (GetModelVersionDownloadUri) returns (GetModelVersionDownloadUri.Response) {
+  rpc getModelVersionDownloadUri(GetModelVersionDownloadUri) returns (GetModelVersionDownloadUri.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/model-versions/get-download-uri"
-        since { major: 2, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Download URI For ModelVersion Artifacts",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/model-versions/get-download-uri"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Download URI For ModelVersion Artifacts"
     };
   }
 
-  rpc setRegisteredModelTag (SetRegisteredModelTag) returns (SetRegisteredModelTag.Response) {
+  rpc setRegisteredModelTag(SetRegisteredModelTag) returns (SetRegisteredModelTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/registered-models/set-tag"
-        since { major: 2, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Set Registered Model Tag",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/registered-models/set-tag"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Set Registered Model Tag"
     };
   }
 
-  rpc setModelVersionTag (SetModelVersionTag) returns (SetModelVersionTag.Response) {
+  rpc setModelVersionTag(SetModelVersionTag) returns (SetModelVersionTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/model-versions/set-tag"
-        since { major: 2, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Set Model Version Tag",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/model-versions/set-tag"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Set Model Version Tag"
     };
   }
 
-  rpc deleteRegisteredModelTag (DeleteRegisteredModelTag) returns (DeleteRegisteredModelTag.Response) {
+  rpc deleteRegisteredModelTag(DeleteRegisteredModelTag) returns (DeleteRegisteredModelTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/registered-models/delete-tag"
-        since { major: 2, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Registered Model Tag",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/registered-models/delete-tag"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Registered Model Tag"
     };
   }
 
-  rpc deleteModelVersionTag (DeleteModelVersionTag) returns (DeleteModelVersionTag.Response) {
+  rpc deleteModelVersionTag(DeleteModelVersionTag) returns (DeleteModelVersionTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/model-versions/delete-tag"
-        since { major: 2, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Model Version Tag",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/model-versions/delete-tag"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Model Version Tag"
     };
   }
 
-  rpc setRegisteredModelAlias (SetRegisteredModelAlias) returns (SetRegisteredModelAlias.Response) {
+  rpc setRegisteredModelAlias(SetRegisteredModelAlias) returns (SetRegisteredModelAlias.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/registered-models/alias"
-        since { major: 2, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Set Registered Model Alias",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/registered-models/alias"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Set Registered Model Alias"
     };
   }
 
-  rpc deleteRegisteredModelAlias (DeleteRegisteredModelAlias) returns (DeleteRegisteredModelAlias.Response) {
+  rpc deleteRegisteredModelAlias(DeleteRegisteredModelAlias) returns (DeleteRegisteredModelAlias.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/registered-models/alias"
-        since { major: 2, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Registered Model Alias",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/registered-models/alias"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Registered Model Alias"
     };
   }
 
-  rpc getModelVersionByAlias (GetModelVersionByAlias) returns (GetModelVersionByAlias.Response) {
+  rpc getModelVersionByAlias(GetModelVersionByAlias) returns (GetModelVersionByAlias.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/registered-models/alias"
-        since { major: 2, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Model Version by Alias",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/registered-models/alias"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Model Version by Alias"
     };
   }
 }
@@ -385,7 +492,7 @@ message DeploymentJobConnection {
     // connected job: job exists, owner has ACLs, and required job parameters are present
     CONNECTED = 2;
 
-    // job was deleted OR owner had job ACLs removed 
+    // job was deleted OR owner had job ACLs removed
     NOT_FOUND = 3;
 
     // required job parameters were changed
@@ -467,8 +574,7 @@ message DeleteRegisteredModel {
   // Registered model unique name identifier.
   optional string name = 1 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message GetRegisteredModel {
@@ -601,16 +707,15 @@ message TransitionModelVersionStage {
 }
 
 message DeleteModelVersion {
-   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-   // Name of the registered model
-   optional string name = 1 [(validate_required) = true];
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
 
-   // Model version number
-   optional string version = 2 [(validate_required) = true];
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
 
-   message Response {
-   }
+  message Response {}
 }
 
 message GetModelVersion {
@@ -704,7 +809,7 @@ message ModelMetric {
   optional int64 step = 4 [default = 0];
 
   // The name of the dataset associated with the metric.
-  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string dataset_name = 5 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // Dataset digest of the dataset associated with the metric,
@@ -742,8 +847,7 @@ message SetRegisteredModelTag {
   // String value of the tag being logged. Maximum size depends on storage backend.
   optional string value = 3 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message SetModelVersionTag {
@@ -763,8 +867,7 @@ message SetModelVersionTag {
   // String value of the tag being logged. Maximum size depends on storage backend.
   optional string value = 4 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message DeleteRegisteredModelTag {
@@ -776,8 +879,7 @@ message DeleteRegisteredModelTag {
   // Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
   optional string key = 2 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message DeleteModelVersionTag {
@@ -792,8 +894,7 @@ message DeleteModelVersionTag {
   // Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
   optional string key = 3 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 // Alias for a registered model
@@ -818,8 +919,7 @@ message SetRegisteredModelAlias {
   // Model version number.
   optional string version = 3 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message DeleteRegisteredModelAlias {
@@ -831,8 +931,7 @@ message DeleteRegisteredModelAlias {
   // Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
   optional string alias = 2 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message GetModelVersionByAlias {

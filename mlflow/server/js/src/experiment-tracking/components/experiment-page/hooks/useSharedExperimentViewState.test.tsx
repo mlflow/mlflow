@@ -1,10 +1,11 @@
+import { jest, describe, beforeEach, it, expect, test } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useSearchParams, useNavigate } from '../../../../common/utils/RoutingUtils';
 
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { useSharedExperimentViewState } from './useSharedExperimentViewState';
 import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
-import { ExperimentEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
 import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { isNil, omitBy } from 'lodash';
 import { IntlProvider } from 'react-intl';

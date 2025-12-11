@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 
 import { useEffect, useState } from 'react';
@@ -5,15 +6,17 @@ import { Provider, useDispatch } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
-import { ModelVersionInfoEntity } from '../../experiment-tracking/types';
+import type { ModelVersionInfoEntity } from '../../experiment-tracking/types';
 import { updateModelVersionTagsApi } from '../../model-registry/actions';
 import { Services as ModelRegistryServices } from '../../model-registry/services';
-import { ThunkDispatch } from '../../redux-types';
+import type { ThunkDispatch } from '../../redux-types';
+import { DesignSystemProvider } from '@databricks/design-system';
 import { act, screen, within, fastFillInput, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { useEditKeyValueTagsModal } from './useEditKeyValueTagsModal';
 
 const ERRONEOUS_TAG_KEY = 'forbidden_tag';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // increase timeout since it's integration testing
 
 /**
@@ -120,7 +123,9 @@ describe('useEditKeyValueTagsModal integration', () => {
     }
     renderWithIntl(
       <Provider store={mockStore}>
-        <TestComponent />
+        <DesignSystemProvider>
+          <TestComponent />
+        </DesignSystemProvider>
       </Provider>,
     );
   }

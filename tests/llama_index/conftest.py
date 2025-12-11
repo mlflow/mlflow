@@ -64,12 +64,8 @@ def _mock_tokenizer(text: str) -> list[str]:
 @pytest.fixture(autouse=True)
 def settings(monkeypatch, mock_openai):
     """Set the LLM and Embedding model to the mock OpenAI server."""
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     monkeypatch.setattr(Settings, "llm", OpenAI())
     monkeypatch.setattr(Settings, "embed_model", OpenAIEmbedding())
     monkeypatch.setattr(Settings, "callback_manager", CallbackManager([LlamaDebugHandler()]))

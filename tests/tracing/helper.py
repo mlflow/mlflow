@@ -2,8 +2,8 @@ import os
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any
 from unittest import mock
 
 import opentelemetry.trace as trace_api
@@ -18,7 +18,7 @@ from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
+from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, get_autolog_function
@@ -30,9 +30,9 @@ def create_mock_otel_span(
     trace_id: int,
     span_id: int,
     name: str = "test_span",
-    parent_id: Optional[int] = None,
-    start_time: Optional[int] = None,
-    end_time: Optional[int] = None,
+    parent_id: int | None = None,
+    start_time: int | None = None,
+    end_time: int | None = None,
 ):
     """
     Create a mock OpenTelemetry span for testing purposes.
@@ -46,7 +46,7 @@ def create_mock_otel_span(
         trace_id: str
         span_id: str
         trace_flags: trace_api.TraceFlags = trace_api.TraceFlags(1)
-        trace_state: trace_api.TraceState = trace_api.TraceState()
+        trace_state: trace_api.TraceState = field(default_factory=trace_api.TraceState)
 
     class _MockOTelSpan(trace_api.Span, ReadableSpan):
         def __init__(
@@ -134,10 +134,24 @@ def create_test_trace_info(
     )
 
 
+def create_test_trace_info_with_uc_table(
+    trace_id: str, catalog_name: str, schema_name: str
+) -> TraceInfo:
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=TraceLocation.from_databricks_uc_schema(catalog_name, schema_name),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+    )
+
+
 def get_traces(experiment_id=None) -> list[Trace]:
     # Get all traces from the backend
     return TracingClient().search_traces(
-        experiment_ids=[experiment_id or _get_experiment_id()],
+        locations=[experiment_id or _get_experiment_id()],
     )
 
 
@@ -153,7 +167,7 @@ def purge_traces(experiment_id=None):
     )
 
 
-def get_tracer_tracking_uri() -> Optional[str]:
+def get_tracer_tracking_uri() -> str | None:
     """Get current tracking URI configured as the trace export destination."""
     from opentelemetry import trace
 
@@ -162,8 +176,8 @@ def get_tracer_tracking_uri() -> Optional[str]:
         tracer = tracer._tracer
     span_processor = tracer.span_processor._span_processors[0]
 
-    if isinstance(span_processor, MlflowV2SpanProcessor):
-        return span_processor._client.tracking_uri
+    if isinstance(span_processor, MlflowV3SpanProcessor):
+        return span_processor.span_exporter._client.tracking_uri
 
 
 @pytest.fixture
@@ -190,7 +204,7 @@ def reset_autolog_state():
     AUTOLOGGING_INTEGRATIONS.clear()
 
 
-def score_in_model_serving(model_uri: str, model_input: dict):
+def score_in_model_serving(model_uri: str, model_input: dict[str, Any]):
     """
     A helper function to emulate model prediction inside a Databricks model serving environment.
 

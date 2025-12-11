@@ -1,5 +1,3 @@
-from typing import Optional
-
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -18,10 +16,10 @@ class Metric(_MlflowObject):
         value,
         timestamp,
         step,
-        model_id: Optional[str] = None,
-        dataset_name: Optional[str] = None,
-        dataset_digest: Optional[str] = None,
-        run_id: Optional[str] = None,
+        model_id: str | None = None,
+        dataset_name: str | None = None,
+        dataset_digest: str | None = None,
+        run_id: str | None = None,
     ):
         if (dataset_name, dataset_digest).count(None) == 1:
             raise MlflowException(
@@ -64,17 +62,17 @@ class Metric(_MlflowObject):
         return self._model_id
 
     @property
-    def dataset_name(self) -> Optional[str]:
+    def dataset_name(self) -> str | None:
         """String. Name of the dataset associated with the metric."""
         return self._dataset_name
 
     @property
-    def dataset_digest(self) -> Optional[str]:
+    def dataset_digest(self) -> str | None:
         """String. Digest of the dataset associated with the metric."""
         return self._dataset_digest
 
     @property
-    def run_id(self) -> Optional[str]:
+    def run_id(self) -> str | None:
         """String. Run ID associated with the metric."""
         return self._run_id
 
@@ -157,8 +155,7 @@ class Metric(_MlflowObject):
             Metric: The Metric object created from the dictionary.
         """
         required_keys = ["key", "value", "timestamp", "step"]
-        missing_keys = [key for key in required_keys if key not in metric_dict]
-        if missing_keys:
+        if missing_keys := [key for key in required_keys if key not in metric_dict]:
             raise MlflowException(
                 f"Missing required keys {missing_keys} in metric dictionary",
                 INVALID_PARAMETER_VALUE,

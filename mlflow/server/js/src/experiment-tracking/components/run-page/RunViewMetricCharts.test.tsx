@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { render, screen, cleanup, act, waitFor } from '../../../common/utils/TestUtils.react18';
@@ -5,9 +6,10 @@ import { RunViewMetricCharts } from './RunViewMetricCharts';
 import { DeepPartial } from 'redux';
 import { ReduxState } from '../../../redux-types';
 import { type RunsChartsBarChartCardProps } from '../runs-charts/components/cards/RunsChartsBarChartCard';
-import { RunsChartsLineChartCardProps } from '../runs-charts/components/cards/RunsChartsLineChartCard';
+import type { RunsChartsLineChartCardProps } from '../runs-charts/components/cards/RunsChartsLineChartCard';
 import userEvent from '@testing-library/user-event';
-import type { KeyValueEntity, MetricEntitiesByName } from '../../types';
+import type { MetricEntitiesByName } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { MlflowService } from '../../sdk/MlflowService';
 import { LOG_IMAGE_TAG_INDICATOR } from '../../constants';

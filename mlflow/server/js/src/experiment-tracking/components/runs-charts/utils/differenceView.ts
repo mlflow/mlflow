@@ -1,8 +1,9 @@
 import { MLFLOW_SYSTEM_METRIC_PREFIX } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { KeyValueEntity, MetricEntitiesByName } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { useCallback, useMemo } from 'react';
-import { RunsChartsRunData } from '../components/RunsCharts.common';
-import { DifferenceCardAttributes, RunsChartsDifferenceCardConfig } from '../runs-charts.types';
+import type { MetricEntitiesByName } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
+import type { RunsChartsRunData } from '../components/RunsCharts.common';
+import type { RunsChartsDifferenceCardConfig } from '../runs-charts.types';
+import { DifferenceCardAttributes } from '../runs-charts.types';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 

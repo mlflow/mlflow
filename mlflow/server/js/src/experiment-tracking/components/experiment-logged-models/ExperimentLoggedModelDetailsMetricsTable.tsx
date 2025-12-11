@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   Input,
@@ -20,7 +21,6 @@ import {
   flexRender,
   getCoreRowModel,
   getExpandedRowModel,
-  useReactTable,
 } from '@tanstack/react-table';
 import type { LoggedModelProto, LoggedModelMetricProto, RunEntity } from '../../types';
 import { ExperimentLoggedModelDetailsTableRunCellRenderer } from './ExperimentLoggedModelDetailsTableRunCellRenderer';
@@ -66,12 +66,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
   relatedRunsLoading?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const {
-    usingUnifiedDetailsLayout,
-    detailsPageTableStyles,
-    detailsPageNoEntriesStyles,
-    detailsPageNoResultsWrapperStyles,
-  } = useExperimentTrackingDetailsPageLayoutStyles();
+  const { detailsPageTableStyles, detailsPageNoEntriesStyles } = useExperimentTrackingDetailsPageLayoutStyles();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
 
@@ -154,28 +149,29 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
         }),
         accessorKey: 'value',
         // In full-width layout, let "Value" fill the remaining space
-        enableResizing: !usingUnifiedDetailsLayout,
-        meta: usingUnifiedDetailsLayout
-          ? {
-              styles: {
-                minWidth: 120,
-              },
-            }
-          : {},
+        enableResizing: true,
+        meta: {
+          styles: {
+            minWidth: 120,
+          },
+        },
       },
     ],
-    [intl, usingUnifiedDetailsLayout],
+    [intl],
   );
 
-  const table = useReactTable({
-    data: filteredMetrics,
-    getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    getRowId: (row) => [row.key, row.dataset_digest, row.run_id].join('.') ?? '',
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    columns,
-  });
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/components/experiment-logged-models/ExperimentLoggedModelDetailsMetricsTable.tsx',
+    {
+      data: filteredMetrics,
+      getCoreRowModel: getCoreRowModel(),
+      getExpandedRowModel: getExpandedRowModel(),
+      getRowId: (row) => [row.key, row.dataset_digest, row.run_id].join('.') ?? '',
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      columns,
+    },
+  );
 
   const renderTableContent = () => {
     if (relatedRunsLoading) {
@@ -218,7 +214,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
           scrollable
           empty={
             areAllResultsFiltered ? (
-              <div css={detailsPageNoResultsWrapperStyles}>
+              <div>
                 <Empty
                   description={
                     <FormattedMessage
@@ -277,7 +273,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
   };
 
   return (
-    <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div css={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: 400 }}>
       <Typography.Title level={4}>
         <FormattedMessage
           defaultMessage="Metrics ({length})"
@@ -288,9 +284,8 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
       <div
         css={{
           padding: theme.spacing.sm,
-          border: `1px solid ${theme.colors.borderDecorative}`,
+          border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.general.borderRadiusBase,
-          flex: 1,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

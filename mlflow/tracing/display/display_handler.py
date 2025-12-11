@@ -6,6 +6,7 @@ from urllib.parse import urlencode, urljoin
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
+from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_http_uri
 
@@ -13,9 +14,6 @@ _logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from mlflow.entities import Trace
-
-
-TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer/index.html"
 
 IFRAME_HTML = """
 <div>
@@ -57,7 +55,7 @@ IFRAME_HTML = """
 
 def get_notebook_iframe_html(traces: list["Trace"]):
     # fetch assets from tracking server
-    uri = urljoin(mlflow.get_tracking_uri(), TRACE_RENDERER_ASSET_PATH)
+    uri = urljoin(mlflow.get_tracking_uri(), f"{TRACE_RENDERER_ASSET_PATH}/index.html")
     query_string = _get_query_string_for_traces(traces)
 
     # include mlflow version to invalidate browser cache when mlflow updates
@@ -168,7 +166,7 @@ class IPythonTraceDisplayHandler:
             # a side-effect in a few other functions (e.g. log_trace,
             # get_traces, search_traces), and we don't want to block
             # the core functionality if the display fails.
-            _logger.error("Failed to display traces", exc_info=True)
+            _logger.debug("Failed to display traces", exc_info=True)
             self.traces_to_display = {}
 
     def get_mimebundle(self, traces: list["Trace"]):

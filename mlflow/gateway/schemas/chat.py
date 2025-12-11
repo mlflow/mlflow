@@ -8,9 +8,9 @@ NB: These Pydantic models just alias the models defined in mlflow.types.chat to 
     duplication, but with the addition of RequestModel and ResponseModel base classes.
 """
 
-from typing import Literal, Optional
+from typing import Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 
@@ -27,8 +27,8 @@ from mlflow.types.chat import (
     Function,  # noqa F401
     FunctionToolDefinition,
     ToolCall,  # noqa F401
+    ToolCallDelta,  # noqa F401
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 # NB: `import x as y` does not work and will cause a Pydantic error.
 StreamDelta = ChatChoiceDelta
@@ -48,8 +48,8 @@ class ChatToolWithUC(RequestModel):
     """
 
     type: Literal["function", "uc_function"]
-    function: Optional[FunctionToolDefinition] = None
-    uc_function: Optional[UnityCatalogFunctionToolDefinition] = None
+    function: FunctionToolDefinition | None = None
+    uc_function: UnityCatalogFunctionToolDefinition | None = None
 
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
@@ -66,16 +66,10 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class RequestPayload(ChatCompletionRequest, RequestModel):
-    messages: list[RequestMessage] = (
-        Field(..., min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(..., min_items=1)
-    )
-    tools: Optional[list[ChatToolWithUC]] = None
+    messages: list[RequestMessage] = Field(..., min_length=1)
+    tools: list[ChatToolWithUC] | None = None
 
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_REQUEST_PAYLOAD_EXTRA_SCHEMA)
 
 
 _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -100,7 +94,7 @@ class ResponseMessage(ChatMessage, ResponseModel):
     # Override the `tool_call_id` field to be excluded from the response.
     # This is a band-aid solution to avoid exposing the tool_call_id in the response,
     # while we use the same ChatMessage model for both request and response.
-    tool_call_id: Optional[str] = Field(None, exclude=True)
+    tool_call_id: str | None = Field(None, exclude=True)
 
 
 class Choice(ChatChoice, ResponseModel):
@@ -112,11 +106,7 @@ class ResponsePayload(ChatCompletionResponse, ResponseModel):
     # Override the `choices` field to use the Choice model
     choices: list[Choice]
 
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_RESPONSE_PAYLOAD_EXTRA_SCHEMA)
 
 
 _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -137,8 +127,4 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class StreamResponsePayload(ChatCompletionChunk, ResponseModel):
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA)

@@ -5,15 +5,15 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import _, { first, isEmpty } from 'lodash';
+import { first, isEmpty, isUndefined } from 'lodash';
 import React, { Component } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { WithRouterNextProps, withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
+import { withRouterNext } from '../../common/utils/withRouterNext';
 import { ArtifactView } from './ArtifactView';
 import { Spinner } from '../../common/components/Spinner';
 import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { searchModelVersionsApi } from '../../model-registry/actions';
-import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 import { connect } from 'react-redux';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../../model-registry/constants';
@@ -26,8 +26,10 @@ import { DangerIcon, Empty } from '@databricks/design-system';
 import { ArtifactViewErrorState } from './artifact-view-components/ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import { UseGetRunQueryResponseOutputs } from './run-page/hooks/useGetRunQuery';
-import { ReduxState } from '../../redux-types';
+import type { UseGetRunQueryResponseOutputs } from './run-page/hooks/useGetRunQuery';
+import type { ReduxState } from '../../redux-types';
+import { asyncGetLoggedModel } from '../hooks/logged-models/useGetLoggedModelQuery';
+import type { KeyValueEntity } from '../../common/types';
 
 type ArtifactPageImplProps = {
   runUuid?: string;
@@ -39,6 +41,7 @@ type ArtifactPageImplProps = {
   searchModelVersionsApi: (...args: any[]) => any;
   runTags?: any;
   runOutputs?: UseGetRunQueryResponseOutputs;
+  entityTags?: Partial<KeyValueEntity>[];
 
   /**
    * If true, the artifact browser will try to use all available height
@@ -46,7 +49,11 @@ type ArtifactPageImplProps = {
   useAutoHeight?: boolean;
 } & LoggedModelArtifactViewerProps;
 
-type ArtifactPageImplState = any;
+type ArtifactPageImplState = {
+  errorThrown: boolean;
+  activeNodeIsDirectory: boolean;
+  fallbackEntityTags?: Partial<KeyValueEntity>[];
+};
 
 export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactPageImplState> {
   pollIntervalId: any;
@@ -65,7 +72,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     );
   };
 
-  state = { activeNodeIsDirectory: false, errorThrown: false };
+  state: ArtifactPageImplState = { activeNodeIsDirectory: false, errorThrown: false };
 
   searchRequestId = getUUID();
 
@@ -105,15 +112,38 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   };
 
   pollArtifactsForCurrentRun = async () => {
-    const { runUuid, loggedModelId } = this.props;
+    const { runUuid, loggedModelId, isFallbackToLoggedModelArtifacts } = this.props;
 
-    const usingLoggedModels = isExperimentLoggedModelsUIEnabled() && this.props.isLoggedModelsMode;
+    const usingLoggedModels = this.props.isLoggedModelsMode;
+
+    let fallbackEntityTags: Partial<KeyValueEntity>[] | undefined = undefined;
 
     // In the logged models mode, fetch artifacts for the model instead of the run
     if (usingLoggedModels && loggedModelId) {
-      await this.props.listArtifactsLoggedModelApi(this.props.loggedModelId, undefined, this.listArtifactRequestIds[0]);
+      // If falling back from run artifacts to logged model artifacts, fetch the logged model's tags
+      // in order to correctly resolve artifact storage path.
+      if (isFallbackToLoggedModelArtifacts) {
+        const loggedModelData = await asyncGetLoggedModel(loggedModelId, true);
+        fallbackEntityTags = loggedModelData?.model?.info?.tags;
+        this.setState({
+          fallbackEntityTags,
+        });
+      }
+      await this.props.listArtifactsLoggedModelApi(
+        this.props.loggedModelId,
+        undefined,
+        this.props.experimentId,
+        this.listArtifactRequestIds[0],
+        fallbackEntityTags ?? this.props.entityTags,
+      );
     } else {
-      await this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestIds[0]);
+      await this.props.listArtifactsApi(
+        runUuid,
+        undefined,
+        this.listArtifactRequestIds[0],
+        this.props.experimentId,
+        this.props.entityTags,
+      );
     }
     if (this.props.initialSelectedArtifactPath) {
       const parts = this.props.initialSelectedArtifactPath.split('/');
@@ -131,10 +161,18 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
           await this.props.listArtifactsLoggedModelApi(
             this.props.loggedModelId,
             pathSoFar,
+            this.props.experimentId,
             this.listArtifactRequestIds[i + 1],
+            fallbackEntityTags ?? this.props.entityTags,
           );
         } else {
-          await this.props.listArtifactsApi(runUuid, pathSoFar, this.listArtifactRequestIds[i + 1]);
+          await this.props.listArtifactsApi(
+            runUuid,
+            pathSoFar,
+            this.listArtifactRequestIds[i + 1],
+            this.props.experimentId,
+            this.props.entityTags,
+          );
         }
         pathSoFar += '/';
       }
@@ -142,7 +180,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   };
 
   componentDidMount() {
-    if (Utils.isModelRegistryEnabled()) {
+    if (this.props.runUuid && this.isWorkspaceModelRegistryEnabled) {
       this.pollModelVersionsForCurrentRun();
       this.pollIntervalId = setInterval(this.pollModelVersionsForCurrentRun, POLL_INTERVAL);
     }
@@ -161,8 +199,12 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     }
   }
 
+  get isWorkspaceModelRegistryEnabled() {
+    return Utils.isModelRegistryEnabled();
+  }
+
   componentWillUnmount() {
-    if (Utils.isModelRegistryEnabled()) {
+    if (this.isWorkspaceModelRegistryEnabled && !isUndefined(this.pollIntervalId)) {
       clearInterval(this.pollIntervalId);
     }
   }
@@ -200,6 +242,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     return (
       <ArtifactView
         {...this.props}
+        entityTags={this.state.fallbackEntityTags ?? this.props.entityTags}
         handleActiveNodeChange={this.handleActiveNodeChange}
         useAutoHeight={this.props.useAutoHeight}
       />
@@ -243,7 +286,7 @@ const shouldFallbackToLoggedModelArtifacts = (
 
   // Execute only if feature is enabled and we are currently fetching >run< artifacts.
   // Also, do not fallback to logged model artifacts for Volume-based artifact paths.
-  if (isExperimentLoggedModelsUIEnabled() && !ownProps.isLoggedModelsMode && !isVolumePath) {
+  if (!ownProps.isLoggedModelsMode) {
     // Let's check if the root artifact is already present (i.e. run artifacts are fetched)
     const rootArtifact = getArtifacts(ownProps.runUuid, state);
     const isRunArtifactsEmpty = rootArtifact && !rootArtifact.fileInfo && isEmpty(rootArtifact.children);
@@ -292,7 +335,7 @@ const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouter
   if (!selectedPath) {
     const loggedModelPaths = getLoggedModelPathsFromTags(ownProps.runTags ?? {});
     if (loggedModelPaths.length > 0) {
-      selectedPath = _.first(loggedModelPaths);
+      selectedPath = first(loggedModelPaths);
     }
   }
   return {

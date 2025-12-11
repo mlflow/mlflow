@@ -1,8 +1,10 @@
+import { describe, beforeEach, it, expect, jest } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { graphql } from 'msw';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
-import { GetMetricHistoryBulkInterval, GetRun, MlflowRunStatus } from '../../../../graphql/__generated__/graphql';
+import type { GetMetricHistoryBulkInterval } from '../../../../graphql/__generated__/graphql';
+import { GetRun, MlflowRunStatus } from '../../../../graphql/__generated__/graphql';
 import { useSampledMetricHistoryGraphQL } from './useSampledMetricHistoryGraphQL';
 import { IntlProvider } from 'react-intl';
 import Utils from '../../../../common/utils/Utils';
@@ -108,7 +110,7 @@ describe('useSampledMetricHistoryGraphQL', () => {
     const { result } = renderTestHook(['test-run-uuid-1']);
 
     await waitFor(() => {
-      expect(Utils.displayGlobalErrorNotification).toBeCalledWith('Requested resource does not exist');
+      expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledWith('Requested resource does not exist');
     });
 
     expect(result.current.apiError).toEqual(expect.objectContaining({ code: 'RESOURCE_DOES_NOT_EXIST' }));

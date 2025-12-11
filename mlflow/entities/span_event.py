@@ -1,16 +1,13 @@
 import json
-import sys
 import time
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from google.protobuf.json_format import ParseDict
-from google.protobuf.struct_pb2 import Value
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 
 
 @dataclass
@@ -54,10 +51,7 @@ class SpanEvent(_MlflowObject):
         """Get the stacktrace of the parent error."""
         msg = repr(error)
         try:
-            if sys.version_info < (3, 10):
-                tb = traceback.format_exception(error.__class__, error, error.__traceback__)
-            else:
-                tb = traceback.format_exception(error)
+            tb = traceback.format_exception(error)
             return "".join(tb).strip()
         except Exception:
             return msg
@@ -71,13 +65,26 @@ class SpanEvent(_MlflowObject):
             else None,
         }
 
-    def to_proto(self):
-        """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
-        return ProtoSpan.Event(
-            name=self.name,
-            time_unix_nano=self.timestamp,
-            attributes={k: ParseDict(v, Value()) for k, v in self.attributes.items()},
-        )
+    def to_otel_proto(self):
+        """
+        Convert to OpenTelemetry protobuf event format for OTLP export.
+        This is an internal method used for logging spans via OTel protocol.
+
+        Returns:
+            An OpenTelemetry protobuf Span.Event message.
+        """
+        from opentelemetry.proto.trace.v1.trace_pb2 import Span
+
+        otel_event = Span.Event()
+        otel_event.name = self.name
+        otel_event.time_unix_nano = self.timestamp
+
+        for key, value in self.attributes.items():
+            attr = otel_event.attributes.add()
+            attr.key = key
+            _set_otel_proto_anyvalue(attr.value, value)
+
+        return otel_event
 
 
 class CustomEncoder(json.JSONEncoder):

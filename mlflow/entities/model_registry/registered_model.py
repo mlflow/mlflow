@@ -91,6 +91,10 @@ class RegisteredModel(_ModelRegistryEntity):
         # Remove the is_prompt tag as it should not be user-facing
         return {k: v for k, v in self._tags.items() if k != IS_PROMPT_TAG_KEY}
 
+    def _is_prompt(self):
+        """Check if the registered model is a prompt."""
+        return self._tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+
     @property
     def aliases(self):
         """Dictionary of aliases (string) -> version for the current registered model."""

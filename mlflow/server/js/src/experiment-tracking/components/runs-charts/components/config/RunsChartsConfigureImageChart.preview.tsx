@@ -1,6 +1,6 @@
-import { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
-import { RunsChartsCardConfig, RunsChartsImageCardConfig } from '../../runs-charts.types';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
+import type { RunsChartsCardConfig, RunsChartsImageCardConfig } from '../../runs-charts.types';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { ImageGridPlot } from '../charts/ImageGridPlot';
 import { FormattedMessage } from 'react-intl';
 import { Empty } from '@databricks/design-system';

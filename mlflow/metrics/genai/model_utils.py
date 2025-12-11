@@ -1,7 +1,6 @@
 import logging
 import os
-import urllib.parse
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-def get_endpoint_type(endpoint_uri: str) -> Optional[str]:
+def get_endpoint_type(endpoint_uri: str) -> str | None:
     """
     Get the type of the endpoint if it is MLflow deployment
     endpoint. For other endpoints e.g. OpenAI, or if the
@@ -77,16 +76,19 @@ def score_model_on_payload(
     )
 
 
-def _parse_model_uri(model_uri):
-    parsed = urllib.parse.urlparse(model_uri, allow_fragments=False)
-    scheme = parsed.scheme
-    path = parsed.path
-    if not path.startswith("/") or len(path) <= 1:
-        raise MlflowException(
-            f"Malformed model uri '{model_uri}'", error_code=INVALID_PARAMETER_VALUE
-        )
-    path = path.lstrip("/")
-    return scheme, path
+def _parse_model_uri(model_uri: str) -> tuple[str, str]:
+    """Parse a model URI of the form "<provider>:/<model-name>"."""
+    # urllib.parse.urlparse is not used because provider names with underscores
+    # (e.g., vertex_ai) are invalid in RFC 3986 URI schemes and would fail parsing.
+    match model_uri.split(":/", 1):
+        case [provider, model_path] if provider and model_path.lstrip("/"):
+            return provider, model_path.lstrip("/")
+        case _:
+            raise MlflowException(
+                f"Malformed model uri '{model_uri}'. The URI must be in the format of "
+                "<provider>:/<model-name>, e.g., 'openai:/gpt-4.1-mini'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
 
 _PREDICT_ERROR_MSG = """\
@@ -109,7 +111,7 @@ def _call_llm_provider_api(
     input_data: str,
     eval_parameters: dict[str, Any],
     extra_headers: dict[str, str],
-    proxy_url: Optional[str] = None,
+    proxy_url: str | None = None,
 ) -> str:
     """
     Invoke chat endpoint of various LLM providers.
@@ -180,10 +182,10 @@ def _call_llm_provider_api(
 
 def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     """Get the provider instance for the given provider name and the model name."""
-    from mlflow.gateway.config import Provider, RouteConfig
+    from mlflow.gateway.config import EndpointConfig, Provider
 
     def _get_route_config(config):
-        return RouteConfig(
+        return EndpointConfig(
             name=provider,
             endpoint_type="llm/v1/chat",
             model={
@@ -282,9 +284,9 @@ def _send_request(
 
 def call_deployments_api(
     deployment_uri: str,
-    input_data: Union[str, dict[str, Any]],
-    eval_parameters: Optional[dict[str, Any]] = None,
-    endpoint_type: Optional[str] = None,
+    input_data: str | dict[str, Any],
+    eval_parameters: dict[str, Any] | None = None,
+    endpoint_type: str | None = None,
 ):
     """Call the deployment endpoint with the given payload and parameters.
 
@@ -345,8 +347,8 @@ def _construct_payload_from_str(prompt: str, endpoint_type: str) -> dict[str, An
 
 
 def _parse_response(
-    response: dict[str, Any], endpoint_type: Optional[str]
-) -> Union[Optional[str], dict[str, Any]]:
+    response: dict[str, Any], endpoint_type: str | None
+) -> str | None | dict[str, Any]:
     if endpoint_type == "llm/v1/completions":
         return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":

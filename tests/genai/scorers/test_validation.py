@@ -5,18 +5,20 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
+from mlflow.genai.evaluation.utils import _convert_to_eval_set
 from mlflow.genai.scorers.base import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import (
     Correctness,
     ExpectationsGuidelines,
     Guidelines,
+    RelevanceToQuery,
     RetrievalGroundedness,
-    RetrievalRelevance,
     RetrievalSufficiency,
     get_all_scorers,
 )
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
+
+from tests.genai.conftest import databricks_only
 
 
 @pytest.fixture
@@ -32,7 +34,7 @@ def test_validate_scorers_valid():
 
     scorers = validate_scorers(
         [
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             Correctness(),
             Guidelines(guidelines=["Be polite", "Be kind"]),
             custom_scorer,
@@ -43,6 +45,11 @@ def test_validate_scorers_valid():
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
+def test_validate_scorers_empty_list():
+    assert validate_scorers([]) == []
+
+
+@databricks_only
 def test_validate_scorers_legacy_metric():
     from databricks.agents.evals import metric
 
@@ -76,16 +83,16 @@ def test_validate_scorers_invalid_all_scorers():
 
     # Special case 2: List of list of all scorers + custom scorers
     with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
-        validate_scorers([get_all_scorers(), RetrievalRelevance(), Correctness()])
+        validate_scorers([get_all_scorers(), RelevanceToQuery(), Correctness()])
 
     assert "an invalid item with type: list" in str(e.value)
     assert "Hint: Use `scorers=[*get_all_scorers(), scorer1, scorer2]` to pass all" in str(e.value)
 
     # Special case 3: List of classes (not instances)
     with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
-        validate_scorers([RetrievalRelevance])
+        validate_scorers([RelevanceToQuery])
 
-    assert "Correct way to pass scorers is `scorers=[RetrievalRelevance()]`." in str(e.value)
+    assert "Correct way to pass scorers is `scorers=[RelevanceToQuery()]`." in str(e.value)
 
 
 def test_validate_data(mock_logger, sample_rag_trace):
@@ -97,11 +104,11 @@ def test_validate_data(mock_logger, sample_rag_trace):
         }
     )
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             RetrievalGroundedness(),
             Guidelines(guidelines=["Be polite", "Be kind"]),
         ],
@@ -110,7 +117,6 @@ def test_validate_data(mock_logger, sample_rag_trace):
 
 
 def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
-    """Test that expectations are unwrapped and validated properly"""
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
@@ -123,11 +129,11 @@ def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
         }
     )
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             RetrievalSufficiency(),  # requires expected_response in expectations
             ExpectationsGuidelines(),  # requires guidelines in expectations
         ],
@@ -135,15 +141,14 @@ def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
     mock_logger.info.assert_not_called()
 
 
-def test_global_guideline_adherence_does_not_require_expectations(mock_logger):
-    """Test that expectations are unwrapped and validated properly"""
+def test_global_guidelines_do_not_require_expectations(mock_logger):
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
             "outputs": ["output1", "output2"],
         }
     )
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[Guidelines(guidelines=["Be polite", "Be kind"])],
@@ -159,7 +164,6 @@ def test_global_guideline_adherence_does_not_require_expectations(mock_logger):
     ],
 )
 def test_validate_data_with_correctness(expectations, mock_logger):
-    """Correctness scorer requires one of expected_facts or expected_response"""
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
@@ -168,7 +172,7 @@ def test_validate_data_with_correctness(expectations, mock_logger):
         }
     )
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[Correctness()],
@@ -187,12 +191,12 @@ def test_validate_data_with_correctness(expectations, mock_logger):
 def test_validate_data_missing_columns(mock_logger):
     data = pd.DataFrame({"inputs": [{"question": "input1"}, {"question": "input2"}]})
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
 
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             RetrievalGroundedness(),
             Guidelines(guidelines=["Be polite", "Be kind"]),
         ],
@@ -200,8 +204,8 @@ def test_validate_data_missing_columns(mock_logger):
 
     mock_logger.info.assert_called_once()
     msg = mock_logger.info.call_args[0][0]
-    assert " - `outputs` column is required by [guidelines]." in msg
-    assert " - `trace` column is required by [retrieval_relevance, retrieval_groundedness]." in msg
+    assert " - `outputs` column is required by [relevance_to_query, guidelines]." in msg
+    assert " - `trace` column is required by [retrieval_groundedness]." in msg
 
 
 def test_validate_data_with_trace(mock_logger):
@@ -214,11 +218,11 @@ def test_validate_data_with_trace(mock_logger):
     trace = mlflow.get_trace(span.trace_id)
     data = [{"trace": trace}, {"trace": trace}]
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             RetrievalGroundedness(),
             Guidelines(guidelines=["Be polite", "Be kind"]),
         ],
@@ -229,7 +233,7 @@ def test_validate_data_with_trace(mock_logger):
 def test_validate_data_with_predict_fn(mock_logger):
     data = pd.DataFrame({"inputs": [{"question": "input1"}, {"question": "input2"}]})
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
 
     valid_data_for_builtin_scorers(
         data=converted_date,
@@ -238,7 +242,7 @@ def test_validate_data_with_predict_fn(mock_logger):
             # Requires "outputs" but predict_fn will provide it
             Guidelines(guidelines=["Be polite", "Be kind"]),
             # Requires "retrieved_context" but predict_fn will provide it
-            RetrievalRelevance(),
+            RelevanceToQuery(),
         ],
     )
 

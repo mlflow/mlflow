@@ -1,3 +1,4 @@
+import { jest, describe, beforeAll, test, expect } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
 import { render, screen, waitFor } from '../../common/utils/TestUtils.react18';
 import CompareRunPage from './CompareRunPage';
@@ -7,6 +8,7 @@ import { setupServer } from '../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { EXPERIMENT_RUNS_MOCK_STORE } from './experiment-page/fixtures/experiment-runs.fixtures';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000);
 
 // We're not testing RequestStateWrapper logic so it's just a pass through component in this test

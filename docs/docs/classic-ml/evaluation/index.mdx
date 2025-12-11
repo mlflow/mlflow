@@ -1,220 +1,593 @@
-import Link from "@docusaurus/Link";
-import { CardGroup, PageCard } from "@site/src/components/Card";
+---
+title: Model Evaluation
+---
 
-# MLflow Evaluation
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Zap, BarChart, Wrench, Users } from "lucide-react";
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Model Evaluation
+
+:::warning Classic ML Evaluation System
+
+This documentation covers MLflow's **classic evaluation system** (`mlflow.models.evaluate`) which uses `EvaluationMetric` and `make_metric` for custom metrics.
+
+**For GenAI/LLM evaluation**, please use the system at [GenAI Evaluation](/genai/eval-monitor) which uses:
+
+- `mlflow.genai.evaluate()` instead of `mlflow.models.evaluate()`
+- `Scorer` objects instead of `EvaluationMetric`
+- Built-in LLM judges and scorers
+
+**Important**: These two systems are **not interoperable**. `EvaluationMetric` objects cannot be used with `mlflow.genai.evaluate()`, and `Scorer` objects cannot be used with `mlflow.models.evaluate()`.
+:::
 
 ## Introduction
 
-**Model evaluation** is the cornerstone of reliable machine learning, transforming trained models into trustworthy, production-ready systems. MLflow's comprehensive evaluation framework goes beyond simple accuracy metrics, providing deep insights into model behavior, performance characteristics, and real-world readiness through automated testing, visualization, and validation pipelines.
+MLflow's evaluation framework provides automated model assessment for classification and regression tasks. It generates performance metrics, visualizations, and diagnostic information through a unified API.
 
-MLflow's evaluation capabilities democratize advanced model assessment, making sophisticated evaluation techniques accessible to teams of all sizes. From rapid prototyping to enterprise deployment, MLflow evaluation ensures your models meet the highest standards of reliability, fairness, and performance.
+<FeatureHighlights
+  features={[
+    {
+      icon: Zap,
+      title: "Unified Evaluation API",
+      description: "Evaluate models, Python functions, or static datasets with mlflow.models.evaluate() using a consistent interface across different evaluation modes.",
+    },
+    {
+      icon: BarChart,
+      title: "Automated Metrics & Visualizations",
+      description: "Generate task-specific metrics and plots automatically, including confusion matrices, ROC curves, and feature importance with SHAP integration.",
+    },
+    {
+      icon: Wrench,
+      title: "Custom Metrics",
+      description: "Define domain-specific evaluation criteria with make_metric() for business-specific performance measures beyond standard ML metrics.",
+    },
+    {
+      icon: Users,
+      title: "Plugin Architecture",
+      description: "Extend evaluation with specialized frameworks like Giskard and Trubrics for advanced validation and vulnerability scanning.",
+    },
+  ]}
+/>
 
-<details>
-  <summary>Why Comprehensive Model Evaluation Matters</summary>
+## Model Evaluation
 
-  #### Beyond Basic Metrics
-  - 📊 **Holistic Assessment**: Performance metrics, visualizations, and explanations in one unified framework
-  - 🎯 **Task-Specific Evaluation**: Specialized evaluators for classification, regression, and LLM tasks
-  - 🔍 **Model Interpretability**: SHAP integration for understanding model decisions and feature importance
-  - ⚖️ **Fairness Analysis**: Bias detection and ethical AI validation across demographic groups
+Evaluate classification and regression models with automated metrics and visualizations.
 
-  #### Production Readiness
-  - 🚀 **Automated Validation**: Threshold-based model acceptance with customizable criteria
-  - 📈 **Performance Monitoring**: Track model degradation and drift over time
-  - 🔄 **A/B Testing Support**: Compare candidate models against production baselines
-  - 📋 **Audit Trails**: Complete evaluation history for regulatory compliance and model governance
-
-</details>
-
-## Why MLflow Evaluation?
-
-MLflow's evaluation framework provides a comprehensive solution for model assessment and validation:
-
-- ⚡ **One-Line Evaluation**: Comprehensive model assessment with `mlflow.evaluate()` - minimal configuration required
-- 🎛️ **Flexible Evaluation Modes**: Evaluate models, functions, or static datasets with the same unified API
-- 📊 **Rich Visualizations**: Automatic generation of performance plots, confusion matrices, and diagnostic charts
-- 🔧 **Custom Metrics**: Define domain-specific evaluation criteria with easy-to-use metric builders
-- 🧠 **Built-in Explainability**: SHAP integration for model interpretation and feature importance analysis
-- 👥 **Team Collaboration**: Share evaluation results and model comparisons through MLflow's tracking interface
-- 🏭 **Enterprise Integration**: Plugin architecture for specialized evaluation frameworks like Giskard and Trubrics
-
-## Core Evaluation Capabilities
-
-### Automated Model Assessment
-
-MLflow evaluation transforms complex model assessment into simple, reproducible workflows:
+### Quick Start
 
 ```python
 import mlflow
+import pandas as pd
+import xgboost as xgb
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.datasets import load_wine
+from sklearn.datasets import load_breast_cancer
+from mlflow.models import infer_signature
 
-# Load and prepare data
-wine = load_wine()
+# Load dataset
+X, y = load_breast_cancer(return_X_y=True, as_frame=True)
 X_train, X_test, y_train, y_test = train_test_split(
-    wine.data, wine.target, test_size=0.2, random_state=42
+    X, y, test_size=0.3, random_state=42
 )
 
 # Train model
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
+model = xgb.XGBClassifier().fit(X_train, y_train)
 
 # Create evaluation dataset
-eval_data = X_test
-eval_data["target"] = y_test
+eval_data = X_test.copy()
+eval_data["label"] = y_test
 
 with mlflow.start_run():
     # Log model
-    mlflow.sklearn.log_model(model, name="model")
+    signature = infer_signature(X_test, model.predict(X_test))
+    model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
-    # Comprehensive evaluation with one line
+    # Evaluate
     result = mlflow.models.evaluate(
-        model="models:/my-model/1",
-        data=eval_data,
+        model_info.model_uri,
+        eval_data,
+        targets="label",
+        model_type="classifier",
+    )
+
+    print(f"Accuracy: {result.metrics['accuracy_score']:.3f}")
+    print(f"F1 Score: {result.metrics['f1_score']:.3f}")
+    print(f"ROC AUC: {result.metrics['roc_auc']:.3f}")
+```
+
+This automatically generates performance metrics (accuracy, precision, recall, F1-score, ROC-AUC), visualizations (confusion matrix, ROC curve, precision-recall curve), and saves all artifacts to MLflow.
+
+### Model Types
+
+<Tabs>
+  <TabItem value="classification" label="Classification" default>
+
+For classification tasks:
+
+```python
+result = mlflow.models.evaluate(
+    model_uri,
+    eval_data,
+    targets="label",
+    model_type="classifier",
+)
+
+# Access metrics
+print(f"Precision: {result.metrics['precision_score']:.3f}")
+print(f"Recall: {result.metrics['recall_score']:.3f}")
+print(f"F1 Score: {result.metrics['f1_score']:.3f}")
+print(f"ROC AUC: {result.metrics['roc_auc']:.3f}")
+```
+
+Automatically generates: accuracy, precision, recall, F1-score, ROC-AUC, precision-recall AUC, log loss, brier score, confusion matrix, and classification report.
+
+  </TabItem>
+  <TabItem value="regression" label="Regression">
+
+For regression tasks:
+
+```python
+from sklearn.datasets import fetch_california_housing
+from sklearn.linear_model import LinearRegression
+
+# Load regression dataset
+housing = fetch_california_housing(as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    housing.data, housing.target, test_size=0.2, random_state=42
+)
+
+# Train model
+model = LinearRegression().fit(X_train, y_train)
+
+# Create evaluation dataset
+eval_data = X_test.copy()
+eval_data["target"] = y_test
+
+with mlflow.start_run():
+    signature = infer_signature(X_train, model.predict(X_train))
+    model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
+
+    result = mlflow.models.evaluate(
+        model_info.model_uri,
+        eval_data,
+        targets="target",
+        model_type="regressor",
+    )
+
+    print(f"MAE: {result.metrics['mean_absolute_error']:.3f}")
+    print(f"RMSE: {result.metrics['root_mean_squared_error']:.3f}")
+    print(f"R² Score: {result.metrics['r2_score']:.3f}")
+```
+
+Automatically generates: MAE, MSE, RMSE, R² score, adjusted R², MAPE, residual plots, and distribution analysis.
+
+  </TabItem>
+</Tabs>
+
+### Evaluator Configuration
+
+Control evaluator behavior with the `evaluator_config` parameter:
+
+```python
+# Include SHAP explainer for feature importance
+result = mlflow.models.evaluate(
+    model_uri,
+    eval_data,
+    targets="label",
+    model_type="classifier",
+    evaluator_config={
+        "log_explainer": True,
+        "explainer_type": "exact",
+    },
+)
+```
+
+Common options: `log_explainer` (log SHAP explainer), `explainer_type` (SHAP type: "exact", "permutation", "partition"), `pos_label` (positive class label for binary classification), `average` (averaging strategy for multiclass: "macro", "micro", "weighted").
+
+### Evaluation Results
+
+Access metrics, artifacts, and evaluation data:
+
+```python
+# Run evaluation
+result = mlflow.models.evaluate(
+    model_uri, eval_data, targets="label", model_type="classifier"
+)
+
+# Access metrics
+for metric_name, value in result.metrics.items():
+    print(f"{metric_name}: {value}")
+
+# Access artifacts (plots, tables)
+for artifact_name, path in result.artifacts.items():
+    print(f"{artifact_name}: {path}")
+
+# Access evaluation table
+eval_table = result.tables["eval_results_table"]
+```
+
+### Model Validation
+
+:::warning
+
+MLflow 2.18.0 moved model validation from <APILink fn="mlflow.models.evaluate" /> to <APILink fn="mlflow.validate_evaluation_results" />.
+:::
+
+Validate evaluation metrics against thresholds:
+
+```python
+from mlflow.models import MetricThreshold
+
+# Evaluate model
+result = mlflow.models.evaluate(
+    model_uri, eval_data, targets="label", model_type="classifier"
+)
+
+# Define thresholds
+thresholds = {
+    "accuracy_score": MetricThreshold(threshold=0.85, greater_is_better=True),
+    "precision_score": MetricThreshold(threshold=0.80, greater_is_better=True),
+}
+
+# Validate
+try:
+    mlflow.validate_evaluation_results(
+        candidate_result=result,
+        validation_thresholds=thresholds,
+    )
+    print("Model meets all thresholds")
+except mlflow.exceptions.ModelValidationFailedException as e:
+    print(f"Validation failed: {e}")
+```
+
+## Dataset Evaluation
+
+Evaluate pre-computed predictions without re-running the model.
+
+### Usage
+
+```python
+import mlflow
+import pandas as pd
+from sklearn.datasets import make_classification
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
+# Generate sample data and train a model
+X, y = make_classification(n_samples=1000, n_features=20, n_classes=2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Generate predictions
+predictions = model.predict(X_test)
+prediction_probabilities = model.predict_proba(X_test)[:, 1]
+
+# Create evaluation dataset with predictions
+eval_dataset = pd.DataFrame(
+    {
+        "prediction": predictions,
+        "target": y_test,
+    }
+)
+
+with mlflow.start_run():
+    result = mlflow.models.evaluate(
+        data=eval_dataset,
+        predictions="prediction",
         targets="target",
         model_type="classifier",
-        evaluators=["default"],
+    )
+
+    print(f"Accuracy: {result.metrics['accuracy_score']:.3f}")
+    print(f"F1 Score: {result.metrics['f1_score']:.3f}")
+```
+
+### Parameters
+
+- `data`: DataFrame containing predictions and targets
+- `predictions`: Column name containing model predictions
+- `targets`: Column name containing ground truth labels
+- `model_type`: Task type (`"classifier"` or `"regressor"`)
+
+When evaluating classification models with probability scores, include a column with probabilities for metrics like ROC-AUC:
+
+```python
+eval_dataset = pd.DataFrame(
+    {
+        "prediction": predictions,
+        "prediction_proba": prediction_probabilities,  # For ROC-AUC
+        "target": y_test,
+    }
+)
+```
+
+## Function Evaluation
+
+Evaluate Python functions directly without logging models to MLflow.
+
+### Usage
+
+```python
+import mlflow
+import pandas as pd
+from sklearn.datasets import make_classification
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
+# Generate sample data
+X, y = make_classification(n_samples=1000, n_features=20, n_classes=2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+# Train a model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+
+# Define a prediction function
+def predict_function(input_data):
+    return model.predict(input_data)
+
+
+# Create evaluation dataset
+eval_data = pd.DataFrame(X_test)
+eval_data["target"] = y_test
+
+with mlflow.start_run():
+    result = mlflow.models.evaluate(
+        predict_function,
+        eval_data,
+        targets="target",
+        model_type="classifier",
+    )
+
+    print(f"Accuracy: {result.metrics['accuracy_score']:.3f}")
+    print(f"F1 Score: {result.metrics['f1_score']:.3f}")
+```
+
+### Function Requirements
+
+The function must:
+
+- Accept input data as its first parameter (DataFrame, numpy array, or compatible format)
+- Return predictions in a format compatible with the specified `model_type`
+- Be callable without additional arguments beyond the input data
+
+For classification tasks, the function should return class predictions. For regression tasks, it should return continuous values.
+
+## Custom Metrics & Visualizations
+
+Define custom evaluation metrics and create specialized visualizations.
+
+### Custom Metrics
+
+:::note Classic System Only
+
+The `make_metric` function is part of MLflow's classic evaluation system.
+
+For GenAI/LLM custom metrics, use the [@scorer decorator](/genai/eval-monitor/scorers/custom) instead.
+:::
+
+Create custom metrics with `make_metric`:
+
+```python
+import mlflow
+import numpy as np
+from mlflow.models import make_metric
+from mlflow.metrics.base import MetricValue
+
+
+# Define custom metric
+def custom_metric_fn(predictions, targets, metrics):
+    """Custom metric function."""
+    tp = np.sum((predictions == 1) & (targets == 1))
+    fp = np.sum((predictions == 1) & (targets == 0))
+
+    # Calculate custom value
+    custom_value = (tp * 100) - (fp * 20)
+
+    return MetricValue(
+        aggregate_results={
+            "custom_value": custom_value,
+            "value_per_prediction": custom_value / len(predictions),
+        },
+    )
+
+
+# Create metric
+custom_metric = make_metric(
+    eval_fn=custom_metric_fn, greater_is_better=True, name="custom_metric"
+)
+
+with mlflow.start_run():
+    result = mlflow.models.evaluate(
+        model_uri,
+        eval_data,
+        targets="target",
+        model_type="classifier",
+        extra_metrics=[custom_metric],
+    )
+
+    print(f"Custom Value: {result.metrics['custom_metric/custom_value']:.2f}")
+```
+
+Custom metric functions receive three parameters:
+
+- `predictions`: Model predictions (numpy array)
+- `targets`: Ground truth labels (numpy array)
+- `metrics`: Dictionary of built-in metrics already computed
+
+Return a `MetricValue` object with `aggregate_results` dict containing your custom metric values.
+
+### Custom Visualizations
+
+Create custom visualization artifacts:
+
+```python
+import matplotlib.pyplot as plt
+import os
+
+
+def create_custom_plot(eval_df, builtin_metrics, artifacts_dir):
+    """Create custom visualization."""
+    plt.figure(figsize=(10, 6))
+    plt.scatter(eval_df["prediction"], eval_df["target"], alpha=0.5)
+    plt.xlabel("Predictions")
+    plt.ylabel("Targets")
+    plt.title("Custom Prediction Analysis")
+
+    # Save plot
+    plot_path = os.path.join(artifacts_dir, "custom_plot.png")
+    plt.savefig(plot_path)
+    plt.close()
+
+    return {"custom_plot": plot_path}
+
+
+# Use custom artifact
+with mlflow.start_run():
+    result = mlflow.models.evaluate(
+        model_uri,
+        eval_data,
+        targets="target",
+        model_type="classifier",
+        custom_artifacts=[create_custom_plot],
     )
 ```
 
-<details>
-  <summary>What Gets Automatically Generated</summary>
+Custom artifact functions receive three parameters:
 
-  #### Performance Metrics
-  - 📊 **Classification**: Accuracy, precision, recall, F1-score, ROC-AUC, confusion matrices
-  - 📈 **Regression**: MAE, MSE, RMSE, R², residual analysis, prediction vs actual plots
-  - 🎯 **Custom Metrics**: Domain-specific measures defined with simple Python functions
+- `eval_df`: DataFrame with predictions, targets, and input features
+- `builtin_metrics`: Dictionary of computed metrics
+- `artifacts_dir`: Directory path to save artifact files
 
-  #### Visual Diagnostics
-  - 📊 **Performance Plots**: ROC curves, precision-recall curves, calibration plots
-  - 📈 **Feature Importance**: SHAP values, permutation importance, feature interactions
+Return a dictionary mapping artifact names to file paths.
 
-  #### Model Explanations
-  - 🧠 **Global Explanations**: Overall model behavior and feature contributions (with `shap`)
-  - 🔍 **Local Explanations**: Individual prediction explanations and decision paths (with `shap`)
+## SHAP Integration
 
-</details>
+MLflow's built-in SHAP integration provides automatic model explanations and feature importance analysis.
 
-### Flexible Evaluation Modes
+### Usage
 
-MLflow supports multiple evaluation approaches to fit your workflow:
+Enable SHAP explanations by setting `log_explainer: True` in the evaluator config:
 
-<details>
-  <summary>Comprehensive Evaluation Options</summary>
+```python
+import mlflow
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_breast_cancer
+from mlflow.models import infer_signature
 
-  #### Model Evaluation
-  - 🤖 **Logged Models**: Evaluate models that have been logged to MLflow
-  - 🔄 **Live Models**: Direct evaluation of in-memory model objects
-  - 📦 **Pipeline Evaluation**: End-to-end assessment of preprocessing and modeling pipelines
+# Load dataset
+X, y = load_breast_cancer(return_X_y=True, as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
 
-  #### Function Evaluation
-  - ⚡ **Lightweight Assessment**: Evaluate Python functions without model logging overhead
-  - 🔧 **Custom Predictions**: Assess complex prediction logic and business rules
-  - 🎯 **Rapid Prototyping**: Quick evaluation during model development
+# Train model
+model = xgb.XGBClassifier().fit(X_train, y_train)
 
-  #### Dataset Evaluation
-  - 📊 **Static Analysis**: Evaluate pre-computed predictions without re-running models
-  - 🔄 **Batch Processing**: Assess large-scale inference results efficiently
-  - 📈 **Historical Analysis**: Evaluate model performance on past predictions
+# Create evaluation dataset
+eval_data = X_test.copy()
+eval_data["label"] = y_test
 
-</details>
+with mlflow.start_run():
+    signature = infer_signature(X_test, model.predict(X_test))
+    model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
-## Specialized Evaluation Areas
+    # Evaluate with SHAP enabled
+    result = mlflow.models.evaluate(
+        model_info.model_uri,
+        eval_data,
+        targets="label",
+        model_type="classifier",
+        evaluator_config={"log_explainer": True},
+    )
 
-Our comprehensive evaluation framework is organized into specialized areas, each designed for specific aspects of model assessment:
+    # Check generated SHAP artifacts
+    for artifact_name in result.artifacts:
+        if "shap" in artifact_name.lower():
+            print(f"Generated: {artifact_name}")
+```
 
-<CardGroup>
-  <PageCard
-    headerText="Model Evaluation"
-    link="/ml/evaluation/model-eval"
-    text="Core model evaluation workflows for classification and regression tasks with automated metrics, visualizations, and performance assessment."
-  />
-  <PageCard
-    headerText="Dataset Evaluation"
-    link="/ml/evaluation/dataset-eval"
-    text="Evaluate static datasets and pre-computed predictions without re-running models, perfect for batch processing and historical analysis."
-  />
-</CardGroup>
+This generates feature importance plots, SHAP summary plots, and saves a SHAP explainer model.
 
-<CardGroup>
-  <PageCard
-    headerText="Function Evaluation"
-    link="/ml/evaluation/function-eval"
-    text="Lightweight evaluation of Python functions and custom prediction logic without the overhead of model logging and registration."
-  />
-  <PageCard
-    headerText="Custom Metrics & Visualizations"
-    link="/ml/evaluation/metrics-visualizations"
-    text="Define domain-specific evaluation criteria, custom metrics, and specialized visualizations tailored to your business requirements."
-  />
-</CardGroup>
+### Configuration
 
-<CardGroup>
-  <PageCard
-    headerText="SHAP Integration"
-    link="/ml/evaluation/shap"
-    text="Deep model interpretation with SHAP values, feature importance analysis, and explainable AI capabilities for transparent ML."
-  />
-  <PageCard
-    headerText="Plugin Evaluators"
-    link="/ml/evaluation/plugin-evaluators"
-    text="Extend evaluation capabilities with specialized plugins like Giskard for vulnerability scanning and Trubrics for advanced validation."
-  />
-</CardGroup>
+Control SHAP behavior with evaluator config options:
 
-## Advanced Evaluation Features
+```python
+result = mlflow.models.evaluate(
+    model_uri,
+    eval_data,
+    targets="label",
+    model_type="classifier",
+    evaluator_config={
+        "log_explainer": True,
+        "explainer_type": "exact",
+        "max_error_examples": 100,
+        "log_model_explanations": True,
+    },
+)
+```
 
-### Enterprise Integration
+**Configuration Options:**
 
-<details>
-  <summary>Production-Grade Evaluation</summary>
+- `log_explainer`: Whether to save the SHAP explainer as a model (default: False)
+- `explainer_type`: SHAP algorithm type - "exact", "permutation", or "partition"
+- `max_error_examples`: Number of misclassified examples to explain in detail
+- `log_model_explanations`: Whether to log individual prediction explanations
 
-  #### Model Governance
-  - 📋 **Audit Trails**: Complete evaluation history for regulatory compliance
-  - 🔒 **Access Control**: Role-based evaluation permissions and result visibility
-  - 📊 **Executive Dashboards**: High-level model performance summaries for stakeholders
-  - 🔄 **Automated Reporting**: Scheduled evaluation reports and performance alerts
+### Using Saved Explainers
 
-  #### MLOps Integration
-  - 🚀 **CI/CD Pipelines**: Automated evaluation gates in deployment workflows
-  - 📈 **Performance Monitoring**: Continuous evaluation of production models
-  - 🔄 **A/B Testing**: Statistical comparison of model variants in production
-  - 📊 **Drift Detection**: Automated alerts for model performance degradation
+Load and use saved SHAP explainers on new data:
 
-</details>
+```python
+# Load the saved explainer
+explainer_uri = f"runs:/{run_id}/explainer"
+explainer = mlflow.pyfunc.load_model(explainer_uri)
 
-## Real-World Applications
+# Generate explanations for new data
+new_data = X_test[:10]
+explanations = explainer.predict(new_data)
 
-MLflow evaluation excels across diverse machine learning applications:
+# explanations contains SHAP values for each feature and prediction
+print(f"Explanations shape: {explanations.shape}")
+```
 
-- 🏦 **Financial Services**: Credit scoring model validation, fraud detection performance assessment, and regulatory compliance evaluation
-- 🏥 **Healthcare**: Medical AI model validation, diagnostic accuracy assessment, and safety-critical model certification
-- 🛒 **E-commerce**: Recommendation system evaluation, search relevance assessment, and personalization effectiveness measurement
-- 🚗 **Autonomous Systems**: Safety-critical model validation, edge case analysis, and robustness testing for self-driving vehicles
-- 🎯 **Marketing Technology**: Campaign effectiveness measurement, customer segmentation validation, and attribution model assessment
-- 🏭 **Manufacturing**: Quality control model validation, predictive maintenance assessment, and process optimization evaluation
-- 📱 **Technology Platforms**: Content moderation effectiveness, user behavior prediction accuracy, and system performance optimization
+## Plugin Evaluators
 
-## Getting Started
+MLflow's evaluation framework supports plugin evaluators that extend evaluation with specialized validation capabilities.
 
-Ready to elevate your model evaluation practices with MLflow? Choose the evaluation approach that best fits your current needs:
+### Giskard Plugin
 
-<details>
-  <summary>Quick Start Recommendations</summary>
+The [Giskard](https://docs.giskard.ai/en/latest/integrations/mlflow/index.html) plugin scans models for vulnerabilities including performance bias, robustness issues, overconfidence, underconfidence, ethical bias, data leakage, stochasticity, and spurious correlations.
 
-  #### For Data Scientists
-  Start with [Model Evaluation](model-eval) to understand comprehensive performance assessment, then explore **Custom Metrics** for domain-specific requirements.
+**Examples:**
 
-  #### For ML Engineers
-  Begin with [Function Evaluation](function-eval) for lightweight testing, then advance to **Model Validation** for production readiness assessment.
+- [Tabular ML Models](https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-tabular-example.html)
+- [Text ML Models (LLMs)](https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-llm-example.html)
 
-  #### For ML Researchers
-  Explore [SHAP Integration](shap) for model interpretability, then investigate **Plugin Evaluators** for specialized analysis capabilities.
+**Documentation:** [Giskard-MLflow integration docs](https://docs.giskard.ai/en/latest/integrations/mlflow/index.html)
 
-  #### For Enterprise Teams
-  Start with [Model Validation](metrics-visualizations) for governance requirements, then implement [Dataset Evaluation](dataset-eval) for large-scale assessment workflows.
+### Trubrics Plugin
 
-</details>
+The [Trubrics](https://github.com/trubrics/trubrics-sdk) plugin provides a validation framework with pre-built validation checks and support for custom Python validation functions.
 
-Whether you're validating your first model or implementing enterprise-scale evaluation frameworks, MLflow's comprehensive evaluation suite provides the tools and insights needed to build trustworthy, reliable machine learning systems that deliver real business value with confidence.
+**Example:** [Official example notebook](https://github.com/trubrics/trubrics-python/blob/v1.3.4/examples/mlflow/mlflow-trubrics.ipynb)
+
+**Documentation:** [Trubrics-MLflow integration docs](https://trubrics.github.io/trubrics-sdk/mlflow/) {/* <!-- markdown-link-check-disable-line --> */}
+
+## API Reference
+
+- <APILink fn="mlflow.models.evaluate" /> - Main evaluation API
+- <APILink fn="mlflow.validate_evaluation_results" /> - Validate evaluation results
+- <APILink fn="mlflow.models.make_metric" /> - Create custom metrics
+- <APILink fn="mlflow.metrics.base.MetricValue" /> - Metric return value

@@ -1,0 +1,146 @@
+---
+title: Self Hosting Overview
+sidebar_position: 1
+---
+
+# Self-Hosting MLflow
+
+> #### **_The most vendor-neutral MLOps/LLMOps platform in the world._**
+
+MLflow is fully open-source. Thousands of users and organizations run their own MLflow instances to meet their specific needs. Being open-source and trusted by the popular cloud providers, MLflow is the best choice for teams/organizations that worry about vendor lock-in.
+
+:::warning Default Storage Backend Change
+
+As of MLflow 3.7.0, the default tracking backend has changed from file-based storage (`./mlruns`) to SQLite database (`sqlite:///mlflow.db`) for better performance and reliability.
+
+**Existing users:** If you have existing data in `./mlruns`, MLflow will automatically detect and continue using it. No action is required.
+
+**New users:** New MLflow servers will use SQLite by default. To use file-based storage instead, set `MLFLOW_TRACKING_URI=./mlruns` or specify `--backend-store-uri ./mlruns` when starting the server.
+
+For more details and migration guidance, see [GitHub Issue #18534](https://github.com/mlflow/mlflow/issues/18534).
+
+:::
+
+## The Quickest Path: Run `mlflow` Command
+
+The easiest way to start MLflow server is to run the `mlflow` CLI command in your terminal. This is suitable for personal use or small teams.
+
+First, install MLflow with:
+
+```bash
+pip install mlflow
+```
+
+Then, start the server with:
+
+```bash
+mlflow server --port 5000
+```
+
+This will start the server and UI at `http://localhost:5000` using SQLite as the backend store (the default). You can connect the client to the server by setting the tracking URI:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# Start tracking!
+# Open http://localhost:5000 in your browser to view the UI.
+```
+
+Now, you are ready to start your experiment!
+
+- [Tracing QuickStart](/genai/tracing/quickstart/)
+- [LLM Evaluation Quickstart](/genai/eval-monitor/quickstart/)
+- [Prompt Management Quickstart](/genai/prompt-registry/#getting-started)
+- [Model Training Quickstart](/ml/tracking/quickstart/)
+
+:::tip
+
+For production deployments or custom backend configurations, see <ins>[Backend Store](./architecture/backend-store)</ins> documentation.
+
+:::
+
+## Other Deployment Options
+
+### Docker Compose
+
+The MLflow repository includes a ready-to-run Compose project under `docker-compose/` that provisions MLflow, PostgreSQL, and MinIO.
+
+```bash
+git clone https://github.com/mlflow/mlflow.git
+cd docker-compose
+cp .env.dev.example .env
+docker compose up -d
+```
+
+Read the instructions [here](https://github.com/mlflow/mlflow/tree/master/docker-compose) for more details and configuration options for the docker compose bundle.
+
+### Kubernetes
+
+To deploy on Kubernetes, use the MLflow Helm chart provided by [Bitnami](https://artifacthub.io/packages/helm/bitnami/mlflow) or [Community Helm Charts](https://artifacthub.io/packages/helm/community-charts/mlflow).
+
+### Cloud Services
+
+If you are looking for production-scale deployments without maintenance costs, MLflow is also available as managed services from popular cloud providers.
+
+- [Databricks](https://www.databricks.com/product/managed-mlflow)
+- [AWS Sagemaker](https://aws.amazon.com/sagemaker/ai/experiments/)
+- [Azure Machine Learning](https://learn.microsoft.com/en-us/azure/machine-learning/concept-mlflow?view=azureml-api-2)
+- [Nebius](https://nebius.com/services/managed-mlflow)
+- [GCP (GKE)](https://gke-ai-labs.dev/docs/tutorials/frameworks-and-pipelines/mlflow/)
+
+## Architecture
+
+MLflow, at a high level, consists of the following components:
+
+1. **Tracking Server**: The lightweight FastAPI server that serves the MLflow UI and API.
+2. **Backend Store**: The Backend Store is relational database (or file system) that stores the metadata of the experiments, runs, traces, etc.
+3. **Artifact Store**: The Artifact Store is responsible for storing the large artifacts such as model weights, images, etc.
+
+Each component is designed to be pluggable, so you can customize it to meet your needs. For example, you can start with a single host mode with SQLite backend and local file system for storing artifacts. To scale up, you can switch backend store to PostgreSQL cluster and point artifact store to cloud storage such as S3, GCS, or Azure Blob Storage.
+
+To learn more about the architecture and available backend options, see [Architecture](./architecture/overview).
+
+## Access Control & Security
+
+MLflow support [username/password login](./security/basic-http-auth) via basic HTTP authentication, [SSO (Single Sign-On)](./security/sso), and [custom authentication plugins](./security/custom).
+
+MLflow also provides built-in [network protection](./security/network) middleware to protect your tracking server from network exposure.
+
+:::tip Try Managed MLflow
+
+Need highly secure MLflow server? Check out <ins>[Databricks Managed MLflow](https://www.databricks.com/product/managed-mlflow)</ins> to get fully managed MLflow servers with unified governance and security.
+
+:::
+
+## FAQs
+
+See [Troubleshooting & FAQs](./troubleshooting) for more information.
+
+:::info[ACCESS DENIED?]
+
+When using the remote tracking server, you may hit an access denied error when accessing the MLflow UI
+from a browser.
+
+> Invalid Host header - possible DNS rebinding attack detected
+
+This error typically indicates that the tracking server's network security settings need to be configured.
+The most common causes are:
+
+- **Host validation**: The `--allowed-hosts` flag restricts which Host headers are accepted
+- **CORS restrictions**: The `--cors-allowed-origins` flag controls which origins can make API requests
+
+To resolve this, configure your tracking server with the appropriate flags. For example:
+
+```bash
+mlflow server --allowed-hosts "mlflow.company.com,localhost:*" \
+              --cors-allowed-origins "https://app.company.com"
+```
+
+**Note**: These security options are only available with the default FastAPI-based server (uvicorn). They are
+not supported when using Flask directly or with `--gunicorn-opts` or `--waitress-opts`.
+
+Refer to the <ins>[Network Security Guide](/self-hosting/security/network)</ins> for detailed configuration options.
+
+:::

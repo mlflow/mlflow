@@ -1,9 +1,9 @@
-import { ColumnDef } from '@tanstack/react-table';
-import { RegisteredPrompt } from '../types';
+import type { ColumnDef } from '@tanstack/react-table';
+import type { RegisteredPrompt } from '../types';
 import { Button, PencilIcon } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { isUserFacingTag } from '../../../../common/utils/TagUtils';
-import { PromptsTableMetadata } from '../utils';
+import type { PromptsTableMetadata } from '../utils';
 import { KeyValueTag } from '../../../../common/components/KeyValueTag';
 
 export const PromptsListTableTagsCell: ColumnDef<RegisteredPrompt>['cell'] = ({

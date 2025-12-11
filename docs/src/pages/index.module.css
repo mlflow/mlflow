@@ -68,7 +68,7 @@
 }
 
 [data-theme='dark'] .glossyCard {
-    border: 1px solid var(--ifm-color-emphasis-300);
+  border: 1px solid var(--ifm-color-emphasis-300);
 }
 
 .glossyCardblue:hover {
@@ -148,7 +148,7 @@
   padding: 0.75rem 1.25rem;
   border-radius: 8px;
   font-weight: 600;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;

@@ -3,10 +3,12 @@ import { BadRequestError, InternalServerError, NotFoundError, PermissionError } 
 import { ErrorWrapper } from './ErrorWrapper';
 import { ErrorCodes } from '../constants';
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class ErrorUtils {
   static mlflowServices = {
     MODEL_REGISTRY: 'Model Registry',
     EXPERIMENTS: 'Experiments',
+    CHAT_SESSIONS: 'Chat Sessions',
     MODEL_SERVING: 'Model Serving',
     RUN_TRACKING: 'Run Tracking',
   };

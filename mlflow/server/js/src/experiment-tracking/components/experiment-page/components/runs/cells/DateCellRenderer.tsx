@@ -1,7 +1,7 @@
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React from 'react';
 import Utils from '../../../../../../common/utils/Utils';
-import { RunRowDateAndNestInfo } from '../../../utils/experimentPage.row-types';
+import type { RunRowDateAndNestInfo } from '../../../utils/experimentPage.row-types';
 import { RunStatusIcon } from '../../../../RunStatusIcon';
 import { useIntl } from 'react-intl';
 

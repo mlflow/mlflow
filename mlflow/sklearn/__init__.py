@@ -19,7 +19,7 @@ import pickle
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import yaml
@@ -334,7 +334,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     sk_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
@@ -347,12 +347,12 @@ def log_model(
     pyfunc_predict_fn="predict",
     metadata=None,
     # New arguments
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
-    name: Optional[str] = None,
+    model_id: str | None = None,
+    name: str | None = None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -547,7 +547,7 @@ class _SklearnModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -768,7 +768,7 @@ class _AutologgingMetricsManager:
         """
         self._model_id_mapping[id(model)] = model_id
 
-    def get_model_id_for_model(self, model) -> Optional[str]:
+    def get_model_id_for_model(self, model) -> str | None:
         return self._model_id_mapping.get(id(model))
 
     @staticmethod
@@ -1290,7 +1290,7 @@ def autolog(
             the best 5 search parameter sets. If `max_tuning_runs=None`, then
             a child run is created for each search parameter set. Note: The best k
             results is based on ordering in `rank_test_score`. In the case of
-            multi-metric evaluation with a custom scorer, the first scorer’s
+            multi-metric evaluation with a custom scorer, the first scorer's
             `rank_test_score_<scorer_name>` will be used to select the best k
             results. To change metric used for selecting best k results, change
             ordering of dict passed as `scoring` parameter for estimator.
@@ -1328,7 +1328,7 @@ def autolog(
     )
 
 
-def _autolog(  # noqa: D417
+def _autolog(
     flavor_name=FLAVOR_NAME,
     log_input_examples=False,
     log_model_signatures=True,
@@ -1426,7 +1426,7 @@ def _autolog(  # noqa: D417
                 flavor_name, "registered_model_name", None
             )
             if flavor_name == mlflow.xgboost.FLAVOR_NAME:
-                model_format = get_autologging_config(flavor_name, "model_format", "xgb")
+                model_format = get_autologging_config(flavor_name, "model_format", "ubj")
                 model_info = log_model_func(
                     self,
                     "model",
@@ -1465,7 +1465,7 @@ def _autolog(  # noqa: D417
         params_logging_future.await_completion()
         return fit_output
 
-    def _log_pretraining_metadata(autologging_client, estimator, X, y):  # noqa: D417
+    def _log_pretraining_metadata(autologging_client, estimator, X, y):
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
         This is intended to be invoked within a patched scikit-learn training routine
@@ -1499,8 +1499,7 @@ def _autolog(  # noqa: D417
                 context_tags = context_registry.resolve_tags()
                 source = CodeDatasetSource(context_tags)
 
-                dataset = _create_dataset(X, source, y)
-                if dataset:
+                if dataset := _create_dataset(X, source, y):
                     tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
                     dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
@@ -1757,10 +1756,8 @@ def _autolog(  # noqa: D417
                     context_tags = context_registry.resolve_tags()
                     source = CodeDatasetSource(context_tags)
 
-                    dataset = _create_dataset(eval_dataset, source)
-
                     # log the dataset
-                    if dataset:
+                    if dataset := _create_dataset(eval_dataset, source):
                         tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
                         dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 

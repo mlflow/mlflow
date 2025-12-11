@@ -1,5 +1,5 @@
 import { Typography } from '@databricks/design-system';
-import { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { FormattedMessage } from 'react-intl';
 
 export const PromptsListTableVersionCell: ColumnDef<any>['cell'] = ({ row: { original }, getValue }) => {

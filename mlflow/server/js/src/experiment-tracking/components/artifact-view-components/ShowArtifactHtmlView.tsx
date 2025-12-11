@@ -67,14 +67,14 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
       return <div className="artifact-html-view-error">Oops we couldn't load your file because of an error.</div>;
     } else {
       return (
-        <div className="artifact-html-view">
+        <div className="mlflow-artifact-html-view">
           <Iframe
             url=""
             src={this.getBlobURL(this.state.html, 'text/html')}
             width="100%"
             height="100%"
             id="html"
-            className="html-iframe"
+            className="mlflow-html-iframe"
             display="block"
             position="relative"
             sandbox="allow-scripts"
@@ -91,10 +91,10 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId } = this.props;
+    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
 
     this.props
-      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId }, getArtifactContent)
+      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags }, getArtifactContent)
       .then((html: string) => {
         this.setState({ html: html, loading: false, path: this.props.path });
       })

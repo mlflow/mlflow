@@ -6,7 +6,6 @@ import type {
   UseGetRunQueryResponseRunInfo,
 } from '../../components/run-page/hooks/useGetRunQuery';
 import type { LoggedModelProto, RunInfoEntity } from '../../types';
-import { useGetLoggedModelQueries } from './useGetLoggedModelQuery';
 
 type LoggedModelProtoWithRunDirection = LoggedModelProto & { direction: 'input' | 'output'; step?: string };
 
@@ -27,30 +26,30 @@ export const useCombinedRunInputsOutputsModels = (
   inputs?: UseGetRunQueryResponseInputs,
   outputs?: UseGetRunQueryResponseOutputs,
   runInfo?: RunInfoEntity | UseGetRunQueryResponseRunInfo,
+  loggedModelsV3?: LoggedModelProto[],
 ) => {
-  const inputModelIds = compact(uniq(inputs?.modelInputs?.map((modelInput) => modelInput.modelId)));
-  const outputModelIds = compact(uniq(outputs?.modelOutputs?.map((modelOutput) => modelOutput.modelId)));
-  const inputModelQueries = useGetLoggedModelQueries(inputModelIds);
-  const outputModelQueries = useGetLoggedModelQueries(outputModelIds);
-
   const inputLoggedModels = useMemo(() => {
-    return inputModelQueries.map<LoggedModelProtoWithRunDirection | undefined>((query) => {
-      if (!query.data?.model) return undefined;
-      return { ...query.data?.model, direction: 'input' as const };
+    const inputModelIds = compact(uniq(inputs?.modelInputs?.map((modelInput) => modelInput.modelId)));
+    return inputModelIds.map<LoggedModelProtoWithRunDirection | undefined>((model_id) => {
+      const model = loggedModelsV3?.find((model) => model.info?.model_id === model_id);
+      if (!model) return undefined;
+      return { ...model, direction: 'input' as const };
     });
-  }, [inputModelQueries]);
+  }, [inputs?.modelInputs, loggedModelsV3]);
 
   const outputLoggedModels = useMemo(() => {
-    return outputModelQueries.map<LoggedModelProtoWithRunDirection | undefined>((query) => {
-      if (!query.data?.model) return undefined;
-      const correspondingOutputEntry = outputs?.modelOutputs?.find(
-        ({ modelId }) => modelId === query.data?.model?.info?.model_id,
-      );
-      return { ...query.data?.model, direction: 'output' as const, step: correspondingOutputEntry?.step ?? undefined };
-    });
-  }, [outputModelQueries, outputs?.modelOutputs]);
+    const outputModelIds = compact(uniq(outputs?.modelOutputs?.map((modelOutput) => modelOutput.modelId)));
+    return outputModelIds.map<LoggedModelProtoWithRunDirection | undefined>((model_id) => {
+      const model = loggedModelsV3?.find((model) => model.info?.model_id === model_id);
 
-  const models = useMemo(() => {
+      const correspondingOutputEntry = outputs?.modelOutputs?.find(({ modelId }) => modelId === model?.info?.model_id);
+
+      if (!model) return undefined;
+      return { ...model, direction: 'output' as const, step: correspondingOutputEntry?.step ?? undefined };
+    });
+  }, [outputs?.modelOutputs, loggedModelsV3]);
+
+  const modelsWithDirection = useMemo(() => {
     return (
       uniqBy(
         compact([...inputLoggedModels, ...outputLoggedModels]).map(filterMetricsByMatchingRunId(runInfo?.runUuid)),
@@ -59,9 +58,5 @@ export const useCombinedRunInputsOutputsModels = (
     );
   }, [inputLoggedModels, outputLoggedModels, runInfo]);
 
-  const errors = [...inputModelQueries, ...outputModelQueries].map((query) => query.error).filter(Boolean);
-
-  const isLoading = [...inputModelQueries, ...outputModelQueries].some((query) => query.isLoading);
-
-  return { models, errors, isLoading };
+  return { models: modelsWithDirection };
 };

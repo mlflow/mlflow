@@ -1,8 +1,9 @@
 import { intersection } from 'lodash';
-import { MetricEntity } from '../../../types';
-import { RunsChartsLineChartXAxisType, RunsChartsRunData } from '../components/RunsCharts.common';
-import { RunsMetricsLinePlotProps } from '../components/RunsMetricsLinePlot';
-import { RunsChartsLineChartExpression } from '../runs-charts.types';
+import type { MetricEntity } from '../../../types';
+import type { RunsChartsRunData } from '../components/RunsCharts.common';
+import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
+import type { RunsMetricsLinePlotProps } from '../components/RunsMetricsLinePlot';
+import type { RunsChartsLineChartExpression } from '../runs-charts.types';
 
 const getCompareValue = (element: MetricEntity, xAxisKey: RunsMetricsLinePlotProps['xAxisKey']) => {
   if (xAxisKey === RunsChartsLineChartXAxisType.STEP) {

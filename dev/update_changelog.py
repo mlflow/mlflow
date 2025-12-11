@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 import subprocess
@@ -6,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
-import click
 import requests
 from packaging.version import Version
 
@@ -171,12 +171,6 @@ def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
     return prs
 
 
-@click.command(help="Update CHANGELOG.md")
-@click.option("--prev-version", required=True, help="Previous version")
-@click.option("--release-version", required=True, help="MLflow version to release.")
-@click.option(
-    "--remote", required=False, default="origin", help="Git remote to use (default: origin). "
-)
 def main(prev_version, release_version, remote):
     if is_shallow():
         print("Unshallowing repository to ensure `git log` works correctly")
@@ -205,10 +199,7 @@ def main(prev_version, release_version, remote):
     logs = [l[2:] for l in git_log_output.splitlines() if l.startswith("> ")]
 
     # Extract all PR numbers first
-    pr_numbers = []
-    for log in logs:
-        if pr_num := extract_pr_num_from_git_log_entry(log):
-            pr_numbers.append(pr_num)
+    pr_numbers = [pr_num for log in logs if (pr_num := extract_pr_num_from_git_log_entry(log))]
 
     prs = batch_fetch_prs_graphql(pr_numbers)
     label_to_prs = defaultdict(list)
@@ -232,6 +223,7 @@ def main(prev_version, release_version, remote):
     )
 
     unknown_labels = set(label_to_prs.keys()) - {
+        "rn/highlight",
         "rn/feature",
         "rn/breaking-change",
         "rn/bug-fix",
@@ -241,6 +233,7 @@ def main(prev_version, release_version, remote):
     assert len(unknown_labels) == 0, f"Unknown labels: {unknown_labels}"
 
     breaking_changes = Section("Breaking changes:", label_to_prs.get("rn/breaking-change", []))
+    highlights = Section("Major new features:", label_to_prs.get("rn/highlight", []))
     features = Section("Features:", label_to_prs.get("rn/feature", []))
     bug_fixes = Section("Bug fixes:", label_to_prs.get("rn/bug-fix", []))
     doc_updates = Section("Documentation updates:", label_to_prs.get("rn/documentation", []))
@@ -257,6 +250,7 @@ def main(prev_version, release_version, remote):
                 get_header_for_version(release_version),
                 f"MLflow {release_version} includes several major features and improvements",
                 breaking_changes,
+                highlights,
                 features,
                 bug_fixes,
                 doc_updates,
@@ -279,4 +273,9 @@ def main(prev_version, release_version, remote):
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Update CHANGELOG.md")
+    parser.add_argument("--prev-version", required=True, help="Previous version")
+    parser.add_argument("--release-version", required=True, help="MLflow version to release")
+    parser.add_argument("--remote", default="origin", help="Git remote to use (default: origin)")
+    args = parser.parse_args()
+    main(args.prev_version, args.release_version, args.remote)

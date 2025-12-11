@@ -42,7 +42,6 @@ src/experiment-tracking/components/evaluation-artifacts-compare/hooks/useEvaluat
 src/experiment-tracking/components/evaluation-artifacts-compare/hooks/useEvaluationArtifactTables.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/ExperimentViewAutoML.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/runs/ExperimentViewDownloadRunsOverlay.enzyme.test.tsx
-src/experiment-tracking/components/experiment-page/components/runs/ExperimentViewRefreshButton.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/runs/ExperimentViewRunsControlsActions.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/runs/ExperimentViewRunsControlsFilters.enzyme.test.tsx
 src/experiment-tracking/components/experiment-page/components/runs/ExperimentViewRunsEmptyTable.enzyme.test.tsx
@@ -60,7 +59,6 @@ src/experiment-tracking/components/modals/RenameRunModal.enzyme.test.tsx
 src/experiment-tracking/components/modals/RestoreRunModal.enzyme.test.tsx
 src/experiment-tracking/components/modals/DeleteRunModal.enzyme.test.tsx
 src/experiment-tracking/components/runs-charts/hooks/useRunsChartsTooltip.enzyme.test.tsx
-src/experiment-tracking/components/runs-compare/hooks/useFetchCompareRunsMetricHistory.enzyme.test.tsx
 src/model-registry/components/CompareModelVersionsPage.enzyme.test.tsx
 src/model-registry/components/CompareModelVersionsView.enzyme.test.tsx
 src/model-registry/components/ConfigureInferenceButton.enzyme.test.tsx

@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeAll, jest, afterAll, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { mount, shallow } from 'enzyme';
 import ShowArtifactImageView from './ShowArtifactImageView';
@@ -34,10 +35,12 @@ describe('ShowArtifactImageView', () => {
     expect(wrapper.length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should fetch image as an XHR', (done) => {
     const getArtifact = jest.fn(() => Promise.resolve(new ArrayBuffer(8)));
     wrapper = mount(<ShowArtifactImageView {...minimalProps} getArtifact={getArtifact} />);
-    expect(getArtifact).toBeCalledWith(expect.stringMatching(/get-artifact\?path=fakePath&run_uuid=fakeUuid/));
+    // @ts-expect-error Expected 0 arguments, but got 1
+    expect(getArtifact).toHaveBeenCalledWith(expect.stringMatching(/get-artifact\?path=fakePath&run_uuid=fakeUuid/));
 
     setImmediate(() => {
       wrapper.update();

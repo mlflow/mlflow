@@ -6,9 +6,8 @@ import subprocess
 import sys
 import threading
 import time
-from collections import namedtuple
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, NamedTuple
 from unittest import mock
 
 import aiohttp
@@ -26,7 +25,7 @@ from tests.helper_functions import _get_mlflow_home, _start_scoring_proc, get_sa
 
 
 class Gateway:
-    def __init__(self, config_path: Union[str, Path], *args, **kwargs):
+    def __init__(self, config_path: str | Path, *args, **kwargs):
         self.port = get_safe_port()
         self.host = "localhost"
         self.url = f"http://{self.host}:{self.port}"
@@ -122,9 +121,7 @@ class MockAsyncResponse:
 
 
 class MockAsyncStreamingResponse:
-    def __init__(
-        self, data: list[bytes], headers: Optional[dict[str, str]] = None, status: int = 200
-    ):
+    def __init__(self, data: list[bytes], headers: dict[str, str] | None = None, status: int = 200):
         self.status = status
         self.headers = headers
         self._content = data
@@ -159,7 +156,7 @@ class MockHttpClient(mock.Mock):
         return
 
 
-def mock_http_client(mock_response: Union[MockAsyncResponse, MockAsyncStreamingResponse]):
+def mock_http_client(mock_response: MockAsyncResponse | MockAsyncStreamingResponse):
     mock_http_client = MockHttpClient()
     mock_http_client.post = mock.Mock(return_value=mock_response)
     return mock_http_client
@@ -172,7 +169,7 @@ class UvicornGateway:
     # NB: this implementation should only be used for integration testing. Unit tests that
     # require validation of the AI Gateway server should use the `Gateway` implementation in
     # this module which executes the uvicorn server through gunicorn as a process manager.
-    def __init__(self, config_path: Union[str, Path], *args, **kwargs):
+    def __init__(self, config_path: str | Path, *args, **kwargs):
         self.port = get_safe_port()
         self.host = "127.0.0.1"
         self.url = f"http://{self.host}:{self.port}"
@@ -236,7 +233,9 @@ class UvicornGateway:
         self.thread.join()
 
 
-ServerInfo = namedtuple("ServerInfo", ["pid", "url"])
+class ServerInfo(NamedTuple):
+    pid: int
+    url: str
 
 
 def log_sentence_transformers_model():

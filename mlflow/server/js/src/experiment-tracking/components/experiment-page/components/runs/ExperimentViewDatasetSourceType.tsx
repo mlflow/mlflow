@@ -1,5 +1,6 @@
 import { Typography } from '@databricks/design-system';
-import { DatasetSourceTypes, RunDatasetWithTags } from '../../../../types';
+import type { RunDatasetWithTags } from '../../../../types';
+import { DatasetSourceTypes } from '../../../../types';
 import React from 'react';
 import { FormattedMessage } from 'react-intl';
 

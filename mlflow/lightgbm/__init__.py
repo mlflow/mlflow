@@ -24,7 +24,7 @@ import logging
 import os
 import tempfile
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from packaging.version import Version
@@ -44,6 +44,7 @@ from mlflow.sklearn import _SklearnTrainingSession
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
@@ -272,7 +273,7 @@ def _save_model(lgb_model, model_path):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     lgb_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -282,12 +283,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -498,7 +499,7 @@ class _LGBModelWrapper:
         """
         return self.lgb_model
 
-    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
+    def predict(self, dataframe, params: dict[str, Any] | None = None):
         """
         Args:
             dataframe: Model input data.
@@ -515,8 +516,7 @@ def _patch_metric_names(metric_dict):
     patched_metrics = {
         metric_name.replace("@", "_at_"): value for metric_name, value in metric_dict.items()
     }
-    changed_keys = set(patched_metrics.keys()) - set(metric_dict.keys())
-    if changed_keys:
+    if changed_keys := set(patched_metrics.keys()) - set(metric_dict.keys()):
         _logger.info(
             "Identified one or more metrics with names containing the invalid character `@`."
             " These metric names have been sanitized by replacing `@` with `_at_`, as follows: %s",
@@ -803,7 +803,7 @@ def autolog(
 
         model_id = None
         if _log_models:
-            model_id = mlflow.initialize_logged_model("model").model_id
+            model_id = _initialize_logged_model("model", flavor=FLAVOR_NAME).model_id
         with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:

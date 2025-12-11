@@ -1,0 +1,38 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="local" label="Local (pip)" default>
+
+**Python Environment**: Python 3.10+
+
+For the fastest setup, you can install the `mlflow` Python package via `pip` and start the MLflow server locally.
+
+```bash
+pip install --upgrade mlflow
+mlflow server
+```
+
+</TabItem>
+
+<TabItem value="docker" label="Local (docker)">
+
+MLflow provides a Docker Compose file to start a local MLflow server with a postgres database and a minio server.
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/mlflow/mlflow.git
+cd mlflow
+git sparse-checkout set docker-compose
+cd docker-compose
+cp .env.dev.example .env
+docker compose up -d
+```
+
+Refer to the [instruction](https://github.com/mlflow/mlflow/tree/master/docker-compose/README.md) for more details, e.g., overriding the default environment variables.
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>

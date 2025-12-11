@@ -1,4 +1,4 @@
-import { Alert, PageWrapper, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, PageWrapper, TableSkeleton, useDesignSystemTheme, Spacer } from '@databricks/design-system';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { ExperimentLoggedModelDetailsHeader } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsHeader';
@@ -12,6 +12,7 @@ import { ExperimentLoggedModelDetailsArtifacts } from '../../components/experime
 import { useUserActionErrorHandler } from '@databricks/web-shared/metrics';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentLoggedModelDetailsTraces } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsTraces';
+import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
 
 /**
  * Temporary "in construction" placeholder box, to be removed after implementing the actual content.
@@ -73,13 +74,29 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
       return null;
     }
 
+    const experiment = experimentData;
+
     if (tabName === 'traces') {
-      return <ExperimentLoggedModelDetailsTraces loggedModel={loggedModel} />;
+      return (
+        <ExperimentLoggedModelDetailsTraces
+          loggedModel={loggedModel}
+          experimentTags={experiment?.tags ?? []}
+          isLoadingExperiment={experimentLoading}
+        />
+      );
     } else if (tabName === 'artifacts') {
       return <ExperimentLoggedModelDetailsArtifacts loggedModel={loggedModel} />;
     }
 
-    return <ExperimentLoggedModelDetailsOverview onDataUpdated={refetch} loggedModel={loggedModel} />;
+    const experimentKind = getExperimentKindFromTags(experiment?.tags);
+
+    return (
+      <ExperimentLoggedModelDetailsOverview
+        onDataUpdated={refetch}
+        loggedModel={loggedModel}
+        experimentKind={experimentKind}
+      />
+    );
   };
 
   return (
@@ -127,15 +144,15 @@ const ExperimentLoggedModelDetailsPage = () => {
     <ExperimentLoggedModelPageWrapper>
       <PageWrapper
         css={{
-          paddingTop: theme.spacing.md,
           display: 'flex',
-          paddingBottom: theme.spacing.md,
           overflow: 'hidden',
           height: '100%',
           flexDirection: 'column',
         }}
       >
+        <Spacer shrinks={false} />
         <ExperimentLoggedModelDetailsPageImpl />
+        <Spacer shrinks={false} />
       </PageWrapper>
     </ExperimentLoggedModelPageWrapper>
   );

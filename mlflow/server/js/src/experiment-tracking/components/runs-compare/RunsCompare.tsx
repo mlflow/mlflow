@@ -1,9 +1,12 @@
 import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
-import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import type { KeyValueEntity, MetricEntitiesByName, ChartSectionConfig, ImageEntity } from '../../types';
+import type { MetricEntitiesByName, ChartSectionConfig, ImageEntity } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import { RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
-import { RunsChartType, type SerializedRunsChartsCardConfigCard } from '../runs-charts/runs-charts.types';
+import type { RunsChartType } from '../runs-charts/runs-charts.types';
+import { type SerializedRunsChartsCardConfigCard } from '../runs-charts/runs-charts.types';
 import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';
 import { isEmptyChartCard, type RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import {
@@ -19,7 +22,7 @@ import {
   RUNS_VISIBILITY_MODE,
   type RunsChartsGlobalLineChartConfig,
 } from '../experiment-page/models/ExperimentPageUIState';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { RunsChartsSectionAccordion } from '../runs-charts/components/sections/RunsChartsSectionAccordion';
 import type { ReduxState } from '@mlflow/mlflow/src/redux-types';
 import { SearchIcon } from '@databricks/design-system';
@@ -64,6 +67,7 @@ export interface RunsCompareProps {
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
   chartsSearchFilter?: string;
   storageKey: string;
+  minWidth: number;
 }
 
 /**
@@ -147,6 +151,7 @@ const RunsCompareImpl = ({
   hideEmptyCharts,
   globalLineChartConfig,
   chartsSearchFilter,
+  minWidth,
 }: RunsCompareProps) => {
   // Updater function for the general experiment view UI state
   const updateUIState = useUpdateExperimentViewUIState();
@@ -385,7 +390,7 @@ const RunsCompareImpl = ({
         overflowY: 'auto' as const,
 
         // Make sure charts are visible even on small screens
-        minWidth: 320,
+        minWidth,
       }}
       data-testid="experiment-view-compare-runs-chart-area"
     >

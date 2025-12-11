@@ -308,8 +308,7 @@ def test_download_artifacts(http_artifact_repo, tmp_path):
     # ---------
     def http_request(_host_creds, endpoint, _method, **kwargs):
         # Responses for list_artifacts
-        params = kwargs.get("params")
-        if params:
+        if params := kwargs.get("params"):
             if params.get("path") == "":
                 return MockResponse(
                     {
@@ -372,16 +371,12 @@ def test_default_host_creds(monkeypatch):
 
     repo = HttpArtifactRepository(artifact_uri)
 
-    monkeypatch.setenvs(
-        {
-            MLFLOW_TRACKING_USERNAME.name: username,
-            MLFLOW_TRACKING_PASSWORD.name: password,
-            MLFLOW_TRACKING_TOKEN.name: token,
-            MLFLOW_TRACKING_INSECURE_TLS.name: str(ignore_tls_verification),
-            MLFLOW_TRACKING_CLIENT_CERT_PATH.name: client_cert_path,
-            MLFLOW_TRACKING_SERVER_CERT_PATH.name: server_cert_path,
-        }
-    )
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, username)
+    monkeypatch.setenv(MLFLOW_TRACKING_PASSWORD.name, password)
+    monkeypatch.setenv(MLFLOW_TRACKING_TOKEN.name, token)
+    monkeypatch.setenv(MLFLOW_TRACKING_INSECURE_TLS.name, str(ignore_tls_verification))
+    monkeypatch.setenv(MLFLOW_TRACKING_CLIENT_CERT_PATH.name, client_cert_path)
+    monkeypatch.setenv(MLFLOW_TRACKING_SERVER_CERT_PATH.name, server_cert_path)
     assert repo._host_creds == expected_host_creds
 
 
@@ -394,7 +389,7 @@ def test_delete_artifacts(http_artifact_repo, remote_file_path):
         http_artifact_repo.delete_artifacts(remote_file_path)
         mock_get.assert_called_once_with(
             http_artifact_repo._host_creds,
-            posixpath.join("/", remote_file_path if remote_file_path else ""),
+            posixpath.join("/", remote_file_path or ""),
             "DELETE",
             stream=True,
         )

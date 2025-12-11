@@ -1,13 +1,10 @@
 import { Alert, Spacer, useDesignSystemTheme } from '@databricks/design-system';
 import invariant from 'invariant';
-import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
+import { useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { ExperimentLoggedModelPageWrapper } from './ExperimentLoggedModelPageWrapper';
 
-import {
-  isExperimentLoggedModelsUIEnabled,
-  isLoggedModelsFilteringAndSortingEnabled,
-} from '../../../common/utils/FeatureUtils';
+import { isLoggedModelsFilteringAndSortingEnabled } from '../../../common/utils/FeatureUtils';
 import { useEffect, useState } from 'react';
 import { ExperimentLoggedModelListPageTable } from '../../components/experiment-logged-models/ExperimentLoggedModelListPageTable';
 import { useSearchLoggedModelsQuery } from '../../hooks/logged-models/useSearchLoggedModelsQuery';
@@ -28,17 +25,26 @@ import { ExperimentLoggedModelListCharts } from '../../components/experiment-log
 import { ExperimentLoggedModelListPageRowVisibilityContextProvider } from '../../components/experiment-logged-models/hooks/useExperimentLoggedModelListPageRowVisibility';
 import { RunsChartsSetHighlightContextProvider } from '../../components/runs-charts/hooks/useRunsChartTraceHighlight';
 import { BadRequestError } from '@databricks/web-shared/errors';
+import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks/useResizableMaxWidth';
 
 const INITIAL_RUN_COLUMN_SIZE = 295;
+const CHARTS_MIN_WIDTH = 350;
 
 const ExperimentLoggedModelListPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
-  const navigate = useNavigate();
   const sortingAndFilteringEnabled = isLoggedModelsFilteringAndSortingEnabled();
 
   const {
-    state: { orderByColumn, orderByAsc, columnVisibility, rowVisibilityMap, rowVisibilityMode, selectedFilterDatasets },
+    state: {
+      orderByColumn,
+      orderByAsc,
+      columnVisibility,
+      rowVisibilityMap,
+      rowVisibilityMode,
+      selectedFilterDatasets,
+      groupBy,
+    },
     searchQuery,
     isFilteringActive,
     setOrderBy,
@@ -48,15 +54,10 @@ const ExperimentLoggedModelListPageImpl = () => {
     updateSearchQuery,
     toggleDataset,
     clearSelectedDatasets,
+    setGroupBy,
   } = useLoggedModelsListPageState();
 
   invariant(experimentId, 'Experiment ID must be defined');
-
-  useEffect(() => {
-    if (!isExperimentLoggedModelsUIEnabled() && experimentId) {
-      navigate(Routes.getExperimentPageRoute(experimentId), { replace: true });
-    }
-  }, [experimentId, navigate]);
 
   const { viewMode, setViewMode } = useExperimentLoggedModelListPageMode();
 
@@ -129,8 +130,11 @@ const ExperimentLoggedModelListPageImpl = () => {
         columnVisibility={columnVisibility}
         relatedRunsData={relatedRunsData}
         isFilteringActive={isFilteringActive}
+        groupModelsBy={groupBy}
       />
     );
+
+  const { resizableMaxWidth, ref } = useResizableMaxWidth(CHARTS_MIN_WIDTH);
 
   return (
     <ExperimentLoggedModelOpenDatasetDetailsContextProvider>
@@ -156,6 +160,8 @@ const ExperimentLoggedModelListPageImpl = () => {
           selectedFilterDatasets={selectedFilterDatasets}
           onToggleDataset={toggleDataset}
           onClearSelectedDatasets={clearSelectedDatasets}
+          groupBy={groupBy}
+          onChangeGroupBy={setGroupBy}
         />
         <Spacer size="sm" shrinks={false} />
         {/* Display error message, but not if it's 400 - in that case, the error message is displayed in the table */}
@@ -172,17 +178,22 @@ const ExperimentLoggedModelListPageImpl = () => {
         )}
         {isCompactTableMode ? (
           <RunsChartsSetHighlightContextProvider>
-            <div css={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <div ref={ref} css={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
               <ExperimentViewRunsTableResizer
                 onResize={setTableAreaWidth}
                 runListHidden={tableHidden}
                 width={tableAreaWidth}
                 onHiddenChange={setTableHidden}
+                maxWidth={resizableMaxWidth}
               >
                 {tableElement}
               </ExperimentViewRunsTableResizer>
               {viewMode === ExperimentLoggedModelListPageMode.CHART && (
-                <ExperimentLoggedModelListCharts loggedModels={loggedModels ?? []} experimentId={experimentId} />
+                <ExperimentLoggedModelListCharts
+                  loggedModels={loggedModels ?? []}
+                  experimentId={experimentId}
+                  minWidth={CHARTS_MIN_WIDTH}
+                />
               )}
             </div>
           </RunsChartsSetHighlightContextProvider>

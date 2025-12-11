@@ -7,7 +7,8 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { injectIntl, FormattedMessage, IntlShape, useIntl } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { injectIntl, FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
 import { getBasename } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
@@ -22,24 +23,27 @@ import {
   modelVersionStatusIconTooltips,
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
-import _, { first } from 'lodash';
+import { first, flatMap, groupBy, last } from 'lodash';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
+import type { DesignSystemHocProps } from '@databricks/design-system';
 import {
   Alert,
-  DesignSystemHocProps,
   Empty,
+  InfoTooltip,
   LayerIcon,
   LegacyTooltip,
+  Tooltip,
   Typography,
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
 import './ArtifactView.css';
-import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
+
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
-import { getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
+import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
+import { getArtifactLocationUrl, getLoggedModelArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
 import { ArtifactViewTree } from './ArtifactViewTree';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { Button } from '@databricks/design-system';
@@ -48,15 +52,16 @@ import { DownloadIcon } from '@databricks/design-system';
 import { Checkbox } from '@databricks/design-system';
 import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
-import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import { MlflowService } from '../sdk/MlflowService';
+import type { KeyValueEntity } from '../../common/types';
 
 const { Text } = Typography;
 
 type ArtifactViewImplProps = DesignSystemHocProps & {
   experimentId: string;
   runUuid: string;
+  loggedModelId?: string;
   initialSelectedArtifactPath?: string;
   artifactNode: any; // TODO: PropTypes.instanceOf(ArtifactNode)
   artifactRootUri: string;
@@ -68,6 +73,7 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   modelVersions?: any[];
   intl: IntlShape;
   getCredentialsForArtifactReadApi: (...args: any[]) => any;
+  entityTags?: Partial<KeyValueEntity>[];
 
   /**
    * If true, the artifact browser will try to use all available height
@@ -108,7 +114,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   }
 
   renderModelVersionInfoSection(existingModelVersions: any, intl: IntlShape) {
-    return <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} intl={this.props.intl} />;
+    return <ModelVersionInfoSection modelVersion={last(existingModelVersions)} intl={this.props.intl} />;
   }
 
   renderPathAndSizeInfo() {
@@ -117,8 +123,8 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     const activeNodeRealPath = this.getActiveNodeRealPath();
 
     return (
-      <div className="artifact-info-left">
-        <div className="artifact-info-path">
+      <div className="mlflow-artifact-info-left">
+        <div className="mlflow-artifact-info-path">
           <label>
             <FormattedMessage
               defaultMessage="Full Path:"
@@ -127,12 +133,12 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             />
           </label>{' '}
           {/* @ts-expect-error TS(2322): Type '{ children: string; className: string; ellip... Remove this comment to see the full error message */}
-          <Text className="artifact-info-text" ellipsis copyable>
+          <Text className="mlflow-artifact-info-text" ellipsis copyable>
             {activeNodeRealPath}
           </Text>
         </div>
         {node.fileInfo.is_dir === false ? (
-          <div className="artifact-info-size">
+          <div className="mlflow-artifact-info-size">
             <label>
               <FormattedMessage
                 defaultMessage="Size:"
@@ -213,12 +219,23 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  onDownloadClick(runUuid: any, artifactPath: any) {
-    window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
+  onDownloadClick(
+    // comment for copybara formatting
+    runUuid: any,
+    artifactPath: any,
+    loggedModelId?: string,
+    isFallbackToLoggedModelArtifacts?: boolean,
+  ) {
+    // Logged model artifact API should be used when falling back to logged model artifacts on the run artifact page.
+    if (runUuid && !isFallbackToLoggedModelArtifacts) {
+      window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
+    } else if (loggedModelId) {
+      window.location.href = getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
+    }
   }
 
   renderControls() {
-    const { runUuid } = this.props;
+    const { runUuid, loggedModelId, isFallbackToLoggedModelArtifacts } = this.props;
     const { activeNodeId } = this.state;
     return (
       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
@@ -239,10 +256,11 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               />
             </Checkbox>
           )}
-          <LegacyTooltip
-            arrowPointAtCenter
-            placement="topLeft"
-            title={this.props.intl.formatMessage({
+          <Tooltip
+            componentId="mlflow.artifact_view.download_artifact"
+            side="top"
+            align="end"
+            content={this.props.intl.formatMessage({
               defaultMessage: 'Download artifact',
               description: 'Link to download the artifact of the experiment',
             })}
@@ -250,9 +268,11 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_artifactview.tsx_337"
               icon={<DownloadIcon />}
-              onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
+              onClick={() =>
+                this.onDownloadClick(runUuid, activeNodeId, loggedModelId, isFallbackToLoggedModelArtifacts)
+              }
             />
-          </LegacyTooltip>
+          </Tooltip>
         </div>
       </div>
     );
@@ -309,7 +329,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   ) => {
     const { id, loading } = dataNode;
 
-    const usingLoggedModels = isExperimentLoggedModelsUIEnabled() && this.props.isLoggedModelsMode;
+    const usingLoggedModels = this.props.isLoggedModelsMode;
 
     const newRequestedNodeIds = new Set(this.state.requestedNodeIds);
     // - loading indicates that this node is a directory and has not been loaded yet.
@@ -317,9 +337,15 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     if (loading && !this.state.requestedNodeIds.has(id)) {
       // Call relevant API based on the mode we are in
       if (usingLoggedModels && this.props.loggedModelId) {
-        this.props.listArtifactsLoggedModelApi(this.props.loggedModelId, id);
+        this.props.listArtifactsLoggedModelApi(
+          this.props.loggedModelId,
+          id,
+          this.props.experimentId,
+          undefined,
+          this.props.entityTags,
+        );
       } else {
-        this.props.listArtifactsApi(this.props.runUuid, id);
+        this.props.listArtifactsApi(this.props.runUuid, id, undefined, this.props.experimentId, this.props.entityTags);
       }
     }
     this.setState({
@@ -474,7 +500,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
 
     return (
       <div
-        className="artifact-view"
+        className="mlflow-artifact-view"
         css={{
           flex: this.props.useAutoHeight ? 1 : 'unset',
           height: this.props.useAutoHeight ? 'auto' : undefined,
@@ -497,7 +523,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             onToggleTreebeard={this.onToggleTreebeard}
           />
         </div>
-        <div className="artifact-right">
+        <div className="mlflow-artifact-right">
           {this.props.isFallbackToLoggedModelArtifacts && this.props.loggedModelId && (
             <FallbackToLoggedModelArtifactsInfo loggedModelId={this.props.loggedModelId} />
           )}
@@ -514,6 +540,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
             loggedModelId={loggedModelId}
             isLoggedModelsMode={isLoggedModelsMode}
+            entityTags={this.props.entityTags}
           />
         </div>
       </div>
@@ -528,11 +555,11 @@ const mapStateToProps = (state: any, ownProps: any) => {
     isLoggedModelsMode && loggedModelId ? getArtifacts(loggedModelId, state) : getArtifacts(runUuid, state);
   const artifactRootUri = ownProps?.artifactRootUri ?? getArtifactRootUri(runUuid, state);
   const modelVersions = getAllModelVersions(state);
-  const modelVersionsWithNormalizedSource = _.flatMap(modelVersions, (version) => {
+  const modelVersionsWithNormalizedSource = flatMap(modelVersions, (version) => {
     // @ts-expect-error TS(2698): Spread types may only be created from object types... Remove this comment to see the full error message
     return { ...version, source: Utils.normalize((version as any).source) };
   });
-  const modelVersionsBySource = _.groupBy(modelVersionsWithNormalizedSource, 'source');
+  const modelVersionsBySource = groupBy(modelVersionsWithNormalizedSource, 'source');
   return { artifactNode, artifactRootUri, modelVersions, modelVersionsBySource, apis };
 };
 
@@ -558,21 +585,26 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   // eslint-disable-next-line prefer-const
   let mvPageRoute = ModelRegistryRoutes.getModelVersionPageRoute(name, version);
   const modelVersionLink = (
-    <LegacyTooltip title={`${name} version ${version}`}>
-      <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
-        <span className="model-name">{name}</span>
-        <span>,&nbsp;v{version}&nbsp;</span>
-        <i className="fas fa-external-link-o" />
-      </Link>
-    </LegacyTooltip>
+    <Tooltip componentId="mlflow.artifacts.model_version.link" content={`${name} version ${version}`}>
+      <span>
+        <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
+          <span className="model-name">{name}</span>
+          <span>,&nbsp;v{version}&nbsp;</span>
+          <i className="fa fa-external-link-o" />
+        </Link>
+      </span>
+    </Tooltip>
   );
 
   return (
     <div className="model-version-info">
       <div className="model-version-link-section">
-        <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
+        <Tooltip
+          componentId="mlflow.artifacts.model_version.status"
+          content={status_message || modelVersionStatusIconTooltips[status]}
+        >
           <div>{ModelVersionStatusIcons[status]}</div>
-        </LegacyTooltip>
+        </Tooltip>
         {modelVersionLink}
       </div>
       <div className="model-version-status-text">

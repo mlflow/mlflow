@@ -166,3 +166,37 @@ def test_subclass_hasattr():
 
     with pytest.raises(AttributeError, match="'SubAttrDict' object has no attribute 'g'"):
         _ = d.g
+
+
+def test_setattr():
+    d = AttrDict({"a": 1, "b": 2})
+
+    # Set existing attribute
+    d.a = 10
+    assert d.a == 10
+    assert d["a"] == 10
+
+    # Set new attribute
+    d.c = 3
+    assert d.c == 3
+    assert d["c"] == 3
+    assert "c" in d
+
+
+def test_delattr():
+    d = AttrDict({"a": 1, "b": 2, "c": 3})
+
+    # Delete existing attribute
+    del d.b
+    assert "b" not in d
+    assert not hasattr(d, "b")
+
+    # Verify other attributes still exist
+    assert d.a == 1
+    assert d.c == 3
+
+
+def test_delattr_non_existent():
+    d = AttrDict({"a": 1, "b": 2, "c": 3})
+    with pytest.raises(KeyError, match="nonexistent"):
+        del d.nonexistent

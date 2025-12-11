@@ -74,7 +74,8 @@ with mlflow.start_run():
     optimizer = torch.optim.Adam(scripted_model.parameters(), lr=0.01)
 
     for epoch in range(51):
-        X_train, y_train = X_train.to(device), y_train.to(device)
+        X_train = X_train.to(device)
+        y_train = y_train.to(device)
         out = scripted_model(X_train)
         loss = criterion(out, y_train)
         optimizer.zero_grad()

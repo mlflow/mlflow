@@ -1,6 +1,6 @@
 import os
 import random
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -12,6 +12,7 @@ from sklearn import datasets
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
+from mlflow.environment_variables import MLFLOW_DISABLE_SCHEMA_DETAILS
 from mlflow.exceptions import MlflowException
 from mlflow.models import add_libraries_to_model
 from mlflow.models.utils import (
@@ -26,10 +27,14 @@ from mlflow.models.utils import (
     _validate_model_code_from_notebook,
     get_model_version_from_model_uri,
 )
-from mlflow.types import DataType
-from mlflow.types.schema import Array, Object, Property
+from mlflow.pyfunc import _enforce_schema, _validate_prediction_input
+from mlflow.types import DataType, Schema
+from mlflow.types.schema import Array, ColSpec, Object, Property
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +48,7 @@ def sklearn_knn_model():
 
 
 def random_int(lo=1, hi=1000000000):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def test_adding_libraries_to_model_default(sklearn_knn_model):
@@ -616,3 +621,35 @@ def test_validate_and_get_model_code_path_success(tmp_path):
     actual = _validate_and_get_model_code_path(model_path, tmp_path)
 
     assert actual == model_path
+
+
+def test_suppress_schema_error(monkeypatch):
+    schema = Schema(
+        [
+            ColSpec("double", "id"),
+            ColSpec("string", "name"),
+        ]
+    )
+    monkeypatch.setenv(MLFLOW_DISABLE_SCHEMA_DETAILS.name, "true")
+    data = pd.DataFrame({"id": [1, 2]}, dtype="float64")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to enforce model input schema. Please check your input data.",
+    ):
+        _validate_prediction_input(data, None, schema, None)
+
+
+def test_enforce_schema_with_missing_and_extra_columns(monkeypatch):
+    schema = Schema(
+        [
+            ColSpec("long", "id"),
+            ColSpec("string", "name"),
+        ]
+    )
+    monkeypatch.setenv(MLFLOW_DISABLE_SCHEMA_DETAILS.name, "true")
+    input_data = pd.DataFrame({"id": [1, 2], "extra_col": ["mlflow", "oss"]})
+    with pytest.raises(
+        MlflowException, match=r"Input schema validation failed.*extra inputs provided"
+    ):
+        _enforce_schema(input_data, schema)

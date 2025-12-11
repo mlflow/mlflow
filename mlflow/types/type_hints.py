@@ -2,6 +2,7 @@ import base64
 import logging
 from datetime import datetime
 from functools import lru_cache
+from types import UnionType
 from typing import Any, NamedTuple, Optional, TypeVar, Union, get_args, get_origin
 
 import pydantic
@@ -21,21 +22,13 @@ from mlflow.types.schema import (
     Property,
     Schema,
 )
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_dump_compat
 from mlflow.utils.warnings_utils import color_warning
 
-FIELD_TYPE = pydantic.fields.FieldInfo if IS_PYDANTIC_V2_OR_NEWER else pydantic.fields.ModelField
-_logger = logging.getLogger(__name__)
+FIELD_TYPE = pydantic.fields.FieldInfo
 NONE_TYPE = type(None)
-UNION_TYPES = (Union,)
-try:
-    # this import is only available in Python 3.10+
-    from types import UnionType
+UNION_TYPES = (Union, UnionType)
 
-    UNION_TYPES += (UnionType,)
-except ImportError:
-    pass
-
+_logger = logging.getLogger(__name__)
 # special type hint that can be used to convert data to
 # the input example type after data validation
 TypeFromExample = TypeVar("TypeFromExample")
@@ -47,7 +40,6 @@ OPTIONAL_INPUT_MSG = (
     "BaseModel examples. Check https://mlflow.org/docs/latest/model/python_model.html#supported-type-hints"
     " for more details."
 )
-
 
 # numpy types are not supported
 TYPE_HINTS_TO_DATATYPE_MAPPING = {
@@ -325,24 +317,17 @@ def _is_pydantic_type_hint(type_hint: type[Any]) -> bool:
 def model_fields(
     model: pydantic.BaseModel,
 ) -> dict[str, type[FIELD_TYPE]]:
-    if IS_PYDANTIC_V2_OR_NEWER:
-        return model.model_fields
-    return model.__fields__
+    return model.model_fields
 
 
 def model_validate(model: pydantic.BaseModel, values: Any) -> None:
-    if IS_PYDANTIC_V2_OR_NEWER:
-        # use strict mode to avoid any data conversion here
-        # e.g. "123" will not be converted to 123 if the type is int
-        model.model_validate(values, strict=True)
-    else:
-        model.validate(values)
+    # use strict mode to avoid any data conversion here
+    # e.g. "123" will not be converted to 123 if the type is int
+    model.model_validate(values, strict=True)
 
 
 def field_required(field: type[FIELD_TYPE]) -> bool:
-    if IS_PYDANTIC_V2_OR_NEWER:
-        return field.is_required()
-    return field.required
+    return field.is_required()
 
 
 def _get_element_type_of_list_type_hint(type_hint: type[list[Any]]) -> Any:
@@ -417,7 +402,7 @@ def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:
     if _is_pydantic_type_hint(type_hint):
         # if data is a pydantic model instance, convert it to a dictionary for validation
         if isinstance(data, pydantic.BaseModel):
-            data_dict = model_dump_compat(data)
+            data_dict = data.model_dump()
         elif isinstance(data, dict):
             data_dict = data
         else:
@@ -488,8 +473,8 @@ def _parse_data_for_datatype_hint(data: Any, type_hint: type[Any]) -> Any:
 
 
 class ValidationResult(NamedTuple):
-    value: Optional[Any] = None
-    error_message: Optional[str] = None
+    value: Any | None = None
+    error_message: str | None = None
 
 
 def _get_data_validation_result(data: Any, type_hint: type[Any]) -> ValidationResult:

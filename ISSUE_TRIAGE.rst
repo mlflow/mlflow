@@ -46,14 +46,14 @@ labels.
   | ``help wanted`` to mark issues we would like to get help with. If someone begins actively
   | working on an issue with this label and we think it may be merged by the next release, change
   | the priority to ``priority/important-soon``.
-- | ``priority/backlog``: We believe it is useful but don’t see it being prioritized in the
+- | ``priority/backlog``: We believe it is useful but don't see it being prioritized in the
   | next few months. Use this for issues that are lower priority than ``priority/important-longterm``.
   | We welcome community members to pick up a ``priority/backlog`` issue, but there may be some
   | delay in getting support through design review or pull request feedback.
 - | ``priority/awaiting-more-evidence``: Lowest priority. Possibly useful, but not yet enough
   | support to actually get it done. This is a good place to put issues that could be useful but
-  | require more evidence to demonstrate broad value. Don’t use it as a way to say no.
-  | If we think it doesn’t fit in MLflow, we should just say that and why.
+  | require more evidence to demonstrate broad value. Don't use it as a way to say no.
+  | If we think it doesn't fit in MLflow, we should just say that and why.
 
 Label relevant areas
 #######
@@ -70,13 +70,16 @@ Components
 - ``area/artifacts``: Artifact stores and artifact logging
 - ``area/build``: Build and test infrastructure for MLflow
 - ``area/docs``: MLflow documentation pages
+- ``area/evaluation``: MLflow model evaluation features, evaluation metrics, and evaluation workflows
 - ``area/examples``: Example code
 - ``area/gateway``: AI Gateway service, Gateway client APIs, third-party Gateway integrations
 - ``area/model-registry``: Model Registry service, APIs, and the fluent client calls for Model Registry
 - ``area/models``: MLmodel format, model serialization/deserialization, flavors
 - ``area/projects``: MLproject format, project execution backends
+- ``area/prompt``: MLflow prompt engineering features, prompt templates, and prompt management
 - ``area/scoring``: MLflow Model server, model deployment tools, Spark UDFs
 - ``area/server-infra``: MLflow Tracking server backend
+- ``area/tracing``: MLflow Tracing features, tracing APIs, and LLM tracing functionality
 - ``area/tracking``: Tracking Service, tracking client APIs, autologging
 
 Interface Surface

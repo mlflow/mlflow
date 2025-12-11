@@ -1,10 +1,12 @@
 import inspect
 import logging
+from dataclasses import asdict
 from typing import Any
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -70,8 +72,10 @@ async def patched_async_class_call(original, self, *args, **kwargs):
         _set_span_attributes(span, self)
 
         result = await original(self, *args, **kwargs)
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _serialize_output(result)
         span.set_outputs(outputs)
+        if usage_dict := _parse_usage(result):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
         return result
 
 
@@ -88,9 +92,10 @@ def patched_class_call(original, self, *args, **kwargs):
         _set_span_attributes(span, self)
 
         result = original(self, *args, **kwargs)
-
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _serialize_output(result)
         span.set_outputs(outputs)
+        if usage_dict := _parse_usage(result):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
         return result
 
 
@@ -110,6 +115,15 @@ def _get_span_type(instance) -> str:
         return SpanType.TOOL
     if isinstance(instance, MCPServer):
         return SpanType.TOOL
+
+    try:
+        from pydantic_ai._tool_manager import ToolManager
+
+        if isinstance(instance, ToolManager):
+            return SpanType.TOOL
+    except ImportError:
+        pass
+
     return SpanType.UNKNOWN
 
 
@@ -124,8 +138,25 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
     }
 
 
+def _serialize_output(result: Any) -> Any:
+    if result is None:
+        return None
+
+    if hasattr(result, "new_messages") and callable(result.new_messages):
+        try:
+            new_messages = result.new_messages()
+            serialized_messages = [asdict(msg) for msg in new_messages]
+            serialized_result = asdict(result)
+            serialized_result["_new_messages_serialized"] = serialized_messages
+            return serialized_result
+        except Exception as e:
+            _logger.debug(f"Failed to serialize new_messages: {e}")
+
+    return result.__dict__ if hasattr(result, "__dict__") else result
+
+
 def _get_agent_attributes(instance):
-    agent = {}
+    agent = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
     for key, value in instance.__dict__.items():
         if key == "tools":
             value = _parse_tools(value)
@@ -137,7 +168,7 @@ def _get_agent_attributes(instance):
 
 
 def _get_model_attributes(instance):
-    model = {}
+    model = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
     for key, value in instance.__dict__.items():
         if value is None:
             continue
@@ -159,15 +190,25 @@ def _get_tool_attributes(instance):
 
 
 def _parse_tools(tools):
-    result = []
-    for tool in tools:
-        data = tool.model_dumps(exclude_none=True)
+    return [
+        {"type": "function", "function": data}
+        for tool in tools
+        if (data := tool.model_dumps(exclude_none=True))
+    ]
 
-        if data:
-            result.append(
-                {
-                    "type": "function",
-                    "function": data,
-                }
-            )
-    return result
+
+def _parse_usage(result: Any) -> dict[str, int] | None:
+    try:
+        if isinstance(result, tuple) and len(result) == 2:
+            usage = result[1]
+        else:
+            usage = getattr(result, "usage", None)
+
+        return {
+            TokenUsageKey.INPUT_TOKENS: usage.request_tokens,
+            TokenUsageKey.OUTPUT_TOKENS: usage.response_tokens,
+            TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+        }
+    except Exception as e:
+        _logger.debug(f"Failed to parse token usage from output: {e}")
+    return None

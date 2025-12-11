@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallowWithInjectIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { RenameRunModalWithIntl } from './RenameRunModal';
@@ -33,7 +34,8 @@ describe('RenameRunModal', () => {
     expect(wrapper.find(GenericInputModal).length).toBe(1);
   });
 
-  test('test handleRenameRun closes modal in both success & failure cases', (done) => {
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('handleRenameRun closes modal in both success & failure cases', (done) => {
     const values = { newName: 'renamed' };
     const promise = wrapper.find(GenericInputModal).prop('handleSubmit')(values);
     promise.finally(() => {
@@ -55,6 +57,7 @@ describe('RenameRunModal', () => {
     const failPromise = failWrapper.find(GenericInputModal).prop('handleSubmit')(values);
     failPromise.finally(() => {
       expect(mockFailUpdateRunApi).toHaveBeenCalledTimes(1);
+      // @ts-expect-error Expected 0 arguments, but got 3
       expect(mockFailUpdateRunApi).toHaveBeenCalledWith('testUuid', 'renamed', expect.any(String));
       done();
     });

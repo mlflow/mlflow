@@ -1,7 +1,8 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { DeepPartial } from 'redux';
+import type { DeepPartial } from 'redux';
 import { MemoryRouter, useNavigate } from '../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import {
@@ -15,7 +16,7 @@ import { PromoteModelButton } from './PromoteModelButton';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { Services as ModelRegistryService } from '../services';
 import { ModelVersionStatus, Stages } from '../constants';
-import { ReduxState } from '../../redux-types';
+import type { ReduxState } from '../../redux-types';
 import { ModelRegistryRoutes } from '../routes';
 import { merge } from 'lodash';
 
@@ -61,7 +62,7 @@ describe('PromoteModelButton', () => {
   });
 
   it('prepopulates the search registry on render', () => {
-    const searchRegistryMock = jest.fn();
+    const searchRegistryMock = jest.fn<typeof ModelRegistryService.searchRegisteredModels>();
     ModelRegistryService.searchRegisteredModels = searchRegistryMock;
     renderComponent();
     expect(searchRegistryMock).toHaveBeenCalledTimes(1);

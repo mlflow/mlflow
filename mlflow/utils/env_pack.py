@@ -4,12 +4,14 @@ import sys
 import tarfile
 import tempfile
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Generator, Literal
 
 import yaml
 
 from mlflow.artifacts import download_artifacts
+from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion, get_databricks_runtime_version
 from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
@@ -17,9 +19,54 @@ from mlflow.utils.logging_utils import eprint
 
 EnvPackType = Literal["databricks_model_serving"]
 
+
+@dataclass(kw_only=True)
+class EnvPackConfig:
+    name: EnvPackType
+    install_dependencies: bool = True
+
+
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
+
+
+def _validate_env_pack(env_pack):
+    """Checks if env_pack is a supported value
+
+    Supported values are:
+    - the string "databricks_model_serving"
+    - an ``EnvPackConfig`` with ``name == 'databricks_model_serving'`` and a boolean
+      ``install_dependencies`` field.
+    - None
+    """
+    if env_pack is None:
+        return None
+
+    if isinstance(env_pack, str):
+        if env_pack == "databricks_model_serving":
+            return EnvPackConfig(name="databricks_model_serving", install_dependencies=True)
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid env_pack value: {env_pack!r}. Expected: 'databricks_model_serving'."
+        )
+
+    if isinstance(env_pack, EnvPackConfig):
+        if env_pack.name != "databricks_model_serving":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid EnvPackConfig.name: {env_pack.name!r}. "
+                "Expected 'databricks_model_serving'."
+            )
+        if not isinstance(env_pack.install_dependencies, bool):
+            raise MlflowException.invalid_parameter_value(
+                "EnvPackConfig.install_dependencies must be a bool."
+            )
+        return env_pack
+
+    # Anything else is invalid
+    raise MlflowException.invalid_parameter_value(
+        "env_pack must be either None, the string 'databricks_model_serving', or an EnvPackConfig "
+        "with a boolean 'install_dependencies' field."
+    )
 
 
 def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
@@ -126,6 +173,11 @@ def pack_env_for_databricks_model_serving(
         temp_artifacts_dir.mkdir(exist_ok=False)
         _tar(local_artifacts_dir, temp_artifacts_dir / _MODEL_VERSION_TAR)
         _tar(Path(sys.prefix), temp_artifacts_dir / _MODEL_ENVIRONMENT_TAR)
+
+        # Remove existing _databricks directory if present (e.g., from previous registration)
+        target_path = local_artifacts_dir / _ARTIFACT_PATH
+        if target_path.exists():
+            shutil.rmtree(target_path)
         shutil.move(str(temp_artifacts_dir), local_artifacts_dir)
 
         yield str(local_artifacts_dir)

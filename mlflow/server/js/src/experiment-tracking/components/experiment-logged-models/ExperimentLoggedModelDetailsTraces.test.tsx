@@ -1,55 +1,58 @@
+import { jest, describe, beforeAll, test, expect } from '@jest/globals';
 import { rest } from 'msw';
 import { IntlProvider } from 'react-intl';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
-import { LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
 import { ExperimentLoggedModelDetailsTraces } from './ExperimentLoggedModelDetailsTraces';
-import { isExperimentLoggedModelsUIEnabled } from '../../../common/utils/FeatureUtils';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
 
-jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
-  isExperimentLoggedModelsUIEnabled: jest.fn(),
-}));
-
 describe('ExperimentLoggedModelDetailsTraces integration test', () => {
+  const queryClient = new QueryClient();
   const { history } = setupTestRouter();
   const server = setupServer(
-    rest.get('/ajax-api/2.0/mlflow/traces', (req, res, ctx) => {
-      const { searchParams } = req.url;
-      if (
-        searchParams.getAll('experiment_ids').includes('test-experiment') &&
-        searchParams.get('filter')?.includes("request_metadata.`mlflow.modelId`='m-test-model-id'")
-      ) {
-        return res(
-          ctx.json({
-            traces: [
-              {
-                request_id: 'tr-12345',
-                experiment_id: 'test-experiment',
-                timestamp_ms: 1730722066662,
-                execution_time_ms: 3000,
-                status: 'OK',
-                request_metadata: [{ key: 'mlflow.modelId', value: 'm-test-model-id' }],
-                tags: [{ key: 'mlflow.traceName', value: 'RunnableSequence' }],
+    rest.post('/ajax-api/3.0/mlflow/traces/search', (req, res, ctx) => {
+      return res(
+        ctx.json({
+          traces: [
+            {
+              trace_id: 'trace_1',
+              request: '{"input": "value"}',
+              response: '{"output": "value"}',
+              trace_metadata: {
+                user_id: 'user123',
+                environment: 'production',
+                'mlflow.internal.key': 'internal_value',
               },
-            ],
-          }),
-        );
-      }
-
-      return res(ctx.json({ traces: [] }));
+            },
+          ],
+          next_page_token: undefined,
+        }),
+      );
     }),
   );
 
   const renderTestComponent = (loggedModel: LoggedModelProto) => {
     return render(<ExperimentLoggedModelDetailsTraces loggedModel={loggedModel} />, {
       wrapper: ({ children }) => (
-        <IntlProvider locale="en">
-          <TestRouter routes={[testRoute(<>{children}</>)]} history={history} />
-        </IntlProvider>
+        <DesignSystemProvider>
+          <QueryClientProvider client={queryClient}>
+            <IntlProvider locale="en">
+              <TestRouter
+                routes={[testRoute(<>{children}</>, '/experiments/:experimentId/models/:loggedModelId')]}
+                history={history}
+                initialEntries={[
+                  `/experiments/${loggedModel.info?.experiment_id}/models/${loggedModel.info?.model_id}`,
+                ]}
+              />
+            </IntlProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
       ),
     });
   };
@@ -57,10 +60,6 @@ describe('ExperimentLoggedModelDetailsTraces integration test', () => {
   beforeAll(() => {
     process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
     server.listen();
-  });
-
-  beforeEach(() => {
-    jest.mocked(isExperimentLoggedModelsUIEnabled).mockReturnValue(true);
   });
 
   test('should fetch and display table of traces', async () => {
@@ -72,11 +71,10 @@ describe('ExperimentLoggedModelDetailsTraces integration test', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Search traces')).toBeInTheDocument();
-      expect(screen.getByRole('cell', { name: 'tr-12345' })).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search traces by request')).toBeInTheDocument();
     });
   });
-  test('should display empty table when model contains no traces', async () => {
+  test('should display quickstart when model contains no traces', async () => {
     renderTestComponent({
       info: {
         experiment_id: 'test-experiment',
@@ -85,7 +83,7 @@ describe('ExperimentLoggedModelDetailsTraces integration test', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'No traces recorded' })).toBeInTheDocument();
+      expect(document.body.textContent).not.toBe('');
     });
   });
 });

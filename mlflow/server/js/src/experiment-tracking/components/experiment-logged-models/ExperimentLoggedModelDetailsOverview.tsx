@@ -1,5 +1,6 @@
 import { Alert, GenericSkeleton, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import type { KeyValueEntity, LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import { DetailsOverviewMetadataTable } from '../DetailsOverviewMetadataTable';
 import { DetailsOverviewMetadataRow } from '../DetailsOverviewMetadataRow';
 import { FormattedMessage } from 'react-intl';
@@ -12,26 +13,29 @@ import { useMemo } from 'react';
 import { isEmpty, keyBy } from 'lodash';
 import { ExperimentLoggedModelDetailsMetricsTable } from './ExperimentLoggedModelDetailsMetricsTable';
 import { ExperimentLoggedModelDetailsPageRunsTable } from './ExperimentLoggedModelDetailsRunsTable';
+import { ExperimentLoggedModelDetailsPageLinkedPromptsTable } from './ExperimentLoggedModelDetailsPageLinkedPromptsTable';
 import { useRelatedRunsDataForLoggedModels } from '../../hooks/logged-models/useRelatedRunsDataForLoggedModels';
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { ExperimentLoggedModelAllDatasetsList } from './ExperimentLoggedModelAllDatasetsList';
 import { ExperimentLoggedModelOpenDatasetDetailsContextProvider } from './hooks/useExperimentLoggedModelOpenDatasetDetails';
 import { ExperimentLoggedModelDetailsModelVersionsList } from './ExperimentLoggedModelDetailsModelVersionsList';
-import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 import { ExperimentLoggedModelSourceBox } from './ExperimentLoggedModelSourceBox';
 import { DetailsPageLayout } from '../../../common/components/details-page-layout/DetailsPageLayout';
 import { useExperimentLoggedModelDetailsMetadataV2 } from './hooks/useExperimentLoggedModelDetailsMetadataV2';
+import { ExperimentKind, MLFLOW_LOGGED_MODEL_USER_TAG } from '../../constants';
 
 export const ExperimentLoggedModelDetailsOverview = ({
   onDataUpdated,
   loggedModel,
+  experimentKind,
 }: {
   onDataUpdated: () => void | Promise<any>;
   loggedModel?: LoggedModelProto;
+  experimentKind?: ExperimentKind;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { usingUnifiedDetailsLayout } = useExperimentTrackingDetailsPageLayoutStyles();
+  const shouldRenderLinkedPromptsTable = experimentKind === ExperimentKind.GENAI_DEVELOPMENT;
 
   // Fetch related runs data for the logged model
   const {
@@ -69,16 +73,15 @@ export const ExperimentLoggedModelDetailsOverview = ({
           }
           value={<ExperimentLoggedModelTableDateCell value={loggedModel.info?.creation_timestamp_ms} />}
         />
-        {/* TODO(ML-47205): Re-enable this when creator name/email is available */}
-        {/* <DetailsOverviewMetadataRow
+        <DetailsOverviewMetadataRow
           title={
             <FormattedMessage
               defaultMessage="Created by"
               description="Label for the creator of a logged model on the logged model details page"
             />
           }
-          value={loggedModel.info?.creator_id}
-        /> */}
+          value={loggedModel.info?.tags?.find((tag) => tag.key === MLFLOW_LOGGED_MODEL_USER_TAG)?.value ?? '-'}
+        />
         <DetailsOverviewMetadataRow
           title={
             <FormattedMessage
@@ -170,24 +173,9 @@ export const ExperimentLoggedModelDetailsOverview = ({
 
   return (
     <ExperimentLoggedModelOpenDatasetDetailsContextProvider>
-      <DetailsPageLayout
-        css={{ flex: 1 }}
-        // Enable sidebar layout based on feature flag
-        usingSidebarLayout={usingUnifiedDetailsLayout}
-        secondarySections={detailsSectionsV2}
-      >
+      <DetailsPageLayout css={{ flex: 1 }} usingSidebarLayout secondarySections={detailsSectionsV2} sidebarSize="sm">
         <ExperimentLoggedModelDescription loggedModel={loggedModel} onDescriptionChanged={onDataUpdated} />
-        {!usingUnifiedDetailsLayout && (
-          <>
-            <Typography.Title level={4}>
-              <FormattedMessage
-                defaultMessage="Details"
-                description="Title for the details section on the logged model details page"
-              />
-            </Typography.Title>
-            {renderDetails()}
-          </>
-        )}
+
         {relatedRunsDataError?.message && (
           <>
             <Alert
@@ -209,19 +197,17 @@ export const ExperimentLoggedModelDetailsOverview = ({
         )}
         <div
           css={[
-            // Use different grid setup for unified details page layout
-            usingUnifiedDetailsLayout
-              ? {
-                  display: 'flex',
-                  flexDirection: 'column',
-                }
-              : {
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gridTemplateRows: '400px 400px',
-                  marginBottom: theme.spacing.md,
-                },
-            { gap: theme.spacing.lg, overflow: 'hidden' },
+            {
+              display: 'flex',
+              flexDirection: 'column',
+            },
+            {
+              gap: theme.spacing.lg,
+              overflow: 'hidden',
+              // add some bottom padding so the user can interact with the
+              // last table closer to the center of the page
+              paddingBottom: theme.spacing.lg * 3,
+            },
           ]}
         >
           <ExperimentLoggedModelDetailsMetricsTable
@@ -235,6 +221,9 @@ export const ExperimentLoggedModelDetailsOverview = ({
             relatedRunsLoading={relatedRunsLoading}
             relatedRunsData={relatedRunsData ?? undefined}
           />
+          {shouldRenderLinkedPromptsTable && (
+            <ExperimentLoggedModelDetailsPageLinkedPromptsTable loggedModel={loggedModel} />
+          )}
         </div>
       </DetailsPageLayout>
     </ExperimentLoggedModelOpenDatasetDetailsContextProvider>

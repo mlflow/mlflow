@@ -1,10 +1,10 @@
-import { Interpolation, Theme } from '@emotion/react';
+import type { Interpolation, Theme } from '@emotion/react';
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type {
   RunsCompareMultipleTracesTooltipData,
   RunsMetricsSingleTraceTooltipData,
 } from '../components/RunsMetricsLinePlot';
-import { RunsMetricsBarPlotHoverData } from '../components/RunsMetricsBarPlot';
+import type { RunsMetricsBarPlotHoverData } from '../components/RunsMetricsBarPlot';
 import { ChartsTraceHighlightSource, useRunsChartTraceHighlight } from './useRunsChartTraceHighlight';
 import { RUNS_CHARTS_UI_Z_INDEX } from '../utils/runsCharts.const';
 
@@ -29,7 +29,9 @@ export enum RunsChartsTooltipMode {
   MultipleTracesWithScanline = 2,
 }
 
-export type RunsChartsTooltipBodyComponent<C = any, T = any> = React.ComponentType<RunsChartsTooltipBodyProps<C, T>>;
+export type RunsChartsTooltipBodyComponent<C = any, T = any> = React.ComponentType<
+  React.PropsWithChildren<RunsChartsTooltipBodyProps<C, T>>
+>;
 
 const RunsChartsTooltipContext = React.createContext<{
   selectedRunUuid: string | null;
@@ -93,7 +95,7 @@ export const RunsChartsTooltipWrapper = <
 }: React.PropsWithChildren<{
   className?: string;
   contextData: TContext;
-  component: React.ComponentType<RunsChartsTooltipBodyProps<TContext, THover>>;
+  component: React.ComponentType<React.PropsWithChildren<RunsChartsTooltipBodyProps<TContext, THover>>>;
   hoverOnly?: boolean;
 }>) => {
   // A reference to the viewport-wide element containing the context menu

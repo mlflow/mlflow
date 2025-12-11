@@ -1,3 +1,4 @@
+import { jest, expect, describe, beforeEach, test } from '@jest/globals';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import {
   renderWithIntl,
@@ -8,30 +9,29 @@ import {
   waitFor,
   cleanup,
 } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { ImageEntity, MetricEntitiesByName } from '../../types';
+import type { ImageEntity, MetricEntitiesByName } from '../../types';
 import { ExperimentPageUIStateContextProvider } from '../experiment-page/contexts/ExperimentPageUIStateContext';
-import {
-  createExperimentPageUIState,
+import type {
   ExperimentPageUIState,
   ExperimentRunsChartsUIConfiguration,
 } from '../experiment-page/models/ExperimentPageUIState';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
-import {
-  RunsChartType,
+import { createExperimentPageUIState } from '../experiment-page/models/ExperimentPageUIState';
+import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import type {
   RunsChartsBarCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
   RunsChartsDifferenceCardConfig,
-  DifferenceCardConfigCompareGroup,
 } from '../runs-charts/runs-charts.types';
+import { RunsChartType, DifferenceCardConfigCompareGroup } from '../runs-charts/runs-charts.types';
 import { RunsCompare } from './RunsCompare';
 import { useSampledMetricHistory } from '../runs-charts/hooks/useSampledMetricHistory';
 import userEvent from '@testing-library/user-event';
 import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsCharts.common';
-import { shouldEnableDifferenceViewCharts } from '../../../common/utils/FeatureUtils';
 import { useState } from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 // Mock the chart component to save time on rendering
@@ -51,7 +51,6 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableHidingChartsWithNoData: jest.fn(() => false),
   shouldEnableImageGridCharts: jest.fn(() => true),
-  shouldEnableDifferenceViewCharts: jest.fn(() => false),
 }));
 
 // Mock useIsInViewport hook to simulate that the chart element is in the viewport
@@ -59,6 +58,7 @@ jest.mock('../runs-charts/hooks/useIsInViewport', () => ({
   useIsInViewport: () => ({ isInViewport: true, setElementRef: jest.fn() }),
 }));
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 // Helper function to assert order of HTMLElements
@@ -227,6 +227,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
             hideEmptyCharts={uiState.hideEmptyCharts}
             chartsSearchFilter={uiState.chartsSearchFilter}
             storageKey="some-experiment-id"
+            minWidth={800}
           />
         </ExperimentPageUIStateContextProvider>
       );
@@ -1153,8 +1154,6 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
   describe('hiding charts with no data', () => {
     // Set up charts
     beforeEach(() => {
-      jest.mocked(shouldEnableDifferenceViewCharts).mockImplementation(() => true);
-
       currentUIState.compareRunCharts = [
         {
           type: RunsChartType.BAR,

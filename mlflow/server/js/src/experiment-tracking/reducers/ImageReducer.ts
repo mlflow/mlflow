@@ -1,13 +1,14 @@
 import { fulfilled } from '@mlflow/mlflow/src/common/utils/ActionUtils';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
-import { LIST_IMAGES_API, ListImagesAction } from '@mlflow/mlflow/src/experiment-tracking/actions';
+import type { ListImagesAction } from '@mlflow/mlflow/src/experiment-tracking/actions';
+import { LIST_IMAGES_API } from '@mlflow/mlflow/src/experiment-tracking/actions';
 import {
   IMAGE_COMPRESSED_FILE_EXTENSION,
   IMAGE_FILE_EXTENSION,
   MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH,
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { ArtifactFileInfo, ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { AsyncFulfilledAction } from '@mlflow/mlflow/src/redux-types';
+import type { ArtifactFileInfo, ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { AsyncFulfilledAction } from '@mlflow/mlflow/src/redux-types';
 
 class ImagePathParseError extends Error {
   public filename: string;

@@ -1,7 +1,5 @@
 """add logged model tables
 
-Revision ID: 400f98739977
-Revises: 0584bdc529eb
 Create Date: 2025-02-06 22:05:35.542613
 
 """

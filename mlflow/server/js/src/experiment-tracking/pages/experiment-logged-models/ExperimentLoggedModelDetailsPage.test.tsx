@@ -1,3 +1,4 @@
+import { jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { getTableRowByCellText, getTableCellInRow } from '@databricks/design-system/test-utils/rtl';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -8,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { graphql, rest } from 'msw';
-import { GetRun, GetRunVariables, MlflowGetExperimentQuery } from '../../../graphql/__generated__/graphql';
+import type { GetRun, GetRunVariables, MlflowGetExperimentQuery } from '../../../graphql/__generated__/graphql';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { first } from 'lodash';
 import { LoggedModelStatusProtoEnum } from '../../types';
@@ -16,11 +17,11 @@ import Utils from '../../../common/utils/Utils';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (tables rendering)
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
-  isExperimentLoggedModelsUIEnabled: jest.fn(() => true),
 }));
 
 jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
@@ -97,6 +98,10 @@ const getMockedModelResponse = (data: any = testData) =>
               {
                 key: 'mlflow.sourceRunName',
                 value: 'run-name',
+              },
+              {
+                key: 'mlflow.user',
+                value: 'user@users.com',
               },
               {
                 key: 'mlflow.modelVersions',
@@ -198,6 +203,8 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(container.textContent).toMatch(/Source run ID\s*run-id-\d/);
     });
 
+    expect(container.textContent).toMatch(/Created by\s*user@users.com/);
+
     await waitFor(() => {
       expect(container.textContent).toMatch(/Source run\s*run-name-\d/);
     });
@@ -218,6 +225,8 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(container.textContent).toMatch(/Model ID\s*m-1/);
       expect(container.textContent).toMatch(/Source run ID\s*run-id-\d/);
     });
+
+    expect(container.textContent).toMatch(/Created by\s*user@users.com/);
 
     await waitFor(() => {
       expect(container.textContent).toMatch(/Source run\s*run-name-\d/);
@@ -268,17 +277,13 @@ describe('ExperimentLoggedModelListPage', () => {
     renderTestComponent();
 
     await waitFor(() => {
-      // Experiment load error should be displayed
       expect(screen.getByText('Experiment load error: Experiment not found')).toBeInTheDocument();
-
-      // Regardless, the logged model details should be visible
       expect(screen.getByRole('heading', { name: 'model-1' })).toBeInTheDocument();
     });
   });
   test('should render parameter list', async () => {
     renderTestComponent();
 
-    // Assert sample params data to be visible in the table
     await waitFor(() => {
       expect(screen.getByRole('row', { name: 'top_k 0.9' })).toBeInTheDocument();
     });
@@ -509,10 +514,10 @@ describe('ExperimentLoggedModelListPage', () => {
     const expectedMessage = 'Model registered successfully';
 
     await waitFor(() => {
-      expect(Utils.displayGlobalInfoNotification).toBeCalledWith(expect.stringContaining(expectedMessage));
+      expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledWith(expect.stringContaining(expectedMessage));
     });
 
-    expect(registerApiSpy).toBeCalledWith(
+    expect(registerApiSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         model_id: 'm-1',
       }),

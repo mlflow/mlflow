@@ -8,7 +8,7 @@ import { APILink } from "@site/src/components/APILink"
 # Tracing Amazon Bedrock with MLflow
 
 MLflow supports automatic tracing for Amazon Bedrock, a fully managed service on AWS that provides high-performing
-foundations from leading AI provides such as Anthropic, Cohere, Meta, Mistral AI, and more. By enabling auto tracing
+foundations from leading AI providers such as Anthropic, Cohere, Meta, Mistral AI, and more. By enabling auto tracing
 for Amazon Bedrock by calling the <APILink fn="mlflow.bedrock.autolog" /> function, MLflow will capture traces for LLM invocation
 and log them to the active MLflow Experiment.
 
@@ -36,8 +36,7 @@ MLflow supports automatic tracing for the following Amazon Bedrock APIs:
 - [converse](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html)
 - [converse_stream](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse_stream.html)
 - [invoke_model](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model.html)
-- [invoke_model_with_response_stream](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model_stream.html)
-
+- [invoke_model_with_response_stream](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model_with_response_stream.html)
 
 ## Basic Example
 
@@ -72,7 +71,6 @@ response = bedrock.converse(
 
 The logged trace, associated with the `Bedrock` experiment, can be seen in the MLflow UI.
 
-
 ## Raw Inputs and Outputs
 
 By default, MLflow renders the rich chat-like UI for input and output messages in the `Chat` tab. To view the raw input and output payload, including configuration parameters, click on the `Inputs / Outputs` tab in the UI.
@@ -80,6 +78,83 @@ By default, MLflow renders the rich chat-like UI for input and output messages i
 :::note
 The `Chat` panel is only supported for the `converse` and `converse_stream` APIs. For the other APIs, MLflow only displays the `Inputs / Outputs` tab.
 :::
+
+## Token Usage
+
+MLflow automatically captures token usage statistics for supported Bedrock models and APIs. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be available in the `token_usage` field of the trace info object.
+
+Token usage includes:
+
+- **Input tokens** (prompt tokens)
+- **Output tokens** (completion/generation tokens)
+- **Total tokens** (sum of input and output)
+
+Token usage is extracted from the response for all major Bedrock providers, including:
+
+- Anthropic (Claude)
+- AI21 (Jamba)
+- Amazon Titan/Nova
+- Meta Llama
+
+### Supported APIs
+
+Token usage is logged for:
+
+- `invoke_model`
+- `invoke_model_with_response_stream`
+- `converse`
+- `converse_stream`
+
+```python
+import boto3
+import mlflow
+
+mlflow.bedrock.autolog()
+
+# Create a boto3 client for invoking the Bedrock API
+bedrock = boto3.client(
+    service_name="bedrock-runtime",
+    region_name="<REPLACE_WITH_YOUR_AWS_REGION>",
+)
+
+# Use the converse method to create a new message
+response = bedrock.converse(
+    modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    messages=[
+        {
+            "role": "user",
+            "content": "Explain the importance of low latency LLMs.",
+        }
+    ],
+    inferenceConfig={
+        "maxTokens": 512,
+        "temperature": 0.1,
+        "topP": 0.9,
+    },
+)
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f" Input tokens: {total_usage['input_tokens']}")
+print(f" Output tokens: {total_usage['output_tokens']}")
+print(f" Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f" Input tokens: {usage['input_tokens']}")
+        print(f" Output tokens: {usage['output_tokens']}")
+        print(f" Total tokens: {usage['total_tokens']}")
+```
+
+If a provider or model does not return usage information, this attribute will be omitted.
 
 ## Streaming
 
@@ -214,9 +289,7 @@ answer = run_tool_agent(question)
 
 Executing the code above will create a single trace that involves all LLM invocations and the tool calls.
 
-
 ![Bedrock DIY Agent Tracing](/images/llms/tracing/bedrock-tracing-agent.png)
-
 
 ## Disable auto-tracing
 

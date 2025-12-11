@@ -1,8 +1,8 @@
 import { barChartCardDefaultMargin } from '../cards/RunsChartsBarChartCard';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsMetricsBarPlot } from '../RunsMetricsBarPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { RunsChartsBarCardConfig } from '../../runs-charts.types';
+import type { RunsChartsBarCardConfig } from '../../runs-charts.types';
 
 export const RunsChartsConfigureBarChartPreview = ({
   previewData,

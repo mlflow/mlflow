@@ -1,5 +1,3 @@
-"""Tests for sktime custom model flavor."""
-
 import os
 from pathlib import Path
 from unittest import mock
@@ -93,7 +91,6 @@ def naive_forecaster_model_with_regressor(data_longley):
 
 @pytest.mark.parametrize("serialization_format", ["pickle", "cloudpickle"])
 def test_auto_arima_model_save_and_load(auto_arima_model, model_path, serialization_format):
-    """Test saving and loading of native sktime auto_arima_model."""
     flavor.save_model(
         sktime_model=auto_arima_model,
         path=model_path,
@@ -108,7 +105,6 @@ def test_auto_arima_model_save_and_load(auto_arima_model, model_path, serializat
 
 @pytest.mark.parametrize("serialization_format", ["pickle", "cloudpickle"])
 def test_auto_arima_model_pyfunc_output(auto_arima_model, model_path, serialization_format):
-    """Test auto arima prediction of loaded pyfunc model."""
     flavor.save_model(
         sktime_model=auto_arima_model,
         path=model_path,
@@ -156,7 +152,6 @@ def test_auto_arima_model_pyfunc_output(auto_arima_model, model_path, serializat
 def test_naive_forecaster_model_with_regressor_pyfunc_output(
     naive_forecaster_model_with_regressor, model_path, data_longley
 ):
-    """Test naive forecaster prediction of loaded pyfunc model."""
     _, _, _, X_test = data_longley
 
     flavor.save_model(sktime_model=naive_forecaster_model_with_regressor, path=model_path)
@@ -221,7 +216,6 @@ def test_naive_forecaster_model_with_regressor_pyfunc_output(
 def test_signature_and_examples_saved_correctly(
     auto_arima_model, data_airline, model_path, use_signature, use_example
 ):
-    """Test saving of mlflow signature and example for native sktime predict method."""
     # Note: Signature inference fails on native model predict_interval/predict_quantiles
     prediction = auto_arima_model.predict(fh=FH)
     signature = infer_signature(data_airline, prediction) if use_signature else None
@@ -240,7 +234,6 @@ def test_signature_and_examples_saved_correctly(
 def test_predict_var_signature_saved_correctly(
     auto_arima_model, data_airline, model_path, use_signature
 ):
-    """Test saving of mlflow signature for native sktime predict_var method."""
     prediction = auto_arima_model.predict_var(fh=FH)
     signature = infer_signature(data_airline, prediction) if use_signature else None
     flavor.save_model(auto_arima_model, path=model_path, signature=signature)
@@ -253,7 +246,6 @@ def test_predict_var_signature_saved_correctly(
 def test_signature_and_example_for_pyfunc_predict_interval(
     auto_arima_model, model_path, data_airline, use_signature, use_example
 ):
-    """Test saving of mlflow signature and example for pyfunc predict."""
     model_path_primary = model_path.joinpath("primary")
     model_path_secondary = model_path.joinpath("secondary")
     flavor.save_model(sktime_model=auto_arima_model, path=model_path_primary)
@@ -289,7 +281,6 @@ def test_signature_and_example_for_pyfunc_predict_interval(
 def test_signature_for_pyfunc_predict_quantiles(
     auto_arima_model, model_path, data_airline, use_signature
 ):
-    """Test saving of mlflow signature for pyfunc sktime predict_quantiles method."""
     model_path_primary = model_path.joinpath("primary")
     model_path_secondary = model_path.joinpath("secondary")
     flavor.save_model(sktime_model=auto_arima_model, path=model_path_primary)
@@ -311,7 +302,6 @@ def test_signature_for_pyfunc_predict_quantiles(
 
 
 def test_load_from_remote_uri_succeeds(auto_arima_model, model_path, mock_s3_bucket):
-    """Test loading native sktime model from mock S3 bucket."""
     flavor.save_model(sktime_model=auto_arima_model, path=model_path)
 
     artifact_root = f"s3://{mock_s3_bucket}"
@@ -331,7 +321,6 @@ def test_load_from_remote_uri_succeeds(auto_arima_model, model_path, mock_s3_buc
 @pytest.mark.parametrize("should_start_run", [True, False])
 @pytest.mark.parametrize("serialization_format", ["pickle", "cloudpickle"])
 def test_log_model(auto_arima_model, tmp_path, should_start_run, serialization_format):
-    """Test logging and reloading sktime model."""
     try:
         if should_start_run:
             mlflow.start_run()
@@ -358,7 +347,6 @@ def test_log_model(auto_arima_model, tmp_path, should_start_run, serialization_f
 
 
 def test_log_model_calls_register_model(auto_arima_model, tmp_path):
-    """Test log model calls register model."""
     artifact_path = "sktime"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
@@ -379,7 +367,6 @@ def test_log_model_calls_register_model(auto_arima_model, tmp_path):
 
 
 def test_log_model_no_registered_model_name(auto_arima_model, tmp_path):
-    """Test log model calls register model without registered model name."""
     artifact_path = "sktime"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
@@ -394,7 +381,6 @@ def test_log_model_no_registered_model_name(auto_arima_model, tmp_path):
 
 
 def test_sktime_pyfunc_raises_invalid_df_input(auto_arima_model, model_path):
-    """Test pyfunc call raises error with invalid dataframe configuration."""
     flavor.save_model(sktime_model=auto_arima_model, path=model_path)
     loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
 
@@ -409,7 +395,6 @@ def test_sktime_pyfunc_raises_invalid_df_input(auto_arima_model, model_path):
 
 
 def test_sktime_save_model_raises_invalid_serialization_format(auto_arima_model, model_path):
-    """Test save_model call raises error with invalid serialization format."""
     with pytest.raises(MlflowException, match="Unrecognized serialization format: "):
         flavor.save_model(
             sktime_model=auto_arima_model, path=model_path, serialization_format="json"

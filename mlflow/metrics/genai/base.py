@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional, Union
 
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 
@@ -21,7 +20,7 @@ class EvaluationExample:
     .. code-block:: python
         :caption: Example for creating an EvaluationExample
 
-        from mlflow.metrics.base import EvaluationExample
+        from mlflow.metrics.genai import EvaluationExample
 
         example = EvaluationExample(
             input="What is MLflow?",
@@ -61,8 +60,8 @@ class EvaluationExample:
     output: str
     score: float
     justification: str
-    input: Optional[str] = None
-    grading_context: Optional[Union[dict[str, str], str]] = None
+    input: str | None = None
+    grading_context: dict[str, str] | str | None = None
 
     def _format_grading_context(self):
         if isinstance(self.grading_context, dict):

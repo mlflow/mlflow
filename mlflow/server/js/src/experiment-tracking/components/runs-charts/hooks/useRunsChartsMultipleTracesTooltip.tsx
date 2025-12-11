@@ -8,7 +8,7 @@ import type {
 } from '../components/RunsMetricsLinePlot';
 import { compact, isNumber, isString, isUndefined, orderBy, throttle, uniq } from 'lodash';
 import type { LegendLabelData } from '../components/RunsMetricsLegend';
-import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
+import type { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
 
 // Plotly-specific selectors for finding particular elements of interest in the plot DOM structure
 const PLOTLY_SVG_SELECTOR = '.main-svg';
@@ -288,7 +288,8 @@ export const useRunsMultipleTracesTooltipData = ({
           // First, find the corresponding data entry (from chart components's input data) and trace (from data prepared for plotly)
           const correspondingDataEntry = immediateRunsData.current.find(({ uuid }) => uuid === legendEntry.uuid);
           const correspondingDataTrace = immediatePlotData.current.find(
-            ({ uuid, metricKey }) => uuid === legendEntry.uuid && legendEntry.metricKey === metricKey,
+            ({ uuid, metricKey }) =>
+              uuid === legendEntry.uuid && (!legendEntry.metricKey || legendEntry.metricKey === metricKey),
           );
 
           if (!correspondingDataTrace) {
@@ -312,7 +313,7 @@ export const useRunsMultipleTracesTooltipData = ({
             value: isNumber(value) ? value : undefined,
             color: legendEntry?.color,
             dashStyle: legendEntry?.dashStyle,
-            uuid: `${legendEntry.uuid}.${legendEntry.metricKey}`,
+            uuid: legendEntry.metricKey ? `${legendEntry.uuid}.${legendEntry.metricKey}` : `${legendEntry.uuid}`,
           };
         });
 

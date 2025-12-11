@@ -8,8 +8,10 @@ from unittest import mock
 import pytest
 import yaml
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils import env_pack
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
+from mlflow.utils.env_pack import EnvPackConfig, _validate_env_pack
 
 
 @pytest.fixture
@@ -27,7 +29,6 @@ def mock_dbr_version():
 
 
 def test_tar_function_path_handling(tmp_path):
-    """Test that _tar function correctly handles Path objects."""
     # Create test files
     root_dir = tmp_path / "root"
     root_dir.mkdir()
@@ -131,7 +132,6 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
 
 
 def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, mock_dbr_version):
-    """Test that pack_env_for_databricks_model_serving correctly handles pip install errors."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -177,7 +177,6 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, 
 
 
 def test_pack_env_for_databricks_model_serving_unsupported_version():
-    """Test that pack_env_for_databricks_model_serving raises error for non-client image."""
     with mock.patch.object(
         DatabricksRuntimeVersion,
         "parse",
@@ -247,8 +246,41 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
             assert Path(artifacts_dir).exists()
 
 
+@pytest.mark.parametrize(
+    "test_input",
+    [
+        None,
+        "databricks_model_serving",
+        EnvPackConfig(name="databricks_model_serving", install_dependencies=True),
+        EnvPackConfig(name="databricks_model_serving", install_dependencies=False),
+    ],
+)
+def test_validate_env_pack_with_valid_inputs(test_input):
+    # valid string should not raise; None should be treated as no-op
+    if test_input is None:
+        assert _validate_env_pack(test_input) is None
+    else:
+        assert _validate_env_pack(test_input) is not None
+
+
+@pytest.mark.parametrize(
+    ("test_input", "error_message"),
+    [
+        (EnvPackConfig(name="other", install_dependencies=True), "Invalid EnvPackConfig.name*"),
+        (
+            EnvPackConfig(name="databricks_model_serving", install_dependencies="yes"),
+            "EnvPackConfig.install_dependencies must be a bool.",
+        ),
+        ({"name": "databricks_model_serving"}, "env_pack must be either None*"),
+        ("something_else", "Invalid env_pack value*"),
+    ],
+)
+def test_validate_env_pack_throws_errors_on_invalid_inputs(test_input, error_message):
+    with pytest.raises(MlflowException, match=error_message):
+        _validate_env_pack(test_input)
+
+
 def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path, mock_dbr_version):
-    """Test that pack_env_for_databricks_model_serving requires databricks_runtime field."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -271,3 +303,54 @@ def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path,
         ):
             with env_pack.pack_env_for_databricks_model_serving("models:/test-model/1"):
                 pass
+
+
+def test_pack_env_for_databricks_model_serving_handles_existing_databricks_dir(
+    tmp_path, mock_dbr_version
+):
+    # Mock download_artifacts to return a path
+    mock_artifacts_dir = tmp_path / "artifacts"
+    mock_artifacts_dir.mkdir()
+    (mock_artifacts_dir / "requirements.txt").write_text("numpy==1.21.0")
+
+    # Create MLmodel file with correct runtime version
+    mlmodel_path = mock_artifacts_dir / "MLmodel"
+    mlmodel_path.write_text(
+        yaml.dump(
+            {
+                "databricks_runtime": "client.2.0",
+                "flavors": {"python_function": {"model_path": "model.pkl"}},
+            }
+        )
+    )
+
+    # Simulate existing _databricks directory from previous registration
+    existing_databricks_dir = mock_artifacts_dir / env_pack._ARTIFACT_PATH
+    existing_databricks_dir.mkdir()
+    (existing_databricks_dir / "old_file.txt").write_text("old content")
+
+    # Create a mock environment directory
+    mock_env_dir = tmp_path / "mock_env"
+    venv.create(mock_env_dir, with_pip=True)
+
+    with (
+        mock.patch(
+            "mlflow.utils.env_pack.download_artifacts",
+            return_value=str(mock_artifacts_dir),
+        ),
+        mock.patch("sys.prefix", str(mock_env_dir)),
+    ):
+        # This should succeed even though _databricks directory already exists
+        with env_pack.pack_env_for_databricks_model_serving(
+            "models:/test-model/1", enforce_pip_requirements=False
+        ) as artifacts_dir:
+            # Verify artifacts directory exists and contains expected files
+            artifacts_path = Path(artifacts_dir)
+            assert artifacts_path.exists()
+            databricks_path = artifacts_path / env_pack._ARTIFACT_PATH
+            assert databricks_path.exists()
+            assert (databricks_path / env_pack._MODEL_VERSION_TAR).exists()
+            assert (databricks_path / env_pack._MODEL_ENVIRONMENT_TAR).exists()
+
+            # Verify old file is gone (directory was replaced, not merged)
+            assert not (databricks_path / "old_file.txt").exists()

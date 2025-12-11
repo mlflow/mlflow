@@ -1,0 +1,34 @@
+.featureHighlights {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.highlightItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  text-align: left;
+}
+
+.highlightIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.highlightContent h4 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: var(--ifm-color-emphasis-hover);
+  margin-top: 0;
+}
+
+.highlightContent p {
+  color: var(--ifm-border-color);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 0;
+}

@@ -17,7 +17,7 @@ import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import type { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { DangerIcon, Empty, Spinner } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import Utils from '../../common/utils/Utils';

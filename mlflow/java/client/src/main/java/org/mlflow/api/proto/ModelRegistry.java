@@ -8651,7 +8651,7 @@ public final class ModelRegistry {
       CONNECTED(2),
       /**
        * <pre>
-       * job was deleted OR owner had job ACLs removed 
+       * job was deleted OR owner had job ACLs removed
        * </pre>
        *
        * <code>NOT_FOUND = 3;</code>
@@ -8689,7 +8689,7 @@ public final class ModelRegistry {
       public static final int CONNECTED_VALUE = 2;
       /**
        * <pre>
-       * job was deleted OR owner had job ACLs removed 
+       * job was deleted OR owner had job ACLs removed
        * </pre>
        *
        * <code>NOT_FOUND = 3;</code>
@@ -38180,7 +38180,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38190,7 +38190,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38200,7 +38200,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38585,7 +38585,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38598,7 +38598,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38622,7 +38622,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39612,7 +39612,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39624,7 +39624,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39647,7 +39647,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39669,7 +39669,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39689,7 +39689,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39704,7 +39704,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -52714,8 +52714,8 @@ public final class ModelRegistry {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\024model_registry.proto\022\006mlflow\032\025scalapb/" +
-      "scalapb.proto\032\020databricks.proto\"\351\002\n\017Regi" +
+      "\n\024model_registry.proto\022\006mlflow\032\020databric" +
+      "ks.proto\032\025scalapb/scalapb.proto\"\351\002\n\017Regi" +
       "steredModel\022\014\n\004name\030\001 \001(\t\022\032\n\022creation_ti" +
       "mestamp\030\002 \001(\003\022\036\n\026last_updated_timestamp\030" +
       "\003 \001(\003\022\017\n\007user_id\030\004 \001(\t\022\023\n\013description\030\005 " +
@@ -52957,8 +52957,8 @@ public final class ModelRegistry {
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
-          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
+          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
         });
     internal_static_mlflow_RegisteredModel_descriptor =
       getDescriptor().getMessageTypes().get(0);
@@ -53276,8 +53276,8 @@ public final class ModelRegistry {
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
-    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
     com.databricks.api.proto.databricks.Databricks.getDescriptor();
+    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

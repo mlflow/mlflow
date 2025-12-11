@@ -1,4 +1,5 @@
-import { RequestHandler } from 'msw';
+import { afterAll, afterEach, beforeAll, beforeEach, jest } from '@jest/globals';
+import type { RequestHandler } from 'msw';
 import { setupServer as setupMsw } from 'msw/node';
 
 export function setupServer(...handlers: RequestHandler[]) {

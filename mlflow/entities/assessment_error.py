@@ -1,15 +1,12 @@
 from dataclasses import dataclass
-from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.assessments_pb2 import AssessmentError as ProtoAssessmentError
-from mlflow.utils.annotations import experimental
 
 _STACK_TRACE_TRUNCATION_PREFIX = "[Stack trace is truncated]\n...\n"
-_STACK_TRACE_TRUNCATION_LENGTH = 1000
+_STACK_TRACE_TRUNCATION_LENGTH = 10000
 
 
-@experimental(version="2.21.0")
 @dataclass
 class AssessmentError(_MlflowObject):
     """
@@ -44,8 +41,8 @@ class AssessmentError(_MlflowObject):
     """
 
     error_code: str
-    error_message: Optional[str] = None
-    stack_trace: Optional[str] = None
+    error_message: str | None = None
+    stack_trace: str | None = None
 
     def to_proto(self):
         error = ProtoAssessmentError()

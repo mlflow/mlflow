@@ -1,3 +1,4 @@
+import { jest, describe, afterEach, test, expect, beforeEach } from '@jest/globals';
 import { ModelGatewayService } from './ModelGatewayService';
 import { ModelGatewayRouteTask } from './MlflowEnums';
 import { fetchEndpoint } from '../../common/utils/FetchUtils';
@@ -38,7 +39,7 @@ describe('ModelGatewayService', () => {
       { inputText: 'input text', parameters: { temperature: 0.5, max_tokens: 50 } },
     );
 
-    expect(MlflowService.gatewayProxyPost).toBeCalledWith(
+    expect(MlflowService.gatewayProxyPost).toHaveBeenCalledWith(
       expect.objectContaining({
         gateway_path: 'endpoint-url',
         json_data: { messages: [{ content: 'input text', role: 'user' }], temperature: 0.5, max_tokens: 50 },

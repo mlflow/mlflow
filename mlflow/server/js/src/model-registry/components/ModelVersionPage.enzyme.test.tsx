@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -110,7 +111,7 @@ describe('ModelVersionPage', () => {
     // Initial mount
     wrapper = mountWithIntl(<TestComponent />);
     // Assert first (original) call for model version
-    expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=1', expect.anything());
+    expect(global.fetch).toHaveBeenCalledWith(endpoint + '?name=Model+A&version=1', expect.anything());
     // Update the mocked params object with new params
     wrapper.setProps({
       params: {
@@ -119,7 +120,7 @@ describe('ModelVersionPage', () => {
       },
     });
     // Assert second call for model version
-    expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=5', expect.anything());
+    expect(global.fetch).toHaveBeenCalledWith(endpoint + '?name=Model+A&version=5', expect.anything());
   });
   test('should redirect to model page when model version is deleted', async () => {
     wrapper = mountComponent();

@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
 import { generateExperimentHash, useInitializeUIState } from './useInitializeUIState';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
@@ -11,19 +12,12 @@ import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageS
 import { RunsChartType } from '../../runs-charts/runs-charts.types';
 import { expandedEvaluationRunRowsUIStateInitializer } from '../utils/expandedRunsViewStateInitializer';
 import { createBaseExperimentEntity, createBaseRunsData, createBaseRunsInfoEntity } from '../utils/test-utils';
-import _ from 'lodash';
-import { shouldRerunExperimentUISeeding } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 const experimentIds = ['experiment_1'];
 
 jest.mock('../utils/persistSearchFacets');
-jest.mock('../../../../common/utils/FeatureUtils');
 jest.mock('../utils/expandedRunsViewStateInitializer', () => ({
   expandedEvaluationRunRowsUIStateInitializer: jest.fn(),
-}));
-jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  shouldRerunExperimentUISeeding: jest.fn(),
-  shouldEnableExperimentPageAutoRefresh: jest.fn(() => true),
 }));
 
 const initialUIState = createExperimentPageUIState();
@@ -175,7 +169,6 @@ describe('useInitializeUIState', () => {
     });
 
     test('should trigger uiStateInitializers if there are new runs', async () => {
-      jest.mocked(shouldRerunExperimentUISeeding).mockReturnValue(true);
       const { result } = renderParametrizedHook();
 
       act(() => {
@@ -190,24 +183,6 @@ describe('useInitializeUIState', () => {
       });
 
       expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledTimes(2);
-    });
-
-    test('should not re-seed if the feature flag is off', () => {
-      jest.mocked(shouldRerunExperimentUISeeding).mockReturnValue(false);
-      const { result } = renderParametrizedHook();
-
-      act(() => {
-        result.current[2]([experiment1], runsData);
-      });
-
-      act(() => {
-        result.current[2]([experiment1], {
-          ...runsData,
-          runInfos: [...runsData.runInfos, { ...runInfoEntity1, runUuid: 'run_2' }],
-        });
-      });
-
-      expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledTimes(1);
     });
 
     test('should not trigger uiStateInitializers if non-unique run ids are sorted differently', async () => {
@@ -240,11 +215,11 @@ describe('useInitializeUIState', () => {
 
       const initializerInput = [[experiment1], initialUIState, runsData, false];
 
+      // @ts-expect-error A spread argument must either have a tuple type or be passed to a rest parameter
       expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledWith(...initializerInput);
     });
 
     test('should trigger uiStateInitializers with isSeeded = true on 2nd invocation', () => {
-      jest.mocked(shouldRerunExperimentUISeeding).mockReturnValue(true);
       const { result } = renderParametrizedHook();
       jest.mocked(expandedEvaluationRunRowsUIStateInitializer).mockReturnValue(initialUIState);
 

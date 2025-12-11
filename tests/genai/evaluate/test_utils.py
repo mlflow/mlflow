@@ -1,21 +1,27 @@
 import json
-import os
+import sys
 from typing import Any, Literal
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
-from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
-from mlflow.genai.scorers.builtin_scorers import Safety
+from mlflow.genai.datasets import EvaluationDataset, create_dataset
+from mlflow.genai.evaluation.utils import (
+    _convert_scorer_to_legacy_metric,
+    _convert_to_eval_set,
+    validate_tags,
+)
+from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.utils.spark_utils import is_spark_connect_mode
+
+from tests.genai.conftest import databricks_only
 
 
 @pytest.fixture(scope="module")
@@ -39,6 +45,9 @@ def count_rows(data: Any) -> int:
     except Exception:
         pass
 
+    if isinstance(data, EvaluationDataset):
+        data = data.to_df()
+
     return len(data)
 
 
@@ -49,6 +58,7 @@ def sample_dict_data_single():
             "inputs": {"question": "What is Spark?"},
             "outputs": "actual response for first question",
             "expectations": {"expected_response": "expected response for first question"},
+            "tags": {"sample_tag": "value"},
         },
     ]
 
@@ -60,17 +70,20 @@ def sample_dict_data_multiple():
             "inputs": {"question": "What is Spark?"},
             "outputs": "actual response for first question",
             "expectations": {"expected_response": "expected response for first question"},
+            "tags": {"category": "spark"},
         },
         {
             "inputs": {"question": "How can you minimize data shuffling in Spark?"},
             "outputs": "actual response for second question",
             "expectations": {"expected_response": "expected response for second question"},
+            "tags": {"category": "spark", "topic": "optimization"},
         },
-        # Some records might not have expectations
+        # Some records might not have expectations or tags
         {
             "inputs": {"question": "What is MLflow?"},
             "outputs": "actual response for third question",
             "expectations": {},
+            "tags": {},
         },
     ]
 
@@ -126,6 +139,13 @@ def sample_spark_data_with_string_columns(sample_pd_data, spark):
     return spark.createDataFrame(df)
 
 
+@pytest.fixture
+def sample_evaluation_dataset(sample_dict_data_single):
+    dataset = create_dataset("test")
+    dataset.merge_records(sample_dict_data_single)
+    return dataset
+
+
 _ALL_DATA_FIXTURES = [
     "sample_dict_data_single",
     "sample_dict_data_multiple",
@@ -133,6 +153,7 @@ _ALL_DATA_FIXTURES = [
     "sample_pd_data",
     "sample_spark_data",
     "sample_spark_data_with_string_columns",
+    "sample_evaluation_dataset",
 ]
 
 
@@ -151,64 +172,60 @@ def get_test_traces(type=Literal["pandas", "list"]):
     model = TestModel()
 
     model.predict("What is MLflow?")
-    traces = mlflow.search_traces(return_type=type, order_by=["timestamp_ms ASC"])
+    trace_id = mlflow.get_last_active_trace_id()
 
     # Add assessments. Since log_assessment API is not supported in OSS MLflow yet, we
     # need to add it to the trace info manually.
     source = AssessmentSource(source_id="test", source_type="HUMAN")
-    trace = traces[0] if type == "list" else traces.iloc[0]["trace"]
-    trace.info.assessments.extend(
-        [
-            # 1. Expectation with reserved name "expected_response"
-            Expectation(
-                name="expected_response",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value="expected response for first question",
-            ),
-            # 2. Expectation with reserved name "expected_facts"
-            Expectation(
-                name="expected_facts",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value=["fact1", "fact2"],
-            ),
-            # 3. Expectation with reserved name "guidelines"
-            Expectation(
-                name="guidelines",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value=["Be polite", "Be kind"],
-            ),
-            # 4. Expectation with custom name "ground_truth"
-            Expectation(
-                name="my_custom_expectation",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value="custom expectation for the first question",
-            ),
-            # 5. Non-expectation assessment
-            Feedback(
-                name="feedback",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value="some feedback",
-            ),
-        ]
+    # 1. Expectation with reserved name "expected_response"
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_response",
+        value="expected response for first question",
+        source=source,
     )
+    # 2. Expectation with reserved name "expected_facts"
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_facts",
+        value=["fact1", "fact2"],
+        source=source,
+    )
+    # 3. Expectation with reserved name "guidelines"
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="guidelines",
+        value=["Be polite", "Be kind"],
+        source=source,
+    )
+    # 4. Expectation with custom name "my_custom_expectation"
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="my_custom_expectation",
+        value="custom expectation for the first question",
+        source=source,
+    )
+    # 5. Non-expectation assessment
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="feedback",
+        value="some feedback",
+        source=source,
+    )
+    traces = mlflow.search_traces(return_type=type, order_by=["timestamp_ms ASC"])
     return [{"trace": trace} for trace in traces] if type == "list" else traces
 
 
 @pytest.mark.parametrize("input_type", ["list", "pandas"])
 def test_convert_to_legacy_eval_traces(input_type):
     sample_data = get_test_traces(type=input_type)
-    data = _convert_to_legacy_eval_set(sample_data)
+    data = _convert_to_eval_set(sample_data)
 
     assert "trace" in data.columns
 
-    # "request" column should be derived from the trace
-    assert "request" in data.columns
-    assert list(data["request"]) == [{"question": "What is MLflow?"}]
+    # "inputs" column should be derived from the trace
+    assert "inputs" in data.columns
+    assert list(data["inputs"]) == [{"question": "What is MLflow?"}]
     assert data["expectations"][0] == {
         "expected_response": "expected response for first question",
         "expected_facts": ["fact1", "fact2"],
@@ -220,14 +237,59 @@ def test_convert_to_legacy_eval_traces(input_type):
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
-def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
+def test_convert_to_eval_set_has_no_errors(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
 
-    transformed_data = _convert_to_legacy_eval_set(sample_data)
+    transformed_data = _convert_to_eval_set(sample_data)
 
-    assert "request" in transformed_data.columns
-    assert "response" in transformed_data.columns
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
     assert "expectations" in transformed_data.columns
+
+
+def test_convert_to_eval_set_without_request_and_response():
+    for _ in range(3):
+        with mlflow.start_span():
+            pass
+
+    trace_df = mlflow.search_traces()
+    trace_df = trace_df[["trace"]]
+    transformed_data = _convert_to_eval_set(trace_df)
+
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
+    assert transformed_data["inputs"].isna().all()
+
+
+def test_convert_to_eval_set_with_missing_root_span():
+    # Create traces
+    for _ in range(2):
+        with mlflow.start_span():
+            pass
+
+    trace_df = mlflow.search_traces()
+    trace_df = trace_df[["trace"]]
+
+    # Deserialize the trace from JSON string to Trace object
+    trace_df["trace"] = trace_df["trace"].apply(
+        lambda t: Trace.from_json(t) if isinstance(t, str) else t
+    )
+
+    # Mock _get_root_span to return None for the first trace to simulate missing root span
+    with patch.object(trace_df["trace"].iloc[0].data, "_get_root_span", return_value=None):
+        transformed_data = _convert_to_eval_set(trace_df)
+
+    # Verify inputs and outputs columns exist
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
+
+    # Verify first trace has None for inputs/outputs (missing root span)
+    assert transformed_data["inputs"].iloc[0] is None
+    assert transformed_data["outputs"].iloc[0] is None
+
+    # Verify second trace has None for inputs/outputs (normal empty span behavior)
+    assert transformed_data["inputs"].iloc[1] is None
+    assert transformed_data["outputs"].iloc[1] is None
 
 
 def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
@@ -239,7 +301,7 @@ def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
         ]
     )
     with pytest.raises(MlflowException, match="Failed to parse `inputs` column."):
-        _convert_to_legacy_eval_set(df)
+        _convert_to_eval_set(df)
 
     # Data with invalid `expectations` column
     df = spark.createDataFrame(
@@ -255,7 +317,7 @@ def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
         ]
     )
     with pytest.raises(MlflowException, match="Failed to parse `expectations` column."):
-        _convert_to_legacy_eval_set(df)
+        _convert_to_eval_set(df)
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
@@ -313,11 +375,11 @@ def test_scorer_receives_correct_data(data_fixture, request):
 
 
 def test_input_is_required_if_trace_is_not_provided():
-    with patch("mlflow.models.evaluate") as mock_evaluate:
+    with patch("mlflow.genai.evaluation.harness.run") as mock_evaluate:
         with pytest.raises(MlflowException, match="inputs.*required"):
             mlflow.genai.evaluate(
                 data=pd.DataFrame({"outputs": ["Paris"]}),
-                scorers=[Safety()],
+                scorers=[RelevanceToQuery()],
             )
 
         mock_evaluate.assert_not_called()
@@ -326,7 +388,7 @@ def test_input_is_required_if_trace_is_not_provided():
             data=pd.DataFrame(
                 {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
             ),
-            scorers=[Safety()],
+            scorers=[RelevanceToQuery()],
         )
         mock_evaluate.assert_called_once()
 
@@ -338,22 +400,17 @@ def test_input_is_optional_if_trace_is_provided():
 
     trace = mlflow.get_trace(span.trace_id)
 
-    with patch("mlflow.models.evaluate") as mock_evaluate:
+    with patch("mlflow.genai.evaluation.harness.run") as mock_evaluate:
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [trace]}),
-            scorers=[Safety()],
+            scorers=[RelevanceToQuery()],
         )
 
         mock_evaluate.assert_called_once()
 
 
-# TODO: Remove this skip once databricks-agents 1.0 is released
-@pytest.mark.skipif(
-    os.getenv("GITHUB_ACTIONS") == "true",
-    reason="Skipping test in CI because this test requires Agent SDK pre-release wheel",
-)
 @pytest.mark.parametrize("input_type", ["list", "pandas"])
-def test_scorer_receives_correct_data_with_trace_data(input_type):
+def test_scorer_receives_correct_data_with_trace_data(input_type, monkeypatch: pytest.MonkeyPatch):
     sample_data = get_test_traces(type=input_type)
     received_args = []
 
@@ -363,11 +420,11 @@ def test_scorer_receives_correct_data_with_trace_data(input_type):
         return 0
 
     # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
-    with patch.dict("os.environ", {"AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED": "false"}):
-        mlflow.genai.evaluate(
-            data=sample_data,
-            scorers=[dummy_scorer],
-        )
+    monkeypatch.setenv("AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED", "false")
+    mlflow.genai.evaluate(
+        data=sample_data,
+        scorers=[dummy_scorer],
+    )
 
     inputs, outputs, expectations, trace = received_args[0]
     assert inputs == {"question": "What is MLflow?"}
@@ -411,3 +468,119 @@ def test_predict_fn_receives_correct_data(data_fixture, request):
     ][:row_count]
     # Using set because eval harness runs predict_fn in parallel
     assert set(received_args) == set(expected_contents)
+
+
+def test_convert_scorer_to_legacy_metric_aggregations_attribute(monkeypatch):
+    mock_metric_instance = MagicMock()
+
+    # NB: Mocking the behavior of databricks-agents, which does not have the aggregations
+    # argument for the evaluation interface for a metric.
+    def mock_metric_decorator(**kwargs):
+        if "aggregations" in kwargs:
+            raise TypeError("metric() got an unexpected keyword argument 'aggregations'")
+        assert set(kwargs.keys()) <= {"eval_fn", "name"}
+        return mock_metric_instance
+
+    mock_evals = Mock(metric=mock_metric_decorator)
+    mock_evals.judges = Mock()  # Add the judges submodule to prevent AttributeError
+
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals", mock_evals)
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_evals.judges)
+
+    mock_scorer = Mock()
+    mock_scorer.name = "test_scorer"
+    mock_scorer.aggregations = ["mean", "max", "p90"]
+    mock_scorer.run = Mock(return_value={"score": 1.0})
+
+    result = _convert_scorer_to_legacy_metric(mock_scorer)
+
+    assert result.aggregations == ["mean", "max", "p90"]
+
+
+@databricks_only
+def test_convert_scorer_to_legacy_metric():
+    # Test with a built-in scorer
+    builtin_scorer = RelevanceToQuery()
+    legacy_metric = _convert_scorer_to_legacy_metric(builtin_scorer)
+
+    # Verify the metric has the _is_builtin_scorer attribute set to True
+    assert hasattr(legacy_metric, "_is_builtin_scorer")
+    assert legacy_metric._is_builtin_scorer is True
+    assert legacy_metric.name == builtin_scorer.name
+
+    # Test with a custom scorer
+    @scorer(name="custom_scorer", aggregations=["mean", "max"])
+    def custom_scorer_func(inputs, outputs=None, expectations=None, **kwargs):
+        return {"score": 1.0}
+
+    custom_scorer_instance = custom_scorer_func
+    legacy_metric_custom = _convert_scorer_to_legacy_metric(custom_scorer_instance)
+
+    # Verify the metric has the _is_builtin_scorer attribute set to False
+    assert hasattr(legacy_metric_custom, "_is_builtin_scorer")
+    assert legacy_metric_custom._is_builtin_scorer is False
+    assert legacy_metric_custom.name == custom_scorer_instance.name
+    assert legacy_metric_custom.aggregations == custom_scorer_instance.aggregations
+
+
+@pytest.mark.parametrize(
+    "aggregations",
+    [
+        ["mean", "max", "mean", "median", "variance", "p90"],
+        [sum, max],
+    ],
+)
+@databricks_only
+def test_scorer_pass_through_aggregations(aggregations):
+    @scorer(name="custom_scorer", aggregations=aggregations)
+    def custom_scorer_func(outputs):
+        return {"score": 1.0}
+
+    legacy_metric_custom = _convert_scorer_to_legacy_metric(custom_scorer_func)
+    assert legacy_metric_custom.name == "custom_scorer"
+    assert legacy_metric_custom.aggregations == aggregations
+
+    builtin_scorer = RelevanceToQuery(aggregations=aggregations)
+    legacy_metric_builtin = _convert_scorer_to_legacy_metric(builtin_scorer)
+    assert legacy_metric_builtin.name == "relevance_to_query"
+    assert legacy_metric_builtin.aggregations == builtin_scorer.aggregations
+
+
+@pytest.mark.parametrize(
+    "tags",
+    [
+        None,
+        {},
+        {"key": "value"},
+        {"env": "test", "model": "v1.0"},
+        {"key": 123},  # Values can be any type
+        {"key1": "value1", "key2": None},  # Values can be any type
+    ],
+)
+def test_validate_tags_valid(tags):
+    validate_tags(tags)
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected_error"),
+    [
+        ("invalid", "Tags must be a dictionary, got str"),
+        (123, "Tags must be a dictionary, got int"),
+        ([1, 2, 3], "Tags must be a dictionary, got list"),
+        ({123: "value"}, "Invalid tags:\n  - Key 123 has type int; expected str."),
+        (
+            {"key1": "value1", 123: "value2"},
+            "Invalid tags:\n  - Key 123 has type int; expected str.",
+        ),
+        (
+            {123: "value1", 456: "value2"},
+            (
+                "Invalid tags:\n  - Key 123 has type int; expected str."
+                "\n  - Key 456 has type int; expected str."
+            ),
+        ),
+    ],
+)
+def test_validate_tags_invalid(tags, expected_error):
+    with pytest.raises(MlflowException, match=expected_error):
+        validate_tags(tags)

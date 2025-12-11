@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { ModelVersionView, ModelVersionViewImpl } from './ModelVersionView';
 import { mockModelVersionDetailed } from '../test-utils';
@@ -88,7 +89,7 @@ describe('ModelVersionView', () => {
       modelVersion: mockModelVersionDetailed('Model A', 1, Stages.NONE, ModelVersionStatus.READY),
     };
     wrapper = createComponentInstance(props);
-    expect(wrapper.find('button[data-test-id="overflow-menu-trigger"]').length).toBe(1);
+    expect(wrapper.find('button[data-testid="overflow-menu-trigger"]').length).toBe(1);
   });
   test('should disable dropdown delete menu item when model version is in active stage', () => {
     let i;
@@ -98,11 +99,11 @@ describe('ModelVersionView', () => {
         modelVersion: mockModelVersionDetailed('Model A', 1, ACTIVE_STAGES[i], ModelVersionStatus.READY),
       };
       wrapper = createComponentInstance(props);
-      wrapper.find("button[data-test-id='overflow-menu-trigger']").simulate('click');
+      wrapper.find("button[data-testid='overflow-menu-trigger']").simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
-      const deleteMenuItem = wrapper.find('[data-test-id="delete"]').hostNodes();
+      const deleteMenuItem = wrapper.find('[data-testid="delete"]').hostNodes();
       expect(deleteMenuItem.prop('aria-disabled')).toBe(true);
       deleteMenuItem.simulate('click');
       expect(wrapper.find(ModelVersionViewImpl).instance().state.isDeleteModalVisible).toBe(false);
@@ -117,11 +118,11 @@ describe('ModelVersionView', () => {
         modelVersion: mockModelVersionDetailed('Model A', 1, inactiveStages[i], ModelVersionStatus.READY),
       };
       wrapper = createComponentInstance(props);
-      wrapper.find('button[data-test-id="overflow-menu-trigger"]').at(0).simulate('click');
+      wrapper.find('button[data-testid="overflow-menu-trigger"]').at(0).simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
-      const deleteMenuItem = wrapper.find('[data-test-id="delete"]').hostNodes();
+      const deleteMenuItem = wrapper.find('[data-testid="delete"]').hostNodes();
       expect(deleteMenuItem.prop('aria-disabled')).toBeFalsy();
       deleteMenuItem.simulate('click');
       expect(wrapper.find(ModelVersionViewImpl).instance().state.isDeleteModalVisible).toBe(true);
@@ -200,21 +201,21 @@ describe('ModelVersionView', () => {
       ),
     };
     wrapper = createComponentInstance(props);
-    expect(wrapper.find('[data-test-id="descriptions-item"]').length).toBe(4);
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe('Registered At');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(1).text()).toBe('Last Modified');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe('Source Run');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe('Stage');
+    expect(wrapper.find('[data-testid="descriptions-item"]').length).toBe(4);
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(0).text()).toBe('Registered At');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(1).text()).toBe('Last Modified');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(2).text()).toBe('Source Run');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(3).text()).toBe('Stage');
   });
   test('creator description rendered if user_id is available', () => {
     jest.mocked(shouldShowModelsNextUI).mockImplementation(() => false);
     wrapper = createComponentInstance(minimalProps);
-    expect(wrapper.find('[data-test-id="descriptions-item"]').length).toBe(5);
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe('Registered At');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(1).text()).toBe('Creator');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe('Last Modified');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe('Source Run');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(4).text()).toBe('Stage');
+    expect(wrapper.find('[data-testid="descriptions-item"]').length).toBe(5);
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(0).text()).toBe('Registered At');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(1).text()).toBe('Creator');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(2).text()).toBe('Last Modified');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(3).text()).toBe('Source Run');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(4).text()).toBe('Stage');
   });
   test('should render copied from link when model version is a copy', () => {
     jest.mocked(shouldShowModelsNextUI).mockImplementation(() => true);
@@ -233,15 +234,15 @@ describe('ModelVersionView', () => {
       ),
     };
     wrapper = createComponentInstance(props);
-    expect(wrapper.find('[data-test-id="descriptions-item"]').length).toBe(7);
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe('Registered At');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(1).text()).toBe('Creator');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe('Last Modified');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe('Source Run');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(4).text()).toBe('Copied from');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(5).text()).toBe('Aliases');
-    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(6).text()).toBe('Stage (deprecated)');
-    const linkedRun = wrapper.find('[data-test-id="copied-from-link"]').at(0);
+    expect(wrapper.find('[data-testid="descriptions-item"]').length).toBe(7);
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(0).text()).toBe('Registered At');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(1).text()).toBe('Creator');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(2).text()).toBe('Last Modified');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(3).text()).toBe('Source Run');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(4).text()).toBe('Copied from');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(5).text()).toBe('Aliases');
+    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(6).text()).toBe('Stage (deprecated)');
+    const linkedRun = wrapper.find('[data-testid="copied-from-link"]').at(0);
     expect(linkedRun.html()).toContain(ModelRegistryRoutes.getModelVersionPageRoute('Model B', '2'));
   });
 });

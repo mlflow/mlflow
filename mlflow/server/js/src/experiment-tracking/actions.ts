@@ -6,7 +6,7 @@
  */
 
 import type { Dispatch, Action } from 'redux';
-import { AsyncAction, ReduxState, ThunkDispatch } from '../redux-types';
+import type { AsyncAction, ReduxState, ThunkDispatch } from '../redux-types';
 import { MlflowService } from './sdk/MlflowService';
 import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
@@ -16,22 +16,12 @@ import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUt
 import { stringify as queryStringStringify } from 'qs';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
-import { ArtifactListFilesResponse, EvaluationArtifactTable, KeyValueEntity } from './types';
+import type { ArtifactListFilesResponse, EvaluationArtifactTable } from './types';
+import type { KeyValueEntity } from '../common/types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
 import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
 import { ErrorWrapper } from '../common/utils/ErrorWrapper';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
-
-export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
-export const searchExperimentsApi = (id = getUUID()) => {
-  return {
-    type: SEARCH_EXPERIMENTS_API,
-    payload: MlflowService.searchExperiments({
-      max_results: 20000,
-    }),
-    meta: { id: id },
-  };
-};
 
 export const GET_EXPERIMENT_API = 'GET_EXPERIMENT_API';
 export const getExperimentApi = (experimentId: any, id = getUUID()) => {
@@ -396,14 +386,27 @@ export const loadMoreRunsApi = (params: any) => ({
 
 // TODO: run_uuid is deprecated, use run_id instead
 export const LIST_ARTIFACTS_API = 'LIST_ARTIFACTS_API';
-export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
-  return {
-    type: LIST_ARTIFACTS_API,
-    payload: MlflowService.listArtifacts({
+export const listArtifactsApi = (
+  runUuid: any,
+  path?: any,
+  id = getUUID(),
+  experimentId?: string,
+  entityTags?: Partial<KeyValueEntity>[],
+) => {
+  const getRunArtifactDataFromMLflowAPI = () =>
+    MlflowService.listArtifacts({
       run_uuid: runUuid,
       // only pass path if not null or undefined
       ...(path && { path: path }),
-    }),
+    });
+
+  const getRunArtifactData = () => {
+    return getRunArtifactDataFromMLflowAPI();
+  };
+
+  return {
+    type: LIST_ARTIFACTS_API,
+    payload: getRunArtifactData(),
     meta: { id: id, runUuid: runUuid, path: path },
   };
 };
@@ -413,13 +416,24 @@ export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
  * TODO: discard redux, refactor into hooks
  */
 export const LIST_ARTIFACTS_LOGGED_MODEL_API = 'LIST_ARTIFACTS_LOGGED_MODEL_API';
-export const listArtifactsLoggedModelApi = (loggedModelId: any, path?: any, id = getUUID()) => {
-  return {
-    type: LIST_ARTIFACTS_API,
-    payload: MlflowService.listArtifactsLoggedModel({
+export const listArtifactsLoggedModelApi = (
+  loggedModelId: any,
+  path?: any,
+  experimentId?: string,
+  id = getUUID(),
+  entityTags?: Partial<KeyValueEntity>[],
+) => {
+  const getLoggedModelDataFromMLflowAPI = () =>
+    MlflowService.listArtifactsLoggedModel({
       loggedModelId,
       path,
-    }),
+    });
+  const getLoggedModelDataFn = () => {
+    return getLoggedModelDataFromMLflowAPI();
+  };
+  return {
+    type: LIST_ARTIFACTS_LOGGED_MODEL_API,
+    payload: getLoggedModelDataFn(),
     meta: { id: id, loggedModelId, path: path },
   };
 };
@@ -474,41 +488,6 @@ export const getMetricHistoryApi = (runUuid: any, metricKey: any, maxResults: an
 };
 
 export const GET_METRIC_HISTORY_API_BULK = 'GET_METRIC_HISTORY_API_BULK';
-export const getMetricHistoryApiBulk = (
-  runUuids: any,
-  metricKey: any,
-  maxResults = 25000,
-  pageToken: any,
-  id = getUUID(),
-) => {
-  // We are not using MlflowService because this endpoint requires
-  // special query string preparation
-  const queryParams = queryStringStringify(
-    {
-      run_id: runUuids,
-      metric_key: decodeURIComponent(metricKey),
-      max_results: maxResults,
-      page_token: pageToken,
-    },
-    // This configures qs to stringify arrays as ?run_id=123&run_id=234
-    { arrayFormat: 'repeat' },
-  );
-  const request = fetchEndpoint({
-    relativeUrl: `ajax-api/2.0/mlflow/metrics/get-history-bulk?${queryParams}`,
-    success: jsonBigIntResponseParser,
-  });
-  return {
-    type: GET_METRIC_HISTORY_API_BULK,
-    payload: request,
-    meta: {
-      id: id,
-      runUuids: runUuids,
-      key: metricKey,
-      maxResults,
-      pageToken,
-    },
-  };
-};
 
 // TODO: run_uuid is deprecated, use run_id instead
 export const SET_TAG_API = 'SET_TAG_API';
@@ -527,7 +506,35 @@ export const setTagApi = (runUuid: any, tagName: any, tagValue: any, id = getUUI
 // TODO: run_uuid is deprecated, use run_id instead
 export const DELETE_TAG_API = 'DELETE_TAG_API';
 const SET_RUN_TAGS_BULK = 'SET_RUN_TAGS_BULK';
+
 /**
+ * Used in new, unified tagging UI
+ */
+export const saveRunTagsApi = (
+  run_uuid: string,
+  newTags: KeyValueEntity[],
+  deletedTags: KeyValueEntity[],
+  id = getUUID(),
+) => {
+  const updateRequests = Promise.all([
+    ...newTags.map(({ key, value }) => MlflowService.setTag({ run_uuid, key, value })),
+    ...deletedTags.map(({ key }) => MlflowService.deleteTag({ run_id: run_uuid, key })),
+  ]);
+
+  return {
+    type: SET_RUN_TAGS_BULK,
+    payload: updateRequests,
+    meta: { id, runUuid: run_uuid, deletedTags, newTags },
+  };
+};
+
+// TODO: remove the action once "databricks.fe.mlflow.useSharedTaggingUI" flag is enabled
+/**
+ * @deprecated
+ *
+ *
+ * Used in old implementation of tags editor
+ *
  * Given lists of existing and new tags, creates and calls
  * multiple requests for setting/deleting tags in a experiment run
  */

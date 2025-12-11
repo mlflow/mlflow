@@ -40,14 +40,14 @@ interface GlossyCardProps {
   icon?: React.ReactNode;
 }
 
-export const GlossyCard: React.FC<GlossyCardProps> = ({ 
-  title, 
-  description, 
+export const GlossyCard: React.FC<GlossyCardProps> = ({
+  title,
+  description,
   colorTheme,
   linkPath,
-  buttonText = "View documentation",
+  buttonText = 'View documentation',
   className,
-  icon
+  icon,
 }) => {
   const colorClass = colorTheme === 'blue' ? 'blueTheme' : 'redTheme';
 
@@ -63,10 +63,7 @@ export const GlossyCard: React.FC<GlossyCardProps> = ({
         <p className={styles.cardDescription}>{description}</p>
 
         <div className={styles.cardAction}>
-          <Link
-            to={linkPath}
-            className={clsx(styles.cardButton, styles[`${colorClass}Button`])}
-          >
+          <Link to={linkPath} className={clsx(styles.cardButton, styles[`${colorClass}Button`])}>
             {buttonText} <span className={styles.arrowIcon}>→</span>
           </Link>
         </div>

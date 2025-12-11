@@ -58,7 +58,7 @@ def fix_random_seed():
     random.seed(SEED)
     np.random.seed(SEED)
 
-    if Version(tf.__version__) >= Version("2.0.0"):
+    if Version(tf.__version__).major >= 2:
         tf.random.set_seed(SEED)
     else:
         tf.set_random_seed(SEED)
@@ -573,7 +573,6 @@ def test_save_model_with_tf_save_format(model_path):
 
 
 def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path, data):
-    """Ensures that keras models saved with save_format="tf" can be loaded."""
     mlflow.tensorflow.save_model(
         tf_keras_model, path=model_path, keras_model_kwargs={"save_format": "tf"}
     )
@@ -599,7 +598,6 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path, dat
 
 
 def test_load_without_save_format(tf_keras_model, model_path, data):
-    """Ensures that keras models without save_format can still be loaded."""
     mlflow.tensorflow.save_model(
         tf_keras_model, path=model_path, keras_model_kwargs={"save_format": "h5"}
     )

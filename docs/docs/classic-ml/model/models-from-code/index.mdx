@@ -2,7 +2,6 @@
 sidebar_position: 3
 ---
 
-import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
@@ -46,12 +45,15 @@ The key difference lies in how models are represented during serialization:
 Understanding these key concepts will help you use Models from Code effectively:
 
 ### Script Execution
+
 Your model script is executed during logging to validate correctness. Ensure any external dependencies or authentication are properly configured in your logging environment.
 
 ### Import Management
+
 Only include imports you actually use. MLflow infers requirements from all top-level imports, so unused imports will unnecessarily bloat your model's dependencies.
 
 ### External Dependencies
+
 Non-pip installable packages must be specified via `code_paths`. The system doesn't automatically capture external references beyond standard package imports.
 
 :::tip development workflow
@@ -77,6 +79,7 @@ print("hello!")
 ```
 
 This creates a `hello.py` file containing:
+
 ```python
 print("hello!")
 ```
@@ -444,12 +447,14 @@ def predict(self, context, model_input):
 **Problem**: API keys or secrets were included in your model script.
 
 **Immediate Actions**:
+
 1. Delete the MLflow run: Use the UI or <APILink fn="mlflow.client.MlflowClient.delete_run">`delete_run()` API</APILink>
 2. Clean up artifacts: Run `mlflow gc` CLI command
 3. Rotate compromised credentials
 4. Re-log the model with proper security practices
 
 **Prevention**:
+
 ```python
 # ❌ Bad - hardcoded secrets
 api_key = "sk-abc123..."
@@ -468,6 +473,7 @@ model = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 **Explanation**: MLflow validates your code by executing it. Ensure your logging environment has proper authentication configured.
 
 **Best Practice**:
+
 ```python
 # Handle authentication gracefully
 try:
@@ -544,6 +550,7 @@ class ResourceManagedModel(PythonModel):
 If you're currently using legacy model serialization, here's how to migrate:
 
 ### Before (Legacy)
+
 ```python
 class MyModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input):
@@ -556,6 +563,7 @@ mlflow.pyfunc.log_model(python_model=model_instance, name="model")
 ```
 
 ### After (Models from Code)
+
 ```python
 # Save as script: my_model.py
 # %%writefile "./my_model.py"
@@ -578,6 +586,7 @@ mlflow.pyfunc.log_model(python_model="my_model.py", name="model")
 ## Best Practices Summary
 
 **Code Organization**
+
 <ul>
   <li>Keep model scripts focused and minimal</li>
   <li>Use descriptive names for model files and functions</li>
@@ -585,6 +594,7 @@ mlflow.pyfunc.log_model(python_model="my_model.py", name="model")
 </ul>
 
 **Security**
+
 <ul>
   <li>Never hardcode sensitive information in model scripts</li>
   <li>Use environment variables for configuration</li>
@@ -592,6 +602,7 @@ mlflow.pyfunc.log_model(python_model="my_model.py", name="model")
 </ul>
 
 **Performance**
+
 <ul>
   <li>Import only what you need to minimize dependencies</li>
   <li>Use lazy loading for expensive resources</li>
@@ -599,6 +610,7 @@ mlflow.pyfunc.log_model(python_model="my_model.py", name="model")
 </ul>
 
 **Development Workflow**
+
 <ul>
   <li>Use <code>%%writefile</code> in Jupyter for rapid prototyping</li>
   <li>Test your scripts independently before logging</li>
@@ -608,6 +620,7 @@ mlflow.pyfunc.log_model(python_model="my_model.py", name="model")
 ## Additional Resources
 
 For more information on related topics:
+
 - [Model API Documentation](/ml/model#model-api)
 - [Managing Dependencies in MLflow Models](/ml/model/dependencies)
 - [Custom Python Models](/ml/model#custom-python-models)

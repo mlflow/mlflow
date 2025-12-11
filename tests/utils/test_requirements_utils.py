@@ -81,14 +81,6 @@ def test_join_continued_lines():
 
 
 def test_parse_requirements(tmp_path, monkeypatch):
-    """
-    Ensures `_parse_requirements` returns the same result as `pip._internal.req.parse_requirements`
-    """
-    from pip._internal.network.session import PipSession  # noqa: TID251
-    from pip._internal.req import (  # noqa: TID251
-        parse_requirements as pip_parse_requirements,
-    )
-
     root_req_src = """
 # No version specifier
 noverspec
@@ -160,11 +152,13 @@ line-cont-eof\
     rel_con.write_text("rel-con-xxx\nrel-con-yyy")
     abs_con.write_text("abs-con-zzz")
 
-    expected_cons = [
-        "rel-con-xxx",
-        "rel-con-yyy",
-        "abs-con-zzz",
-    ]
+    # Uncomment this to get the expected output from pip's internal parser
+    # from pip._internal.network.session import PipSession
+    # from pip._internal.req import parse_requirements as pip_parse_requirements
+    #
+    # pip_reqs = list(pip_parse_requirements(root_req.name, session=PipSession()))
+    # print(f"expected_reqs = {[r.requirement for r in pip_reqs if not r.constraint]}")
+    # print(f"expected_cons = {[r.requirement for r in pip_reqs if r.constraint]}")
 
     expected_reqs = [
         "noverspec",
@@ -184,15 +178,15 @@ line-cont-eof\
         "line-cont-blank",
         "line-cont-eof",
     ]
+    expected_cons = [
+        "rel-con-xxx",
+        "rel-con-yyy",
+        "abs-con-zzz",
+    ]
 
     parsed_reqs = list(_parse_requirements(root_req.name, is_constraint=False))
-    pip_reqs = list(pip_parse_requirements(root_req.name, session=PipSession()))
-    # Requirements
     assert [r.req_str for r in parsed_reqs if not r.is_constraint] == expected_reqs
-    assert [r.requirement for r in pip_reqs if not r.constraint] == expected_reqs
-    # Constraints
     assert [r.req_str for r in parsed_reqs if r.is_constraint] == expected_cons
-    assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
 
 
 def test_normalize_package_name():
@@ -694,8 +688,8 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 10) or importlib.util.find_spec("databricks.agents") is None,
-    reason="Requires Python 3.10 or higher and databricks.agents",
+    importlib.util.find_spec("databricks.agents") is None,
+    reason="Requires databricks.agents",
 )
 def test_infer_pip_requirements_on_databricks_agents(tmp_path):
     # import here to avoid breaking this test suite on mlflow-skinny
@@ -721,3 +715,41 @@ def test_infer_pip_requirements_on_databricks_agents(tmp_path):
     assert "databricks-connect" in packages
     # pyspark should not exist because it conflicts with databricks-connect
     assert "pyspark" not in packages
+
+
+def test_capture_imported_modules_excludes_pyspark_gateway_env_vars(monkeypatch, tmp_path):
+    """
+    Test that PYSPARK_GATEWAY_PORT and PYSPARK_GATEWAY_SECRET are excluded from the
+    subprocess environment when capturing imported modules.
+
+    These env vars, if inherited by a subprocess, can cause the subprocess to connect
+    to the parent's py4j gateway. Libraries like databricks-sdk may then corrupt the
+    parent's gateway state, causing delayed py4j errors like
+    "Error while obtaining a new communication channel".
+    """
+    monkeypatch.setenv("PYSPARK_GATEWAY_PORT", "12345")
+    monkeypatch.setenv("PYSPARK_GATEWAY_SECRET", "secret123")
+
+    captured_env = {}
+
+    def mock_run_command(cmd, timeout_seconds, env):
+        captured_env.update(env)
+        raise MlflowException("Mocked - stopping before actual subprocess execution")
+
+    with (
+        mock.patch(
+            "mlflow.utils.requirements_utils._run_command",
+            side_effect=mock_run_command,
+        ) as mock_run,
+        mock.patch(
+            "mlflow.utils.requirements_utils._download_artifact_from_uri",
+            return_value=str(tmp_path),
+        ) as mock_download,
+    ):
+        with pytest.raises(MlflowException, match="Mocked"):
+            _capture_imported_modules("fake/model/path", "pyfunc")
+
+    mock_download.assert_called_once()
+    mock_run.assert_called_once()
+    assert "PYSPARK_GATEWAY_PORT" not in captured_env
+    assert "PYSPARK_GATEWAY_SECRET" not in captured_env

@@ -17,9 +17,8 @@ import re
 import shutil
 import string
 import sys
-from collections import namedtuple
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, NamedTuple
 from urllib.parse import urlparse
 
 import numpy as np
@@ -183,7 +182,7 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
 #  1. A string representing the path or URL to an audio file.
 #  2. A bytes object representing the raw audio data.
 #  3. A float numpy array representing the audio time series.
-AudioInput = Union[str, bytes, np.ndarray]
+AudioInput = str | bytes | np.ndarray
 
 _logger = logging.getLogger(__name__)
 
@@ -265,25 +264,34 @@ def get_default_conda_env(model):
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
 
 
+class _DummyModel(NamedTuple):
+    name_or_path: str
+
+
+class _DummyPipeline(NamedTuple):
+    task: str
+    model: _DummyModel
+
+
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     transformers_model,
     path: str,
     processor=None,
-    task: Optional[str] = None,
-    torch_dtype: Optional[torch.dtype] = None,
+    task: str | None = None,
+    torch_dtype: torch.dtype | None = None,
     model_card=None,
-    code_paths: Optional[list[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[dict[str, Any]] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    prompt_template: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    model_config: dict[str, Any] | None = None,
+    prompt_template: str | None = None,
     save_pretrained: bool = True,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
@@ -517,9 +525,9 @@ def save_model(
             )
 
         # Create a dummy pipeline object to be used for saving the model
-        DummyModel = namedtuple("DummyModel", ["name_or_path"])
-        DummyPipeline = namedtuple("DummyPipeline", ["task", "model"])
-        built_pipeline = DummyPipeline(task=task, model=DummyModel(name_or_path=transformers_model))
+        built_pipeline = _DummyPipeline(
+            task=task, model=_DummyModel(name_or_path=transformers_model)
+        )
     else:
         raise MlflowException(
             "The `transformers_model` must be one of the following types: \n"
@@ -773,30 +781,30 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     transformers_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     processor=None,
-    task: Optional[str] = None,
-    torch_dtype: Optional[torch.dtype] = None,
+    task: str | None = None,
+    torch_dtype: torch.dtype | None = None,
     model_card=None,
-    code_paths: Optional[list[str]] = None,
-    registered_model_name: Optional[str] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
+    code_paths: list[str] | None = None,
+    registered_model_name: str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[dict[str, Any]] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    prompt_template: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    model_config: dict[str, Any] | None = None,
+    prompt_template: str | None = None,
     save_pretrained: bool = True,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -893,8 +901,7 @@ def log_model(
                     must be >=0.10.0
 
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: A Model Signature object that describes the input and output Schema of the
@@ -1044,7 +1051,7 @@ def log_model(
 
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(
-    model_uri: str, dst_path: Optional[str] = None, return_type="pipeline", device=None, **kwargs
+    model_uri: str, dst_path: str | None = None, return_type="pipeline", device=None, **kwargs
 ):
     """
     Load a ``transformers`` object from a local file or a run.
@@ -1466,7 +1473,7 @@ def _get_supported_pretrained_model_types():
     return supported_model_types
 
 
-def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: Optional[str]) -> Pipeline:
+def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: str | None) -> Pipeline:
     """
     Utility for generating a pipeline from component parts. If required components are not
     specified, use the transformers library pipeline component validation to force raising an
@@ -1640,7 +1647,7 @@ def _get_model_config(local_path, pyfunc_config):
         return pyfunc_config or {}
 
 
-def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
     """
     Loads the model as pyfunc model
     """
@@ -1823,7 +1830,7 @@ class _TransformersWrapper:
                 ) from e
             raise
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None):
+    def predict(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Model input data.
@@ -2775,8 +2782,8 @@ class _TransformersWrapper:
         return input_data
 
     def _convert_audio_input(
-        self, data: Union[AudioInput, list[dict[int, list[AudioInput]]]]
-    ) -> Union[AudioInput, list[AudioInput]]:
+        self, data: AudioInput | list[dict[int, list[AudioInput]]]
+    ) -> AudioInput | list[AudioInput]:
         """
         Convert the input data into the format that the Transformers pipeline expects.
 
@@ -2926,11 +2933,7 @@ def autolog(
 
         safe_patch(
             FLAVOR_NAME,
-            (
-                setfit.SetFitTrainer
-                if Version(setfit.__version__) < Version("1.0.0")
-                else setfit.Trainer
-            ),
+            (setfit.SetFitTrainer if Version(setfit.__version__).major < 1 else setfit.Trainer),
             "train",
             functools.partial(train),
             manage_run=False,

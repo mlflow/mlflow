@@ -1,6 +1,7 @@
+import { describe, jest, test, expect } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsGroupBySelector } from './ExperimentViewRunsGroupBySelector';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -121,7 +122,7 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     await userEvent.click(screen.getByText('Group by'));
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'tag1' }));
 
-    expect(onChange).toBeCalledWith({
+    expect(onChange).toHaveBeenCalledWith({
       aggregateFunction: 'average',
       groupByKeys: [{ groupByData: 'tag1', mode: 'tag' }],
     });
@@ -134,7 +135,7 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'param2' }));
 
-    expect(onChange).toBeCalledWith({
+    expect(onChange).toHaveBeenCalledWith({
       aggregateFunction: 'average',
       groupByKeys: [{ groupByData: 'param2', mode: 'param' }],
     });
@@ -147,7 +148,7 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dataset' }));
 
-    expect(onChange).toBeCalledWith({
+    expect(onChange).toHaveBeenCalledWith({
       aggregateFunction: 'average',
       groupByKeys: [{ groupByData: 'dataset', mode: 'dataset' }],
     });
@@ -207,7 +208,7 @@ describe('ExperimentViewRunsGroupBySelector', () => {
     await userEvent.click(screen.getByRole('button', { name: /Group by/ }));
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dataset' }));
 
-    expect(onChange).toBeCalledWith({
+    expect(onChange).toHaveBeenCalledWith({
       aggregateFunction: 'average',
       groupByKeys: [{ groupByData: 'dataset', mode: 'dataset' }],
     });

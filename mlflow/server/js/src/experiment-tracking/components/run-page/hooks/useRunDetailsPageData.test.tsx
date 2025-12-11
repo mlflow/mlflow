@@ -1,10 +1,12 @@
-import { renderHook } from '@testing-library/react';
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useRunDetailsPageData } from './useRunDetailsPageData';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 
 import { merge } from 'lodash';
-import { ReduxState } from '../../../../redux-types';
-import { DeepPartial } from 'redux';
+import type { ReduxState } from '../../../../redux-types';
+import type { DeepPartial } from 'redux';
+import { searchModelVersionsApi } from '../../../../model-registry/actions';
 
 const mockAction = (id: string) => ({ type: 'action', payload: Promise.resolve(), meta: { id } });
 
@@ -28,6 +30,9 @@ const testRunUuid = 'test-run-uuid';
 const testExperimentId = '12345';
 
 describe('useRunDetailsPageData', () => {
+  beforeEach(() => {
+    jest.mocked(searchModelVersionsApi).mockClear();
+  });
   const mountHook = (entities: DeepPartial<ReduxState['entities']> = {}, apis: DeepPartial<ReduxState['apis']> = {}) =>
     renderHook(() => useRunDetailsPageData({ runUuid: testRunUuid, experimentId: testExperimentId }), {
       wrapper: ({ children }: { children: React.ReactNode }) => (
@@ -102,5 +107,13 @@ describe('useRunDetailsPageData', () => {
         tags: [{ key: 'tag1', value: 'value1' }],
       },
     ]);
+  });
+  test('calls model versions API endpoint when enabled', async () => {
+    const { result } = mountHook();
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(searchModelVersionsApi).toHaveBeenCalled();
   });
 });

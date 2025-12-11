@@ -6,6 +6,8 @@ from unittest import mock
 
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 
+from tests.tracing.helper import skip_when_testing_trace_sdk
+
 
 def test_async_queue_handle_tasks():
     queue = AsyncTraceExportQueue()
@@ -39,6 +41,7 @@ def exporter_process(counter):
         queue.put(task)
 
 
+@skip_when_testing_trace_sdk
 def test_async_queue_complete_task_process_finished():
     multiprocessing.set_start_method("spawn", force=True)
     counter = multiprocessing.Value("i", 0)
@@ -49,41 +52,41 @@ def test_async_queue_complete_task_process_finished():
     assert counter.value == 10
 
 
-@mock.patch("atexit.register")
-def test_async_queue_activate_thread_safe(mock_atexit):
-    queue = AsyncTraceExportQueue()
+def test_async_queue_activate_thread_safe():
+    with mock.patch("atexit.register") as mock_atexit:
+        queue = AsyncTraceExportQueue()
 
-    def count_threads():
-        main_thread = threading.main_thread()
-        return sum(
-            t.is_alive()
-            for t in threading.enumerate()
-            if t is not main_thread and t.getName().startswith("MLflowTraceLogging")
-        )
+        def count_threads():
+            main_thread = threading.main_thread()
+            return sum(
+                t.is_alive()
+                for t in threading.enumerate()
+                if t is not main_thread and t.name.startswith("MLflowTraceLogging")
+            )
 
-    # 1. Validate activation
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        for _ in range(10):
-            executor.submit(queue.activate)
+        # 1. Validate activation
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for _ in range(10):
+                executor.submit(queue.activate)
 
-    assert queue.is_active()
-    assert count_threads() > 0  # Logging thread + max 5 worker threads
-    mock_atexit.assert_called_once()
-    mock_atexit.reset_mock()
+        assert queue.is_active()
+        assert count_threads() > 0  # Logging thread + max 5 worker threads
+        mock_atexit.assert_called_once()
+        mock_atexit.reset_mock()
 
-    # 2. Validate flush (continue)
-    queue.flush(terminate=False)
-    assert queue.is_active()
-    assert count_threads() > 0  # New threads should be created
-    mock_atexit.assert_not_called()  # Exit callback should not be registered again
+        # 2. Validate flush (continue)
+        queue.flush(terminate=False)
+        assert queue.is_active()
+        assert count_threads() > 0  # New threads should be created
+        mock_atexit.assert_not_called()  # Exit callback should not be registered again
 
-    # 3. Validate flush with termination
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        for _ in range(10):
-            executor.submit(queue.flush(terminate=True))
+        # 3. Validate flush with termination
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for _ in range(10):
+                executor.submit(queue.flush(terminate=True))
 
-    assert not queue.is_active()
-    assert count_threads() == 0
+        assert not queue.is_active()
+        assert count_threads() == 0
 
 
 def test_async_queue_drop_task_when_full(monkeypatch):

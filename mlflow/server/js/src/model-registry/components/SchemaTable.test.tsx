@@ -5,12 +5,16 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
 
 import { SchemaTable } from './SchemaTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { getByPlaceholderText, renderWithIntl, within } from '../../common/utils/TestUtils.react18';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(60000); // Higher timeout due to testing heavier table
 
 async function clickHeaderRow(container: HTMLElement, name: string | RegExp): Promise<void> {
   const row = within(container).getByRole('row', { name });
@@ -301,5 +305,70 @@ describe('SchemaTable', () => {
         'Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing 1 results from 500 total rows.',
       ),
     ).toBeInTheDocument();
+  });
+
+  test('should handle non-string column names', async () => {
+    // Create a large schema with > 100 fields to trigger the search functionality
+    type Column =
+      | { name: string; type: 'string' }
+      | { name: number; type: 'integer' | 'float' }
+      | { name: boolean; type: 'boolean' };
+
+    const manyInputs: Column[] = Array.from(
+      { length: 101 },
+      (_, i): Column => ({
+        name: `regular_column_${i}`,
+        type: 'string',
+      }),
+    );
+
+    // Add non-string column names
+    manyInputs.push(
+      { name: 123, type: 'integer' },
+      { name: true, type: 'boolean' },
+      { name: 0, type: 'integer' },
+      { name: 3.14, type: 'float' },
+    );
+
+    const { container, getByRole, getByPlaceholderText } = renderWithIntl(
+      <MemoryRouter>
+        <SchemaTable
+          schema={{
+            ...props.schema,
+            inputs: manyInputs,
+          }}
+        />
+      </MemoryRouter>,
+    );
+    expect(getByRole('table')).toBeInTheDocument();
+    await clickHeaderRow(container, /Inputs/);
+
+    // Verify that search field appears (since we have > 100 columns)
+    const searchField = getByPlaceholderText('Search for a field');
+    expect(searchField).toBeInTheDocument();
+
+    // Search for the numeric column name
+    await userEvent.click(searchField);
+    await userEvent.paste('123');
+
+    // The numeric column should be found and displayed
+    expect(container.innerHTML).toContain('123');
+    expect(container.innerHTML).toContain('integer');
+
+    // Clear search and try a boolean column name
+    await userEvent.clear(searchField);
+    await userEvent.paste('true');
+
+    // The boolean column should be found and displayed
+    expect(container.innerHTML).toContain('true');
+    expect(container.innerHTML).toContain('boolean');
+
+    // Clear search and try a float column name
+    await userEvent.clear(searchField);
+    await userEvent.paste('3.14');
+
+    // The float column should be found and displayed
+    expect(container.innerHTML).toContain('3.14');
+    expect(container.innerHTML).toContain('float');
   });
 });

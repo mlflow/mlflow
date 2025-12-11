@@ -1,7 +1,7 @@
 import json
 import os
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -42,7 +42,11 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("xgboost") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_dataframe: pd.DataFrame
+    inference_dmatrix: xgb.DMatrix
 
 
 @pytest.fixture(scope="module")
@@ -490,7 +494,8 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
     ``model_class`` in XGBoost flavor.
     """
     model = xgb_model.model
-    mlflow.xgboost.save_model(xgb_model=model, path=model_path)
+    # Use xgb format explicitly since this test verifies backward compatibility with old models
+    mlflow.xgboost.save_model(xgb_model=model, path=model_path, model_format="xgb")
 
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)

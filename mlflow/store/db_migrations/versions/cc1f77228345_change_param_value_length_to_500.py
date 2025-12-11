@@ -1,7 +1,5 @@
 """change param value length to 500
 
-Revision ID: cc1f77228345
-Revises: 0c779009ac13
 Create Date: 2022-08-04 22:40:56.960003
 
 """

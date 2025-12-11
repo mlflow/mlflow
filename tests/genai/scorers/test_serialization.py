@@ -6,6 +6,14 @@ import pytest
 from mlflow.entities import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai.scorers.builtin_scorers import Guidelines
+
+
+@pytest.fixture(autouse=True)
+def mock_databricks_runtime():
+    with patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True):
+        yield
+
 
 # ============================================================================
 # FORMAT VALIDATION TESTS (Minimal - just check serialization structure)
@@ -13,8 +21,6 @@ from mlflow.genai.scorers import Scorer, scorer
 
 
 def test_decorator_scorer_serialization_format():
-    """Test that decorator scorers serialize with correct format."""
-
     @scorer(name="test_scorer", aggregations=["mean"])
     def test_scorer(outputs):
         return outputs == "correct"
@@ -40,7 +46,6 @@ def test_decorator_scorer_serialization_format():
 
 
 def test_builtin_scorer_serialization_format():
-    """Test that builtin scorers serialize with correct format."""
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
     serialized = RelevanceToQuery().model_dump()
@@ -72,8 +77,6 @@ def test_builtin_scorer_serialization_format():
 
 
 def test_simple_scorer_round_trip():
-    """Test basic round-trip serialization and execution."""
-
     @scorer
     def simple_scorer(outputs):
         return outputs == "correct"
@@ -93,8 +96,6 @@ def test_simple_scorer_round_trip():
 
 
 def test_custom_name_and_aggregations_round_trip():
-    """Test round-trip with custom name and aggregations."""
-
     @scorer(name="length_check", aggregations=["mean", "max"])
     def my_scorer(inputs, outputs):
         return len(outputs) > len(inputs)
@@ -115,14 +116,16 @@ def test_custom_name_and_aggregations_round_trip():
 
 
 def test_multiple_parameters_round_trip():
-    """Test round-trip with multiple parameters."""
-
     @scorer
     def multi_param_scorer(inputs, outputs, expectations):
         return outputs.startswith(inputs) and len(outputs) > expectations.get("min_length", 0)
 
     # Test original
-    test_args = {"inputs": "Hello", "outputs": "Hello world!", "expectations": {"min_length": 5}}
+    test_args = {
+        "inputs": "Hello",
+        "outputs": "Hello world!",
+        "expectations": {"min_length": 5},
+    }
     assert multi_param_scorer(**test_args) is True
 
     # Round-trip
@@ -137,8 +140,6 @@ def test_multiple_parameters_round_trip():
 
 
 def test_complex_logic_round_trip():
-    """Test round-trip with complex control flow and logic."""
-
     @scorer
     def complex_scorer(outputs):
         if not outputs:
@@ -175,8 +176,6 @@ def test_complex_logic_round_trip():
 
 
 def test_imports_and_feedback_round_trip():
-    """Test round-trip with imports and Feedback return."""
-
     @scorer
     def feedback_scorer(outputs):
         import re  # clint: disable=lazy-builtin-import
@@ -203,8 +202,6 @@ def test_imports_and_feedback_round_trip():
 
 
 def test_default_parameters_round_trip():
-    """Test round-trip with default parameter values."""
-
     @scorer
     def default_scorer(outputs, threshold=5):
         return len(outputs) > threshold
@@ -224,8 +221,6 @@ def test_default_parameters_round_trip():
 
 
 def test_json_workflow_round_trip():
-    """Test complete JSON serialization workflow."""
-
     @scorer(name="json_test", aggregations=["mean"])
     def json_scorer(outputs):
         return len(outputs.split()) > 3
@@ -248,8 +243,6 @@ def test_json_workflow_round_trip():
 
 
 def test_end_to_end_complex_round_trip():
-    """Test complex end-to-end scenario with all features."""
-
     @scorer(name="complete_test", aggregations=["mean", "max"])
     def complete_scorer(inputs, outputs, expectations):
         input_words = len(inputs.split())
@@ -280,8 +273,57 @@ def test_end_to_end_complex_round_trip():
     assert original_result == deserialized_result is True
 
 
+def test_deserialized_scorer_runs_without_global_context():
+    # Create a simple scorer that only uses built-in functions and parameters
+    @scorer(name="isolated_test")
+    def simple_scorer(outputs):
+        # Only use built-in functions and the parameter - no external dependencies
+        return len(outputs.split()) > 2
+
+    # Test original works
+    assert simple_scorer(outputs="one two three") is True
+    assert simple_scorer(outputs="one two") is False
+
+    # Serialize the scorer
+    serialized_data = simple_scorer.model_dump()
+
+    # Test deserialized scorer in completely isolated namespace using exec
+    test_code = """
+# Import required modules in isolated namespace
+from mlflow.genai.scorers import Scorer
+
+# Deserialize the scorer (no external context available)
+deserialized = Scorer.model_validate(serialized_data)
+
+# Test that it can run successfully in isolation
+result1 = deserialized(outputs="one two three")
+result2 = deserialized(outputs="one two")
+result3 = deserialized(outputs="hello world test case")
+
+# Store results for verification
+test_results = {
+    "result1": result1,
+    "result2": result2,
+    "result3": result3,
+    "name": deserialized.name,
+    "aggregations": deserialized.aggregations
+}
+"""
+
+    # Execute in isolated namespace with only serialized_data available
+    isolated_namespace = {"serialized_data": serialized_data}
+    exec(test_code, isolated_namespace)  # noqa: S102
+
+    # Verify results from isolated execution
+    results = isolated_namespace["test_results"]
+    assert results["result1"] is True  # "one two three" has 3 words > 2
+    assert results["result2"] is False  # "one two" has 2 words, not > 2
+    assert results["result3"] is True  # "hello world test case" has 4 words > 2
+    assert results["name"] == "isolated_test"
+    assert results["aggregations"] is None
+
+
 def test_builtin_scorer_round_trip():
-    """Test builtin scorer serialization and execution with mocking."""
     # from mlflow.genai.scorers import relevance_to_query
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
@@ -316,6 +358,7 @@ def test_builtin_scorer_round_trip():
             "explicit programming."
         ),
         name="relevance_to_query",
+        model=None,
     )
 
     assert isinstance(result, Feedback)
@@ -325,7 +368,6 @@ def test_builtin_scorer_round_trip():
 
 
 def test_builtin_scorer_with_parameters_round_trip():
-    """Test builtin scorer with custom parameters (like Guidelines with guidelines)."""
     from mlflow.genai.scorers.builtin_scorers import Guidelines
 
     # Create scorer with custom parameters
@@ -388,6 +430,7 @@ def test_builtin_scorer_with_parameters_round_trip():
             ),
         },
         name="tone",
+        model=None,
     )
 
     assert isinstance(result, Feedback)
@@ -396,8 +439,6 @@ def test_builtin_scorer_with_parameters_round_trip():
 
 
 def test_direct_subclass_scorer_rejected():
-    """Test that direct subclassing of Scorer is rejected during serialization."""
-
     class DirectSubclassScorer(Scorer):
         """An unsupported direct subclass of Scorer."""
 
@@ -430,7 +471,6 @@ def test_direct_subclass_scorer_rejected():
 
 
 def test_builtin_scorer_with_aggregations_round_trip():
-    """Test builtin scorer with aggregations serialization and execution."""
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
     scorer_with_aggs = RelevanceToQuery(name="relevance_with_aggs", aggregations=["mean", "max"])
@@ -480,7 +520,6 @@ def test_builtin_scorer_with_aggregations_round_trip():
 
 
 def test_builtin_scorer_with_custom_name_compatibility():
-    """Test builtin scorer with custom name from fixed serialized string."""
     # Fixed serialized string for Guidelines scorer with custom name and parameters
     fixed_serialized_data = {
         "name": "custom_guidelines",
@@ -492,7 +531,10 @@ def test_builtin_scorer_with_custom_name_compatibility():
             "name": "custom_guidelines",
             "aggregations": ["mean", "max"],
             "required_columns": ["inputs", "outputs"],
-            "guidelines": ["Be polite and professional", "Provide accurate information"],
+            "guidelines": [
+                "Be polite and professional",
+                "Provide accurate information",
+            ],
         },
         "call_source": None,
         "call_signature": None,
@@ -508,12 +550,14 @@ def test_builtin_scorer_with_custom_name_compatibility():
     assert isinstance(deserialized, Guidelines)
     assert deserialized.name == "custom_guidelines"
     assert deserialized.aggregations == ["mean", "max"]
-    assert deserialized.guidelines == ["Be polite and professional", "Provide accurate information"]
+    assert deserialized.guidelines == [
+        "Be polite and professional",
+        "Provide accurate information",
+    ]
     assert deserialized.required_columns == {"inputs", "outputs"}
 
 
 def test_custom_scorer_compatibility_from_fixed_string():
-    """Test that custom scorers can be deserialized from a fixed serialized string."""
     # Fixed serialized string representing a simple custom scorer
     fixed_serialized_data = {
         "name": "word_count_scorer",
@@ -541,7 +585,6 @@ def test_custom_scorer_compatibility_from_fixed_string():
 
 
 def test_complex_custom_scorer_compatibility():
-    """Test complex custom scorer with multiple parameters from fixed string."""
     # Fixed serialized string for a more complex custom scorer
     fixed_serialized_data = {
         "name": "length_comparison",
@@ -577,3 +620,49 @@ def test_complex_custom_scorer_compatibility():
     )  # 2 < 5 * 1.5 (7.5)
 
     assert deserialized(inputs="test", outputs="test", expectations={}) is True  # 4 >= 4 * 1.0
+
+
+def test_decorator_scorer_multiple_serialization_round_trips():
+    @scorer
+    def multi_round_scorer(outputs):
+        return len(outputs) > 5
+
+    # First serialization
+    first_dump = multi_round_scorer.model_dump()
+
+    # Deserialize
+    recovered = Scorer.model_validate(first_dump)
+
+    # Second serialization - this should work now with caching
+    second_dump = recovered.model_dump()
+
+    # Verify the dumps are identical
+    assert first_dump == second_dump
+
+    # Third serialization to ensure it's truly reusable
+    third_dump = recovered.model_dump()
+    assert first_dump == third_dump
+
+    # Verify functionality is preserved
+    assert recovered(outputs="hello world") is True
+    assert recovered(outputs="hi") is False
+
+
+def test_builtin_scorer_instructions_preserved_through_serialization():
+    scorer = Guidelines(name="test_guidelines", guidelines=["Be helpful"])
+
+    original_instructions = scorer.instructions
+
+    serialized = scorer.model_dump()
+    assert "builtin_scorer_pydantic_data" in serialized
+    pydantic_data = serialized["builtin_scorer_pydantic_data"]
+
+    assert "instructions" in pydantic_data
+    assert pydantic_data["instructions"] == original_instructions
+
+    deserialized = Scorer.model_validate(serialized)
+
+    assert isinstance(deserialized, Guidelines)
+    assert deserialized.instructions == original_instructions
+    assert deserialized.name == "test_guidelines"
+    assert deserialized.guidelines == ["Be helpful"]

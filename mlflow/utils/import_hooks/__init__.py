@@ -11,7 +11,7 @@ It also extends the functionality to support custom hooks for import errors
 (as opposed to only successful imports).
 """
 
-import importlib  # noqa: F401
+import importlib.resources
 import sys
 import threading
 
@@ -187,21 +187,13 @@ def _create_import_hook_from_entrypoint(entrypoint):
 
 
 def discover_post_import_hooks(group):
-    # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
-    if sys.version_info.major > 2 and sys.version_info.minor > 8:
-        from importlib.resources import files  # clint: disable=lazy-builtin-import
-
-        for entrypoint in (
-            resource.name for resource in files(group).iterdir() if resource.is_file()
-        ):
-            callback = _create_import_hook_from_entrypoint(entrypoint)
-            register_post_import_hook(callback, entrypoint.name)
-    else:
-        from importlib.resources import contents  # clint: disable=lazy-builtin-import
-
-        for entrypoint in contents(group):
-            callback = _create_import_hook_from_entrypoint(entrypoint)
-            register_post_import_hook(callback, entrypoint.name)
+    for entrypoint in (
+        resource.name
+        for resource in importlib.resources.files(group).iterdir()
+        if resource.is_file()
+    ):
+        callback = _create_import_hook_from_entrypoint(entrypoint)
+        register_post_import_hook(callback, entrypoint.name)
 
 
 # Indicate that a module has been loaded. Any post import hooks which
@@ -213,9 +205,7 @@ def discover_post_import_hooks(group):
 @synchronized(_post_import_hooks_lock)
 def notify_module_loaded(module):
     name = getattr(module, "__name__", None)
-    hooks = _post_import_hooks.get(name)
-
-    if hooks:
+    if hooks := _post_import_hooks.get(name):
         _post_import_hooks[name] = []
 
         for hook in hooks:
@@ -224,9 +214,7 @@ def notify_module_loaded(module):
 
 @synchronized(_import_error_hooks_lock)
 def notify_module_import_error(module_name):
-    hooks = _import_error_hooks.get(module_name)
-
-    if hooks:
+    if hooks := _import_error_hooks.get(module_name):
         # Error hooks differ from post import hooks, in that we don't clear the
         # hook as soon as it fires.
         for hook in hooks:

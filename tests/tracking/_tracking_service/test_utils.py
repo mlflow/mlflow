@@ -2,6 +2,7 @@ import io
 import itertools
 import os
 import pickle
+import uuid
 from importlib import reload
 from pathlib import Path
 from unittest import mock
@@ -18,12 +19,14 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _get_store,
+    _get_tracking_scheme,
     _resolve_tracking_uri,
     get_tracking_uri,
     set_tracking_uri,
@@ -42,11 +45,53 @@ from tests.tracing.helper import get_tracer_tracking_uri
 pytestmark = pytest.mark.notrackingurimock
 
 
-def test_get_store_file_store(tmp_path, monkeypatch):
+def test_tracking_scheme_with_existing_mlruns(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    exp_dir = mlruns_dir / "0"
+    exp_dir.mkdir()
+    (exp_dir / "meta.yaml").touch()
+    store = _get_store()
+    assert isinstance(store, FileStore)
+
+
+def test_tracking_scheme_without_existing_mlruns(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    store = _get_store()
+    assert isinstance(store, SqlAlchemyStore)
+
+
+def test_get_store_with_existing_mlruns_data(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    exp_dir = mlruns_dir / "0"
+    exp_dir.mkdir()
+    (exp_dir / "meta.yaml").touch()
+
     store = _get_store()
     assert isinstance(store, FileStore)
     assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
+
+
+def test_get_store_with_empty_mlruns(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+
+    store = _get_store()
+    assert isinstance(store, SqlAlchemyStore)
+
+
+def test_get_store_with_mlruns_dir_but_no_meta_yaml(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    (mlruns_dir / "0").mkdir()
+
+    store = _get_store()
+    assert isinstance(store, SqlAlchemyStore)
 
 
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
@@ -71,6 +116,7 @@ def test_get_store_basic_rest_store(monkeypatch):
     assert isinstance(store, RestStore)
     assert store.get_host_creds().host == "https://my-tracking-server:5050"
     assert store.get_host_creds().token is None
+    assert _get_tracking_scheme() == "https"
 
 
 def test_get_store_rest_store_with_password(monkeypatch):
@@ -133,13 +179,12 @@ def test_get_store_rest_store_with_no_insecure(monkeypatch):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
-    patch_create_engine = mock.patch("sqlalchemy.create_engine")
-
-    uri = f"{db_type}://hostname/database"
+    uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     with (
-        patch_create_engine as mock_create_engine,
+        mock.patch("sqlalchemy.create_engine") as mock_create_engine,
+        mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
@@ -153,10 +198,14 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
+        # Create another store to ensure the engine is cached
+        another_store = _get_store()
+        assert store.engine is another_store.engine
         if is_windows():
             assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_uri()
         else:
             assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_posix()
+        assert _get_tracking_scheme() == db_type
 
     mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
@@ -164,13 +213,13 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
-    uri = f"{db_type}://hostname/database"
+    uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     artifact_uri = "file:artifact/path"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     with (
-        mock.patch(
-            "sqlalchemy.create_engine",
-        ) as mock_create_engine,
+        mock.patch("sqlalchemy.create_engine") as mock_create_engine,
+        mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
@@ -188,7 +237,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
                 Path.cwd().joinpath("artifact", "path")
             )
 
-    mock_create_engine.assert_not_called()
+    mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
 
 def test_get_store_databricks(monkeypatch):
@@ -199,8 +248,9 @@ def test_get_store_databricks(monkeypatch):
     }.items():
         monkeypatch.setenv(k, v)
     store = _get_store()
-    assert isinstance(store, RestStore)
+    assert isinstance(store, DatabricksTracingRestStore)
     assert store.get_host_creds().use_databricks_sdk
+    assert _get_tracking_scheme() == "databricks"
 
 
 def test_get_store_databricks_profile(monkeypatch):
@@ -208,7 +258,7 @@ def test_get_store_databricks_profile(monkeypatch):
     # It's kind of annoying to setup a profile, and we're not really trying to test
     # that anyway, so just check if we raise a relevant exception.
     store = _get_store()
-    assert isinstance(store, RestStore)
+    assert isinstance(store, DatabricksTracingRestStore)
     with pytest.raises(MlflowException, match="mycoolprofile"):
         store.get_host_creds()
 
@@ -263,7 +313,6 @@ def test_standard_store_registry_with_mocked_entrypoint():
 
 
 def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     monkeypatch.chdir(tmp_path)
     reload(mlflow.tracking._tracking_service.utils)
     assert (
@@ -276,6 +325,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
     plugin_file_store = mlflow.tracking._tracking_service.utils._get_store()
     assert isinstance(plugin_file_store, PluginFileStore)
     assert plugin_file_store.is_plugin
+    assert _get_tracking_scheme() == "custom_scheme"
 
 
 def test_plugin_registration():
@@ -402,9 +452,16 @@ def test_get_store_raises_on_uc_uri(store_uri):
         "supported in the current version of the MLflow client",
     ):
         mlflow.tracking.MlflowClient()
+    assert _get_tracking_scheme() == "databricks-uc"
 
 
 @pytest.mark.parametrize("tracking_uri", ["file:///tmp/mlruns", "sqlite:///tmp/mlruns.db", ""])
 def test_set_get_tracking_uri_consistency(tracking_uri):
     mlflow.set_tracking_uri(tracking_uri)
     assert mlflow.get_tracking_uri() == tracking_uri
+
+
+def test_get_tracking_scheme():
+    assert _get_tracking_scheme("uc://profile@databricks") == "uc"
+    # no builder registered for custom scheme
+    assert _get_tracking_scheme("custom-scheme://") == "None"

@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -123,6 +125,56 @@ def test_backwards_compatibility_with_v2():
     assert trace_info.execution_time_ms is None
 
 
+def test_trace_info_v4():
+    trace_id = "trace:/catalog.schema/test_trace_id"
+    trace_info_v4 = TraceInfo(
+        # v4 trace info has URI-format trace id and uc schema location
+        trace_id=trace_id,
+        trace_location=TraceLocation.from_databricks_uc_schema(
+            catalog_name="catalog", schema_name="schema"
+        ),
+        request_time=0,
+        state=TraceState.OK,
+        request_preview="request",
+        response_preview="response",
+        client_request_id="client_request_id",
+        tags={"key": "value"},
+    )
+    dict_trace_info_v4 = trace_info_v4.to_dict()
+    assert dict_trace_info_v4 == {
+        "trace_id": trace_id,
+        "trace_location": {
+            "type": "UC_SCHEMA",
+            "uc_schema": {
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+                "otel_spans_table_name": "mlflow_experiment_trace_otel_spans",
+                "otel_logs_table_name": "mlflow_experiment_trace_otel_logs",
+            },
+        },
+        "request_time": mock.ANY,
+        "state": "OK",
+        "request_preview": "request",
+        "response_preview": "response",
+        "client_request_id": "client_request_id",
+        "tags": {"key": "value"},
+    }
+    assert TraceInfo.from_dict(dict_trace_info_v4) == trace_info_v4
+
+    proto_trace_info_v4 = trace_info_v4.to_proto()
+    assert proto_trace_info_v4.trace_id == "test_trace_id"
+    assert proto_trace_info_v4.trace_location.uc_schema.catalog_name == "catalog"
+    assert proto_trace_info_v4.trace_location.uc_schema.schema_name == "schema"
+    assert proto_trace_info_v4.state == 1
+    assert proto_trace_info_v4.request_preview == "request"
+    assert proto_trace_info_v4.response_preview == "response"
+    assert proto_trace_info_v4.client_request_id == "client_request_id"
+    assert proto_trace_info_v4.tags == {"key": "value"}
+    assert len(proto_trace_info_v4.assessments) == 0
+
+    assert TraceInfo.from_proto(proto_trace_info_v4) == trace_info_v4
+
+
 @pytest.mark.parametrize("client_request_id", [None, "client_request_id"])
 @pytest.mark.parametrize(
     "assessments",
@@ -225,7 +277,6 @@ def test_from_proto_excludes_undefined_fields():
 
 
 def test_trace_info_from_proto_updates_schema_version():
-    """Test that TraceInfo.from_proto updates schema version when it exists and is outdated."""
     # Create a proto with old schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
@@ -248,7 +299,7 @@ def test_trace_info_from_proto_updates_schema_version():
     trace_info = TraceInfo.from_proto(proto)
 
     # Verify the schema version was updated to current version
-    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
+    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
 
     # Verify other metadata is preserved
     assert trace_info.trace_metadata["other_key"] == "other_value"
@@ -258,37 +309,7 @@ def test_trace_info_from_proto_updates_schema_version():
     assert trace_info.experiment_id == "123"
 
 
-def test_trace_info_from_proto_adds_missing_schema_version():
-    """Test that TraceInfo.from_proto adds schema version when it doesn't exist."""
-    # Create a proto without schema version in metadata
-    request_time = Timestamp()
-    request_time.FromMilliseconds(1234567890)
-
-    proto = ProtoTraceInfoV3(
-        trace_id="test_trace_id",
-        trace_location=TraceLocation.from_experiment_id("123").to_proto(),
-        request_preview="test request",
-        response_preview="test response",
-        request_time=request_time,
-        state=TraceState.OK.to_proto(),
-        trace_metadata={
-            "other_key": "other_value",  # No schema version
-        },
-        tags={"test_tag": "test_value"},
-    )
-
-    # Convert from proto
-    trace_info = TraceInfo.from_proto(proto)
-
-    # Verify the schema version was added
-    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
-
-    # Verify other metadata is preserved
-    assert trace_info.trace_metadata["other_key"] == "other_value"
-
-
 def test_trace_info_from_proto_preserves_current_schema_version():
-    """Test that TraceInfo.from_proto preserves current schema version."""
     # Create a proto with current schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
@@ -315,3 +336,31 @@ def test_trace_info_from_proto_preserves_current_schema_version():
 
     # Verify other metadata is preserved
     assert trace_info.trace_metadata["other_key"] == "other_value"
+
+
+def test_trace_info_to_dict_preserves_trace_id():
+    # Test with v4 URI format
+    trace_info_v4 = TraceInfo(
+        trace_id="trace:/catalog.schema/actual_trace_id",
+        trace_location=TraceLocation.from_databricks_uc_schema(
+            catalog_name="catalog", schema_name="schema"
+        ),
+        request_time=0,
+        state=TraceState.OK,
+    )
+
+    dict_v4 = trace_info_v4.to_dict()
+    # The dict should have the full trace_id, not the parsed one
+    assert dict_v4["trace_id"] == "trace:/catalog.schema/actual_trace_id"
+
+    # Test with regular trace_id
+    trace_info = TraceInfo(
+        trace_id="tr-12345",
+        trace_location=TraceLocation.from_experiment_id("123"),
+        request_time=0,
+        state=TraceState.OK,
+    )
+
+    dict_regular = trace_info.to_dict()
+    # Regular trace_id should remain unchanged
+    assert dict_regular["trace_id"] == "tr-12345"

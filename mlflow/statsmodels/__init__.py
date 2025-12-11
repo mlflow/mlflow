@@ -17,7 +17,7 @@ import inspect
 import itertools
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -218,7 +218,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     statsmodels_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -229,12 +229,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -357,7 +357,7 @@ class _StatsmodelsModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -498,8 +498,7 @@ def autolog(
         Returns:
             A list of classes that includes the argument in the first position.
         """
-        subclasses = klass.__subclasses__()
-        if subclasses:
+        if subclasses := klass.__subclasses__():
             subclass_lists = [find_subclasses(c) for c in subclasses]
             chain = itertools.chain.from_iterable(subclass_lists)
             return [klass] + list(chain)

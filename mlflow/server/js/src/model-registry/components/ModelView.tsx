@@ -8,9 +8,15 @@
 import React from 'react';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
-import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
+import type { NavigateFunction } from '../../common/utils/RoutingUtils';
+import { Link } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
-import { ACTIVE_STAGES } from '../constants';
+import {
+  // prettier-ignore
+  ACTIVE_STAGES,
+  MODEL_VERSIONS_PER_PAGE_COMPACT,
+  MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD,
+} from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
@@ -19,13 +25,26 @@ import { setRegisteredModelTagApi, deleteRegisteredModelTagApi } from '../action
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Button, SegmentedControlGroup, SegmentedControlButton, DangerModal } from '@databricks/design-system';
+import {
+  Button,
+  SegmentedControlGroup,
+  SegmentedControlButton,
+  DangerModal,
+  CursorPagination,
+} from '@databricks/design-system';
+import type { KeyValueEntity } from '../../common/types';
 import { Descriptions } from '../../common/components/Descriptions';
-import { ModelVersionInfoEntity, type ModelEntity } from '../../experiment-tracking/types';
-import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
+import { TagList } from '../../common/components/TagList';
+import type { ModelVersionInfoEntity } from '../../experiment-tracking/types';
+import { type ModelEntity } from '../../experiment-tracking/types';
+import { shouldShowModelsNextUI, shouldUseSharedTaggingUI } from '../../common/utils/FeatureUtils';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import type { ColumnSort } from '@tanstack/react-table';
+import { sortBy } from 'lodash';
+
+const CREATION_TIMESTAMP_COLUMN_INDEX = 'creation_timestamp';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -49,6 +68,16 @@ type ModelViewImplProps = {
   intl: IntlShape;
   onMetadataUpdated: () => void;
   usingNextModelsUI: boolean;
+  orderByKey: string;
+  orderByAsc: boolean;
+  currentPage: number;
+  nextPageToken: string | null;
+  onClickNext: () => void;
+  onClickPrev: () => void;
+  onClickSortableColumn: (fieldName: string | null, isDescending: boolean) => void;
+  onSetMaxResult: (key: number) => void;
+  maxResultValue: number;
+  loading?: boolean;
 };
 
 type ModelViewImplState = any;
@@ -60,6 +89,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   }
 
   state = {
+    maxResultsSelection: MODEL_VERSIONS_PER_PAGE_COMPACT,
     stageFilter: StageFilters.ALL,
     showDescriptionEditor: false,
     isDeleteModalVisible: false,
@@ -67,15 +97,38 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     runsSelected: {},
     isTagsRequestPending: false,
     updatingEmailPreferences: false,
+    isTagAssignmentModalVisible: false,
+    isSavingTags: false,
+    tagSavingError: undefined,
   };
 
   formRef = React.createRef();
+
+  sharedTaggingUIEnabled = shouldUseSharedTaggingUI();
 
   componentDidMount() {
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const pageTitle = `${this.props.model.name} - MLflow Model`;
     Utils.updatePageTitle(pageTitle);
   }
+
+  handleSetMaxResult = ({ key }: { key: number }) => {
+    this.props.onSetMaxResult(key);
+  };
+
+  getSortFieldName = (column: any) => {
+    switch (column) {
+      case CREATION_TIMESTAMP_COLUMN_INDEX:
+        return MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD;
+      default:
+        return null;
+    }
+  };
+
+  handleSortChange = (params: { sorter: ColumnSort }) => {
+    const sorter = params.sorter;
+    this.props.onClickSortableColumn(this.getSortFieldName(sorter.id), sorter.desc);
+  };
 
   handleStageFilterChange = (e: any) => {
     this.setState({ stageFilter: e.target.value });
@@ -150,6 +203,24 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
       });
   };
 
+  getTags = () =>
+    sortBy(
+      Utils.getVisibleTagValues(this.props.tags).map((values) => ({
+        key: values[0],
+        name: values[0],
+        value: values[1],
+      })),
+      'name',
+    );
+
+  handleEditTags = () => {
+    this.setState({ isTagAssignmentModalVisible: true, tagSavingError: undefined });
+  };
+
+  handleCloseTagAssignmentModal = () => {
+    this.setState({ isTagAssignmentModalVisible: false, tagSavingError: undefined });
+  };
+
   handleAddTag = (values: any) => {
     const form = this.formRef.current;
     const { model } = this.props;
@@ -195,6 +266,27 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     });
   };
 
+  handleSaveTags = (newTags: KeyValueEntity[], deletedTags: KeyValueEntity[]): Promise<void> => {
+    this.setState({ isSavingTags: true });
+    const { model } = this.props;
+    // @ts-expect-error TS(2532): Object is possibly 'undefined'.
+    const modelName = model.name;
+
+    const newTagsToSet = newTags.map(({ key, value }) => this.props.setRegisteredModelTagApi(modelName, key, value));
+
+    const deletedTagsToDelete = deletedTags.map(({ key }) => this.props.deleteRegisteredModelTagApi(modelName, key));
+
+    return Promise.all([...newTagsToSet, ...deletedTagsToDelete])
+      .then(() => {
+        this.setState({ isSavingTags: false });
+      })
+      .catch((error: ErrorWrapper | Error) => {
+        const message = error instanceof ErrorWrapper ? error.getMessageField() : error.message;
+
+        this.setState({ isSavingTags: false, tagSavingError: message });
+      });
+  };
+
   onChange = (selectedRowKeys: any, selectedRows: any) => {
     const newState = Object.assign({}, this.state);
     newState.runsSelected = {};
@@ -220,7 +312,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     return (
       <Button
         componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_467"
-        data-test-id="descriptionEditButton"
+        data-testid="descriptionEditButton"
         type="link"
         css={styles.editButton}
         onClick={this.startEditingDescription}
@@ -235,7 +327,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   }
 
   renderDetails = () => {
-    const { model, modelVersions, tags } = this.props;
+    const { model, modelVersions, tags, currentPage, nextPageToken } = this.props;
     const {
       stageFilter,
       showDescriptionEditor,
@@ -285,7 +377,13 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             </Descriptions.Item>
           )}
         </Descriptions>
-
+        {this.sharedTaggingUIEnabled && (
+          <Descriptions columns={1} data-testid="model-view-tags">
+            <Descriptions.Item label="Tags">
+              <TagList tags={this.getTags()} onEdit={this.handleEditTags} />
+            </Descriptions.Item>
+          </Descriptions>
+        )}
         {/* Page Sections */}
         <CollapsibleSection
           css={styles.collapsiblePanel}
@@ -303,7 +401,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           // Reported during ESLint upgrade
           // eslint-disable-next-line react/prop-types
           defaultCollapsed={!(model as any).description}
-          data-test-id="model-description-section"
+          data-testid="model-description-section"
         >
           <EditableNote
             defaultMarkdown={(model as any).description}
@@ -312,30 +410,32 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             showEditor={showDescriptionEditor}
           />
         </CollapsibleSection>
-        <div data-test-id="tags-section">
-          <CollapsibleSection
-            css={styles.collapsiblePanel}
-            title={
-              <FormattedMessage
-                defaultMessage="Tags"
-                description="Title text for the tags section under details tab on the model view
+        {!this.sharedTaggingUIEnabled && (
+          <div data-testid="tags-section">
+            <CollapsibleSection
+              css={styles.collapsiblePanel}
+              title={
+                <FormattedMessage
+                  defaultMessage="Tags"
+                  description="Title text for the tags section under details tab on the model view
                    page"
+                />
+              }
+              defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
+              data-testid="model-tags-section"
+            >
+              <EditableTagsTableView
+                // @ts-expect-error TS(2322): Type '{ innerRef: RefObject<unknown>; handleAddTag... Remove this comment to see the full error message
+                innerRef={this.formRef}
+                handleAddTag={this.handleAddTag}
+                handleDeleteTag={this.handleDeleteTag}
+                handleSaveEdit={this.handleSaveEdit}
+                tags={tags}
+                isRequestPending={isTagsRequestPending}
               />
-            }
-            defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
-            data-test-id="model-tags-section"
-          >
-            <EditableTagsTableView
-              // @ts-expect-error TS(2322): Type '{ innerRef: RefObject<unknown>; handleAddTag... Remove this comment to see the full error message
-              innerRef={this.formRef}
-              handleAddTag={this.handleAddTag}
-              handleDeleteTag={this.handleDeleteTag}
-              handleSaveEdit={this.handleSaveEdit}
-              tags={tags}
-              isRequestPending={isTagsRequestPending}
-            />
-          </CollapsibleSection>
-        </div>
+            </CollapsibleSection>
+          </div>
+        )}
         <CollapsibleSection
           css={styles.collapsiblePanel}
           title={
@@ -374,7 +474,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 )}
                 <Button
                   componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_619"
-                  data-test-id="compareButton"
+                  data-testid="compareButton"
                   disabled={compareDisabled}
                   onClick={this.onCompare}
                 >
@@ -387,7 +487,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
               </div>
             </>
           }
-          data-test-id="model-versions-section"
+          data-testid="model-versions-section"
         >
           {shouldShowModelsNextUI() && (
             <div
@@ -401,6 +501,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             </div>
           )}
           <ModelVersionTable
+            isLoading={this.props.loading || false}
             activeStageOnly={stageFilter === StageFilters.ACTIVE && !this.props.usingNextModelsUI}
             modelName={modelName}
             modelVersions={modelVersions}
@@ -409,6 +510,31 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             onMetadataUpdated={this.props.onMetadataUpdated}
             usingNextModelsUI={this.props.usingNextModelsUI}
             aliases={model?.aliases}
+            orderByKey={this.props.orderByKey}
+            orderByAsc={this.props.orderByAsc}
+            onSortChange={this.handleSortChange}
+            getSortFieldName={this.getSortFieldName}
+            pagination={
+              <div
+                data-testid="model-view-pagination-section"
+                css={{ width: '100%', alignItems: 'center', display: 'flex' }}
+              >
+                <div css={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <CursorPagination
+                    componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_646"
+                    hasNextPage={Boolean(nextPageToken)}
+                    hasPreviousPage={currentPage > 1}
+                    onNextPage={this.props.onClickNext}
+                    onPreviousPage={this.props.onClickPrev}
+                    pageSizeSelect={{
+                      onChange: (num) => this.handleSetMaxResult({ key: num }),
+                      default: this.props.maxResultValue,
+                      options: [10, 25, 50, 100],
+                    }}
+                  />
+                </div>
+              </div>
+            }
           />
         </CollapsibleSection>
 
@@ -455,7 +581,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const modelName = model.name;
 
     const breadcrumbs = [
-      <Link to={ModelRegistryRoutes.modelListPageRoute}>
+      <Link to={ModelRegistryRoutes.modelListPageRoute} key="registered-models">
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for link back to model page under the header on the model view page"

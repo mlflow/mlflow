@@ -1,0 +1,206 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import DAGLoop from "@site/src/components/DAGLoop";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import ImageBox from "@site/src/components/ImageBox";
+import { Target, BarChart3, Bot, AlertTriangle, ThumbsUp, LineChart, GitBranch, Search, Lightbulb, FileText } from "lucide-react";
+
+# AI Issue Discovery
+
+Automatically analyze traces in your MLflow experiments to find operational issues, quality problems, and performance patterns. The Analyze Experiment tool uses hypothesis-driven analysis to systematically examine your GenAI application's behavior, identify the most important problems, and create a plan for addressing them in the form of a comprehensive markdown report.
+
+## Overview
+
+The Analyze Experiment command examines traces logged in an MLflow experiment to automatically discover:
+
+<FeatureHighlights features={[
+  {
+    icon: AlertTriangle,
+    title: "Operational Issues",
+    description: "Detect errors, timeouts, rate limiting, authentication failures, and performance bottlenecks"
+  },
+  {
+    icon: Target,
+    title: "Quality Issues",
+    description: "Identify overly verbose responses, inconsistent outputs, repetitive content, and inappropriate response formats"
+  },
+  {
+    icon: ThumbsUp,
+    title: "Success Patterns",
+    description: "Discover what's working well, effective tool usage, and high-quality interactions"
+  },
+  {
+    icon: LineChart,
+    title: "Performance Metrics",
+    description: "Analyze latency distributions, success rates, and error patterns"
+  }
+]} />
+
+The tool generates a detailed markdown report with specific trace examples, quantitative evidence, and actionable recommendations for improvement.
+
+## Usage
+
+The Analyze Experiment functionality is available through two methods:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="mcp" label="MCP" default>
+
+### Using MCP
+
+If you have MLflow's MCP server configured, you can simply run:
+
+```
+/analyze-experiment
+```
+
+### Prerequisites
+
+- MLflow MCP server (see [MCP setup guide](/genai/mcp/))
+- A coding agent with MCP support (e.g., Claude Code, Cursor, Windsurf, etc.) configured to connect to MLflow MCP server
+- MLflow experiment with logged traces
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+### Using CLI
+
+Run the analyze experiment command directly:
+
+```bash
+mlflow ai-commands run genai/analyze_experiment
+```
+
+**Note**: This command must be run inside a coding agent with MCP support. The agent will interactively guide you through the analysis process.
+
+### Prerequisites
+
+- A coding agent with MCP support (e.g., Claude Code, Cursor, Windsurf, etc.)
+- MLflow 3.4 or later: `pip install mlflow>=3.4`
+- Access to MLflow tracking server with logged traces
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Analysis Workflow
+
+<DAGLoop
+  title="Analyze Experiment Workflow"
+  circleSize={450}
+  steps={[
+    {
+      icon: GitBranch,
+      title: "Setup & Authentication",
+      description: "Configure MLflow connection",
+      detailedDescription: "Connect to your MLflow tracking server (Databricks, local, or cloud) with appropriate credentials"
+    },
+    {
+      icon: Search,
+      title: "Select Experiment",
+      description: "Choose experiment to analyze",
+      detailedDescription: "Browse and select the experiment containing traces you want to analyze for issues"
+    },
+    {
+      icon: Bot,
+      title: "Identify Agent Purpose",
+      description: "Understand agent capabilities",
+      detailedDescription: "Automatically detect what your agent does, its tools, and data sources from trace patterns"
+    },
+    {
+      icon: Lightbulb,
+      title: "Analyze Issues",
+      description: "Test hypotheses systematically",
+      detailedDescription: "Systematically analyze operational and quality issues through hypothesis-driven testing"
+    },
+    {
+      icon: FileText,
+      title: "Generate Report",
+      description: "Create actionable insights",
+      detailedDescription: "Produce comprehensive markdown report with issues, recommendations, and improvement plans"
+    }
+  ]}
+/>
+
+### 1. Setup and Authentication
+
+The tool will ask you to configure authentication:
+
+- **Databricks**: Provide workspace URL and personal access token, or use a Databricks CLI profile
+- **Local MLflow**: Specify tracking URI (SQLite, PostgreSQL, MySQL, or file store)
+- **Environment Variables**: Use pre-configured MLflow environment variables like `MLFLOW_TRACKING_URI` (see [environment setup guide](/genai/getting-started/connect-environment))
+
+<ImageBox src="/images/genai/ai-issue-discovery/setup-authentication.png" alt="Setup and Authentication" width="90%"/>
+
+### 2. Experiment Selection
+
+- Browse available experiments or search by name
+- Select the experiment containing traces to analyze
+- Verify trace availability and data structure
+
+<ImageBox src="/images/genai/ai-issue-discovery/experiment-selection.png" alt="Experiment Selection" width="90%"/>
+
+### 3. Agent Purpose Identification
+
+The tool examines trace inputs and outputs to understand:
+
+- What your agent's job is (e.g., "a customer service agent that helps users with billing questions")
+- What data sources and tools the agent has access to
+- Common patterns in user interactions
+
+You'll be asked to confirm or correct this understanding before analysis continues.
+
+<ImageBox src="/images/genai/ai-issue-discovery/agent-purpose.png" alt="Agent Purpose Identification" width="90%"/>
+
+### 4. Hypothesis-Driven Analysis
+
+The tool systematically tests hypotheses about potential issues:
+
+**Operational Issues**:
+
+- Error patterns (authentication failures, timeouts, API failures)
+- Performance bottlenecks (slow tool calls, sequential vs parallel execution)
+- Rate limiting and resource contention
+
+**Quality Issues**:
+
+- Content problems (verbosity, repetition, inconsistency)
+- Response appropriateness for query types
+- Context handling and conversation flow
+
+<ImageBox src="/images/genai/ai-issue-discovery/hypothesis-analysis.png" alt="Hypothesis-Driven Analysis" width="90%"/>
+
+### 5. Report Generation
+
+The tool generates a comprehensive markdown report containing:
+
+- **Summary Statistics**: Success rates, latency metrics, error distributions
+- **Confirmed Issues**: Detailed analysis with specific trace examples and root causes
+- **Strengths**: What's working well in your application
+- **Recommendations**: Actionable improvements based on findings
+
+<ImageBox src="/images/genai/ai-issue-discovery/report-generation.png" alt="Report Generation" width="90%"/>
+
+## Report Content
+
+Each generated report provides comprehensive insights into your application's behavior:
+
+<ConceptOverview concepts={[
+  {
+    icon: BarChart3,
+    title: "Quantitative Metrics",
+    description: "Key performance indicators including total traces analyzed, success rates (OK vs ERROR), latency statistics (average, median, P95), and error rate distributions"
+  },
+  {
+    icon: Target,
+    title: "Issue Analysis",
+    description: "Detailed breakdown of confirmed issues with problem statements, trace examples with inputs/outputs, root cause analysis, frequency assessment, and specific trace IDs for investigation"
+  },
+  {
+    icon: Lightbulb,
+    title: "Actionable Recommendations",
+    description: "Prioritized improvement suggestions with implementation guidance and expected impact of changes to help you systematically address identified problems"
+  }
+]} />

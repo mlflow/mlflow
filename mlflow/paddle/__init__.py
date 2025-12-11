@@ -13,7 +13,7 @@ Paddle (native) format
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -326,7 +326,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pd_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     training=False,
     conda_env=None,
     code_paths=None,
@@ -337,12 +337,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -458,7 +458,7 @@ class _PaddleWrapper:
     def predict(
         self,
         data,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:

@@ -1,10 +1,11 @@
+import argparse
+import os
 import re
 import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
 
-import click
 import requests
 
 
@@ -45,12 +46,11 @@ def get_commits(branch: str):
             cwd=tmpdir,
         )
         pr_rgx = re.compile(r"([a-z0-9]+) .+\s+\(#(\d+)\)$")
-        commits = []
-        for commit in log_stdout.splitlines():
-            if m := pr_rgx.search(commit.rstrip()):
-                commits.append(Commit(sha=m.group(1), pr_num=int(m.group(2))))
-
-    return commits
+        return [
+            Commit(sha=m.group(1), pr_num=int(m.group(2)))
+            for commit in log_stdout.splitlines()
+            if (m := pr_rgx.search(commit.rstrip()))
+        ]
 
 
 @dataclass(frozen=True)
@@ -86,28 +86,19 @@ def fetch_patch_prs(version):
     return {pr["number"]: pr["pull_request"].get("merged_at") is not None for pr in pulls}
 
 
-@click.command()
-@click.option("--version", required=True, help="The version to release")
-@click.option(
-    "--dry-run/--no-dry-run",
-    "dry_run",
-    is_flag=True,
-    default=True,
-    envvar="DRY_RUN",
-)
 def main(version, dry_run):
     release_branch = get_release_branch(version)
     commits = get_commits(release_branch)
     patch_prs = fetch_patch_prs(version)
     if not_cherry_picked := set(patch_prs) - {c.pr_num for c in commits}:
-        click.echo(f"The following patch PRs are not cherry-picked to {release_branch}:")
+        print(f"The following patch PRs are not cherry-picked to {release_branch}:")
         for idx, pr_num in enumerate(sorted(not_cherry_picked)):
             merged = patch_prs[pr_num]
             url = f"https://github.com/mlflow/mlflow/pull/{pr_num} (merged: {merged})"
             line = f"  {idx + 1}. {url}"
             if not merged:
-                line = click.style(line, fg="red")
-            click.echo(line)
+                line = f"\033[91m{line}\033[0m"  # Red color using ANSI escape codes
+            print(line)
 
         master_commits = get_commits("master")
         cherry_picks = [c.sha for c in master_commits if c.pr_num in not_cherry_picked]
@@ -125,4 +116,19 @@ def main(version, dry_run):
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", required=True, help="The version to release")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=os.environ.get("DRY_RUN", "true").lower() == "true",
+        help="Dry run mode (default: True, can be set via DRY_RUN env var)",
+    )
+    parser.add_argument(
+        "--no-dry-run",
+        action="store_false",
+        dest="dry_run",
+        help="Disable dry run mode",
+    )
+    args = parser.parse_args()
+    main(args.version, args.dry_run)

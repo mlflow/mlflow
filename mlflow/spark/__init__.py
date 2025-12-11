@@ -18,7 +18,7 @@ import os
 import posixpath
 import re
 import shutil
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import yaml
@@ -919,7 +919,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     .. code-block:: python
         :caption: Example
 
-        from mlflow import spark
+        import mlflow
 
         model = mlflow.spark.load_model("spark-model")
         # Prepare test documents, which are unlabeled (id, text) tuples.
@@ -1078,7 +1078,7 @@ class _PyFuncModelWrapper:
     def predict(
         self,
         pandas_df,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Generate predictions given input data in a pandas DataFrame.

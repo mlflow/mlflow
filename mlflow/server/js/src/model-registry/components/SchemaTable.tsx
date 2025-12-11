@@ -12,7 +12,7 @@ import {
   Spacer,
 } from '@databricks/design-system';
 import { LogModelWithSignatureUrl } from '../../common/constants';
-import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
+import type { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Interpolation, Theme } from '@emotion/react';
 import { identity, isEmpty, isFunction } from 'lodash';
@@ -112,7 +112,11 @@ const SchemaTableRow = ({ schemaData }: { schemaData?: (ColumnSpec | TensorSpec)
     const normalizedSearchText = deferredSearchText.toLowerCase();
     return schemaData
       ?.filter((schemaRow) => {
-        return 'name' in schemaRow && schemaRow.name.toLowerCase().includes(normalizedSearchText);
+        return (
+          'name' in schemaRow &&
+          schemaRow.name !== null &&
+          String(schemaRow.name).toLowerCase().includes(normalizedSearchText)
+        );
       })
       .slice(0, LIMIT_VISIBLE_COLUMNS);
   }, [schemaData, deferredSearchText, isLargeSchema]);

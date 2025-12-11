@@ -37,7 +37,7 @@ how to log your development usage of the OpenAI SDK, please visit the [guide to 
 The combination of MLflow's experiment tracking and model management with OpenAI's cutting-edge NLP models unlocks new potential for AI applications.
 This MLflow flavor for OpenAI simplifies the process of:
 
-- **Developing** an application that leverages the power of OpenAI's models. By simplifying the process of keeping track of the highly iterative and creative process of prompt engineering, [MLflow prompt engineering](/genai/prompt-version-mgmt/prompt-engineering) makes sure that you never lose track of a great idea.
+- **Developing** an application that leverages the power of OpenAI's models. By simplifying the process of keeping track of the highly iterative and creative process of prompt engineering, [MLflow prompt engineering](/genai/prompt-registry/prompt-engineering) makes sure that you never lose track of a great idea.
 - **Auditing and Reviewing** your most promising experiments. The [MLflow tracking service](/ml/tracking) means that you can easily share the results of your work and get peer review of your work.
 - **Customizing** the interface to your application. Whether you want to allow creative control with exposing parameters such as _temperature_ or to relax cost controls by exposing _max_tokens_, MLflow allows you to configure default values and restrict the ability to modify the parameters used for inference.
 
@@ -89,17 +89,16 @@ The integration of OpenAI's advanced NLP models with MLflow's robust model manag
 - **Financial Analysis and Forecasting**: Leverage NLP models to analyze financial reports, market trends, and news articles, providing deeper insights and predictions for investment strategies and economic forecasting.
 
 With MLflow's integration, these applications not only benefit from the linguistic prowess of OpenAI's models but also gain from streamlined
-[tracking](/ml/tracking), [version control](/genai/data-model/model-registry), and [deployment](/genai/serving) processes.
+[tracking](/ml/tracking), [version control](/ml/model-registry), and [deployment](/genai/serving) processes.
 This synergy empowers developers and businesses to build sophisticated, AI-driven solutions that address complex challenges and create new opportunities in various industries.
 
 ### Deployment Made Easy
 
 Deploying OpenAI models becomes a breeze with MLflow. Functions like <APILink fn="mlflow.openai.load_model" /> and <APILink fn="mlflow.pyfunc.load_model" /> facilitate easy model serving.
-Discover more about deploying models with MLflow, explore the <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">deployments API</Link>,
-and learn about <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">starting a local model serving endpoint</Link> to fully leverage the deployment capabilities of MLflow.
+Discover more about deploying models with MLflow, explore the <APILink fn="mlflow.server.cli" hash="mlflow-deployments">deployments API</APILink>,
+and learn about <APILink fn="mlflow.server.cli" hash="mlflow-models-serve">starting a local model serving endpoint</APILink> to fully leverage the deployment capabilities of MLflow.
 
 ## Getting Started with the MLflow OpenAI Flavor - Tutorials and Guides
-
 
 <CardGroup>
   <PageCard headerText="MLflow OpenAI Tutorials and Guides" link="/genai/flavors/openai/notebooks" text="Learn different ways that you can leverage the power of the OpenAI library, leveraging MLflow's APIs for tracking, inference, and tracing capabilities." />

@@ -5,7 +5,6 @@ sidebar_label: Workflow
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import Link from "@docusaurus/Link";
 
 # Model Registry Workflows
 
@@ -13,7 +12,7 @@ This guide walks you through using the MLflow Model Registry via both the UI and
 
 :::note
 If running your own MLflow server, you must use a database-backed backend store in order to access
-the model registry via the UI or API. [See here](/ml/tracking/backend-stores) for more information.
+the model registry via the UI or API. [See here](/self-hosting/architecture/backend-store) for more information.
 :::
 
 Before you can add a model to the Model Registry, you must log it using the `log_model` methods
@@ -73,8 +72,8 @@ tags, and description.
 
 ## API Workflow
 
-An alternative way to interact with Model Registry is using the <Link to={"/api_reference/python_api/index.html"} target="\_blank">MLflow model flavor</Link>
-o <Link to={"/api_reference/python_api/mlflow.client.html"} target="\_blank">MLflow Client Tracking API</Link> interface. In particular, you can register a model during an
+An alternative way to interact with Model Registry is using the <APILink fn="mlflow.python" hash="">MLflow model flavor</APILink>
+o <APILink fn="mlflow.client" hash="">MLflow Client Tracking API</APILink> interface. In particular, you can register a model during an
 MLflow experiment run or after all your experiment runs.
 
 ### Adding an MLflow Model to the Model Registry
@@ -117,7 +116,7 @@ with mlflow.start_run() as run:
     )
 ```
 
-In the above code snippet, if a registered model with the name doesn’t exist, the method registers a new model and creates Version 1.
+In the above code snippet, if a registered model with the name doesn't exist, the method registers a new model and creates Version 1.
 If a registered model with the name exists, the method creates a new model version.
 
 The second way is to use the <APILink fn="mlflow.register_model" /> method, after all your experiment runs complete and when you have decided which model is most suitable to add
@@ -129,7 +128,7 @@ result = mlflow.register_model(
 )
 ```
 
-If a registered model with the name doesn’t exist, the method registers a new model, creates Version 1, and returns a ModelVersion MLflow object.
+If a registered model with the name doesn't exist, the method registers a new model, creates Version 1, and returns a ModelVersion MLflow object.
 If a registered model with the name exists, the method creates a new model version and returns the version object.
 
 And finally, you can use the <APILink fn="mlflow.client.MlflowClient.create_registered_model">`create_registered_model()`</APILink> to create a new registered model.
@@ -200,6 +199,107 @@ import mlflow
 import os
 
 mlflow.set_registry_uri("databricks-uc://my-databricks-shard1")
+```
+
+#### Migrating to Databricks Unity Catalog Model Registry from Databricks Workspace Model Registry
+
+To migrate model versions from the Databricks Workspace Model Registry to the Databricks Unity Catalog Model Registry, we
+recommend using the <APILink fn="mlflow.client.MlflowClient.copy_model_version">`copy_model_version()`</APILink> API. The
+source URI would be from your workspace registry, and the destination would be a 3-level UC model name, e.g.
+
+```python
+from mlflow import MlflowClient
+
+# Registry URI must be set to workspace registry
+client = MlflowClient(registry_uri="databricks")
+src_model_uri = f"models:/my_wmr_model/1"
+uc_migrated_copy = client.copy_model_version(
+    src_model_uri, "mycatalog.myschema.my_uc_model"
+)
+```
+
+If the destination UC model doesn't exist, one will be created as part of this API call.
+
+Additionally, models registered to Databricks Unity Catalog require a signature to be set. If the workspace-registered
+model version does not already have a signature set, we recommend following the [Model Signatures](/ml/model/signatures)
+instructions to add one. However, to simplify the migration process, you can also set the environment variable
+`MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION` to `true`. This ONLY works with the
+
+<APILink fn="mlflow.client.MlflowClient.copy_model_version">`copy_model_version()`</APILink> API as indicated above, and
+it allows you to migrate the model to Unity Catalog while bypassing the signature requirement.
+
+Model versions that are registered to Databricks Unity Catalog without signatures have limitations. See the
+[Databricks documentation](https://docs.databricks.com/aws/en/machine-learning/manage-model-lifecycle/#add-signature)
+for a detailed list of the limitations.
+
+```python
+import os
+
+os.environ["MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION"] = "true"
+```
+
+If you want to migrate all of the model versions in your workspace registered model to a destination UC model,
+you can use a script as follows:
+
+```python
+import mlflow
+from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
+from mlflow.models import ModelSignature
+from mlflow.types.schema import Schema, ColSpec, AnyType
+
+workspace_client = MlflowClient(registry_uri="databricks")
+uc_client = MlflowClient(registry_uri="databricks-uc")
+
+
+# Make a placeholder model that can be used to increment the version number
+def make_placeholder_model() -> str:
+    class _Placeholder(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, x):
+            return None
+
+    with mlflow.start_run() as run:
+        schema = Schema([ColSpec(AnyType())])
+        model = mlflow.pyfunc.log_model(
+            name="m",
+            python_model=_Placeholder(),
+            signature=ModelSignature(inputs=schema, outputs=schema),
+        )
+        return f"models:/{model.model_id}"
+
+
+# Check if the source model has a particular version number
+def workspace_model_exists(name: str, version: int) -> bool:
+    try:
+        workspace_client.get_model_version(name, str(version))
+        return True
+    except MlflowException as e:
+        if e.error_code == "RESOURCE_DOES_NOT_EXIST":
+            # Convert the RESOURCE_DOES_NOT_EXIST error into False
+            return False
+        # Raise all other exceptions
+        raise e
+
+
+# Copy model versions from a source Databricks workspace-registered model to
+# a destination Databricks Unity Catalog registered model
+def copy_model_versions_to_uc(src: str, dst: str) -> None:
+    latest_versions = workspace_client.get_latest_versions(src)
+    max_version_number = max(int(v.version) for v in latest_versions)
+    placeholder_model = make_placeholder_model()
+
+    for v in range(1, max_version_number + 1):
+        if workspace_model_exists(src, v):
+            workspace_client.copy_model_version(f"models:/{src}/{str(v)}", dst)
+        else:
+            # Create and immediately delete a placeholder model version to increment
+            # the version counter on the UC model, so the version numbers on the UC
+            # model match those on the workspace registered model.
+            mv = uc_client.create_model_version(dst, placeholder_model)
+            uc_client.delete_model_version(dst, mv.version)
+
+
+copy_model_versions_to_uc("my_workspace_model", "mycatalog.myschema.my_uc_model")
 ```
 
 ### OSS Unity Catalog Model Registry
@@ -327,7 +427,7 @@ mlflow models serve -m "models:/sk-learn-random-forest-reg-model@champion"
 
 In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev,
 staging, and prod) with access controls to enable quick development without compromising stability
-in production. In MLflow, you can use registered models and [MLflow Authentication](/ml/auth) to
+in production. In MLflow, you can use registered models and [MLflow Authentication](/self-hosting/security/basic-http-auth) to
 express access-controlled environments for your MLflow models. For example, you can create registered
 models corresponding to each combination of environment and business problem (e.g.
 `prod.ml_team.revenue_forecasting`, `dev.ml_team.revenue_forecasting`) and configure permissions
@@ -363,7 +463,7 @@ to which the current model version will be copied.
 
 #### Adding or Updating an MLflow Model Descriptions
 
-At any point in a model’s lifecycle development, you can update a model version's description
+At any point in a model's lifecycle development, you can update a model version's description
 using <APILink fn="mlflow.client.MlflowClient.update_model_version">`update_model_version()`</APILink>.
 
 ```python
@@ -621,7 +721,7 @@ using MLflow Model fluent APIs.
 
 To work around this problem, you can create an instance of a <APILink fn="mlflow.pyfunc">`mlflow.pyfunc`</APILink>
 model flavor and embed your NLP model inside it, allowing you to save, log or register the model. Once registered,
-load the model from the Model Registry and score using the <Link to={"/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.PyFuncModel.predict"} target="\_blank">`predict`</Link>
+load the model from the Model Registry and score using the <APILink fn="mlflow.pyfunc.PyFuncModel.predict">`predict`</APILink>
 function.
 
 The code sections below demonstrate how to create a `PythonFuncModel` class with a `vaderSentiment` model embedded in it,
@@ -658,7 +758,7 @@ INPUT_TEXTS = [
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
 
 
-def score_model(model):
+def score_model(loaded_model):
     # Use inference to predict output from the customized PyFunc model
     for i, text in enumerate(INPUT_TEXTS):
         text = INPUT_TEXTS[i]["text"]
@@ -749,9 +849,9 @@ Model Stages are deprecated and will be removed in a future major release. To le
 
 See the sections below on using Model Stages in the MLflow Model Registry.
 
-**Transitioning an MLflow Model’s Stage**
+**Transitioning an MLflow Model's Stage**
 
-Over the course of the model’s lifecycle, a model evolves—from development to staging to production.
+Over the course of the model's lifecycle, a model evolves—from development to staging to production.
 You can transition a registered model to one of the stages: **Staging**, **Production** or **Archived**.
 
 ```python
@@ -831,7 +931,7 @@ for easier A/B testing and model rollout.
 **Set up separate environments for models**
 
 In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev, staging, and prod) with
-access controls to enable quick development without compromising stability in production. With [MLflow Authentication](/ml/auth),
+access controls to enable quick development without compromising stability in production. With [MLflow Authentication](/self-hosting/security/basic-http-auth),
 you can use registered models to express access-controlled environments for your MLflow models. For example, you can create
 registered models corresponding to each combination of environment and business problem (e.g. `prod.ml_team.revenue_forecasting`,
 `dev.ml_team.revenue_forecasting`) and configure permissions accordingly. Automate model retraining against your production
@@ -846,11 +946,11 @@ See the information below to learn how to use the new tools for your legacy Mode
 
 To set up separate environments and permissions for your model versions, create separate registered models:
 
-- Given a base name for your model’s use-case, e.g. `revenue_forecasting`, set up various registered models corresponding
+- Given a base name for your model's use-case, e.g. `revenue_forecasting`, set up various registered models corresponding
   to your environments with different prefixes.
 - For example, if you want three separate dev, staging, and production environments, you can set up
   `dev.ml_team.revenue_forecasting`, `staging.ml_team.revenue_forecasting`, and `prod.ml_team.revenue_forecasting` registered models.
-- Use [MLflow Authentication](/ml/auth) to grant appropriate permissions on these models.
+- Use [MLflow Authentication](/self-hosting/security/basic-http-auth) to grant appropriate permissions on these models.
 
 **Transition models across environments**
 

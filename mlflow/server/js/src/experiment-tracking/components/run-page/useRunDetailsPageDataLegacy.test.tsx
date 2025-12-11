@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useRunDetailsPageDataLegacy } from './useRunDetailsPageDataLegacy';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
@@ -5,8 +6,8 @@ import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { getExperimentApi, getRunApi } from '../../actions';
 import { searchModelVersionsApi } from '../../../model-registry/actions';
 import { merge } from 'lodash';
-import { ReduxState } from '../../../redux-types';
-import { DeepPartial } from 'redux';
+import type { ReduxState } from '../../../redux-types';
+import type { DeepPartial } from 'redux';
 import Utils from '../../../common/utils/Utils';
 
 const mockAction = (id: string) => ({ type: 'action', payload: Promise.resolve(), meta: { id } });
@@ -101,9 +102,9 @@ describe('useRunDetailsPageDataLegacy', () => {
     expect(data.experiment).toBeUndefined();
     expect(data.runInfo).toBeUndefined();
 
-    expect(getRunApi).toBeCalledWith(testRunUuid);
-    expect(getExperimentApi).toBeCalledWith(testExperimentId);
-    expect(searchModelVersionsApi).toBeCalledWith({ run_id: testRunUuid });
+    expect(getRunApi).toHaveBeenCalledWith(testRunUuid);
+    expect(getExperimentApi).toHaveBeenCalledWith(testExperimentId);
+    expect(searchModelVersionsApi).toHaveBeenCalledWith({ run_id: testRunUuid });
   });
 
   test("Do not fetch run if it's in the store already", () => {
@@ -115,8 +116,8 @@ describe('useRunDetailsPageDataLegacy', () => {
     expect(data.runInfo).toEqual({ runName: 'some_run' });
     expect(loading).toEqual(true);
 
-    expect(getRunApi).not.toBeCalled();
-    expect(getExperimentApi).toBeCalledWith(testExperimentId);
+    expect(getRunApi).not.toHaveBeenCalled();
+    expect(getExperimentApi).toHaveBeenCalledWith(testExperimentId);
   });
 
   test("Do not fetch experiment if it's in the store already", () => {
@@ -129,8 +130,8 @@ describe('useRunDetailsPageDataLegacy', () => {
     expect(data.runInfo).toBeUndefined();
     expect(data.experiment).toEqual({ name: 'some_experiment' });
 
-    expect(getRunApi).toBeCalledWith(testRunUuid);
-    expect(getExperimentApi).not.toBeCalled();
+    expect(getRunApi).toHaveBeenCalledWith(testRunUuid);
+    expect(getExperimentApi).not.toHaveBeenCalled();
   });
 
   test('Properly conveys get experiment API error if there is one', () => {
@@ -184,13 +185,13 @@ describe('useRunDetailsPageDataLegacy', () => {
   test('To refetch the data when necessary', async () => {
     const { result } = mountHook();
 
-    expect(getRunApi).toBeCalledTimes(1);
+    expect(getRunApi).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       result.current.refetchRun();
     });
 
-    expect(getRunApi).toBeCalledTimes(2);
+    expect(getRunApi).toHaveBeenCalledTimes(2);
   });
 
   test('Fetches metrics, params, and tags with non-empty key and empty value, but not those with empty key', () => {

@@ -1,7 +1,7 @@
 import inspect
 import sys
 import time
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import pytest
@@ -120,7 +120,9 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):
 def test_log_fn_args_as_params_ignores_unwanted_parameters(
     start_run,
 ):
-    args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
+    args = "arg1"
+    kwargs = {"arg2": "value"}
+    unlogged = ["arg1", "arg2", "arg3"]
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
     client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
@@ -465,7 +467,10 @@ def test_autologging_integration_makes_expected_event_logging_calls():
         raise Exception("autolog failed")
 
     class TestLogger(AutologgingEventLogger):
-        LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
+        class LoggerCall(NamedTuple):
+            integration: Any
+            call_args: Any
+            call_kwargs: Any
 
         def __init__(self):
             self.calls = []
@@ -718,7 +723,7 @@ def test_violates_pep_440():
         ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.5.1", True),
         ("pyspark.ml", "3.0.0", False),
-        ("llama_index", "0.10.56", True),
+        ("llama_index", "0.13.1", True),
         ("llama_index", "0.1.2", False),
     ],
 )
@@ -734,7 +739,7 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
         ("pyspark.ml", "99.0.0.dev0", False),
         ("pyspark.ml", "3.5.0.dev0", True),
         ("pyspark.ml", "3.3.0.dev0", True),
-        ("pyspark.ml", "3.2.1.dev0", True),
+        ("pyspark.ml", "3.2.1.dev0", False),
         ("pyspark.ml", "3.1.2.dev0", False),
         ("pyspark.ml", "3.0.1.dev0", False),
         ("pyspark.ml", "3.0.0.dev0", False),

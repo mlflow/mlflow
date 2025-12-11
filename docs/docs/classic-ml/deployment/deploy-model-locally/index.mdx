@@ -2,7 +2,6 @@
 sidebar_position: 1
 ---
 
-import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
@@ -22,8 +21,8 @@ first to understand the basic concepts of MLflow models and deployments.
 Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the [MLflow Tracking Quickstart](/ml/getting-started).
 Remember to note down the model URI, such as `models:/<model_id>` (or `models:/<model_name>/<model_version>` if you registered the model in the [MLflow Model Registry](/ml/model-registry)).
 
-Once you have the model ready, deploying to a local server is straightforward. Use the <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">mlflow models serve</Link> command for a one-step deployment.
-This command starts a local server that listens on the specified port and serves your model. Refer to the <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">CLI reference</Link> for available options.
+Once you have the model ready, deploying to a local server is straightforward. Use the <APILink fn="mlflow.server.cli" hash="mlflow-models-serve">mlflow models serve</APILink> command for a one-step deployment.
+This command starts a local server that listens on the specified port and serves your model. Refer to the <APILink fn="mlflow.server.cli" hash="mlflow-models-serve">CLI reference</APILink> for available options.
 
 ```bash
 mlflow models serve -m runs:/<run_id>/model -p 5000
@@ -38,7 +37,7 @@ curl http://127.0.0.1:5000/invocations -H "Content-Type:application/json"  --dat
 Several command line options are available to customize the server's behavior. For instance, the `--env-manager` option allows you to
 choose a specific environment manager, like Anaconda, to create the virtual environment. The `mlflow models` module also provides
 additional useful commands, such as building a Docker image or generating a Dockerfile. For comprehensive details, please refer
-to the <Link to="/api_reference/cli.html#mlflow-models" target="_blank">MLflow CLI Reference</Link>.
+to the <APILink fn="mlflow.server.cli" hash="mlflow-models">MLflow CLI Reference</APILink>.
 
 ## Inference Server Specification \{#local-inference-server-spec}
 
@@ -104,7 +103,7 @@ the required payload format, you can leverage the dict payload structures below.
     </tr>
     <tr>
       <td>`instances`</td>
-      <td>Tensor input formatted as described in [TF Serving’s API docs](https://www.tensorflow.org/tfx/serving/api_rest#request_format_2) where the provided inputs will be cast to Numpy arrays.</td>
+      <td>Tensor input formatted as described in [TF Serving's API docs](https://www.tensorflow.org/tfx/serving/api_rest#request_format_2) where the provided inputs will be cast to Numpy arrays.</td>
       <td>
         ```
         {"instances": [1.0, 2.0, 5.0]}
@@ -295,7 +294,7 @@ auto scaling out of the box.
     </tr>
     <tr>
       <td>**Scalability**</td>
-      <td>While FastAPI works well in a distributed environment in general, MLflow simply runs it with `uvicorn` and does not support holizontal scaling out of the box.</td>
+      <td>While FastAPI works well in a distributed environment in general, MLflow simply runs it with `uvicorn` and does not support horizontal scaling out of the box.</td>
       <td>Additionally to the support for parallel inference as mentioned above, MLServer is used as the core inference server in Kubernetes-native frameworks such as [Seldon Core](https://docs.seldon.io/projects/seldon-core/en/latest/) and [KServe](https://kserve.github.io/website/) (formerly known as KFServing). By deploying [MLflow models to Kubernetes with MLServer](/ml/deployment/deploy-model-to-kubernetes), you can leverage the advanced features of these frameworks such as autoscaling to achieve high scalability.</td>
     </tr>
   </tbody>
@@ -315,7 +314,7 @@ You can also find guides to deploy MLflow models to a Kubernetes cluster using M
 ## Running Batch Inference
 
 Instead of running an online inference endpoint, you can execute a single batch inference job on local files using
-the <Link to="/api_reference/cli.html#mlflow-models-predict" target="_blank">mlflow models predict</Link> command. The following command runs the model
+the <APILink fn="mlflow.server.cli" hash="mlflow-models-predict">mlflow models predict</APILink> command. The following command runs the model
 prediction on `input.csv` and outputs the results to `output.csv`.
 
 <Tabs>

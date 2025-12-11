@@ -1,3 +1,5 @@
+<!-- Remove unused checkboxes except for the patch release section at the bottom -->
+
 ### Related Issues/PRs
 
 <!-- Uncomment 'Resolve' if this PR can close the linked items. -->
@@ -36,36 +38,18 @@
 
 Components
 
-- [ ] `area/artifacts`: Artifact stores and artifact logging
-- [ ] `area/build`: Build and test infrastructure for MLflow
-- [ ] `area/deployments`: MLflow Deployments client APIs, server, and third-party Deployments integrations
-- [ ] `area/docs`: MLflow documentation pages
-- [ ] `area/examples`: Example code
-- [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
-- [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
-- [ ] `area/projects`: MLproject format, project running backends
-- [ ] `area/scoring`: MLflow Model server, model deployment tools, Spark UDFs
-- [ ] `area/server-infra`: MLflow Tracking server backend
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
-
-Interface
-
+- [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
+- [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
+- [ ] `area/scoring`: MLflow Model server, model deployment tools, Spark UDFs
+- [ ] `area/evaluation`: MLflow model evaluation features, evaluation metrics, and evaluation workflows
+- [ ] `area/gateway`: MLflow AI Gateway client APIs, server, and third-party integrations
+- [ ] `area/prompts`: MLflow prompt engineering features, prompt templates, and prompt management
+- [ ] `area/tracing`: MLflow Tracing features, tracing APIs, and LLM tracing functionality
+- [ ] `area/projects`: MLproject format, project running backends
 - [ ] `area/uiux`: Front-end, user experience, plotting, JavaScript, JavaScript dev server
-- [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
-- [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
-- [ ] `area/windows`: Windows support
-
-Language
-
-- [ ] `language/r`: R APIs and clients
-- [ ] `language/java`: Java APIs and clients
-- [ ] `language/new`: Proposals for new client languages
-
-Integrations
-
-- [ ] `integrations/azure`: Azure and Azure ML integrations
-- [ ] `integrations/sagemaker`: SageMaker integrations
-- [ ] `integrations/databricks`: Databricks integrations
+- [ ] `area/build`: Build and test infrastructure for MLflow
+- [ ] `area/docs`: MLflow documentation pages
 
 <!--
 Insert an empty named anchor here to allow jumping to this section with a fragment URL
@@ -97,7 +81,7 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 
 </details>
 
-<!-- patch -->
+<!-- Do not modify or remove any text inside the parentheses. Keep both checkboxes below. -->
 
 - [ ] Yes (this PR will be cherry-picked and included in the next patch release)
 - [ ] No (this PR will be included in the next minor release)

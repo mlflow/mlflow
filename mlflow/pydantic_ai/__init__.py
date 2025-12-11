@@ -5,6 +5,8 @@ from mlflow.pydantic_ai.autolog import (
     patched_async_class_call,
     patched_class_call,
 )
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -26,9 +28,18 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
     class_map = {
         "pydantic_ai.Agent": ["run", "run_sync"],
         "pydantic_ai.models.instrumented.InstrumentedModel": ["request"],
-        "pydantic_ai.Tool": ["run"],
+        "pydantic_ai._tool_manager.ToolManager": ["handle_call"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
     }
+
+    try:
+        from pydantic_ai import Tool
+
+        # Tool.run method is removed in recent versions
+        if hasattr(Tool, "run"):
+            class_map["pydantic_ai.Tool"] = ["run"]
+    except ImportError:
+        pass
 
     for cls_path, methods in class_map.items():
         module_name, class_name = cls_path.rsplit(".", 1)
@@ -55,3 +66,7 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
                 )
             except AttributeError as e:
                 _logger.error("Error patching %s.%s: %s", cls_path, method, e)
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )

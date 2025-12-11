@@ -1,12 +1,9 @@
 """add model registry tables to db
 
-Revision ID: 2b4d017a5e9b
-Revises: 89d4b8295536
 Create Date: 2019-10-14 12:20:12.874424
 
 """
 
-import logging
 import time
 
 from alembic import op
@@ -24,9 +21,6 @@ from mlflow.entities.model_registry.model_version_stages import STAGE_NONE
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.store.model_registry.dbmodels.models import SqlModelVersion, SqlRegisteredModel
 
-_logger = logging.getLogger(__name__)
-_logger.setLevel(logging.INFO)
-
 # revision identifiers, used by Alembic.
 revision = "2b4d017a5e9b"
 down_revision = "89d4b8295536"
@@ -37,8 +31,6 @@ depends_on = None
 def upgrade():
     bind = op.get_bind()
     session = orm.Session(bind=bind)
-
-    _logger.info("Adding registered_models and model_versions tables to database.")
 
     op.create_table(
         SqlRegisteredModel.__tablename__,
@@ -68,8 +60,6 @@ def upgrade():
     )
 
     session.commit()
-
-    _logger.info("Migration complete!")
 
 
 def downgrade():

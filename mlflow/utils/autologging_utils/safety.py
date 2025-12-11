@@ -2,10 +2,9 @@ import abc
 import functools
 import inspect
 import itertools
-import typing
 import uuid
 from contextlib import asynccontextmanager, contextmanager
-from typing import Optional
+from typing import Any, Callable, NamedTuple
 
 import mlflow
 import mlflow.utils.autologging_utils
@@ -22,6 +21,7 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 _AUTOLOGGING_PATCHES = {}
+_AUTOLOGGING_CLEANUP_CALLBACKS = {}
 
 
 # Function attribute used for testing purposes to verify that a given function
@@ -720,6 +720,15 @@ def revert_patches(autologging_integration):
 
     _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
 
+    # Call any registered cleanup callbacks (e.g., for OTel uninstrumentation)
+    for callback in _AUTOLOGGING_CLEANUP_CALLBACKS.get(autologging_integration, []):
+        try:
+            callback()
+        except Exception as e:
+            _logger.warning(f"Error calling cleanup callback for {autologging_integration}: {e}")
+
+    _AUTOLOGGING_CLEANUP_CALLBACKS.pop(autologging_integration, None)
+
 
 # Represents an active autologging session using two fields:
 # - integration: the name of the autologging integration corresponding to the session
@@ -850,7 +859,7 @@ def _validate_autologging_run(autologging_integration, run_id):
     )
 
 
-class ValidationExemptArgument(typing.NamedTuple):
+class ValidationExemptArgument(NamedTuple):
     """
     A NamedTuple representing the properties of an argument that is exempt from validation
 
@@ -864,9 +873,9 @@ class ValidationExemptArgument(typing.NamedTuple):
 
     autologging_integration: str
     function_name: str
-    type_function: typing.Callable
-    positional_argument_index: Optional[int] = None
-    keyword_argument_name: Optional[str] = None
+    type_function: Callable[..., Any]
+    positional_argument_index: int | None = None
+    keyword_argument_name: str | None = None
 
     def matches(
         self,
@@ -916,6 +925,7 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
     #    the first element.
     ValidationExemptArgument("tensorflow", "fit", is_iterator, 1, "x"),
     ValidationExemptArgument("keras", "fit", is_iterator, 1, "x"),
+    ValidationExemptArgument("dspy", "__call__", lambda x: isinstance(x, Callable), 2, "metric"),
 ]
 
 

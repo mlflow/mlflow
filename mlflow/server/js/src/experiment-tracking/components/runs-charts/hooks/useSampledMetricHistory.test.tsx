@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useSampledMetricHistory } from './useSampledMetricHistory';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
@@ -16,7 +17,7 @@ jest.mock('../../../sdk/SampledMetricHistoryService', () => ({
   getSampledMetricHistoryBulkAction: jest.fn(),
 }));
 
-const hookWrapper: React.FC = ({ children }) => (
+const hookWrapper: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => (
   <IntlProvider locale="en">
     <TestApolloProvider>
       <MockedReduxStoreProvider
@@ -60,7 +61,7 @@ describe('useSampledMetricHistory (REST)', () => {
     );
 
     await waitFor(() => {
-      expect(getSampledMetricHistoryBulkAction).toBeCalledWith(
+      expect(getSampledMetricHistoryBulkAction).toHaveBeenCalledWith(
         ['run-uuid-1'],
         'metric-a',
         undefined,
@@ -84,6 +85,6 @@ describe('useSampledMetricHistory (REST)', () => {
       },
     );
 
-    expect(getSampledMetricHistoryBulkAction).not.toBeCalled();
+    expect(getSampledMetricHistoryBulkAction).not.toHaveBeenCalled();
   });
 });

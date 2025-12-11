@@ -1,7 +1,7 @@
+import { jest, describe, it, expect } from '@jest/globals';
 import { rest } from 'msw';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { fetchArtifactUnified } from './fetchArtifactUnified';
-import { shouldUseSPNForArtifacts } from '../../../../common/utils/FeatureUtils';
 
 describe('fetchArtifactUnified', () => {
   const experimentId = 'test-experiment-id';

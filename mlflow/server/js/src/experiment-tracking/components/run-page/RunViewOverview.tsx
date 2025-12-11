@@ -1,11 +1,9 @@
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useSelector } from 'react-redux';
 import { useMemo } from 'react';
 
 import { Button, FileIcon, Spacer, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import Utils from '../../../common/utils/Utils';
-import type { ReduxState } from '../../../redux-types';
 import { useLocation } from '../../../common/utils/RoutingUtils';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 
@@ -24,6 +22,7 @@ import { RunViewLoggedModelsBox } from './overview/RunViewLoggedModelsBox';
 import { RunViewSourceBox } from './overview/RunViewSourceBox';
 import { DetailsOverviewMetadataTable } from '@mlflow/mlflow/src/experiment-tracking/components/DetailsOverviewMetadataTable';
 import type { LoggedModelProto } from '../../types';
+import { ExperimentKind } from '../../constants';
 import { useExperimentLoggedModelRegisteredVersions } from '../experiment-logged-models/hooks/useExperimentLoggedModelRegisteredVersions';
 import { DetailsOverviewCopyableIdBox } from '../DetailsOverviewCopyableIdBox';
 import type { RunInfoEntity } from '../../types';
@@ -32,14 +31,18 @@ import type {
   UseGetRunQueryResponseOutputs,
   UseGetRunQueryResponseRunInfo,
 } from './hooks/useGetRunQuery';
-import type { KeyValueEntity, MetricEntitiesByName, RunDatasetWithTags } from '../../types';
+import type { MetricEntitiesByName, RunDatasetWithTags } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { isEmpty, uniqBy } from 'lodash';
 import { RunViewLoggedModelsTable } from './overview/RunViewLoggedModelsTable';
-import { isRunPageLoggedModelsTableEnabled } from '../../../common/utils/FeatureUtils';
-import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 import { DetailsPageLayout } from '../../../common/components/details-page-layout/DetailsPageLayout';
 import { useRunDetailsPageOverviewSectionsV2 } from './hooks/useRunDetailsPageOverviewSectionsV2';
+import { RunViewDetailsMetadataBox } from './overview/RunViewDetailsMetadataBox';
+import {
+  shouldEnableRunDetailsMetadataBoxOnRunDetailsPage,
+  shouldEnableArtifactsOnRunDetailsPage,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;
 
@@ -56,6 +59,8 @@ export const RunViewOverview = ({
   registeredModelVersionSummaries: registeredModelVersionSummariesForRun,
   loggedModelsV3 = [],
   isLoadingLoggedModels = false,
+  loggedModelsError,
+  experimentKind,
 }: {
   runUuid: string;
   onRunDataUpdated: () => void | Promise<any>;
@@ -69,16 +74,18 @@ export const RunViewOverview = ({
   registeredModelVersionSummaries: RunPageModelVersionSummary[];
   loggedModelsV3?: LoggedModelProto[];
   isLoadingLoggedModels?: boolean;
+  loggedModelsError?: Error;
+  experimentKind?: ExperimentKind;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { usingUnifiedDetailsLayout } = useExperimentTrackingDetailsPageLayoutStyles();
   const { search } = useLocation();
   const intl = useIntl();
 
   const loggedModelsFromTags = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
   const parentRunIdTag = tags[EXPERIMENT_PARENT_ID_TAG];
   const containsLoggedModelsFromInputsOutputs = !isEmpty(runInputs?.modelInputs) || !isEmpty(runOutputs?.modelOutputs);
-  const shouldRenderLoggedModelsBox = !isRunPageLoggedModelsTableEnabled() || !containsLoggedModelsFromInputsOutputs;
+  const shouldRenderLoggedModelsBox = !containsLoggedModelsFromInputsOutputs;
+  const shouldRenderLinkedPromptsTable = experimentKind === ExperimentKind.GENAI_DEVELOPMENT;
 
   // We have two flags for controlling the visibility of the "logged models" section:
   // - `shouldRenderLoggedModelsBox` determines if "logged models" section should be rendered.
@@ -87,7 +94,9 @@ export const RunViewOverview = ({
   // - `shouldDisplayContentsOfLoggedModelsBox` determines if the contents of the "logged models"
   //   section should be displayed. It is hidden if there are no logged models to display.
   const shouldDisplayContentsOfLoggedModelsBox = loggedModelsFromTags?.length > 0 || loggedModelsV3?.length > 0;
-  const loggedModelsV3RegisteredModels = useExperimentLoggedModelRegisteredVersions({ loggedModels: loggedModelsV3 });
+  const { modelVersions: loggedModelsV3RegisteredModels } = useExperimentLoggedModelRegisteredVersions({
+    loggedModels: loggedModelsV3,
+  });
 
   /**
    * We have to query multiple sources for registered model versions (logged models API, models API, UC)
@@ -99,6 +108,8 @@ export const RunViewOverview = ({
     (model) => model?.link,
   );
 
+  const shouldEnableRunDetailsMetadataBox = shouldEnableRunDetailsMetadataBoxOnRunDetailsPage();
+
   const renderPromptMetadataRow = () => {
     return (
       <DetailsOverviewMetadataRow
@@ -108,12 +119,61 @@ export const RunViewOverview = ({
             description="Run page > Overview > Run prompts section label"
           />
         }
-        value={<RunViewRegisteredPromptsBox runUuid={runUuid} />}
+        value={<RunViewRegisteredPromptsBox tags={tags} runUuid={runUuid} />}
       />
     );
   };
 
   const renderDetails = () => {
+    if (shouldEnableRunDetailsMetadataBox) {
+      return (
+        <>
+          <div
+            css={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              gridTemplateRows: 'auto auto',
+              gap: theme.spacing.lg,
+              width: '100%',
+              [theme.responsive.mediaQueries.xl]: {
+                gridTemplateColumns: '1fr 1fr',
+                gridTemplateRows: '1fr',
+              },
+            }}
+          >
+            <div
+              css={{
+                width: '100%',
+                [theme.responsive.mediaQueries.xl]: {
+                  gridColumn: 1,
+                },
+              }}
+            >
+              <RunViewDetailsMetadataBox
+                runUuid={runUuid}
+                runInfo={runInfo}
+                tags={tags}
+                datasets={datasets}
+                search={search}
+                onRunDataUpdated={onRunDataUpdated}
+                registeredModelVersionSummaries={registeredModelVersionSummaries}
+              />
+            </div>
+            <div
+              css={{
+                width: '100%',
+                display: 'flex',
+              }}
+            >
+              {/* eslint-disable-next-line */}
+              {/* prettier-ignore */}
+            </div>
+          </div>
+          <Spacer size="lg" />
+        </>
+      );
+    }
+
     return (
       <DetailsOverviewMetadataTable>
         <DetailsOverviewMetadataRow
@@ -147,7 +207,7 @@ export const RunViewOverview = ({
           title={
             <FormattedMessage defaultMessage="Status" description="Run page > Overview > Run status section label" />
           }
-          value={<RunViewStatusBox status={runInfo.status} />}
+          value={<RunViewStatusBox status={runInfo.status} useSpinner />}
         />
         <DetailsOverviewMetadataRow
           title={<FormattedMessage defaultMessage="Run ID" description="Run page > Overview > Run ID section label" />}
@@ -235,9 +295,8 @@ export const RunViewOverview = ({
   };
 
   const renderParams = () => {
-    return <DetailsOverviewParamsTable params={params} />;
+    return <DetailsOverviewParamsTable params={params} expandToParentContainer />;
   };
-
   const detailsSectionsV2 = useRunDetailsPageOverviewSectionsV2({
     runUuid,
     runInfo,
@@ -248,21 +307,20 @@ export const RunViewOverview = ({
     shouldRenderLoggedModelsBox,
     registeredModelVersionSummaries,
   });
-  const usingSidebarLayout = usingUnifiedDetailsLayout;
+  const usingSidebarLayout = true;
   return (
     <DetailsPageLayout
       css={{ flex: 1, alignSelf: 'flex-start' }}
-      //
       // Enable sidebar layout based on feature flag
       usingSidebarLayout={usingSidebarLayout}
       secondarySections={detailsSectionsV2}
     >
-      <RunViewDescriptionBox runUuid={runUuid} tags={tags} onDescriptionChanged={onRunDataUpdated} />
+      {usingSidebarLayout && (
+        <RunViewDescriptionBox runUuid={runUuid} tags={tags} onDescriptionChanged={onRunDataUpdated} />
+      )}
       {!usingSidebarLayout && (
         <>
-          <Typography.Title level={4}>
-            <FormattedMessage defaultMessage="Details" description="Run page > Overview > Details section title" />
-          </Typography.Title>
+          {/* prettier-ignore */}
           {renderDetails()}
         </>
       )}
@@ -270,21 +328,58 @@ export const RunViewOverview = ({
         // Use different grid setup for unified details page layout
         css={[
           usingSidebarLayout ? { flexDirection: 'column' } : { minHeight: 360, maxHeight: 760 },
-          { display: 'flex', gap: theme.spacing.lg, overflow: 'hidden' },
+          {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.lg,
+            overflow: 'hidden',
+            [theme.responsive.mediaQueries.xl]: {
+              flexDirection: usingSidebarLayout ? 'column' : 'row',
+            },
+          },
         ]}
       >
-        <RunViewMetricsTable latestMetrics={latestMetrics} runInfo={runInfo} />
-        {renderParams()}
+        <div
+          css={{
+            display: 'flex',
+            flex: 1,
+            width: '100%',
+          }}
+        >
+          <RunViewMetricsTable
+            latestMetrics={latestMetrics}
+            runInfo={runInfo}
+            loggedModels={loggedModelsV3}
+            expandToParentContainer
+          />
+        </div>
+        <div
+          css={{
+            display: 'flex',
+            flex: 1,
+          }}
+        >
+          {renderParams()}
+        </div>
       </div>
-      {isRunPageLoggedModelsTableEnabled() && containsLoggedModelsFromInputsOutputs && (
+      {containsLoggedModelsFromInputsOutputs && (
         <>
-          <Spacer />
+          {!usingSidebarLayout && <Spacer />}
           <div css={{ minHeight: 360, maxHeight: 760, overflow: 'hidden', display: 'flex' }}>
-            <RunViewLoggedModelsTable inputs={runInputs} outputs={runOutputs} runInfo={runInfo} />
+            <RunViewLoggedModelsTable
+              loggedModelsV3={loggedModelsV3}
+              isLoadingLoggedModels={isLoadingLoggedModels}
+              inputs={runInputs}
+              outputs={runOutputs}
+              runInfo={runInfo}
+              loggedModelsError={loggedModelsError}
+            />
           </div>
         </>
       )}
       {!usingSidebarLayout && <Spacer />}
+      {/* Add a spacer so the page doesn't jump when searching params / metrics */}
+      <div css={{ height: 500 }} />
     </DetailsPageLayout>
   );
 };

@@ -1,13 +1,20 @@
-import React from 'react';
-import { ModelsIcon, Overflow, Tag, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
+import React, { useMemo } from 'react';
+import { ModelsIcon, Overflow, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import Utils from '../../../../../../common/utils/Utils';
 import { ModelRegistryRoutes } from '../../../../../../model-registry/routes';
 import Routes from '../../../../../routes';
-import { RunRowModelsInfo } from '../../../utils/experimentPage.row-types';
+import type { RunRowModelsInfo } from '../../../utils/experimentPage.row-types';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
 import { ReactComponent as RegisteredModelOkIcon } from '../../../../../../common/static/registered-model-grey-ok.svg';
 import type { LoggedModelProto } from '../../../../../types';
 import { FormattedMessage } from 'react-intl';
+import { useExperimentLoggedModelRegisteredVersions } from '../../../../experiment-logged-models/hooks/useExperimentLoggedModelRegisteredVersions';
+import { isEmpty, uniqBy, values } from 'lodash';
+import { isUCModelName } from '../../../../../utils/IsUCModelName';
+import {
+  shouldUnifyLoggedModelsAndRegisteredModels,
+  shouldUseGetLoggedModelsBatchAPI,
+} from '../../../../../../common/utils/FeatureUtils';
 
 const EMPTY_CELL_PLACEHOLDER = '-';
 
@@ -20,17 +27,18 @@ export interface ModelsCellRendererProps {
  */
 interface CombinedModelType {
   registeredModelName?: string;
-  isUc?: string;
+  isUc?: boolean;
   registeredModelVersion?: string;
   artifactPath?: string;
   flavors?: string[];
+  originalLoggedModel?: LoggedModelProto;
 }
 
 /**
  * Icon, label and link for a single model
  */
 const ModelLink = ({
-  model: { isUc, registeredModelName, registeredModelVersion, flavors, artifactPath } = {},
+  model: { isUc, registeredModelName, registeredModelVersion, flavors, artifactPath, originalLoggedModel } = {},
   experimentId,
   runUuid,
 }: {
@@ -42,18 +50,54 @@ const ModelLink = ({
 
   // Renders a model name based on whether it's a registered model or not
   const renderModelName = () => {
-    const displayFullName = `${registeredModelName} v${registeredModelVersion}`;
+    let tooltipBody: React.ReactNode = `${registeredModelName} v${registeredModelVersion}`;
+
+    // If the model is a registered model coming from V3 logged model, we need to show the original logged model name
+    if (
+      registeredModelName &&
+      registeredModelVersion &&
+      originalLoggedModel &&
+      shouldUnifyLoggedModelsAndRegisteredModels()
+    ) {
+      const loggedModelExperimentId = originalLoggedModel.info?.experiment_id;
+      const loggedModelId = originalLoggedModel.info?.model_id;
+      if (loggedModelExperimentId && loggedModelId) {
+        tooltipBody = (
+          <FormattedMessage
+            defaultMessage="Original logged model: {originalModelLink}"
+            description="Tooltip text with link to the original logged model"
+            values={{
+              originalModelLink: (
+                <Link
+                  to={Routes.getExperimentLoggedModelDetailsPage(loggedModelExperimentId, loggedModelId)}
+                  css={{ color: 'inherit', textDecoration: 'underline' }}
+                >
+                  {originalLoggedModel.info?.name}
+                </Link>
+              ),
+            }}
+          />
+        );
+      }
+    }
     if (registeredModelName) {
       return (
-        <LegacyTooltip title={displayFullName} placement="topLeft">
-          <span css={{ verticalAlign: 'middle' }}>{registeredModelName}</span>{' '}
-          <Tag
-            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_modelscellrenderer.tsx_49"
-            css={{ marginRight: 0, verticalAlign: 'middle' }}
-          >
-            v{registeredModelVersion}
-          </Tag>
-        </LegacyTooltip>
+        <Tooltip
+          componentId="mlflow.experiment-tracking.models-cell.model-link"
+          content={tooltipBody}
+          side="top"
+          align="start"
+        >
+          <span>
+            <span css={{ verticalAlign: 'middle' }}>{registeredModelName}</span>{' '}
+            <Tag
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_modelscellrenderer.tsx_49"
+              css={{ marginRight: 0, verticalAlign: 'middle' }}
+            >
+              v{registeredModelVersion}
+            </Tag>
+          </span>
+        </Tooltip>
       );
     }
 
@@ -123,26 +167,91 @@ const LoggedModelV3Link = ({ model }: { model: LoggedModelProto }) => {
   );
 };
 
+/**
+ * This component renders combined set of models, based on provided models payload.
+ * The models are sourced from:
+ * - `registeredModels` containing WMR and UC model versions associated with the run, populated by API call
+ * - `loggedModels` containing legacy (pre-V3) logged models associated with the run, listed in run's tag
+ * - `loggedModelsV3` containing V3 logged models associated with the runs inputs and outputs, populated by API call
+ * In the component, we also resolve registered model versions for V3 logged models based on loged model's tags
+ */
 export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) => {
+  const { registeredModels = [], loggedModels = [], loggedModelsV3, experimentId, runUuid } = props.value || {};
+
+  // First, we merge legacy logged models and registered models.
+  const modelsLegacy: CombinedModelType[] = Utils.mergeLoggedAndRegisteredModels(
+    loggedModels,
+    registeredModels,
+  ) as any[];
+
+  // Next, registered model versions are resolved from V3 logged models' tags
+  const { modelVersions: registeredModelVersions } = useExperimentLoggedModelRegisteredVersions({
+    loggedModels: loggedModelsV3 || [],
+  });
+
+  // We create a map of registered model versions by their source logged model.
+  // This allows to unfurl logged model to registered model versions while hiding the original logged model.
+  const registeredModelVersionsByLoggedModel = useMemo(() => {
+    if (!shouldUseGetLoggedModelsBatchAPI()) {
+      return {};
+    }
+    const map: Record<string, CombinedModelType[]> = {};
+    registeredModelVersions.forEach((modelVersion) => {
+      const loggedModelId = modelVersion.sourceLoggedModel?.info?.model_id;
+      if (loggedModelId) {
+        const registeredModels = map[loggedModelId] || [];
+        const name = modelVersion.displayedName ?? undefined;
+        registeredModels.push({
+          registeredModelName: name,
+          registeredModelVersion: modelVersion.version ?? undefined,
+          isUc: isUCModelName(name ?? ''),
+          artifactPath: modelVersion.sourceLoggedModel?.info?.artifact_uri ?? '',
+          flavors: [],
+          originalLoggedModel: modelVersion.sourceLoggedModel,
+        });
+        map[loggedModelId] = registeredModels;
+      }
+    });
+    return map;
+  }, [registeredModelVersions]);
+
+  // Merge legacy models with registered model versions from V3 logged models.
+  const registeredModelsToDisplay = useMemo(() => {
+    const allModels = [...modelsLegacy, ...Array.from(values(registeredModelVersionsByLoggedModel)).flat()];
+    // Remove duplicates (it's not impossible to reference the same model version twice in a single logged model)
+    return uniqBy(allModels, (model) =>
+      JSON.stringify(
+        model.registeredModelName && model.registeredModelVersion
+          ? [model.registeredModelName, model.registeredModelVersion?.toString()]
+          : [model.artifactPath],
+      ),
+    );
+  }, [modelsLegacy, registeredModelVersionsByLoggedModel]);
+
+  const containsModels = !isEmpty(registeredModelsToDisplay) || !isEmpty(loggedModelsV3);
+
   if (!props.value) {
     return <>{EMPTY_CELL_PLACEHOLDER}</>;
   }
-  const { registeredModels, loggedModels, experimentId, runUuid } = props.value;
-  const models: CombinedModelType[] = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels) as any[];
-
-  const containsModels = Boolean(models?.length || props.value.loggedModelsV3?.length);
 
   if (containsModels) {
     return (
       // <Overflow /> component does not ideally fit within ag-grid cell so we need to override its styles a bit
       <div css={{ width: '100%', '&>div': { maxWidth: '100%', display: 'flex' } }}>
         <Overflow>
-          {models.map((model, index) => (
+          {registeredModelsToDisplay.map((model, index) => (
             <ModelLink model={model} key={model.artifactPath || index} experimentId={experimentId} runUuid={runUuid} />
           ))}
-          {props.value.loggedModelsV3?.map((model, index) => (
-            <LoggedModelV3Link key={model.info?.model_id ?? index} model={model} />
-          ))}
+          {loggedModelsV3?.map((model, index) => {
+            // Display logged model only if it does not have registered model versions associated with it.
+            const modelId = model.info?.model_id;
+            const loggedModelRegisteredVersions = modelId ? registeredModelVersionsByLoggedModel[modelId] : [];
+            if (!isEmpty(loggedModelRegisteredVersions)) {
+              return null;
+            }
+
+            return <LoggedModelV3Link key={model.info?.model_id ?? index} model={model} />;
+          })}
         </Overflow>
       </div>
     );
