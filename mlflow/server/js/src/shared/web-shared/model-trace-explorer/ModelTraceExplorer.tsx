@@ -48,6 +48,7 @@ export const ModelTraceExplorerImpl = ({
   const isDisplayable = shouldBlockLargeTraceDisplay() ? size < getLargeTraceDisplaySizeThreshold() : true;
   const [assessmentsPaneEnabled, setAssessmentsPaneEnabled] = useState(traceId.startsWith('tr-'));
   const [isMountingTrace, setIsMountingTrace] = useState(true);
+  const spanLength = initialModelTrace.data?.spans?.length ?? 0;
 
   const { isFetching } = useGetModelTraceInfo({
     traceId,
@@ -63,7 +64,7 @@ export const ModelTraceExplorerImpl = ({
     setIsMountingTrace(true);
     // reset the model trace when the traceId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [traceId, initialModelTrace]);
+  }, [traceId, spanLength]);
 
   useEffect(() => {
     if (isMountingTrace && !isFetching) {

@@ -80,7 +80,7 @@ export const useModelTraceSearch = ({
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [spanFilterState, setSpanFilterState] = useState<SpanFilterState>(() => getDefaultSpanFilterState(treeNodes));
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
-  const treeNodesKeys = useMemo(() => treeNodes.map((n) => n.key).join(','), [treeNodes]);
+  const treeNodesKeys = treeNodes.map((n) => n.key).join(',');
   const { filteredTreeNodes, matches } = useMemo(() => {
     // Run search over each root and merge results
     const merged = treeNodes.map((root) => searchTree(root, searchFilter, spanFilterState));
