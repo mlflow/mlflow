@@ -1,19 +1,9 @@
 import os
-import re
 
 from mlflow.entities import SourceType
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.utils.databricks_utils import is_running_in_ipython_environment
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
-
-
-def _is_running_in_ipython():
-    """Check if we're running in an IPython environment."""
-    try:
-        from IPython import get_ipython
-
-        return get_ipython() is not None
-    except (ImportError, ModuleNotFoundError):
-        return False
 
 
 def _get_notebook_name():
@@ -251,12 +241,13 @@ def _is_in_jupyter_notebook():
     Returns:
         True if we're in a Jupyter notebook environment, False otherwise.
     """
+    if not is_running_in_ipython_environment():
+        return False
+
     try:
         from IPython import get_ipython
 
         ip = get_ipython()
-        if ip is None:
-            return False
 
         # Check the class name to identify Jupyter vs plain IPython
         # Jupyter notebooks use ZMQInteractiveShell
