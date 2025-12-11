@@ -175,16 +175,9 @@ def parse_tool_calls_from_trace(trace: Trace) -> list[dict[str, str]]:
         >>> tool_messages = parse_tool_calls_from_trace(trace)
         >>> # Returns: [{"role": "tool", "content": "Tool: name\\nInputs: ...\\nOutputs: ..."}]
     """
-<<<<<<< HEAD
-    from mlflow.entities.span import SpanType
-
-    tool_messages = []
-    tool_spans = [span for span in trace.data.spans if span.span_type == SpanType.TOOL]
-=======
 
     tool_messages = []
     tool_spans = trace.search_spans(span_type=SpanType.TOOL)
->>>>>>> master
 
     for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
         tool_info = f"Tool: {tool_span.name}"

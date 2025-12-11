@@ -31,11 +31,11 @@ from mlflow.genai.judges.prompts.conversation_completeness import (
     CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
     CONVERSATION_COMPLETENESS_PROMPT,
 )
+from mlflow.genai.judges.prompts.conversational_role_adherence import (
+    CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME,
+    CONVERSATIONAL_ROLE_ADHERENCE_PROMPT,
+)
 from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
-<<<<<<< HEAD
-from mlflow.genai.judges.prompts import conversational_role_adherence
-=======
->>>>>>> master
 from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME,
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT,
@@ -1955,23 +1955,15 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
     Conversational role adherence evaluates whether an AI assistant maintains its assigned
     role throughout a conversation.
 
-    This scorer analyzes the assistant's responses for role adherence concerns including:
-
-    - Persona consistency (maintaining personality, tone, and character)
-    - Knowledge boundaries (staying within defined expertise)
-    - Behavioral adherence (following role-implied guidelines)
-    - Role acknowledgment (correctly identifying itself when asked)
-    - Boundary maintenance (refusing or redirecting out-of-scope requests)
-
-    Note: User messages containing out-of-scope requests do not make a conversation
-    non-adherent. Only the assistant's actual responses are evaluated.
+    This scorer analyzes the complete conversation to evaluate whether the assistant
+    adheres to its defined role as specified in the system message, or implicitly
+    maintains a consistent persona throughout the interaction.
 
     You can invoke the scorer directly with a session for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
     Args:
         name: The name of the scorer. Defaults to "conversational_role_adherence".
-        role_description: Description of the role the assistant should maintain.
         model: {{ model }}
 
     Example (direct usage):
@@ -1988,9 +1980,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
             return_type="list",
         )
 
-        assessment = ConversationalRoleAdherence(
-            role_description="A helpful cooking assistant that provides recipes."
-        )(session=session)
+        assessment = ConversationalRoleAdherence()(session=session)
         print(assessment)  # Feedback with value "yes" or "no"
 
     Example (with evaluate):
@@ -2005,27 +1995,15 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
             filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
             return_type="list",
         )
-        result = mlflow.genai.evaluate(
-            data=session,
-            scorers=[
-                ConversationalRoleAdherence(
-                    role_description="A customer service agent for a tech company."
-                )
-            ]
-        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalRoleAdherence()])
     """
 
-    name: str = "conversational_role_adherence"
-    role_description: str = ""
+    name: str = CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME
     model: str | None = None
     description: str = (
         "Evaluate whether an AI assistant maintains its assigned role throughout "
         "a conversation, checking for persona consistency and boundary violations."
     )
-
-    def __init__(self, /, role_description: str = "", **kwargs):
-        super().__init__(**kwargs)
-        self.role_description = role_description
 
     def _create_judge(self) -> InstructionsJudge:
         return InstructionsJudge(
@@ -2039,7 +2017,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
 
     @property
     def instructions(self) -> str:
-        return conversational_role_adherence.get_prompt(role_description=self.role_description)
+        return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
 
 
 @experimental(version="3.7.0")

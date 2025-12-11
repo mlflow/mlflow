@@ -1607,10 +1607,12 @@ def test_conversational_tool_call_efficiency_instructions():
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []
-    for i, (q, a) in enumerate([
-        ("What can you cook?", "I can help you make many dishes!"),
-        ("How do I make soup?", "Start by boiling vegetables..."),
-    ]):
+    for i, (q, a) in enumerate(
+        [
+            ("What can you cook?", "I can help you make many dishes!"),
+            ("How do I make soup?", "Start by boiling vegetables..."),
+        ]
+    ):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": q})
             span.set_outputs(a)
@@ -1626,9 +1628,7 @@ def test_conversational_role_adherence_with_session():
             rationale="Role maintained across session.",
         )
 
-        scorer = ConversationalRoleAdherence(
-            role_description="A cooking assistant."
-        )
+        scorer = ConversationalRoleAdherence()
         result = scorer(session=traces)
 
         assert result.name == "conversational_role_adherence"
@@ -1637,17 +1637,18 @@ def test_conversational_role_adherence_with_session():
 
 
 def test_conversational_role_adherence_get_input_fields():
-    scorer = ConversationalRoleAdherence(role_description="A test role.")
+    scorer = ConversationalRoleAdherence()
     fields = scorer.get_input_fields()
     field_names = [field.name for field in fields]
     assert field_names == ["session"]
 
 
 def test_conversational_role_adherence_instructions():
-    scorer = ConversationalRoleAdherence(role_description="A test role.")
+    scorer = ConversationalRoleAdherence()
     instructions = scorer.instructions
     assert "role" in instructions.lower()
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
+
 
 def test_session_level_scorer_with_invalid_kwargs():
     scorer = UserFrustration()
