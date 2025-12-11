@@ -481,6 +481,22 @@ def _validate_static_prefix(ctx, param, value):
         "When exceeded, least recently used entries are evicted. "
         "Range: 1-10000 entries."
     ),
+@click.option(
+    "--gc-interval",
+    envvar="MLFLOW_GC_INTERVAL_SECONDS",
+    default=None,
+    type=int,
+    help=(
+        "Interval in seconds at which the server performs garbage collection of "
+        "deleted runs and experiments."
+    ),
+)
+@click.option(
+    "--gc-older-than",
+    envvar="MLFLOW_GC_OLDER_THAN",
+    default=None,
+    help=("Only delete runs and experiments older than this age. Format: '1d2h3m4s'."),
+),
 )
 def server(
     ctx,
@@ -506,6 +522,8 @@ def server(
     uvicorn_opts,
     secrets_cache_ttl,
     secrets_cache_max_size,
+    gc_interval,
+    gc_older_than,
 ):
     """
     Run the MLflow tracking server with built-in security middleware.
@@ -641,6 +659,8 @@ def server(
             env_file=env_file,
             secrets_cache_ttl=secrets_cache_ttl,
             secrets_cache_max_size=secrets_cache_max_size,
+            gc_interval=gc_interval,
+            gc_older_than=gc_older_than,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
