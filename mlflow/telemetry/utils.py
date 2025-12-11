@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Any
 
+import requests
 from packaging.version import Version
 
 from mlflow.environment_variables import (
@@ -114,8 +115,6 @@ def _log_error(message: str) -> None:
 
 
 def fetch_ui_telemetry_config() -> dict[str, Any] | None:
-    import requests
-
     # Check if telemetry is disabled
     if is_telemetry_disabled():
         return FALLBACK_UI_CONFIG
