@@ -4707,6 +4707,9 @@ def post_ui_telemetry_handler():
         if not data:
             return jsonify({"status": "success"})
 
+        if (client := get_telemetry_client()) is None:
+            return jsonify({"status": "disabled"})
+
         # check cached config to see if telemetry is disabled
         # if so, don't process the records. we don't rely on the
         # config from the telemetry client because it is only fetched
@@ -4730,9 +4733,7 @@ def post_ui_telemetry_handler():
             for event in data
         ]
 
-        # Add record to telemetry client
-        if client := get_telemetry_client():
-            client.add_records(records)
+        client.add_records(records)
 
         return jsonify({"status": "success"})
     except Exception as e:

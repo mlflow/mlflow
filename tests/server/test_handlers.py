@@ -151,6 +151,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
@@ -2557,7 +2558,7 @@ def test_get_ui_telemetry_handler(
     }
 
     with mock.patch(
-        "mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config
+        "mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config
     ) as mock_fetch:
         response = get_ui_telemetry_handler()
 
@@ -2593,7 +2594,7 @@ def test_get_ui_telemetry_handler_disabled_by_config(
     }
 
     with mock.patch(
-        "mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config
+        "mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config
     ) as mock_fetch:
         response = get_ui_telemetry_handler()
         assert response is not None
@@ -2612,7 +2613,7 @@ def test_get_ui_telemetry_handler_disabled_by_env(
     test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check, monkeypatch
 ):
     monkeypatch.setenv("DO_NOT_TRACK", "true")
-    with mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config") as mock_fetch:
+    with mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config") as mock_fetch:
         response = get_ui_telemetry_handler()
         assert response is not None
         assert response.status_code == 200
@@ -2685,8 +2686,8 @@ def test_post_ui_telemetry_handler_success(
         test_app.test_request_context(
             "/ui-telemetry", method="POST", data=request, content_type="application/json"
         ),
-        mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config),
-        mock.patch("mlflow.telemetry.get_telemetry_client", return_value=mock_client),
+        mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
+        mock.patch("mlflow.server.handlers.get_telemetry_client", return_value=mock_client),
     ):
         response = post_ui_telemetry_handler()
 
@@ -2696,7 +2697,11 @@ def test_post_ui_telemetry_handler_success(
         response_data = json.loads(response.get_data())
 
         assert response_data["status"] == "success"
-        assert mock_client.add_record.call_count == 2
+        assert mock_client.add_records.call_count == 1
+        assert mock_client.add_records.call_args[0][0] == [
+            Record(**event1, duration_ms=0, status=Status.SUCCESS),
+            Record(**event2, duration_ms=0, status=Status.SUCCESS),
+        ]
 
 
 def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
@@ -2720,8 +2725,8 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
         test_app.test_request_context(
             "/ui-telemetry", method="POST", data=request, content_type="application/json"
         ),
-        mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config", return_value=config),
-        mock.patch("mlflow.telemetry.get_telemetry_client", return_value=mock_client),
+        mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
+        mock.patch("mlflow.server.handlers.get_telemetry_client", return_value=mock_client),
     ):
         response = post_ui_telemetry_handler()
 
@@ -2743,8 +2748,8 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
         test_app.test_request_context(
             "/ui-telemetry", method="POST", data=request, content_type="application/json"
         ),
-        mock.patch("mlflow.telemetry.utils.fetch_ui_telemetry_config") as mock_fetch,
-        mock.patch("mlflow.telemetry.get_telemetry_client") as mock_get_client,
+        mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config") as mock_fetch,
+        mock.patch("mlflow.server.handlers.get_telemetry_client") as mock_get_client,
     ):
         response = post_ui_telemetry_handler()
 
