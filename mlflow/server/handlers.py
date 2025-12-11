@@ -217,6 +217,13 @@ from mlflow.store.model_registry.abstract_store import AbstractStore as Abstract
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.telemetry import get_telemetry_client
+from mlflow.telemetry.schemas import Record, Status
+from mlflow.telemetry.utils import (
+    FALLBACK_UI_CONFIG,
+    fetch_ui_telemetry_config,
+    is_telemetry_disabled,
+)
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -4675,26 +4682,23 @@ def _get_dataset_records_handler(dataset_id):
 _telemetry_config_cache = TTLCache(maxsize=1, ttl=3600)
 
 
+def _get_or_fetch_ui_telemetry_config():
+    if (config := _telemetry_config_cache.get("config")) is None:
+        config = fetch_ui_telemetry_config()
+        _telemetry_config_cache["config"] = config
+    return config
+
+
 @catch_mlflow_exception
 def get_ui_telemetry_handler():
     """
     GET handler for /telemetry endpoint.
     Returns the telemetry client configuration by fetching it directly.
     """
-    from mlflow.telemetry.utils import (
-        FALLBACK_UI_CONFIG,
-        fetch_ui_telemetry_config,
-        is_telemetry_disabled,
-    )
-
     if is_telemetry_disabled():
         return jsonify(FALLBACK_UI_CONFIG)
 
-    if "config" in _telemetry_config_cache:
-        config = _telemetry_config_cache["config"]
-    else:
-        config = fetch_ui_telemetry_config()
-        _telemetry_config_cache["config"] = config
+    config = _get_or_fetch_ui_telemetry_config()
 
     # UI telemetry should be also disabled if overall telemetry is disabled
     disable_ui_telemetry = config.get("disable_ui_telemetry", True) or config.get(
@@ -4714,49 +4718,50 @@ def post_ui_telemetry_handler():
     POST handler for /telemetry endpoint.
     Accepts telemetry records and adds them to the telemetry client.
     """
-    from mlflow.telemetry import get_telemetry_client
-    from mlflow.telemetry.schemas import Record, Status
-    from mlflow.telemetry.utils import fetch_ui_telemetry_config, is_telemetry_disabled
+    try:
+        if is_telemetry_disabled():
+            return jsonify({"status": "disabled"})
 
-    if is_telemetry_disabled():
+        data = request.json.get("records", [])
+
+        if not data:
+            return jsonify({"status": "success"})
+
+        # check cached config to see if telemetry is disabled
+        # if so, don't process the records. we don't rely on the
+        # config from the telemetry client because it is only fetched
+        # once, so it won't be updated unless the server is restarted.
+        config = _get_or_fetch_ui_telemetry_config()
+
+        # if updated telemetry config is disabled / missing, tell the UI to stop sending records
+        if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
+            return jsonify({"status": "disabled"})
+
+        records = [
+            Record(
+                event_name=event["event_name"],
+                timestamp_ns=event["timestamp_ns"],
+                params=event["params"],
+                status=Status.SUCCESS,
+                installation_id=event["installation_id"],
+                session_id=event["session_id"],
+                duration_ms=0,
+            )
+            for event in data
+        ]
+
+        # Add record to telemetry client
+        if client := get_telemetry_client():
+            client.add_records(records)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        _logger.debug(f"Failed to process UI telemetry records: {e}")
+        # if we run into unexpected errors, likely something is wrong
+        # with the data format. if we return success, the UI will continue
+        # to send records. if we return an error, the UI will retry sending
+        # records. the safest thing to do is to tell the UI to stop sending
         return jsonify({"status": "disabled"})
-
-    data = request.json.get("records", [])
-
-    # check cached config to see if telemetry is disabled
-    # if so, don't process the records. we don't rely on the
-    # config from the telemetry client because it is only fetched
-    # once, so it won't be updated unless the server is restarted.
-    if "config" in _telemetry_config_cache:
-        config = _telemetry_config_cache["config"]
-    else:
-        config = fetch_ui_telemetry_config()
-        _telemetry_config_cache["config"] = config
-
-    # if updated telemetry config is disabled / missing, tell the UI to stop sending records
-    if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
-        return jsonify({"status": "disabled"})
-
-    records = [
-        Record(
-            event_name=event["event_name"],
-            timestamp_ns=event["timestamp_ns"],
-            params=event["params"],
-            status=Status.SUCCESS,
-            installation_id=event["installation_id"],
-            session_id=event["session_id"],
-            duration_ms=0,
-        )
-        for event in data
-    ]
-
-    # Add record to telemetry client
-    client = get_telemetry_client()
-    if client is not None:
-        for record in records:
-            client.add_record(record)
-
-    return jsonify({"status": "success"})
 
 
 HANDLERS = {
