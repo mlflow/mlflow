@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import ClassVar
 
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
+from mlflow.utils.annotations import experimental
 
 
+@experimental(version="3.8.0")
 class AnswerRelevancy(DeepEvalScorer):
     """
     Evaluates whether the output is relevant to the input.
@@ -36,6 +38,7 @@ class AnswerRelevancy(DeepEvalScorer):
     metric_name: ClassVar[str] = "AnswerRelevancy"
 
 
+@experimental(version="3.8.0")
 class Faithfulness(DeepEvalScorer):
     """
     Evaluates whether the output is factually consistent with the retrieval context.
@@ -61,6 +64,7 @@ class Faithfulness(DeepEvalScorer):
     metric_name: ClassVar[str] = "Faithfulness"
 
 
+@experimental(version="3.8.0")
 class ContextualRecall(DeepEvalScorer):
     """
     Evaluates whether the retrieval context contains all necessary information.
@@ -86,6 +90,7 @@ class ContextualRecall(DeepEvalScorer):
     metric_name: ClassVar[str] = "ContextualRecall"
 
 
+@experimental(version="3.8.0")
 class ContextualPrecision(DeepEvalScorer):
     """
     Evaluates whether relevant nodes in the retrieval context are ranked higher than
@@ -114,6 +119,7 @@ class ContextualPrecision(DeepEvalScorer):
     metric_name: ClassVar[str] = "ContextualPrecision"
 
 
+@experimental(version="3.8.0")
 class ContextualRelevancy(DeepEvalScorer):
     """
     Evaluates the overall relevance of information in the retrieval context.

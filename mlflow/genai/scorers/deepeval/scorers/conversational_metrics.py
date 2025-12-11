@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import ClassVar
 
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
+from mlflow.utils.annotations import experimental
 
 
+@experimental(version="3.8.0")
 class TurnRelevancy(DeepEvalScorer):
     """
     Evaluates the relevance of each conversation turn.
@@ -35,6 +37,7 @@ class TurnRelevancy(DeepEvalScorer):
     metric_name: ClassVar[str] = "TurnRelevancy"
 
 
+@experimental(version="3.8.0")
 class RoleAdherence(DeepEvalScorer):
     """
     Evaluates whether the agent stays in character throughout the conversation.
@@ -63,6 +66,7 @@ class RoleAdherence(DeepEvalScorer):
     metric_name: ClassVar[str] = "RoleAdherence"
 
 
+@experimental(version="3.8.0")
 class KnowledgeRetention(DeepEvalScorer):
     """
     Evaluates the chatbot's ability to retain and use information from earlier in the conversation.
@@ -92,6 +96,7 @@ class KnowledgeRetention(DeepEvalScorer):
     metric_name: ClassVar[str] = "KnowledgeRetention"
 
 
+@experimental(version="3.8.0")
 class ConversationCompleteness(DeepEvalScorer):
     """
     Evaluates whether the conversation satisfies the user's needs and goals.
@@ -122,6 +127,7 @@ class ConversationCompleteness(DeepEvalScorer):
     metric_name: ClassVar[str] = "ConversationCompleteness"
 
 
+@experimental(version="3.8.0")
 class GoalAccuracy(DeepEvalScorer):
     """
     Evaluates the accuracy of achieving conversation goals in a multi-turn context.
@@ -151,6 +157,7 @@ class GoalAccuracy(DeepEvalScorer):
     metric_name: ClassVar[str] = "GoalAccuracy"
 
 
+@experimental(version="3.8.0")
 class ToolUse(DeepEvalScorer):
     """
     Evaluates the effectiveness of tool usage throughout a conversation.
@@ -180,6 +187,7 @@ class ToolUse(DeepEvalScorer):
     metric_name: ClassVar[str] = "ToolUse"
 
 
+@experimental(version="3.8.0")
 class TopicAdherence(DeepEvalScorer):
     """
     Evaluates adherence to specified topics throughout a conversation.

@@ -37,9 +37,11 @@ from mlflow.genai.scorers.deepeval.scorers.safety_metrics import (
     RoleViolation,
     Toxicity,
 )
+from mlflow.utils.annotations import experimental
 
 
 # General-purpose metrics
+@experimental(version="3.8.0")
 class Hallucination(DeepEvalScorer):
     """
     Detects hallucinations where the LLM fabricates information not present in the context.
@@ -59,6 +61,7 @@ class Hallucination(DeepEvalScorer):
     metric_name: ClassVar[str] = "Hallucination"
 
 
+@experimental(version="3.8.0")
 class Summarization(DeepEvalScorer):
     """
     Evaluates the quality and accuracy of text summarization.
@@ -78,6 +81,7 @@ class Summarization(DeepEvalScorer):
     metric_name: ClassVar[str] = "Summarization"
 
 
+@experimental(version="3.8.0")
 class JsonCorrectness(DeepEvalScorer):
     """
     Validates JSON output against an expected schema.
@@ -102,6 +106,7 @@ class JsonCorrectness(DeepEvalScorer):
     metric_name: ClassVar[str] = "JsonCorrectness"
 
 
+@experimental(version="3.8.0")
 class PromptAlignment(DeepEvalScorer):
     """
     Measures how well the output aligns with instructions given in the prompt.
@@ -121,6 +126,7 @@ class PromptAlignment(DeepEvalScorer):
     metric_name: ClassVar[str] = "PromptAlignment"
 
 
+@experimental(version="3.8.0")
 class ExactMatch(DeepEvalScorer):
     """
     Performs exact string matching between output and expected output.
@@ -153,6 +159,7 @@ class ExactMatch(DeepEvalScorer):
         )
 
 
+@experimental(version="3.8.0")
 class PatternMatch(DeepEvalScorer):
     """
     Performs regex pattern matching on the output.

@@ -25,6 +25,7 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import get_metric_class, is_deterministic_metric
 from mlflow.genai.scorers.deepeval.utils import map_scorer_inputs_to_deepeval_test_case
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -229,4 +230,5 @@ __all__ = [
     # Deterministic metrics
     "ExactMatch",
     "PatternMatch",
+    "experimental",
 ]

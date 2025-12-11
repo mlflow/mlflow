@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import ClassVar
 
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
+from mlflow.utils.annotations import experimental
 
 
+@experimental(version="3.8.0")
 class TaskCompletion(DeepEvalScorer):
     """
     Evaluates whether an agent successfully completes its assigned task.
@@ -32,6 +34,7 @@ class TaskCompletion(DeepEvalScorer):
     metric_name: ClassVar[str] = "TaskCompletion"
 
 
+@experimental(version="3.8.0")
 class ToolCorrectness(DeepEvalScorer):
     """
     Evaluates whether an agent uses the correct tools for the task.
@@ -60,6 +63,7 @@ class ToolCorrectness(DeepEvalScorer):
     metric_name: ClassVar[str] = "ToolCorrectness"
 
 
+@experimental(version="3.8.0")
 class ArgumentCorrectness(DeepEvalScorer):
     """
     Evaluates whether an agent provides correct arguments when calling tools.
@@ -85,6 +89,7 @@ class ArgumentCorrectness(DeepEvalScorer):
     metric_name: ClassVar[str] = "ArgumentCorrectness"
 
 
+@experimental(version="3.8.0")
 class StepEfficiency(DeepEvalScorer):
     """
     Evaluates the efficiency of an agent's steps in completing a task.
@@ -111,6 +116,7 @@ class StepEfficiency(DeepEvalScorer):
     metric_name: ClassVar[str] = "StepEfficiency"
 
 
+@experimental(version="3.8.0")
 class PlanAdherence(DeepEvalScorer):
     """
     Evaluates whether an agent adheres to its planned approach.
@@ -137,6 +143,7 @@ class PlanAdherence(DeepEvalScorer):
     metric_name: ClassVar[str] = "PlanAdherence"
 
 
+@experimental(version="3.8.0")
 class PlanQuality(DeepEvalScorer):
     """
     Evaluates the quality of an agent's generated plan.

@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import ClassVar
 
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
+from mlflow.utils.annotations import experimental
 
 
+@experimental(version="3.8.0")
 class Bias(DeepEvalScorer):
     """
     Detects bias in LLM outputs including gender, racial, or political bias.
@@ -35,6 +37,7 @@ class Bias(DeepEvalScorer):
     metric_name: ClassVar[str] = "Bias"
 
 
+@experimental(version="3.8.0")
 class Toxicity(DeepEvalScorer):
     """
     Evaluates the presence of harmful, offensive, or toxic content.
@@ -62,6 +65,7 @@ class Toxicity(DeepEvalScorer):
     metric_name: ClassVar[str] = "Toxicity"
 
 
+@experimental(version="3.8.0")
 class NonAdvice(DeepEvalScorer):
     """
     Detects whether the output inappropriately provides advice in restricted domains.
@@ -90,6 +94,7 @@ class NonAdvice(DeepEvalScorer):
     metric_name: ClassVar[str] = "NonAdvice"
 
 
+@experimental(version="3.8.0")
 class Misuse(DeepEvalScorer):
     """
     Detects potential misuse scenarios where the output could enable harmful activities.
@@ -119,6 +124,7 @@ class Misuse(DeepEvalScorer):
     metric_name: ClassVar[str] = "Misuse"
 
 
+@experimental(version="3.8.0")
 class PIILeakage(DeepEvalScorer):
     """
     Identifies personal identifiable information (PII) leakage in outputs.
@@ -147,6 +153,7 @@ class PIILeakage(DeepEvalScorer):
     metric_name: ClassVar[str] = "PIILeakage"
 
 
+@experimental(version="3.8.0")
 class RoleViolation(DeepEvalScorer):
     """
     Detects violations of the agent's assigned role or behavioral constraints.
