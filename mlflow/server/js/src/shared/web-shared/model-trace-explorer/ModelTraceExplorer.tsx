@@ -46,9 +46,9 @@ export const ModelTraceExplorerImpl = ({
   const size = getModelTraceSize(initialModelTrace) ?? 0;
   // always displayable if the feature flag is disabled
   const isDisplayable = shouldBlockLargeTraceDisplay() ? size < getLargeTraceDisplaySizeThreshold() : true;
+  const spanLength = initialModelTrace.data?.spans?.length ?? 0;
   const [assessmentsPaneEnabled, setAssessmentsPaneEnabled] = useState(traceId.startsWith('tr-'));
   const [isMountingTrace, setIsMountingTrace] = useState(true);
-  const spanLength = initialModelTrace.data?.spans?.length ?? 0;
 
   const { isFetching } = useGetModelTraceInfo({
     traceId,
