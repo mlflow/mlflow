@@ -481,8 +481,9 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         # If dual export is set AND we have already added a set_destination processor, return.
         # If dual export is set but no set_destination processor added, skip return and go
         # to default processing to catch the default processor, if present.
-        if ((not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or
-                any(not isinstance(p, OtelSpanProcessor) for p in processors)):
+        if (not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or any(
+            not isinstance(p, OtelSpanProcessor) for p in processors
+        ):
             return processors
     # Finally, default MLflow-based processors (inference table in serving, else tracking URI).
     if is_in_databricks_model_serving_environment():
