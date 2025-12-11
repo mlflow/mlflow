@@ -15,11 +15,26 @@ To inspect per-row evaluation results, open the **Traces** tab on the run overvi
 
 ## How to change the concurrency of the evaluation?
 
-MLflow uses a thread pool to run the predict function and scorers in parallel. Configure the number of workers by setting the `MLFLOW_GENAI_EVAL_MAX_WORKERS` environment variable (default: `10`).
+MLflow uses thread pools to run the predict function and scorers in parallel. You can configure concurrency at two levels:
+
+**1. Data-level concurrency:** Controls how many data items are evaluated in parallel.
 
 ```bash
+# Limit concurrent data items being evaluated (default: 10)
 export MLFLOW_GENAI_EVAL_MAX_WORKERS=5
 ```
+
+**2. Scorer-level concurrency:** Controls how many scorers run in parallel for each data item. The actual number of scorer workers will not exceed the number of scorers being used.
+
+```bash
+# Limit concurrent scorer execution (default: 10)
+export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS=2
+
+# For strict rate limiting, run scorers sequentially
+export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS=1
+```
+
+The total maximum concurrent API calls is approximately `MLFLOW_GENAI_EVAL_MAX_WORKERS × min(MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS, num_scorers)`. Adjust these values based on your LLM provider's rate limits, especially when using free tiers.
 
 ## Can I use async functions as predict_fn?
 
