@@ -1,4 +1,13 @@
-export const COMMON_PROVIDERS = ['openai', 'anthropic', 'bedrock', 'gemini', 'azure', 'groq', 'databricks'] as const;
+export const COMMON_PROVIDERS = [
+  'openai',
+  'anthropic',
+  'bedrock',
+  'gemini',
+  'azure',
+  'groq',
+  'databricks',
+  'xai',
+] as const;
 
 export function groupProviders(providers: string[]): {
   common: string[];
@@ -32,6 +41,7 @@ export function formatProviderName(provider: string): string {
     azure: 'Azure OpenAI',
     groq: 'Groq',
     databricks: 'Databricks',
+    xai: 'xAI',
     cohere: 'Cohere',
     mistral: 'Mistral AI',
     together_ai: 'Together AI',
@@ -65,4 +75,36 @@ export function formatAuthMethodName(authMethod: string): string {
     pat: 'Personal Access Token',
   };
   return formatMap[authMethod] ?? authMethod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Formats a credential field name for display.
+ * Maps internal field names (e.g., "api_key", "aws_access_key_id") to human-readable labels.
+ */
+export function formatCredentialFieldName(fieldName: string): string {
+  const formatMap: Record<string, string> = {
+    // Common API keys
+    api_key: 'API Key',
+    // AWS credentials
+    aws_access_key_id: 'AWS Access Key ID',
+    aws_secret_access_key: 'AWS Secret Access Key',
+    aws_session_token: 'AWS Session Token',
+    aws_region_name: 'AWS Region',
+    aws_role_name: 'AWS Role Name',
+    aws_session_name: 'AWS Session Name',
+    // Azure credentials
+    client_secret: 'Client Secret',
+    client_id: 'Client ID',
+    tenant_id: 'Tenant ID',
+    api_base: 'API Base URL',
+    api_version: 'API Version',
+    // Google/Vertex credentials
+    vertex_credentials: 'Service Account Credentials',
+    vertex_project: 'Project ID',
+    vertex_location: 'Location',
+    // Databricks
+    databricks_token: 'Databricks Token',
+    databricks_host: 'Databricks Host',
+  };
+  return formatMap[fieldName] ?? fieldName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }

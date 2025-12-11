@@ -18,18 +18,19 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useBindingsQuery } from '../../hooks/useBindingsQuery';
+import { useModelDefinitionsQuery } from '../../hooks/useModelDefinitionsQuery';
 import { formatProviderName } from '../../utils/providerUtils';
 import { timestampToDate } from '../../utils/dateUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { ApiKeysFilterButton, type ApiKeysFilter } from './ApiKeysFilterButton';
 import { ApiKeysColumnsButton, ApiKeysColumn, DEFAULT_VISIBLE_COLUMNS } from './ApiKeysColumnsButton';
-import type { SecretInfo, Endpoint, EndpointBinding } from '../../types';
+import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../../types';
 import { useCallback, useMemo, useState } from 'react';
 
 interface ApiKeysListProps {
   onKeyClick?: (secret: SecretInfo) => void;
   onEditClick?: (secret: SecretInfo) => void;
-  onDeleteClick?: (secret: SecretInfo, endpoints: Endpoint[], bindingCount: number) => void;
+  onDeleteClick?: (secret: SecretInfo, modelDefinitions: ModelDefinition[], bindingCount: number) => void;
   onEndpointsClick?: (secret: SecretInfo, endpoints: Endpoint[]) => void;
   onBindingsClick?: (secret: SecretInfo, bindings: EndpointBinding[]) => void;
 }
@@ -45,12 +46,31 @@ export const ApiKeysList = ({
   const { formatMessage } = useIntl();
   const { data: secrets, isLoading: isLoadingSecrets } = useSecretsQuery();
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
+  const { data: modelDefinitions, isLoading: isLoadingModelDefinitions } = useModelDefinitionsQuery();
   const { data: bindings, isLoading: isLoadingBindings } = useBindingsQuery();
   const [searchFilter, setSearchFilter] = useState('');
   const [filter, setFilter] = useState<ApiKeysFilter>({ providers: [] });
   const [visibleColumns, setVisibleColumns] = useState<ApiKeysColumn[]>(DEFAULT_VISIBLE_COLUMNS);
 
-  // Compute how many endpoints use each secret
+  // Map secrets to model definitions that use them (direct relationship via secret_id)
+  const secretModelDefinitionsMap = useMemo(() => {
+    const map = new Map<string, ModelDefinition[]>();
+    if (!modelDefinitions) return map;
+
+    modelDefinitions.forEach((modelDef: ModelDefinition) => {
+      const secretId = modelDef.secret_id;
+      if (secretId) {
+        if (!map.has(secretId)) {
+          map.set(secretId, []);
+        }
+        map.get(secretId)!.push(modelDef);
+      }
+    });
+
+    return map;
+  }, [modelDefinitions]);
+
+  // Compute how many endpoints use each secret (still needed for bindings calculation)
   const secretEndpointMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
     if (!endpoints) return map;
@@ -114,6 +134,17 @@ export const ApiKeysList = ({
     [bindings, secretEndpointMap],
   );
 
+  // Get all endpoints for a specific secret
+  const getEndpointsForSecret = useCallback(
+    (secretId: string): Endpoint[] => {
+      if (!endpoints) return [];
+      const endpointIds = secretEndpointMap.get(secretId);
+      if (!endpointIds) return [];
+      return endpoints.filter((endpoint) => endpointIds.has(endpoint.endpoint_id));
+    },
+    [endpoints, secretEndpointMap],
+  );
+
   // Get all unique providers for the filter dropdown
   const availableProviders = useMemo(() => {
     if (!secrets) return [];
@@ -144,11 +175,20 @@ export const ApiKeysList = ({
     return filtered;
   }, [secrets, searchFilter, filter]);
 
-  const isLoading = isLoadingSecrets || isLoadingEndpoints || isLoadingBindings;
+  const isLoading = isLoadingSecrets || isLoadingEndpoints || isLoadingModelDefinitions || isLoadingBindings;
 
-  if (isLoading) {
+  if (isLoading || !secrets) {
     return (
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, padding: theme.spacing.md }}>
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: theme.spacing.sm,
+          padding: theme.spacing.lg,
+          minHeight: 200,
+        }}
+      >
         <Spinner size="small" />
         <FormattedMessage defaultMessage="Loading API keys..." description="Loading message for API keys list" />
       </div>
@@ -180,7 +220,7 @@ export const ApiKeysList = ({
           componentId="mlflow.gateway.api-keys-list.search"
           prefix={<SearchIcon />}
           placeholder={formatMessage({
-            defaultMessage: 'Search keys',
+            defaultMessage: 'Search API Keys',
             description: 'Placeholder for API key search filter',
           })}
           value={searchFilter}
@@ -245,6 +285,7 @@ export const ApiKeysList = ({
             />
           </TableRow>
           {filteredSecrets.map((secret) => {
+            const secretModels = secretModelDefinitionsMap.get(secret.secret_id) ?? [];
             const endpointCount = secretEndpointMap.get(secret.secret_id)?.size ?? 0;
             const bindingCount = secretBindingMap.get(secret.secret_id) ?? 0;
 
@@ -290,16 +331,10 @@ export const ApiKeysList = ({
                       <span
                         role="button"
                         tabIndex={0}
-                        onClick={() => {
-                          const endpointIds = secretEndpointMap.get(secret.secret_id);
-                          const secretEndpoints = endpoints?.filter((e) => endpointIds?.has(e.endpoint_id)) ?? [];
-                          onEndpointsClick?.(secret, secretEndpoints);
-                        }}
+                        onClick={() => onEndpointsClick?.(secret, getEndpointsForSecret(secret.secret_id))}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
-                            const endpointIds = secretEndpointMap.get(secret.secret_id);
-                            const secretEndpoints = endpoints?.filter((ep) => endpointIds?.has(ep.endpoint_id)) ?? [];
-                            onEndpointsClick?.(secret, secretEndpoints);
+                            onEndpointsClick?.(secret, getEndpointsForSecret(secret.secret_id));
                           }
                         }}
                         css={{
@@ -366,7 +401,7 @@ export const ApiKeysList = ({
                       icon={<PencilIcon />}
                       aria-label={formatMessage({
                         defaultMessage: 'Edit API key',
-                        description: 'Edit API key button aria label',
+                        description: 'Gateway > API keys list > Edit API key button aria label',
                       })}
                       onClick={() => onEditClick?.(secret)}
                     />
@@ -376,13 +411,9 @@ export const ApiKeysList = ({
                       icon={<TrashIcon />}
                       aria-label={formatMessage({
                         defaultMessage: 'Delete API key',
-                        description: 'Delete API key button aria label',
+                        description: 'Gateway > API keys list > Delete API key button aria label',
                       })}
-                      onClick={() => {
-                        const endpointIds = secretEndpointMap.get(secret.secret_id);
-                        const secretEndpoints = endpoints?.filter((e) => endpointIds?.has(e.endpoint_id)) ?? [];
-                        onDeleteClick?.(secret, secretEndpoints, bindingCount);
-                      }}
+                      onClick={() => onDeleteClick?.(secret, secretModels, bindingCount)}
                     />
                   </div>
                 </TableCell>

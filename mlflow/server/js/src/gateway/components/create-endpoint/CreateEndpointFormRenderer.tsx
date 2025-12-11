@@ -77,13 +77,24 @@ export const CreateEndpointFormRenderer = ({
           <Breadcrumb includeTrailingCaret>
             <Breadcrumb.Item>
               <Link to={GatewayRoutes.gatewayPageRoute}>
-                <FormattedMessage defaultMessage="Gateway" description="Breadcrumb link to gateway page" />
+                <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
+              </Link>
+            </Breadcrumb.Item>
+            <Breadcrumb.Item>
+              <Link to={GatewayRoutes.gatewayPageRoute}>
+                <FormattedMessage defaultMessage="Endpoints" description="Breadcrumb link to endpoints list" />
               </Link>
             </Breadcrumb.Item>
           </Breadcrumb>
           <Typography.Title level={2} css={{ marginTop: theme.spacing.sm }}>
             <FormattedMessage defaultMessage="Create endpoint" description="Page title for create endpoint" />
           </Typography.Title>
+          <div
+            css={{
+              marginTop: theme.spacing.md,
+              borderBottom: `1px solid ${theme.colors.border}`,
+            }}
+          />
         </div>
 
         {error && (
@@ -102,13 +113,12 @@ export const CreateEndpointFormRenderer = ({
           css={{
             flex: 1,
             display: 'flex',
-            gap: theme.spacing.lg,
+            gap: theme.spacing.md,
             padding: `0 ${theme.spacing.md}px`,
             overflow: 'auto',
             // Stack vertically on narrow screens
             '@media (max-width: 1023px)': {
               flexDirection: 'column',
-              gap: theme.spacing.md,
             },
           }}
         >
@@ -252,7 +262,7 @@ export const CreateEndpointFormRenderer = ({
                     <Controller
                       control={form.control}
                       name="modelDefinitionName"
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <div>
                           <FormUI.Label htmlFor="mlflow.gateway.create-endpoint.model-definition-name">
                             <FormattedMessage
@@ -271,7 +281,9 @@ export const CreateEndpointFormRenderer = ({
                               defaultMessage: 'Auto-generated if empty',
                               description: 'Placeholder for model definition name input',
                             })}
+                            validationState={fieldState.error ? 'error' : undefined}
                           />
+                          {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
                         </div>
                       )}
                     />
@@ -293,12 +305,12 @@ export const CreateEndpointFormRenderer = ({
               </div>
             </LongFormSection>
 
-            {/* Authentication Section - only show when creating new model definition */}
+            {/* Connections Section - only show when creating new model definition */}
             {modelDefinitionMode === 'new' && (
               <LongFormSection
                 titleWidth={LONG_FORM_TITLE_WIDTH}
                 title={intl.formatMessage({
-                  defaultMessage: 'Authentication',
+                  defaultMessage: 'Connections',
                   description: 'Section title for authentication',
                 })}
               >
@@ -383,10 +395,10 @@ export const CreateEndpointFormRenderer = ({
                   )}
                 </div>
 
-                {/* Authentication */}
+                {/* Connections */}
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                   <Typography.Text bold color="secondary">
-                    <FormattedMessage defaultMessage="Authentication" description="Summary secret label" />
+                    <FormattedMessage defaultMessage="Connections" description="Summary connections label" />
                   </Typography.Text>
                   {modelDefinitionMode === 'existing' ? (
                     selectedModelDefinition ? (

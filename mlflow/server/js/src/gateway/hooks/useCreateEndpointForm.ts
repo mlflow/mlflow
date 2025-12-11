@@ -1,11 +1,14 @@
 import { useForm } from 'react-hook-form';
+import { useState, useCallback } from 'react';
 import { useNavigate } from '../../common/utils/RoutingUtils';
+import { useQueryClient } from '../../common/utils/reactQueryHooks';
 import { useCreateEndpointMutation } from './useCreateEndpointMutation';
 import { useCreateSecretMutation } from './useCreateSecretMutation';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useModelDefinitionsQuery } from './useModelDefinitionsQuery';
 import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
+import { GatewayApi } from '../api';
 import GatewayRoutes from '../routes';
 import type { SecretMode } from '../components/secrets/SecretConfigSection';
 
@@ -45,7 +48,9 @@ const isUniqueConstraintError = (message: string): boolean => {
     lowerMessage.includes('violation of unique key constraint') ||
     // Generic patterns
     lowerMessage.includes('uniqueviolation') ||
-    lowerMessage.includes('integrityerror')
+    lowerMessage.includes('integrityerror') ||
+    // User-friendly message from backend
+    lowerMessage.includes('already exists')
   );
 };
 
@@ -59,7 +64,20 @@ const isEndpointNameError = (message: string): boolean => {
 
 const isSecretNameError = (message: string): boolean => {
   const lowerMessage = message.toLowerCase();
-  return lowerMessage.includes('secrets.secret_name') || lowerMessage.includes('secret_name');
+  return (
+    lowerMessage.includes('secrets.secret_name') ||
+    lowerMessage.includes('secret_name') ||
+    lowerMessage.includes('secret with name')
+  );
+};
+
+const isModelDefinitionNameError = (message: string): boolean => {
+  const lowerMessage = message.toLowerCase();
+  return (
+    lowerMessage.includes('model_definitions.name') ||
+    lowerMessage.includes('model_definition_name') ||
+    lowerMessage.includes('model definition with name')
+  );
 };
 
 /**
@@ -75,7 +93,10 @@ export const getReadableErrorMessage = (error: Error | null): string | null => {
       return 'An endpoint with this name already exists. Please choose a different name.';
     }
     if (isSecretNameError(message)) {
-      return 'A secret with this name already exists. Please choose a different name or use an existing secret.';
+      return 'An API key with this name already exists. Please choose a different name or use an existing API key.';
+    }
+    if (isModelDefinitionNameError(message)) {
+      return 'A model definition with this name already exists. Please choose a different name.';
     }
     // Generic unique constraint fallback
     return 'A record with this value already exists. Please use a unique value.';
@@ -118,6 +139,7 @@ export interface UseCreateEndpointFormResult {
  */
 export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const form = useForm<CreateEndpointFormData>({
     defaultValues: {
@@ -162,14 +184,18 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     reset: resetModelDefinitionError,
   } = useCreateModelDefinitionMutation();
 
-  const resetErrors = () => {
+  // Custom error state for handling special cases like secret name conflicts
+  const [customError, setCustomError] = useState<Error | null>(null);
+
+  const resetErrors = useCallback(() => {
     resetEndpointError();
     resetSecretError();
     resetModelDefinitionError();
-  };
+    setCustomError(null);
+  }, [resetEndpointError, resetSecretError, resetModelDefinitionError]);
 
   const isLoading = isCreatingEndpoint || isCreatingSecret || isCreatingModelDefinition;
-  const error = (createEndpointError || createSecretError || createModelDefinitionError) as Error | null;
+  const error = (customError || createEndpointError || createSecretError || createModelDefinitionError) as Error | null;
 
   const handleSubmit = async (values: CreateEndpointFormData) => {
     try {
@@ -204,14 +230,42 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
         }
 
         // Create a model definition
-        const modelDefinitionResponse = await createModelDefinition({
-          name: values.modelDefinitionName || `${values.name || 'endpoint'}-${values.modelName}`,
-          secret_id: secretId,
-          provider: values.provider,
-          model_name: values.modelName,
-        });
+        try {
+          const modelDefinitionResponse = await createModelDefinition({
+            name: values.modelDefinitionName || `${values.name || 'endpoint'}-${values.modelName}`,
+            secret_id: secretId,
+            provider: values.provider,
+            model_name: values.modelName,
+          });
 
-        modelDefinitionId = modelDefinitionResponse.model_definition.model_definition_id;
+          modelDefinitionId = modelDefinitionResponse.model_definition.model_definition_id;
+        } catch (modelDefError) {
+          // If model definition creation failed due to name conflict, handle gracefully
+          const errorMessage = (modelDefError as Error)?.message ?? '';
+          const isModelDefNameConflict =
+            isUniqueConstraintError(errorMessage) && isModelDefinitionNameError(errorMessage);
+          if (!isModelDefNameConflict) {
+            throw modelDefError;
+          }
+          // If we just created a new secret, switch to using it as existing
+          if (values.secretMode === 'new' && secretId) {
+            form.setValue('secretMode', 'existing');
+            form.setValue('existingSecretId', secretId);
+            form.setValue('newSecret', { name: '', authMode: '', secretFields: {}, configFields: {} });
+            queryClient.invalidateQueries(['gateway_secrets']);
+          }
+          // Set error on the model definition name field
+          form.setError('modelDefinitionName', {
+            type: 'manual',
+            message: 'A model definition with this name already exists',
+          });
+          resetModelDefinitionError();
+          const secretNote = values.secretMode === 'new' ? ' Your API key was created and has been selected.' : '';
+          setCustomError(
+            new Error(`A model definition with this name already exists. Please choose a different name.${secretNote}`),
+          );
+          return;
+        }
       }
 
       // Create the endpoint with the model definition ID

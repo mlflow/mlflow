@@ -24,7 +24,10 @@ const EditEndpointPage = () => {
     mutationError,
     resetErrors,
     endpoint,
+    selectedModelDefinition,
+    hasProviderModelDefinitions,
     isFormComplete,
+    hasChanges,
     handleSubmit,
     handleCancel,
     handleNameBlur,
@@ -41,7 +44,10 @@ const EditEndpointPage = () => {
       resetErrors={resetErrors}
       endpointId={endpointId ?? ''}
       endpointName={endpoint?.name}
+      selectedModelDefinition={selectedModelDefinition}
+      hasProviderModelDefinitions={hasProviderModelDefinitions}
       isFormComplete={isFormComplete}
+      hasChanges={hasChanges}
       onSubmit={handleSubmit}
       onCancel={handleCancel}
       onNameBlur={handleNameBlur}

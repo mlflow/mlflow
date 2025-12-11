@@ -77,8 +77,8 @@ export const ProviderFilterButton = ({
             <FilterIcon />
             {intl.formatMessage(
               {
-                defaultMessage: 'Filter{count}',
-                description: 'Filter button label with count',
+                defaultMessage: 'Provider{count}',
+                description: 'Provider filter button label with count',
               },
               { count: hasActiveFilters ? ` (${filterCount})` : '' },
             )}

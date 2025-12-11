@@ -2531,3 +2531,32 @@ def test_litellm_not_available():
             assert response.status_code == 400
             data = response.get_json()
             assert "LiteLLM is not installed" in data["message"]
+
+
+def test_get_secrets_config_returns_true_when_passphrase_set(monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-secure-passphrase")
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/secrets/config")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "secrets_available" in data
+        assert data["secrets_available"] is True
+
+
+def test_get_secrets_config_returns_false_when_passphrase_not_set(monkeypatch):
+    monkeypatch.delenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", raising=False)
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/secrets/config")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "secrets_available" in data
+        assert data["secrets_available"] is False
+
+
+def test_get_secrets_config_returns_false_for_empty_passphrase(monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "")
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/secrets/config")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["secrets_available"] is False

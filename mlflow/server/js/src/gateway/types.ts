@@ -85,6 +85,8 @@ export interface GetSecretResponse {
 export interface UpdateSecretRequest {
   secret_id: string;
   secret_value: string;
+  provider?: string;
+  credential_name?: string;
   auth_config_json?: string;
   updated_by?: string;
 }
@@ -235,4 +237,8 @@ export interface CreateEndpointBindingResponse {
 
 export interface ListEndpointBindingsResponse {
   bindings: EndpointBinding[];
+}
+
+export interface SecretsConfigResponse {
+  secrets_available?: boolean;
 }

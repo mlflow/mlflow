@@ -20,7 +20,7 @@ export const useSecretsQuery = ({ provider }: { provider?: string } = {}) => {
   );
 
   return {
-    data: queryResult.data?.secrets,
+    data: queryResult.data?.secrets ?? [],
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
     refetch: queryResult.refetch,

@@ -16,7 +16,7 @@ export const useProvidersQuery = () => {
   });
 
   return {
-    data: queryResult.data?.providers,
+    data: queryResult.data?.providers ?? [],
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
     refetch: queryResult.refetch,

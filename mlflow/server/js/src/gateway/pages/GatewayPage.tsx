@@ -1,5 +1,5 @@
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
-import { Alert, Button, PlusIcon, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
@@ -16,11 +16,15 @@ const GatewayPage = () => {
       <div
         css={{
           display: 'flex',
-          justifyContent: 'flex-end',
-          padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-          borderBottom: `1px solid ${theme.colors.border}`,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: theme.spacing.md,
+          borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         }}
       >
+        <Typography.Title level={3} css={{ margin: 0 }}>
+          <FormattedMessage defaultMessage="Endpoints" description="Endpoints page title" />
+        </Typography.Title>
         <Link to={GatewayRoutes.createEndpointPageRoute}>
           <Button componentId="mlflow.gateway.create-endpoint-button" type="primary" icon={<PlusIcon />}>
             <FormattedMessage defaultMessage="Create endpoint" description="Button to create endpoint" />

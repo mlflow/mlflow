@@ -12,7 +12,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProvidersQuery } from '../../hooks/useProvidersQuery';
 import { groupProviders, formatProviderName } from '../../utils/providerUtils';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 
 interface ProviderSelectProps {
   value: string;
@@ -75,11 +75,20 @@ export const ProviderSelect = ({
     [onChange],
   );
 
+  // State for filtered items (required for typeahead filtering to work)
+  // Type includes null because useComboboxState expects (T | null)[]
+  const [filteredItems, setFilteredItems] = useState<(ProviderItem | null)[]>(allProviderItems);
+
+  // Reset filtered items when allProviderItems changes (e.g., after async load)
+  useEffect(() => {
+    setFilteredItems(allProviderItems);
+  }, [allProviderItems]);
+
   const comboboxState = useComboboxState<ProviderItem | null>({
     componentId: componentIdPrefix,
     allItems: allProviderItems,
-    items: allProviderItems,
-    setItems: () => {},
+    items: filteredItems,
+    setItems: setFilteredItems,
     multiSelect: false,
     itemToString: (item) => item?.displayName ?? '',
     matcher: (item, query) => {
@@ -92,12 +101,13 @@ export const ProviderSelect = ({
     initialInputValue: selectedItem?.displayName ?? '',
   });
 
-  // Group items for rendering with section headers
+  // Group filtered items for rendering with section headers
   const groupedItems = useMemo(() => {
-    const common = allProviderItems.filter((item) => item.group === 'common');
-    const other = allProviderItems.filter((item) => item.group === 'other');
+    const nonNullItems = filteredItems.filter((item): item is ProviderItem => item !== null);
+    const common = nonNullItems.filter((item) => item.group === 'common');
+    const other = nonNullItems.filter((item) => item.group === 'other');
     return { common, other };
-  }, [allProviderItems]);
+  }, [filteredItems]);
 
   // Memoize menu items to avoid creating new references every render
   const menuItems = useMemo(() => {
