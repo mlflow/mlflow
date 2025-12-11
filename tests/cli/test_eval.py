@@ -221,3 +221,188 @@ def test_evaluate_traces_integration():
         assessment = scorer_assessments[0]
         # Each trace should have a score equal to its index (0, 1, 2)
         assert assessment.value == float(i)
+
+
+def test_validate_assessment_types_with_string_source():
+    from mlflow.entities.assessment import Assessment, Feedback
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+    from mlflow.genai.evaluation.harness import _validate_assessment_types
+
+    # Create a proper source first
+    source = AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="test_scorer",
+    )
+
+    # Create an assessment with feedback
+    feedback = Feedback(value="yes", rationale="Test rationale", source=source)
+    assessment = Assessment(
+        trace_id="tr-test-123",
+        name="TestScorer",
+        source=source,
+        feedback=feedback,
+    )
+
+    # Simulate the bug: override the feedback source with a string
+    # (This is what Databricks API might return)
+    assessment.feedback.source = "test_source_string"
+
+    # Verify source is initially a string
+    assert isinstance(assessment.feedback.source, str)
+    assert assessment.feedback.source == "test_source_string"
+
+    # Validate and convert
+    _validate_assessment_types(assessment)
+
+    # Verify source was converted to AssessmentSource
+    assert isinstance(assessment.feedback.source, AssessmentSource)
+    assert assessment.feedback.source.source_type == AssessmentSourceType.CODE
+    assert assessment.feedback.source.source_id == "test_source_string"
+    assert hasattr(assessment.feedback.source, "to_proto")
+
+
+def test_validate_assessment_types_with_proper_source():
+    from mlflow.entities.assessment import Assessment, Feedback
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+    from mlflow.genai.evaluation.harness import _validate_assessment_types
+
+    # Create an assessment with proper AssessmentSource
+    source = AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="test_scorer",
+    )
+    feedback = Feedback(
+        value="yes",
+        rationale="Test rationale",
+        source=source,
+    )
+
+    assessment = Assessment(
+        trace_id="tr-test-456",
+        name="TestScorer",
+        source=source,
+        feedback=feedback,
+    )
+
+    # Verify source is proper type
+    assert isinstance(assessment.feedback.source, AssessmentSource)
+
+    # Validation should pass without modification
+    _validate_assessment_types(assessment)
+
+    # Source should remain unchanged
+    assert isinstance(assessment.feedback.source, AssessmentSource)
+    assert assessment.feedback.source.source_id == "test_scorer"
+
+
+def test_validate_assessment_types_with_invalid_feedback():
+    from mlflow.entities.assessment import Assessment, Feedback
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+    from mlflow.genai.evaluation.harness import _validate_assessment_types
+
+    # Create a proper assessment first
+    source = AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="test_scorer",
+    )
+    feedback = Feedback(value="yes", rationale="Test rationale", source=source)
+    assessment = Assessment(
+        trace_id="tr-test-789",
+        name="TestScorer",
+        source=source,
+        feedback=feedback,
+    )
+
+    # Simulate invalid feedback by replacing it with a string
+    assessment.feedback = "invalid_feedback_string"
+
+    # Validation should raise TypeError
+    with pytest.raises(TypeError, match="Assessment feedback must have to_proto"):
+        _validate_assessment_types(assessment)
+
+
+def test_validate_assessment_types_with_expectation_string_source():
+    from mlflow.entities.assessment import Assessment, Expectation
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+    from mlflow.genai.evaluation.harness import _validate_assessment_types
+
+    # Create a proper source first
+    source = AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="test_scorer",
+    )
+
+    # Create an assessment with expectation
+    expectation = Expectation(name="expected_response", value="expected_output", source=source)
+    assessment = Assessment(
+        trace_id="tr-test-expectation",
+        name="TestScorer",
+        source=source,
+        expectation=expectation,
+    )
+
+    # Simulate the bug: override the expectation source with a string
+    assessment.expectation.source = "expectation_source_string"
+
+    # Verify source is initially a string
+    assert isinstance(assessment.expectation.source, str)
+    assert assessment.expectation.source == "expectation_source_string"
+
+    # Validate and convert
+    _validate_assessment_types(assessment)
+
+    # Verify source was converted to AssessmentSource
+    assert isinstance(assessment.expectation.source, AssessmentSource)
+    assert assessment.expectation.source.source_type == AssessmentSourceType.CODE
+    assert assessment.expectation.source.source_id == "expectation_source_string"
+    assert hasattr(assessment.expectation.source, "to_proto")
+
+
+def test_log_assessments_with_string_source():
+    from mlflow.entities.assessment import Assessment, Feedback
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+    from mlflow.genai.evaluation.harness import _log_assessments
+
+    # Create a mock trace
+    mock_trace = mock.Mock(spec=Trace)
+    mock_trace.info = mock.Mock(spec=TraceInfo)
+    mock_trace.info.trace_id = "tr-test-log-assessments"
+    mock_trace.data = mock.Mock()
+    mock_trace.data._get_root_span = mock.Mock(return_value=None)
+
+    # Create an assessment with string source (simulating Databricks API behavior)
+    source = AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="test_scorer",
+    )
+
+    feedback = Feedback(value="yes", rationale="Test rationale", source=source)
+    assessment = Assessment(
+        trace_id="tr-test-log-assessments",
+        name="TestScorer",
+        source=source,
+        feedback=feedback,
+    )
+
+    # Simulate the bug: override feedback source with string
+    assessment.feedback.source = "databricks_scorer_string"
+
+    # Verify source is initially a string
+    assert isinstance(assessment.feedback.source, str)
+
+    with mock.patch("mlflow.log_assessment") as mock_log_assessment:
+        # This should succeed without errors and convert the string source
+        _log_assessments(
+            run_id="run-test-123",
+            trace=mock_trace,
+            assessments=[assessment],
+        )
+
+        # Verify log_assessment was called
+        assert mock_log_assessment.call_count == 1
+
+        # Verify that the assessment passed to log_assessment has converted source
+        logged_assessment = mock_log_assessment.call_args[1]["assessment"]
+        assert isinstance(logged_assessment.feedback.source, AssessmentSource)
+        assert logged_assessment.feedback.source.source_id == "databricks_scorer_string"
+        assert logged_assessment.feedback.source.source_type == AssessmentSourceType.CODE
