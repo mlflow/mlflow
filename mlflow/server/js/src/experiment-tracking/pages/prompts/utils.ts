@@ -163,11 +163,13 @@ export const formDataToModelConfig = (formData: PromptModelConfigFormData): Prom
 
   const config: PromptModelConfig = {};
 
-  if (formData.provider?.trim()) {
-    config.provider = formData.provider.trim();
+  const provider = formData.provider?.trim();
+  if (provider) {
+    config.provider = provider;
   }
-  if (formData.modelName?.trim()) {
-    config.model_name = formData.modelName.trim();
+  const modelName = formData.modelName?.trim();
+  if (modelName) {
+    config.model_name = modelName;
   }
   if (formData.temperature?.trim()) {
     const temp = parseFloat(formData.temperature);
