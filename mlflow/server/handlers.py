@@ -4678,8 +4678,8 @@ def _get_dataset_records_handler(dataset_id):
     return _wrap_response(response_message)
 
 
-# Cache for telemetry config with 1 hour TTL
-_telemetry_config_cache = TTLCache(maxsize=1, ttl=3600)
+# Cache for telemetry config with 24 hour TTL
+_telemetry_config_cache = TTLCache(maxsize=1, ttl=86400)
 
 
 def _get_or_fetch_ui_telemetry_config():
