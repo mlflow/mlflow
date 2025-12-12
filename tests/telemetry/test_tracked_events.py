@@ -19,6 +19,7 @@ from mlflow.genai.judges.base import AlignmentOptimizer
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.builtin_scorers import (
+    Completeness,
     Guidelines,
     RelevanceToQuery,
     Safety,
@@ -1337,6 +1338,110 @@ def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client
             "scorer_kind": "decorator",
             "is_session_level_scorer": False,
             "callsite": "direct_scorer_call",
+            "has_feedback_error": False,
+        },
+    )
+
+
+def test_scorer_call_wrapped_builtin_scorer_direct(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
+    completeness_scorer = Completeness()
+
+    mock_feedback = Feedback(
+        name="completeness",
+        value="yes",
+        rationale="Test rationale",
+    )
+
+    with mock.patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=mock_feedback,
+    ):
+        completeness_scorer(inputs={"question": "What is MLflow?"}, outputs="MLflow is a platform")
+
+    mock_telemetry_client.flush()
+
+    # Verify exactly 1 scorer_call event was created
+    # (only top-level Completeness, not nested InstructionsJudge)
+    scorer_call_events = [
+        record for record in mock_requests if record["data"]["event_name"] == ScorerCallEvent.name
+    ]
+    assert len(scorer_call_events) == 1, (
+        f"Expected 1 scorer call event for Completeness scorer (nested calls should be skipped), "
+        f"got {len(scorer_call_events)}"
+    )
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        ScorerCallEvent.name,
+        {
+            "scorer_class": "Completeness",
+            "scorer_kind": "builtin",
+            "is_session_level_scorer": False,
+            "callsite": "direct_scorer_call",
+            "has_feedback_error": False,
+        },
+    )
+
+
+def test_scorer_call_wrapped_builtin_scorer_from_genai_evaluate(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
+    user_frustration_scorer = UserFrustration()
+
+    @mlflow.trace(span_type=mlflow.entities.SpanType.CHAT_MODEL)
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to: {question}"
+
+    model("What is MLflow?", session_id="test_session")
+    trace_1 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("How does MLflow work?", session_id="test_session")
+    trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    test_data = pd.DataFrame(
+        [
+            {"trace": trace_1},
+            {"trace": trace_2},
+        ]
+    )
+
+    mock_feedback = Feedback(
+        name="user_frustration",
+        value="no",
+        rationale="Test rationale",
+    )
+
+    with mock.patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=mock_feedback,
+    ):
+        mlflow.genai.evaluate(data=test_data, scorers=[user_frustration_scorer])
+
+    mock_telemetry_client.flush()
+
+    # Verify exactly 1 scorer_call event was created for the session-level scorer
+    # (one call at the session level and no nested InstructionsJudge event)
+    scorer_call_events = [
+        record for record in mock_requests if record["data"]["event_name"] == ScorerCallEvent.name
+    ]
+    assert len(scorer_call_events) == 1, (
+        f"Expected 1 scorer call event for UserFrustration scorer "
+        f"(nested calls should be skipped), got {len(scorer_call_events)}"
+    )
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        ScorerCallEvent.name,
+        {
+            "scorer_class": "UserFrustration",
+            "scorer_kind": "builtin",
+            "is_session_level_scorer": True,
+            "callsite": "genai.evaluate",
             "has_feedback_error": False,
         },
     )
