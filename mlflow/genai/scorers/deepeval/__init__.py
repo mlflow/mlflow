@@ -5,9 +5,13 @@ This module provides integration with DeepEval metrics, allowing them to be used
 with MLflow's judge interface.
 
 Example usage:
-    >>> from mlflow.genai.scorers.deepeval import get_judge
-    >>> judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
-    >>> feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
+
+.. code-block:: python
+
+    from mlflow.genai.scorers.deepeval import get_judge
+
+    judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
+    feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
 """
 
 from __future__ import annotations
@@ -150,11 +154,14 @@ def get_judge(
         DeepEvalScorer instance that can be called with MLflow's judge interface
 
     Examples:
-        >>> judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
-        >>> feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
 
-        >>> judge = get_judge("Faithfulness", model="openai:/gpt-4")
-        >>> feedback = judge(trace=trace)
+    .. code-block:: python
+
+        judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
+        feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
+
+        judge = get_judge("Faithfulness", model="openai:/gpt-4")
+        feedback = judge(trace=trace)
     """
     return DeepEvalScorer(
         metric_name=metric_name,
