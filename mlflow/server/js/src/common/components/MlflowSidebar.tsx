@@ -169,6 +169,7 @@ export function MlflowSidebar() {
                   borderRadius: theme.borders.borderRadiusSm,
                   '&:hover': {
                     color: theme.colors.actionLinkHover,
+                    backgroundColor: theme.colors.actionDefaultBackgroundHover,
                   },
                   '&[aria-current="page"]': {
                     backgroundColor: theme.colors.actionDefaultBackgroundPress,
