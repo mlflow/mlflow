@@ -6,12 +6,16 @@ IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
 PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 
 # Unity Catalog tags cannot contain dots
-PROMPT_TYPE_TAG_KEY = "_mlflow_prompt_type"
-RESPONSE_FORMAT_TAG_KEY = "_mlflow_prompt_response_format"
+PROMPT_TYPE_TAG_KEY = "mlflow.prompt.type"
+RESPONSE_FORMAT_TAG_KEY = "mlflow.prompt.response.format"
 
 # Prompt types
 PROMPT_TYPE_TEXT = "text"
 PROMPT_TYPE_CHAT = "chat"
+PROMPT_TYPE_JINJA2 = "jinja2"
+
+# Linked prompt key
+LINKED_PROMPTS_TAG_KEY = "mlflow.linkedPrompts"
 
 # A special tag to store associated run IDs for prompts
 PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.associatedRunIds"
