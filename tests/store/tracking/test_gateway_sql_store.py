@@ -6,6 +6,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
 )
@@ -956,3 +957,139 @@ def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlche
             store=store,
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+# =============================================================================
+# Endpoint Tag Operations
+# =============================================================================
+
+
+def test_set_gateway_endpoint_tag(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(secret_name="tag-key", secret_value="value")
+    model_def = store.create_gateway_model_definition(
+        name="tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    tag = GatewayEndpointTag(key="env", value="production")
+    store.set_gateway_endpoint_tag(endpoint.endpoint_id, tag)
+
+    retrieved = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 1
+    assert retrieved.tags[0].key == "env"
+    assert retrieved.tags[0].value == "production"
+
+
+def test_set_gateway_endpoint_tag_update_existing(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(secret_name="tag-upd-key", secret_value="value")
+    model_def = store.create_gateway_model_definition(
+        name="tag-upd-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="tag-upd-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    store.set_gateway_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="env", value="dev"))
+    store.set_gateway_endpoint_tag(
+        endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production")
+    )
+
+    retrieved = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 1
+    assert retrieved.tags[0].key == "env"
+    assert retrieved.tags[0].value == "production"
+
+
+def test_set_multiple_endpoint_tags(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(secret_name="multi-tag-key", secret_value="value")
+    model_def = store.create_gateway_model_definition(
+        name="multi-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="multi-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    store.set_gateway_endpoint_tag(
+        endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production")
+    )
+    store.set_gateway_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="team", value="ml"))
+    store.set_gateway_endpoint_tag(
+        endpoint.endpoint_id, GatewayEndpointTag(key="version", value="v1")
+    )
+
+    retrieved = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 3
+    tag_dict = {t.key: t.value for t in retrieved.tags}
+    assert tag_dict == {"env": "production", "team": "ml", "version": "v1"}
+
+
+def test_set_gateway_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    tag = GatewayEndpointTag(key="env", value="production")
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.set_gateway_endpoint_tag("nonexistent-endpoint", tag)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_gateway_endpoint_tag(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(secret_name="del-tag-key", secret_value="value")
+    model_def = store.create_gateway_model_definition(
+        name="del-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="del-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+    store.set_gateway_endpoint_tag(
+        endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production")
+    )
+    store.set_gateway_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="team", value="ml"))
+
+    store.delete_gateway_endpoint_tag(endpoint.endpoint_id, "env")
+
+    retrieved = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 1
+    assert retrieved.tags[0].key == "team"
+
+
+def test_delete_gateway_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.delete_gateway_endpoint_tag("nonexistent-endpoint", "env")
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_gateway_endpoint_tag_nonexistent_key_no_op(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(secret_name="del-noop-key", secret_value="value")
+    model_def = store.create_gateway_model_definition(
+        name="del-noop-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="del-noop-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    # Should not raise even if tag doesn't exist
+    store.delete_gateway_endpoint_tag(endpoint.endpoint_id, "nonexistent-key")
+
+    retrieved = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert len(retrieved.tags) == 0
+
+
+def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(secret_name="cascade-tag-key", secret_value="value")
+    model_def = store.create_gateway_model_definition(
+        name="cascade-tag-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cascade-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+    store.set_gateway_endpoint_tag(
+        endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production")
+    )
+
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)

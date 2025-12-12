@@ -1946,6 +1946,42 @@ service MlflowService {
       rpc_doc_title: "List Endpoint Bindings"
     };
   }
+
+  // Set a tag on an endpoint
+  rpc setGatewayEndpointTag(SetEndpointTag) returns (SetEndpointTag.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/endpoints/set-tag"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Gateway Set Endpoint Tag"
+    };
+  }
+
+  // Delete a tag from an endpoint
+  rpc deleteGatewayEndpointTag(DeleteEndpointTag) returns (DeleteEndpointTag.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/endpoints/delete-tag"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Gateway Delete Endpoint Tag"
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -4059,6 +4095,16 @@ message GatewayEndpoint {
   optional string created_by = 6;
   // User ID who last updated the endpoint
   optional string last_updated_by = 7;
+  // Tags associated with the endpoint
+  repeated GatewayEndpointTag tags = 8;
+}
+
+// Tag associated with an endpoint
+message GatewayEndpointTag {
+  // Tag key
+  optional string key = 1;
+  // Tag value
+  optional string value = 2;
 }
 
 // Binding between an endpoint and an MLflow resource.
@@ -4348,6 +4394,26 @@ message ListGatewayEndpointBindings {
     // List of bindings for the endpoint
     repeated GatewayEndpointBinding bindings = 1;
   }
+}
+
+message SetEndpointTag {
+  // ID of the endpoint to set tag on
+  optional string endpoint_id = 1;
+  // Tag key to set
+  optional string key = 2;
+  // Tag value to set
+  optional string value = 3;
+
+  message Response {}
+}
+
+message DeleteEndpointTag {
+  // ID of the endpoint to delete tag from
+  optional string endpoint_id = 1;
+  // Tag key to delete
+  optional string key = 2;
+
+  message Response {}
 }
 
 // ========== Secrets Configuration API Messages ==========

@@ -12,6 +12,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
 )
@@ -33,6 +34,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
+    SqlGatewayEndpointTag,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
 )
@@ -915,3 +917,48 @@ class SqlAlchemyGatewayStoreMixin:
 
             bindings = query.all()
             return [binding.to_mlflow_entity() for binding in bindings]
+
+    def set_gateway_endpoint_tag(
+        self,
+        endpoint_id: str,
+        tag: GatewayEndpointTag,
+    ) -> None:
+        """
+        Set a tag on an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint to tag.
+            tag: GatewayEndpointTag with key and value to set.
+        """
+        with self.ManagedSessionMaker() as session:
+            self._get_entity_or_raise(
+                session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
+            )
+            session.merge(
+                SqlGatewayEndpointTag(
+                    endpoint_id=endpoint_id,
+                    key=tag.key,
+                    value=tag.value,
+                )
+            )
+
+    def delete_gateway_endpoint_tag(
+        self,
+        endpoint_id: str,
+        key: str,
+    ) -> None:
+        """
+        Delete a tag from an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+            key: Tag key to delete.
+        """
+        with self.ManagedSessionMaker() as session:
+            self._get_entity_or_raise(
+                session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
+            )
+            session.query(SqlGatewayEndpointTag).filter(
+                SqlGatewayEndpointTag.endpoint_id == endpoint_id,
+                SqlGatewayEndpointTag.key == key,
+            ).delete()
