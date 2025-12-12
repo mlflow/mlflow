@@ -36,27 +36,30 @@ export const WorkspaceSelector = () => {
     return '';
   };
 
-  const handleWorkspaceChange = useCallback((nextWorkspace?: string) => {
-    if (!nextWorkspace || nextWorkspace === currentWorkspace) {
-      return;
-    }
+  const handleWorkspaceChange = useCallback(
+    (nextWorkspace?: string) => {
+      if (!nextWorkspace || nextWorkspace === currentWorkspace) {
+        return;
+      }
 
-    const encodedWorkspace = encodeURIComponent(nextWorkspace);
-    setActiveWorkspace(nextWorkspace);
-    
-    // Smart redirect - preserve navigation section
-    const currentSection = getNavigationSection(location.pathname);
-    const targetPath = `/workspaces/${encodedWorkspace}${currentSection}`;
-    
-    navigate(targetPath);
-    setSearchValue(''); // Clear search on selection
-  }, [currentWorkspace, location.pathname, navigate]);
+      const encodedWorkspace = encodeURIComponent(nextWorkspace);
+      setActiveWorkspace(nextWorkspace);
+
+      // Smart redirect - preserve navigation section
+      const currentSection = getNavigationSection(location.pathname);
+      const targetPath = `/workspaces/${encodedWorkspace}${currentSection}`;
+
+      navigate(targetPath);
+      setSearchValue(''); // Clear search on selection
+    },
+    [currentWorkspace, location.pathname, navigate],
+  );
 
   // Handle case where current workspace is no longer available (e.g., label selector changed)
   useEffect(() => {
-    if (workspaces.length > 0 && currentWorkspace && !workspaces.find(w => w.name === currentWorkspace)) {
+    if (workspaces.length > 0 && currentWorkspace && !workspaces.find((w) => w.name === currentWorkspace)) {
       // Current workspace is no longer in the list - redirect to first available workspace
-      const fallback = workspaces.find(w => w.name === DEFAULT_WORKSPACE_NAME) ?? workspaces[0];
+      const fallback = workspaces.find((w) => w.name === DEFAULT_WORKSPACE_NAME) ?? workspaces[0];
       if (fallback) {
         handleWorkspaceChange(fallback.name);
       }
@@ -114,27 +117,19 @@ export const WorkspaceSelector = () => {
         renderDisplayedValue={() => currentWorkspace}
         allowClear={false}
       />
-      <DialogComboboxContent
-        style={{ zIndex: theme.options.zIndexBase + 100 }}
-        loading={isLoading}
-      >
+      <DialogComboboxContent style={{ zIndex: theme.options.zIndexBase + 100 }} loading={isLoading}>
         {isError && (
           <div css={{ padding: theme.spacing.sm, color: theme.colors.textValidationDanger }}>
             Failed to load workspaces
           </div>
         )}
-        
+
         {!isError && (
           <DialogComboboxOptionList>
             <DialogComboboxOptionListSearch onSearch={(value) => setSearchValue(value)}>
               {filteredOptions.length === 0 && searchValue ? (
                 // Provide a dummy item when no results to prevent crash
-                <DialogComboboxOptionListSelectItem
-                  value=""
-                  onChange={() => {}}
-                  checked={false}
-                  disabled
-                >
+                <DialogComboboxOptionListSelectItem value="" onChange={() => {}} checked={false} disabled>
                   No workspaces found
                 </DialogComboboxOptionListSelectItem>
               ) : (
@@ -146,7 +141,7 @@ export const WorkspaceSelector = () => {
                       onChange={(value) => handleWorkspaceChange(value)}
                       checked={workspace.name === currentWorkspace}
                     >
-          {workspace.name}
+                      {workspace.name}
                     </DialogComboboxOptionListSelectItem>
                   );
 

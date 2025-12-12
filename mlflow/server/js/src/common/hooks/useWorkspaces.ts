@@ -56,7 +56,7 @@ export const useWorkspaces = (enabled: boolean) => {
   // Store available workspaces for access validation
   useEffect(() => {
     if (workspaces.length > 0) {
-      setAvailableWorkspaces(workspaces.map(w => w.name));
+      setAvailableWorkspaces(workspaces.map((w) => w.name));
     } else if (!isLoading) {
       setAvailableWorkspaces([]);
     }
