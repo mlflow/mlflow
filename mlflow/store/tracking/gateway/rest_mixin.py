@@ -9,6 +9,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewayResourceType,
     GatewaySecretInfo,
@@ -19,6 +20,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
+    DeleteEndpointTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayModelDefinition,
@@ -31,6 +33,7 @@ from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
+    SetEndpointTag,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
@@ -71,6 +74,8 @@ class RestGatewayStoreMixin:
         CreateGatewayEndpointBinding,
         DeleteGatewayEndpointBinding,
         ListGatewayEndpointBindings,
+        SetEndpointTag,
+        DeleteEndpointTag,
     }
 
     # ========== Secrets Management APIs ==========
@@ -529,3 +534,36 @@ class RestGatewayStoreMixin:
         )
         response_proto = self._call_endpoint(ListGatewayEndpointBindings, req_body)
         return [GatewayEndpointBinding.from_proto(b) for b in response_proto.bindings]
+
+    def set_endpoint_tag(self, endpoint_id: str, tag: GatewayEndpointTag) -> None:
+        """
+        Set a tag on an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint to tag.
+            tag: GatewayEndpointTag with key and value to set.
+        """
+        req_body = message_to_json(
+            SetEndpointTag(
+                endpoint_id=endpoint_id,
+                key=tag.key,
+                value=tag.value,
+            )
+        )
+        self._call_endpoint(SetEndpointTag, req_body)
+
+    def delete_endpoint_tag(self, endpoint_id: str, key: str) -> None:
+        """
+        Delete a tag from an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+            key: Tag key to delete.
+        """
+        req_body = message_to_json(
+            DeleteEndpointTag(
+                endpoint_id=endpoint_id,
+                key=key,
+            )
+        )
+        self._call_endpoint(DeleteEndpointTag, req_body)

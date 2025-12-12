@@ -24,6 +24,7 @@ from mlflow.entities import (
     ExperimentTag,
     Feedback,
     FileInfo,
+    GatewayEndpointTag,
     GatewayResourceType,
     Metric,
     Param,
@@ -114,6 +115,7 @@ from mlflow.protos.service_pb2 import (
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
+    DeleteEndpointTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayEndpoint,
@@ -179,6 +181,7 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     SetDatasetTags,
+    SetEndpointTag,
     SetExperimentTag,
     SetLoggedModelTags,
     SetTag,
@@ -4278,6 +4281,42 @@ def _list_endpoint_bindings():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _set_endpoint_tag():
+    request_message = _get_request_message(
+        SetEndpointTag(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+            "value": [_assert_string],
+        },
+    )
+    tag = GatewayEndpointTag(request_message.key, request_message.value)
+    _get_tracking_store().set_endpoint_tag(request_message.endpoint_id, tag)
+    response_message = SetEndpointTag.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_endpoint_tag():
+    request_message = _get_request_message(
+        DeleteEndpointTag(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_endpoint_tag(request_message.endpoint_id, request_message.key)
+    response_message = DeleteEndpointTag.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _list_supported_providers():
     try:
         providers = get_all_providers()
@@ -4768,4 +4807,7 @@ HANDLERS = {
     CreateGatewayEndpointBinding: _create_endpoint_binding,
     DeleteGatewayEndpointBinding: _delete_endpoint_binding,
     ListGatewayEndpointBindings: _list_endpoint_bindings,
+    # Endpoint Tags APIs
+    SetEndpointTag: _set_endpoint_tag,
+    DeleteEndpointTag: _delete_endpoint_tag,
 }

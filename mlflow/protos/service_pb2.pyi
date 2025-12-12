@@ -1696,7 +1696,7 @@ class GatewayEndpointModelMapping(_message.Message):
     def __init__(self, mapping_id: _Optional[str] = ..., endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ..., weight: _Optional[float] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class GatewayEndpoint(_message.Message):
-    __slots__ = ("endpoint_id", "name", "created_at", "last_updated_at", "model_mappings", "created_by", "last_updated_by")
+    __slots__ = ("endpoint_id", "name", "created_at", "last_updated_at", "model_mappings", "created_by", "last_updated_by", "tags")
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -1704,6 +1704,7 @@ class GatewayEndpoint(_message.Message):
     MODEL_MAPPINGS_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     name: str
     created_at: int
@@ -1711,7 +1712,16 @@ class GatewayEndpoint(_message.Message):
     model_mappings: _containers.RepeatedCompositeFieldContainer[GatewayEndpointModelMapping]
     created_by: str
     last_updated_by: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., model_mappings: _Optional[_Iterable[_Union[GatewayEndpointModelMapping, _Mapping]]] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+    tags: _containers.RepeatedCompositeFieldContainer[GatewayEndpointTag]
+    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., model_mappings: _Optional[_Iterable[_Union[GatewayEndpointModelMapping, _Mapping]]] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[GatewayEndpointTag, _Mapping]]] = ...) -> None: ...
+
+class GatewayEndpointTag(_message.Message):
+    __slots__ = ("key", "value")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    value: str
+    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class GatewayEndpointBinding(_message.Message):
     __slots__ = ("endpoint_id", "resource_type", "resource_id", "created_at", "last_updated_at", "created_by", "last_updated_by")
@@ -2008,6 +2018,30 @@ class ListGatewayEndpointBindings(_message.Message):
     resource_type: str
     resource_id: str
     def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ...) -> None: ...
+
+class SetEndpointTag(_message.Message):
+    __slots__ = ("endpoint_id", "key", "value")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    key: str
+    value: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+class DeleteEndpointTag(_message.Message):
+    __slots__ = ("endpoint_id", "key")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    key: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
 
 class GetSecretsConfig(_message.Message):
     __slots__ = ()
