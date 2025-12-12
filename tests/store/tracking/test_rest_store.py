@@ -3174,7 +3174,9 @@ def test_create_gateway_model_definition():
                 model_name="claude-3-5-sonnet",
             )
         )
-        _verify_requests(mock_http, creds, "gateway/model-definitions/create", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/create", "POST", body, use_v3=True
+        )
 
 
 def test_get_gateway_model_definition():
@@ -3184,7 +3186,9 @@ def test_get_gateway_model_definition():
     with mock_http_request() as mock_http:
         store.get_gateway_model_definition(model_definition_id="model-def-123")
         body = message_to_json(GetGatewayModelDefinition(model_definition_id="model-def-123"))
-        _verify_requests(mock_http, creds, "gateway/model-definitions/get", "GET", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/get", "GET", body, use_v3=True
+        )
 
 
 def test_list_gateway_model_definitions():
@@ -3194,7 +3198,9 @@ def test_list_gateway_model_definitions():
     with mock_http_request() as mock_http:
         store.list_gateway_model_definitions()
         body = message_to_json(ListGatewayModelDefinitions())
-        _verify_requests(mock_http, creds, "gateway/model-definitions/list", "GET", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/list", "GET", body, use_v3=True
+        )
 
 
 def test_update_gateway_model_definition():
@@ -3214,7 +3220,9 @@ def test_update_gateway_model_definition():
                 model_name="gpt-4o-mini",
             )
         )
-        _verify_requests(mock_http, creds, "gateway/model-definitions/update", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/update", "POST", body, use_v3=True
+        )
 
 
 def test_delete_gateway_model_definition():
@@ -3224,7 +3232,9 @@ def test_delete_gateway_model_definition():
     with mock_http_request() as mock_http:
         store.delete_gateway_model_definition(model_definition_id="model-def-123")
         body = message_to_json(DeleteGatewayModelDefinition(model_definition_id="model-def-123"))
-        _verify_requests(mock_http, creds, "gateway/model-definitions/delete", "DELETE", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/delete", "DELETE", body, use_v3=True
+        )
 
 
 def test_attach_model_to_gateway_endpoint():
@@ -3243,7 +3253,9 @@ def test_attach_model_to_gateway_endpoint():
                 weight=1,
             )
         )
-        _verify_requests(mock_http, creds, "gateway/endpoints/models/attach", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/models/attach", "POST", body, use_v3=True
+        )
 
 
 def test_detach_model_from_gateway_endpoint():
@@ -3261,7 +3273,9 @@ def test_detach_model_from_gateway_endpoint():
                 model_definition_id="model-def-456",
             )
         )
-        _verify_requests(mock_http, creds, "gateway/endpoints/models/detach", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/models/detach", "POST", body, use_v3=True
+        )
 
 
 def test_create_gateway_endpoint_binding():
@@ -3285,7 +3299,9 @@ def test_create_gateway_endpoint_binding():
                 resource_id="job-456",
             )
         )
-        _verify_requests(mock_http, creds, "gateway/endpoints/bindings/create", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/bindings/create", "POST", body, use_v3=True
+        )
 
 
 def test_delete_gateway_endpoint_binding():
@@ -3305,7 +3321,9 @@ def test_delete_gateway_endpoint_binding():
                 resource_id="job-456",
             )
         )
-        _verify_requests(mock_http, creds, "gateway/endpoints/bindings/delete", "DELETE", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/bindings/delete", "DELETE", body, use_v3=True
+        )
 
 
 def test_list_gateway_endpoint_bindings():
@@ -3325,4 +3343,6 @@ def test_list_gateway_endpoint_bindings():
                 resource_id="job-456",
             )
         )
-        _verify_requests(mock_http, creds, "gateway/endpoints/bindings/list", "GET", body, use_v3=True)
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/bindings/list", "GET", body, use_v3=True
+        )

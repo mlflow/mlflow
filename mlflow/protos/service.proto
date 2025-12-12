@@ -1946,7 +1946,6 @@ service MlflowService {
       rpc_doc_title: "List Endpoint Bindings"
     };
   }
- 
 }
 
 // View type for ListExperiments query.

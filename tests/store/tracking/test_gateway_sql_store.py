@@ -371,7 +371,9 @@ def test_delete_gateway_model_definition_in_use_raises(store: SqlAlchemyStore):
         provider="openai",
         model_name="gpt-4",
     )
-    store.create_gateway_endpoint(name="uses-model", model_definition_ids=[model_def.model_definition_id])
+    store.create_gateway_endpoint(
+        name="uses-model", model_definition_ids=[model_def.model_definition_id]
+    )
 
     with pytest.raises(MlflowException, match="currently in use") as exc:
         store.delete_gateway_model_definition(model_def.model_definition_id)
