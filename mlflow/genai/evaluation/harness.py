@@ -502,7 +502,6 @@ def _log_assessments(
         else:
             _logger.debug(f"No root span found for trace {trace.info.trace_id}")
 
-        # Validate assessment has proper types before logging to prevent proto conversion errors
         try:
             _validate_assessment_types(assessment)
         except Exception as e:
