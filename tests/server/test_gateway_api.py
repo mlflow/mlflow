@@ -45,16 +45,11 @@ def set_kek_passphrase(monkeypatch):
 def store(tmp_path: Path):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
-        mlflow.set_tracking_uri(db_uri_env)
-        yield s
-    else:
-        db_path = tmp_path / "mlflow.db"
-        db_uri = f"sqlite:///{db_path}"
-        mlflow.set_tracking_uri(db_uri)
-        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-        yield s
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
+    mlflow.set_tracking_uri(db_uri)
+    yield SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+    mlflow.set_tracking_uri(None)
 
 
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
