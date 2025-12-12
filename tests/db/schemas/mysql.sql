@@ -484,6 +484,15 @@ CREATE TABLE tags (
 )
 
 
+CREATE TABLE trace_metrics (
+	request_id VARCHAR(50) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value DOUBLE,
+	PRIMARY KEY (request_id, key),
+	CONSTRAINT fk_trace_metrics_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE trace_request_metadata (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(8000),
