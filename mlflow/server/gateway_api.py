@@ -11,7 +11,6 @@ import logging
 from fastapi import APIRouter, HTTPException, Request
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.app import _translate_http_exception
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
     AnthropicConfig,
@@ -28,7 +27,7 @@ from mlflow.gateway.config import (
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.utils import make_streaming_response
+from mlflow.gateway.utils import make_streaming_response, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -157,7 +156,7 @@ def _create_provider_from_endpoint_name(
 
 
 @gateway_router.post("/{endpoint_name}/mlflow/invocations")
-@_translate_http_exception
+@translate_http_exception
 async def invocations(endpoint_name: str, request: Request):
     """
     Create a unified invocations endpoint handler that supports both chat and embeddings.
