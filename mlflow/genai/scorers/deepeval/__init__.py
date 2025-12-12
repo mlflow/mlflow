@@ -30,6 +30,7 @@ from mlflow.utils.annotations import experimental
 _logger = logging.getLogger(__name__)
 
 
+@experimental(version="3.8.0")
 class DeepEvalScorer(Scorer):
     _metric: Any = PrivateAttr()
 
@@ -126,6 +127,7 @@ class DeepEvalScorer(Scorer):
             )
 
 
+@experimental(version="3.8.0")
 def get_judge(
     metric_name: str,
     model: str = "databricks",

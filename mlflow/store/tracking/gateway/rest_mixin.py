@@ -9,6 +9,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewayResourceType,
     GatewaySecretInfo,
@@ -19,6 +20,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
+    DeleteEndpointTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayModelDefinition,
@@ -31,6 +33,7 @@ from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
+    SetEndpointTag,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
@@ -71,11 +74,13 @@ class RestGatewayStoreMixin:
         CreateGatewayEndpointBinding,
         DeleteGatewayEndpointBinding,
         ListGatewayEndpointBindings,
+        SetEndpointTag,
+        DeleteEndpointTag,
     }
 
     # ========== Secrets Management APIs ==========
 
-    def create_secret(
+    def create_gateway_secret(
         self,
         secret_name: str,
         secret_value: str,
@@ -130,7 +135,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(GetGatewaySecretInfo, req_body)
         return GatewaySecretInfo.from_proto(response_proto.secret)
 
-    def update_secret(
+    def update_gateway_secret(
         self,
         secret_id: str,
         secret_value: str | None = None,
@@ -161,7 +166,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(UpdateGatewaySecret, req_body)
         return GatewaySecretInfo.from_proto(response_proto.secret)
 
-    def delete_secret(self, secret_id: str) -> None:
+    def delete_gateway_secret(self, secret_id: str) -> None:
         """
         Delete a secret.
 
@@ -187,7 +192,7 @@ class RestGatewayStoreMixin:
 
     # ========== Endpoints Management APIs ==========
 
-    def create_endpoint(
+    def create_gateway_endpoint(
         self,
         name: str,
         model_definition_ids: list[str],
@@ -214,7 +219,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(CreateGatewayEndpoint, req_body)
         return GatewayEndpoint.from_proto(response_proto.endpoint)
 
-    def get_endpoint(
+    def get_gateway_endpoint(
         self, endpoint_id: str | None = None, name: str | None = None
     ) -> GatewayEndpoint:
         """
@@ -231,7 +236,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(GetGatewayEndpoint, req_body)
         return GatewayEndpoint.from_proto(response_proto.endpoint)
 
-    def update_endpoint(
+    def update_gateway_endpoint(
         self,
         endpoint_id: str,
         name: str | None = None,
@@ -258,7 +263,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(UpdateGatewayEndpoint, req_body)
         return GatewayEndpoint.from_proto(response_proto.endpoint)
 
-    def delete_endpoint(self, endpoint_id: str) -> None:
+    def delete_gateway_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint and all its associated models and bindings.
 
@@ -268,7 +273,7 @@ class RestGatewayStoreMixin:
         req_body = message_to_json(DeleteGatewayEndpoint(endpoint_id=endpoint_id))
         self._call_endpoint(DeleteGatewayEndpoint, req_body)
 
-    def list_endpoints(self, provider: str | None = None) -> list[GatewayEndpoint]:
+    def list_gateway_endpoints(self, provider: str | None = None) -> list[GatewayEndpoint]:
         """
         List all endpoints, optionally filtered by provider.
 
@@ -284,7 +289,7 @@ class RestGatewayStoreMixin:
 
     # ========== Model Definitions Management APIs ==========
 
-    def create_model_definition(
+    def create_gateway_model_definition(
         self,
         name: str,
         secret_id: str,
@@ -317,7 +322,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(CreateGatewayModelDefinition, req_body)
         return GatewayModelDefinition.from_proto(response_proto.model_definition)
 
-    def get_model_definition(self, model_definition_id: str) -> GatewayModelDefinition:
+    def get_gateway_model_definition(self, model_definition_id: str) -> GatewayModelDefinition:
         """
         Retrieve a model definition by ID.
 
@@ -333,7 +338,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(GetGatewayModelDefinition, req_body)
         return GatewayModelDefinition.from_proto(response_proto.model_definition)
 
-    def list_model_definitions(
+    def list_gateway_model_definitions(
         self,
         provider: str | None = None,
         secret_id: str | None = None,
@@ -354,7 +359,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(ListGatewayModelDefinitions, req_body)
         return [GatewayModelDefinition.from_proto(m) for m in response_proto.model_definitions]
 
-    def update_model_definition(
+    def update_gateway_model_definition(
         self,
         model_definition_id: str,
         name: str | None = None,
@@ -387,7 +392,7 @@ class RestGatewayStoreMixin:
         response_proto = self._call_endpoint(UpdateGatewayModelDefinition, req_body)
         return GatewayModelDefinition.from_proto(response_proto.model_definition)
 
-    def delete_model_definition(self, model_definition_id: str) -> None:
+    def delete_gateway_model_definition(self, model_definition_id: str) -> None:
         """
         Delete a model definition (fails if in use by any endpoint).
 
@@ -529,3 +534,36 @@ class RestGatewayStoreMixin:
         )
         response_proto = self._call_endpoint(ListGatewayEndpointBindings, req_body)
         return [GatewayEndpointBinding.from_proto(b) for b in response_proto.bindings]
+
+    def set_gateway_endpoint_tag(self, endpoint_id: str, tag: GatewayEndpointTag) -> None:
+        """
+        Set a tag on an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint to tag.
+            tag: GatewayEndpointTag with key and value to set.
+        """
+        req_body = message_to_json(
+            SetEndpointTag(
+                endpoint_id=endpoint_id,
+                key=tag.key,
+                value=tag.value,
+            )
+        )
+        self._call_endpoint(SetEndpointTag, req_body)
+
+    def delete_gateway_endpoint_tag(self, endpoint_id: str, key: str) -> None:
+        """
+        Delete a tag from an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+            key: Tag key to delete.
+        """
+        req_body = message_to_json(
+            DeleteEndpointTag(
+                endpoint_id=endpoint_id,
+                key=key,
+            )
+        )
+        self._call_endpoint(DeleteEndpointTag, req_body)

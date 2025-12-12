@@ -12,6 +12,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
 )
@@ -33,6 +34,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
+    SqlGatewayEndpointTag,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
 )
@@ -90,7 +92,7 @@ class SqlAlchemyGatewayStoreMixin:
         if self._secret_cache is not None:
             self._secret_cache.clear()
 
-    def create_secret(
+    def create_gateway_secret(
         self,
         secret_name: str,
         secret_value: str | dict[str, str],
@@ -199,7 +201,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_secret.to_mlflow_entity()
 
-    def update_secret(
+    def update_gateway_secret(
         self,
         secret_id: str,
         secret_value: str | dict[str, str] | None = None,
@@ -265,7 +267,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._invalidate_secret_cache()
             return sql_secret.to_mlflow_entity()
 
-    def delete_secret(self, secret_id: str) -> None:
+    def delete_gateway_secret(self, secret_id: str) -> None:
         """
         Permanently delete a secret.
 
@@ -303,7 +305,7 @@ class SqlAlchemyGatewayStoreMixin:
             sql_secrets = query.all()
             return [secret.to_mlflow_entity() for secret in sql_secrets]
 
-    def create_model_definition(
+    def create_gateway_model_definition(
         self,
         name: str,
         secret_id: str,
@@ -368,7 +370,7 @@ class SqlAlchemyGatewayStoreMixin:
                 last_updated_by=sql_model_def.last_updated_by,
             )
 
-    def get_model_definition(
+    def get_gateway_model_definition(
         self, model_definition_id: str | None = None, name: str | None = None
     ) -> GatewayModelDefinition:
         """
@@ -398,7 +400,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_model_def.to_mlflow_entity()
 
-    def list_model_definitions(
+    def list_gateway_model_definitions(
         self,
         provider: str | None = None,
         secret_id: str | None = None,
@@ -424,7 +426,7 @@ class SqlAlchemyGatewayStoreMixin:
             sql_model_defs = query.all()
             return [model_def.to_mlflow_entity() for model_def in sql_model_defs]
 
-    def update_model_definition(
+    def update_gateway_model_definition(
         self,
         model_definition_id: str,
         name: str | None = None,
@@ -485,7 +487,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._invalidate_secret_cache()
             return sql_model_def.to_mlflow_entity()
 
-    def delete_model_definition(self, model_definition_id: str) -> None:
+    def delete_gateway_model_definition(self, model_definition_id: str) -> None:
         """
         Delete a model definition.
 
@@ -518,7 +520,7 @@ class SqlAlchemyGatewayStoreMixin:
                     error_code=INVALID_STATE,
                 ) from e
 
-    def create_endpoint(
+    def create_gateway_endpoint(
         self,
         name: str,
         model_definition_ids: list[str],
@@ -589,7 +591,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_endpoint.to_mlflow_entity()
 
-    def get_endpoint(
+    def get_gateway_endpoint(
         self, endpoint_id: str | None = None, name: str | None = None
     ) -> GatewayEndpoint:
         """
@@ -621,7 +623,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_endpoint.to_mlflow_entity()
 
-    def update_endpoint(
+    def update_gateway_endpoint(
         self,
         endpoint_id: str,
         name: str,
@@ -654,7 +656,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._invalidate_secret_cache()
             return sql_endpoint.to_mlflow_entity()
 
-    def delete_endpoint(self, endpoint_id: str) -> None:
+    def delete_gateway_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint (CASCADE deletes bindings and model mappings).
 
@@ -669,7 +671,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.delete(sql_endpoint)
             self._invalidate_secret_cache()
 
-    def list_endpoints(
+    def list_gateway_endpoints(
         self,
         provider: str | None = None,
         secret_id: str | None = None,
@@ -915,3 +917,48 @@ class SqlAlchemyGatewayStoreMixin:
 
             bindings = query.all()
             return [binding.to_mlflow_entity() for binding in bindings]
+
+    def set_gateway_endpoint_tag(
+        self,
+        endpoint_id: str,
+        tag: GatewayEndpointTag,
+    ) -> None:
+        """
+        Set a tag on an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint to tag.
+            tag: GatewayEndpointTag with key and value to set.
+        """
+        with self.ManagedSessionMaker() as session:
+            self._get_entity_or_raise(
+                session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
+            )
+            session.merge(
+                SqlGatewayEndpointTag(
+                    endpoint_id=endpoint_id,
+                    key=tag.key,
+                    value=tag.value,
+                )
+            )
+
+    def delete_gateway_endpoint_tag(
+        self,
+        endpoint_id: str,
+        key: str,
+    ) -> None:
+        """
+        Delete a tag from an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+            key: Tag key to delete.
+        """
+        with self.ManagedSessionMaker() as session:
+            self._get_entity_or_raise(
+                session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
+            )
+            session.query(SqlGatewayEndpointTag).filter(
+                SqlGatewayEndpointTag.endpoint_id == endpoint_id,
+                SqlGatewayEndpointTag.key == key,
+            ).delete()
