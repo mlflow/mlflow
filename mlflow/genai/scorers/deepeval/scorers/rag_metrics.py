@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
+from mlflow.utils.annotations import experimental
 
 
+@experimental(version="3.8.0")
 class AnswerRelevancy(DeepEvalScorer):
     """
     Evaluates whether the output is relevant to the input.
@@ -19,31 +23,22 @@ class AnswerRelevancy(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.rag_metrics import AnswerRelevancy
-        >>> scorer = AnswerRelevancy(threshold=0.7, model="openai:/gpt-4")
-        >>> feedback = scorer(
-        ...     inputs="What is the capital of France?",
-        ...     outputs="Paris is the capital of France.",
-        ... )
-        >>> print(feedback.value)  # CategoricalRating.YES or CategoricalRating.NO
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import AnswerRelevancy
+
+            scorer = AnswerRelevancy(threshold=0.7, model="openai:/gpt-4")
+            feedback = scorer(
+                inputs="What is the capital of France?",
+                outputs="Paris is the capital of France.",
+            )
+            print(feedback.value)  # CategoricalRating.YES or CategoricalRating.NO
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="AnswerRelevancy",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "AnswerRelevancy"
 
 
+@experimental(version="3.8.0")
 class Faithfulness(DeepEvalScorer):
     """
     Evaluates whether the output is factually consistent with the retrieval context.
@@ -58,27 +53,18 @@ class Faithfulness(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.rag_metrics import Faithfulness
-        >>> scorer = Faithfulness(threshold=0.8, model="databricks")
-        >>> feedback = scorer(trace=trace)  # trace contains outputs and retrieval_context
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import Faithfulness
+
+            scorer = Faithfulness(threshold=0.8, model="databricks")
+            feedback = scorer(trace=trace)  # trace contains outputs and retrieval_context
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="Faithfulness",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "Faithfulness"
 
 
+@experimental(version="3.8.0")
 class ContextualRecall(DeepEvalScorer):
     """
     Evaluates whether the retrieval context contains all necessary information.
@@ -93,27 +79,18 @@ class ContextualRecall(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.rag_metrics import ContextualRecall
-        >>> scorer = ContextualRecall(model="databricks")
-        >>> feedback = scorer(trace=trace)  # trace contains expected_output and retrieval_context
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import ContextualRecall
+
+            scorer = ContextualRecall(model="databricks")
+            feedback = scorer(trace=trace)  # trace contains expected_output and retrieval_context
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="ContextualRecall",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "ContextualRecall"
 
 
+@experimental(version="3.8.0")
 class ContextualPrecision(DeepEvalScorer):
     """
     Evaluates whether relevant nodes in the retrieval context are ranked higher than
@@ -129,29 +106,20 @@ class ContextualPrecision(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.rag_metrics import ContextualPrecision
-        >>> scorer = ContextualPrecision(threshold=0.7)
-        >>> feedback = scorer(
-        ...     trace=trace
-        ... )  # trace contains input, expected_output, and retrieval_context
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import ContextualPrecision
+
+            scorer = ContextualPrecision(threshold=0.7)
+            feedback = scorer(
+                trace=trace
+            )  # trace contains input, expected_output, and retrieval_context
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="ContextualPrecision",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "ContextualPrecision"
 
 
+@experimental(version="3.8.0")
 class ContextualRelevancy(DeepEvalScorer):
     """
     Evaluates the overall relevance of information in the retrieval context.
@@ -166,22 +134,12 @@ class ContextualRelevancy(DeepEvalScorer):
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
-        >>> from mlflow.genai.scorers.deepeval.rag_metrics import ContextualRelevancy
-        >>> scorer = ContextualRelevancy(threshold=0.6)
-        >>> feedback = scorer(trace=trace)  # trace contains input and retrieval_context
+        .. code-block:: python
+
+            from mlflow.genai.scorers.deepeval import ContextualRelevancy
+
+            scorer = ContextualRelevancy(threshold=0.6)
+            feedback = scorer(trace=trace)  # trace contains input and retrieval_context
     """
 
-    def __init__(
-        self,
-        threshold: float | None = None,
-        model: str | None = None,
-        include_reason: bool = True,
-        **kwargs,
-    ):
-        super().__init__(
-            metric_name="ContextualRelevancy",
-            model=model,
-            threshold=threshold,
-            include_reason=include_reason,
-            **kwargs,
-        )
+    metric_name: ClassVar[str] = "ContextualRelevancy"

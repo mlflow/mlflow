@@ -21,14 +21,20 @@ def join_thread_by_name_prefix(prefix: str):
     """Join any thread whose name starts with the given prefix."""
     for t in threading.enumerate():
         if t.name.startswith(prefix):
-            t.join()
+            t.join(timeout=5.0)
+            if t.is_alive():
+                raise TimeoutError(f"Thread {t.name} did not complete within timeout.")
 
 
 @pytest.fixture(autouse=True)
 def wait_for_linkage_threads_to_complete():
     yield
-    join_thread_by_name_prefix("link_prompt_thread")
-    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+    for prefix in [
+        "link_prompt_thread",
+        "link_prompt_to_experiment_thread",
+        "link_prompts_from_exporter",
+    ]:
+        join_thread_by_name_prefix(prefix)
 
 
 def test_prompt_api_migration_warning():

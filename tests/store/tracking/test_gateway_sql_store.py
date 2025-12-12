@@ -18,7 +18,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
-from mlflow.store.tracking.gateway.config_resolver import get_resource_endpoint_configs
+from mlflow.store.tracking.gateway.config_resolver import (
+    get_endpoint_config,
+    get_resource_endpoint_configs,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 pytestmark = pytest.mark.notrackingurimock
@@ -55,7 +58,6 @@ def test_create_secret(store: SqlAlchemyStore):
         secret_name="my-api-key",
         secret_value="sk-test-123456",
         provider="openai",
-        credential_name="OPENAI_API_KEY",
         created_by="test-user",
     )
 
@@ -78,6 +80,24 @@ def test_create_secret_with_auth_config(store: SqlAlchemyStore):
 
     assert secret.secret_name == "bedrock-creds"
     assert secret.provider == "bedrock"
+
+
+def test_create_secret_with_dict_value(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="multi-secret",
+        secret_value={
+            "aws_access_key_id": "AKIA1234567890",
+            "aws_secret_access_key": "secret-key-here",
+        },
+        provider="bedrock",
+        auth_config={"auth_mode": "access_keys", "aws_region_name": "us-west-2"},
+    )
+
+    assert secret.secret_name == "multi-secret"
+    assert secret.provider == "bedrock"
+    # Multi-key dict secrets show all keys with masked values
+    assert "aws_access_key_id:" in secret.masked_value
+    assert "aws_secret_access_key:" in secret.masked_value
 
 
 def test_create_secret_duplicate_name_raises(store: SqlAlchemyStore):
@@ -673,7 +693,6 @@ def test_get_resource_endpoint_configs(store: SqlAlchemyStore):
         secret_name="resolver-key",
         secret_value="sk-secret-value-123",
         provider="openai",
-        credential_name="OPENAI_API_KEY",
     )
     model_def = store.create_model_definition(
         name="resolver-model",
@@ -706,8 +725,7 @@ def test_get_resource_endpoint_configs(store: SqlAlchemyStore):
     assert model_config.model_definition_id == model_def.model_definition_id
     assert model_config.provider == "openai"
     assert model_config.model_name == "gpt-4-turbo"
-    assert model_config.secret_value == "sk-secret-value-123"
-    assert model_config.credential_name == "OPENAI_API_KEY"
+    assert model_config.secret_value == {"api_key": "sk-secret-value-123"}
 
 
 def test_get_resource_endpoint_configs_with_auth_config(store: SqlAlchemyStore):
@@ -740,6 +758,48 @@ def test_get_resource_endpoint_configs_with_auth_config(store: SqlAlchemyStore):
 
     model_config = configs[0].models[0]
     assert model_config.auth_config == {"region": "us-east-1", "profile": "default"}
+
+
+def test_get_resource_endpoint_configs_with_dict_secret(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="aws-creds",
+        secret_value={
+            "aws_access_key_id": "AKIA1234567890",
+            "aws_secret_access_key": "secret-key-value",
+        },
+        provider="bedrock",
+        auth_config={"auth_mode": "access_keys", "aws_region_name": "us-west-2"},
+    )
+    model_def = store.create_model_definition(
+        name="aws-model",
+        secret_id=secret.secret_id,
+        provider="bedrock",
+        model_name="anthropic.claude-3",
+    )
+    endpoint = store.create_endpoint(
+        name="aws-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+    store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="scorer_job",
+        resource_id="aws-job",
+    )
+
+    configs = get_resource_endpoint_configs(
+        resource_type="scorer_job",
+        resource_id="aws-job",
+        store=store,
+    )
+
+    model_config = configs[0].models[0]
+    assert model_config.secret_value == {
+        "aws_access_key_id": "AKIA1234567890",
+        "aws_secret_access_key": "secret-key-value",
+    }
+    assert model_config.auth_config == {
+        "auth_mode": "access_keys",
+        "aws_region_name": "us-west-2",
+    }
 
 
 def test_get_resource_endpoint_configs_no_bindings(store: SqlAlchemyStore):
@@ -793,3 +853,104 @@ def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore
     assert len(configs) == 2
     endpoint_names = {c.endpoint_name for c in configs}
     assert endpoint_names == {"multi-endpoint-1", "multi-endpoint-2"}
+
+
+def test_get_endpoint_config(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="ep-config-key",
+        secret_value="sk-endpoint-secret-789",
+        provider="openai",
+    )
+    model_def = store.create_model_definition(
+        name="ep-config-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    endpoint = store.create_endpoint(
+        name="ep-config-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    config = get_endpoint_config(
+        endpoint_id=endpoint.endpoint_id,
+        store=store,
+    )
+
+    assert config.endpoint_id == endpoint.endpoint_id
+    assert config.endpoint_name == "ep-config-endpoint"
+    assert len(config.models) == 1
+
+    model_config = config.models[0]
+    assert model_config.model_definition_id == model_def.model_definition_id
+    assert model_config.provider == "openai"
+    assert model_config.model_name == "gpt-4o"
+    assert model_config.secret_value == {"api_key": "sk-endpoint-secret-789"}
+
+
+def test_get_endpoint_config_with_auth_config(store: SqlAlchemyStore):
+    secret = store.create_secret(
+        secret_name="ep-auth-key",
+        secret_value="bedrock-secret",
+        provider="bedrock",
+        auth_config={"region": "eu-west-1", "project_id": "test-project"},
+    )
+    model_def = store.create_model_definition(
+        name="ep-auth-model",
+        secret_id=secret.secret_id,
+        provider="bedrock",
+        model_name="anthropic.claude-3-sonnet",
+    )
+    endpoint = store.create_endpoint(
+        name="ep-auth-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    config = get_endpoint_config(
+        endpoint_id=endpoint.endpoint_id,
+        store=store,
+    )
+
+    model_config = config.models[0]
+    assert model_config.auth_config == {"region": "eu-west-1", "project_id": "test-project"}
+
+
+def test_get_endpoint_config_multiple_models(store: SqlAlchemyStore):
+    secret1 = store.create_secret(secret_name="ep-multi-key-1", secret_value="secret-1")
+    secret2 = store.create_secret(secret_name="ep-multi-key-2", secret_value="secret-2")
+
+    model_def1 = store.create_model_definition(
+        name="ep-multi-model-1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_model_definition(
+        name="ep-multi-model-2",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-opus",
+    )
+
+    endpoint = store.create_endpoint(
+        name="ep-multi-endpoint",
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+    )
+
+    config = get_endpoint_config(
+        endpoint_id=endpoint.endpoint_id,
+        store=store,
+    )
+
+    assert len(config.models) == 2
+    providers = {m.provider for m in config.models}
+    assert providers == {"openai", "anthropic"}
+    model_names = {m.model_name for m in config.models}
+    assert model_names == {"gpt-4", "claude-3-opus"}
+
+
+def test_get_endpoint_config_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found") as exc:
+        get_endpoint_config(
+            endpoint_id="nonexistent-endpoint-id",
+            store=store,
+        )
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

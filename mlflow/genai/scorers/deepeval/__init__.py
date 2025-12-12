@@ -33,6 +33,7 @@ from mlflow.genai.scorers.deepeval.utils import (
     map_scorer_inputs_to_deepeval_test_case,
     map_session_to_deepeval_conversational_test_case,
 )
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class DeepEvalScorer(Scorer):
 
     def __init__(
         self,
-        metric_name: str,
+        metric_name: str | None = None,
         model: str = "databricks",
         **metric_kwargs,
     ):
@@ -50,10 +51,15 @@ class DeepEvalScorer(Scorer):
         Initialize a DeepEval metric scorer.
 
         Args:
-            metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy")
+            metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy").
+                If not provided, will use the class-level metric_name attribute.
             model: Model URI in MLflow format (default: "databricks")
             metric_kwargs: Additional metric-specific parameters
         """
+        # Use class attribute if metric_name not provided
+        if metric_name is None:
+            metric_name = self.metric_name
+
         super().__init__(name=metric_name)
 
         metric_class = get_metric_class(metric_name)
@@ -174,6 +180,7 @@ def get_judge(
     )
 
 
+# Import namespaced metric classes from scorers subdirectory
 from mlflow.genai.scorers.deepeval.scorers import (
     AnswerRelevancy,
     ArgumentCorrectness,
@@ -247,4 +254,5 @@ __all__ = [
     # Deterministic metrics
     "ExactMatch",
     "PatternMatch",
+    "experimental",
 ]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from typing import Any
 
@@ -21,6 +22,13 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.tracking._secret_cache import (
+    _DEFAULT_CACHE_MAX_SIZE,
+    _DEFAULT_CACHE_TTL,
+    SECRETS_CACHE_MAX_SIZE_ENV_VAR,
+    SECRETS_CACHE_TTL_ENV_VAR,
+    SecretCache,
+)
 from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -34,6 +42,9 @@ from mlflow.utils.crypto import (
     _mask_secret_value,
 )
 from mlflow.utils.time import get_current_time_millis
+
+# Default key name when secret_value is a simple string (not a dict)
+_DEFAULT_SECRET_KEY_NAME = "api_key"
 
 
 def _validate_one_of(
@@ -59,12 +70,31 @@ class SqlAlchemyGatewayStoreMixin:
     - _get_entity_or_raise: Helper method for fetching entities or raising if not found
     """
 
+    _secret_cache: SecretCache | None = None
+
+    @property
+    def secret_cache(self) -> SecretCache:
+        """Lazy-initialized secret cache for endpoint configurations."""
+        if self._secret_cache is None:
+            ttl = int(os.environ.get(SECRETS_CACHE_TTL_ENV_VAR, _DEFAULT_CACHE_TTL))
+            max_size = int(os.environ.get(SECRETS_CACHE_MAX_SIZE_ENV_VAR, _DEFAULT_CACHE_MAX_SIZE))
+            self._secret_cache = SecretCache(ttl_seconds=ttl, max_size=max_size)
+        return self._secret_cache
+
+    def _get_cache_key(self, resource_type: str, resource_id: str) -> str:
+        """Generate cache key for resource endpoint configs."""
+        return f"{resource_type}:{resource_id}"
+
+    def _invalidate_secret_cache(self) -> None:
+        """Clear the secret cache on mutations."""
+        if self._secret_cache is not None:
+            self._secret_cache.clear()
+
     def create_secret(
         self,
         secret_name: str,
-        secret_value: str,
+        secret_value: str | dict[str, str],
         provider: str | None = None,
-        credential_name: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -73,10 +103,13 @@ class SqlAlchemyGatewayStoreMixin:
 
         Args:
             secret_name: Unique user-friendly name for the secret.
-            secret_value: The secret value to encrypt (e.g., API key).
+            secret_value: The secret value(s) to encrypt. Can be either:
+                - A string (converted to {"api_key": value})
+                - A dict of secret fields (stored as JSON), e.g.:
+                  {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
             provider: Optional LLM provider (e.g., "openai", "anthropic").
-            credential_name: Optional credential identifier (e.g., "ANTHROPIC_API_KEY").
             auth_config: Optional provider-specific auth configuration dict.
+                Should include "auth_mode" for providers with multiple auth options.
             created_by: Username of the creator.
 
         Returns:
@@ -85,11 +118,28 @@ class SqlAlchemyGatewayStoreMixin:
         with self.ManagedSessionMaker() as session:
             secret_id = f"s-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
-            masked_value = _mask_secret_value(secret_value)
+
+            # Normalize to dict format and serialize to JSON for encryption
+            if isinstance(secret_value, str):
+                secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
+            else:
+                secret_dict = secret_value
+
+            value_to_encrypt = json.dumps(secret_dict)
+
+            # For dict secrets with multiple keys, show keys with masked values
+            # so users can see what fields are stored
+            if len(secret_dict) == 1:
+                first_value = next(iter(secret_dict.values()), "")
+                masked_value = _mask_secret_value(first_value)
+            else:
+                masked_parts = [f"{k}: {_mask_secret_value(v)}" for k, v in secret_dict.items()]
+                masked_value = "{" + ", ".join(masked_parts) + "}"
+
             kek_manager = KEKManager()
 
             encrypted = _encrypt_secret(
-                secret_value=secret_value,
+                secret_value=value_to_encrypt,
                 kek_manager=kek_manager,
                 secret_id=secret_id,
                 secret_name=secret_name,
@@ -103,7 +153,6 @@ class SqlAlchemyGatewayStoreMixin:
                 masked_value=masked_value,
                 kek_version=encrypted.kek_version,
                 provider=provider,
-                credential_name=credential_name,
                 auth_config=json.dumps(auth_config) if auth_config else None,
                 created_at=current_time,
                 last_updated_at=current_time,
@@ -153,7 +202,7 @@ class SqlAlchemyGatewayStoreMixin:
     def update_secret(
         self,
         secret_id: str,
-        secret_value: str | None = None,
+        secret_value: str | dict[str, str] | None = None,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -162,7 +211,10 @@ class SqlAlchemyGatewayStoreMixin:
 
         Args:
             secret_id: ID of the secret to update.
-            secret_value: Optional new secret value for key rotation.
+            secret_value: Optional new secret value(s) to encrypt. Can be either:
+                - A string (converted to {"api_key": value})
+                - A dict of secret fields (stored as JSON)
+                - None to leave secret value unchanged
             auth_config: Optional updated auth configuration. If provided, replaces existing
                 auth_config. If None, auth_config is unchanged. If empty dict, clears auth_config.
             updated_by: Username of the updater.
@@ -176,11 +228,20 @@ class SqlAlchemyGatewayStoreMixin:
             )
 
             if secret_value is not None:
-                masked_value = _mask_secret_value(secret_value)
+                # Normalize to dict format and serialize to JSON for encryption
+                if isinstance(secret_value, str):
+                    secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
+                else:
+                    secret_dict = secret_value
+
+                value_to_encrypt = json.dumps(secret_dict)
+                first_value = next(iter(secret_dict.values()), "")
+                masked_value = _mask_secret_value(first_value)
+
                 kek_manager = KEKManager()
 
                 encrypted = _encrypt_secret(
-                    secret_value=secret_value,
+                    secret_value=value_to_encrypt,
                     kek_manager=kek_manager,
                     secret_id=sql_secret.secret_id,
                     secret_name=sql_secret.secret_name,
@@ -201,6 +262,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.flush()
             session.refresh(sql_secret)
 
+            self._invalidate_secret_cache()
             return sql_secret.to_mlflow_entity()
 
     def delete_secret(self, secret_id: str) -> None:
@@ -220,6 +282,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
 
             session.delete(sql_secret)
+            self._invalidate_secret_cache()
 
     def list_secret_infos(self, provider: str | None = None) -> list[GatewaySecretInfo]:
         """
@@ -419,6 +482,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             session.refresh(sql_model_def)
 
+            self._invalidate_secret_cache()
             return sql_model_def.to_mlflow_entity()
 
     def delete_model_definition(self, model_definition_id: str) -> None:
@@ -446,6 +510,7 @@ class SqlAlchemyGatewayStoreMixin:
             try:
                 session.delete(sql_model_def)
                 session.flush()
+                self._invalidate_secret_cache()
             except IntegrityError as e:
                 raise MlflowException(
                     "Cannot delete model definition that is currently in use by endpoints. "
@@ -586,6 +651,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.flush()
             session.refresh(sql_endpoint)
 
+            self._invalidate_secret_cache()
             return sql_endpoint.to_mlflow_entity()
 
     def delete_endpoint(self, endpoint_id: str) -> None:
@@ -601,6 +667,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
 
             session.delete(sql_endpoint)
+            self._invalidate_secret_cache()
 
     def list_endpoints(
         self,
@@ -700,6 +767,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             session.refresh(sql_mapping)
 
+            self._invalidate_secret_cache()
             return sql_mapping.to_mlflow_entity()
 
     def detach_model_from_endpoint(
@@ -736,6 +804,7 @@ class SqlAlchemyGatewayStoreMixin:
                 )
 
             session.delete(sql_mapping)
+            self._invalidate_secret_cache()
 
     def create_endpoint_binding(
         self,
@@ -780,6 +849,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.flush()
             session.refresh(sql_binding)
 
+            self._invalidate_secret_cache()
             return sql_binding.to_mlflow_entity()
 
     def delete_endpoint_binding(
@@ -809,6 +879,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
 
             session.delete(sql_binding)
+            self._invalidate_secret_cache()
 
     def list_endpoint_bindings(
         self,
