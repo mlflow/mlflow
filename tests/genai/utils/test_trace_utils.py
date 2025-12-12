@@ -444,7 +444,7 @@ def test_get_retrieval_context_from_trace(spans, expected_retrieval_context):
         # Strands format - single message with string content
         (
             [{"role": "user", "content": "Single message"}],
-            "Single message",
+            '[{"role": "user", "content": "Single message"}]',
         ),
     ],
 )
