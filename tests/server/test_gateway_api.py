@@ -4,7 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+import mlflow
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AWSBaseConfig,
     AWSIdAndKey,
@@ -22,11 +24,11 @@ from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.server.gateway_api import (
-    _create_invocations_handler,
     _create_provider_from_endpoint_config,
-    _register_gateway_endpoints,
     gateway_router,
+    invocations,
 )
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 pytestmark = pytest.mark.notrackingurimock
@@ -45,10 +47,12 @@ def store(tmp_path: Path):
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():
         s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
+        mlflow.set_tracking_uri(db_uri_env)
         yield s
     else:
         db_path = tmp_path / "mlflow.db"
         db_uri = f"sqlite:///{db_path}"
+        mlflow.set_tracking_uri(db_uri)
         s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
         yield s
 
@@ -70,9 +74,7 @@ def test_create_provider_from_endpoint_config_openai(store: SqlAlchemyStore):
         name="test-openai-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(
-        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, OpenAIProvider)
     assert isinstance(provider.config.model.config, OpenAIConfig)
@@ -102,9 +104,7 @@ def test_create_provider_from_endpoint_config_azure_openai(store: SqlAlchemyStor
         name="test-azure-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(
-        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, OpenAIProvider)
     assert isinstance(provider.config.model.config, OpenAIConfig)
@@ -138,9 +138,7 @@ def test_create_provider_from_endpoint_config_azure_openai_with_azuread(store: S
         name="test-azuread-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(
-        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, OpenAIProvider)
     assert isinstance(provider.config.model.config, OpenAIConfig)
@@ -167,9 +165,7 @@ def test_create_provider_from_endpoint_config_anthropic(store: SqlAlchemyStore):
         name="test-anthropic-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(
-        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, AnthropicProvider)
     assert provider.config.model.config.anthropic_api_key == "sk-ant-test"
@@ -193,9 +189,7 @@ def test_create_provider_from_endpoint_config_bedrock_base_config(store: SqlAlch
         name="test-bedrock-base-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(
-        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, AmazonBedrockProvider)
     assert isinstance(provider.config.model.config.aws_config, AWSBaseConfig)
@@ -224,9 +218,7 @@ def test_create_provider_from_endpoint_config_bedrock_access_keys(store: SqlAlch
         name="test-bedrock-keys-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(
-        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, AmazonBedrockProvider)
     assert isinstance(provider.config.model.config.aws_config, AWSIdAndKey)
@@ -258,9 +250,7 @@ def test_create_provider_from_endpoint_config_bedrock_role(store: SqlAlchemyStor
         name="test-bedrock-role-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(
-        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, AmazonBedrockProvider)
     assert isinstance(provider.config.model.config.aws_config, AWSRole)
@@ -289,9 +279,7 @@ def test_create_provider_from_endpoint_config_mistral(store: SqlAlchemyStore):
         name="test-mistral-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(
-        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, MistralProvider)
     assert isinstance(provider.config.model.config, MistralConfig)
@@ -315,9 +303,7 @@ def test_create_provider_from_endpoint_config_gemini(store: SqlAlchemyStore):
         name="test-gemini-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(
-        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, GeminiProvider)
     assert isinstance(provider.config.model.config, GeminiConfig)
@@ -325,35 +311,8 @@ def test_create_provider_from_endpoint_config_gemini(store: SqlAlchemyStore):
 
 
 def test_create_provider_from_endpoint_config_nonexistent_endpoint(store: SqlAlchemyStore):
-    from mlflow.exceptions import MlflowException
-
     with pytest.raises(MlflowException, match="not found"):
         _create_provider_from_endpoint_config("nonexistent-id", store, EndpointType.LLM_V1_CHAT)
-
-
-def test_register_gateway_endpoints(store: SqlAlchemyStore):
-    # Create test endpoints
-    secret = store.create_gateway_secret(
-        secret_name="test-key",
-        secret_value={"api_key": "sk-test"},
-        provider="openai",
-    )
-    model_def = store.create_gateway_model_definition(
-        name="test-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
-    )
-    store.create_gateway_endpoint(
-        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
-    )
-
-    # Register endpoints
-    router = _register_gateway_endpoints(store)
-
-    # Check that routes were registered
-    route_paths = [route.path for route in router.routes]
-    assert "/gateway/test-endpoint/mlflow/invocations" in route_paths
 
 
 @pytest.mark.asyncio
@@ -373,9 +332,6 @@ async def test_invocations_handler_chat(store: SqlAlchemyStore):
     endpoint = store.create_gateway_endpoint(
         name="chat-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
-
-    # Create handler
-    handler = _create_invocations_handler(endpoint.endpoint_id, store)
 
     # Mock the provider's chat method
     mock_response = chat.ResponsePayload(
@@ -412,7 +368,7 @@ async def test_invocations_handler_chat(store: SqlAlchemyStore):
         mock_create_provider.return_value = mock_provider
 
         # Call the handler
-        response = await handler(mock_request)
+        response = await invocations(endpoint.name, mock_request)
 
         # Verify
         assert response.id == "test-id"
@@ -438,9 +394,6 @@ async def test_invocations_handler_embeddings(store: SqlAlchemyStore):
         name="embed-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    # Create handler
-    handler = _create_invocations_handler(endpoint.endpoint_id, store)
-
     # Mock the provider's embeddings method
     mock_response = embeddings.ResponsePayload(
         object="list",
@@ -462,7 +415,7 @@ async def test_invocations_handler_embeddings(store: SqlAlchemyStore):
         mock_create_provider.return_value = mock_provider
 
         # Call the handler
-        response = await handler(mock_request)
+        response = await invocations(endpoint.name, mock_request)
 
         # Verify
         assert response.object == "list"
@@ -493,14 +446,12 @@ async def test_invocations_handler_invalid_json(store: SqlAlchemyStore):
         name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    handler = _create_invocations_handler(endpoint.endpoint_id, store)
-
     # Mock request that raises exception when parsing JSON
     mock_request = MagicMock()
     mock_request.json = AsyncMock(side_effect=ValueError("Invalid JSON"))
 
     with pytest.raises(HTTPException, match="Invalid JSON payload: Invalid JSON") as exc_info:
-        await handler(mock_request)
+        await invocations(endpoint.name, mock_request)
 
     assert exc_info.value.status_code == 400
 
@@ -522,8 +473,6 @@ async def test_invocations_handler_missing_fields(store: SqlAlchemyStore):
         name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    handler = _create_invocations_handler(endpoint.endpoint_id, store)
-
     # Create request with neither messages nor input
     mock_request = MagicMock()
     mock_request.json = AsyncMock(return_value={"temperature": 0.7})
@@ -537,7 +486,7 @@ async def test_invocations_handler_missing_fields(store: SqlAlchemyStore):
         with pytest.raises(
             HTTPException, match="Invalid request: payload format must be either chat or embeddings"
         ) as exc_info:
-            await handler(mock_request)
+            await invocations(endpoint.name, mock_request)
 
         assert exc_info.value.status_code == 400
 
@@ -559,8 +508,6 @@ async def test_invocations_handler_invalid_chat_payload(store: SqlAlchemyStore):
         name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    handler = _create_invocations_handler(endpoint.endpoint_id, store)
-
     # Create request with invalid messages structure
     mock_request = MagicMock()
     mock_request.json = AsyncMock(
@@ -577,7 +524,7 @@ async def test_invocations_handler_invalid_chat_payload(store: SqlAlchemyStore):
         mock_create_provider.return_value = mock_provider
 
         with pytest.raises(HTTPException, match="Invalid chat payload") as exc_info:
-            await handler(mock_request)
+            await invocations(endpoint.name, mock_request)
 
         assert exc_info.value.status_code == 400
 
@@ -599,8 +546,6 @@ async def test_invocations_handler_invalid_embeddings_payload(store: SqlAlchemyS
         name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    handler = _create_invocations_handler(endpoint.endpoint_id, store)
-
     # Create request with invalid input structure
     mock_request = MagicMock()
     mock_request.json = AsyncMock(
@@ -616,7 +561,7 @@ async def test_invocations_handler_invalid_embeddings_payload(store: SqlAlchemyS
         mock_create_provider.return_value = mock_provider
 
         with pytest.raises(HTTPException, match="Invalid embeddings payload") as exc_info:
-            await handler(mock_request)
+            await invocations(endpoint.name, mock_request)
 
         assert exc_info.value.status_code == 400
 
@@ -637,8 +582,6 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
     endpoint = store.create_gateway_endpoint(
         name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
-
-    handler = _create_invocations_handler(endpoint.endpoint_id, store)
 
     # Create streaming request
     mock_request = MagicMock()
@@ -665,7 +608,7 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
         mock_provider.chat_stream = MagicMock(return_value="mock_stream")
         mock_create_provider.return_value = mock_provider
 
-        response = await handler(mock_request)
+        response = await invocations(endpoint.name, mock_request)
 
         # Verify streaming was called
         assert mock_provider.chat_stream.called
@@ -674,10 +617,7 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
 
 
 def test_create_provider_from_endpoint_config_no_models(store: SqlAlchemyStore):
-    from mlflow.exceptions import MlflowException
-    from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
-
-    # Create a minimal endpoint to get an endpoint_id
+    # Create a minimal endpoint to get an endpoint_name
     secret = store.create_gateway_secret(
         secret_name="test-key",
         secret_value={"api_key": "sk-test"},
@@ -701,6 +641,4 @@ def test_create_provider_from_endpoint_config_no_models(store: SqlAlchemyStore):
         ),
     ):
         with pytest.raises(MlflowException, match="has no models configured"):
-            _create_provider_from_endpoint_config(
-                endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
-            )
+            _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)

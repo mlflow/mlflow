@@ -63,13 +63,13 @@ def _translate_http_exception(func):
 
 
 def _create_provider_from_endpoint_config(
-    endpoint_id: str, store: SqlAlchemyStore, endpoint_type: EndpointType
+    endpoint_name: str, store: SqlAlchemyStore, endpoint_type: EndpointType
 ) -> BaseProvider:
     """
     Create a provider instance from database endpoint configuration.
 
     Args:
-        endpoint_id: The endpoint ID to retrieve configuration for.
+        endpoint_name: The endpoint name to retrieve configuration for.
         store: The SQLAlchemy store instance.
         endpoint_type: Endpoint type (chat or embeddings).
 
@@ -80,11 +80,11 @@ def _create_provider_from_endpoint_config(
         MlflowException: If endpoint not found or configuration is invalid.
     """
     # Get endpoint config with decrypted secrets
-    endpoint_config = get_endpoint_config(endpoint_id=endpoint_id, store=store)
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
 
     if not endpoint_config.models:
         raise MlflowException(
-            f"Endpoint '{endpoint_id}' has no models configured",
+            f"Endpoint '{endpoint_name}' has no models configured",
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
 
@@ -178,7 +178,9 @@ def _create_provider_from_endpoint_config(
     return provider_class(gateway_endpoint_config)
 
 
-def _create_invocations_handler(endpoint_id: str, store: SqlAlchemyStore):
+@gateway_router.post("/{endpoint_name}/mlflow/invocations")
+@_translate_http_exception
+async def invocations(endpoint_name: str, request: Request):
     """
     Create a unified invocations endpoint handler that supports both chat and embeddings.
 
@@ -186,108 +188,50 @@ def _create_invocations_handler(endpoint_id: str, store: SqlAlchemyStore):
     - If payload has "messages" field -> chat endpoint
     - If payload has "input" field -> embeddings endpoint
     """
-
-    @_translate_http_exception
-    async def _invocations(request: Request):
-        # Get raw JSON to determine request type
-        try:
-            body = await request.json()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
-
-        # Detect request type based on payload structure
-        if "messages" in body:
-            # Chat request
-            endpoint_type = EndpointType.LLM_V1_CHAT
-            try:
-                payload = chat.RequestPayload(**body)
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
-
-            provider = _create_provider_from_endpoint_config(endpoint_id, store, endpoint_type)
-
-            if payload.stream:
-                return await make_streaming_response(provider.chat_stream(payload))
-            else:
-                return await provider.chat(payload)
-
-        elif "input" in body:
-            # Embeddings request
-            endpoint_type = EndpointType.LLM_V1_EMBEDDINGS
-            try:
-                payload = embeddings.RequestPayload(**body)
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
-
-            provider = _create_provider_from_endpoint_config(endpoint_id, store, endpoint_type)
-
-            return await provider.embeddings(payload)
-
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid request: payload format must be either chat or embeddings",
-            )
-
-    return _invocations
-
-
-def _register_gateway_endpoints(store: SqlAlchemyStore) -> APIRouter:
-    """
-    Register dynamic gateway endpoints from the database.
-
-    This function queries the database for all configured endpoints and dynamically
-    registers FastAPI routes for each one.
-
-    Args:
-        store: The SQLAlchemy store instance to query for endpoints.
-
-    Returns:
-        The configured APIRouter with all gateway endpoints registered.
-    """
-    # Get all endpoints from the database
     try:
-        endpoints = store.list_gateway_endpoints()
+        body = await request.json()
     except Exception as e:
-        _logger.warning(f"Failed to load gateway endpoints from database: {e}")
-        endpoints = []
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
-    _logger.info(f"Registering {len(endpoints)} gateway endpoints from database")
-
-    for endpoint in endpoints:
-        endpoint_name = endpoint.name
-        endpoint_id = endpoint.endpoint_id
-
-        # Register unified invocations endpoint (supports both chat and embeddings)
-        invocations_path = f"/{endpoint_name}/mlflow/invocations"
-        gateway_router.add_api_route(
-            path=invocations_path,
-            endpoint=_create_invocations_handler(endpoint_id, store),
-            methods=["POST"],
-            response_model=None,  # Dynamic response based on request type
-            name=f"invocations_{endpoint_name}",
-            summary=f"Invocations endpoint for {endpoint_name} (supports chat and embeddings)",
-        )
-        _logger.info(f"Registered invocations endpoint: /gateway{invocations_path}")
-
-    return gateway_router
-
-
-def get_gateway_router() -> APIRouter:
-    """
-    Get the configured gateway router.
-
-    This is the main entry point for integrating the gateway API into the MLflow server.
-
-    Returns:
-        APIRouter configured with all database-backed gateway endpoints.
-    """
     store = _get_store()
-    if not isinstance(store, SqlAlchemyStore):
-        _logger.warning(
-            f"Gateway endpoints require SqlAlchemyStore, got {type(store).__name__}. "
-            "Gateway endpoints will not be available."
-        )
-        return gateway_router
 
-    return _register_gateway_endpoints(store)
+    if not isinstance(store, SqlAlchemyStore):
+        raise HTTPException(
+            status_code=500,
+            detail="Gateway endpoints are only available with SqlAlchemyStore, "
+            f"got {type(store).__name__}.",
+        )
+
+    # Detect request type based on payload structure
+    if "messages" in body:
+        # Chat request
+        endpoint_type = EndpointType.LLM_V1_CHAT
+        try:
+            payload = chat.RequestPayload(**body)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
+
+        provider = _create_provider_from_endpoint_config(endpoint_name, store, endpoint_type)
+
+        if payload.stream:
+            return await make_streaming_response(provider.chat_stream(payload))
+        else:
+            return await provider.chat(payload)
+
+    elif "input" in body:
+        # Embeddings request
+        endpoint_type = EndpointType.LLM_V1_EMBEDDINGS
+        try:
+            payload = embeddings.RequestPayload(**body)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
+
+        provider = _create_provider_from_endpoint_config(endpoint_name, store, endpoint_type)
+
+        return await provider.embeddings(payload)
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid request: payload format must be either chat or embeddings",
+        )

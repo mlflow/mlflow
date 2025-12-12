@@ -913,7 +913,7 @@ def test_get_gateway_endpoint_config(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -946,7 +946,7 @@ def test_get_gateway_endpoint_config_with_auth_config(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -981,7 +981,7 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -995,7 +995,7 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
 def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found") as exc:
         get_endpoint_config(
-            endpoint_id="nonexistent-endpoint-id",
+            endpoint_name="nonexistent-endpoint",
             store=store,
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
