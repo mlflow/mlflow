@@ -43,8 +43,7 @@ def get_prompt(
         request: The input question/request
         response: The actual response to evaluate
         expected_response: Expected response (optional)
-        expected_facts: Expected facts as a string or list of strings (optional, converted
-            to expected_response)
+        expected_facts: List of expected facts (optional, converted to expected_response)
 
     Returns:
         Formatted prompt string
@@ -52,11 +51,7 @@ def get_prompt(
     # Convert expected_facts to expected_response format if provided
     ground_truth = expected_response
     if expected_facts and not expected_response:
-        # Handle both string and list formats for expected_facts
-        if isinstance(expected_facts, str):
-            ground_truth = expected_facts
-        else:
-            ground_truth = "\n- ".join([""] + expected_facts) if expected_facts else ""
+        ground_truth = "\n- ".join([""] + expected_facts) if expected_facts else ""
     elif not ground_truth:
         ground_truth = ""
 
