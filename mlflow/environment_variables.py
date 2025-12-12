@@ -920,16 +920,20 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
 )
 
 #: Maximum number of spans to export in a single batch. When set to larger than 1, MLflow will
-# export spans in batches. This must be used together with `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`
-# set to true (default).
-#: (default: ``1`` = no batching)
+#: export spans in batches. This must be used together with `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`
+#: set to true (default).
+#: Note: Currently only Unity Catalog table exporter supports batching. Other exporters will export
+#: spans immediately.
+#: (default: ``10``)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", int, 1
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", int, 10
 )
 
 #: Maximum interval in milliseconds between two batches. When the interval is reached,
 #: MLflow will export the spans in the current batch regardless of the batch size.
 #: This interval only applies when the max batch size is set to larger than 1.
+#: Note: Currently only Unity Catalog table exporter supports batching. Other exporters will export
+#: spans immediately.
 #: (default: ``5000`` = 5 seconds)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", int, 5000

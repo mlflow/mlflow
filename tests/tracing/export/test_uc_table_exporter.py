@@ -18,6 +18,7 @@ from tests.tracing.helper import (
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_export_spans_to_uc_table(is_async, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "1")  # no batch
     trace_manager = InMemoryTraceManager.get_instance()
 
     mock_client = mock.MagicMock()
@@ -103,7 +104,7 @@ def test_log_trace_no_log_spans_if_no_uc_schema():
 
 
 def test_export_spans_batch_max_size(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "5")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "5")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "10000")
 
     exporter = DatabricksUCTableSpanExporter()
@@ -136,7 +137,7 @@ def test_export_spans_batch_max_size(monkeypatch):
 
 
 def test_export_spans_batch_flush_on_interval(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "10")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
 
     exporter = DatabricksUCTableSpanExporter()
@@ -159,10 +160,7 @@ def test_export_spans_batch_flush_on_interval(monkeypatch):
     assert len(spans) == 1
 
 
-def test_export_spans_batch_shutdown(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "10")
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
-
+def test_export_spans_batch_shutdown():
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock.MagicMock()
 
@@ -185,10 +183,7 @@ def test_export_spans_batch_shutdown(monkeypatch):
     assert len(spans) == 3
 
 
-def test_export_spans_batch_thread_safety(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "16")
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
-
+def test_export_spans_batch_thread_safety():
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock.MagicMock()
 
@@ -202,23 +197,20 @@ def test_export_spans_batch_thread_safety(monkeypatch):
         return_value="catalog.schema.spans",
     ):
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(_generate_spans) for _ in range(10)]
+            futures = [executor.submit(_generate_spans) for _ in range(5)]
             for future in futures:
                 future.result()
 
         exporter.flush()
 
-        assert exporter._client.log_spans.call_count == 4
-        for i in range(4):
+        assert exporter._client.log_spans.call_count == 3
+        for i in range(3):
             location, spans = exporter._client.log_spans.call_args_list[i][0]
             assert location == "catalog.schema.spans"
-            assert len(spans) == 16 if i < 3 else 2
+            assert len(spans) == 10 if i < 2 else 5, f"Batch {i} had {len(spans)} spans"
 
 
-def test_export_spans_batch_split_spans_by_location(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_BATCH_SIZE", "10")
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
-
+def test_export_spans_batch_split_spans_by_location():
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock.MagicMock()
 
