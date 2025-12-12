@@ -654,10 +654,6 @@ const config: Config = {
             to: '/genai/datasets',
             from: ['/genai/eval-monitor/scorers/llm-judge/dataset'],
           },
-          {
-            to: '/genai/assessments/feedback',
-            from: ['/genai/tracing/collect-user-feedback'],
-          },
           // Classic ML Evaluation Redirects - consolidated to single page
           {
             to: '/ml/evaluation',

@@ -50,64 +50,93 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Guides',
           items: [
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/automatic',
-              label: 'Enable Automatic Tracing',
+              type: 'category',
+              label: 'Trace Your App & Agents',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/automatic',
+                  label: 'Automatic Tracing',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/manual-tracing',
+                  label: 'Manual Tracing',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/opentelemetry',
+                  label: 'Tracing with OpenTelemetry',
+                },
+              ],
             },
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/manual-tracing',
-              label: 'Use Manual Tracing for Advanced Use Cases',
+              type: 'category',
+              label: 'Enhance Your Traces',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/track-users-sessions/index',
+                  label: 'Track Users and Sessions',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/attach-tags/index',
+                  label: 'Tag Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/collect-user-feedback/index',
+                  label: 'Collect User Feedback',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/masking',
+                  label: 'Redact Sensitive Data',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/track-environments-context/index',
+                  label: 'Track Application Versions',
+                },
+              ],
             },
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/opentelemetry',
-              label: 'Use with OpenTelemetry',
+              type: 'category',
+              label: 'View & Manage Traces',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/ui',
+                  label: 'View Traces in the UI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/search-traces',
+                  label: 'Search Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/delete-traces',
+                  label: 'Delete Traces',
+                },
+              ],
             },
             {
-              type: 'doc',
-              id: 'tracing/track-users-sessions/index',
-              label: 'Track Users and Sessions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/attach-tags/index',
-              label: 'Tag Traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/masking',
-              label: 'Redact Sensitive Data',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/ui',
-              label: 'View Traces in the UI',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/search-traces',
-              label: 'Search Traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/delete-traces',
-              label: 'Delete Traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/track-environments-context/index',
-              label: 'Track Application Versions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/lightweight-sdk',
-              label: 'Use Lightweight SDK',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/prod-tracing',
-              label: 'Deploy in Production',
+              type: 'category',
+              label: 'Deploy to Production',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/lightweight-sdk',
+                  label: 'Use Lightweight SDK',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/prod-tracing',
+                  label: 'Production Monitoring',
+                },
+              ],
             },
           ],
         },
