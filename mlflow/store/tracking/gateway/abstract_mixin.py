@@ -17,7 +17,7 @@ class GatewayStoreMixin:
     for the MLflow AI Gateway.
     """
 
-    def create_secret(
+    def create_gateway_secret(
         self,
         secret_name: str,
         secret_value: str,
@@ -57,7 +57,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def update_secret(
+    def update_gateway_secret(
         self,
         secret_id: str,
         secret_value: str | None = None,
@@ -81,7 +81,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_secret(self, secret_id: str) -> None:
+    def delete_gateway_secret(self, secret_id: str) -> None:
         """
         Permanently delete a secret.
 
@@ -105,7 +105,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def create_model_definition(
+    def create_gateway_model_definition(
         self,
         name: str,
         secret_id: str,
@@ -131,7 +131,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_model_definition(
+    def get_gateway_model_definition(
         self, model_definition_id: str | None = None, name: str | None = None
     ) -> GatewayModelDefinition:
         """
@@ -146,7 +146,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_model_definitions(
+    def list_gateway_model_definitions(
         self,
         provider: str | None = None,
         secret_id: str | None = None,
@@ -163,7 +163,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def update_model_definition(
+    def update_gateway_model_definition(
         self,
         model_definition_id: str,
         name: str | None = None,
@@ -186,7 +186,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_model_definition(self, model_definition_id: str) -> None:
+    def delete_gateway_model_definition(self, model_definition_id: str) -> None:
         """
         Delete a model definition.
 
@@ -198,7 +198,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def create_endpoint(
+    def create_gateway_endpoint(
         self,
         name: str,
         model_definition_ids: list[str],
@@ -218,7 +218,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_endpoint(
+    def get_gateway_endpoint(
         self, endpoint_id: str | None = None, name: str | None = None
     ) -> GatewayEndpoint:
         """
@@ -233,7 +233,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def update_endpoint(
+    def update_gateway_endpoint(
         self,
         endpoint_id: str,
         name: str,
@@ -252,7 +252,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_endpoint(self, endpoint_id: str) -> None:
+    def delete_gateway_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint (CASCADE deletes bindings and model mappings).
 
@@ -261,7 +261,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_endpoints(
+    def list_gateway_endpoints(
         self,
         provider: str | None = None,
         secret_id: str | None = None,

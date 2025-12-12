@@ -3879,7 +3879,7 @@ def _create_secret():
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
 
-    secret = _get_tracking_store().create_secret(
+    secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
         secret_value=request_message.secret_value,
         provider=request_message.provider or None,
@@ -3923,7 +3923,7 @@ def _update_secret():
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
 
-    secret = _get_tracking_store().update_secret(
+    secret = _get_tracking_store().update_gateway_secret(
         secret_id=request_message.secret_id,
         secret_value=request_message.secret_value or None,
         auth_config=auth_config,
@@ -3943,7 +3943,7 @@ def _delete_secret():
             "secret_id": [_assert_required, _assert_string],
         },
     )
-    _get_tracking_store().delete_secret(request_message.secret_id)
+    _get_tracking_store().delete_gateway_secret(request_message.secret_id)
     response_message = DeleteGatewaySecret.Response()
     return _wrap_response(response_message)
 
@@ -3980,7 +3980,7 @@ def _create_endpoint():
             "created_by": [_assert_string],
         },
     )
-    endpoint = _get_tracking_store().create_endpoint(
+    endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_definition_ids=list(request_message.model_definition_ids),
         created_by=request_message.created_by or None,
@@ -3999,7 +3999,7 @@ def _get_endpoint():
             "endpoint_id": [_assert_required, _assert_string],
         },
     )
-    endpoint = _get_tracking_store().get_endpoint(request_message.endpoint_id)
+    endpoint = _get_tracking_store().get_gateway_endpoint(request_message.endpoint_id)
     response_message = GetGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
     return _wrap_response(response_message)
@@ -4016,7 +4016,7 @@ def _update_endpoint():
             "updated_by": [_assert_string],
         },
     )
-    endpoint = _get_tracking_store().update_endpoint(
+    endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
         updated_by=request_message.updated_by or None,
@@ -4035,7 +4035,7 @@ def _delete_endpoint():
             "endpoint_id": [_assert_required, _assert_string],
         },
     )
-    _get_tracking_store().delete_endpoint(request_message.endpoint_id)
+    _get_tracking_store().delete_gateway_endpoint(request_message.endpoint_id)
     response_message = DeleteGatewayEndpoint.Response()
     return _wrap_response(response_message)
 
@@ -4049,7 +4049,7 @@ def _list_endpoints():
             "provider": [_assert_string],
         },
     )
-    endpoints = _get_tracking_store().list_endpoints(
+    endpoints = _get_tracking_store().list_gateway_endpoints(
         provider=request_message.provider or None,
     )
     response_message = ListGatewayEndpoints.Response()
@@ -4075,7 +4075,7 @@ def _create_model_definition():
             "created_by": [_assert_string],
         },
     )
-    model_definition = _get_tracking_store().create_model_definition(
+    model_definition = _get_tracking_store().create_gateway_model_definition(
         name=request_message.name,
         secret_id=request_message.secret_id,
         provider=request_message.provider,
@@ -4096,7 +4096,7 @@ def _get_model_definition():
             "model_definition_id": [_assert_required, _assert_string],
         },
     )
-    model_definition = _get_tracking_store().get_model_definition(
+    model_definition = _get_tracking_store().get_gateway_model_definition(
         request_message.model_definition_id
     )
     response_message = GetGatewayModelDefinition.Response()
@@ -4114,7 +4114,7 @@ def _list_model_definitions():
             "secret_id": [_assert_string],
         },
     )
-    model_definitions = _get_tracking_store().list_model_definitions(
+    model_definitions = _get_tracking_store().list_gateway_model_definitions(
         provider=request_message.provider or None,
         secret_id=request_message.secret_id or None,
     )
@@ -4136,7 +4136,7 @@ def _update_model_definition():
             "updated_by": [_assert_string],
         },
     )
-    model_definition = _get_tracking_store().update_model_definition(
+    model_definition = _get_tracking_store().update_gateway_model_definition(
         model_definition_id=request_message.model_definition_id,
         name=request_message.name or None,
         secret_id=request_message.secret_id or None,
@@ -4157,7 +4157,7 @@ def _delete_model_definition():
             "model_definition_id": [_assert_required, _assert_string],
         },
     )
-    _get_tracking_store().delete_model_definition(request_message.model_definition_id)
+    _get_tracking_store().delete_gateway_model_definition(request_message.model_definition_id)
     response_message = DeleteGatewayModelDefinition.Response()
     return _wrap_response(response_message)
 
