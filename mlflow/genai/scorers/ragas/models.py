@@ -12,6 +12,25 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 
 
+def _create_llm_result(text: str):
+    """Create a LangChain LLMResult object from text."""
+    try:
+        from langchain_core.outputs import Generation, LLMResult
+
+        return LLMResult(generations=[[Generation(text=text)]])
+    except ImportError:
+        # Simple mock object if langchain_core is not available
+        class MockGeneration:
+            def __init__(self, text):
+                self.text = text
+
+        class MockLLMResult:
+            def __init__(self, text):
+                self.generations = [[MockGeneration(text)]]
+
+        return MockLLMResult(text)
+
+
 class DatabricksRagasLLM(BaseRagasLLM):
     """
     RAGAS LLM adapter for Databricks managed judge.
@@ -23,16 +42,24 @@ class DatabricksRagasLLM(BaseRagasLLM):
         super().__init__()
 
     def generate_text(self, prompt: str, **kwargs) -> str:
+        # Convert LangChain StringPromptValue to string if needed
+        if hasattr(prompt, "to_string"):
+            prompt = prompt.to_string()
+        elif not isinstance(prompt, str):
+            prompt = str(prompt)
+
         result = call_chat_completions(user_prompt=prompt, system_prompt="")
         return result.output
 
-    async def agenerate_text(self, prompt: str, **kwargs) -> str:
-        return self.generate_text(prompt, **kwargs)
+    async def agenerate_text(self, prompt: str, **kwargs):
+        # Return LLMResult object
+        text = self.generate_text(prompt, **kwargs)
+        return _create_llm_result(text)
 
     def get_model_name(self) -> str:
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
 
-    def is_finished(self) -> bool:
+    def is_finished(self, result=None) -> bool:
         return True
 
 
@@ -48,6 +75,12 @@ class DatabricksServingEndpointRagasLLM(BaseRagasLLM):
         self._endpoint_name = endpoint_name
 
     def generate_text(self, prompt: str, **kwargs) -> str:
+        # Convert LangChain StringPromptValue to string if needed
+        if hasattr(prompt, "to_string"):
+            prompt = prompt.to_string()
+        elif not isinstance(prompt, str):
+            prompt = str(prompt)
+
         output = _invoke_databricks_serving_endpoint(
             model_name=self._endpoint_name,
             prompt=prompt,
@@ -56,13 +89,15 @@ class DatabricksServingEndpointRagasLLM(BaseRagasLLM):
         )
         return output.response
 
-    async def agenerate_text(self, prompt: str, **kwargs) -> str:
-        return self.generate_text(prompt, **kwargs)
+    async def agenerate_text(self, prompt: str, **kwargs):
+        # Return LLMResult object
+        text = self.generate_text(prompt, **kwargs)
+        return _create_llm_result(text)
 
     def get_model_name(self) -> str:
         return f"databricks:/{self._endpoint_name}"
 
-    def is_finished(self) -> bool:
+    def is_finished(self, result=None) -> bool:
         return True
 
 

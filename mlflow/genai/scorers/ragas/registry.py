@@ -9,7 +9,8 @@ _METRIC_REGISTRY = {
     "ContextRecall": "ragas.metrics.ContextRecall",
     "ContextEntityRecall": "ragas.metrics.ContextEntityRecall",
     "NoiseSensitivity": "ragas.metrics.NoiseSensitivity",
-    "ResponseRelevancy": "ragas.metrics.ResponseRelevancy",
+    # TODO: ResponseRelevancy requires embeddings model instead of LLM
+    # "ResponseRelevancy": "ragas.metrics.ResponseRelevancy",
     "Faithfulness": "ragas.metrics.Faithfulness",
     # TODO: Nvidia Metrics not yet supported
     # "AnswerAccuracy": "ragas.metrics.AnswerAccuracy",

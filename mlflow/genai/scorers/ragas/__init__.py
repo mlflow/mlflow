@@ -114,6 +114,7 @@ class RagasScorer(Scorer):
                 value=CategoricalRating.YES if success else CategoricalRating.NO,
                 rationale=reason,
                 source=assessment_source,
+                trace_id=trace.info.trace_id if trace else None,
                 metadata={
                     "score": score,
                     "threshold": threshold,
