@@ -1,7 +1,6 @@
-"""LiteLLM adapter for judge model invocation."""
-
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from contextlib import ContextDecorator
@@ -15,10 +14,22 @@ if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage
 
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.adapters.base_adapter import (
+    AdapterInvocationInput,
+    AdapterInvocationOutput,
+    BaseJudgeAdapter,
+)
+from mlflow.genai.judges.utils.parsing_utils import (
+    _sanitize_justification,
+    _strip_markdown_code_blocks,
+)
 from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
 from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
+from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
 
@@ -100,6 +111,7 @@ def _invoke_litellm(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None,
     include_response_format: bool,
+    inference_params: dict[str, Any] | None = None,
 ) -> "litellm.ModelResponse":
     """
     Invoke litellm completion with retry support.
@@ -111,6 +123,8 @@ def _invoke_litellm(
         num_retries: Number of retries with exponential backoff.
         response_format: Optional Pydantic model class for structured output.
         include_response_format: Whether to include response_format in the request.
+        inference_params: Optional dictionary of additional inference parameters to pass
+            to the model (e.g., temperature, top_p, max_tokens).
 
     Returns:
         The litellm ModelResponse object.
@@ -138,6 +152,11 @@ def _invoke_litellm(
     if include_response_format:
         # LiteLLM supports passing Pydantic models directly for response_format
         kwargs["response_format"] = response_format or _get_default_judge_response_schema()
+
+    # Apply any additional inference parameters (e.g., temperature, top_p, max_tokens)
+    if inference_params:
+        kwargs.update(inference_params)
+
     return litellm.completion(**kwargs)
 
 
@@ -149,6 +168,7 @@ def _invoke_litellm_and_handle_tools(
     trace: Trace | None,
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> tuple[str, float | None]:
     """
     Invoke litellm with retry support and handle tool calling loop.
@@ -162,6 +182,8 @@ def _invoke_litellm_and_handle_tools(
         response_format: Optional Pydantic model class for structured output format.
                        Used by get_chat_completions_with_structured_output for
                        schema-based extraction.
+        inference_params: Optional dictionary of additional inference parameters to pass
+                       to the model (e.g., temperature, top_p, max_tokens).
 
     Returns:
         Tuple of the model's response content and the total cost.
@@ -221,6 +243,7 @@ def _invoke_litellm_and_handle_tools(
                     num_retries=num_retries,
                     response_format=response_format,
                     include_response_format=include_response_format,
+                    inference_params=inference_params,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):
@@ -366,3 +389,70 @@ def _get_litellm_retry_policy(num_retries: int) -> "litellm.RetryPolicy":
         BadRequestErrorRetries=0,
         AuthenticationErrorRetries=0,
     )
+
+
+def _is_litellm_available() -> bool:
+    try:
+        import litellm  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+class LiteLLMAdapter(BaseJudgeAdapter):
+    """Adapter for LiteLLM-supported providers."""
+
+    @classmethod
+    def is_applicable(
+        cls,
+        model_uri: str,
+        prompt: str | list["ChatMessage"],
+    ) -> bool:
+        return _is_litellm_available()
+
+    def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        from mlflow.types.llm import ChatMessage
+
+        messages = (
+            [ChatMessage(role="user", content=input_params.prompt)]
+            if isinstance(input_params.prompt, str)
+            else input_params.prompt
+        )
+
+        response, total_cost = _invoke_litellm_and_handle_tools(
+            provider=input_params.model_provider,
+            model_name=input_params.model_name,
+            messages=messages,
+            trace=input_params.trace,
+            num_retries=input_params.num_retries,
+            response_format=input_params.response_format,
+            inference_params=input_params.inference_params,
+        )
+
+        cleaned_response = _strip_markdown_code_blocks(response)
+
+        try:
+            response_dict = json.loads(cleaned_response)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse response from judge model. Response: {response}"
+            ) from e
+
+        metadata = {AssessmentMetadataKey.JUDGE_COST: total_cost} if total_cost else None
+
+        if "error" in response_dict:
+            raise MlflowException(f"Judge evaluation failed with error: {response_dict['error']}")
+
+        feedback = Feedback(
+            name=input_params.assessment_name,
+            value=response_dict["result"],
+            rationale=_sanitize_justification(response_dict.get("rationale", "")),
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
+            ),
+            trace_id=input_params.trace.info.trace_id if input_params.trace is not None else None,
+            metadata=metadata,
+        )
+
+        return AdapterInvocationOutput(feedback=feedback, cost=total_cost)

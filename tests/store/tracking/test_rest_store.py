@@ -12,6 +12,7 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     ExperimentTag,
+    GatewayResourceType,
     InputTag,
     LifecycleStage,
     LoggedModelParameter,
@@ -49,28 +50,45 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    AttachModelToGatewayEndpoint,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
+    CreateGatewayEndpoint,
+    CreateGatewayEndpointBinding,
+    CreateGatewayModelDefinition,
+    CreateGatewaySecret,
     CreateLoggedModel,
     CreateRun,
     DeleteDataset,
     DeleteDatasetTag,
     DeleteExperiment,
+    DeleteGatewayEndpoint,
+    DeleteGatewayEndpointBinding,
+    DeleteGatewayModelDefinition,
+    DeleteGatewaySecret,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
     DeleteTraces,
+    DetachModelFromGatewayEndpoint,
     EndTrace,
     GetDataset,
     GetDatasetExperimentIds,
     GetDatasetRecords,
     GetExperimentByName,
+    GetGatewayEndpoint,
+    GetGatewayModelDefinition,
+    GetGatewaySecretInfo,
     GetLoggedModel,
     GetScorer,
     GetTrace,
     GetTraceInfoV3,
     LinkPromptsToTrace,
+    ListGatewayEndpointBindings,
+    ListGatewayEndpoints,
+    ListGatewayModelDefinitions,
+    ListGatewaySecretInfos,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -92,6 +110,9 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
+    UpdateGatewayEndpoint,
+    UpdateGatewayModelDefinition,
+    UpdateGatewaySecret,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
@@ -3003,4 +3024,325 @@ def test_link_prompts_to_trace():
             "traces/link-prompts",
             "POST",
             message_to_json(request),
+        )
+
+
+def test_create_gateway_secret():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.create_gateway_secret(
+            secret_name="test-key",
+            secret_value={"api_key": "sk-test-12345"},
+            provider="openai",
+        )
+        body = message_to_json(
+            CreateGatewaySecret(
+                secret_name="test-key",
+                secret_value={"api_key": "sk-test-12345"},
+                provider="openai",
+            )
+        )
+        _verify_requests(mock_http, creds, "gateway/secrets/create", "POST", body, use_v3=True)
+
+
+def test_get_gateway_secret_info():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.get_secret_info(secret_id="secret-123")
+        body = message_to_json(GetGatewaySecretInfo(secret_id="secret-123"))
+        _verify_requests(mock_http, creds, "gateway/secrets/get", "GET", body, use_v3=True)
+
+
+def test_update_gateway_secret():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.update_gateway_secret(
+            secret_id="secret-123",
+            secret_value={"api_key": "sk-new-value"},
+            auth_config={"region": "us-east-1"},
+        )
+        body = message_to_json(
+            UpdateGatewaySecret(
+                secret_id="secret-123",
+                secret_value={"api_key": "sk-new-value"},
+                auth_config_json='{"region": "us-east-1"}',
+            )
+        )
+        _verify_requests(mock_http, creds, "gateway/secrets/update", "POST", body, use_v3=True)
+
+
+def test_delete_gateway_secret():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.delete_gateway_secret(secret_id="secret-123")
+        body = message_to_json(DeleteGatewaySecret(secret_id="secret-123"))
+        _verify_requests(mock_http, creds, "gateway/secrets/delete", "DELETE", body, use_v3=True)
+
+
+def test_list_gateway_secret_infos():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.list_secret_infos()
+        body = message_to_json(ListGatewaySecretInfos())
+        _verify_requests(mock_http, creds, "gateway/secrets/list", "GET", body, use_v3=True)
+
+
+def test_create_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.create_gateway_endpoint(
+            name="my-endpoint",
+            model_definition_ids=["model-def-123"],
+        )
+        body = message_to_json(
+            CreateGatewayEndpoint(
+                name="my-endpoint",
+                model_definition_ids=["model-def-123"],
+            )
+        )
+        _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
+
+
+def test_get_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.get_gateway_endpoint(endpoint_id="endpoint-123")
+        body = message_to_json(GetGatewayEndpoint(endpoint_id="endpoint-123"))
+        _verify_requests(mock_http, creds, "gateway/endpoints/get", "GET", body, use_v3=True)
+
+
+def test_update_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.update_gateway_endpoint(endpoint_id="endpoint-123", name="new-name")
+        body = message_to_json(UpdateGatewayEndpoint(endpoint_id="endpoint-123", name="new-name"))
+        _verify_requests(mock_http, creds, "gateway/endpoints/update", "POST", body, use_v3=True)
+
+
+def test_delete_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.delete_gateway_endpoint(endpoint_id="endpoint-123")
+        body = message_to_json(DeleteGatewayEndpoint(endpoint_id="endpoint-123"))
+        _verify_requests(mock_http, creds, "gateway/endpoints/delete", "DELETE", body, use_v3=True)
+
+
+def test_list_gateway_endpoints():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.list_gateway_endpoints()
+        body = message_to_json(ListGatewayEndpoints())
+        _verify_requests(mock_http, creds, "gateway/endpoints/list", "GET", body, use_v3=True)
+
+
+def test_create_gateway_model_definition():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.create_gateway_model_definition(
+            name="my-model-def",
+            secret_id="secret-456",
+            provider="anthropic",
+            model_name="claude-3-5-sonnet",
+        )
+        body = message_to_json(
+            CreateGatewayModelDefinition(
+                name="my-model-def",
+                secret_id="secret-456",
+                provider="anthropic",
+                model_name="claude-3-5-sonnet",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/create", "POST", body, use_v3=True
+        )
+
+
+def test_get_gateway_model_definition():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.get_gateway_model_definition(model_definition_id="model-def-123")
+        body = message_to_json(GetGatewayModelDefinition(model_definition_id="model-def-123"))
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/get", "GET", body, use_v3=True
+        )
+
+
+def test_list_gateway_model_definitions():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.list_gateway_model_definitions()
+        body = message_to_json(ListGatewayModelDefinitions())
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/list", "GET", body, use_v3=True
+        )
+
+
+def test_update_gateway_model_definition():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.update_gateway_model_definition(
+            model_definition_id="model-def-123",
+            name="updated-name",
+            model_name="gpt-4o-mini",
+        )
+        body = message_to_json(
+            UpdateGatewayModelDefinition(
+                model_definition_id="model-def-123",
+                name="updated-name",
+                model_name="gpt-4o-mini",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/update", "POST", body, use_v3=True
+        )
+
+
+def test_delete_gateway_model_definition():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.delete_gateway_model_definition(model_definition_id="model-def-123")
+        body = message_to_json(DeleteGatewayModelDefinition(model_definition_id="model-def-123"))
+        _verify_requests(
+            mock_http, creds, "gateway/model-definitions/delete", "DELETE", body, use_v3=True
+        )
+
+
+def test_attach_model_to_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.attach_model_to_endpoint(
+            endpoint_id="endpoint-123",
+            model_definition_id="model-def-456",
+        )
+        body = message_to_json(
+            AttachModelToGatewayEndpoint(
+                endpoint_id="endpoint-123",
+                model_definition_id="model-def-456",
+                weight=1,
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/models/attach", "POST", body, use_v3=True
+        )
+
+
+def test_detach_model_from_gateway_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.detach_model_from_endpoint(
+            endpoint_id="endpoint-123",
+            model_definition_id="model-def-456",
+        )
+        body = message_to_json(
+            DetachModelFromGatewayEndpoint(
+                endpoint_id="endpoint-123",
+                model_definition_id="model-def-456",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/models/detach", "POST", body, use_v3=True
+        )
+
+
+def test_create_gateway_endpoint_binding():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    response_json = json.dumps({"binding": {"resource_type": "scorer_job"}})
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(status_code=200, text=response_json),
+    ) as mock_http:
+        store.create_endpoint_binding(
+            endpoint_id="endpoint-123",
+            resource_type=GatewayResourceType.SCORER_JOB,
+            resource_id="job-456",
+        )
+        body = message_to_json(
+            CreateGatewayEndpointBinding(
+                endpoint_id="endpoint-123",
+                resource_type="scorer_job",
+                resource_id="job-456",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/bindings/create", "POST", body, use_v3=True
+        )
+
+
+def test_delete_gateway_endpoint_binding():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.delete_endpoint_binding(
+            endpoint_id="endpoint-123",
+            resource_type="scorer_job",
+            resource_id="job-456",
+        )
+        body = message_to_json(
+            DeleteGatewayEndpointBinding(
+                endpoint_id="endpoint-123",
+                resource_type="scorer_job",
+                resource_id="job-456",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/bindings/delete", "DELETE", body, use_v3=True
+        )
+
+
+def test_list_gateway_endpoint_bindings():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock_http_request() as mock_http:
+        store.list_endpoint_bindings(
+            endpoint_id="endpoint-123",
+            resource_type=GatewayResourceType.SCORER_JOB,
+            resource_id="job-456",
+        )
+        body = message_to_json(
+            ListGatewayEndpointBindings(
+                endpoint_id="endpoint-123",
+                resource_type="scorer_job",
+                resource_id="job-456",
+            )
+        )
+        _verify_requests(
+            mock_http, creds, "gateway/endpoints/bindings/list", "GET", body, use_v3=True
         )
