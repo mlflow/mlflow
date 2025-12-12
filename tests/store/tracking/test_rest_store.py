@@ -3034,13 +3034,13 @@ def test_create_gateway_secret():
     with mock_http_request() as mock_http:
         store.create_gateway_secret(
             secret_name="test-key",
-            secret_value="sk-test-12345",
+            secret_value={"api_key": "sk-test-12345"},
             provider="openai",
         )
         body = message_to_json(
             CreateGatewaySecret(
                 secret_name="test-key",
-                secret_value="sk-test-12345",
+                secret_value={"api_key": "sk-test-12345"},
                 provider="openai",
             )
         )
@@ -3064,13 +3064,13 @@ def test_update_gateway_secret():
     with mock_http_request() as mock_http:
         store.update_gateway_secret(
             secret_id="secret-123",
-            secret_value="sk-new-value",
+            secret_value={"api_key": "sk-new-value"},
             auth_config={"region": "us-east-1"},
         )
         body = message_to_json(
             UpdateGatewaySecret(
                 secret_id="secret-123",
-                secret_value="sk-new-value",
+                secret_value={"api_key": "sk-new-value"},
                 auth_config_json='{"region": "us-east-1"}',
             )
         )
