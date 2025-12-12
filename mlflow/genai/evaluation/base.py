@@ -40,7 +40,6 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
-from mlflow.utils.annotations import experimental
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 
 if TYPE_CHECKING:
@@ -50,7 +49,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.0.0")
 def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
@@ -356,7 +354,6 @@ def _log_dataset_input(
     )
 
 
-@experimental(version="3.0.0")
 def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     """
     Convert an endpoint URI to a predict function.
