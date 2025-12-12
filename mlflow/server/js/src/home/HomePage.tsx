@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Header, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, Header, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../common/components/ScrollablePageWrapper';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -11,6 +11,10 @@ import { GetStarted } from './components/GetStarted';
 import { ExperimentsHomeView } from './components/ExperimentsHomeView';
 import { DiscoverNews } from './components/DiscoverNews';
 import { LogTracesDrawer } from './components/LogTracesDrawer';
+import { Link } from '../common/utils/RoutingUtils';
+import Routes from '../experiment-tracking/routes';
+import { TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_KEY } from '../telemetry/utils';
+import { useLocalStorage } from '../shared/web-shared/hooks';
 
 type ExperimentQueryKey = ['home', 'recent-experiments'];
 
@@ -20,6 +24,11 @@ const HomePage = () => {
   const { theme } = useDesignSystemTheme();
   const invalidateExperiments = useInvalidateExperimentList();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isTelemetryAlertDismissed, setIsTelemetryAlertDismissed] = useLocalStorage({
+    key: TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_KEY,
+    version: 1,
+    initialValue: false,
+  });
 
   const { data, error, isLoading, refetch } = useQuery<
     SearchExperimentsApiResponse,
@@ -56,6 +65,40 @@ const HomePage = () => {
       }}
     >
       <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
+      {!isTelemetryAlertDismissed && (
+        <Alert
+          componentId="mlflow.home.telemetry-alert"
+          message="Information about UI telemetry"
+          type="info"
+          onClose={() => setIsTelemetryAlertDismissed(true)}
+          description={
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              <span>
+                <FormattedMessage
+                  defaultMessage="MLflow collects usage data to improve the product. To confirm your settings, please visit the <settings>settings</settings> page. To learn more about what data is collected, please visit the <documentation>documentation</documentation>."
+                  description="Telemetry alert description"
+                  values={{
+                    settings: (chunks: any) => (
+                      <Link to={Routes.settingsPageRoute} onClick={() => setIsTelemetryAlertDismissed(true)}>
+                        {chunks}
+                      </Link>
+                    ),
+                    documentation: (chunks: any) => (
+                      <Link
+                        to="https://mlflow.org/docs/latest/community/usage-tracking.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                  }}
+                />
+              </span>
+            </div>
+          }
+        />
+      )}
       <GetStarted />
       <ExperimentsHomeView
         experiments={experiments}

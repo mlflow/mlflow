@@ -7,6 +7,7 @@ import type { ExperimentPageTabName } from './constants';
  */
 export enum PageId {
   home = 'mlflow.home',
+  settingsPage = 'mlflow.settings',
   promptsPage = 'mlflow.prompts',
   promptDetailsPage = 'mlflow.prompts.details',
   experimentPageTabbed = 'mlflow.experiment.details.tab',
@@ -126,6 +127,9 @@ export class RoutePaths {
   static get promptDetailsPage() {
     return createMLflowRoutePath('/prompts/:promptName');
   }
+  static get settingsPage() {
+    return createMLflowRoutePath('/settings');
+  }
 }
 
 // Concrete routes and functions for generating parametrized paths
@@ -145,6 +149,10 @@ class Routes {
 
   static get experimentPageSearchRoute() {
     return RoutePaths.experimentPageSearch;
+  }
+
+  static get settingsPageRoute() {
+    return RoutePaths.settingsPage;
   }
 
   static getExperimentPageRoute(experimentId: string, isComparingRuns = false, shareState?: string) {
