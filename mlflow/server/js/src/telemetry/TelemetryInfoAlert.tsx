@@ -3,7 +3,6 @@ import { useLocalStorage } from '../shared/web-shared/hooks';
 import { Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { Link } from '../common/utils/RoutingUtils';
-import Routes from '../experiment-tracking/routes';
 
 export const TelemetryInfoAlert = () => {
   const { theme } = useDesignSystemTheme();
@@ -31,11 +30,6 @@ export const TelemetryInfoAlert = () => {
               defaultMessage="MLflow collects usage data to improve the product. To confirm your preferences, please visit the settings page in the navigation sidebar. To learn more about what data is collected, please visit the <documentation>documentation</documentation>."
               description="Telemetry alert description"
               values={{
-                settings: (chunks: any) => (
-                  <Link to={Routes.settingsPageRoute} onClick={() => setIsTelemetryAlertDismissed(true)}>
-                    {chunks}
-                  </Link>
-                ),
                 documentation: (chunks: any) => (
                   <Link
                     to="https://mlflow.org/docs/latest/community/usage-tracking.html"

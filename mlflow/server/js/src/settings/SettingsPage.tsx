@@ -2,6 +2,8 @@ import { Switch, Typography, useDesignSystemTheme } from '@databricks/design-sys
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useLocalStorage } from '../shared/web-shared/hooks';
 import { TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from '../telemetry/utils';
+import { telemetryClient } from '../telemetry';
+import { useCallback } from 'react';
 
 const SettingsPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -12,6 +14,18 @@ const SettingsPage = () => {
     version: TELEMETRY_ENABLED_STORAGE_VERSION,
     initialValue: true,
   });
+
+  const handleTelemetryToggle = useCallback(
+    (checked: boolean) => {
+      setIsTelemetryEnabled(checked);
+      if (checked) {
+        telemetryClient.start();
+      } else {
+        telemetryClient.shutdown();
+      }
+    },
+    [setIsTelemetryEnabled],
+  );
 
   return (
     <div css={{ padding: theme.spacing.md }}>
@@ -45,7 +59,7 @@ const SettingsPage = () => {
         <Switch
           componentId="mlflow.settings.telemetry.toggle-switch"
           checked={isTelemetryEnabled}
-          onChange={setIsTelemetryEnabled}
+          onChange={handleTelemetryToggle}
           label=" "
           activeLabel={intl.formatMessage({ defaultMessage: 'On', description: 'Telemetry enabled label' })}
           inactiveLabel={intl.formatMessage({ defaultMessage: 'Off', description: 'Telemetry disabled label' })}
