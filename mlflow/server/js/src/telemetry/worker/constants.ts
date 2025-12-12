@@ -5,4 +5,4 @@
  * is served from the static files directory under the root.
  */
 // eslint-disable-next-line mlflow/no-absolute-ajax-urls
-export const UI_TELEMETRY_ENDPOINT = '../ajax-api/2.0/mlflow/ui-telemetry';
+export const UI_TELEMETRY_ENDPOINT = '../ajax-api/3.0/mlflow/ui-telemetry';
