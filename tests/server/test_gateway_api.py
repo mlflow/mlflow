@@ -5,7 +5,6 @@ import pytest
 from fastapi import HTTPException
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AWSBaseConfig,
