@@ -137,7 +137,7 @@ def _create_provider_from_endpoint_config(
         )
     else:
         # TODO: Support long-tail providers with LiteLLM
-        pass
+        raise NotImplementedError(f"Provider {provider_enum} is not supported")
 
     # Create an EndpointConfig for the provider
     # This mimics what the gateway does with yaml-based configs
