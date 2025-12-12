@@ -1,7 +1,7 @@
 import { Switch, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useLocalStorage } from '../shared/web-shared/hooks';
-import { TELEMETRY_ENABLED_STORAGE_KEY } from '../telemetry/utils';
+import { TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from '../telemetry/utils';
 
 const SettingsPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -9,7 +9,7 @@ const SettingsPage = () => {
 
   const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
-    version: 1,
+    version: TELEMETRY_ENABLED_STORAGE_VERSION,
     initialValue: true,
   });
 
