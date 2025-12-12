@@ -625,3 +625,45 @@ def test_is_tool_call_efficient_with_custom_name_and_model():
     args, kwargs = mock_invoke.call_args
     assert args[0] == "anthropic:/claude-3-sonnet"
     assert kwargs["assessment_name"] == "custom_efficiency_check"
+
+
+def test_is_tool_call_correct_with_custom_name_and_model():
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="custom_correctness_check",
+            value=CategoricalRating.YES,
+            rationale="Let's think step by step. Tool calls and arguments are appropriate.",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="anthropic:/claude-3-sonnet",
+            ),
+        ),
+    ) as mock_invoke:
+        feedback = judges.is_tool_call_correct(
+            request="Get weather for Paris",
+            tools_called=[
+                FunctionCall(
+                    name="get_weather",
+                    arguments={"city": "Paris"},
+                    outputs="Sunny, 22°C",
+                )
+            ],
+            available_tools=[
+                ChatTool(
+                    type="function",
+                    function=FunctionToolDefinition(name="get_weather", description="Get weather"),
+                )
+            ],
+            name="custom_correctness_check",
+            model="anthropic:/claude-3-sonnet",
+        )
+
+    assert feedback.name == "custom_correctness_check"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.source.source_id == "anthropic:/claude-3-sonnet"
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args[0] == "anthropic:/claude-3-sonnet"
+    assert kwargs["assessment_name"] == "custom_correctness_check"

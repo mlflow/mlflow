@@ -798,6 +798,7 @@ mlflow.genai.judges.is_context_sufficient
 mlflow.genai.judges.is_correct
 mlflow.genai.judges.is_grounded
 mlflow.genai.judges.is_safe
+mlflow.genai.judges.is_tool_call_correct
 mlflow.genai.judges.is_tool_call_efficient
 mlflow.genai.judges.make_judge
 mlflow.genai.judges.meets_guidelines
@@ -894,6 +895,9 @@ mlflow.genai.scorers.ScorerSamplingConfig
 mlflow.genai.scorers.Summarization
 mlflow.genai.scorers.Summarization.get_input_fields
 mlflow.genai.scorers.Summarization.model_post_init
+mlflow.genai.scorers.ToolCallCorrectness
+mlflow.genai.scorers.ToolCallCorrectness.get_input_fields
+mlflow.genai.scorers.ToolCallCorrectness.model_post_init
 mlflow.genai.scorers.ToolCallEfficiency
 mlflow.genai.scorers.ToolCallEfficiency.get_input_fields
 mlflow.genai.scorers.ToolCallEfficiency.model_post_init
@@ -917,6 +921,7 @@ mlflow.genai.scorers.builtin_scorers.RetrievalRelevance
 mlflow.genai.scorers.builtin_scorers.RetrievalSufficiency
 mlflow.genai.scorers.builtin_scorers.Safety
 mlflow.genai.scorers.builtin_scorers.Summarization
+mlflow.genai.scorers.builtin_scorers.ToolCallCorrectness
 mlflow.genai.scorers.builtin_scorers.ToolCallEfficiency
 mlflow.genai.scorers.builtin_scorers.UserFrustration
 mlflow.genai.scorers.delete_scorer

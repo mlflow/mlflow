@@ -478,6 +478,90 @@ def is_tool_call_efficient(
     return _sanitize_feedback(feedback)
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+def is_tool_call_correct(
+    *,
+    request: str,
+    tools_called: list["FunctionCall"],
+    available_tools: list["ChatTool"],
+    name: str | None = None,
+    model: str | None = None,
+) -> Feedback:
+    """
+    LLM judge determines whether the agent's tool calls and their arguments are correct
+    and reasonable.
+
+    This judge analyzes whether the tools selected and the arguments provided to them
+    are appropriate for fulfilling the user's request.
+
+    Args:
+        request: The original user request that the agent is trying to fulfill.
+        tools_called: The sequence of tools that were called by the agent.
+            Each element should be a FunctionCall object.
+        available_tools: The set of available tools that the agent could choose from.
+            Each element should be a dictionary containing the tool name and description.
+        name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
+
+    Returns:
+        A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
+        indicating whether the tool calls and arguments are correct ("yes") or incorrect ("no").
+
+    Example:
+
+        The following example shows how to evaluate whether an agent's tool calls are correct.
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_tool_call_correct
+            from mlflow.genai.utils.type import FunctionCall
+
+            # Correct tool usage
+            feedback = is_tool_call_correct(
+                request="What is the weather in San Francisco?",
+                tools_called=[
+                    FunctionCall(
+                        name="get_weather",
+                        arguments={"location": "San Francisco", "unit": "celsius"},
+                        outputs="15°C, partly cloudy",
+                    ),
+                ],
+                available_tools=["get_weather", "search", "calculate"],
+            )
+            print(feedback.value)  # "yes"
+
+            # Incorrect tool usage
+            feedback = is_tool_call_correct(
+                request="What is the weather in San Francisco?",
+                tools_called=[
+                    FunctionCall(
+                        name="calculate",
+                        arguments={"expression": "San Francisco"},
+                        outputs="Error: invalid expression",
+                    ),  # Wrong tool for weather query
+                ],
+                available_tools=["get_weather", "search", "calculate"],
+            )
+            print(feedback.value)  # "no"
+
+    """
+    from mlflow.genai.judges.prompts.tool_call_correctness import (
+        TOOL_CALL_CORRECTNESS_FEEDBACK_NAME,
+        get_prompt,
+    )
+
+    model = model or get_default_model()
+    assessment_name = name or TOOL_CALL_CORRECTNESS_FEEDBACK_NAME
+
+    prompt = get_prompt(request=request, tools_called=tools_called, available_tools=available_tools)
+    feedback = invoke_judge_model(
+        model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+    )
+
+    return _sanitize_feedback(feedback)
+
+
 @format_docstring(_MODEL_API_DOC)
 def is_safe(*, content: str, name: str | None = None, model: str | None = None) -> Feedback:
     """
