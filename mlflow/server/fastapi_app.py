@@ -51,8 +51,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # Include Gateway API router for database-backed endpoints
     # This provides /gateway/{endpoint_name}/mlflow/invocations routes
     try:
-        gateway_router = get_gateway_router()
-        fastapi_app.include_router(gateway_router)
+        fastapi_app.include_router(get_gateway_router())
     except Exception as e:
         # Log warning but don't fail server startup if gateway endpoints can't be loaded
         logging.getLogger(__name__).warning(

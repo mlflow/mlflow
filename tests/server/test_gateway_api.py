@@ -24,8 +24,8 @@ from mlflow.gateway.schemas import chat, embeddings
 from mlflow.server.gateway_api import (
     _create_invocations_handler,
     _create_provider_from_endpoint_config,
-    gateway_router,
     _register_gateway_endpoints,
+    gateway_router,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
