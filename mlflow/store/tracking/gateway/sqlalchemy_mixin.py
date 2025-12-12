@@ -45,9 +45,6 @@ from mlflow.utils.crypto import (
 )
 from mlflow.utils.time import get_current_time_millis
 
-# Default key name when secret_value is a simple string (not a dict)
-_DEFAULT_SECRET_KEY_NAME = "api_key"
-
 
 def _validate_one_of(
     param1_name: str, param1_value: Any, param2_name: str, param2_value: Any
@@ -95,7 +92,7 @@ class SqlAlchemyGatewayStoreMixin:
     def create_secret(
         self,
         secret_name: str,
-        secret_value: str | dict[str, str],
+        secret_value: dict[str, str],
         provider: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
@@ -105,10 +102,10 @@ class SqlAlchemyGatewayStoreMixin:
 
         Args:
             secret_name: Unique user-friendly name for the secret.
-            secret_value: The secret value(s) to encrypt. Can be either:
-                - A string (converted to {"api_key": value})
-                - A dict of secret fields (stored as JSON), e.g.:
-                  {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+            secret_value: The secret value(s) to encrypt as key-value pairs.
+                For simple API keys: {"api_key": "sk-xxx"}
+                For compound credentials: {"aws_access_key_id": "...",
+                  "aws_secret_access_key": "..."}
             provider: Optional LLM provider (e.g., "openai", "anthropic").
             auth_config: Optional provider-specific auth configuration dict.
                 Should include "auth_mode" for providers with multiple auth options.
@@ -121,21 +118,15 @@ class SqlAlchemyGatewayStoreMixin:
             secret_id = f"s-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
-            # Normalize to dict format and serialize to JSON for encryption
-            if isinstance(secret_value, str):
-                secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
-            else:
-                secret_dict = secret_value
-
-            value_to_encrypt = json.dumps(secret_dict)
+            value_to_encrypt = json.dumps(secret_value)
 
             # For dict secrets with multiple keys, show keys with masked values
             # so users can see what fields are stored
-            if len(secret_dict) == 1:
-                first_value = next(iter(secret_dict.values()), "")
+            if len(secret_value) == 1:
+                first_value = next(iter(secret_value.values()), "")
                 masked_value = _mask_secret_value(first_value)
             else:
-                masked_parts = [f"{k}: {_mask_secret_value(v)}" for k, v in secret_dict.items()]
+                masked_parts = [f"{k}: {_mask_secret_value(v)}" for k, v in secret_value.items()]
                 masked_value = "{" + ", ".join(masked_parts) + "}"
 
             kek_manager = KEKManager()
@@ -204,7 +195,7 @@ class SqlAlchemyGatewayStoreMixin:
     def update_secret(
         self,
         secret_id: str,
-        secret_value: str | dict[str, str] | None = None,
+        secret_value: dict[str, str] | None = None,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -213,10 +204,11 @@ class SqlAlchemyGatewayStoreMixin:
 
         Args:
             secret_id: ID of the secret to update.
-            secret_value: Optional new secret value(s) to encrypt. Can be either:
-                - A string (converted to {"api_key": value})
-                - A dict of secret fields (stored as JSON)
-                - None to leave secret value unchanged
+            secret_value: Optional new secret value(s) for key rotation as key-value pairs,
+                or None to leave unchanged.
+                For simple API keys: {"api_key": "sk-xxx"}
+                For compound credentials: {"aws_access_key_id": "...",
+                  "aws_secret_access_key": "..."}
             auth_config: Optional updated auth configuration. If provided, replaces existing
                 auth_config. If None, auth_config is unchanged. If empty dict, clears auth_config.
             updated_by: Username of the updater.
@@ -230,15 +222,18 @@ class SqlAlchemyGatewayStoreMixin:
             )
 
             if secret_value is not None:
-                # Normalize to dict format and serialize to JSON for encryption
-                if isinstance(secret_value, str):
-                    secret_dict = {_DEFAULT_SECRET_KEY_NAME: secret_value}
-                else:
-                    secret_dict = secret_value
+                value_to_encrypt = json.dumps(secret_value)
 
-                value_to_encrypt = json.dumps(secret_dict)
-                first_value = next(iter(secret_dict.values()), "")
-                masked_value = _mask_secret_value(first_value)
+                # For dict secrets with multiple keys, show keys with masked values
+                # so users can see what fields are stored
+                if len(secret_value) == 1:
+                    first_value = next(iter(secret_value.values()), "")
+                    masked_value = _mask_secret_value(first_value)
+                else:
+                    masked_parts = [
+                        f"{k}: {_mask_secret_value(v)}" for k, v in secret_value.items()
+                    ]
+                    masked_value = "{" + ", ".join(masked_parts) + "}"
 
                 kek_manager = KEKManager()
 

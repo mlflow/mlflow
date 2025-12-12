@@ -83,7 +83,7 @@ class RestGatewayStoreMixin:
     def create_secret(
         self,
         secret_name: str,
-        secret_value: str,
+        secret_value: dict[str, str],
         provider: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
@@ -93,7 +93,10 @@ class RestGatewayStoreMixin:
 
         Args:
             secret_name: Name to identify the secret.
-            secret_value: The secret value to encrypt and store.
+            secret_value: The secret value(s) to encrypt and store as key-value pairs.
+                For simple API keys: {"api_key": "sk-xxx"}
+                For compound credentials: {"aws_access_key_id": "...",
+                  "aws_secret_access_key": "..."}
             provider: Optional provider name (e.g., "openai", "anthropic").
             auth_config: Optional dict with authentication configuration. For providers
                 with multiple auth modes, include "auth_mode" key (e.g.,
@@ -103,11 +106,12 @@ class RestGatewayStoreMixin:
         Returns:
             The created GatewaySecretInfo object with masked value.
         """
+        secret_value_str = json.dumps(secret_value)
         auth_config_json = json.dumps(auth_config) if auth_config else None
         req_body = message_to_json(
             CreateGatewaySecret(
                 secret_name=secret_name,
-                secret_value=secret_value,
+                secret_value=secret_value_str,
                 provider=provider,
                 auth_config_json=auth_config_json,
                 created_by=created_by,
@@ -138,7 +142,7 @@ class RestGatewayStoreMixin:
     def update_secret(
         self,
         secret_id: str,
-        secret_value: str | None = None,
+        secret_value: dict[str, str] | None = None,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -147,18 +151,23 @@ class RestGatewayStoreMixin:
 
         Args:
             secret_id: The unique identifier of the secret to update.
-            secret_value: Optional new secret value for key rotation.
+            secret_value: Optional new secret value(s) for key rotation as key-value pairs,
+                or None to leave unchanged.
+                For simple API keys: {"api_key": "sk-xxx"}
+                For compound credentials: {"aws_access_key_id": "...",
+                  "aws_secret_access_key": "..."}
             auth_config: Optional dict with authentication configuration.
             updated_by: Optional identifier of the user updating the secret.
 
         Returns:
             The updated GatewaySecretInfo object with masked value.
         """
+        secret_value_str = json.dumps(secret_value) if secret_value else ""
         auth_config_json = json.dumps(auth_config) if auth_config else None
         req_body = message_to_json(
             UpdateGatewaySecret(
                 secret_id=secret_id,
-                secret_value=secret_value or "",
+                secret_value=secret_value_str,
                 auth_config_json=auth_config_json,
                 updated_by=updated_by,
             )

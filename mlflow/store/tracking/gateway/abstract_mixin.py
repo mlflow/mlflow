@@ -21,7 +21,7 @@ class GatewayStoreMixin:
     def create_secret(
         self,
         secret_name: str,
-        secret_value: str,
+        secret_value: dict[str, str],
         provider: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
@@ -31,7 +31,10 @@ class GatewayStoreMixin:
 
         Args:
             secret_name: Unique user-friendly name for the secret.
-            secret_value: The secret value to encrypt (e.g., API key).
+            secret_value: The secret value(s) to encrypt as a dict of key-value pairs.
+                For simple API keys: {"api_key": "sk-xxx"}
+                For compound credentials: {"aws_access_key_id": "...",
+                  "aws_secret_access_key": "..."}
             provider: LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
             auth_config: Optional provider-specific auth configuration. For providers
                 with multiple auth modes, include "auth_mode" key (e.g.,
@@ -61,7 +64,7 @@ class GatewayStoreMixin:
     def update_secret(
         self,
         secret_id: str,
-        secret_value: str | None = None,
+        secret_value: dict[str, str] | None = None,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -70,8 +73,11 @@ class GatewayStoreMixin:
 
         Args:
             secret_id: ID of the secret to update.
-            secret_value: Optional new secret value to encrypt (key rotation).
-                          If None, secret value is unchanged.
+            secret_value: Optional new secret value(s) to encrypt (key rotation).
+                As a dict of key-value pairs, or None to leave unchanged.
+                For simple API keys: {"api_key": "sk-xxx"}
+                For compound credentials: {"aws_access_key_id": "...",
+                  "aws_secret_access_key": "..."}
             auth_config: Optional updated provider-specific auth configuration.
                          If provided, replaces existing auth_config. If None,
                          auth_config is unchanged.

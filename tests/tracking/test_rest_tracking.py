@@ -4053,7 +4053,7 @@ def test_create_and_get_secret(mlflow_client_with_secrets):
 
     secret = store.create_secret(
         secret_name="test-api-key",
-        secret_value="sk-test-12345",
+        secret_value={"api_key": "sk-test-12345"},
         provider="openai",
     )
 
@@ -4072,13 +4072,13 @@ def test_update_secret(mlflow_client_with_secrets):
 
     secret = store.create_secret(
         secret_name="test-key",
-        secret_value="initial-value",
+        secret_value={"api_key": "initial-value"},
         provider="anthropic",
     )
 
     updated = store.update_secret(
         secret_id=secret.secret_id,
-        secret_value="updated-value",
+        secret_value={"api_key": "updated-value"},
     )
 
     assert updated.secret_id == secret.secret_id
@@ -4090,12 +4090,12 @@ def test_list_secret_infos(mlflow_client_with_secrets):
 
     secret1 = store.create_secret(
         secret_name="openai-key",
-        secret_value="sk-openai",
+        secret_value={"api_key": "sk-openai"},
         provider="openai",
     )
     store.create_secret(
         secret_name="anthropic-key",
-        secret_value="sk-ant",
+        secret_value={"api_key": "sk-ant"},
         provider="anthropic",
     )
 
@@ -4112,7 +4112,7 @@ def test_delete_secret(mlflow_client_with_secrets):
 
     secret = store.create_secret(
         secret_name="temp-key",
-        secret_value="temp-value",
+        secret_value={"api_key": "temp-value"},
     )
 
     store.delete_secret(secret.secret_id)
@@ -4121,12 +4121,84 @@ def test_delete_secret(mlflow_client_with_secrets):
     assert not any(s.secret_id == secret.secret_id for s in all_secrets)
 
 
+def test_create_secret_with_dict_value(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="aws-creds",
+        secret_value={"aws_access_key_id": "AKIATEST", "aws_secret_access_key": "secret123"},
+        provider="bedrock",
+    )
+
+    assert secret.secret_name == "aws-creds"
+    assert secret.provider == "bedrock"
+    assert secret.secret_id is not None
+    assert "aws_access_key_id" in secret.masked_value
+    assert "aws_secret_access_key" in secret.masked_value
+
+
+def test_update_secret_with_dict_value(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="aws-creds-update",
+        secret_value={"api_key": "initial-value"},
+        provider="bedrock",
+    )
+
+    updated = store.update_secret(
+        secret_id=secret.secret_id,
+        secret_value={"aws_access_key_id": "NEWKEY", "aws_secret_access_key": "newsecret"},
+    )
+
+    assert updated.secret_id == secret.secret_id
+    assert updated.secret_name == "aws-creds-update"
+    assert "aws_access_key_id" in updated.masked_value
+    assert "aws_secret_access_key" in updated.masked_value
+
+
+def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_secret(
+        secret_name="bedrock-aws-creds",
+        secret_value={
+            "aws_access_key_id": "AKIAORIGINAL",
+            "aws_secret_access_key": "original-secret-key",
+        },
+        provider="bedrock",
+        auth_config={"auth_mode": "access_keys", "aws_region_name": "us-east-1"},
+    )
+
+    assert secret.secret_name == "bedrock-aws-creds"
+    assert secret.provider == "bedrock"
+    assert "aws_access_key_id" in secret.masked_value
+    assert "aws_secret_access_key" in secret.masked_value
+
+    fetched = store.get_secret_info(secret_id=secret.secret_id)
+    assert fetched.secret_id == secret.secret_id
+    assert "aws_access_key_id" in fetched.masked_value
+
+    updated = store.update_secret(
+        secret_id=secret.secret_id,
+        secret_value={
+            "aws_access_key_id": "AKIAROTATED",
+            "aws_secret_access_key": "rotated-secret-key",
+        },
+    )
+
+    assert updated.secret_id == secret.secret_id
+    assert updated.last_updated_at > secret.created_at
+    assert "aws_access_key_id" in updated.masked_value
+    assert "aws_secret_access_key" in updated.masked_value
+
+
 def test_create_and_get_endpoint(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 
     secret = store.create_secret(
         secret_name="test-api-key",
-        secret_value="sk-test-12345",
+        secret_value={"api_key": "sk-test-12345"},
         provider="openai",
     )
 
@@ -4158,7 +4230,7 @@ def test_update_endpoint(mlflow_client_with_secrets):
 
     secret = store.create_secret(
         secret_name="test-api-key-2",
-        secret_value="sk-test-67890",
+        secret_value={"api_key": "sk-test-67890"},
         provider="anthropic",
     )
 
@@ -4188,12 +4260,12 @@ def test_list_endpoints(mlflow_client_with_secrets):
 
     secret1 = store.create_secret(
         secret_name="test-api-key-3",
-        secret_value="sk-test-11111",
+        secret_value={"api_key": "sk-test-11111"},
         provider="openai",
     )
     secret2 = store.create_secret(
         secret_name="test-api-key-4",
-        secret_value="sk-test-22222",
+        secret_value={"api_key": "sk-test-22222"},
         provider="openai",
     )
 
@@ -4231,7 +4303,7 @@ def test_delete_endpoint(mlflow_client_with_secrets):
 
     secret = store.create_secret(
         secret_name="test-api-key-5",
-        secret_value="sk-test-33333",
+        secret_value={"api_key": "sk-test-33333"},
         provider="openai",
     )
 
@@ -4258,7 +4330,7 @@ def test_model_definitions(mlflow_client_with_secrets):
 
     secret = store.create_secret(
         secret_name="model-secret",
-        secret_value="sk-test",
+        secret_value={"api_key": "sk-test"},
         provider="openai",
     )
 
@@ -4300,7 +4372,7 @@ def test_attach_detach_model_to_endpoint(mlflow_client_with_secrets):
 
     secret = store.create_secret(
         secret_name="attach-detach-secret",
-        secret_value="sk-test-attach",
+        secret_value={"api_key": "sk-test-attach"},
         provider="openai",
     )
 
@@ -4351,7 +4423,7 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
 
     secret = store.create_secret(
         secret_name="binding-secret",
-        secret_value="sk-test-44444",
+        secret_value={"api_key": "sk-test-44444"},
         provider="openai",
     )
 
@@ -4437,7 +4509,7 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
 
     secret = store.create_secret(
         secret_name="integration-test-key",
-        secret_value="sk-integration-test",
+        secret_value={"api_key": "sk-integration-test"},
         provider="openai",
     )
 

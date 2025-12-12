@@ -114,6 +114,7 @@ from mlflow.server.handlers import (
     _list_scorers,
     _list_webhooks,
     _log_batch,
+    _parse_secret_value,
     _register_scorer,
     _rename_registered_model,
     _search_evaluation_datasets_handler,
@@ -334,6 +335,32 @@ def test_can_parse_json_string():
     request.get_json.return_value = '{"name": "hello2"}'
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello2"
+
+
+@pytest.mark.parametrize(
+    ("input_str", "expected"),
+    [
+        ('{"key": "value"}', {"key": "value"}),
+        ('{"a": "1", "b": "2"}', {"a": "1", "b": "2"}),
+        ('{"api_key": "sk-xxx"}', {"api_key": "sk-xxx"}),
+    ],
+)
+def test_parse_secret_value(input_str, expected):
+    assert _parse_secret_value(input_str) == expected
+
+
+@pytest.mark.parametrize(
+    "invalid_input",
+    [
+        "plain-api-key",
+        "[1, 2, 3]",
+        "",
+        "not valid json {",
+    ],
+)
+def test_parse_secret_value_invalid(invalid_input):
+    with pytest.raises(MlflowException, match="secret_value must be"):
+        _parse_secret_value(invalid_input)
 
 
 def test_can_block_post_request_with_invalid_content_type():
