@@ -159,11 +159,9 @@ def _create_provider_from_endpoint_config(
         )
     else:
         # TODO: Support long-tail providers with LiteLLM
-        raise MlflowException(
-            f"Provider '{model_config.provider}' is not yet supported for database-backed endpoints"
-        )
+        pass
 
-    # Create a temporary EndpointConfig for the provider
+    # Create an EndpointConfig for the provider
     # This mimics what the gateway does with yaml-based configs
     gateway_endpoint_config = EndpointConfig(
         name=endpoint_config.endpoint_name,
@@ -234,7 +232,7 @@ def _create_invocations_handler(endpoint_id: str, store: SqlAlchemyStore):
     return _invocations
 
 
-def register_gateway_endpoints(store: SqlAlchemyStore) -> APIRouter:
+def _register_gateway_endpoints(store: SqlAlchemyStore) -> APIRouter:
     """
     Register dynamic gateway endpoints from the database.
 
@@ -292,4 +290,4 @@ def get_gateway_router() -> APIRouter:
         )
         return gateway_router
 
-    return register_gateway_endpoints(store)
+    return _register_gateway_endpoints(store)
