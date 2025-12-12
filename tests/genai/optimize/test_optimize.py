@@ -11,6 +11,7 @@ from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerO
 from mlflow.genai.prompts import register_prompt
 from mlflow.genai.scorers import scorer
 from mlflow.models.model import PromptVersion
+from mlflow.utils.import_hooks import _post_import_hooks
 
 
 class MockPromptOptimizer(BasePromptOptimizer):
@@ -90,8 +91,6 @@ def sample_summarization_dataset() -> list[dict[str, Any]]:
 
 
 def sample_predict_fn(input_text: str, language: str) -> str:
-    from mlflow.utils.import_hooks import _post_import_hooks
-
     mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
     translations = {
         ("Hello", "Spanish"): "Hola",
