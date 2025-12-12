@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import instructor
+import litellm
+from langchain_core.outputs import Generation, LLMResult
 from ragas.llms import BaseRagasLLM
+from ragas.llms.litellm_llm import LiteLLMStructuredLLM
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
@@ -14,21 +18,8 @@ from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 
 def _create_llm_result(text: str):
     """Create a LangChain LLMResult object from text."""
-    try:
-        from langchain_core.outputs import Generation, LLMResult
-
-        return LLMResult(generations=[[Generation(text=text)]])
-    except ImportError:
-        # Simple mock object if langchain_core is not available
-        class MockGeneration:
-            def __init__(self, text):
-                self.text = text
-
-        class MockLLMResult:
-            def __init__(self, text):
-                self.generations = [[MockGeneration(text)]]
-
-        return MockLLMResult(text)
+    generation = Generation(text=text)
+    return LLMResult(generations=[[generation]])
 
 
 class DatabricksRagasLLM(BaseRagasLLM):
@@ -123,26 +114,8 @@ def create_ragas_model(model_uri: str):
         endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
         return DatabricksServingEndpointRagasLLM(endpoint_name)
     elif ":" in model_uri:
-        try:
-            from ragas.llms.litellm_llm import LiteLLMStructuredLLM
-        except ImportError:
-            raise MlflowException.invalid_parameter_value(
-                "RAGAS with LiteLLM support is required for non-Databricks models. "
-                "Please install with: pip install ragas[litellm]"
-            )
-
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
-
-        try:
-            import instructor
-            import litellm
-        except ImportError:
-            raise MlflowException.invalid_parameter_value(
-                "LiteLLM and instructor are required for non-Databricks models. "
-                "Please install with: pip install ragas[litellm]"
-            )
-
         client = instructor.from_litellm(litellm.completion)
         return LiteLLMStructuredLLM(
             client=client,
@@ -152,5 +125,6 @@ def create_ragas_model(model_uri: str):
     else:
         raise MlflowException.invalid_parameter_value(
             f"Invalid model_uri format: '{model_uri}'. "
-            f"Must be 'databricks' or include a provider prefix (e.g., 'openai:/gpt-4')."
+            f"Must be 'databricks' or include a provider prefix (e.g., 'openai:/gpt-4') "
+            f"or a Databricks serving endpoint (e.g., 'databricks:/<endpoint_name>')."
         )

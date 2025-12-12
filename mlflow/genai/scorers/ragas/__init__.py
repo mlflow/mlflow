@@ -5,11 +5,15 @@ This module provides integration with RAGAS metrics, allowing them to be used
 with MLflow's judge interface.
 
 Example usage:
-    >>> from mlflow.genai.scorers.ragas import get_judge
-    >>> judge = get_judge("Faithfulness", model="openai:/gpt-4")
-    >>> feedback = judge(
-    ...     inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace
-    ... )
+
+.. code-block:: python
+
+    from mlflow.genai.scorers.ragas import get_judge
+
+    judge = get_judge("Faithfulness", model="openai:/gpt-4")
+    feedback = judge(
+        inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace
+    )
 """
 
 from __future__ import annotations
@@ -22,17 +26,30 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.ragas.models import create_ragas_model
 from mlflow.genai.scorers.ragas.registry import get_metric_class, is_deterministic_metric
 from mlflow.genai.scorers.ragas.utils import map_scorer_inputs_to_ragas_sample
+from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class RagasScorer(Scorer):
-    """RAGAS metric scorer for MLflow."""
+    """
+    Initialize a RAGAS metric scorer.
+
+    Args:
+        metric_name: Name of the RAGAS metric (e.g., "Faithfulness")
+        model: {{ model }}
+        metric_kwargs: Additional metric-specific parameters
+    """
 
     _metric: Any = PrivateAttr()
 
@@ -42,14 +59,6 @@ class RagasScorer(Scorer):
         model: str = "databricks",
         **metric_kwargs,
     ):
-        """
-        Initialize a RAGAS metric scorer.
-
-        Args:
-            metric_name: Name of the RAGAS metric (e.g., "Faithfulness")
-            model: Model URI in MLflow format for LLM-based metrics (default: "databricks")
-            metric_kwargs: Additional metric-specific parameters
-        """
         super().__init__(name=metric_name)
 
         metric_class = get_metric_class(metric_name)
@@ -97,6 +106,10 @@ class RagasScorer(Scorer):
                 result = self._metric.single_turn_score(sample)
             elif hasattr(self._metric, "score"):
                 result = self._metric.score(sample)
+            else:
+                raise MlflowException(
+                    f"RAGAS metric {self.name} doesn't have a 'single_turn_score' or 'score' method"
+                )
 
             score = float(result)
 
@@ -104,21 +117,23 @@ class RagasScorer(Scorer):
             if hasattr(result, "reason"):
                 reason = result.reason
 
+            # RAGAS metrics may have thresholds to map to binary feedback
             threshold = getattr(self._metric, "threshold", None)
-            if threshold is None:
-                threshold = 0.5
-            success = score >= threshold
+            metadata = {"score": score}
+
+            if threshold is not None:
+                metadata["threshold"] = threshold
+                value = CategoricalRating.YES if score >= threshold else CategoricalRating.NO
+            else:
+                value = score
 
             return Feedback(
                 name=self.name,
-                value=CategoricalRating.YES if success else CategoricalRating.NO,
+                value=value,
                 rationale=reason,
                 source=assessment_source,
-                trace_id=trace.info.trace_id if trace else None,
-                metadata={
-                    "score": score,
-                    "threshold": threshold,
-                },
+                trace_id=None,
+                metadata=metadata,
             )
         except Exception as e:
             _logger.error(f"Error evaluating RAGAS metric {self.name}: {e}")
@@ -129,6 +144,8 @@ class RagasScorer(Scorer):
             )
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 def get_judge(
     metric_name: str,
     model: str = "databricks",
@@ -139,22 +156,27 @@ def get_judge(
 
     Args:
         metric_name: Name of the RAGAS metric (e.g., "Faithfulness")
-        model: Model URI for LLM-based metrics (default: "databricks")
+        model: {{ model }}
         metric_kwargs: Additional metric-specific parameters (e.g., threshold)
 
     Returns:
         RagasScorer instance that can be called with MLflow's judge interface
 
     Examples:
-        >>> # LLM-based metric
-        >>> judge = get_judge("Faithfulness", model="openai:/gpt-4")
-        >>> feedback = judge(
-        ...     inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace
-        ... )
 
-        >>> # Using trace
-        >>> judge = get_judge("ContextPrecision", model="openai:/gpt-4")
-        >>> feedback = judge(trace=trace)
+    .. code-block:: python
+
+        # LLM-based metric
+        judge = get_judge("Faithfulness", model="openai:/gpt-4")
+        feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
+
+        # Using trace with retrieval context
+        judge = get_judge("ContextPrecision", model="openai:/gpt-4")
+        feedback = judge(trace=trace)
+
+        # Deterministic metric (no LLM needed)
+        judge = get_judge("ExactMatch")
+        feedback = judge(outputs="Paris", expectations={"expected_output": "Paris"})
     """
     return RagasScorer(
         metric_name=metric_name,

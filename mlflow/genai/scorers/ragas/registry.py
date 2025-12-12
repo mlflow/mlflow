@@ -6,7 +6,9 @@ from mlflow.genai.scorers.ragas.utils import RAGAS_NOT_INSTALLED_ERROR_MESSAGE
 _METRIC_REGISTRY = {
     # Retrieval Augmented Generation
     "ContextPrecision": "ragas.metrics.ContextPrecision",
+    "NonLLMContextPrecisionWithReference": "ragas.metrics.NonLLMContextPrecisionWithReference",
     "ContextRecall": "ragas.metrics.ContextRecall",
+    "NonLLMContextRecall": "ragas.metrics.NonLLMContextRecall",
     "ContextEntityRecall": "ragas.metrics.ContextEntityRecall",
     "NoiseSensitivity": "ragas.metrics.NoiseSensitivity",
     # TODO: ResponseRelevancy requires embeddings model instead of LLM
@@ -82,5 +84,7 @@ def is_deterministic_metric(metric_name: str) -> bool:
         "NonLLMStringSimilarity",
         "StringPresence",
         "ChrfScore",
+        "NonLLMContextRecall",
+        "NonLLMContextPrecisionWithReference",
     }
     return metric_name in deterministic_metrics

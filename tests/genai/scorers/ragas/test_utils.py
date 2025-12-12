@@ -1,8 +1,8 @@
-from unittest.mock import Mock, patch
-
 import pytest
+from langchain_core.documents import Document
 
-from mlflow.entities.span import Span, SpanAttributeKey, SpanType
+import mlflow
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.ragas.models import create_ragas_model
 from mlflow.genai.scorers.ragas.utils import map_scorer_inputs_to_ragas_sample
@@ -60,35 +60,23 @@ def test_map_scorer_inputs_to_ragas_sample_with_expectations():
 
 
 def test_map_scorer_inputs_to_ragas_sample_with_trace():
-    span = Mock(spec=Span)
-    span.name = "retrieval"
-    span.span_type = SpanType.RETRIEVER
-    span.attributes = {
-        SpanAttributeKey.OUTPUTS: {
-            "documents": [
-                {"content": "Document 1"},
-                {"content": "Document 2"},
-            ]
-        }
-    }
-    span.span_id = "span-1"
+    @mlflow.trace(span_type=SpanType.RETRIEVER)
+    def retrieve_docs():
+        return [
+            Document(page_content="Document 1", metadata={}),
+            Document(page_content="Document 2", metadata={}),
+        ]
 
-    trace = Mock()
-    trace.search_spans.return_value = [span]
-    trace.data.request_metadata = {}
+    retrieve_docs()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
-    with patch(
-        "mlflow.genai.scorers.ragas.utils.extract_retrieval_context_from_trace"
-    ) as mock_extract:
-        mock_extract.return_value = {"span-1": ["Document 1", "Document 2"]}
+    sample = map_scorer_inputs_to_ragas_sample(
+        inputs="What is MLflow?",
+        outputs="MLflow is a platform",
+        trace=trace,
+    )
 
-        sample = map_scorer_inputs_to_ragas_sample(
-            inputs="What is MLflow?",
-            outputs="MLflow is a platform",
-            trace=trace,
-        )
-
-        assert sample.retrieved_contexts is not None
-        assert len(sample.retrieved_contexts) == 2
-        assert "Document 1" in sample.retrieved_contexts
-        assert "Document 2" in sample.retrieved_contexts
+    assert sample.retrieved_contexts is not None
+    assert len(sample.retrieved_contexts) == 2
+    assert "Document 1" in str(sample.retrieved_contexts)
+    assert "Document 2" in str(sample.retrieved_contexts)

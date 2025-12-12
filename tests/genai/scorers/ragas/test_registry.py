@@ -17,9 +17,18 @@ def test_get_metric_class_raises_error_for_invalid_name():
         get_metric_class("InvalidMetric")
 
 
-def test_is_deterministic_metric():
-    assert is_deterministic_metric("ExactMatch") is True
-    assert is_deterministic_metric("BleuScore") is True
-    assert is_deterministic_metric("RougeScore") is True
-    assert is_deterministic_metric("Faithfulness") is False
-    assert is_deterministic_metric("ContextPrecision") is False
+@pytest.mark.parametrize(
+    ("metric_name", "expected"),
+    [
+        ("ExactMatch", True),
+        ("BleuScore", True),
+        ("RougeScore", True),
+        ("NonLLMStringSimilarity", True),
+        ("StringPresence", True),
+        ("ChrfScore", True),
+        ("Faithfulness", False),
+        ("ContextPrecision", False),
+    ],
+)
+def test_is_deterministic_metric(metric_name, expected):
+    assert is_deterministic_metric(metric_name) is expected
