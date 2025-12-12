@@ -163,6 +163,7 @@ def test_invoke_judge_model_successful_with_native_provider():
     mock_score_model_on_payload.assert_called_once_with(
         model_uri="openai:/gpt-4",
         payload="Evaluate this response",
+        eval_parameters=None,
         endpoint_type="llm/v1/chat",
     )
 
@@ -451,6 +452,7 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
             prompt="Test prompt",
             num_retries=10,
             response_format=None,
+            inference_params=None,
         )
         mock_success_telemetry.assert_called_once()
 
@@ -505,6 +507,7 @@ def test_invoke_judge_model_databricks_success_in_databricks(
             prompt="Test prompt",
             num_retries=10,
             response_format=None,
+            inference_params=None,
         )
 
     assert feedback.value == CategoricalRating.NO
@@ -536,7 +539,11 @@ def test_invoke_judge_model_databricks_source_id(model_uri: str) -> None:
         "test-model" if model_uri.startswith("databricks") else "databricks-gpt-oss-120b"
     )
     mock_invoke_db.assert_called_once_with(
-        model_name=expected_model_name, prompt="Test prompt", num_retries=10, response_format=None
+        model_name=expected_model_name,
+        prompt="Test prompt",
+        num_retries=10,
+        response_format=None,
+        inference_params=None,
     )
     assert feedback.source.source_id == f"databricks:/{expected_model_name}"
 
@@ -579,6 +586,7 @@ def test_invoke_judge_model_databricks_failure_in_databricks(
             prompt="Test prompt",
             num_retries=10,
             response_format=None,
+            inference_params=None,
         )
 
         # Verify error message contains the traceback
@@ -630,6 +638,7 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
             prompt="Test prompt",
             num_retries=10,
             response_format=None,
+            inference_params=None,
         )
 
     assert feedback.value == CategoricalRating.YES

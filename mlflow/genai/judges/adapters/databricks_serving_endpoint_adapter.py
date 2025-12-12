@@ -354,6 +354,7 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
                 assessment_name=input_params.assessment_name,
                 num_retries=input_params.num_retries,
                 response_format=input_params.response_format,
+                inference_params=input_params.inference_params,
             )
 
             # Set trace_id if trace was provided
