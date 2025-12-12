@@ -16,8 +16,12 @@ from mlflow.gateway.config import (
     AmazonBedrockConfig,
     AnthropicConfig,
     AWSBaseConfig,
+    AWSIdAndKey,
+    AWSRole,
     EndpointConfig,
     EndpointType,
+    GeminiConfig,
+    MistralConfig,
     OpenAIConfig,
     Provider,
 )
@@ -91,23 +95,67 @@ def _create_provider_from_endpoint_config(
     provider_enum = Provider(model_config.provider)
 
     if provider_enum == Provider.OPENAI:
-        provider_config = OpenAIConfig(
-            openai_api_key=model_config.secret_value.get("api_key"),
-            openai_api_base=model_config.auth_config.get("api_base")
-            if model_config.auth_config
-            else None,
-        )
-    elif provider_enum == Provider.ANTHROPIC:
-        provider_config = AnthropicConfig(
-            anthropic_api_key=model_config.secret_value.get("api_key"),
-            anthropic_version=model_config.auth_config.get("version")
-            if model_config.auth_config
-            else None,
-        )
-    elif provider_enum in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
         auth_config = model_config.auth_config or {}
-        provider_config = AmazonBedrockConfig(
-            aws_config=AWSBaseConfig(**auth_config) if auth_config else AWSBaseConfig(),
+        openai_config = {
+            "openai_api_key": model_config.secret_value.get("api_key"),
+        }
+
+        # Check if this is Azure OpenAI (requires api_type, deployment_name, api_base, api_version)
+        if "api_type" in auth_config and auth_config["api_type"] in ("azure", "azuread"):
+            openai_config["openai_api_type"] = auth_config["api_type"]
+            openai_config["openai_api_base"] = auth_config.get("api_base")
+            openai_config["openai_deployment_name"] = auth_config.get("deployment_name")
+            openai_config["openai_api_version"] = auth_config.get("api_version")
+        else:
+            # Standard OpenAI
+            if "api_base" in auth_config:
+                openai_config["openai_api_base"] = auth_config["api_base"]
+            if "organization" in auth_config:
+                openai_config["openai_organization"] = auth_config["organization"]
+
+        provider_config = OpenAIConfig(**openai_config)
+    elif provider_enum == Provider.ANTHROPIC:
+        anthropic_config = {
+            "anthropic_api_key": model_config.secret_value.get("api_key"),
+        }
+        # Only set anthropic_version if provided in auth_config
+        if model_config.auth_config and "version" in model_config.auth_config:
+            anthropic_config["anthropic_version"] = model_config.auth_config["version"]
+        provider_config = AnthropicConfig(**anthropic_config)
+    elif provider_enum in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
+        # Bedrock supports multiple auth modes - determine which one to use
+        auth_config = model_config.auth_config or {}
+        secret_value = model_config.secret_value or {}
+
+        # Check for role-based auth (aws_role_arn in auth_config)
+        if "aws_role_arn" in auth_config:
+            aws_config = AWSRole(
+                aws_role_arn=auth_config["aws_role_arn"],
+                session_length_seconds=auth_config.get("session_length_seconds", 15 * 60),
+                aws_region=auth_config.get("aws_region"),
+            )
+        # Check for access key auth (credentials in secret_value)
+        elif "aws_access_key_id" in secret_value:
+            aws_config = AWSIdAndKey(
+                aws_access_key_id=secret_value["aws_access_key_id"],
+                aws_secret_access_key=secret_value["aws_secret_access_key"],
+                aws_session_token=secret_value.get("aws_session_token"),
+                aws_region=auth_config.get("aws_region"),
+            )
+        # Fall back to base config (uses default credentials chain)
+        else:
+            aws_config = AWSBaseConfig(
+                aws_region=auth_config.get("aws_region"),
+            )
+
+        provider_config = AmazonBedrockConfig(aws_config=aws_config)
+    elif provider_enum == Provider.MISTRAL:
+        provider_config = MistralConfig(
+            mistral_api_key=model_config.secret_value.get("api_key"),
+        )
+    elif provider_enum == Provider.GEMINI:
+        provider_config = GeminiConfig(
+            gemini_api_key=model_config.secret_value.get("api_key"),
         )
     else:
         # TODO: Support long-tail providers with LiteLLM
