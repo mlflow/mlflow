@@ -229,9 +229,7 @@ export function getAssessmentInfos(
         for (const currentAssessment of assessments) {
           let assessmentValue = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
           if (assessmentValue === null) assessmentValue = undefined;
-          if (assessmentValue !== undefined) {
-            uniqueValues.add(assessmentValue);
-          }
+          uniqueValues.add(assessmentValue);
         }
 
         assessmentInfos[assessmentName] = {
@@ -256,9 +254,7 @@ export function getAssessmentInfos(
         for (const currentAssessment of assessments) {
           let value = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
           if (isNil(value)) value = undefined;
-          if (value !== undefined) {
-            assessmentInfo.uniqueValues.add(value);
-          }
+          assessmentInfo.uniqueValues.add(value);
         }
 
         // Update isEditable.

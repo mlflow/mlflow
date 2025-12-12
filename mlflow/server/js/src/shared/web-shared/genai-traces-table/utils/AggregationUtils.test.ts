@@ -370,7 +370,7 @@ describe('getAssessmentInfos', () => {
     const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
     const mixedAssessmentInfo = result.find((info) => info.name === 'mixedAssessment');
 
-    expect(mixedAssessmentInfo?.uniqueValues).toEqual(new Set(['yes', 'no']));
+    expect(mixedAssessmentInfo?.uniqueValues).toEqual(new Set(['yes', 'no', undefined]));
     expect(mixedAssessmentInfo?.dtype).toBe('pass-fail');
     expect(mixedAssessmentInfo?.containsErrors).toBe(true);
   });
