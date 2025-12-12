@@ -67,14 +67,7 @@ def _create_provider_from_endpoint_name(
     # For now, use the first model (TODO: Support traffic routing)
     model_config = endpoint_config.models[0]
 
-    try:
-        provider_enum = Provider(model_config.provider)
-    except ValueError:
-        raise HTTPException(
-            status_code=400, detail=f"Received invalid provider: {model_config.provider}"
-        )
-
-    if provider_enum == Provider.OPENAI:
+    if model_config.provider == Provider.OPENAI:
         auth_config = model_config.auth_config or {}
         openai_config = {
             "openai_api_key": model_config.secret_value.get("api_key"),
@@ -94,14 +87,14 @@ def _create_provider_from_endpoint_name(
                 openai_config["openai_organization"] = auth_config["organization"]
 
         provider_config = OpenAIConfig(**openai_config)
-    elif provider_enum == Provider.ANTHROPIC:
+    elif model_config.provider == Provider.ANTHROPIC:
         anthropic_config = {
             "anthropic_api_key": model_config.secret_value.get("api_key"),
         }
         if model_config.auth_config and "version" in model_config.auth_config:
             anthropic_config["anthropic_version"] = model_config.auth_config["version"]
         provider_config = AnthropicConfig(**anthropic_config)
-    elif provider_enum in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
+    elif model_config.provider in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
         # Bedrock supports multiple auth modes
         auth_config = model_config.auth_config or {}
         secret_value = model_config.secret_value or {}
@@ -127,17 +120,17 @@ def _create_provider_from_endpoint_name(
             )
 
         provider_config = AmazonBedrockConfig(aws_config=aws_config)
-    elif provider_enum == Provider.MISTRAL:
+    elif model_config.provider == Provider.MISTRAL:
         provider_config = MistralConfig(
             mistral_api_key=model_config.secret_value.get("api_key"),
         )
-    elif provider_enum == Provider.GEMINI:
+    elif model_config.provider == Provider.GEMINI:
         provider_config = GeminiConfig(
             gemini_api_key=model_config.secret_value.get("api_key"),
         )
     else:
         # TODO: Support long-tail providers with LiteLLM
-        raise NotImplementedError(f"Provider {provider_enum} is not supported")
+        raise NotImplementedError(f"Provider {model_config.provider} is not supported")
 
     # Create an EndpointConfig for the provider
     gateway_endpoint_config = EndpointConfig(
@@ -145,12 +138,12 @@ def _create_provider_from_endpoint_name(
         endpoint_type=endpoint_type,
         model={
             "name": model_config.model_name,
-            "provider": provider_enum.value,
+            "provider": model_config.provider,
             "config": provider_config.model_dump(),
         },
     )
 
-    provider_class = get_provider(provider_enum)
+    provider_class = get_provider(model_config.provider)
 
     return provider_class(gateway_endpoint_config)
 
