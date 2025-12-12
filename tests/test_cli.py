@@ -806,6 +806,53 @@ def test_env_file_loading_invalid_path() -> None:
     assert "Environment file 'nonexistent.env' does not exist" in result.output
 
 
+@pytest.mark.parametrize(
+    ("args", "expected_max_results", "expected_view"),
+    [
+        (["experiments", "search"], None, ViewType.ACTIVE_ONLY),
+        (["experiments", "search", "--max-results", "50"], 50, ViewType.ACTIVE_ONLY),
+        (["experiments", "search", "--view", "all", "--max-results", "100"], 100, ViewType.ALL),
+    ],
+)
+def test_experiments_search_max_results(args, expected_max_results, expected_view):
+    with mock.patch("mlflow.search_experiments", return_value=[]) as mock_search:
+        result = CliRunner().invoke(cli, args, catch_exceptions=False)
+        assert result.exit_code == 0
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args[1]
+        assert call_kwargs.get("max_results") == expected_max_results
+        assert call_kwargs.get("view_type") == expected_view
+
+
+def test_experiments_search_max_results_zero():
+    with mock.patch("mlflow.search_experiments", return_value=[]) as mock_search:
+        result = CliRunner().invoke(
+            cli, ["experiments", "search", "--max-results", "0"], catch_exceptions=False
+        )
+        assert result.exit_code == 0
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args[1]
+        assert call_kwargs.get("max_results") == 0
+
+
+def test_experiments_search_max_results_negative():
+    result = CliRunner().invoke(
+        cli, ["experiments", "search", "--max-results", "-1"], catch_exceptions=False
+    )
+    assert result.exit_code != 0
+    assert "max-results must be a non-negative integer" in result.output
+
+
+def test_experiments_search_command_params():
+    from mlflow.experiments import commands
+
+    search_cmd = next((cmd for cmd in commands.commands.values() if cmd.name == "search"), None)
+    assert search_cmd is not None
+    param_names = [p.name for p in search_cmd.params]
+    assert "view" in param_names
+    assert "max_results" in param_names
+
+
 def test_server_with_env_file(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text("TEST_VAR=test_value\n")
