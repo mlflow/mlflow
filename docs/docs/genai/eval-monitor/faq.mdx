@@ -15,11 +15,26 @@ To inspect per-row evaluation results, open the **Traces** tab on the run overvi
 
 ## How to change the concurrency of the evaluation?
 
-MLflow uses a thread pool to run the predict function and scorers in parallel. Configure the number of workers by setting the `MLFLOW_GENAI_EVAL_MAX_WORKERS` environment variable (default: `10`).
+MLflow uses thread pools to run the predict function and scorers in parallel. You can configure concurrency at two levels:
+
+**1. Data-level concurrency:** Controls how many data items are evaluated in parallel.
 
 ```bash
+# Limit concurrent data items being evaluated (default: 10)
 export MLFLOW_GENAI_EVAL_MAX_WORKERS=5
 ```
+
+**2. Scorer-level concurrency:** Controls how many scorers run in parallel for each data item. The actual number of scorer workers will not exceed the number of scorers being used.
+
+```bash
+# Limit concurrent scorer execution (default: 10)
+export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS=2
+
+# For strict rate limiting, run scorers sequentially
+export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS=1
+```
+
+The total maximum concurrent API calls is approximately `MLFLOW_GENAI_EVAL_MAX_WORKERS × min(MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS, num_scorers)`. Adjust these values based on your LLM provider's rate limits, especially when using free tiers.
 
 ## Can I use async functions as predict_fn?
 
@@ -118,6 +133,42 @@ This feature is available only when you have the [LiteLLM](https://github.com/Be
 
 Managing the balance between cost and accuracy is important.
 To use a more cost-effective LLM model while maintaining accuracy, you can leverage the [LLM Judge Alignment](/genai/eval-monitor/scorers/llm-judge/alignment) feature.
+
+## How do I pass additional inference parameters to judge LLMs?
+
+LLM-as-a-Judge scorers like `Correctness` and `Guidelines` accept an `inference_params` argument to customize the judge model's behavior. This allows you to control parameters such as `temperature`, `max_tokens`, and other model-specific settings.
+
+```python
+from mlflow.genai.scorers import Correctness, Guidelines
+
+# Pass inference parameters to control judge behavior
+correctness_scorer = Correctness(
+    inference_params={
+        "temperature": 0.0,  # More deterministic responses
+        "max_tokens": 500,
+    }
+)
+
+guidelines_scorer = Guidelines(
+    name="tone_check",
+    guidelines="The response should be professional and helpful.",
+    inference_params={
+        "temperature": 0.0,
+    },
+)
+
+mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=my_predict_fn,
+    scorers=[correctness_scorer, guidelines_scorer],
+)
+```
+
+The available inference parameters depend on the model provider being used. Common parameters include:
+
+- `temperature`: Controls randomness (0.0 = deterministic, higher = more random)
+- `max_tokens`: Maximum tokens in the response
+- `top_p`: Nucleus sampling parameter
 
 ## How do I debug my scorers?
 

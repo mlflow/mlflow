@@ -195,6 +195,21 @@ export const getBatchTracesV4 = async ({
   return data;
 };
 
+/**
+ * Traces API: get a single trace (info + spans) with optional partial support. Only supported
+ * by OSS SQLAlchemyStore now.
+ */
+export const getExperimentTraceV3 = ({ traceId }: { traceId: string }) => {
+  const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/traces/get`);
+
+  const queryParams = new URLSearchParams();
+  queryParams.append('trace_id', traceId);
+  queryParams.append('allow_partial', 'true');
+  const urlWithParams = `${endpointPath}?${queryParams.toString()}`;
+
+  return fetchAPI(urlWithParams, 'GET');
+};
+
 // prettier-ignore
 export const getTraceInfoV4 = ({
   traceId,

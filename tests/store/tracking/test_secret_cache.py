@@ -302,7 +302,7 @@ def test_e2e_secret_cache_populated_on_first_fetch(tmp_path, monkeypatch):
 
     store._create_and_bind_secret(
         secret_name="api_key",
-        secret_value="sk-test-12345",
+        secret_value={"api_key": "sk-test-12345"},
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_123",
         field_name="OPENAI_API_KEY",
@@ -344,7 +344,7 @@ def test_e2e_cache_miss_on_key_rotation_falls_back_to_db(tmp_path, monkeypatch):
 
     store._create_and_bind_secret(
         secret_name="api_key",
-        secret_value="sk-test-12345",
+        secret_value={"api_key": "sk-test-12345"},
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_123",
         field_name="OPENAI_API_KEY",
@@ -420,7 +420,7 @@ def test_e2e_process_isolation_separate_caches(tmp_path, monkeypatch):
 
     store._create_and_bind_secret(
         secret_name="api_key_123",
-        secret_value="sk-worker-0-secret",
+        secret_value={"api_key": "sk-worker-0-secret"},
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_123",
         field_name="OPENAI_API_KEY",
@@ -430,7 +430,7 @@ def test_e2e_process_isolation_separate_caches(tmp_path, monkeypatch):
 
     store._create_and_bind_secret(
         secret_name="api_key_456",
-        secret_value="sk-worker-1-secret",
+        secret_value={"api_key": "sk-worker-1-secret"},
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_456",
         field_name="ANTHROPIC_API_KEY",
@@ -440,7 +440,7 @@ def test_e2e_process_isolation_separate_caches(tmp_path, monkeypatch):
 
     store._create_and_bind_secret(
         secret_name="shared_key",
-        secret_value="sk-shared-secret",
+        secret_value={"api_key": "sk-shared-secret"},
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_789",
         field_name="SHARED_KEY",

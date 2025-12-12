@@ -74,6 +74,7 @@ class InstructionsJudge(Judge):
     _feedback_value_type: Any = PrivateAttr()
     _generate_rationale_first: bool = PrivateAttr(default=False)
     _include_tool_calls_in_conversation: bool = PrivateAttr(default=False)
+    _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -84,6 +85,7 @@ class InstructionsJudge(Judge):
         feedback_value_type: Any = str,
         generate_rationale_first: bool = False,
         include_tool_calls_in_conversation: bool = False,
+        inference_params: dict[str, Any] | None = None,
         **kwargs,
     ):
         """
@@ -101,6 +103,9 @@ class InstructionsJudge(Judge):
             include_tool_calls_in_conversation: If True, include tool call information from
                            TOOL type spans when extracting conversation from session traces.
                            Default is False for backward compatibility.
+            inference_params: Optional dictionary of inference parameters to pass to the
+                           model (e.g., temperature, top_p, max_tokens). These parameters
+                           allow fine-grained control over the model's behavior.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -121,6 +126,7 @@ class InstructionsJudge(Judge):
         self._feedback_value_type = feedback_value_type
         self._generate_rationale_first = generate_rationale_first
         self._include_tool_calls_in_conversation = include_tool_calls_in_conversation
+        self._inference_params = inference_params
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -179,6 +185,11 @@ class InstructionsJudge(Judge):
     def instructions(self) -> str:
         """Get the instructions of this judge."""
         return self._instructions
+
+    @property
+    def inference_params(self) -> dict[str, Any] | None:
+        """Get the inference parameters for this judge."""
+        return self._inference_params
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -455,7 +466,7 @@ class InstructionsJudge(Judge):
         except Exception:
             return str(value)
 
-    def __call__(
+    def _evaluate_impl(
         self,
         *,
         inputs: Any = None,
@@ -465,40 +476,25 @@ class InstructionsJudge(Judge):
         session: list[Trace] | None = None,
     ) -> Feedback:
         """
-        Evaluate the provided data using the judge's instructions.
+        Internal implementation of evaluation logic without telemetry tracking.
+
+        This method contains the core evaluation logic and is called by __call__.
+        It is intended for internal use by wrapper scorers (like Completeness)
+        to avoid double telemetry tracking when delegating to InstructionsJudge.
+
+        Users should call the scorer instance directly (e.g., scorer(...))
+        which invokes __call__ and ensures proper telemetry tracking.
 
         Args:
-            inputs: Input data to evaluate. If not provided and a trace is given,
-                will be extracted from the trace's root span inputs.
-            outputs: Output data to evaluate. If not provided and a trace is given,
-                will be extracted from the trace's root span outputs.
-            expectations: Expected outcomes or ground truth. If not provided and a trace is given,
-                will be extracted from the trace's expectation assessments.
-            trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
-                or {{ expectations }}, the values will be extracted from the trace.
-            session: List of traces from the same session. When the template uses
-                {{ conversation }}, the conversation history will be extracted from these traces.
+            inputs: Input data to evaluate.
+            outputs: Output data to evaluate.
+            expectations: Expected outcomes or ground truth.
+            trace: Trace object for evaluation.
+            session: List of traces from the same session.
 
         Returns:
             Evaluation results
-
-        **Note on Trace Behavior**:
-        - If template uses {{ trace }}: The trace metadata is used by an agent-based judge that uses
-          tools to fetch aspects of the trace's span data. If inputs/outputs/expectations are also
-          provided, they can augment the agent's context if the template has corresponding
-          placeholders ({{ inputs }}/{{ outputs }}/{{ expectations }}). The agent will still use
-          tools to fetch span data but will have this additional context in the user prompt.
-        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} without {{ trace }}:
-          Values are extracted from the trace, if specified, as follows:
-          - inputs/outputs: From the trace's root span
-          - expectations: From the trace's human-set expectation assessments (ground truth only)
-
-        **Note on Session Behavior**:
-        - Traces are expected to be in the same session and exception will be raised
-          if they are not.
-        - The conversation history will be extracted from the traces in chronological order.
         """
-
         self._validate_parameter_types(expectations, trace, session)
 
         original_inputs = inputs
@@ -555,6 +551,58 @@ class InstructionsJudge(Judge):
             trace=trace if is_trace_based else None,
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
+            inference_params=self._inference_params,
+        )
+
+    def __call__(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+        session: list[Trace] | None = None,
+    ) -> Feedback:
+        """
+        Evaluate the provided data using the judge's instructions.
+
+        Args:
+            inputs: Input data to evaluate. If not provided and a trace is given,
+                will be extracted from the trace's root span inputs.
+            outputs: Output data to evaluate. If not provided and a trace is given,
+                will be extracted from the trace's root span outputs.
+            expectations: Expected outcomes or ground truth. If not provided and a trace is given,
+                will be extracted from the trace's expectation assessments.
+            trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
+                or {{ expectations }}, the values will be extracted from the trace.
+            session: List of traces from the same session. When the template uses
+                {{ conversation }}, the conversation history will be extracted from these traces.
+
+        Returns:
+            Evaluation results
+
+        **Note on Trace Behavior**:
+        - If template uses {{ trace }}: The trace metadata is used by an agent-based judge that uses
+          tools to fetch aspects of the trace's span data. If inputs/outputs/expectations are also
+          provided, they can augment the agent's context if the template has corresponding
+          placeholders ({{ inputs }}/{{ outputs }}/{{ expectations }}). The agent will still use
+          tools to fetch span data but will have this additional context in the user prompt.
+        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} without {{ trace }}:
+          Values are extracted from the trace, if specified, as follows:
+          - inputs/outputs: From the trace's root span
+          - expectations: From the trace's human-set expectation assessments (ground truth only)
+
+        **Note on Session Behavior**:
+        - Traces are expected to be in the same session and exception will be raised
+          if they are not.
+        - The conversation history will be extracted from the traces in chronological order.
+        """
+        return self._evaluate_impl(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
+            session=session,
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
@@ -613,10 +661,13 @@ class InstructionsJudge(Judge):
             if len(self._instructions) > PROMPT_TEXT_DISPLAY_LIMIT
             else self._instructions
         )
+        inference_params_str = (
+            f", inference_params={self._inference_params}" if self._inference_params else ""
+        )
         return (
             f"InstructionsJudge(name='{self.name}', model='{self._model}', "
             f"instructions='{instructions_preview}', "
-            f"template_variables={sorted(self.template_variables)})"
+            f"template_variables={sorted(self.template_variables)}{inference_params_str})"
         )
 
     @staticmethod
@@ -729,6 +780,8 @@ class InstructionsJudge(Judge):
             pydantic_data["feedback_value_type"] = self._serialize_feedback_value_type(
                 self._feedback_value_type
             )
+        if self._inference_params is not None:
+            pydantic_data["inference_params"] = self._inference_params
 
         serialized_scorer = SerializedScorer(
             name=self.name,

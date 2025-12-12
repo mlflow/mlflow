@@ -11,6 +11,7 @@ from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerO
 from mlflow.genai.prompts import register_prompt
 from mlflow.genai.scorers import scorer
 from mlflow.models.model import PromptVersion
+from mlflow.utils.import_hooks import _post_import_hooks
 
 
 class MockPromptOptimizer(BasePromptOptimizer):
@@ -96,6 +97,9 @@ def sample_predict_fn(input_text: str, language: str) -> str:
         ("World", "French"): "Monde",
         ("Goodbye", "Spanish"): "Adiós",
     }
+
+    # Verify that auto logging is enabled during the evaluation.
+    assert len(_post_import_hooks) > 0
     return translations.get((input_text, language), f"translated_{input_text}")
 
 

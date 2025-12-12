@@ -5,14 +5,13 @@ The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to A
 import json
 import logging
 import os
-import platform
 import signal
+import subprocess
 import sys
 import tarfile
 import time
 import urllib.parse
 import uuid
-from subprocess import Popen
 from typing import Any
 
 import mlflow
@@ -142,29 +141,34 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     except ecr_client.exceptions.RepositoryNotFoundException:
         ecr_client.create_repository(repositoryName=image)
         _logger.info("Created new ECR repository: %s", image)
-    # TODO: it would be nice to translate the docker login, tag and push to python api.
-    # x = ecr_client.get_authorization_token()['authorizationData'][0]
-    # docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken']
-    #                                                                ,url=x['proxyEndpoint'])
+    registry = f"{account}.dkr.ecr.{region}.amazonaws.com"
 
-    docker_login_cmd = (
-        "aws ecr get-login-password"
-        " | docker login  --username AWS "
-        "--password-stdin "
-        f"{account}.dkr.ecr.{region}.amazonaws.com"
-    )
+    try:
+        # Docker login: get password from AWS CLI and pipe to docker login
+        _logger.info("Logging in to ECR registry: %s", registry)
+        aws_result = subprocess.run(
+            ["aws", "ecr", "get-login-password"],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["docker", "login", "--username", "AWS", "--password-stdin", registry],
+            input=aws_result.stdout,
+            check=True,
+        )
 
-    os_command_separator = ";\n"
-    if platform.system() == "Windows":
-        os_command_separator = " && "
+        # Docker tag
+        _logger.info("Tagging image %s as %s", image, fullname)
+        subprocess.check_call(["docker", "tag", image, fullname])
 
-    docker_tag_cmd = f"docker tag {image} {fullname}"
-    docker_push_cmd = f"docker push {fullname}"
-
-    cmd = os_command_separator.join([docker_login_cmd, docker_tag_cmd, docker_push_cmd])
-
-    _logger.info("Executing: %s", cmd)
-    os.system(cmd)
+        # Docker push
+        _logger.info("Pushing image %s", fullname)
+        subprocess.check_call(["docker", "push", fullname])
+    except subprocess.CalledProcessError as e:
+        cmd = " ".join(e.cmd)
+        raise MlflowException(
+            f"Failed to push image to ECR. Command '{cmd}' failed with exit code {e.returncode}"
+        ) from e
 
 
 def _deploy(
@@ -1159,7 +1163,7 @@ def run_local(name, model_uri, flavor=None, config=None):
         cmd += ["-e", f"{key}={value}"]
     cmd += ["--rm", image, "serve"]
     _logger.info("executing: %s", " ".join(cmd))
-    proc = Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, text=True)
+    proc = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, text=True)
 
     def _sigterm_handler(*_):
         _logger.info("received termination signal => killing docker process")

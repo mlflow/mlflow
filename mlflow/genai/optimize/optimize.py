@@ -26,6 +26,7 @@ from mlflow.genai.optimize.util import (
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY
 from mlflow.telemetry.events import PromptOptimizationEvent
 from mlflow.telemetry.track import record_usage_event
@@ -285,10 +286,13 @@ def _build_eval_fn(
             )
 
         try:
-            with ThreadPoolExecutor(
-                max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
-                thread_name_prefix="MLflowPromptOptimization",
-            ) as executor:
+            with (
+                ThreadPoolExecutor(
+                    max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+                    thread_name_prefix="MLflowPromptOptimization",
+                ) as executor,
+                configure_autologging_for_evaluation(enable_tracing=True),
+            ):
                 futures = [executor.submit(_run_single, record) for record in dataset]
                 results = [future.result() for future in futures]
 

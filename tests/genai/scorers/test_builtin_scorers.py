@@ -1572,21 +1572,22 @@ def test_conversational_tool_call_efficiency_with_session():
 
         traces.append(mlflow.get_trace(span.trace_id))
 
-    with patch(
-        "mlflow.genai.judges.instructions_judge.InstructionsJudge.__call__"
-    ) as mock_judge_call:
-        mock_judge_call.return_value = Feedback(
-            name="conversational_tool_call_efficiency",
-            value=CategoricalRating.YES,
-            rationale="Efficient tool usage across session",
-        )
+    mock_feedback = Feedback(
+        name="conversational_tool_call_efficiency",
+        value=CategoricalRating.YES,
+        rationale="Efficient tool usage across session",
+    )
 
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=mock_feedback,
+    ) as mock_invoke:
         scorer = ConversationalToolCallEfficiency()
         result = scorer(session=traces)
 
         assert result.name == "conversational_tool_call_efficiency"
         assert result.value == CategoricalRating.YES
-        mock_judge_call.assert_called_once()
+        mock_invoke.assert_called_once()
 
 
 def test_conversational_tool_call_efficiency_get_input_fields():

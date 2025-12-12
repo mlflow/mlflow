@@ -426,6 +426,11 @@ def parse_inputs_to_str(value: Any) -> str:
 
     value = _to_dict(value)
 
+    # Handle case where _to_dict returns a non-dict (e.g., a list that gets serialized
+    # and remains a list)
+    if not isinstance(value, dict):
+        return json.dumps(value, cls=TraceJSONEncoder)
+
     if (messages := value.get(_MESSAGES_KEY)) and len(messages) > 0:
         contents = [m.get(_CONTENT_KEY) for m in messages]
         if len(contents) > 1 and all(isinstance(c, str) for c in contents):
