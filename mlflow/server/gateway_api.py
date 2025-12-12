@@ -39,15 +39,15 @@ _logger = logging.getLogger(__name__)
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
 
-def _create_provider_from_endpoint_config(
-    endpoint_name: str, store: SqlAlchemyStore, endpoint_type: EndpointType
+def _create_provider_from_endpoint_name(
+    store: SqlAlchemyStore, endpoint_name: str, endpoint_type: EndpointType
 ) -> BaseProvider:
     """
     Create a provider instance from database endpoint configuration.
 
     Args:
-        endpoint_name: The endpoint name to retrieve configuration for.
         store: The SQLAlchemy store instance.
+        endpoint_name: The endpoint name to retrieve configuration for.
         endpoint_type: Endpoint type (chat or embeddings).
 
     Returns:
@@ -189,7 +189,7 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-        provider = _create_provider_from_endpoint_config(endpoint_name, store, endpoint_type)
+        provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
 
         if payload.stream:
             return await make_streaming_response(provider.chat_stream(payload))
@@ -204,7 +204,7 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
 
-        provider = _create_provider_from_endpoint_config(endpoint_name, store, endpoint_type)
+        provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
 
         return await provider.embeddings(payload)
 

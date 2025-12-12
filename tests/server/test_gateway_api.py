@@ -24,7 +24,7 @@ from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.server.gateway_api import (
-    _create_provider_from_endpoint_config,
+    _create_provider_from_endpoint_name,
     gateway_router,
     invocations,
 )
@@ -57,7 +57,7 @@ def store(tmp_path: Path):
         yield s
 
 
-def test_create_provider_from_endpoint_config_openai(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
     # Create test data
     secret = store.create_gateway_secret(
         secret_name="openai-key",
@@ -74,14 +74,14 @@ def test_create_provider_from_endpoint_config_openai(store: SqlAlchemyStore):
         name="test-openai-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, OpenAIProvider)
     assert isinstance(provider.config.model.config, OpenAIConfig)
     assert provider.config.model.config.openai_api_key == "sk-test-123"
 
 
-def test_create_provider_from_endpoint_config_azure_openai(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore):
     # Test Azure OpenAI configuration
     secret = store.create_gateway_secret(
         secret_name="azure-openai-key",
@@ -104,7 +104,7 @@ def test_create_provider_from_endpoint_config_azure_openai(store: SqlAlchemyStor
         name="test-azure-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, OpenAIProvider)
     assert isinstance(provider.config.model.config, OpenAIConfig)
@@ -115,7 +115,7 @@ def test_create_provider_from_endpoint_config_azure_openai(store: SqlAlchemyStor
     assert provider.config.model.config.openai_api_key == "azure-api-key-test"
 
 
-def test_create_provider_from_endpoint_config_azure_openai_with_azuread(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_azure_openai_with_azuread(store: SqlAlchemyStore):
     # Test Azure OpenAI with AzureAD authentication
     secret = store.create_gateway_secret(
         secret_name="azuread-openai-key",
@@ -138,7 +138,7 @@ def test_create_provider_from_endpoint_config_azure_openai_with_azuread(store: S
         name="test-azuread-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, OpenAIProvider)
     assert isinstance(provider.config.model.config, OpenAIConfig)
@@ -149,7 +149,7 @@ def test_create_provider_from_endpoint_config_azure_openai_with_azuread(store: S
     assert provider.config.model.config.openai_api_key == "azuread-api-key-test"
 
 
-def test_create_provider_from_endpoint_config_anthropic(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="anthropic-key",
         secret_value={"api_key": "sk-ant-test"},
@@ -165,13 +165,13 @@ def test_create_provider_from_endpoint_config_anthropic(store: SqlAlchemyStore):
         name="test-anthropic-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, AnthropicProvider)
     assert provider.config.model.config.anthropic_api_key == "sk-ant-test"
 
 
-def test_create_provider_from_endpoint_config_bedrock_base_config(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_bedrock_base_config(store: SqlAlchemyStore):
     # Test Bedrock with base config (default credentials chain)
     secret = store.create_gateway_secret(
         secret_name="bedrock-base-key",
@@ -189,14 +189,14 @@ def test_create_provider_from_endpoint_config_bedrock_base_config(store: SqlAlch
         name="test-bedrock-base-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, AmazonBedrockProvider)
     assert isinstance(provider.config.model.config.aws_config, AWSBaseConfig)
     assert provider.config.model.config.aws_config.aws_region == "us-east-1"
 
 
-def test_create_provider_from_endpoint_config_bedrock_access_keys(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_bedrock_access_keys(store: SqlAlchemyStore):
     # Test Bedrock with access key authentication
     secret = store.create_gateway_secret(
         secret_name="bedrock-keys",
@@ -218,7 +218,7 @@ def test_create_provider_from_endpoint_config_bedrock_access_keys(store: SqlAlch
         name="test-bedrock-keys-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, AmazonBedrockProvider)
     assert isinstance(provider.config.model.config.aws_config, AWSIdAndKey)
@@ -228,7 +228,7 @@ def test_create_provider_from_endpoint_config_bedrock_access_keys(store: SqlAlch
     assert provider.config.model.config.aws_config.aws_region == "us-west-2"
 
 
-def test_create_provider_from_endpoint_config_bedrock_role(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_bedrock_role(store: SqlAlchemyStore):
     # Test Bedrock with role-based authentication
     secret = store.create_gateway_secret(
         secret_name="bedrock-role-key",
@@ -250,7 +250,7 @@ def test_create_provider_from_endpoint_config_bedrock_role(store: SqlAlchemyStor
         name="test-bedrock-role-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, AmazonBedrockProvider)
     assert isinstance(provider.config.model.config.aws_config, AWSRole)
@@ -262,7 +262,7 @@ def test_create_provider_from_endpoint_config_bedrock_role(store: SqlAlchemyStor
     assert provider.config.model.config.aws_config.aws_region == "eu-west-1"
 
 
-def test_create_provider_from_endpoint_config_mistral(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
     # Test Mistral provider
     secret = store.create_gateway_secret(
         secret_name="mistral-key",
@@ -279,14 +279,14 @@ def test_create_provider_from_endpoint_config_mistral(store: SqlAlchemyStore):
         name="test-mistral-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, MistralProvider)
     assert isinstance(provider.config.model.config, MistralConfig)
     assert provider.config.model.config.mistral_api_key == "mistral-test-key"
 
 
-def test_create_provider_from_endpoint_config_gemini(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):
     # Test Gemini provider
     secret = store.create_gateway_secret(
         secret_name="gemini-key",
@@ -303,16 +303,16 @@ def test_create_provider_from_endpoint_config_gemini(store: SqlAlchemyStore):
         name="test-gemini-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, GeminiProvider)
     assert isinstance(provider.config.model.config, GeminiConfig)
     assert provider.config.model.config.gemini_api_key == "gemini-test-key"
 
 
-def test_create_provider_from_endpoint_config_nonexistent_endpoint(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_nonexistent_endpoint(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found"):
-        _create_provider_from_endpoint_config("nonexistent-id", store, EndpointType.LLM_V1_CHAT)
+        _create_provider_from_endpoint_name(store, "nonexistent-id", EndpointType.LLM_V1_CHAT)
 
 
 @pytest.mark.asyncio
@@ -361,7 +361,7 @@ async def test_invocations_handler_chat(store: SqlAlchemyStore):
 
     # Patch the provider creation to return a mocked provider
     with patch(
-        "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
     ) as mock_create_provider:
         mock_provider = MagicMock()
         mock_provider.chat = AsyncMock(return_value=mock_response)
@@ -408,7 +408,7 @@ async def test_invocations_handler_embeddings(store: SqlAlchemyStore):
 
     # Patch the provider creation to return a mocked provider
     with patch(
-        "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
     ) as mock_create_provider:
         mock_provider = MagicMock()
         mock_provider.embeddings = AsyncMock(return_value=mock_response)
@@ -478,7 +478,7 @@ async def test_invocations_handler_missing_fields(store: SqlAlchemyStore):
     mock_request.json = AsyncMock(return_value={"temperature": 0.7})
 
     with patch(
-        "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
     ) as mock_create_provider:
         mock_provider = MagicMock()
         mock_create_provider.return_value = mock_provider
@@ -518,7 +518,7 @@ async def test_invocations_handler_invalid_chat_payload(store: SqlAlchemyStore):
     )
 
     with patch(
-        "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
     ) as mock_create_provider:
         mock_provider = MagicMock()
         mock_create_provider.return_value = mock_provider
@@ -555,7 +555,7 @@ async def test_invocations_handler_invalid_embeddings_payload(store: SqlAlchemyS
     )
 
     with patch(
-        "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
     ) as mock_create_provider:
         mock_provider = MagicMock()
         mock_create_provider.return_value = mock_provider
@@ -597,7 +597,7 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
 
     with (
         patch(
-            "mlflow.server.gateway_api._create_provider_from_endpoint_config"
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
         ) as mock_create_provider,
         patch(
             "mlflow.server.gateway_api.make_streaming_response",
@@ -616,7 +616,7 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
         assert response == mock_streaming_response
 
 
-def test_create_provider_from_endpoint_config_no_models(store: SqlAlchemyStore):
+def test_create_provider_from_endpoint_name_no_models(store: SqlAlchemyStore):
     # Create a minimal endpoint to get an endpoint_name
     secret = store.create_gateway_secret(
         secret_name="test-key",
@@ -641,4 +641,4 @@ def test_create_provider_from_endpoint_config_no_models(store: SqlAlchemyStore):
         ),
     ):
         with pytest.raises(MlflowException, match="has no models configured"):
-            _create_provider_from_endpoint_config(endpoint.name, store, EndpointType.LLM_V1_CHAT)
+            _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
