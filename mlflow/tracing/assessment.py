@@ -14,7 +14,6 @@ from mlflow.tracing.client import TracingClient
 from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.0.0")
 def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
     """
     Get an assessment entity from the backend store.
@@ -128,7 +127,6 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     return TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental(version="3.0.0")
 def log_expectation(
     *,
     trace_id: str,
@@ -331,7 +329,6 @@ def log_feedback(
     return TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental(version="3.0.0")
 def override_feedback(
     *,
     trace_id: str,

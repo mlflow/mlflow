@@ -6,7 +6,6 @@ from mlflow.utils.autologging_utils import autologging_integration
 FLAVOR_NAME = "ag2"
 
 
-@experimental(version="3.0.0")
 def autolog(
     log_traces: bool = True,
     disable: bool = False,

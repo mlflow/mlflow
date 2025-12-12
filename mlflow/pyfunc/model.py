@@ -841,7 +841,6 @@ def _maybe_decompress_cloudpickle_load(path, compression):
         return cloudpickle.load(f)
 
 
-@experimental(version="3.0.0")
 class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     """
     A base class for creating ResponsesAgent models. It can be used as a wrapper around any

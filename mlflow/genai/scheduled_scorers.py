@@ -9,7 +9,6 @@ _ERROR_MSG = (
 )
 
 
-@experimental(version="3.0.0")
 @dataclass()
 class ScorerScheduleConfig:
     """

@@ -17,7 +17,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "smolagents"
 
 
-@experimental(version="3.0.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
