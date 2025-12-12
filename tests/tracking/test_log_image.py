@@ -5,15 +5,8 @@ import posixpath
 import pytest
 
 import mlflow
-from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.time import get_current_time_millis
-
-
-@pytest.fixture(autouse=True)
-def tracking_uri(db_uri: str):
-    with _use_tracking_uri(db_uri):
-        yield
 
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])

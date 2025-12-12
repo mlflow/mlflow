@@ -100,13 +100,12 @@ CREATE TABLE secrets (
 	secret_id VARCHAR(36) NOT NULL,
 	secret_name VARCHAR(255) NOT NULL,
 	encrypted_value BYTEA NOT NULL,
-	encrypted_auth_config BYTEA,
 	wrapped_dek BYTEA NOT NULL,
 	kek_version INTEGER NOT NULL,
 	masked_value VARCHAR(100) NOT NULL,
 	provider VARCHAR(64),
 	credential_name VARCHAR(255),
-	wrapped_auth_config_dek BYTEA,
+	auth_config TEXT,
 	description TEXT,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,
@@ -217,7 +216,7 @@ CREATE TABLE logged_models (
 CREATE TABLE model_definitions (
 	model_definition_id VARCHAR(36) NOT NULL,
 	name VARCHAR(255) NOT NULL,
-	secret_id VARCHAR(36) NOT NULL,
+	secret_id VARCHAR(36),
 	provider VARCHAR(64) NOT NULL,
 	model_name VARCHAR(256) NOT NULL,
 	created_by VARCHAR(255),
@@ -225,7 +224,7 @@ CREATE TABLE model_definitions (
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT model_definitions_pk PRIMARY KEY (model_definition_id),
-	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id)
+	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE SET NULL
 )
 
 
@@ -347,7 +346,7 @@ CREATE TABLE endpoint_model_mappings (
 	mapping_id VARCHAR(36) NOT NULL,
 	endpoint_id VARCHAR(36) NOT NULL,
 	model_definition_id VARCHAR(36) NOT NULL,
-	weight INTEGER NOT NULL,
+	weight DOUBLE PRECISION NOT NULL,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,
 	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),

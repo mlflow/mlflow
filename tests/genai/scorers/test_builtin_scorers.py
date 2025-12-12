@@ -26,6 +26,7 @@ from mlflow.genai.scorers import (
     RetrievalRelevance,
     RetrievalSufficiency,
     Safety,
+    Summarization,
     UserFrustration,
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
@@ -581,7 +582,7 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    # Now we have 9 scorers for OSS (added Completeness) and 11 for Databricks
+    # Now we have 9 scorers for OSS and 11 for Databricks
     assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
@@ -1474,15 +1475,14 @@ def test_completeness_with_trace():
 def test_conversational_safety_with_session():
     session_id = "test_session_safety"
     traces = []
-    for i, (q, a) in enumerate(
-        [
-            ("What is Python?", "Python is a programming language."),
-            ("How do I install it?", "You can download it from python.org."),
-        ]
-    ):
-        with mlflow.start_span(name=f"turn_{i}") as span:
-            span.set_inputs({"question": q})
-            span.set_outputs(a)
+    test_data = [
+        (0, "What is Python?", "Python is a programming language."),
+        (1, "How do I install it?", "You can download it from python.org."),
+    ]
+    for idx, question, answer in test_data:
+        with mlflow.start_span(name=f"turn_{idx}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
         traces.append(mlflow.get_trace(span.trace_id))
 
@@ -1555,21 +1555,20 @@ def test_conversational_safety_instructions():
 def test_conversational_tool_call_efficiency_with_session():
     session_id = "test_session_efficiency"
     traces = []
-    for i, (q, a) in enumerate(
-        [
-            ("What is the price of AAPL?", "AAPL is $150."),
-            ("How about MSFT?", "MSFT is $300."),
-        ]
-    ):
-        with mlflow.start_span(name=f"turn_{i}") as span:
-            span.set_inputs({"question": q})
-            span.set_outputs(a)
+    test_data = [
+        (0, "What is the price of AAPL?", "AAPL", "150"),
+        (1, "How about MSFT?", "MSFT", "300"),
+    ]
+    for idx, question, stock, stock_price in test_data:
+        answer = f"{stock} is ${stock_price}."
+        with mlflow.start_span(name=f"turn_{idx}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
 
-            # Add a tool span
             with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool_span:
-                tool_span.set_inputs({"symbol": "AAPL" if i == 0 else "MSFT"})
-                tool_span.set_outputs(f"${150 if i == 0 else 300}")
+                tool_span.set_inputs({"symbol": stock})
+                tool_span.set_outputs(f"${stock_price}")
 
         traces.append(mlflow.get_trace(span.trace_id))
 
@@ -1607,13 +1606,14 @@ def test_conversational_tool_call_efficiency_instructions():
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []
-    for i, (q, a) in enumerate([
-        ("What can you cook?", "I can help you make many dishes!"),
-        ("How do I make soup?", "Start by boiling vegetables..."),
-    ]):
-        with mlflow.start_span(name=f"turn_{i}") as span:
-            span.set_inputs({"question": q})
-            span.set_outputs(a)
+    test_data = [
+        (0, "What can you cook?", "I can help you make many dishes!"),
+        (1, "How do I make soup?", "Start by boiling vegetables..."),
+    ]
+    for idx, question, answer in test_data:
+        with mlflow.start_span(name=f"turn_{idx}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
         traces.append(mlflow.get_trace(span.trace_id))
 
@@ -1626,9 +1626,7 @@ def test_conversational_role_adherence_with_session():
             rationale="Role maintained across session.",
         )
 
-        scorer = ConversationalRoleAdherence(
-            role_description="A cooking assistant."
-        )
+        scorer = ConversationalRoleAdherence()
         result = scorer(session=traces)
 
         assert result.name == "conversational_role_adherence"
@@ -1637,14 +1635,14 @@ def test_conversational_role_adherence_with_session():
 
 
 def test_conversational_role_adherence_get_input_fields():
-    scorer = ConversationalRoleAdherence(role_description="A test role.")
+    scorer = ConversationalRoleAdherence()
     fields = scorer.get_input_fields()
     field_names = [field.name for field in fields]
     assert field_names == ["session"]
 
 
 def test_conversational_role_adherence_instructions():
-    scorer = ConversationalRoleAdherence(role_description="A test role.")
+    scorer = ConversationalRoleAdherence()
     instructions = scorer.instructions
     assert "role" in instructions.lower()
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
@@ -1653,13 +1651,14 @@ def test_conversational_role_adherence_instructions():
 def test_conversational_coherence_with_session():
     session_id = "test_session_coherence"
     traces = []
-    for i, (q, a) in enumerate([
-        ("What is the capital of France?", "The capital of France is Paris."),
-        ("What is its population?", "Paris has about 2.1 million people."),
-    ]):
-        with mlflow.start_span(name=f"turn_{i}") as span:
-            span.set_inputs({"question": q})
-            span.set_outputs(a)
+    test_data = [
+        (0, "What is the capital of France?", "The capital of France is Paris."),
+        (1, "What is its population?", "Paris has about 2.1 million people."),
+    ]
+    for idx, question, answer in test_data:
+        with mlflow.start_span(name=f"turn_{idx}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
         traces.append(mlflow.get_trace(span.trace_id))
 
@@ -1683,13 +1682,14 @@ def test_conversational_coherence_with_session():
 def test_conversational_coherence_incoherent():
     session_id = "test_session_incoherent"
     traces = []
-    for i, (q, a) in enumerate([
-        ("What is the capital of France?", "The capital of France is Paris."),
-        ("Tell me more about it.", "Tokyo is known for its sushi."),
-    ]):
-        with mlflow.start_span(name=f"turn_{i}") as span:
-            span.set_inputs({"question": q})
-            span.set_outputs(a)
+    test_data = [
+        (0, "What is the capital of France?", "The capital of France is Paris."),
+        (1, "Tell me more about it.", "Tokyo is known for its sushi."),
+    ]
+    for idx, question, answer in test_data:
+        with mlflow.start_span(name=f"turn_{idx}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
         traces.append(mlflow.get_trace(span.trace_id))
 
@@ -1722,3 +1722,73 @@ def test_conversational_coherence_instructions():
     assert "coherence" in instructions.lower() or "logical" in instructions.lower()
     assert "consistency" in instructions.lower() or "flow" in instructions.lower()
 
+
+def test_session_level_scorer_with_invalid_kwargs():
+    scorer = UserFrustration()
+
+    with pytest.raises(
+        TypeError,
+        match=r"Session level scorers can only accept the `session` and `expectations` "
+        r"parameters\. Got unexpected keyword argument\(s\): 'trace'",
+    ):
+        scorer(trace=create_simple_trace())
+
+    with pytest.raises(
+        TypeError,
+        match=r"Session level scorers can only accept the `session` and `expectations` "
+        r"parameters\. Got unexpected keyword argument\(s\): 'outputs'",
+    ):
+        scorer(outputs="some output")
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name", "rationale"),
+    [
+        (None, None, "summarization", "Good summary"),
+        ("custom_summarization_check", "openai:/gpt-4", "custom_summarization_check", "Excellent"),
+    ],
+)
+def test_summarization_with_inputs_outputs(name, model, expected_name, rationale):
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale=rationale),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = Summarization(**kwargs)
+        result = scorer(
+            inputs={
+                "text": (
+                    "MLflow is an open-source platform for managing the end-to-end machine "
+                    "learning lifecycle. It provides tools for experiment tracking, model "
+                    "packaging, and deployment."
+                )
+            },
+            outputs="MLflow is an ML lifecycle management platform.",
+        )
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == rationale
+        mock_invoke_judge.assert_called_once()
+
+
+def test_summarization_with_trace():
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name="summarization", value="yes", rationale="Accurate summary"),
+    ) as mock_invoke_judge:
+        trace = create_simple_trace(
+            inputs={"question": "Summarize MLflow"},
+            outputs="MLflow is an open-source platform for managing ML workflows.",
+        )
+        scorer = Summarization()
+        result = scorer(trace=trace)
+
+        assert result.name == "summarization"
+        assert result.value == "yes"
+        assert result.rationale == "Accurate summary"
+        mock_invoke_judge.assert_called_once()

@@ -27,4 +27,4 @@ Output "yes" if the conversation is coherent. Output "no" if there are clear coh
 such as contradictions, context being ignored, or illogical jumps.
 
 <conversation>{{ conversation }}</conversation>
-"""  # noqa: E501
+"""

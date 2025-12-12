@@ -16,6 +16,7 @@ import {
   STATE_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   SOURCE_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import { TracesTableColumnGroup } from '../../types';
@@ -177,6 +178,24 @@ export const TableFilterItemValueInput = ({
         placeholder="Select source"
         width={200}
         canSearchCustomValue={false}
+      />
+    );
+  }
+
+  // Only available in OSS
+  if (tableFilter.column === LINKED_PROMPTS_COLUMN_ID) {
+    const promptOptions = tableFilterOptions.prompt || [];
+    return (
+      <TableFilterItemTypeahead
+        id={id}
+        item={promptOptions.find((item) => item.value === tableFilter.value)}
+        options={promptOptions}
+        onChange={(value: string) => {
+          onChange({ ...tableFilter, value }, index);
+        }}
+        placeholder="Select prompt"
+        width={200}
+        canSearchCustomValue
       />
     );
   }

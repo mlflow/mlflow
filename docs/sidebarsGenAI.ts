@@ -567,6 +567,10 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'prompt-registry/optimize-prompts/openai-agent-optimization',
             },
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/pydantic-ai-optimization',
+            },
           ],
         },
         {
@@ -893,6 +897,11 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluation Datasets',
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'references/request-features',
+      className: 'sidebar-top-level-category',
     },
     {
       type: 'doc',

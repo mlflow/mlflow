@@ -458,6 +458,30 @@ def _validate_static_prefix(ctx, param, value):
         "Unsupported on Windows."
     ),
 )
+@click.option(
+    "--secrets-cache-ttl",
+    type=click.IntRange(10, 300),
+    default=60,
+    show_default=True,
+    help=(
+        "Server-side secrets cache time-to-live in seconds. "
+        "Controls how long decrypted secrets are cached in memory (encrypted with AES-GCM-256). "
+        "Lower values (10-30s) are more secure but impact performance. "
+        "Higher values (120-300s) improve performance but increase exposure window. "
+        "Range: 10-300 seconds."
+    ),
+)
+@click.option(
+    "--secrets-cache-max-size",
+    type=click.IntRange(1, 10000),
+    default=1000,
+    show_default=True,
+    help=(
+        "Server-side secrets cache maximum entries. "
+        "When exceeded, least recently used entries are evicted. "
+        "Range: 1-10000 entries."
+    ),
+)
 def server(
     ctx,
     backend_store_uri,
@@ -480,6 +504,8 @@ def server(
     app_name,
     dev,
     uvicorn_opts,
+    secrets_cache_ttl,
+    secrets_cache_max_size,
 ):
     """
     Run the MLflow tracking server with built-in security middleware.
@@ -613,6 +639,8 @@ def server(
             app_name=app_name,
             uvicorn_opts=uvicorn_opts,
             env_file=env_file,
+            secrets_cache_ttl=secrets_cache_ttl,
+            secrets_cache_max_size=secrets_cache_max_size,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -1013,11 +1041,11 @@ with contextlib.suppress(ImportError):
 
     cli.add_command(mlflow.gateway.cli.commands)
 
-# Add cryptography CLI commands (optional, requires cryptography package)
+# Add crypto CLI commands
 with contextlib.suppress(ImportError):
-    from mlflow.cli import cryptography
+    from mlflow.cli import crypto
 
-    cli.add_command(cryptography.commands)
+    cli.add_command(crypto.commands)
 
 if __name__ == "__main__":
     cli()
