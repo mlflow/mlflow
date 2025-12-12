@@ -20,18 +20,31 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import get_metric_class, is_deterministic_metric
 from mlflow.genai.scorers.deepeval.utils import map_scorer_inputs_to_deepeval_test_case
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class DeepEvalScorer(Scorer):
+    """
+    Base scorer class for DeepEval metrics.
+
+    Args:
+        metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy").
+            If not provided, will use the class-level metric_name attribute.
+        model: {{ model }}
+        metric_kwargs: Additional metric-specific parameters
+    """
+
     _metric: Any = PrivateAttr()
 
     def __init__(
@@ -40,15 +53,6 @@ class DeepEvalScorer(Scorer):
         model: str = "databricks",
         **metric_kwargs,
     ):
-        """
-        Initialize a DeepEval metric scorer.
-
-        Args:
-            metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy").
-                If not provided, will use the class-level metric_name attribute.
-            model: Model URI in MLflow format (default: "databricks")
-            metric_kwargs: Additional metric-specific parameters
-        """
         # Use class attribute if metric_name not provided
         if metric_name is None:
             metric_name = self.metric_name
@@ -128,6 +132,7 @@ class DeepEvalScorer(Scorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 def get_judge(
     metric_name: str,
     model: str = "databricks",
@@ -138,7 +143,7 @@ def get_judge(
 
     Args:
         metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy", "Faithfulness")
-        model: Model URI in MLflow format (default: "databricks")
+        model: {{ model }}
         metric_kwargs: Additional metric-specific parameters (e.g., threshold, include_reason)
 
     Returns:
