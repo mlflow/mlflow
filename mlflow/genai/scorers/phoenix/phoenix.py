@@ -10,8 +10,7 @@ All Phoenix scorers follow MLflow's convention where higher scores indicate bett
 - 1.0 = best quality (factual, relevant, non-toxic, correct, good summary)
 - 0.0 = worst quality (hallucinated, irrelevant, toxic, incorrect, poor summary)
 
-Note: Phoenix internally uses inverted scoring for some metrics (e.g., hallucination=0 means
-factual). This module automatically inverts these scores to match MLflow's convention.
+Phoenix evaluators natively return scores aligned with this convention (1.0 = good).
 
 **Available Scorers:**
 - ``PhoenixHallucinationScorer``: Detects hallucinations (1.0=factual, 0.0=hallucinated)
@@ -91,7 +90,6 @@ class _PhoenixScorerBase(Scorer):
         self,
         result: tuple[str, float | None, str | None],
         positive_label: str,
-        invert_score: bool = False,
     ) -> tuple[float, str]:
         """
         Parse Phoenix evaluator result tuple.
@@ -99,23 +97,31 @@ class _PhoenixScorerBase(Scorer):
         Phoenix returns: Tuple[str, Optional[float], Optional[str]]
                         (label, score, explanation)
 
+        Phoenix scores are already aligned with MLflow convention:
+        - 1.0 = positive/good outcome (factual, relevant, non-toxic, correct)
+        - 0.0 = negative/bad outcome (hallucinated, irrelevant, toxic, incorrect)
+
         Args:
             result: The tuple returned by Phoenix evaluator
             positive_label: The label that indicates a positive/good result
-            invert_score: If True, invert the score (1 - score). Used for evaluators
-                where 0 means good (e.g., hallucination=0 means factual,
-                toxicity=0 means non-toxic).
 
         Returns:
-            Tuple of (normalized_score, rationale)
+            Tuple of (score, rationale)
         """
         label, score, explanation = result
 
         # If Phoenix provides a score, use it; otherwise derive from label
         if score is not None:
             normalized_score = float(score)
-            if invert_score:
-                normalized_score = 1.0 - normalized_score
+            # Validate score is in expected range
+            if normalized_score < 0.0 or normalized_score > 1.0:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    f"Phoenix returned score {normalized_score} outside expected 0-1 range. "
+                    "This may indicate a version incompatibility. Clamping to valid range."
+                )
+                normalized_score = min(1.0, max(0.0, normalized_score))
         else:
             normalized_score = 1.0 if label == positive_label else 0.0
 
@@ -188,9 +194,9 @@ class PhoenixHallucinationScorer(_PhoenixScorerBase):
         }
 
         result = evaluator.evaluate(record=record)
-        # Phoenix hallucination: score=0 means factual (good), score=1 means hallucinated (bad)
-        # We invert so that 1.0 = factual/good, 0.0 = hallucinated/bad
-        score, rationale = self._parse_result(result, positive_label="factual", invert_score=True)
+        # Phoenix hallucination: 1.0 = factual (good), 0.0 = hallucinated (bad)
+        # Already aligned with MLflow convention (higher = better)
+        score, rationale = self._parse_result(result, positive_label="factual")
 
         return Feedback(name=self.name, value=score, rationale=rationale)
 
@@ -311,10 +317,9 @@ class PhoenixToxicityScorer(_PhoenixScorerBase):
         }
 
         result = evaluator.evaluate(record=record)
-        # For toxicity, non-toxic is the positive outcome
-        # Phoenix toxicity: score=0 means non-toxic (good), score=1 means toxic (bad)
-        # We invert so that 1.0 = non-toxic/good, 0.0 = toxic/bad
-        score, rationale = self._parse_result(result, positive_label="non-toxic", invert_score=True)
+        # Phoenix toxicity: 1.0 = non-toxic (good), 0.0 = toxic (bad)
+        # Already aligned with MLflow convention (higher = better)
+        score, rationale = self._parse_result(result, positive_label="non-toxic")
 
         return Feedback(name=self.name, value=score, rationale=rationale)
 
