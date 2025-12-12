@@ -36,7 +36,6 @@ from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
 
-# Create router for gateway endpoints
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
 
@@ -66,11 +65,15 @@ def _create_provider_from_endpoint_config(
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
 
-    # For now, use the first model (later we can support traffic routing)
+    # For now, use the first model (TODO: Support traffic routing)
     model_config = endpoint_config.models[0]
 
-    # Build provider-specific configuration
-    provider_enum = Provider(model_config.provider)
+    try:
+        provider_enum = Provider(model_config.provider)
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail=f"Received invalid provider: {model_config.provider}"
+        )
 
     if provider_enum == Provider.OPENAI:
         auth_config = model_config.auth_config or {}
@@ -96,12 +99,11 @@ def _create_provider_from_endpoint_config(
         anthropic_config = {
             "anthropic_api_key": model_config.secret_value.get("api_key"),
         }
-        # Only set anthropic_version if provided in auth_config
         if model_config.auth_config and "version" in model_config.auth_config:
             anthropic_config["anthropic_version"] = model_config.auth_config["version"]
         provider_config = AnthropicConfig(**anthropic_config)
     elif provider_enum in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
-        # Bedrock supports multiple auth modes - determine which one to use
+        # Bedrock supports multiple auth modes
         auth_config = model_config.auth_config or {}
         secret_value = model_config.secret_value or {}
 
@@ -120,7 +122,6 @@ def _create_provider_from_endpoint_config(
                 aws_session_token=secret_value.get("aws_session_token"),
                 aws_region=auth_config.get("aws_region"),
             )
-        # Fall back to base config (uses default credentials chain)
         else:
             aws_config = AWSBaseConfig(
                 aws_region=auth_config.get("aws_region"),
@@ -140,7 +141,6 @@ def _create_provider_from_endpoint_config(
         raise NotImplementedError(f"Provider {provider_enum} is not supported")
 
     # Create an EndpointConfig for the provider
-    # This mimics what the gateway does with yaml-based configs
     gateway_endpoint_config = EndpointConfig(
         name=endpoint_config.endpoint_name,
         endpoint_type=endpoint_type,
