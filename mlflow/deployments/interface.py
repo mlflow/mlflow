@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowException
 
 plugin_store = DeploymentPlugins()
 plugin_store.register("sagemaker", "mlflow.sagemaker")
+plugin_store.register("modal", "mlflow.modal")
 
 _logger = Logger(__name__)
 
