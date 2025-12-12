@@ -81,7 +81,6 @@ from mlflow.utils.file_utils import (
     make_containing_dirs,
     mkdir,
     mv,
-    path_to_local_file_uri,
     read_file,
     read_file_lines,
     write_to,
@@ -227,7 +226,7 @@ class FileStore(AbstractStore):
         )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         if not artifact_root_uri:
-            self.artifact_root_uri = path_to_local_file_uri(self.root_directory)
+            self.artifact_root_uri = resolve_uri_if_local(self.root_directory)
         else:
             self.artifact_root_uri = resolve_uri_if_local(artifact_root_uri)
         self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
