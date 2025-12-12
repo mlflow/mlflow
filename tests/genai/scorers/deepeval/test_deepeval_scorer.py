@@ -1,9 +1,35 @@
 from unittest.mock import Mock, patch
 
+import pytest
+
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.deepeval import AnswerRelevancy, KnowledgeRetention, get_judge
+
+
+@pytest.fixture
+def mock_deepeval_model():
+    """Create a mock DeepEval model that satisfies DeepEval's validation."""
+    from deepeval.models.base_model import DeepEvalBaseLLM
+
+    class MockDeepEvalModel(DeepEvalBaseLLM):
+        def __init__(self):
+            super().__init__(model_name="mock-model")
+
+        def load_model(self):
+            return self
+
+        def generate(self, prompt: str, schema=None) -> str:
+            return "mock response"
+
+        async def a_generate(self, prompt: str, schema=None) -> str:
+            return "mock response"
+
+        def get_model_name(self) -> str:
+            return "mock-model"
+
+    return MockDeepEvalModel()
 
 
 def test_deepeval_scorer_with_exact_match_metric():
@@ -81,13 +107,10 @@ def test_deepeval_scorer_returns_error_feedback_on_exception():
             assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
 
 
-def test_multi_turn_metric_is_session_level_scorer():
-    with (
-        patch("mlflow.genai.scorers.deepeval.create_deepeval_model"),
-        patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric,
+def test_multi_turn_metric_is_session_level_scorer(mock_deepeval_model):
+    with patch(
+        "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
     ):
-        mock_get_metric.return_value = Mock()
-
         knowledge_retention = KnowledgeRetention()
         assert knowledge_retention.is_session_level_scorer is True
 
@@ -95,13 +118,10 @@ def test_multi_turn_metric_is_session_level_scorer():
         assert answer_relevancy.is_session_level_scorer is False
 
 
-def test_multi_turn_metric_requires_session_parameter():
-    with (
-        patch("mlflow.genai.scorers.deepeval.create_deepeval_model"),
-        patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric,
+def test_multi_turn_metric_requires_session_parameter(mock_deepeval_model):
+    with patch(
+        "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
     ):
-        mock_get_metric.return_value = Mock()
-
         scorer = KnowledgeRetention()
 
         result = scorer(inputs="test", outputs="test")
@@ -109,19 +129,12 @@ def test_multi_turn_metric_requires_session_parameter():
         assert "requires 'session' parameter" in result.error.error_message
 
 
-def test_multi_turn_metric_with_session():
+def test_multi_turn_metric_with_session(mock_deepeval_model):
     mock_conversational_test_case = Mock()
-    mock_metric_instance = Mock()
-    mock_metric_instance.score = 0.85
-    mock_metric_instance.reason = "Good knowledge retention"
-    mock_metric_instance.threshold = 0.7
-    mock_metric_instance.is_successful.return_value = True
 
     with (
-        patch("mlflow.genai.scorers.deepeval.create_deepeval_model"),
         patch(
-            "mlflow.genai.scorers.deepeval.get_metric_class",
-            return_value=Mock(return_value=mock_metric_instance),
+            "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
         ),
         patch(
             "mlflow.genai.scorers.deepeval.map_session_to_deepeval_conversational_test_case",
@@ -131,13 +144,21 @@ def test_multi_turn_metric_with_session():
         mock_traces = [Mock(), Mock(), Mock()]
 
         scorer = KnowledgeRetention()
+
+        # Mock the metric's behavior after it's created
+        scorer._metric.score = 0.85
+        scorer._metric.reason = "Good knowledge retention"
+        scorer._metric.threshold = 0.7
+        scorer._metric.is_successful = Mock(return_value=True)
+        scorer._metric.measure = Mock()
+
         result = scorer(session=mock_traces)
 
         # Verify session mapping was called
         mock_map_session.assert_called_once_with(session=mock_traces, expectations=None)
 
         # Verify metric.measure was called with conversational test case
-        mock_metric_instance.measure.assert_called_once_with(
+        scorer._metric.measure.assert_called_once_with(
             mock_conversational_test_case, _show_indicator=False
         )
 

@@ -27,7 +27,6 @@ from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import (
     get_metric_class,
     is_deterministic_metric,
-    is_multi_turn_metric,
 )
 from mlflow.genai.scorers.deepeval.utils import (
     map_scorer_inputs_to_deepeval_test_case,
@@ -77,7 +76,15 @@ class DeepEvalScorer(Scorer):
 
     @property
     def is_session_level_scorer(self) -> bool:
-        return is_multi_turn_metric(self.name)
+        """
+        Check if this scorer is a session-level (multi-turn) scorer.
+
+        Dynamically checks if the underlying DeepEval metric is an instance of
+        BaseConversationalMetric, making it future-proof for new multi-turn metrics.
+        """
+        from deepeval.metrics.base_metric import BaseConversationalMetric
+
+        return isinstance(self._metric, BaseConversationalMetric)
 
     def __call__(
         self,
