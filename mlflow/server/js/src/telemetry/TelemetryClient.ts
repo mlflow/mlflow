@@ -5,8 +5,9 @@
  * Provides a simple API for logging telemetry events.
  */
 import type { TelemetryRecord } from './worker/types';
-import { isDesignSystemEvent } from './utils';
+import { isDesignSystemEvent, TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from './utils';
 import { WorkerToClientMessageType, ClientToWorkerMessageType } from './worker/types';
+import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
 
 const LOCAL_STORAGE_INSTALLATION_ID_KEY = 'mlflow-telemetry-installation-id';
 
@@ -16,6 +17,7 @@ class TelemetryClient {
   private ready: Promise<boolean> = this.initWorker();
 
   private getInstallationId(): string {
+    // not using `getLocalStorageItem` because this key is not used in react
     const localStorageInstallationId = localStorage.getItem(LOCAL_STORAGE_INSTALLATION_ID_KEY);
 
     if (!localStorageInstallationId) {
@@ -27,9 +29,29 @@ class TelemetryClient {
     }
   }
 
+  private getTelemetryEnabled(): boolean {
+    // need to use the function from web-shared because this key is
+    // changed using `useLocalStorage` inside the settings page, which
+    // appends the version to the key.
+    const telemetryEnabled = getLocalStorageItem(
+      TELEMETRY_ENABLED_STORAGE_KEY,
+      TELEMETRY_ENABLED_STORAGE_VERSION,
+      // default to true as the feature is opt-out
+      true,
+    );
+
+    return telemetryEnabled;
+  }
+
   private initWorker(): Promise<boolean> {
     return new Promise((resolve) => {
       try {
+        // if telemetry is disabled, we don't need to initialize the worker at all
+        if (!this.getTelemetryEnabled()) {
+          resolve(false);
+          return;
+        }
+
         // Create SharedWorker instance
         this.port = new SharedWorker(new URL('./worker/TelemetryLogger.worker.ts', import.meta.url), {
           name: 'telemetry-worker',
