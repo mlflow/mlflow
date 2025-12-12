@@ -811,6 +811,39 @@ class SqlTraceMetadata(Base):
     )
 
 
+class SqlTraceMetrics(Base):
+    __tablename__ = "trace_metrics"
+
+    request_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Request ID to which this metric belongs: *Foreign Key* into ``trace_info`` table.
+    **Corresponding to the "trace_id" in V3 format.**
+    """
+    key = Column(String(250), nullable=False)
+    """
+    Metric key: `String` (limit 250 characters). Examples: "input_tokens", "output_tokens",
+    "total_tokens", "cost", etc.
+    """
+    value = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Metric value: `Float`. Could be *null* if not available. Supports both integer values
+    (e.g., token counts) and decimal values (e.g., API costs).
+    """
+    trace_info = relationship("SqlTraceInfo", backref=backref("metrics", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    # Composite primary key: (request_id, key)
+    __table_args__ = (
+        PrimaryKeyConstraint("request_id", "key", name="trace_metrics_pk"),
+        Index(f"index_{__tablename__}_request_id", "request_id"),
+    )
+
+
 class SqlAssessments(Base):
     __tablename__ = "assessments"
 

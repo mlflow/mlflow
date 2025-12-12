@@ -476,6 +476,15 @@ CREATE TABLE tags (
 )
 
 
+CREATE TABLE trace_metrics (
+	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value FLOAT,
+	CONSTRAINT trace_metrics_pk PRIMARY KEY (request_id, key),
+	CONSTRAINT fk_trace_metrics_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE trace_request_metadata (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
