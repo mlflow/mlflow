@@ -503,6 +503,10 @@
     "defaultMessage": "Evaluation not available when grouping is enabled",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > title"
   },
+  "2hwoFW": {
+    "defaultMessage": "Text",
+    "description": "Label for the text render mode of the prompt"
+  },
   "2mRfvl": {
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
@@ -729,6 +733,10 @@
   "5RWIet": {
     "defaultMessage": "Schema {sectionName}",
     "description": "Field name text for schema table in the model comparison page"
+  },
+  "5UrahG": {
+    "defaultMessage": "Viewing version {version}",
+    "description": "Title of the prompt details page for a given version"
   },
   "5YDkeM": {
     "defaultMessage": "Experiments",
@@ -1109,6 +1117,10 @@
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
+  },
+  "8VzQLx": {
+    "defaultMessage": "Markdown",
+    "description": "Tooltip content for a button that changes the render mode of the prompt to markdown"
   },
   "8WJEHc": {
     "defaultMessage": "New model registry UI",
@@ -2005,6 +2017,10 @@
   "HNLDYl": {
     "defaultMessage": "Failed to set tag. Error: {userVisibleError}",
     "description": "Text for user visible error when setting tag in model version view"
+  },
+  "HNQ9dM": {
+    "defaultMessage": "Status",
+    "description": "Label for the status section"
   },
   "HTQZeI": {
     "defaultMessage": "Evaluate trace",
@@ -3627,6 +3643,10 @@
     "defaultMessage": "No metrics recorded",
     "description": "Placeholder text when no metrics are recorded for a logged model"
   },
+  "Y1eg9D": {
+    "defaultMessage": "In progress",
+    "description": "Model trace header > status label > in progress"
+  },
   "Y47tVZ": {
     "defaultMessage": "Time (relative)",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for relative time since the first metric was logged."
@@ -4743,6 +4763,10 @@
     "defaultMessage": "Remove message",
     "description": "Button to remove a chat message row"
   },
+  "hUfxmd": {
+    "defaultMessage": "OK",
+    "description": "Model trace header > status label > ok"
+  },
   "hV4vVj": {
     "defaultMessage": "called {functionName} in {toolCallId}",
     "description": "A message that shows the tool calls that an AI assistant made. The full message reads (for example): 'Assistant called get_weather in id_123'."
@@ -4782,6 +4806,10 @@
   "hnhCDT": {
     "defaultMessage": "Error occurred",
     "description": "Run page > artifact view > logged table view > generic error empty state title"
+  },
+  "ho2T6B": {
+    "defaultMessage": "Error",
+    "description": "Model trace header > status label > error"
   },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
@@ -5002,6 +5030,10 @@
   "jwALGI": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
+  },
+  "k/AedV": {
+    "defaultMessage": "Plain text",
+    "description": "Tooltip content for a button that changes the render mode of the prompt to plain text"
   },
   "k/fDlw": {
     "defaultMessage": "Optimize",

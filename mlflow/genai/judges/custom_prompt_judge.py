@@ -11,7 +11,7 @@ from mlflow.genai.judges.utils import (
     invoke_judge_model,
 )
 from mlflow.genai.prompts.utils import format_prompt
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.docstring_utils import format_docstring
 
 _CHOICE_PATTERN = re.compile(r"\[\[([\w ]+)\]\]")
@@ -19,7 +19,6 @@ _CHOICE_PATTERN = re.compile(r"\[\[([\w ]+)\]\]")
 
 @format_docstring(_MODEL_API_DOC)
 @deprecated(since="3.4.0", alternative="mlflow.genai.make_judge")
-@experimental(version="3.0.0")
 def custom_prompt_judge(
     *,
     name: str,

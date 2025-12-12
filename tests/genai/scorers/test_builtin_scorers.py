@@ -13,6 +13,7 @@ from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Completeness,
     ConversationalSafety,
+    ConversationalToolCallEfficiency,
     ConversationCompleteness,
     Correctness,
     Equivalence,
@@ -1548,6 +1549,59 @@ def test_conversational_safety_instructions():
     assert "conversation" in instructions.lower()
     assert "assistant" in instructions.lower()
     assert "safety" in instructions.lower()
+
+
+def test_conversational_tool_call_efficiency_with_session():
+    session_id = "test_session_efficiency"
+    traces = []
+    for i, (question, stock, stock_price) in enumerate(
+        [
+            ("What is the price of AAPL?", "AAPL", "150"),
+            ("How about MSFT?", "MSFT", "300"),
+        ]
+    ):
+        answer = f"{stock} is ${stock_price}."
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+
+            with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool_span:
+                tool_span.set_inputs({"symbol": stock})
+                tool_span.set_outputs(f"${stock_price}")
+
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    mock_feedback = Feedback(
+        name="conversational_tool_call_efficiency",
+        value=CategoricalRating.YES,
+        rationale="Efficient tool usage across session",
+    )
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=mock_feedback,
+    ) as mock_invoke:
+        scorer = ConversationalToolCallEfficiency()
+        result = scorer(session=traces)
+
+        assert result.name == "conversational_tool_call_efficiency"
+        assert result.value == CategoricalRating.YES
+        mock_invoke.assert_called_once()
+
+
+def test_conversational_tool_call_efficiency_get_input_fields():
+    scorer = ConversationalToolCallEfficiency()
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_conversational_tool_call_efficiency_instructions():
+    scorer = ConversationalToolCallEfficiency()
+    instructions = scorer.instructions
+    assert "tool" in instructions.lower()
+    assert "efficient" in instructions.lower() or "redundant" in instructions.lower()
 
 
 def test_session_level_scorer_with_invalid_kwargs():

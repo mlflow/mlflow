@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "1b49d398cd23"
+revision = "1bd49d398cd23"
 down_revision = "bf29a5ff90ea"
 branch_labels = None
 depends_on = None
@@ -26,7 +26,6 @@ def upgrade():
         sa.Column("kek_version", sa.Integer(), nullable=False, default=1),
         sa.Column("masked_value", sa.String(length=100), nullable=False),
         sa.Column("provider", sa.String(length=64), nullable=True),
-        sa.Column("credential_name", sa.String(length=255), nullable=True),
         sa.Column("auth_config", sa.Text(), nullable=True),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("created_by", sa.String(length=255), nullable=True),
@@ -176,8 +175,25 @@ def upgrade():
         ),
     )
 
+    op.create_table(
+        "endpoint_tags",
+        sa.Column("key", sa.String(length=250), nullable=False),
+        sa.Column("value", sa.String(length=5000), nullable=True),
+        sa.Column("endpoint_id", sa.String(length=36), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["endpoint_id"],
+            ["endpoints.endpoint_id"],
+            name="fk_endpoint_tags_endpoint_id",
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("key", "endpoint_id", name="endpoint_tag_pk"),
+    )
+    with op.batch_alter_table("endpoint_tags", schema=None) as batch_op:
+        batch_op.create_index("index_endpoint_tags_endpoint_id", ["endpoint_id"], unique=False)
+
 
 def downgrade():
+    op.drop_table("endpoint_tags")
     op.drop_table("endpoint_bindings")
     op.drop_table("endpoint_model_mappings")
     op.drop_table("model_definitions")

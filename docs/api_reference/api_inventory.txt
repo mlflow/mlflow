@@ -364,6 +364,9 @@ mlflow.entities.GatewayEndpointBinding.to_proto
 mlflow.entities.GatewayEndpointModelMapping
 mlflow.entities.GatewayEndpointModelMapping.from_proto
 mlflow.entities.GatewayEndpointModelMapping.to_proto
+mlflow.entities.GatewayEndpointTag
+mlflow.entities.GatewayEndpointTag.from_proto
+mlflow.entities.GatewayEndpointTag.to_proto
 mlflow.entities.GatewayModelDefinition
 mlflow.entities.GatewayModelDefinition.from_proto
 mlflow.entities.GatewayModelDefinition.to_proto
@@ -565,6 +568,7 @@ mlflow.entities.file_info.FileInfo
 mlflow.entities.gateway_endpoint.GatewayEndpoint
 mlflow.entities.gateway_endpoint.GatewayEndpointBinding
 mlflow.entities.gateway_endpoint.GatewayEndpointModelMapping
+mlflow.entities.gateway_endpoint.GatewayEndpointTag
 mlflow.entities.gateway_endpoint.GatewayModelDefinition
 mlflow.entities.gateway_endpoint.GatewayResourceType
 mlflow.entities.gateway_secrets.GatewaySecretInfo
@@ -846,6 +850,8 @@ mlflow.genai.scorers.ConversationCompleteness
 mlflow.genai.scorers.ConversationCompleteness.model_post_init
 mlflow.genai.scorers.ConversationalSafety
 mlflow.genai.scorers.ConversationalSafety.model_post_init
+mlflow.genai.scorers.ConversationalToolCallEfficiency
+mlflow.genai.scorers.ConversationalToolCallEfficiency.model_post_init
 mlflow.genai.scorers.Correctness
 mlflow.genai.scorers.Correctness.get_input_fields
 mlflow.genai.scorers.Correctness.model_post_init
@@ -888,6 +894,7 @@ mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness
 mlflow.genai.scorers.builtin_scorers.ConversationCompleteness
 mlflow.genai.scorers.builtin_scorers.ConversationalSafety
+mlflow.genai.scorers.builtin_scorers.ConversationalToolCallEfficiency
 mlflow.genai.scorers.builtin_scorers.Correctness
 mlflow.genai.scorers.builtin_scorers.Equivalence
 mlflow.genai.scorers.builtin_scorers.ExpectationsGuidelines
