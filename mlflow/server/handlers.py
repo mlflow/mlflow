@@ -3899,12 +3899,10 @@ def _create_secret():
             "created_by": [_assert_string],
         },
     )
-    # Parse auth_config_json string to dict if provided
     auth_config = None
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
 
-    # Parse secret_value: if it's JSON representing a dict, convert to dict
     secret_value = _parse_secret_value(request_message.secret_value)
 
     secret = _get_tracking_store().create_secret(
@@ -3946,12 +3944,10 @@ def _update_secret():
             "updated_by": [_assert_string],
         },
     )
-    # Parse auth_config_json string to dict if provided
     auth_config = None
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
 
-    # Parse secret_value: if it's JSON representing a dict, convert to dict
     secret_value = None
     if request_message.secret_value:
         secret_value = _parse_secret_value(request_message.secret_value)

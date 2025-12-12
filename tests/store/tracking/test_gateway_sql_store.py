@@ -57,7 +57,7 @@ def store(tmp_path: Path):
 def test_create_secret(store: SqlAlchemyStore):
     secret = store.create_secret(
         secret_name="my-api-key",
-        secret_value="sk-test-123456",
+        secret_value={"api_key": "sk-test-123456"},
         provider="openai",
         created_by="test-user",
     )
@@ -74,7 +74,7 @@ def test_create_secret(store: SqlAlchemyStore):
 def test_create_secret_with_auth_config(store: SqlAlchemyStore):
     secret = store.create_secret(
         secret_name="bedrock-creds",
-        secret_value="aws-secret-key",
+        secret_value={"api_key": "aws-secret-key"},
         provider="bedrock",
         auth_config={"region": "us-east-1", "project_id": "my-project"},
     )
@@ -102,17 +102,17 @@ def test_create_secret_with_dict_value(store: SqlAlchemyStore):
 
 
 def test_create_secret_duplicate_name_raises(store: SqlAlchemyStore):
-    store.create_secret(secret_name="duplicate-name", secret_value="value1")
+    store.create_secret(secret_name="duplicate-name", secret_value={"api_key": "value1"})
 
     with pytest.raises(MlflowException, match="already exists") as exc:
-        store.create_secret(secret_name="duplicate-name", secret_value="value2")
+        store.create_secret(secret_name="duplicate-name", secret_value={"api_key": "value2"})
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
 
 def test_get_secret_info_by_id(store: SqlAlchemyStore):
     created = store.create_secret(
         secret_name="test-secret",
-        secret_value="secret-value",
+        secret_value={"api_key": "secret-value"},
         provider="anthropic",
     )
 
@@ -126,7 +126,7 @@ def test_get_secret_info_by_id(store: SqlAlchemyStore):
 def test_get_secret_info_by_name(store: SqlAlchemyStore):
     created = store.create_secret(
         secret_name="named-secret",
-        secret_value="secret-value",
+        secret_value={"api_key": "secret-value"},
     )
 
     retrieved = store.get_secret_info(secret_name="named-secret")
@@ -154,13 +154,13 @@ def test_get_secret_info_not_found(store: SqlAlchemyStore):
 def test_update_secret(store: SqlAlchemyStore):
     created = store.create_secret(
         secret_name="rotate-me",
-        secret_value="old-value",
+        secret_value={"api_key": "old-value"},
     )
     original_updated_at = created.last_updated_at
 
     updated = store.update_secret(
         secret_id=created.secret_id,
-        secret_value="new-value",
+        secret_value={"api_key": "new-value"},
         updated_by="rotator-user",
     )
 
@@ -172,13 +172,13 @@ def test_update_secret(store: SqlAlchemyStore):
 def test_update_secret_with_auth_config(store: SqlAlchemyStore):
     created = store.create_secret(
         secret_name="auth-update",
-        secret_value="value",
+        secret_value={"api_key": "value"},
         auth_config={"region": "us-east-1"},
     )
 
     store.update_secret(
         secret_id=created.secret_id,
-        secret_value="new-value",
+        secret_value={"api_key": "new-value"},
         auth_config={"region": "eu-west-1", "new_key": "new_value"},
     )
 
@@ -186,19 +186,19 @@ def test_update_secret_with_auth_config(store: SqlAlchemyStore):
 def test_update_secret_clear_auth_config(store: SqlAlchemyStore):
     created = store.create_secret(
         secret_name="clear-auth",
-        secret_value="value",
+        secret_value={"api_key": "value"},
         auth_config={"region": "us-east-1"},
     )
 
     store.update_secret(
         secret_id=created.secret_id,
-        secret_value="new-value",
+        secret_value={"api_key": "new-value"},
         auth_config={},
     )
 
 
 def test_delete_secret(store: SqlAlchemyStore):
-    created = store.create_secret(secret_name="to-delete", secret_value="value")
+    created = store.create_secret(secret_name="to-delete", secret_value={"api_key": "value"})
 
     store.delete_secret(created.secret_id)
 
@@ -207,9 +207,11 @@ def test_delete_secret(store: SqlAlchemyStore):
 
 
 def test_list_secret_infos(store: SqlAlchemyStore):
-    store.create_secret(secret_name="openai-1", secret_value="v1", provider="openai")
-    store.create_secret(secret_name="openai-2", secret_value="v2", provider="openai")
-    store.create_secret(secret_name="anthropic-1", secret_value="v3", provider="anthropic")
+    store.create_secret(secret_name="openai-1", secret_value={"api_key": "v1"}, provider="openai")
+    store.create_secret(secret_name="openai-2", secret_value={"api_key": "v2"}, provider="openai")
+    store.create_secret(
+        secret_name="anthropic-1", secret_value={"api_key": "v3"}, provider="anthropic"
+    )
 
     all_secrets = store.list_secret_infos()
     assert len(all_secrets) >= 3
@@ -225,7 +227,7 @@ def test_list_secret_infos(store: SqlAlchemyStore):
 
 
 def test_create_model_definition(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="test-key", secret_value="value")
+    secret = store.create_secret(secret_name="test-key", secret_value={"api_key": "value"})
 
     model_def = store.create_model_definition(
         name="gpt-4-turbo",
@@ -245,7 +247,7 @@ def test_create_model_definition(store: SqlAlchemyStore):
 
 
 def test_create_model_definition_duplicate_name_raises(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="dup-key", secret_value="value")
+    secret = store.create_secret(secret_name="dup-key", secret_value={"api_key": "value"})
 
     store.create_model_definition(
         name="duplicate-model",
@@ -276,7 +278,7 @@ def test_create_model_definition_nonexistent_secret_raises(store: SqlAlchemyStor
 
 
 def test_get_model_definition_by_id(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="get-key", secret_value="value")
+    secret = store.create_secret(secret_name="get-key", secret_value={"api_key": "value"})
     created = store.create_model_definition(
         name="model-by-id",
         secret_id=secret.secret_id,
@@ -291,7 +293,7 @@ def test_get_model_definition_by_id(store: SqlAlchemyStore):
 
 
 def test_get_model_definition_by_name(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="name-key", secret_value="value")
+    secret = store.create_secret(secret_name="name-key", secret_value={"api_key": "value"})
     created = store.create_model_definition(
         name="model-by-name",
         secret_id=secret.secret_id,
@@ -311,7 +313,7 @@ def test_get_model_definition_requires_one_of_id_or_name(store: SqlAlchemyStore)
 
 
 def test_list_model_definitions(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="list-key", secret_value="value")
+    secret = store.create_secret(secret_name="list-key", secret_value={"api_key": "value"})
 
     store.create_model_definition(
         name="list-model-1", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -331,7 +333,7 @@ def test_list_model_definitions(store: SqlAlchemyStore):
 
 
 def test_update_model_definition(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="update-key", secret_value="value")
+    secret = store.create_secret(secret_name="update-key", secret_value={"api_key": "value"})
     created = store.create_model_definition(
         name="update-model",
         secret_id=secret.secret_id,
@@ -350,7 +352,7 @@ def test_update_model_definition(store: SqlAlchemyStore):
 
 
 def test_delete_model_definition(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="delete-key", secret_value="value")
+    secret = store.create_secret(secret_name="delete-key", secret_value={"api_key": "value"})
     created = store.create_model_definition(
         name="delete-model",
         secret_id=secret.secret_id,
@@ -365,7 +367,7 @@ def test_delete_model_definition(store: SqlAlchemyStore):
 
 
 def test_delete_model_definition_in_use_raises(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="in-use-key", secret_value="value")
+    secret = store.create_secret(secret_name="in-use-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="in-use-model",
         secret_id=secret.secret_id,
@@ -385,7 +387,7 @@ def test_delete_model_definition_in_use_raises(store: SqlAlchemyStore):
 
 
 def test_create_endpoint(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="ep-key", secret_value="value")
+    secret = store.create_secret(secret_name="ep-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -416,7 +418,7 @@ def test_create_endpoint_nonexistent_model_raises(store: SqlAlchemyStore):
 
 
 def test_get_endpoint_by_id(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="get-ep-key", secret_value="value")
+    secret = store.create_secret(secret_name="get-ep-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="get-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -431,7 +433,7 @@ def test_get_endpoint_by_id(store: SqlAlchemyStore):
 
 
 def test_get_endpoint_by_name(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="name-ep-key", secret_value="value")
+    secret = store.create_secret(secret_name="name-ep-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="name-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -451,7 +453,7 @@ def test_get_endpoint_requires_one_of_id_or_name(store: SqlAlchemyStore):
 
 
 def test_update_endpoint(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="upd-ep-key", secret_value="value")
+    secret = store.create_secret(secret_name="upd-ep-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="upd-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -470,7 +472,7 @@ def test_update_endpoint(store: SqlAlchemyStore):
 
 
 def test_delete_endpoint(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="del-ep-key", secret_value="value")
+    secret = store.create_secret(secret_name="del-ep-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="del-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -485,7 +487,7 @@ def test_delete_endpoint(store: SqlAlchemyStore):
 
 
 def test_list_endpoints(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="list-ep-key", secret_value="value")
+    secret = store.create_secret(secret_name="list-ep-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="list-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -506,7 +508,7 @@ def test_list_endpoints(store: SqlAlchemyStore):
 
 
 def test_attach_model_to_endpoint(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="attach-key", secret_value="value")
+    secret = store.create_secret(secret_name="attach-key", secret_value={"api_key": "value"})
     model_def1 = store.create_model_definition(
         name="attach-model-1", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -535,7 +537,7 @@ def test_attach_model_to_endpoint(store: SqlAlchemyStore):
 
 
 def test_attach_duplicate_model_raises(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="dup-attach-key", secret_value="value")
+    secret = store.create_secret(secret_name="dup-attach-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="dup-attach-model",
         secret_id=secret.secret_id,
@@ -555,7 +557,7 @@ def test_attach_duplicate_model_raises(store: SqlAlchemyStore):
 
 
 def test_detach_model_from_endpoint(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="detach-key", secret_value="value")
+    secret = store.create_secret(secret_name="detach-key", secret_value={"api_key": "value"})
     model_def1 = store.create_model_definition(
         name="detach-model-1",
         secret_id=secret.secret_id,
@@ -585,7 +587,7 @@ def test_detach_model_from_endpoint(store: SqlAlchemyStore):
 
 
 def test_detach_nonexistent_mapping_raises(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="no-map-key", secret_value="value")
+    secret = store.create_secret(secret_name="no-map-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="no-map-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -607,7 +609,7 @@ def test_detach_nonexistent_mapping_raises(store: SqlAlchemyStore):
 
 
 def test_create_endpoint_binding(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="bind-key", secret_value="value")
+    secret = store.create_secret(secret_name="bind-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -630,7 +632,7 @@ def test_create_endpoint_binding(store: SqlAlchemyStore):
 
 
 def test_delete_endpoint_binding(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="del-bind-key", secret_value="value")
+    secret = store.create_secret(secret_name="del-bind-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="del-bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -654,7 +656,7 @@ def test_delete_endpoint_binding(store: SqlAlchemyStore):
 
 
 def test_list_endpoint_bindings(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="list-bind-key", secret_value="value")
+    secret = store.create_secret(secret_name="list-bind-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="list-bind-model",
         secret_id=secret.secret_id,
@@ -692,7 +694,7 @@ def test_list_endpoint_bindings(store: SqlAlchemyStore):
 def test_get_resource_endpoint_configs(store: SqlAlchemyStore):
     secret = store.create_secret(
         secret_name="resolver-key",
-        secret_value="sk-secret-value-123",
+        secret_value={"api_key": "sk-secret-value-123"},
         provider="openai",
     )
     model_def = store.create_model_definition(
@@ -732,7 +734,7 @@ def test_get_resource_endpoint_configs(store: SqlAlchemyStore):
 def test_get_resource_endpoint_configs_with_auth_config(store: SqlAlchemyStore):
     secret = store.create_secret(
         secret_name="auth-resolver-key",
-        secret_value="aws-secret",
+        secret_value={"api_key": "aws-secret"},
         provider="bedrock",
         auth_config={"region": "us-east-1", "profile": "default"},
     )
@@ -814,7 +816,7 @@ def test_get_resource_endpoint_configs_no_bindings(store: SqlAlchemyStore):
 
 
 def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="multi-key", secret_value="value")
+    secret = store.create_secret(secret_name="multi-key", secret_value={"api_key": "value"})
     model_def1 = store.create_model_definition(
         name="multi-model-1",
         secret_id=secret.secret_id,
@@ -859,7 +861,7 @@ def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore
 def test_get_endpoint_config(store: SqlAlchemyStore):
     secret = store.create_secret(
         secret_name="ep-config-key",
-        secret_value="sk-endpoint-secret-789",
+        secret_value={"api_key": "sk-endpoint-secret-789"},
         provider="openai",
     )
     model_def = store.create_model_definition(
@@ -891,7 +893,7 @@ def test_get_endpoint_config(store: SqlAlchemyStore):
 def test_get_endpoint_config_with_auth_config(store: SqlAlchemyStore):
     secret = store.create_secret(
         secret_name="ep-auth-key",
-        secret_value="bedrock-secret",
+        secret_value={"api_key": "bedrock-secret"},
         provider="bedrock",
         auth_config={"region": "eu-west-1", "project_id": "test-project"},
     )
@@ -915,8 +917,12 @@ def test_get_endpoint_config_with_auth_config(store: SqlAlchemyStore):
 
 
 def test_get_endpoint_config_multiple_models(store: SqlAlchemyStore):
-    secret1 = store.create_secret(secret_name="ep-multi-key-1", secret_value="secret-1")
-    secret2 = store.create_secret(secret_name="ep-multi-key-2", secret_value="secret-2")
+    secret1 = store.create_secret(
+        secret_name="ep-multi-key-1", secret_value={"api_key": "secret-1"}
+    )
+    secret2 = store.create_secret(
+        secret_name="ep-multi-key-2", secret_value={"api_key": "secret-2"}
+    )
 
     model_def1 = store.create_model_definition(
         name="ep-multi-model-1",
@@ -963,7 +969,7 @@ def test_get_endpoint_config_nonexistent_endpoint_raises(store: SqlAlchemyStore)
 
 
 def test_set_endpoint_tag(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="tag-key", secret_value="value")
+    secret = store.create_secret(secret_name="tag-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -981,7 +987,7 @@ def test_set_endpoint_tag(store: SqlAlchemyStore):
 
 
 def test_set_endpoint_tag_update_existing(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="tag-upd-key", secret_value="value")
+    secret = store.create_secret(secret_name="tag-upd-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="tag-upd-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -999,7 +1005,7 @@ def test_set_endpoint_tag_update_existing(store: SqlAlchemyStore):
 
 
 def test_set_multiple_endpoint_tags(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="multi-tag-key", secret_value="value")
+    secret = store.create_secret(secret_name="multi-tag-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="multi-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -1025,7 +1031,7 @@ def test_set_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlchemyStore):
 
 
 def test_delete_endpoint_tag(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="del-tag-key", secret_value="value")
+    secret = store.create_secret(secret_name="del-tag-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="del-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -1049,7 +1055,7 @@ def test_delete_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlchemyStore)
 
 
 def test_delete_endpoint_tag_nonexistent_key_no_op(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="del-noop-key", secret_value="value")
+    secret = store.create_secret(secret_name="del-noop-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="del-noop-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -1065,7 +1071,7 @@ def test_delete_endpoint_tag_nonexistent_key_no_op(store: SqlAlchemyStore):
 
 
 def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
-    secret = store.create_secret(secret_name="cascade-tag-key", secret_value="value")
+    secret = store.create_secret(secret_name="cascade-tag-key", secret_value={"api_key": "value"})
     model_def = store.create_model_definition(
         name="cascade-tag-model",
         secret_id=secret.secret_id,
