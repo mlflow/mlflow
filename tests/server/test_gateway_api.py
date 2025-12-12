@@ -5,7 +5,21 @@ import pytest
 from fastapi import HTTPException
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
-from mlflow.gateway.config import EndpointType
+from mlflow.gateway.config import (
+    AWSBaseConfig,
+    AWSIdAndKey,
+    AWSRole,
+    EndpointType,
+    GeminiConfig,
+    MistralConfig,
+    OpenAIAPIType,
+    OpenAIConfig,
+)
+from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
+from mlflow.gateway.providers.gemini import GeminiProvider
+from mlflow.gateway.providers.mistral import MistralProvider
+from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.server.gateway_api import (
     _create_invocations_handler,
@@ -60,7 +74,81 @@ def test_create_provider_from_endpoint_config_openai(store: SqlAlchemyStore):
         endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
     )
 
-    assert provider is not None
+    assert isinstance(provider, OpenAIProvider)
+    assert isinstance(provider.config.model.config, OpenAIConfig)
+    assert provider.config.model.config.openai_api_key == "sk-test-123"
+
+
+def test_create_provider_from_endpoint_config_azure_openai(store: SqlAlchemyStore):
+    # Test Azure OpenAI configuration
+    secret = store.create_gateway_secret(
+        secret_name="azure-openai-key",
+        secret_value={"api_key": "azure-api-key-test"},
+        provider="openai",
+        auth_config={
+            "api_type": "azure",
+            "api_base": "https://my-resource.openai.azure.com",
+            "deployment_name": "gpt-4-deployment",
+            "api_version": "2024-02-01",
+        },
+    )
+    model_def = store.create_gateway_model_definition(
+        name="azure-gpt-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-azure-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_config(
+        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, OpenAIProvider)
+    assert isinstance(provider.config.model.config, OpenAIConfig)
+    assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZURE
+    assert provider.config.model.config.openai_api_base == "https://my-resource.openai.azure.com"
+    assert provider.config.model.config.openai_deployment_name == "gpt-4-deployment"
+    assert provider.config.model.config.openai_api_version == "2024-02-01"
+    assert provider.config.model.config.openai_api_key == "azure-api-key-test"
+
+
+def test_create_provider_from_endpoint_config_azure_openai_with_azuread(store: SqlAlchemyStore):
+    # Test Azure OpenAI with AzureAD authentication
+    secret = store.create_gateway_secret(
+        secret_name="azuread-openai-key",
+        secret_value={"api_key": "azuread-api-key-test"},
+        provider="openai",
+        auth_config={
+            "api_type": "azuread",
+            "api_base": "https://my-resource-ad.openai.azure.com",
+            "deployment_name": "gpt-4-deployment-ad",
+            "api_version": "2024-02-01",
+        },
+    )
+    model_def = store.create_gateway_model_definition(
+        name="azuread-gpt-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-azuread-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_config(
+        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, OpenAIProvider)
+    assert isinstance(provider.config.model.config, OpenAIConfig)
+    assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZUREAD
+    assert provider.config.model.config.openai_api_base == "https://my-resource-ad.openai.azure.com"
+    assert provider.config.model.config.openai_deployment_name == "gpt-4-deployment-ad"
+    assert provider.config.model.config.openai_api_version == "2024-02-01"
+    assert provider.config.model.config.openai_api_key == "azuread-api-key-test"
 
 
 def test_create_provider_from_endpoint_config_anthropic(store: SqlAlchemyStore):
@@ -83,7 +171,157 @@ def test_create_provider_from_endpoint_config_anthropic(store: SqlAlchemyStore):
         endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
     )
 
-    assert provider is not None
+    assert isinstance(provider, AnthropicProvider)
+    assert provider.config.model.config.anthropic_api_key == "sk-ant-test"
+
+
+def test_create_provider_from_endpoint_config_bedrock_base_config(store: SqlAlchemyStore):
+    # Test Bedrock with base config (default credentials chain)
+    secret = store.create_gateway_secret(
+        secret_name="bedrock-base-key",
+        secret_value={"api_key": "placeholder"},
+        provider="bedrock",
+        auth_config={"aws_region": "us-east-1"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="bedrock-base-model",
+        secret_id=secret.secret_id,
+        provider="bedrock",
+        model_name="anthropic.claude-3-sonnet",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-bedrock-base-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_config(
+        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, AmazonBedrockProvider)
+    assert isinstance(provider.config.model.config.aws_config, AWSBaseConfig)
+    assert provider.config.model.config.aws_config.aws_region == "us-east-1"
+
+
+def test_create_provider_from_endpoint_config_bedrock_access_keys(store: SqlAlchemyStore):
+    # Test Bedrock with access key authentication
+    secret = store.create_gateway_secret(
+        secret_name="bedrock-keys",
+        secret_value={
+            "aws_access_key_id": "AKIA1234567890",
+            "aws_secret_access_key": "secret-key-value",
+            "aws_session_token": "session-token",
+        },
+        provider="bedrock",
+        auth_config={"aws_region": "us-west-2"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="bedrock-keys-model",
+        secret_id=secret.secret_id,
+        provider="bedrock",
+        model_name="anthropic.claude-3-sonnet",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-bedrock-keys-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_config(
+        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, AmazonBedrockProvider)
+    assert isinstance(provider.config.model.config.aws_config, AWSIdAndKey)
+    assert provider.config.model.config.aws_config.aws_access_key_id == "AKIA1234567890"
+    assert provider.config.model.config.aws_config.aws_secret_access_key == "secret-key-value"
+    assert provider.config.model.config.aws_config.aws_session_token == "session-token"
+    assert provider.config.model.config.aws_config.aws_region == "us-west-2"
+
+
+def test_create_provider_from_endpoint_config_bedrock_role(store: SqlAlchemyStore):
+    # Test Bedrock with role-based authentication
+    secret = store.create_gateway_secret(
+        secret_name="bedrock-role-key",
+        secret_value={"api_key": "placeholder"},
+        provider="bedrock",
+        auth_config={
+            "aws_role_arn": "arn:aws:iam::123456789012:role/MyBedrockRole",
+            "session_length_seconds": 3600,
+            "aws_region": "eu-west-1",
+        },
+    )
+    model_def = store.create_gateway_model_definition(
+        name="bedrock-role-model",
+        secret_id=secret.secret_id,
+        provider="bedrock",
+        model_name="anthropic.claude-3-sonnet",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-bedrock-role-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_config(
+        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, AmazonBedrockProvider)
+    assert isinstance(provider.config.model.config.aws_config, AWSRole)
+    assert (
+        provider.config.model.config.aws_config.aws_role_arn
+        == "arn:aws:iam::123456789012:role/MyBedrockRole"
+    )
+    assert provider.config.model.config.aws_config.session_length_seconds == 3600
+    assert provider.config.model.config.aws_config.aws_region == "eu-west-1"
+
+
+def test_create_provider_from_endpoint_config_mistral(store: SqlAlchemyStore):
+    # Test Mistral provider
+    secret = store.create_gateway_secret(
+        secret_name="mistral-key",
+        secret_value={"api_key": "mistral-test-key"},
+        provider="mistral",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="mistral-model",
+        secret_id=secret.secret_id,
+        provider="mistral",
+        model_name="mistral-large-latest",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-mistral-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_config(
+        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, MistralProvider)
+    assert isinstance(provider.config.model.config, MistralConfig)
+    assert provider.config.model.config.mistral_api_key == "mistral-test-key"
+
+
+def test_create_provider_from_endpoint_config_gemini(store: SqlAlchemyStore):
+    # Test Gemini provider
+    secret = store.create_gateway_secret(
+        secret_name="gemini-key",
+        secret_value={"api_key": "gemini-test-key"},
+        provider="gemini",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="gemini-model",
+        secret_id=secret.secret_id,
+        provider="gemini",
+        model_name="gemini-1.5-pro",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-gemini-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_config(
+        endpoint.endpoint_id, store, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, GeminiProvider)
+    assert isinstance(provider.config.model.config, GeminiConfig)
+    assert provider.config.model.config.gemini_api_key == "gemini-test-key"
 
 
 def test_create_provider_from_endpoint_config_nonexistent_endpoint(store: SqlAlchemyStore):
