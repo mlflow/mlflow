@@ -25,7 +25,7 @@ from mlflow.server.gateway_api import (
     _create_invocations_handler,
     _create_provider_from_endpoint_config,
     gateway_router,
-    register_gateway_endpoints,
+    _register_gateway_endpoints,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
@@ -349,7 +349,7 @@ def test_register_gateway_endpoints(store: SqlAlchemyStore):
     )
 
     # Register endpoints
-    router = register_gateway_endpoints(store)
+    router = _register_gateway_endpoints(store)
 
     # Check that routes were registered
     route_paths = [route.path for route in router.routes]
