@@ -10,7 +10,7 @@ All TruLens scorers follow MLflow's convention where higher scores indicate bett
 - 1.0 = best quality (fully grounded, highly relevant, perfectly coherent)
 - 0.0 = worst quality (not grounded, irrelevant, incoherent)
 
-Scores are passed through directly from TruLens (which returns values in 0-1 range).
+TruLens internally normalizes scores to the 0-1 range before returning them.
 
 **Available Scorers:**
 - ``TruLensGroundednessScorer``: Evaluates if outputs are grounded in context (1.0=grounded)
@@ -114,20 +114,28 @@ class _TruLensScorerBase(Scorer):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _clamp_score(self, score: float) -> float:
+    def _validate_score(self, score: float) -> float:
         """
-        Clamp score to valid 0-1 range.
+        Validate that score is in expected 0-1 range.
 
-        TruLens returns scores that are generally in 0-1 range, but we clamp
-        to ensure valid Feedback values.
+        TruLens normalizes scores internally to 0-1 range. If a score falls
+        outside this range, it indicates a potential bug or version incompatibility.
 
         Args:
-            score: The raw score from TruLens
+            score: The score from TruLens
 
         Returns:
-            Score clamped to 0-1 range
+            Validated score (clamped with warning if out of range)
         """
-        return min(1.0, max(0.0, score))
+        if score < 0.0 or score > 1.0:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                f"TruLens returned score {score} outside expected 0-1 range. "
+                "This may indicate a version incompatibility. Clamping to valid range."
+            )
+            return min(1.0, max(0.0, score))
+        return score
 
     def _format_rationale(self, reasons: dict[str, Any] | None) -> str:
         """
@@ -214,18 +222,18 @@ class TruLensGroundednessScorer(_TruLensScorerBase):
         context_str = "\n".join(context) if isinstance(context, list) else (context or "")
 
         # TruLens groundedness_measure_with_cot_reasons returns Tuple[float, dict]
-        # Score is in 0-3 range by default
+        # Score is normalized to 0-1 range by TruLens
         score, reasons = provider.groundedness_measure_with_cot_reasons(
             source=context_str,
             statement=output_str,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )
 
@@ -285,18 +293,18 @@ class TruLensContextRelevanceScorer(_TruLensScorerBase):
         context_str = "\n".join(context) if isinstance(context, list) else (context or "")
 
         # TruLens context_relevance_with_cot_reasons returns Tuple[float, Dict]
-        # Score is in 0-3 range by default
+        # Score is normalized to 0-1 range by TruLens
         score, reasons = provider.context_relevance_with_cot_reasons(
             question=query,
             context=context_str,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )
 
@@ -355,18 +363,18 @@ class TruLensAnswerRelevanceScorer(_TruLensScorerBase):
         output_str = str(outputs) if outputs else ""
 
         # TruLens relevance_with_cot_reasons returns Tuple[float, Dict]
-        # Score is in 0-3 range by default
+        # Score is normalized to 0-1 range by TruLens
         score, reasons = provider.relevance_with_cot_reasons(
             prompt=query,
             response=output_str,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )
 
@@ -422,16 +430,16 @@ class TruLensCoherenceScorer(_TruLensScorerBase):
         output_str = str(outputs) if outputs else ""
 
         # TruLens coherence_with_cot_reasons returns Tuple[float, Dict]
-        # Score is in 0-3 range by default
+        # Score is normalized to 0-1 range by TruLens
         score, reasons = provider.coherence_with_cot_reasons(
             text=output_str,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )

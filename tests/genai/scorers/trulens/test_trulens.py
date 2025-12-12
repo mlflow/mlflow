@@ -252,10 +252,10 @@ def test_trulens_answer_relevance_scorer_with_mock(mock_trulens_provider):
         assert "addresses" in result.rationale.lower()
 
 
-def test_trulens_score_clamping():
+def test_trulens_score_validation():
     from mlflow.genai.scorers.trulens.trulens import _TruLensScorerBase
 
-    # Create a minimal instance to test clamping
+    # Create a minimal instance to test validation
     class TestScorer(_TruLensScorerBase):
         name: str = "test"
 
@@ -265,12 +265,12 @@ def test_trulens_score_clamping():
     scorer = TestScorer()
 
     # Test pass-through for valid 0-1 scores
-    assert scorer._clamp_score(0.0) == 0.0
-    assert scorer._clamp_score(0.5) == 0.5
-    assert scorer._clamp_score(1.0) == 1.0
-    # Test clamping for out-of-range values
-    assert scorer._clamp_score(1.5) == 1.0  # Over max
-    assert scorer._clamp_score(-0.5) == 0.0  # Under min
+    assert scorer._validate_score(0.0) == 0.0
+    assert scorer._validate_score(0.5) == 0.5
+    assert scorer._validate_score(1.0) == 1.0
+    # Test clamping with warning for out-of-range values
+    assert scorer._validate_score(1.5) == 1.0  # Over max, clamped with warning
+    assert scorer._validate_score(-0.5) == 0.0  # Under min, clamped with warning
 
 
 def test_trulens_rationale_formatting():

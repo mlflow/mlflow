@@ -117,9 +117,9 @@ def test_phoenix_scorer_custom_model():
 def test_phoenix_hallucination_scorer_with_mock():
     # Phoenix evaluate() returns Tuple[str, Optional[float], Optional[str]]
     # (label, score, explanation)
-    # Phoenix hallucination: score=0 means factual (good), score=1 means hallucinated (bad)
-    # We test with score=0.1 (mostly factual), which should invert to 0.9 in MLflow
-    mock_result = ("factual", 0.1, "The output is grounded in the context.")
+    # Phoenix hallucination: 1.0 = factual (good), 0.0 = hallucinated (bad)
+    # Already aligned with MLflow convention (higher = better)
+    mock_result = ("factual", 0.9, "The output is grounded in the context.")
 
     mock_evaluator_class = mock.MagicMock()
     mock_evaluator_instance = mock.MagicMock()
@@ -145,7 +145,7 @@ def test_phoenix_hallucination_scorer_with_mock():
 
         assert isinstance(result, Feedback)
         assert result.name == "phoenix_hallucination"
-        # Phoenix score 0.1 (low hallucination) inverts to 0.9 (high factuality) in MLflow
+        # Phoenix score passed through directly (1.0 = factual, 0.0 = hallucinated)
         assert result.value == 0.9
         assert "grounded" in result.rationale
 
@@ -188,9 +188,9 @@ def test_phoenix_relevance_scorer_with_mock():
 
 
 def test_phoenix_toxicity_scorer_with_mock():
-    # Phoenix toxicity: score=0 means non-toxic (good), score=1 means toxic (bad)
-    # We test with score=0.05 (mostly non-toxic), which should invert to 0.95 in MLflow
-    mock_result = ("non-toxic", 0.05, "The content is safe.")
+    # Phoenix toxicity: 1.0 = non-toxic (good), 0.0 = toxic (bad)
+    # Already aligned with MLflow convention (higher = better)
+    mock_result = ("non-toxic", 0.95, "The content is safe.")
 
     mock_evaluator_class = mock.MagicMock()
     mock_evaluator_instance = mock.MagicMock()
@@ -212,7 +212,7 @@ def test_phoenix_toxicity_scorer_with_mock():
 
         assert isinstance(result, Feedback)
         assert result.name == "phoenix_toxicity"
-        # Phoenix score 0.05 (low toxicity) inverts to 0.95 (high safety) in MLflow
+        # Phoenix score passed through directly (1.0 = non-toxic, 0.0 = toxic)
         assert result.value == 0.95
 
 
