@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
-from typing import TypedDict
+from typing import Any, TypedDict
 
-from sqlalchemy import Column, and_, func, literal_column
+from sqlalchemy import Column, and_, exists, func, literal_column
 from sqlalchemy.orm.query import Query
 
 from mlflow.entities.trace_metrics import (
@@ -11,8 +11,9 @@ from mlflow.entities.trace_metrics import (
     MetricViewType,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceTag
+from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceMetadata, SqlTraceTag
 from mlflow.tracing.constant import TraceTagKey
+from mlflow.utils.search_utils import SearchTraceUtils
 
 
 class TraceMetricsConfig(TypedDict):
@@ -151,13 +152,106 @@ def _get_aggregation_column_for_traces(metric_name: str) -> Column:
             )
 
 
+def _parse_trace_metrics_filter(filter_string: str) -> list[dict[str, Any]]:
+    """
+    Parse filter string with 'trace.' prefix for trace metrics.
+
+    Args:
+        filter_string: Filter in format 'trace.xxx = value'
+
+    Returns:
+        List of parsed filter clauses
+    """
+    stripped = filter_string.strip()
+    # TODO: support spans and assessments metrics filters
+    if not stripped.startswith("trace."):
+        raise MlflowException.invalid_parameter_value(
+            f"Filter must start with 'trace.' prefix, got: '{filter_string}'"
+        )
+
+    filter_without_prefix = stripped.removeprefix("trace.")
+    return SearchTraceUtils.parse_search_filter_for_search_traces(filter_without_prefix)
+
+
+def apply_global_filters(query: Query, filters: list[str] | None) -> Query:
+    """
+    Apply global filters to the trace query.
+
+    Supported filters:
+    - trace.status = 'OK': Filter by trace status
+    - trace.metadata.`mlflow.sourceRun` = 'run_123': Filter by metadata
+    - trace.tag.`model.version` = 'v1': Filter by tag value
+
+    All filters in the list are combined with AND logic.
+
+    Args:
+        query: SQLAlchemy query to filter
+        filters: List of filter strings, each in format 'trace.xxx = value'
+
+    Returns:
+        Filtered query
+    """
+    if not filters:
+        return query
+
+    for filter_string in filters:
+        parsed_filters = _parse_trace_metrics_filter(filter_string)
+
+        for filter_clause in parsed_filters:
+            type_ = filter_clause.get("type")
+            key = filter_clause.get("key")
+            value = filter_clause.get("value")
+            comparator = filter_clause.get("comparator")
+
+            # Only support '=' operator for trace metrics
+            if comparator != "=":
+                raise MlflowException.invalid_parameter_value(
+                    f"Only '=' operator is supported for trace metrics, got '{comparator}'"
+                )
+
+            if SearchTraceUtils.is_attribute(type_, key, comparator):
+                # Handle direct attributes (e.g., trace.status)
+                if key == "status":
+                    query = query.filter(SqlTraceInfo.status == value)
+                else:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Unsupported attribute: '{key}'. Only 'status' is supported."
+                    )
+            elif SearchTraceUtils.is_request_metadata(type_, comparator):
+                # Handle metadata filters (e.g., trace.metadata.`key`)
+                metadata_filter = exists().where(
+                    and_(
+                        SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
+                        SqlTraceMetadata.key == key,
+                        SqlTraceMetadata.value == value,
+                    )
+                )
+                query = query.filter(metadata_filter)
+            elif SearchTraceUtils.is_tag(type_, comparator):
+                # Handle tag filters (e.g., trace.tag.`key`)
+                tag_filter = exists().where(
+                    and_(
+                        SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                        SqlTraceTag.key == key,
+                        SqlTraceTag.value == value,
+                    )
+                )
+                query = query.filter(tag_filter)
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Unsupported filter type: '{type_}' with key '{key}'"
+                )
+
+    return query
+
+
 def query_metrics_for_traces_view(
     db_type: str,
     query: Query,
     metric_name: str,
     aggregations: list[MetricAggregation],
     dimensions: list[str] | None,
-    filters: list[str],
+    filters: list[str] | None,
     time_interval_seconds: int | None,
     max_results: int,
 ) -> list[MetricDataPoint]:
@@ -169,14 +263,15 @@ def query_metrics_for_traces_view(
         metric_name: Name of the metric to query
         aggregations: List of aggregations to compute
         dimensions: List of dimensions to group by
-        filters: List of filter strings
+        filters: List of filter strings (each parsed by SearchTraceUtils), combined with AND
         time_interval_seconds: Time interval in seconds for time bucketing
         max_results: Maximum number of results to return
 
     Returns:
         List of MetricDataPoint objects
     """
-    # TODO: Apply additional filters from filter_string parameter
+    # Apply global filters (status, metadata, tags) - all AND-ed together
+    query = apply_global_filters(query, filters)
 
     # Group by dimension columns, labeled for SELECT
     dimension_columns = []
