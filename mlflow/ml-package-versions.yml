@@ -548,7 +548,6 @@ openai:
           "fastapi",
           "uvicorn",
         ]
-      "< 1.55.3": ["httpx<0.28.0"]
     run: |
       pytest tests/openai --ignore-glob="*autolog.py"
     # Our CI runs tests for every minor version of the library by default, which results in
@@ -565,7 +564,6 @@ openai:
           "fastapi",
           "uvicorn",
         ]
-      "< 1.55.3": ["httpx<0.28.0"]
       # minimum version supported by openai-agents>=0.2.0
       ">= 1.93.1": ["openai-agents"]
     run: |
