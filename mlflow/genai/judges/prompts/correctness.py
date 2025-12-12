@@ -35,7 +35,7 @@ def get_prompt(
     request: str,
     response: str,
     expected_response: str | None = None,
-    expected_facts: str | list[str] | None = None,
+    expected_facts: list[str] | None = None,
 ) -> str:
     """Generate correctness evaluation prompt.
 
