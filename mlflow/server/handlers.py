@@ -611,50 +611,12 @@ def _assert_item_type_string(x):
 
 
 def _assert_secret_value(x):
-    """Validate secret_value is a non-empty string without ever printing the value in errors."""
-    if not isinstance(x, str):
-        raise MlflowException(
-            message="Parameter 'secret_value' must be a string.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    """Validate secret_value is a non-empty dict without ever printing the values in errors."""
     if not x:
         raise MlflowException(
             message="Missing value for required parameter 'secret_value'.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-
-
-def _assert_optional_secret_value(x):
-    """Validate secret_value is a string if provided, without ever printing the value in errors."""
-    if x is None or x == "":
-        return
-    if not isinstance(x, str):
-        raise MlflowException(
-            message="Parameter 'secret_value' must be a string.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-
-def _parse_secret_value(secret_value_str: str) -> dict[str, str]:
-    """Parse secret_value from JSON string to dict.
-
-    Secret values are JSON-serialized dicts, e.g.:
-    - {"api_key": "sk-xxx"} for simple API keys
-    - {"aws_access_key_id": "...", "aws_secret_access_key": "..."} for compound credentials
-    """
-    try:
-        parsed = json.loads(secret_value_str)
-        if isinstance(parsed, dict):
-            return parsed
-        raise MlflowException(
-            "secret_value must be a JSON object (dict)",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    except json.JSONDecodeError as e:
-        raise MlflowException(
-            f"secret_value must be valid JSON: {e}",
-            error_code=INVALID_PARAMETER_VALUE,
-        ) from e
 
 
 _TYPE_VALIDATORS = {
@@ -3903,11 +3865,9 @@ def _create_secret():
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
 
-    secret_value = _parse_secret_value(request_message.secret_value)
-
     secret = _get_tracking_store().create_secret(
         secret_name=request_message.secret_name,
-        secret_value=secret_value,
+        secret_value=dict(request_message.secret_value),
         provider=request_message.provider or None,
         auth_config=auth_config,
         created_by=request_message.created_by or None,
@@ -3939,7 +3899,6 @@ def _update_secret():
         UpdateGatewaySecret(),
         schema={
             "secret_id": [_assert_required, _assert_string],
-            "secret_value": [_assert_optional_secret_value],
             "auth_config_json": [_assert_string],
             "updated_by": [_assert_string],
         },
@@ -3948,9 +3907,8 @@ def _update_secret():
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
 
-    secret_value = None
-    if request_message.secret_value:
-        secret_value = _parse_secret_value(request_message.secret_value)
+    # Empty map means no update to secret_value
+    secret_value = dict(request_message.secret_value) or None
 
     secret = _get_tracking_store().update_secret(
         secret_id=request_message.secret_id,

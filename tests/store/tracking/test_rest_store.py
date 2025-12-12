@@ -3040,7 +3040,7 @@ def test_create_secret():
         body = message_to_json(
             CreateGatewaySecret(
                 secret_name="test-key",
-                secret_value='{"api_key": "sk-test-12345"}',
+                secret_value={"api_key": "sk-test-12345"},
                 provider="openai",
             )
         )
@@ -3060,8 +3060,10 @@ def test_create_secret_with_dict_value():
         body = message_to_json(
             CreateGatewaySecret(
                 secret_name="aws-creds",
-                secret_value='{"aws_access_key_id": "AKIATEST", '
-                '"aws_secret_access_key": "secret123"}',
+                secret_value={
+                    "aws_access_key_id": "AKIATEST",
+                    "aws_secret_access_key": "secret123",
+                },
                 provider="bedrock",
             )
         )
@@ -3091,7 +3093,7 @@ def test_update_secret():
         body = message_to_json(
             UpdateGatewaySecret(
                 secret_id="secret-123",
-                secret_value='{"api_key": "sk-new-value"}',
+                secret_value={"api_key": "sk-new-value"},
                 auth_config_json='{"region": "us-east-1"}',
             )
         )
@@ -3110,8 +3112,7 @@ def test_update_secret_with_dict_value():
         body = message_to_json(
             UpdateGatewaySecret(
                 secret_id="secret-123",
-                secret_value='{"aws_access_key_id": "NEWKEY", '
-                '"aws_secret_access_key": "newsecret"}',
+                secret_value={"aws_access_key_id": "NEWKEY", "aws_secret_access_key": "newsecret"},
             )
         )
         _verify_requests(mock_http, creds, "secrets/update", "POST", body, use_v3=True)

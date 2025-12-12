@@ -4152,8 +4152,10 @@ message GatewayEndpointBinding {
 message CreateGatewaySecret {
   // User-friendly name for the secret (must be unique)
   optional string secret_name = 1;
-  // The secret value to encrypt (e.g., API key)
-  optional string secret_value = 2;
+  // The secret value(s) to encrypt as key-value pairs.
+  // For simple API keys: {"api_key": "sk-xxx"}
+  // For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+  map<string, string> secret_value = 2;
   // Optional LLM provider (e.g., "openai", "anthropic")
   optional string provider = 3;
   // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
@@ -4185,8 +4187,10 @@ message GetGatewaySecretInfo {
 message UpdateGatewaySecret {
   // ID of the secret to update
   optional string secret_id = 1;
-  // Optional new secret value (if rotating the key)
-  optional string secret_value = 2;
+  // Optional new secret value(s) for key rotation as key-value pairs (empty map = no change).
+  // For simple API keys: {"api_key": "sk-xxx"}
+  // For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+  map<string, string> secret_value = 2;
   // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
   reserved 3;
   reserved "credential_name";
