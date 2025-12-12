@@ -1639,7 +1639,7 @@ class BuiltInSessionLevelScorer(BuiltInScorer):
                 f"Session level scorers can only accept the `session` and `expectations` "
                 f"parameters. Got unexpected keyword argument(s): {invalid_args}"
             )
-        return self._get_judge()(session=session, expectations=expectations)
+        return self._get_judge()._evaluate_impl(session=session, expectations=expectations)
 
 
 @experimental(version="3.7.0")
@@ -2042,7 +2042,7 @@ class Completeness(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._get_judge()(
+        return self._get_judge()._evaluate_impl(
             inputs=inputs,
             outputs=outputs,
             trace=trace,

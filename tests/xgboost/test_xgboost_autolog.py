@@ -20,6 +20,7 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 
 mpl.use("Agg")
@@ -537,7 +538,8 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     xgb.train(bst_params, dataset)
     logged_model = mlflow.last_logged_model()
 
-    ml_model_path = os.path.join(logged_model.artifact_location, "MLmodel")
+    artifact_path = local_file_uri_to_path(logged_model.artifact_location)
+    ml_model_path = os.path.join(artifact_path, "MLmodel")
 
     data = None
     with open(ml_model_path) as f:
@@ -594,7 +596,8 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     xgb.train(bst_params, dataset)
     logged_model = mlflow.last_logged_model()
 
-    ml_model_path = os.path.join(logged_model.artifact_location, "MLmodel")
+    artifact_path = local_file_uri_to_path(logged_model.artifact_location)
+    ml_model_path = os.path.join(artifact_path, "MLmodel")
 
     data = None
     with open(ml_model_path) as f:

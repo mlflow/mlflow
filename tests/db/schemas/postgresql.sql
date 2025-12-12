@@ -104,7 +104,6 @@ CREATE TABLE secrets (
 	kek_version INTEGER NOT NULL,
 	masked_value VARCHAR(100) NOT NULL,
 	provider VARCHAR(64),
-	credential_name VARCHAR(255),
 	auth_config TEXT,
 	description TEXT,
 	created_by VARCHAR(255),
@@ -153,6 +152,15 @@ CREATE TABLE endpoint_bindings (
 	last_updated_by VARCHAR(255),
 	CONSTRAINT endpoint_bindings_pk PRIMARY KEY (endpoint_id, resource_type, resource_id),
 	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE endpoint_tags (
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	endpoint_id VARCHAR(36) NOT NULL,
+	CONSTRAINT endpoint_tag_pk PRIMARY KEY (key, endpoint_id),
+	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
