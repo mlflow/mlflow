@@ -6,12 +6,12 @@ rather than from a static YAML configuration file. It integrates the AI Gateway
 functionality directly into the MLflow tracking server.
 """
 
-import functools
 import logging
 
 from fastapi import APIRouter, HTTPException, Request
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.app import _translate_http_exception
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
     AnthropicConfig,
@@ -29,7 +29,7 @@ from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import make_streaming_response
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.utils import _get_store
@@ -38,28 +38,6 @@ _logger = logging.getLogger(__name__)
 
 # Create router for gateway endpoints
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
-
-
-def _translate_http_exception(func):
-    """
-    Decorator for translating MLflow exceptions to HTTP exceptions.
-    """
-
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except HTTPException:
-            raise  # Re-raise HTTPException as-is to preserve status codes
-        except MlflowException as e:
-            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                raise HTTPException(status_code=404, detail=str(e))
-            raise HTTPException(status_code=400, detail=str(e))
-        except Exception as e:
-            _logger.exception(f"Unexpected error in gateway endpoint: {e}")
-            raise HTTPException(status_code=500, detail=f"Internal server error: {e!s}")
-
-    return wrapper
 
 
 def _create_provider_from_endpoint_config(
