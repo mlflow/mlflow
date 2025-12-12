@@ -4,6 +4,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 
 import pytest
+from opentelemetry import trace as trace_api
 
 from mlflow.entities import (
     Assessment,
@@ -744,9 +745,14 @@ def test_query_trace_metrics_with_tag_filter(store: SqlAlchemyStore):
 @pytest.mark.parametrize(
     ("filter_string", "error_match"),
     [
-        ("status = 'OK'", r"Filter must start with 'trace\.' prefix"),
-        ("trace.status != 'OK'", r"Only '=' operator is supported for trace metrics"),
-        ("trace.unsupported_field = 'value'", r"Invalid attribute key"),
+        ("status = 'OK'", r"Invalid identifier 'status'"),
+        ("trace.status != 'OK'", r"Invalid comparator: '!=', only '=' operator is supported"),
+        ("trace.unsupported_field = 'value'", r"Invalid entity 'unsupported_field' specified"),
+        ("span.status = 'OK'", r"Filtering by span is only supported for SPANS view type"),
+        (
+            "assessment.type = 'feedback'",
+            r"Filtering by assessment is only supported for ASSESSMENTS view type",
+        ),
     ],
 )
 def test_query_trace_metrics_with_invalid_filter(
@@ -1341,6 +1347,195 @@ def test_query_span_metrics_across_multiple_traces(store: SqlAlchemyStore):
         "dimensions": {"span_type": "LLM"},
         "values": {"COUNT": 3},
     }
+
+
+def test_query_span_metrics_with_span_status_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_with_status_filter")
+
+    trace1 = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace1)
+
+    trace2 = TraceInfo(
+        trace_id="trace2",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.ERROR,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace2)
+
+    spans_ok = [
+        create_test_span(
+            "trace1",
+            "span1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "span2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "span3",
+            span_id=3,
+            span_type="CHAIN",
+            start_ns=1200000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "span3",
+            span_id=3,
+            span_type="CHAIN",
+            start_ns=1200000000,
+            status=trace_api.StatusCode.OK,
+        ),
+    ]
+    store.log_spans(exp_id, spans_ok)
+
+    spans_error = [
+        create_test_span(
+            "trace2",
+            "span4",
+            span_id=4,
+            span_type="LLM",
+            start_ns=1300000000,
+            status=trace_api.StatusCode.ERROR,
+        ),
+        create_test_span(
+            "trace2",
+            "span5",
+            span_id=5,
+            span_type="CHAIN",
+            start_ns=1400000000,
+            status=trace_api.StatusCode.ERROR,
+        ),
+    ]
+    store.log_spans(exp_id, spans_error)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["span_type"],
+        filters=["span.status = 'OK'"],
+    )
+
+    # Should only count spans from trace1 (OK status)
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {"span_type": "CHAIN"},
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {"span_type": "LLM"},
+        "values": {"COUNT": 2},
+    }
+
+
+def test_query_span_metrics_with_span_name_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_with_name_filter")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different names
+    spans = [
+        create_test_span(
+            "trace1", "generate_response", span_id=1, span_type="LLM", start_ns=1000000000
+        ),
+        create_test_span(
+            "trace1", "generate_response", span_id=2, span_type="LLM", start_ns=1100000000
+        ),
+        create_test_span(
+            "trace1", "process_input", span_id=3, span_type="CHAIN", start_ns=1200000000
+        ),
+        create_test_span(
+            "trace1", "validate_output", span_id=4, span_type="TOOL", start_ns=1300000000
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    # Query spans with span.name filter
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=["span.name = 'generate_response'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "error_match"),
+    [
+        ("status = 'OK'", r"Invalid identifier 'status'"),
+        ("span.status != 'OK'", r"Invalid comparator: '!=', only '=' operator is supported"),
+        ("span.invalid_field = 'value'", r"Invalid entity 'invalid_field' specified"),
+        ("span.status.extra = 'value'", r"does not require a key"),
+        ("span.name LIKE 'test%'", r"only '=' operator is supported"),
+    ],
+)
+def test_query_span_metrics_invalid_filters(
+    store: SqlAlchemyStore, filter_string: str, error_match: str
+):
+    exp_id = store.create_experiment("test_span_invalid_filters")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span("trace1", "span1", span_id=1, span_type="LLM", start_ns=1000000000),
+    ]
+    store.log_spans(exp_id, spans)
+
+    with pytest.raises(MlflowException, match=error_match):
+        store.query_trace_metrics(
+            experiment_ids=[exp_id],
+            view_type=MetricViewType.SPANS,
+            metric_name=SpanMetricKey.SPAN_COUNT,
+            aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+            filters=[filter_string],
+        )
 
 
 def test_query_assessment_metrics_count_no_dimensions(store: SqlAlchemyStore):
@@ -2387,3 +2582,237 @@ def test_query_assessment_value_with_null_value(store: SqlAlchemyStore):
         "dimensions": {"assessment_name": "score"},
         "values": {"AVG": 12},
     }
+
+
+def test_query_assessment_value_with_assessment_name_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_value_with_filter")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create multiple assessments with different names
+    assessments_data = [
+        ("accuracy", 0.8),
+        ("accuracy", 0.9),
+        ("precision", 0.7),
+        ("recall", 0.85),
+    ]
+
+    for name, value in assessments_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    # Query with assessment_name filter
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=["assessment_name"],
+        filters=["assessment.name = 'accuracy'"],
+    )
+
+    # Should only return accuracy results
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "accuracy"},
+        "values": {"AVG": pytest.approx(0.85, abs=0.01)},
+    }
+
+
+def test_query_assessment_with_type_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_with_type_filter")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create feedback assessments
+    for i in range(3):
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=f"feedback_{i}",
+            value=0.8,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    # Create expectation assessments
+    for i in range(2):
+        assessment = Expectation(
+            trace_id=trace_id,
+            name=f"expectation_{i}",
+            value="expected",
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="test_suite"),
+        )
+        store.create_assessment(assessment)
+
+    # Query with assessment.type = 'feedback'
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=["assessment.type = 'feedback'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 3},
+    }
+
+    # Query with assessment.type = 'expectation'
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=["assessment.type = 'expectation'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+
+def test_query_assessment_with_combined_name_and_type_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_combined_filters")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create feedback assessments with different names
+    feedback_data = [
+        ("accuracy", 0.8),
+        ("accuracy", 0.9),
+        ("precision", 0.7),
+    ]
+    for name, value in feedback_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    # Create expectation assessments
+    expectation_data = [
+        ("accuracy", "expected_value"),
+        ("recall", "expected_value"),
+    ]
+    for name, value in expectation_data:
+        assessment = Expectation(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="test_suite"),
+        )
+        store.create_assessment(assessment)
+
+    # Query with both type and name filters - should only return feedback with name 'accuracy'
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=[
+            "assessment.type = 'feedback'",
+            "assessment.name = 'accuracy'",
+        ],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "error_match"),
+    [
+        ("name = 'accuracy'", r"Invalid identifier 'name'"),
+        (
+            "assessment.name != 'accuracy'",
+            r"Invalid comparator: '!=', only '=' operator is supported",
+        ),
+        ("assessment.invalid_field = 'value'", r"Invalid entity 'invalid_field' specified"),
+        ("assessment.name.extra = 'value'", r"does not require a key"),
+        ("assessment.type LIKE 'feed%'", r"only '=' operator is supported"),
+        ("assessment.value = '0.8'", r"Invalid entity 'value' specified"),
+    ],
+)
+def test_query_assessments_metrics_invalid_filters(
+    store: SqlAlchemyStore, filter_string: str, error_match: str
+):
+    exp_id = store.create_experiment("test_assessment_invalid_filters")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessment = Feedback(
+        trace_id=trace_id,
+        name="accuracy",
+        value=0.8,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"),
+    )
+    store.create_assessment(assessment)
+
+    with pytest.raises(MlflowException, match=error_match):
+        store.query_trace_metrics(
+            experiment_ids=[exp_id],
+            view_type=MetricViewType.ASSESSMENTS,
+            metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+            aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+            filters=[filter_string],
+        )
