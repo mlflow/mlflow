@@ -12,7 +12,6 @@ from mlflow.types.responses import (
     ResponsesAgentStreamEvent,
 )
 from mlflow.types.type_hints import model_validate
-from mlflow.utils.annotations import experimental
 
 
 def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):

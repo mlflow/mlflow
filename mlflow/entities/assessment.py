@@ -15,7 +15,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
-from mlflow.utils.annotations import experimental
 from mlflow.utils.exception_utils import get_stacktrace
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 

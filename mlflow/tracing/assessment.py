@@ -11,7 +11,6 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.client import TracingClient
-from mlflow.utils.annotations import experimental
 
 
 def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
