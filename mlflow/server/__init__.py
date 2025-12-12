@@ -158,12 +158,12 @@ def serve_get_logged_model_artifact(model_id: str):
     return get_logged_model_artifact_handler(model_id)
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/ui-telemetry"), methods=["GET"])
+@app.route(_add_static_prefix("/ajax-api/3.0/mlflow/ui-telemetry"), methods=["GET"])
 def serve_get_ui_telemetry():
     return get_ui_telemetry_handler()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/ui-telemetry"), methods=["POST"])
+@app.route(_add_static_prefix("/ajax-api/3.0/mlflow/ui-telemetry"), methods=["POST"])
 def serve_post_ui_telemetry():
     return post_ui_telemetry_handler()
 
