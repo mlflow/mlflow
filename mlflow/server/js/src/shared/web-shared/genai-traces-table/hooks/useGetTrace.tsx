@@ -24,6 +24,24 @@ export function useGetTrace(getTrace?: GetTraceFunction, traceInfo?: ModelTrace[
     [getTrace, traceId],
   );
 
+  const getRefreshInterval = (data: ModelTrace | undefined) => {
+    // Keep polling until trace is completed and span counts matches with the number logged in the
+    // trace info. The latter check is to avoid race condition where the trace status is finalized
+    // before child spans arrive at the backend.
+    const traceInfo = data && isV3ModelTraceInfo(data.info) ? data.info : undefined;
+
+    if (!traceInfo || traceInfo.state === 'IN_PROGRESS') return 1000;
+
+    const traceStats = traceInfo.trace_metadata?.['mlflow.trace.sizeStats'];
+
+    // If the stats metadata is not available, stop polling.
+    if (!traceStats) return false;
+
+    const expected = JSON.parse(traceStats).num_spans;
+    const actual = data?.data?.spans?.length ?? 0;
+    return expected === actual ? false : 1000;
+  };
+
   return useQuery({
     queryKey: ['getTrace', traceId],
     queryFn: () => getTraceFn(traceInfo),
@@ -32,11 +50,6 @@ export function useGetTrace(getTrace?: GetTraceFunction, traceInfo?: ModelTrace[
     refetchOnWindowFocus: false, // Disable refetching on window focus
     retry: 1,
     keepPreviousData: true,
-    refetchInterval: (data) => {
-      if (!enablePolling) return false;
-      // Stop polling if trace is completed
-      const traceState = data && isV3ModelTraceInfo(data.info) ? data.info.state : undefined;
-      return traceState === 'IN_PROGRESS' ? 1000 : false;
-    },
+    refetchInterval: enablePolling ? getRefreshInterval : false,
   });
 }
