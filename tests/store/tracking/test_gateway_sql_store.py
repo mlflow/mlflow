@@ -211,22 +211,58 @@ def test_delete_gateway_secret(store: SqlAlchemyStore):
 
 
 def test_list_gateway_secret_infos(store: SqlAlchemyStore):
-    store.create_gateway_secret(
+    s1 = store.create_gateway_secret(
         secret_name="openai-1", secret_value={"api_key": "v1"}, provider="openai"
     )
-    store.create_gateway_secret(
+    s2 = store.create_gateway_secret(
         secret_name="openai-2", secret_value={"api_key": "v2"}, provider="openai"
     )
-    store.create_gateway_secret(
+    s3 = store.create_gateway_secret(
         secret_name="anthropic-1", secret_value={"api_key": "v3"}, provider="anthropic"
     )
+    created_ids = {s1.secret_id, s2.secret_id, s3.secret_id}
 
     all_secrets = store.list_secret_infos()
-    assert len(all_secrets) >= 3
+    all_ids = {s.secret_id for s in all_secrets}
+    assert created_ids.issubset(all_ids)
 
     openai_secrets = store.list_secret_infos(provider="openai")
-    assert len(openai_secrets) == 2
+    openai_ids = {s.secret_id for s in openai_secrets}
+    assert {s1.secret_id, s2.secret_id}.issubset(openai_ids)
+    assert s3.secret_id not in openai_ids
     assert all(s.provider == "openai" for s in openai_secrets)
+
+
+def test_secret_id_and_name_are_immutable_at_database_level(store: SqlAlchemyStore):
+    """
+    Verify that secret_id and secret_name cannot be modified at the database level.
+
+    These fields are used as AAD (Additional Authenticated Data) in AES-GCM encryption.
+    If they are modified, decryption will fail. A database trigger enforces this immutability
+    to prevent any code path from accidentally allowing mutation.
+    """
+    from sqlalchemy import text
+    from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
+
+    secret = store.create_gateway_secret(
+        secret_name="immutable-test",
+        secret_value={"api_key": "test-value"},
+        provider="openai",
+    )
+
+    def attempt_mutation(session):
+        session.execute(
+            text("UPDATE secrets SET secret_name = :new_name WHERE secret_id = :id"),
+            {"new_name": "modified-name", "id": secret.secret_id},
+        )
+        session.flush()
+
+    with store.ManagedSessionMaker() as session:
+        with pytest.raises((DatabaseError, IntegrityError, OperationalError)):
+            attempt_mutation(session)
+
+    retrieved = store.get_secret_info(secret_id=secret.secret_id)
+    assert retrieved.secret_name == "immutable-test"
 
 
 # =============================================================================
