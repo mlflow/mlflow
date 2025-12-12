@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, TypedDict
+from typing import TypedDict
 
 import sqlalchemy
 from sqlalchemy import Column, and_, case, exists, func, literal_column
@@ -21,7 +21,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.constant import TokenUsageKey, TraceTagKey
-from mlflow.utils.search_utils import SearchTraceUtils
+from mlflow.utils.search_utils import SearchTraceMetricsUtils
 
 
 class TraceMetricsConfig(TypedDict):
@@ -31,13 +31,10 @@ class TraceMetricsConfig(TypedDict):
     Args:
         aggregation_types: Supported aggregation types to apply to the metrics.
         dimensions: Supported dimensions to group metrics by.
-        filter_fields: Supported fields to filter on.
     """
 
     aggregation_types: set[AggregationType]
     dimensions: set[str]
-    # TODO: support this
-    filter_fields: set[str] | None
 
 
 # metric_name -> TraceMetricsConfig mapping for traces
@@ -45,27 +42,22 @@ TRACES_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
     "trace": {
         "aggregation_types": {AggregationType.COUNT},
         "dimensions": {"name", "status"},
-        "filter_fields": None,
     },
     "latency": {
         "aggregation_types": {AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
-        "filter_fields": None,
     },
     TokenUsageKey.INPUT_TOKENS: {
         "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
-        "filter_fields": None,
     },
     TokenUsageKey.OUTPUT_TOKENS: {
         "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
-        "filter_fields": None,
     },
     TokenUsageKey.TOTAL_TOKENS: {
         "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
-        "filter_fields": None,
     },
 }
 
@@ -73,7 +65,6 @@ SPANS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
     "span": {
         "aggregation_types": {AggregationType.COUNT},
         "dimensions": {"span_type"},
-        "filter_fields": None,
     },
 }
 
@@ -81,12 +72,10 @@ ASSESSMENTS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
     "assessment": {
         "aggregation_types": {AggregationType.COUNT},
         "dimensions": {"assessment_name", "assessment_value"},
-        "filter_fields": None,
     },
     "assessment_value": {
         "aggregation_types": {AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"assessment_name"},
-        "filter_fields": None,
     },
 }
 
@@ -351,41 +340,14 @@ def _apply_metric_specific_joins(
     return query
 
 
-def _parse_trace_metrics_filter(filter_string: str) -> list[dict[str, Any]]:
+def apply_filters(query: Query, filters: list[str], view_type: MetricViewType) -> Query:
     """
-    Parse filter string with 'trace.' prefix for trace metrics.
-
-    Args:
-        filter_string: Filter in format 'trace.xxx = value'
-
-    Returns:
-        List of parsed filter clauses
-    """
-    stripped = filter_string.strip()
-    # TODO: support spans and assessments metrics filters
-    if not stripped.startswith("trace."):
-        raise MlflowException.invalid_parameter_value(
-            f"Filter must start with 'trace.' prefix, got: '{filter_string}'"
-        )
-
-    filter_without_prefix = stripped.removeprefix("trace.")
-    return SearchTraceUtils.parse_search_filter_for_search_traces(filter_without_prefix)
-
-
-def apply_global_filters(query: Query, filters: list[str] | None) -> Query:
-    """
-    Apply global filters to the trace query.
-
-    Supported filters:
-    - trace.status = 'OK': Filter by trace status
-    - trace.metadata.`mlflow.sourceRun` = 'run_123': Filter by metadata
-    - trace.tag.`model.version` = 'v1': Filter by tag value
-
-    All filters in the list are combined with AND logic.
+    Apply filters to the query.
 
     Args:
         query: SQLAlchemy query to filter
-        filters: List of filter strings, each in format 'trace.xxx = value'
+        filters: List of filter strings
+        view_type: Type of metrics view
 
     Returns:
         Filtered query
@@ -394,52 +356,52 @@ def apply_global_filters(query: Query, filters: list[str] | None) -> Query:
         return query
 
     for filter_string in filters:
-        parsed_filters = _parse_trace_metrics_filter(filter_string)
-
-        for filter_clause in parsed_filters:
-            type_ = filter_clause.get("type")
-            key = filter_clause.get("key")
-            value = filter_clause.get("value")
-            comparator = filter_clause.get("comparator")
-
-            # Only support '=' operator for trace metrics
-            if comparator != "=":
-                raise MlflowException.invalid_parameter_value(
-                    f"Only '=' operator is supported for trace metrics, got '{comparator}'"
-                )
-
-            if SearchTraceUtils.is_attribute(type_, key, comparator):
-                # Handle direct attributes (e.g., trace.status)
-                if key == "status":
-                    query = query.filter(SqlTraceInfo.status == value)
-                else:
+        parsed_filter = SearchTraceMetricsUtils.parse_search_filter_for_trace_metrics(filter_string)
+        match parsed_filter.view_type:
+            case "trace":
+                match parsed_filter.entity:
+                    case "status":
+                        query = query.filter(SqlTraceInfo.status == parsed_filter.value)
+                    case "metadata":
+                        metadata_filter = exists().where(
+                            and_(
+                                SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
+                                SqlTraceMetadata.key == parsed_filter.key,
+                                SqlTraceMetadata.value == parsed_filter.value,
+                            )
+                        )
+                        query = query.filter(metadata_filter)
+                    case "tag":
+                        tag_filter = exists().where(
+                            and_(
+                                SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                                SqlTraceTag.key == parsed_filter.key,
+                                SqlTraceTag.value == parsed_filter.value,
+                            )
+                        )
+                        query = query.filter(tag_filter)
+            case "span":
+                if view_type != MetricViewType.SPANS:
                     raise MlflowException.invalid_parameter_value(
-                        f"Unsupported attribute: '{key}'. Only 'status' is supported."
+                        f"Filtering by span is only supported for {MetricViewType.SPANS} view "
+                        f"type, got {view_type}",
                     )
-            elif SearchTraceUtils.is_request_metadata(type_, comparator):
-                # Handle metadata filters (e.g., trace.metadata.`key`)
-                metadata_filter = exists().where(
-                    and_(
-                        SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
-                        SqlTraceMetadata.key == key,
-                        SqlTraceMetadata.value == value,
+                match parsed_filter.entity:
+                    case "name":
+                        query = query.filter(SqlSpan.name == parsed_filter.value)
+                    case "status":
+                        query = query.filter(SqlSpan.status == parsed_filter.value)
+            case "assessment":
+                if view_type != MetricViewType.ASSESSMENTS:
+                    raise MlflowException.invalid_parameter_value(
+                        "Filtering by assessment is only supported for "
+                        f"{MetricViewType.ASSESSMENTS} view type, got {view_type}",
                     )
-                )
-                query = query.filter(metadata_filter)
-            elif SearchTraceUtils.is_tag(type_, comparator):
-                # Handle tag filters (e.g., trace.tag.`key`)
-                tag_filter = exists().where(
-                    and_(
-                        SqlTraceTag.request_id == SqlTraceInfo.request_id,
-                        SqlTraceTag.key == key,
-                        SqlTraceTag.value == value,
-                    )
-                )
-                query = query.filter(tag_filter)
-            else:
-                raise MlflowException.invalid_parameter_value(
-                    f"Unsupported filter type: '{type_}' with key '{key}'"
-                )
+                match parsed_filter.entity:
+                    case "name":
+                        query = query.filter(SqlAssessments.name == parsed_filter.value)
+                    case "type":
+                        query = query.filter(SqlAssessments.assessment_type == parsed_filter.value)
 
     return query
 
@@ -474,8 +436,7 @@ def query_metrics(
     # Apply view-specific initial join
     query = _apply_view_initial_join(query, view_type)
 
-    # Apply global filters (status, metadata, tags) - all AND-ed together
-    query = apply_global_filters(query, filters)
+    query = apply_filters(query, filters, view_type)
 
     # Group by dimension columns, labeled for SELECT
     dimension_columns = []
