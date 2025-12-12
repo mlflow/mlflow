@@ -21,7 +21,7 @@ export const useModelsQuery = ({ provider }: { provider?: string } = {}) => {
   );
 
   return {
-    data: queryResult.data?.models,
+    data: queryResult.data?.models ?? [],
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
     refetch: queryResult.refetch,

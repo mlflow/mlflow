@@ -59,9 +59,7 @@ const ProviderSelectCombobox = ({
   // Handle selection change
   const handleChange = useCallback(
     (item: ProviderItem | null) => {
-      if (item) {
-        onChange(item.provider);
-      }
+      onChange(item?.provider ?? '');
     },
     [onChange],
   );
@@ -90,6 +88,15 @@ const ProviderSelectCombobox = ({
     formOnChange: deferredFormOnChange,
     initialInputValue: selectedItem?.displayName ?? '',
   });
+
+  // Handle input focus - clear selection when clicking to allow new search
+  const handleFocus = useCallback(() => {
+    if (selectedItem) {
+      // Clear both the input text and the form selection
+      comboboxState.setInputValue('');
+      onChange('');
+    }
+  }, [selectedItem, comboboxState, onChange]);
 
   // Group filtered items for rendering with section headers
   const groupedItems = useMemo(() => {
@@ -174,6 +181,7 @@ const ProviderSelectCombobox = ({
           disabled={disabled}
           allowClear
           showComboboxToggleButton
+          onFocus={handleFocus}
         />
         <TypeaheadComboboxMenu comboboxState={comboboxState} matchTriggerWidth minWidth={300}>
           {menuItems}

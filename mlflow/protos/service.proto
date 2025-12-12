@@ -4378,5 +4378,7 @@ message GetSecretsConfig {
   message Response {
     // Whether the server is configured to handle secrets (encryption available)
     optional bool secrets_available = 1;
+    // Whether the gateway backend is available (required dependencies installed)
+    optional bool gateway_available = 2;
   }
 }

@@ -1,9 +1,11 @@
-import { useParams, Link, useNavigate } from '../../common/utils/RoutingUtils';
 import {
+  Accordion,
   Alert,
   Breadcrumb,
   Button,
   Card,
+  ChevronRightIcon,
+  importantify,
   PencilIcon,
   Spinner,
   Tag,
@@ -11,19 +13,22 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { useCallback, useMemo, useState } from 'react';
+import { useParams, Link, useNavigate } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
-import { useCallback, useMemo } from 'react';
 import GatewayRoutes from '../routes';
-import { formatProviderName, formatAuthMethodName, formatSecretFieldName } from '../utils/providerUtils';
-import { parseAuthConfig, parseMaskedValues, isSingleMaskedValue } from '../utils/secretUtils';
+import { formatProviderName, formatAuthMethodName, formatCredentialFieldName } from '../utils/providerUtils';
+import { parseAuthConfig } from '../utils/secretUtils';
+import { timestampToDate } from '../utils/dateUtils';
+import { formatTokens, formatCost } from '../utils/formatters';
 import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
-import { LongFormLayout, LongFormSummary } from '../../common/components/long-form';
 import { useEndpointQuery } from '../hooks/useEndpointQuery';
 import { useModelsQuery } from '../hooks/useModelsQuery';
 import { useSecretQuery } from '../hooks/useSecretQuery';
-import type { EndpointModelMapping, ModelDefinition, Model, SecretInfo } from '../types';
-import { formatTokens, formatCost } from '../utils/formatters';
+import { useBindingsQuery } from '../hooks/useBindingsQuery';
+import type { EndpointModelMapping, ModelDefinition, Model, SecretInfo, EndpointBinding, ResourceType } from '../types';
+import { MaskedValueDisplay } from '../components/secrets/MaskedValueDisplay';
 
 const EndpointDetailsPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -34,10 +39,17 @@ const EndpointDetailsPage = () => {
   const { data, error, isLoading } = useEndpointQuery(endpointId ?? '');
   const endpoint = data?.endpoint;
 
-  // Get the primary model mapping and its model definition
-  const primaryMapping = endpoint?.model_mappings?.[0];
-  const primaryModelDef = primaryMapping?.model_definition;
+  // Get the primary model mapping and its model definition (memoized)
+  const primaryMapping = useMemo(() => endpoint?.model_mappings?.[0], [endpoint?.model_mappings]);
+  const primaryModelDef = useMemo(() => primaryMapping?.model_definition, [primaryMapping?.model_definition]);
   const { data: modelsData } = useModelsQuery({ provider: primaryModelDef?.provider });
+
+  // Get bindings for this endpoint (memoized)
+  const { data: allBindings } = useBindingsQuery();
+  const endpointBindings = useMemo(
+    () => allBindings?.filter((b) => b.endpoint_id === endpointId) ?? [],
+    [allBindings, endpointId],
+  );
 
   const handleEdit = useCallback(() => {
     navigate(GatewayRoutes.getEditEndpointRoute(endpointId ?? ''));
@@ -76,7 +88,12 @@ const EndpointDetailsPage = () => {
         <Breadcrumb includeTrailingCaret>
           <Breadcrumb.Item>
             <Link to={GatewayRoutes.gatewayPageRoute}>
-              <FormattedMessage defaultMessage="Gateway" description="Breadcrumb link to gateway page" />
+              <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
+            </Link>
+          </Breadcrumb.Item>
+          <Breadcrumb.Item>
+            <Link to={GatewayRoutes.gatewayPageRoute}>
+              <FormattedMessage defaultMessage="Endpoints" description="Breadcrumb link to endpoints list" />
             </Link>
           </Breadcrumb.Item>
         </Breadcrumb>
@@ -89,117 +106,124 @@ const EndpointDetailsPage = () => {
           }}
         >
           <Typography.Title level={2}>{endpoint.name ?? endpoint.endpoint_id}</Typography.Title>
-          <Button
-            componentId="mlflow.gateway.endpoint-details.edit"
-            type="tertiary"
-            icon={<PencilIcon />}
-            onClick={handleEdit}
-          >
-            <FormattedMessage defaultMessage="Edit" description="Edit endpoint button" />
+          <Button componentId="mlflow.gateway.endpoint-details.edit" icon={<PencilIcon />} onClick={handleEdit}>
+            <FormattedMessage
+              defaultMessage="Edit"
+              description="Gateway > Endpoint details page > Edit endpoint button"
+            />
           </Button>
         </div>
+        <div
+          css={{
+            marginTop: theme.spacing.md,
+            borderBottom: `1px solid ${theme.colors.border}`,
+          }}
+        />
       </div>
 
-      <LongFormLayout
-        sidebar={
-          <LongFormSummary
-            title={intl.formatMessage({
-              defaultMessage: 'About this endpoint',
-              description: 'Sidebar title',
-            })}
-          >
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              <div>
-                <Typography.Text color="secondary">
-                  <FormattedMessage defaultMessage="Created" description="Created at label" />
-                </Typography.Text>
-                <div css={{ marginTop: theme.spacing.xs }}>
-                  <TimeAgo date={new Date(endpoint.created_at)} />
-                </div>
-              </div>
+      <div
+        css={{
+          flex: 1,
+          display: 'flex',
+          gap: theme.spacing.md,
+          padding: `0 ${theme.spacing.md}px ${theme.spacing.md}px`,
+          overflow: 'auto',
+        }}
+      >
+        {/* Main content */}
+        <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          {/* Active Configuration */}
+          <Card componentId="mlflow.gateway.endpoint-details.config-card" css={{ width: '100%' }}>
+            <div css={{ padding: theme.spacing.md, width: '100%' }}>
+              <Typography.Title level={3}>
+                <FormattedMessage defaultMessage="Active configuration" description="Section title for active config" />
+              </Typography.Title>
 
-              <div>
-                <Typography.Text color="secondary">
-                  <FormattedMessage defaultMessage="Last modified" description="Last modified label" />
-                </Typography.Text>
-                <div css={{ marginTop: theme.spacing.xs }}>
-                  <TimeAgo date={new Date(endpoint.last_updated_at)} />
-                </div>
-              </div>
-
-              {endpoint.created_by && (
-                <div>
-                  <Typography.Text color="secondary">
-                    <FormattedMessage defaultMessage="Created by" description="Created by label" />
-                  </Typography.Text>
-                  <div css={{ marginTop: theme.spacing.xs }}>
-                    <Typography.Text>{endpoint.created_by}</Typography.Text>
+              {hasModels ? (
+                <div
+                  css={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: theme.spacing.md,
+                    marginTop: theme.spacing.lg,
+                    width: '100%',
+                  }}
+                >
+                  {/* Models */}
+                  <div css={{ width: '100%' }}>
+                    <Typography.Text bold color="secondary" css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
+                      <FormattedMessage defaultMessage="Models" description="Models section label" />
+                    </Typography.Text>
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, width: '100%' }}>
+                      {endpoint.model_mappings.map((mapping: EndpointModelMapping) => (
+                        <ModelCard
+                          key={mapping.mapping_id}
+                          modelDefinition={mapping.model_definition}
+                          modelMetadata={modelsData?.find(
+                            (m: Model) => m.model === mapping.model_definition?.model_name,
+                          )}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
+              ) : (
+                <Typography.Text color="secondary">
+                  <FormattedMessage
+                    defaultMessage="No models configured for this endpoint"
+                    description="Message when no models configured"
+                  />
+                </Typography.Text>
               )}
             </div>
-          </LongFormSummary>
-        }
-      >
-        {/* Active Configuration */}
-        <Card componentId="mlflow.gateway.endpoint-details.config-card">
-          <div css={{ padding: theme.spacing.md }}>
-            <Typography.Title level={3}>
-              <FormattedMessage defaultMessage="Active configuration" description="Section title for active config" />
-            </Typography.Title>
+          </Card>
+        </div>
 
-            {hasModels ? (
-              <div
-                css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, marginTop: theme.spacing.lg }}
-              >
-                {/* Provider */}
+        {/* Sidebar */}
+        <div css={{ width: 300, flexShrink: 0 }}>
+          <Card componentId="mlflow.gateway.endpoint-details.about-card">
+            <div css={{ padding: theme.spacing.md }}>
+              <Typography.Title level={4} css={{ marginBottom: theme.spacing.md }}>
+                <FormattedMessage defaultMessage="About this endpoint" description="Sidebar title" />
+              </Typography.Title>
+
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
                 <div>
-                  <Typography.Text bold color="secondary" css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
-                    <FormattedMessage defaultMessage="Provider" description="Provider label" />
+                  <Typography.Text color="secondary">
+                    <FormattedMessage defaultMessage="Created" description="Created at label" />
                   </Typography.Text>
-                  <div
-                    css={{
-                      padding: theme.spacing.md,
-                      border: `1px solid ${theme.colors.borderDecorative}`,
-                      borderRadius: theme.general.borderRadiusBase,
-                      backgroundColor: theme.colors.backgroundSecondary,
-                    }}
-                  >
-                    <Tag componentId="mlflow.gateway.endpoint-details.provider">
-                      {formatProviderName(primaryModelDef?.provider ?? '')}
-                    </Tag>
+                  <div css={{ marginTop: theme.spacing.xs }}>
+                    <TimeAgo date={timestampToDate(endpoint.created_at)} />
                   </div>
                 </div>
 
-                {/* Models */}
                 <div>
-                  <Typography.Text bold color="secondary" css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
-                    <FormattedMessage defaultMessage="Models" description="Models section label" />
+                  <Typography.Text color="secondary">
+                    <FormattedMessage defaultMessage="Last modified" description="Last modified label" />
                   </Typography.Text>
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                    {endpoint.model_mappings.map((mapping: EndpointModelMapping) => (
-                      <ModelCard
-                        key={mapping.mapping_id}
-                        modelDefinition={mapping.model_definition}
-                        modelMetadata={modelsData?.find(
-                          (m: Model) => m.model === mapping.model_definition?.model_name,
-                        )}
-                      />
-                    ))}
+                  <div css={{ marginTop: theme.spacing.xs }}>
+                    <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
                   </div>
                 </div>
+
+                {endpoint.created_by && (
+                  <div>
+                    <Typography.Text color="secondary">
+                      <FormattedMessage defaultMessage="Created by" description="Created by label" />
+                    </Typography.Text>
+                    <div css={{ marginTop: theme.spacing.xs }}>
+                      <Typography.Text>{endpoint.created_by}</Typography.Text>
+                    </div>
+                  </div>
+                )}
+
+                {/* Connected resources - grouped by type */}
+                <ConnectedResourcesSection bindings={endpointBindings} />
               </div>
-            ) : (
-              <Typography.Text color="secondary">
-                <FormattedMessage
-                  defaultMessage="No models configured for this endpoint"
-                  description="Message when no models configured"
-                />
-              </Typography.Text>
-            )}
-          </div>
-        </Card>
-      </LongFormLayout>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
@@ -215,8 +239,13 @@ const ModelCard = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  // Fetch secret for this model definition
-  const { data: secretData } = useSecretQuery(modelDefinition?.secret_id);
+  // Check if this model definition has a secret configured
+  const hasSecretId = Boolean(modelDefinition?.secret_id);
+
+  // Fetch secret for this model definition (only if secret_id exists)
+  const { data: secretData, isLoading: isSecretLoading } = useSecretQuery(
+    hasSecretId ? modelDefinition?.secret_id : undefined,
+  );
 
   // Memoize capabilities array
   const capabilities = useMemo(() => {
@@ -245,9 +274,8 @@ const ModelCard = ({
     [modelMetadata?.output_cost_per_token],
   );
 
-  // Parse auth config and masked values using shared utils
+  // Parse auth config using shared utils
   const authConfig = useMemo(() => parseAuthConfig(secretData?.secret), [secretData?.secret]);
-  const maskedValues = useMemo(() => parseMaskedValues(secretData?.secret), [secretData?.secret]);
 
   if (!modelDefinition) {
     return null;
@@ -278,6 +306,20 @@ const ModelCard = ({
           alignItems: 'baseline',
         }}
       >
+        {/* Provider */}
+        {modelDefinition.provider && (
+          <>
+            <Typography.Text color="secondary">
+              <FormattedMessage defaultMessage="Provider:" description="Provider label" />
+            </Typography.Text>
+            <div>
+              <Tag componentId="mlflow.gateway.endpoint-details.model-provider">
+                {formatProviderName(modelDefinition.provider)}
+              </Tag>
+            </div>
+          </>
+        )}
+
         {/* Model name */}
         <Typography.Text color="secondary">
           <FormattedMessage defaultMessage="Model:" description="Model name label" />
@@ -326,19 +368,27 @@ const ModelCard = ({
           </>
         )}
 
-        {/* API Key name */}
+        {/* API Key Name */}
         <Typography.Text color="secondary">
           <FormattedMessage defaultMessage="API Key:" description="API key name label" />
         </Typography.Text>
-        {secret ? (
-          <Typography.Text bold>{secret.secret_name}</Typography.Text>
-        ) : (
+        {!hasSecretId ? (
+          <Tag color="coral" componentId="mlflow.gateway.endpoint-details.no-api-key">
+            <FormattedMessage defaultMessage="No API key configured" description="No API key configured message" />
+          </Tag>
+        ) : isSecretLoading ? (
           <Typography.Text color="secondary">
             <FormattedMessage defaultMessage="Loading..." description="Loading secret" />
           </Typography.Text>
+        ) : secret ? (
+          <Typography.Text bold>{secret.secret_name}</Typography.Text>
+        ) : (
+          <Tag color="coral" componentId="mlflow.gateway.endpoint-details.api-key-not-found">
+            <FormattedMessage defaultMessage="API key not found" description="API key not found message" />
+          </Tag>
         )}
 
-        {/* Auth type - only show if auth_mode is set in auth_config (indicates multi-auth provider) */}
+        {/* Auth Type - only show if auth_mode is set in auth_config (indicates multi-auth provider) */}
         {authConfig?.['auth_mode'] && (
           <>
             <Typography.Text color="secondary">
@@ -348,56 +398,17 @@ const ModelCard = ({
           </>
         )}
 
-        {/* Masked keys */}
-        {maskedValues && maskedValues.length > 0 && (
+        {/* Masked Key - only show if secret exists */}
+        {secret && (
           <>
             <Typography.Text color="secondary">
-              {isSingleMaskedValue(maskedValues) ? (
-                <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label (singular)" />
-              ) : (
-                <FormattedMessage defaultMessage="Masked Keys:" description="Masked API keys section label" />
-              )}
+              <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label" />
             </Typography.Text>
-            <div css={{ display: 'flex', flexDirection: 'column' }}>
-              {maskedValues.map(([key, value], index) =>
-                key === '' ? (
-                  // Single value without key label
-                  <Typography.Text
-                    key={index}
-                    css={{
-                      fontFamily: 'monospace',
-                      fontSize: theme.typography.fontSizeSm,
-                      backgroundColor: theme.colors.tagDefault,
-                      padding: `2px ${theme.spacing.xs}px`,
-                      borderRadius: theme.general.borderRadiusBase,
-                      width: 'fit-content',
-                    }}
-                  >
-                    {value}
-                  </Typography.Text>
-                ) : (
-                  // Multiple values with key labels
-                  <div key={key} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                    <Typography.Text color="secondary">{formatSecretFieldName(key)}:</Typography.Text>
-                    <Typography.Text
-                      css={{
-                        fontFamily: 'monospace',
-                        fontSize: theme.typography.fontSizeSm,
-                        backgroundColor: theme.colors.tagDefault,
-                        padding: `2px ${theme.spacing.xs}px`,
-                        borderRadius: theme.general.borderRadiusBase,
-                      }}
-                    >
-                      {value}
-                    </Typography.Text>
-                  </div>
-                ),
-              )}
-            </div>
+            <MaskedValueDisplay maskedValue={secret.masked_value} compact />
           </>
         )}
 
-        {/* Auth Config section - display non-encrypted configuration */}
+        {/* Config - display non-encrypted configuration */}
         <AuthConfigDisplay secret={secret} />
       </div>
     </div>
@@ -411,10 +422,10 @@ const AuthConfigDisplay = ({ secret }: { secret: SecretInfo | undefined }) => {
   // Parse auth config using shared utils
   const authConfig = useMemo(() => parseAuthConfig(secret), [secret]);
 
-  // Filter out auth_mode since it's already displayed in the Auth Type row
-  const filteredEntries = authConfig ? Object.entries(authConfig).filter(([key]) => key !== 'auth_mode') : [];
-
-  if (filteredEntries.length === 0) return null;
+  // Filter out auth_mode since it's already shown separately as "Auth Type"
+  if (!authConfig) return null;
+  const configEntries = Object.entries(authConfig).filter(([key]) => key !== 'auth_mode');
+  if (configEntries.length === 0) return null;
 
   return (
     <>
@@ -422,14 +433,179 @@ const AuthConfigDisplay = ({ secret }: { secret: SecretInfo | undefined }) => {
         <FormattedMessage defaultMessage="Config:" description="Auth config label" />
       </Typography.Text>
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-        {filteredEntries.map(([key, value]) => (
+        {configEntries.map(([key, value]) => (
           <div key={key}>
-            <Typography.Text color="secondary">{formatSecretFieldName(key)}: </Typography.Text>
+            <Typography.Text color="secondary">{formatCredentialFieldName(key)}: </Typography.Text>
             <Typography.Text css={{ fontFamily: 'monospace' }}>{String(value)}</Typography.Text>
           </div>
         ))}
       </div>
     </>
+  );
+};
+
+/** Connected resources section with collapsible accordion */
+const ConnectedResourcesSection = ({ bindings }: { bindings: EndpointBinding[] }) => {
+  const { theme, getPrefixedClassName } = useDesignSystemTheme();
+  const intl = useIntl();
+
+  // Get unique resource types for accordion sections
+  const resourceTypes = useMemo(() => Array.from(new Set(bindings.map((b) => b.resource_type))), [bindings]);
+
+  // Track collapsed sections (inverted logic) - new resource types are expanded by default
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  // Derive expanded sections: all resource types except those explicitly collapsed
+  const expandedSections = useMemo(
+    () => resourceTypes.filter((rt) => !collapsedSections.has(rt)),
+    [resourceTypes, collapsedSections],
+  );
+
+  const formatResourceTypePlural = (type: string) => {
+    switch (type) {
+      case 'scorer_job':
+        return intl.formatMessage({ defaultMessage: 'Scorer jobs', description: 'Scorer jobs resource type plural' });
+      default:
+        return type;
+    }
+  };
+
+  // Custom expand icon for accordion
+  const getExpandIcon = useCallback(
+    ({ isActive }: { isActive?: boolean }) => (
+      <div
+        css={importantify({
+          width: theme.general.heightBase / 2,
+          transform: isActive ? 'rotate(90deg)' : undefined,
+          transition: 'transform 0.2s',
+        })}
+      >
+        <ChevronRightIcon
+          css={{
+            svg: { width: theme.general.heightBase / 2, height: theme.general.heightBase / 2 },
+          }}
+        />
+      </div>
+    ),
+    [theme],
+  );
+
+  // Accordion styles
+  const accordionStyles = useMemo(() => {
+    const clsPrefix = getPrefixedClassName('collapse');
+    const classItem = `.${clsPrefix}-item`;
+    const classHeader = `.${clsPrefix}-header`;
+    const classContentBox = `.${clsPrefix}-content-box`;
+
+    return {
+      border: 'none',
+      backgroundColor: 'transparent',
+      [`& > ${classItem}`]: {
+        border: `1px solid ${theme.colors.borderDecorative}`,
+        borderRadius: theme.general.borderRadiusBase,
+        marginBottom: theme.spacing.xs,
+        overflow: 'hidden',
+      },
+      [`& > ${classItem} > ${classHeader}`]: {
+        paddingLeft: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
+        paddingBottom: theme.spacing.xs,
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: theme.colors.backgroundSecondary,
+      },
+      [classContentBox]: {
+        padding: 0,
+      },
+    };
+  }, [theme, getPrefixedClassName]);
+
+  // Group bindings by resource type
+  const bindingsByType = useMemo(() => {
+    const groups = new Map<ResourceType, EndpointBinding[]>();
+    bindings.forEach((binding) => {
+      if (!groups.has(binding.resource_type)) {
+        groups.set(binding.resource_type, []);
+      }
+      groups.get(binding.resource_type)!.push(binding);
+    });
+    return groups;
+  }, [bindings]);
+
+  const handleAccordionChange = useCallback(
+    (keys: string | string[]) => {
+      const expandedKeys = new Set(Array.isArray(keys) ? keys : [keys]);
+      // Track which sections are now collapsed (not in the expanded keys)
+      setCollapsedSections(new Set(resourceTypes.filter((rt) => !expandedKeys.has(rt))));
+    },
+    [resourceTypes],
+  );
+
+  return (
+    <div>
+      <Typography.Text color="secondary">
+        <FormattedMessage defaultMessage="Connected resources" description="Connected resources label" />
+      </Typography.Text>
+      <div css={{ marginTop: theme.spacing.xs }}>
+        {bindings.length === 0 ? (
+          <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm, fontStyle: 'italic' }}>
+            <FormattedMessage
+              defaultMessage="No resources are using this endpoint"
+              description="Empty state for connected resources"
+            />
+          </Typography.Text>
+        ) : (
+          <Accordion
+            componentId="mlflow.gateway.endpoint-details.bindings-accordion"
+            activeKey={expandedSections}
+            onChange={handleAccordionChange}
+            dangerouslyAppendEmotionCSS={accordionStyles}
+            dangerouslySetAntdProps={{
+              expandIconPosition: 'left',
+              expandIcon: getExpandIcon,
+            }}
+          >
+            {Array.from(bindingsByType.entries()).map(([resourceType, typeBindings]) => (
+              <Accordion.Panel
+                key={resourceType}
+                header={
+                  <span
+                    css={{
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                      fontSize: theme.typography.fontSizeSm,
+                    }}
+                  >
+                    {formatResourceTypePlural(resourceType)} ({typeBindings.length})
+                  </span>
+                }
+              >
+                <div
+                  css={{
+                    maxHeight: 8 * 28, // ~8 items before scrolling
+                    overflowY: 'auto',
+                  }}
+                >
+                  {typeBindings.map((binding) => (
+                    <div
+                      key={binding.binding_id}
+                      css={{
+                        padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                        borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+                        '&:last-child': { borderBottom: 'none' },
+                      }}
+                    >
+                      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm, fontFamily: 'monospace' }}>
+                        {binding.resource_id}
+                      </Typography.Text>
+                    </div>
+                  ))}
+                </div>
+              </Accordion.Panel>
+            ))}
+          </Accordion>
+        )}
+      </div>
+    </div>
   );
 };
 

@@ -18,10 +18,7 @@ const CreateEndpointPage = () => {
     isLoading,
     error,
     resetErrors,
-    selectedModelDefinition,
     selectedModel,
-    selectedSecretName,
-    hasProviderModelDefinitions,
     isFormComplete,
     handleSubmit,
     handleCancel,
@@ -35,10 +32,7 @@ const CreateEndpointPage = () => {
       error={error}
       errorMessage={getReadableErrorMessage(error)}
       resetErrors={resetErrors}
-      selectedModelDefinition={selectedModelDefinition}
       selectedModel={selectedModel}
-      selectedSecretName={selectedSecretName}
-      hasProviderModelDefinitions={hasProviderModelDefinitions}
       isFormComplete={isFormComplete}
       onSubmit={handleSubmit}
       onCancel={handleCancel}

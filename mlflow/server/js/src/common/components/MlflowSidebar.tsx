@@ -119,7 +119,7 @@ export function MlflowSidebar() {
       linkProps: {
         to: GatewayRoutes.gatewayPageRoute,
         isActive: isGatewayActive,
-        children: <FormattedMessage defaultMessage="Gateway" description="Sidebar link for gateway configuration" />,
+        children: <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />,
       },
     },
   ];

@@ -46,7 +46,7 @@ export const ModelDefinitionSelector = ({
     : 'No model definitions available';
 
   return (
-    <div>
+    <div css={{ width: '100%' }}>
       <FormUI.Label htmlFor="mlflow.gateway.create-endpoint.model-definition-select">
         <FormattedMessage defaultMessage="Model definition" description="Label for model definition selector" />
       </FormUI.Label>
@@ -58,6 +58,7 @@ export const ModelDefinitionSelector = ({
         disabled={disabled || !hasOptions}
         placeholder={placeholder}
         validationState={error ? 'error' : undefined}
+        css={{ width: '100%' }}
         contentProps={{
           matchTriggerWidth: true,
           maxHeight: 300,

@@ -13,26 +13,26 @@ import { BindingsUsingKeyDrawer } from '../components/api-keys/BindingsUsingKeyD
 import { useSecretsQuery } from '../hooks/useSecretsQuery';
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
 import { useBindingsQuery } from '../hooks/useBindingsQuery';
-import type { SecretInfo, Endpoint, EndpointBinding } from '../types';
+import { useModelDefinitionsQuery } from '../hooks/useModelDefinitionsQuery';
+import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../types';
 
 const ApiKeysPage = () => {
   const { theme } = useDesignSystemTheme();
   const { refetch: refetchSecrets } = useSecretsQuery();
   const { data: allEndpoints, refetch: refetchEndpoints } = useEndpointsQuery();
   const { data: allBindings } = useBindingsQuery();
+  const { data: allModelDefinitions, refetch: refetchModelDefinitions } = useModelDefinitionsQuery();
 
-  // Memoize helper to get endpoints using a secret
-  const getEndpointsForSecret = useCallback(
-    (secretId: string): Endpoint[] => {
-      if (!allEndpoints) return [];
-      return allEndpoints.filter((endpoint) =>
-        endpoint.model_mappings?.some((mapping) => mapping.model_definition?.secret_id === secretId),
-      );
+  // Memoize helper to get model definitions using a secret
+  const getModelDefinitionsForSecret = useCallback(
+    (secretId: string): ModelDefinition[] => {
+      if (!allModelDefinitions) return [];
+      return allModelDefinitions.filter((modelDef) => modelDef.secret_id === secretId);
     },
-    [allEndpoints],
+    [allModelDefinitions],
   );
 
-  // Memoize helper to get binding count for a secret
+  // Memoize helper to get binding count for a secret (via endpoints that use model definitions with this secret)
   const getBindingCountForSecret = useCallback(
     (secretId: string): number => {
       if (!allBindings || !allEndpoints) return 0;
@@ -53,7 +53,7 @@ const ApiKeysPage = () => {
   const [editingSecret, setEditingSecret] = useState<SecretInfo | null>(null);
   const [deleteModalData, setDeleteModalData] = useState<{
     secret: SecretInfo;
-    endpoints: Endpoint[];
+    modelDefinitions: ModelDefinition[];
     bindingCount: number;
   } | null>(null);
   const [endpointsDrawerData, setEndpointsDrawerData] = useState<{
@@ -90,27 +90,41 @@ const ApiKeysPage = () => {
     }
   }, [refetchSecrets, selectedSecret, editingSecret]);
 
-  const handleDeleteClick = useCallback((secret: SecretInfo, endpoints: Endpoint[], bindingCount: number) => {
-    setDeleteModalData({ secret, endpoints, bindingCount });
-  }, []);
+  const handleDeleteClick = useCallback(
+    (secret: SecretInfo, modelDefinitions: ModelDefinition[], bindingCount: number) => {
+      setDeleteModalData({ secret, modelDefinitions, bindingCount });
+    },
+    [],
+  );
 
   const handleDeleteFromDrawer = useCallback(
     (secret: SecretInfo) => {
-      const endpoints = getEndpointsForSecret(secret.secret_id);
+      const modelDefinitions = getModelDefinitionsForSecret(secret.secret_id);
       const bindingCount = getBindingCountForSecret(secret.secret_id);
-      setDeleteModalData({ secret, endpoints, bindingCount });
+      setDeleteModalData({ secret, modelDefinitions, bindingCount });
     },
-    [getEndpointsForSecret, getBindingCountForSecret],
+    [getModelDefinitionsForSecret, getBindingCountForSecret],
   );
 
   const handleDeleteModalClose = useCallback(() => {
     setDeleteModalData(null);
   }, []);
 
-  const handleDeleteSuccess = useCallback(() => {
-    refetchSecrets();
-    refetchEndpoints();
-  }, [refetchSecrets, refetchEndpoints]);
+  const handleDeleteSuccess = useCallback(async () => {
+    // Refetch data after deletion - wrap in try-catch since backend may have
+    // integrity issues if the deleted key was referenced by endpoints/model definitions
+    await refetchSecrets();
+    try {
+      await refetchEndpoints();
+    } catch {
+      // Ignore errors - backend may fail if orphaned references exist
+    }
+    try {
+      await refetchModelDefinitions();
+    } catch {
+      // Ignore errors - backend may fail if orphaned references exist
+    }
+  }, [refetchSecrets, refetchEndpoints, refetchModelDefinitions]);
 
   const handleEndpointsClick = useCallback((secret: SecretInfo, endpoints: Endpoint[]) => {
     setEndpointsDrawerData({ secret, endpoints });
@@ -161,7 +175,10 @@ const ApiKeysPage = () => {
           icon={<PlusIcon />}
           onClick={handleCreateClick}
         >
-          <FormattedMessage defaultMessage="Create API key" description="Create API key button" />
+          <FormattedMessage
+            defaultMessage="Create API key"
+            description="Gateway > API keys page > Create API key button"
+          />
         </Button>
       </div>
 
@@ -199,6 +216,7 @@ const ApiKeysPage = () => {
       {/* Endpoints Using Key Drawer */}
       <EndpointsUsingKeyDrawer
         open={endpointsDrawerData !== null}
+        keyName={endpointsDrawerData?.secret.secret_name ?? ''}
         endpoints={endpointsDrawerData?.endpoints ?? []}
         onClose={handleEndpointsDrawerClose}
       />
@@ -215,8 +233,7 @@ const ApiKeysPage = () => {
       <DeleteApiKeyModal
         open={deleteModalData !== null}
         secret={deleteModalData?.secret ?? null}
-        endpoints={deleteModalData?.endpoints ?? []}
-        bindingCount={deleteModalData?.bindingCount ?? 0}
+        modelDefinitions={deleteModalData?.modelDefinitions ?? []}
         onClose={handleDeleteModalClose}
         onSuccess={handleDeleteSuccess}
       />

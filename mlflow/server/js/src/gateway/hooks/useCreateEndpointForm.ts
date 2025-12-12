@@ -1,23 +1,17 @@
 import { useForm } from 'react-hook-form';
+import { useState, useCallback } from 'react';
 import { useNavigate } from '../../common/utils/RoutingUtils';
+import { useQueryClient } from '../../common/utils/reactQueryHooks';
 import { useCreateEndpointMutation } from './useCreateEndpointMutation';
 import { useCreateSecretMutation } from './useCreateSecretMutation';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
-import { useModelDefinitionsQuery } from './useModelDefinitionsQuery';
 import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
-import { useSecretsQuery } from './useSecretsQuery';
 import GatewayRoutes from '../routes';
 import type { SecretMode } from '../components/secrets/SecretConfigSection';
 
-type ModelDefinitionMode = 'new' | 'existing';
-
 export interface CreateEndpointFormData {
   name: string;
-  modelDefinitionMode: ModelDefinitionMode;
-  existingModelDefinitionId: string;
-  // Fields for new model definition
-  modelDefinitionName: string;
   provider: string;
   modelName: string;
   secretMode: SecretMode;
@@ -46,7 +40,9 @@ const isUniqueConstraintError = (message: string): boolean => {
     lowerMessage.includes('violation of unique key constraint') ||
     // Generic patterns
     lowerMessage.includes('uniqueviolation') ||
-    lowerMessage.includes('integrityerror')
+    lowerMessage.includes('integrityerror') ||
+    // User-friendly message from backend
+    lowerMessage.includes('already exists')
   );
 };
 
@@ -60,7 +56,11 @@ const isEndpointNameError = (message: string): boolean => {
 
 const isSecretNameError = (message: string): boolean => {
   const lowerMessage = message.toLowerCase();
-  return lowerMessage.includes('secrets.secret_name') || lowerMessage.includes('secret_name');
+  return (
+    lowerMessage.includes('secrets.secret_name') ||
+    lowerMessage.includes('secret_name') ||
+    lowerMessage.includes('secret with name')
+  );
 };
 
 /**
@@ -76,7 +76,7 @@ export const getReadableErrorMessage = (error: Error | null): string | null => {
       return 'An endpoint with this name already exists. Please choose a different name.';
     }
     if (isSecretNameError(message)) {
-      return 'A secret with this name already exists. Please choose a different name or use an existing secret.';
+      return 'An API key with this name already exists. Please choose a different name or use an existing API key.';
     }
     // Generic unique constraint fallback
     return 'A record with this value already exists. Please use a unique value.';
@@ -97,15 +97,8 @@ export interface UseCreateEndpointFormResult {
   error: Error | null;
   resetErrors: () => void;
   // Data
-  existingModelDefinitions: ReturnType<typeof useModelDefinitionsQuery>['data'];
   existingEndpoints: ReturnType<typeof useEndpointsQuery>['data'];
-  selectedModelDefinition: ReturnType<typeof useModelDefinitionsQuery>['data'] extends (infer T)[] | undefined
-    ? T | undefined
-    : never;
   selectedModel: ReturnType<typeof useModelsQuery>['data'] extends (infer T)[] | undefined ? T | undefined : never;
-  selectedSecretName: string | undefined;
-  providerModelDefinitions: ReturnType<typeof useModelDefinitionsQuery>['data'];
-  hasProviderModelDefinitions: boolean;
   // Computed state
   isFormComplete: boolean;
   // Handlers
@@ -120,13 +113,11 @@ export interface UseCreateEndpointFormResult {
  */
 export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const form = useForm<CreateEndpointFormData>({
     defaultValues: {
       name: '',
-      modelDefinitionMode: 'new',
-      existingModelDefinitionId: '',
-      modelDefinitionName: '',
       provider: '',
       modelName: '',
       secretMode: 'new',
@@ -139,9 +130,6 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
       },
     },
   });
-
-  // Fetch existing model definitions
-  const { data: existingModelDefinitions } = useModelDefinitionsQuery();
 
   const {
     mutateAsync: createEndpoint,
@@ -164,57 +152,52 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     reset: resetModelDefinitionError,
   } = useCreateModelDefinitionMutation();
 
-  const resetErrors = () => {
+  // Custom error state for handling special cases like secret name conflicts
+  const [customError, setCustomError] = useState<Error | null>(null);
+
+  const resetErrors = useCallback(() => {
     resetEndpointError();
     resetSecretError();
     resetModelDefinitionError();
-  };
+    setCustomError(null);
+  }, [resetEndpointError, resetSecretError, resetModelDefinitionError]);
 
   const isLoading = isCreatingEndpoint || isCreatingSecret || isCreatingModelDefinition;
-  const error = (createEndpointError || createSecretError || createModelDefinitionError) as Error | null;
+  const error = (customError || createEndpointError || createSecretError || createModelDefinitionError) as Error | null;
 
   const handleSubmit = async (values: CreateEndpointFormData) => {
     try {
-      let modelDefinitionId: string;
+      let secretId = values.existingSecretId;
 
-      if (values.modelDefinitionMode === 'existing') {
-        // Use existing model definition
-        modelDefinitionId = values.existingModelDefinitionId;
-      } else {
-        // Create new model definition
-        let secretId = values.existingSecretId;
-
-        if (values.secretMode === 'new') {
-          // Serialize secret fields as JSON for the secret value
-          const secretValue = JSON.stringify(values.newSecret.secretFields);
-          // Serialize config fields as JSON for auth config
-          // Build auth_config with auth_mode included
-          const authConfig: Record<string, any> = { ...values.newSecret.configFields };
-          if (values.newSecret.authMode) {
-            authConfig['auth_mode'] = values.newSecret.authMode;
-          }
-          const authConfigJson = Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined;
-
-          const secretResponse = await createSecret({
-            secret_name: values.newSecret.name,
-            secret_value: secretValue,
-            provider: values.provider,
-            auth_config_json: authConfigJson,
-          });
-
-          secretId = secretResponse.secret.secret_id;
+      if (values.secretMode === 'new') {
+        // Serialize secret fields as JSON for the secret value
+        const secretValue = JSON.stringify(values.newSecret.secretFields);
+        // Build auth_config with auth_mode included
+        const authConfig: Record<string, any> = { ...values.newSecret.configFields };
+        if (values.newSecret.authMode) {
+          authConfig['auth_mode'] = values.newSecret.authMode;
         }
+        const authConfigJson = Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined;
 
-        // Create a model definition
-        const modelDefinitionResponse = await createModelDefinition({
-          name: values.modelDefinitionName || `${values.name || 'endpoint'}-${values.modelName}`,
-          secret_id: secretId,
+        const secretResponse = await createSecret({
+          secret_name: values.newSecret.name,
+          secret_value: secretValue,
           provider: values.provider,
-          model_name: values.modelName,
+          auth_config_json: authConfigJson,
         });
 
-        modelDefinitionId = modelDefinitionResponse.model_definition.model_definition_id;
+        secretId = secretResponse.secret.secret_id;
       }
+
+      // Create a model definition (auto-generate name from endpoint name and model)
+      const modelDefinitionResponse = await createModelDefinition({
+        name: `${values.name || 'endpoint'}-${values.modelName}`,
+        secret_id: secretId,
+        provider: values.provider,
+        model_name: values.modelName,
+      });
+
+      const modelDefinitionId = modelDefinitionResponse.model_definition.model_definition_id;
 
       // Create the endpoint with the model definition ID
       const endpointResponse = await createEndpoint({
@@ -233,8 +216,6 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   };
 
   // Watch form values
-  const modelDefinitionMode = form.watch('modelDefinitionMode');
-  const existingModelDefinitionId = form.watch('existingModelDefinitionId');
   const provider = form.watch('provider');
   const modelName = form.watch('modelName');
   const secretMode = form.watch('secretMode');
@@ -242,22 +223,9 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   const newSecretName = form.watch('newSecret.name');
   const newSecretFields = form.watch('newSecret.secretFields');
 
-  // Filter model definitions by selected provider
-  const providerModelDefinitions = provider ? existingModelDefinitions?.filter((md) => md.provider === provider) : [];
-  const hasProviderModelDefinitions = providerModelDefinitions !== undefined && providerModelDefinitions.length > 0;
-
-  // Find selected model definition for display
-  const selectedModelDefinition = existingModelDefinitions?.find(
-    (md) => md.model_definition_id === existingModelDefinitionId,
-  );
-
   // Get the selected model's full data for the summary
   const { data: models } = useModelsQuery({ provider: provider || undefined });
   const selectedModel = models?.find((m) => m.model === modelName);
-
-  // Get secrets for the selected provider to find the selected secret name
-  const { data: providerSecrets } = useSecretsQuery({ provider: provider || undefined });
-  const selectedSecretName = providerSecrets?.find((s) => s.secret_id === existingSecretId)?.secret_name;
 
   // Fetch existing endpoints to check for name conflicts on blur
   const { data: existingEndpoints } = useEndpointsQuery();
@@ -273,31 +241,18 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   };
 
   // Check if the form is complete enough to enable the Create button
-  const isNewModelConfigured = () => {
-    // Check if at least one secret field has a value
-    const hasSecretFieldValues = Object.values(newSecretFields || {}).some((v) => Boolean(v));
-    const isSecretConfigured =
-      secretMode === 'existing' ? Boolean(existingSecretId) : Boolean(newSecretName) && hasSecretFieldValues;
-    return Boolean(provider) && Boolean(modelName) && isSecretConfigured;
-  };
-
-  const isFormComplete =
-    modelDefinitionMode === 'existing'
-      ? Boolean(provider) && Boolean(existingModelDefinitionId)
-      : isNewModelConfigured();
+  const hasSecretFieldValues = Object.values(newSecretFields || {}).some((v) => Boolean(v));
+  const isSecretConfigured =
+    secretMode === 'existing' ? Boolean(existingSecretId) : Boolean(newSecretName) && hasSecretFieldValues;
+  const isFormComplete = Boolean(provider) && Boolean(modelName) && isSecretConfigured;
 
   return {
     form,
     isLoading,
     error,
     resetErrors,
-    existingModelDefinitions,
     existingEndpoints,
-    selectedModelDefinition,
     selectedModel,
-    selectedSecretName,
-    providerModelDefinitions,
-    hasProviderModelDefinitions,
     isFormComplete,
     handleSubmit,
     handleCancel,

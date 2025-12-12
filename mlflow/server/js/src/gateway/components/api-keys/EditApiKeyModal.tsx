@@ -36,7 +36,8 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
     reset: resetMutation,
   } = useUpdateSecretMutation();
 
-  const { data: providerConfig } = useProviderConfigQuery({ provider: secret?.provider ?? '' });
+  const provider = secret?.provider ?? '';
+  const { data: providerConfig } = useProviderConfigQuery({ provider });
 
   // Use ref to avoid resetMutation in useEffect deps (it may change on each render)
   const resetMutationRef = useRef(resetMutation);
@@ -45,7 +46,7 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
   // Initialize form when secret changes
   useEffect(() => {
     if (secret) {
-      // Get auth_mode from auth_config
+      // Get auth_mode from auth_config (either parsed object or JSON string)
       let authMode = '';
       if (secret.auth_config?.['auth_mode']) {
         authMode = String(secret.auth_config['auth_mode']);
@@ -214,23 +215,23 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
         </div>
 
         {/* Provider (read-only) */}
-        {secret.provider && (
+        {provider && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
             <Typography.Text bold>
               <FormattedMessage defaultMessage="Provider" description="Provider label" />
             </Typography.Text>
             <Input
               componentId="mlflow.gateway.edit-api-key-modal.provider"
-              value={formatProviderName(secret.provider)}
+              value={formatProviderName(provider)}
               disabled
               css={{ backgroundColor: theme.colors.actionDisabledBackground }}
             />
           </div>
         )}
 
-        {/* Editable fields */}
+        {/* Editable fields - auth mode selector and credential fields */}
         <SecretFormFields
-          provider={secret.provider || ''}
+          provider={provider}
           value={formData}
           onChange={handleFormDataChange}
           errors={errors}

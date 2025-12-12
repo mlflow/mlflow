@@ -2014,10 +2014,12 @@ class ListGatewayEndpointBindings(_message.Message):
 class GetSecretsConfig(_message.Message):
     __slots__ = ()
     class Response(_message.Message):
-        __slots__ = ("secrets_available",)
+        __slots__ = ("secrets_available", "gateway_available")
         SECRETS_AVAILABLE_FIELD_NUMBER: _ClassVar[int]
+        GATEWAY_AVAILABLE_FIELD_NUMBER: _ClassVar[int]
         secrets_available: bool
-        def __init__(self, secrets_available: bool = ...) -> None: ...
+        gateway_available: bool
+        def __init__(self, secrets_available: bool = ..., gateway_available: bool = ...) -> None: ...
     def __init__(self) -> None: ...
 
 class MlflowService(_service.service): ...
