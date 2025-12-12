@@ -8,12 +8,11 @@
 import { UI_TELEMETRY_ENDPOINT } from './constants';
 import { type TelemetryRecord } from './types';
 
-const FLUSH_INTERVAL_MS = 15000; // 15 seconds
+const FLUSH_INTERVAL_MS = 30000; // 30 seconds
 
 export class LogQueue {
   private queue: TelemetryRecord[] = [];
   private flushTimer: number | null = null;
-  private isFlushing = false;
 
   constructor() {
     this.startFlushTimer();
@@ -29,19 +28,23 @@ export class LogQueue {
 
   private startFlushTimer(): void {
     if (this.flushTimer !== null) {
-      return;
+      return; // Loop already running
     }
+    this.scheduleNextFlush();
+  }
 
+  private scheduleNextFlush(): void {
     // eslint-disable-next-line no-restricted-globals
-    this.flushTimer = self.setInterval(() => {
+    this.flushTimer = self.setTimeout(() => {
       this.flush();
+      this.scheduleNextFlush(); // Continue the loop
     }, FLUSH_INTERVAL_MS) as unknown as number;
   }
 
   private stopFlushTimer(): void {
     if (this.flushTimer !== null) {
       // eslint-disable-next-line no-restricted-globals
-      self.clearInterval(this.flushTimer);
+      self.clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
 
@@ -53,11 +56,10 @@ export class LogQueue {
    * failed records.
    */
   public async flush(): Promise<void> {
-    if (this.isFlushing || this.queue.length === 0 || !navigator.onLine) {
+    if (this.queue.length === 0 || !navigator.onLine) {
       return;
     }
 
-    this.isFlushing = true;
     const records = [...this.queue];
     this.queue = [];
 
@@ -83,8 +85,6 @@ export class LogQueue {
     } catch (error) {
       console.error('[LogQueue] Error uploading batch:', error);
       this.queue.unshift(...records);
-    } finally {
-      this.isFlushing = false;
     }
   }
 
