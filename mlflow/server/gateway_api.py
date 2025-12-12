@@ -12,7 +12,15 @@ import logging
 from fastapi import APIRouter, HTTPException, Request
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointType
+from mlflow.gateway.config import (
+    AmazonBedrockConfig,
+    AnthropicConfig,
+    AWSBaseConfig,
+    EndpointConfig,
+    EndpointType,
+    OpenAIConfig,
+    Provider,
+)
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.schemas import chat, embeddings
@@ -52,7 +60,7 @@ def _translate_http_exception(func):
 
 def _create_provider_from_endpoint_config(
     endpoint_id: str, store: SqlAlchemyStore, endpoint_type: EndpointType
-) -> tuple[BaseProvider, EndpointType]:
+) -> BaseProvider:
     """
     Create a provider instance from database endpoint configuration.
 
@@ -62,20 +70,11 @@ def _create_provider_from_endpoint_config(
         endpoint_type: Endpoint type (chat or embeddings).
 
     Returns:
-        Tuple of (Provider instance, EndpointType)
+        Provider instance
 
     Raises:
         MlflowException: If endpoint not found or configuration is invalid.
     """
-    from mlflow.gateway.config import (
-        AmazonBedrockConfig,
-        AnthropicConfig,
-        AWSBaseConfig,
-        EndpointConfig,
-        OpenAIConfig,
-        Provider,
-    )
-
     # Get endpoint config with decrypted secrets
     endpoint_config = get_endpoint_config(endpoint_id=endpoint_id, store=store)
 
@@ -93,19 +92,25 @@ def _create_provider_from_endpoint_config(
 
     if provider_enum == Provider.OPENAI:
         provider_config = OpenAIConfig(
-            openai_api_key=model_config.secret_value,
+            openai_api_key=model_config.secret_value.get("api_key"),
             openai_api_base=model_config.auth_config.get("api_base")
             if model_config.auth_config
             else None,
         )
     elif provider_enum == Provider.ANTHROPIC:
-        provider_config = AnthropicConfig(anthropic_api_key=model_config.secret_value)
+        provider_config = AnthropicConfig(
+            anthropic_api_key=model_config.secret_value.get("api_key"),
+            anthropic_version=model_config.auth_config.get("version")
+            if model_config.auth_config
+            else None,
+        )
     elif provider_enum in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
         auth_config = model_config.auth_config or {}
         provider_config = AmazonBedrockConfig(
             aws_config=AWSBaseConfig(**auth_config) if auth_config else AWSBaseConfig(),
         )
     else:
+        # TODO: Support long-tail providers with LiteLLM
         raise MlflowException(
             f"Provider '{model_config.provider}' is not yet supported for database-backed endpoints"
         )
@@ -122,11 +127,9 @@ def _create_provider_from_endpoint_config(
         },
     )
 
-    # Get and instantiate the provider
     provider_class = get_provider(provider_enum)
-    provider_instance = provider_class(gateway_endpoint_config)
 
-    return (provider_instance, endpoint_type)
+    return provider_class(gateway_endpoint_config)
 
 
 def _create_invocations_handler(endpoint_id: str, store: SqlAlchemyStore):
@@ -155,7 +158,7 @@ def _create_invocations_handler(endpoint_id: str, store: SqlAlchemyStore):
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-            provider, _ = _create_provider_from_endpoint_config(endpoint_id, store, endpoint_type)
+            provider = _create_provider_from_endpoint_config(endpoint_id, store, endpoint_type)
 
             if payload.stream:
                 return await make_streaming_response(provider.chat_stream(payload))
@@ -170,7 +173,7 @@ def _create_invocations_handler(endpoint_id: str, store: SqlAlchemyStore):
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
 
-            provider, _ = _create_provider_from_endpoint_config(endpoint_id, store, endpoint_type)
+            provider = _create_provider_from_endpoint_config(endpoint_id, store, endpoint_type)
 
             return await provider.embeddings(payload)
 
@@ -198,7 +201,7 @@ def register_gateway_endpoints(store: SqlAlchemyStore) -> APIRouter:
     """
     # Get all endpoints from the database
     try:
-        endpoints = store.list_endpoints()
+        endpoints = store.list_gateway_endpoints()
     except Exception as e:
         _logger.warning(f"Failed to load gateway endpoints from database: {e}")
         endpoints = []
