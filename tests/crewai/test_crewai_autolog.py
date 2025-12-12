@@ -635,7 +635,8 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
         "latest_n": 2,
         "task": "Analyze and select the best city for the trip",
     }
-    assert span_3.outputs is None
+    # CrewAI >= 1.7.0 returns [] instead of None for empty LongTermMemory search
+    assert span_3.outputs is None or span_3.outputs == []
 
     # ShortTermMemory
     span_4 = traces[0].data.spans[4]
