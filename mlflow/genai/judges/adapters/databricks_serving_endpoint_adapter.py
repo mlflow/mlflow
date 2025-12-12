@@ -1,21 +1,31 @@
-"""Databricks Serving Endpoint adapter for direct REST API invocations."""
-
 from __future__ import annotations
 
 import json
 import logging
 import time
+import traceback
+import warnings
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pydantic
 import requests
 
+if TYPE_CHECKING:
+    from mlflow.types.llm import ChatMessage
+
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.adapters.base_adapter import (
+    AdapterInvocationInput,
+    AdapterInvocationOutput,
+    BaseJudgeAdapter,
+)
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _sanitize_justification
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.telemetry.utils import _log_error
 
 _logger = logging.getLogger(__name__)
 
@@ -99,6 +109,7 @@ def _invoke_databricks_serving_endpoint(
     prompt: str,
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> InvokeDatabricksModelOutput:
     from mlflow.utils.databricks_utils import get_databricks_host_creds
 
@@ -123,6 +134,10 @@ def _invoke_databricks_serving_endpoint(
             # Add response_schema if provided
             if response_format is not None:
                 payload["response_schema"] = response_format.model_json_schema()
+
+            # Add inference parameters if provided (e.g., temperature, top_p, max_tokens)
+            if inference_params:
+                payload.update(inference_params)
 
             res = requests.post(
                 url=api_url,
@@ -265,12 +280,14 @@ def _invoke_databricks_serving_endpoint_judge(
     assessment_name: str,
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> InvokeJudgeModelHelperOutput:
     output = _invoke_databricks_serving_endpoint(
         model_name=model_name,
         prompt=prompt,
         num_retries=num_retries,
         response_format=response_format,
+        inference_params=inference_params,
     )
     try:
         response_dict = json.loads(output.response)
@@ -297,3 +314,82 @@ def _invoke_databricks_serving_endpoint_judge(
         num_prompt_tokens=output.num_prompt_tokens,
         num_completion_tokens=output.num_completion_tokens,
     )
+
+
+class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
+    """Adapter for Databricks serving endpoints using direct REST API invocations."""
+
+    @classmethod
+    def is_applicable(
+        cls,
+        model_uri: str,
+        prompt: str | list["ChatMessage"],
+    ) -> bool:
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+        # Don't handle the default judge (that's handled by DatabricksManagedJudgeAdapter)
+        if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+            return False
+
+        model_provider, _ = _parse_model_uri(model_uri)
+        return model_provider in {"databricks", "endpoints"} and isinstance(prompt, str)
+
+    def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        # Show deprecation warning for legacy 'endpoints' provider
+        model_provider = input_params.model_provider
+        if model_provider == "endpoints":
+            warnings.warn(
+                "The legacy provider 'endpoints' is deprecated and will be removed in a future "
+                "release. Please update your code to use the 'databricks' provider instead.",
+                FutureWarning,
+                stacklevel=4,
+            )
+
+        model_name = input_params.model_name
+
+        try:
+            output = _invoke_databricks_serving_endpoint_judge(
+                model_name=model_name,
+                prompt=input_params.prompt,
+                assessment_name=input_params.assessment_name,
+                num_retries=input_params.num_retries,
+                response_format=input_params.response_format,
+                inference_params=input_params.inference_params,
+            )
+
+            # Set trace_id if trace was provided
+            feedback = output.feedback
+            if input_params.trace is not None:
+                feedback.trace_id = input_params.trace.info.trace_id
+
+            try:
+                provider = "databricks" if model_provider == "endpoints" else model_provider
+                _record_judge_model_usage_success_databricks_telemetry(
+                    request_id=output.request_id,
+                    model_provider=provider,
+                    endpoint_name=model_name,
+                    num_prompt_tokens=output.num_prompt_tokens,
+                    num_completion_tokens=output.num_completion_tokens,
+                )
+            except Exception:
+                _log_error("Failed to record judge model usage success telemetry")
+
+            return AdapterInvocationOutput(
+                feedback=feedback,
+                request_id=output.request_id,
+                num_prompt_tokens=output.num_prompt_tokens,
+                num_completion_tokens=output.num_completion_tokens,
+            )
+
+        except Exception:
+            try:
+                provider = "databricks" if model_provider == "endpoints" else model_provider
+                _record_judge_model_usage_failure_databricks_telemetry(
+                    model_provider=provider,
+                    endpoint_name=model_name,
+                    error_code="UNKNOWN",
+                    error_message=traceback.format_exc(),
+                )
+            except Exception:
+                _log_error("Failed to record judge model usage failure telemetry")
+            raise

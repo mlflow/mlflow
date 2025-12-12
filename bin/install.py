@@ -5,6 +5,7 @@ Install binary tools for MLflow development.
 # ruff: noqa: T201
 import argparse
 import gzip
+import json
 import platform
 import subprocess
 import tarfile
@@ -12,6 +13,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+INSTALLED_VERSIONS_FILE = ".installed_versions.json"
 
 # Type definitions
 PlatformKey = tuple[
@@ -24,6 +27,7 @@ ExtractType = Literal["gzip", "tar", "binary"]
 @dataclass
 class Tool:
     name: str
+    version: str
     urls: dict[PlatformKey, str]  # platform -> URL mapping
     version_args: list[str] | None = None  # Custom version check args (default: ["--version"])
 
@@ -52,6 +56,7 @@ class Tool:
 TOOLS = [
     Tool(
         name="taplo",
+        version="0.9.3",
         urls={
             (
                 "linux",
@@ -65,19 +70,21 @@ TOOLS = [
     ),
     Tool(
         name="typos",
+        version="1.39.2",
         urls={
             (
                 "linux",
                 "x86_64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.28.0/typos-v1.28.0-x86_64-unknown-linux-musl.tar.gz",
+            ): "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-x86_64-unknown-linux-musl.tar.gz",
             (
                 "darwin",
                 "arm64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.28.0/typos-v1.28.0-aarch64-apple-darwin.tar.gz",
+            ): "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-aarch64-apple-darwin.tar.gz",
         },
     ),
     Tool(
         name="conftest",
+        version="0.63.0",
         urls={
             (
                 "linux",
@@ -91,6 +98,7 @@ TOOLS = [
     ),
     Tool(
         name="regal",
+        version="0.36.1",
         urls={
             (
                 "linux",
@@ -105,6 +113,7 @@ TOOLS = [
     ),
     Tool(
         name="buf",
+        version="1.59.0",
         urls={
             (
                 "linux",
@@ -114,6 +123,20 @@ TOOLS = [
                 "darwin",
                 "arm64",
             ): "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Darwin-arm64",
+        },
+    ),
+    Tool(
+        name="rg",
+        version="14.1.1",
+        urls={
+            (
+                "linux",
+                "x86_64",
+            ): "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz",
+            (
+                "darwin",
+                "arm64",
+            ): "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-aarch64-apple-darwin.tar.gz",
         },
     ),
 ]
@@ -151,6 +174,7 @@ def extract_gzip_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
 
 def extract_tar_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
     print(f"Downloading from {url}...")
+    output_path = dest_dir / binary_name
     with (
         urllib.request.urlopen(url) as response,
         tarfile.open(fileobj=response, mode="r|*") as tar,
@@ -159,8 +183,10 @@ def extract_tar_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
         for member in tar:
             if member.isfile() and member.name.endswith(binary_name):
                 # Extract the file content and write directly to destination
-                tar.extract(member, dest_dir)
-                return dest_dir / binary_name
+                f = tar.extractfile(member)
+                if f is not None:
+                    output_path.write_bytes(f.read())
+                    return output_path
 
     raise FileNotFoundError(f"Could not find {binary_name} in archive")
 
@@ -223,7 +249,20 @@ def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
     print(f"Successfully installed {tool.name} to {binary_path}")
 
 
+def load_installed_versions(dest_dir: Path) -> dict[str, str]:
+    f = dest_dir / INSTALLED_VERSIONS_FILE
+    if f.exists():
+        return json.loads(f.read_text())
+    return {}
+
+
+def save_installed_versions(dest_dir: Path, versions: dict[str, str]) -> None:
+    f = dest_dir / INSTALLED_VERSIONS_FILE
+    f.write_text(json.dumps(versions, indent=2, sort_keys=True) + "\n")
+
+
 def main() -> None:
+    all_tool_names = [t.name for t in TOOLS]
     parser = argparse.ArgumentParser(description="Install binary tools for MLflow development")
     parser.add_argument(
         "-f",
@@ -231,21 +270,50 @@ def main() -> None:
         action="store_true",
         help="Force reinstall by removing existing tools",
     )
+    parser.add_argument(
+        "tools",
+        nargs="*",
+        metavar="TOOL",
+        help=f"Tools to install (default: all). Available: {', '.join(all_tool_names)}",
+    )
     args = parser.parse_args()
 
-    if args.force_reinstall:
-        print("Force reinstall: removing existing tools and reinstalling...")
+    # Filter tools if specific ones requested
+    if args.tools:
+        if invalid_tools := set(args.tools) - set(all_tool_names):
+            parser.error(
+                f"Unknown tools: {', '.join(sorted(invalid_tools))}. "
+                f"Available: {', '.join(all_tool_names)}"
+            )
+        tools_to_install = [t for t in TOOLS if t.name in args.tools]
     else:
-        print("Installing all tools to bin/ directory...")
+        tools_to_install = TOOLS
 
     dest_dir = Path(__file__).resolve().parent
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    for tool in TOOLS:
-        print(f"\nInstalling {tool.name}...")
-        install_tool(tool, dest_dir, force=args.force_reinstall)
+    installed_versions = load_installed_versions(dest_dir)
+    outdated_tools = sorted(
+        t.name for t in tools_to_install if installed_versions.get(t.name) != t.version
+    )
+    force_all = args.force_reinstall
 
-    print("\nAll tools installed successfully!")
+    if force_all:
+        print("Force reinstall: removing existing tools and reinstalling...")
+    elif outdated_tools:
+        print(f"Version changes detected for: {', '.join(outdated_tools)}")
+    else:
+        print("Installing tools to bin/ directory...")
+
+    for tool in tools_to_install:
+        # Force reinstall if globally forced or if this tool's version changed
+        force = force_all or tool.name in outdated_tools
+        print(f"\nInstalling {tool.name}...")
+        install_tool(tool, dest_dir, force=force)
+        installed_versions[tool.name] = tool.version
+
+    save_installed_versions(dest_dir, installed_versions)
+    print("\nDone!")
 
 
 if __name__ == "__main__":

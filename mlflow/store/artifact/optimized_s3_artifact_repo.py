@@ -71,7 +71,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             else {}
         )
         self._region_name = self._get_region_name()
-        self._s3_upload_extra_args = s3_upload_extra_args if s3_upload_extra_args else {}
+        self._s3_upload_extra_args = s3_upload_extra_args or {}
 
     def _refresh_credentials(self):
         if not self._credential_refresh_def:
@@ -150,8 +150,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
 
     @staticmethod
     def get_s3_file_upload_extra_args():
-        s3_file_upload_extra_args = MLFLOW_S3_UPLOAD_EXTRA_ARGS.get()
-        if s3_file_upload_extra_args:
+        if s3_file_upload_extra_args := MLFLOW_S3_UPLOAD_EXTRA_ARGS.get():
             return json.loads(s3_file_upload_extra_args)
         else:
             return None

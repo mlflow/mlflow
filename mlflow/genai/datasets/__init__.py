@@ -292,7 +292,6 @@ def get_dataset(
 
             # Access dataset properties
             print(f"Dataset name: {dataset.name}")
-            print(f"Number of records: {len(dataset.records)}")
             print(f"Tags: {dataset.tags}")
             print(f"Created by: {dataset.created_by}")
 
@@ -462,31 +461,29 @@ def search_datasets(
             # Iterate through results (pagination handled automatically)
             for dataset in prod_datasets:
                 print(f"{dataset.name} (ID: {dataset.dataset_id})")
-                print(f"  Records: {len(dataset.records)}")
                 print(f"  Tags: {dataset.tags}")
 
     Note:
         This API is not available in Databricks environments. Use Unity Catalog
         search capabilities in Databricks instead.
     """
-    if is_databricks_uri(get_tracking_uri()):
-        raise NotImplementedError(
-            "Dataset search is not available in Databricks. "
-            "Use Unity Catalog search capabilities instead."
-        )
-
     if isinstance(experiment_ids, str):
         experiment_ids = [experiment_ids]
 
+    # Check if we're using Databricks - don't set defaults for unsupported parameters
+    is_databricks = is_databricks_uri(get_tracking_uri())
+
     # Set default filter to return datasets created in the last 7 days if no filter provided
+    # Skip this for Databricks as filter_string is not supported
     # Also handle empty list/string cases where user might pass [] or ""
-    if not filter_string:
+    if not is_databricks and not filter_string:
         # 7 days ago in milliseconds
         seven_days_ago = int((time.time() - 7 * 24 * 60 * 60) * 1000)
         filter_string = f"created_time >= {seven_days_ago}"
 
     # Set default order by creation time DESC if no order provided
-    if order_by is None:
+    # Skip this for Databricks as order_by is not supported
+    if not is_databricks and order_by is None:
         order_by = ["created_time DESC"]
 
     from mlflow.tracking.client import MlflowClient

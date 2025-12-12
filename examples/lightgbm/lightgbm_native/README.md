@@ -17,7 +17,7 @@ python train.py --learning-rate 0.4 --colsample-bytree 0.7 --subsample 0.8
 Then you can open the MLflow UI to track the experiments and compare your runs via:
 
 ```
-mlflow ui
+mlflow server
 ```
 
 ## Running the code as a project
