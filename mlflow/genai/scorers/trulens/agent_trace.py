@@ -87,9 +87,28 @@ class _TruLensAgentTraceScorerBase(Scorer):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _clamp_score(self, score: float) -> float:
-        """Clamp score to valid 0-1 range."""
-        return min(1.0, max(0.0, score))
+    def _validate_score(self, score: float) -> float:
+        """
+        Validate that score is in expected 0-1 range.
+
+        TruLens normalizes scores internally to 0-1 range. If a score falls
+        outside this range, it indicates a potential bug or version incompatibility.
+
+        Args:
+            score: The score from TruLens
+
+        Returns:
+            Validated score (clamped with warning if out of range)
+        """
+        if score < 0.0 or score > 1.0:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                f"TruLens returned score {score} outside expected 0-1 range. "
+                "This may indicate a version incompatibility. Clamping to valid range."
+            )
+            return min(1.0, max(0.0, score))
+        return score
 
     def _format_rationale(self, reasons: dict[str, Any] | None) -> str:
         """Format TruLens reasons dict into a readable rationale string."""
@@ -195,12 +214,12 @@ class TruLensLogicalConsistencyScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )
 
@@ -275,12 +294,12 @@ class TruLensExecutionEfficiencyScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )
 
@@ -354,12 +373,12 @@ class TruLensPlanAdherenceScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )
 
@@ -433,12 +452,12 @@ class TruLensPlanQualityScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )
 
@@ -512,12 +531,12 @@ class TruLensToolSelectionScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )
 
@@ -591,11 +610,11 @@ class TruLensToolCallingScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        clamped_score = self._clamp_score(score)
+        validated_score = self._validate_score(score)
         rationale = self._format_rationale(reasons)
 
         return Feedback(
             name=self.name,
-            value=clamped_score,
+            value=validated_score,
             rationale=rationale,
         )
