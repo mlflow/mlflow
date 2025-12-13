@@ -22,7 +22,12 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    AssessmentMetadataKey,
+    SpanAttributeKey,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracing.utils.search import traces_to_df
@@ -33,6 +38,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from mlflow.genai.evaluation.entities import EvalItem, EvalResult
+    from mlflow.types.chat import ChatTool
 
 _logger = logging.getLogger(__name__)
 
@@ -763,3 +769,123 @@ def batch_link_traces_to_run(
                 return
 
             _logger.warning(f"Failed to link batch of traces to run: {e}")
+
+
+def extract_available_tools_from_trace(trace: Trace) -> list["ChatTool"]:
+    """
+    Extract available tools from a trace by checking all LLM spans.
+
+    This function mirrors the frontend's getChatToolsFromSpan logic in
+    ModelTraceExplorer.utils.tsx, which extracts tools per-span. It checks all
+    LLM and CHAT_MODEL spans for tools, and returns a deduplicated list
+    of all unique tools found across the trace.
+
+    For each span, it first checks the mlflow.chat.tools attribute, and if not
+    found, falls back to checking the inputs.tools field.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        List of unique ChatTool objects, or an empty list if no valid tools are found.
+    """
+    if trace is None or trace.data is None:
+        return []
+
+    all_tools = []
+    seen_tool_signatures = set()
+
+    relevant_span_types = [SpanType.LLM, SpanType.CHAT_MODEL]
+
+    for span in trace.data.spans:
+        span_type = span.get_attribute(SpanAttributeKey.SPAN_TYPE)
+        if span_type not in relevant_span_types:
+            continue
+
+        span_tools = _extract_tools_from_span(span)
+
+        for tool in span_tools:
+            if tool.function:
+                tool_signature = _get_tool_signature(tool)
+                if tool_signature not in seen_tool_signatures:
+                    seen_tool_signatures.add(tool_signature)
+                    all_tools.append(tool)
+
+    return all_tools
+
+
+def _get_tool_signature(tool: "ChatTool") -> str:
+    if not tool.function:
+        return ""
+
+    try:
+        tool_dict = tool.function.model_dump()
+    except AttributeError:
+        tool_dict = tool.function.dict()
+
+    return json.dumps(tool_dict, sort_keys=True)
+
+
+def _extract_tools_from_span(span: Span) -> list["ChatTool"]:
+    """
+    Extract tools from a single LLM or CHAT_MODEL span, checking attribute first, then inputs.
+
+    This mirrors the frontend's getChatToolsFromSpan logic exactly, but returns
+    validated ChatTool objects using Pydantic validation.
+
+    Args:
+        span: MLflow span object
+
+    Returns:
+        List of ChatTool objects for this span
+    """
+    # First, try to get tools from the mlflow.chat.tools attribute
+    tools_attribute = span.get_attribute(SpanAttributeKey.CHAT_TOOLS)
+    if tools_attribute is not None:
+        try:
+            # Deserialize if it's a string
+            if isinstance(tools_attribute, str):
+                tools_attribute = json.loads(tools_attribute)
+
+            # Validate and convert to ChatTool objects using Pydantic
+            if isinstance(tools_attribute, list):
+                return _parse_tools_to_chat_tool(tools_attribute)
+        except (json.JSONDecodeError, ValueError, Exception) as e:
+            _logger.debug(f"Failed to parse tools from attribute in span {span.span_id}: {e}")
+
+    # Fall back to checking inputs.tools
+    if span.inputs is not None:
+        try:
+            inputs = _to_dict(span.inputs)
+            if isinstance(inputs, dict) and "tools" in inputs:
+                tools_from_inputs = inputs["tools"]
+                if isinstance(tools_from_inputs, list):
+                    return _parse_tools_to_chat_tool(tools_from_inputs)
+        except (ValueError, TypeError, Exception) as e:
+            _logger.debug(f"Failed to parse tools from inputs in span {span.span_id}: {e}")
+
+    return []
+
+
+def _parse_tools_to_chat_tool(tools_data: list[dict[str, Any]]) -> list["ChatTool"]:
+    """
+    Parse a list of tool dictionaries into ChatTool objects using Pydantic validation.
+
+    Args:
+        tools_data: List of tool dictionaries
+
+    Returns:
+        List of validated ChatTool objects. Invalid tools are skipped with debug logging.
+    """
+    from mlflow.types.chat import ChatTool
+
+    validated_tools = []
+    for data in tools_data:
+        try:
+            tool = ChatTool(**data)
+            validated_tools.append(tool)
+        except Exception as e:
+            _logger.debug(f"Skipping invalid tool {data}: {e}")
+            continue
+
+    return validated_tools
