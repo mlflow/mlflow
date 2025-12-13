@@ -23,7 +23,7 @@ import {
   deduplicateSpanNamesInPlace,
   aggregateUsageFromSpans
 } from '../core/utils';
-import { getConfig } from '../core/config';
+import { getConfig, ensureInitialized } from '../core/config';
 import { MlflowClient } from '../clients';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
 
@@ -198,14 +198,18 @@ export class MlflowSpanExporter implements SpanExporter {
 
   /**
    * Export a complete trace to the MLflow backend
-   * Step 1: Create trace metadata via StartTraceV3 endpoint
-   * Step 2: Upload trace data (spans) via artifact repository pattern
+   * Step 1: Ensure SDK initialization is complete (for async host resolution)
+   * Step 2: Create trace metadata via StartTraceV3 endpoint
+   * Step 3: Upload trace data (spans) via artifact repository pattern
    */
   private async exportTraceToBackend(trace: Trace): Promise<void> {
     try {
-      // Step 1: Create trace metadata in backend
+      // Step 1: Ensure SDK initialization is complete (handles async host resolution)
+      await ensureInitialized();
+
+      // Step 2: Create trace metadata in backend
       const traceInfo = await this._client.createTrace(trace.info);
-      // Step 2: Upload trace data (spans) to artifact storage
+      // Step 3: Upload trace data (spans) to artifact storage
       await this._client.uploadTraceData(traceInfo, trace.data);
     } catch (error) {
       console.error(`Failed to export trace ${trace.info.traceId}:`, error);
