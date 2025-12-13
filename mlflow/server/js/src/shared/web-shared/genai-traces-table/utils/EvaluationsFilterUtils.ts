@@ -39,16 +39,13 @@ function filterEval(
         runValue?.overallAssessments[0]?.rootCauseAssessment?.assessmentName === assessmentName;
       includeEval = includeEval && currentIsAssessmentRootCause;
     } else {
-      let matchesFilter: boolean;
-      if (filterValue === undefined) {
-        // Filtering for undefined means we want traces that have NO assessments for this name
-        matchesFilter = assessments.length === 0;
-      } else {
-        matchesFilter = assessments.some((assessment) => {
-          const value = getEvaluationResultAssessmentValue(assessment) ?? undefined;
-          return value === filterValue;
-        });
-      }
+      // Filtering for undefined means we want traces with NO assessments for this name
+      const matchesFilter =
+        filterValue === undefined
+          ? assessments.length === 0
+          : assessments.some(
+              (assessment) => (getEvaluationResultAssessmentValue(assessment) ?? undefined) === filterValue,
+            );
       includeEval = includeEval && matchesFilter;
     }
   }

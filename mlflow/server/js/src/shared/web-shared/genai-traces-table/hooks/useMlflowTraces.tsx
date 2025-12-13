@@ -330,21 +330,10 @@ export const useSearchMlflowTraces = ({
   const filteredTraces: ModelTraceInfoV3[] | undefined = useMemo(() => {
     if (!evalTraceComparisonEntries) return undefined;
 
-    // Check if we have client filters that need to be applied
     const hasClientFilters = clientFilters && clientFilters.length > 0;
     const hasSearchQuery = searchQuery && searchQuery !== '';
 
-    // If no client-side filtering needed, return all traces
-    if (!useClientSideFiltering && !hasClientFilters && !hasSearchQuery) {
-      return evalTraceComparisonEntries.reduce<ModelTraceInfoV3[]>((acc, entry) => {
-        if (entry.currentRunValue?.traceInfo) {
-          acc.push(entry.currentRunValue.traceInfo);
-        }
-        return acc;
-      }, []);
-    }
-
-    // Also skip filtering if client-side filtering is disabled AND there are no client filters to apply
+    // Skip filtering if there are no client filters to apply
     if (!hasClientFilters && !hasSearchQuery) {
       return evalTraceComparisonEntries.reduce<ModelTraceInfoV3[]>((acc, entry) => {
         if (entry.currentRunValue?.traceInfo) {
@@ -355,11 +344,9 @@ export const useSearchMlflowTraces = ({
     }
 
     const assessmentFilters: AssessmentFilter[] = clientFilters.map((filter) => {
-      // Convert string 'undefined' to actual JavaScript undefined
-      const filterValue = filter.value === 'undefined' ? undefined : filter.value;
       return {
         assessmentName: filter.key || '',
-        filterValue,
+        filterValue: filter.value,
         run: currentRunDisplayName || '',
       };
     });
@@ -378,7 +365,7 @@ export const useSearchMlflowTraces = ({
     }, []);
 
     return res;
-  }, [evalTraceComparisonEntries, useClientSideFiltering, clientFilters, searchQuery, currentRunDisplayName]);
+  }, [evalTraceComparisonEntries, clientFilters, searchQuery, currentRunDisplayName]);
 
   const tracesFilteredBySourceRun = useMemo(
     () => filterTracesByAssessmentSourceRunId(filteredTraces, runUuid),
