@@ -406,12 +406,7 @@ def _log_assessments(
         else:
             _logger.debug(f"No root span found for trace {trace.info.trace_id}")
 
-        try:
-            mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
-        except Exception as e:
-            _logger.warning(
-                f"Failed to log assessment '{assessment.name}' for trace {trace.info.trace_id}: {e}"
-            )
+        mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 
 
 def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:
