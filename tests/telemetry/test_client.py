@@ -67,6 +67,81 @@ def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_reques
     assert data["status"] == "success"
 
 
+def test_add_records_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
+    # Pre-populate pending_records with 200 records
+    initial_records = [
+        Record(
+            event_name=f"initial_{i}",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+        for i in range(200)
+    ]
+    mock_telemetry_client.add_records(initial_records)
+
+    # We haven't hit the batch size limit yet, so expect no records to be sent
+    assert len(mock_telemetry_client._pending_records) == 200
+    assert len(mock_requests) == 0
+
+    # Add 1000 more records
+    # Expected behavior:
+    # - First 300 records fill to 500 -> send batch (200 + 300) to queue
+    # - Next 500 records -> send batch to queue
+    # - Last 200 records remain in pending (200 < 500)
+    additional_records = [
+        Record(
+            event_name=f"additional_{i}",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+        for i in range(1000)
+    ]
+    mock_telemetry_client.add_records(additional_records)
+
+    # Verify batching logic:
+    # - 2 batches should be in the queue
+    # - 200 records should remain in pending
+    assert mock_telemetry_client._queue.qsize() == 2
+    assert len(mock_telemetry_client._pending_records) == 200
+
+    # Flush to process queue and send the remaining partial batch
+    mock_telemetry_client.flush()
+
+    # Verify all 1200 records were sent
+    assert len(mock_requests) == 1200
+    event_names = {req["data"]["event_name"] for req in mock_requests}
+    assert all(f"initial_{i}" in event_names for i in range(200))
+    assert all(f"additional_{i}" in event_names for i in range(1000))
+
+
+def test_record_with_session_and_installation_id(
+    mock_telemetry_client: TelemetryClient, mock_requests
+):
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+        session_id="session_id_override",
+        installation_id="installation_id_override",
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    assert mock_requests[0]["data"]["session_id"] == "session_id_override"
+    assert mock_requests[0]["data"]["installation_id"] == "installation_id_override"
+
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    assert mock_requests[1]["data"]["session_id"] == mock_telemetry_client.info["session_id"]
+    assert (
+        mock_requests[1]["data"]["installation_id"] == mock_telemetry_client.info["installation_id"]
+    )
+
+
 def test_batch_processing(mock_telemetry_client: TelemetryClient, mock_requests):
     mock_telemetry_client._batch_size = 3  # Set small batch size for testing
 
