@@ -43,7 +43,7 @@ class SqlRegisteredModel(Base):
 
     last_updated_time = Column(BigInteger, nullable=True, default=None)
 
-    description = Column(String(5000), nullable=True)
+    description = Column(Text, nullable=True)
 
     __table_args__ = (PrimaryKeyConstraint("name", name="registered_model_pk"),)
 
@@ -84,7 +84,7 @@ class SqlModelVersion(Base):
 
     last_updated_time = Column(BigInteger, nullable=True, default=None)
 
-    description = Column(String(5000), nullable=True)
+    description = Column(Text, nullable=True)
 
     user_id = Column(String(256), nullable=True, default=None)
 
@@ -307,3 +307,4 @@ class SqlWebhookEvent(Base):
 
     def to_mlflow_entity(self):
         return WebhookEvent(entity=WebhookEntity(self.entity), action=WebhookAction(self.action))
+
