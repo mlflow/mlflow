@@ -31,7 +31,16 @@ from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, ChatContext
 from mlflow.types.llm import ChatMessage, ChatParams
-from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
+from mlflow.types.schema import (
+    AnyType,
+    Array,
+    ColSpec,
+    DataType,
+    Map,
+    Object,
+    Property,
+    Schema,
+)
 from mlflow.types.type_hints import TypeFromExample
 
 from tests.pyfunc.utils import score_model_in_process
@@ -94,7 +103,11 @@ class CustomExample2(pydantic.BaseModel):
         ),
         # lists
         (list[list[str]], Schema([ColSpec(type=Array(DataType.string))]), [["a", "b"]]),
-        (List[List[str]], Schema([ColSpec(type=Array(DataType.string))]), [["a"], ["b"]]),  # noqa: UP006
+        (
+            list[list[str]],
+            Schema([ColSpec(type=Array(DataType.string))]),
+            [["a"], ["b"]],
+        ),
         (
             list[list[list[str]]],
             Schema([ColSpec(type=Array(Array(DataType.string)))]),
@@ -116,8 +129,16 @@ class CustomExample2(pydantic.BaseModel):
             Schema([ColSpec(type=Map(DataType.string))]),
             [{"a": "b"}, {"c": "d"}],
         ),
-        (list[dict[str, int]], Schema([ColSpec(type=Map(DataType.long))]), [{"a": 1}, {"a": 2}]),
-        (list[Dict[str, int]], Schema([ColSpec(type=Map(DataType.long))]), [{"a": 1, "b": 2}]),  # noqa: UP006
+        (
+            list[dict[str, int]],
+            Schema([ColSpec(type=Map(DataType.long))]),
+            [{"a": 1}, {"a": 2}],
+        ),
+        (
+            list[dict[str, int]],
+            Schema([ColSpec(type=Map(DataType.long))]),
+            [{"a": 1, "b": 2}],
+        ),
         (
             list[dict[str, list[str]]],
             Schema([ColSpec(type=Map(Array(DataType.string)))]),
@@ -133,7 +154,11 @@ class CustomExample2(pydantic.BaseModel):
         (list[int | str], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
         # Any
         (list[Any], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
-        (list[list[Any]], Schema([ColSpec(type=Array(AnyType()))]), [[True], ["abc"], [123]]),
+        (
+            list[list[Any]],
+            Schema([ColSpec(type=Array(AnyType()))]),
+            [[True], ["abc"], [123]],
+        ),
         # Pydantic Models
         (
             list[CustomExample],
@@ -148,9 +173,15 @@ class CustomExample2(pydantic.BaseModel):
                                 Property(name="double_field", dtype=DataType.double),
                                 Property(name="any_field", dtype=AnyType()),
                                 Property(
-                                    name="optional_str", dtype=DataType.string, required=False
+                                    name="optional_str",
+                                    dtype=DataType.string,
+                                    required=False,
                                 ),
-                                Property(name="str_or_none", dtype=DataType.string, required=False),
+                                Property(
+                                    name="str_or_none",
+                                    dtype=DataType.string,
+                                    required=False,
+                                ),
                             ]
                         )
                     ),
@@ -182,13 +213,24 @@ class CustomExample2(pydantic.BaseModel):
                                         Object(
                                             [
                                                 Property(name="role", dtype=DataType.string),
-                                                Property(name="content", dtype=DataType.string),
+                                                Property(
+                                                    name="content",
+                                                    dtype=DataType.string,
+                                                ),
                                             ]
                                         )
                                     ),
                                 ),
-                                Property(name="optional_int", dtype=DataType.long, required=False),
-                                Property(name="int_or_none", dtype=DataType.long, required=False),
+                                Property(
+                                    name="optional_int",
+                                    dtype=DataType.long,
+                                    required=False,
+                                ),
+                                Property(
+                                    name="int_or_none",
+                                    dtype=DataType.long,
+                                    required=False,
+                                ),
                             ]
                         )
                     )
@@ -266,6 +308,44 @@ def test_pyfunc_model_infer_signature_from_type_hints(
         content_type=CONTENT_TYPE_JSON,
     )
     assert scoring_response.status_code == 200
+
+
+class CustomParams(pydantic.BaseModel):
+    long_field: int
+    str_field: str
+    bool_field: bool
+    double_field: float
+    datetime_field: datetime.datetime = datetime.datetime.fromisoformat("1970-01-01 00:00:00")
+    optional_str: str | None = None
+    array_field: list[str]
+
+
+@pytest.mark.parametrize("model_type", ["python_model", "python_model_no_context"])
+def test_pyfunc_model_with_pydantic_params(model_type):
+    if model_type == "python_model":
+
+        class TestModel(mlflow.pyfunc.PythonModel):
+            def predict(
+                self, context, model_input: list[CustomExample], params: CustomParams
+            ) -> list[str]:
+                # Just echo params back for test
+                return [str(params)]
+    elif model_type == "python_model_no_context":
+
+        class TestModel(mlflow.pyfunc.PythonModel):
+            def predict(self, model_input: list[CustomExample], params: CustomParams) -> list[str]:
+                # Just echo params back for test
+                return [str(params)]
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="test_model",
+            python_model=TestModel(),
+        )
+    assert model_info.signature is not None
+    assert model_info.signature.params is not None
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.metadata.signature.params is not None
 
 
 class CustomExample3(pydantic.BaseModel):
@@ -715,7 +795,9 @@ def test_python_model_local_testing_data_validation():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            name="model", python_model=model, input_example=[{"role": "admin", "content": "hello"}]
+            name="model",
+            python_model=model,
+            input_example=[{"role": "admin", "content": "hello"}],
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
@@ -819,7 +901,9 @@ def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn
     recwarn.clear()
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            name="model", python_model=predict_df, input_example=pd.DataFrame({"a": [1]})
+            name="model",
+            python_model=predict_df,
+            input_example=pd.DataFrame({"a": [1]}),
         )
     assert not any("Decorate your function" in str(w.message) for w in recwarn)
 
@@ -995,7 +1079,9 @@ def test_type_hint_from_example(input_example, type_from_example_model):
     with mlflow.start_run():
         with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
             model_info = mlflow.pyfunc.log_model(
-                name="model", python_model=type_from_example_model, input_example=input_example
+                name="model",
+                python_model=type_from_example_model,
+                input_example=input_example,
             )
         assert not any(
             "Failed to validate serving input example" in call[0][0]
@@ -1015,7 +1101,8 @@ def test_type_hint_from_example(input_example, type_from_example_model):
     assert scoring_response.status_code == 200
     if isinstance(input_example, pd.DataFrame):
         assert_equal(
-            json.loads(scoring_response.content)["predictions"], input_example.to_dict("records")
+            json.loads(scoring_response.content)["predictions"],
+            input_example.to_dict("records"),
         )
     else:
         assert_equal(json.loads(scoring_response.content)["predictions"], input_example)
@@ -1025,7 +1112,9 @@ def test_type_hint_from_example_invalid_input(type_from_example_model):
     with mlflow.start_run():
         with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
             model_info = mlflow.pyfunc.log_model(
-                name="model", python_model=type_from_example_model, input_example=[1, 2, 3]
+                name="model",
+                python_model=type_from_example_model,
+                input_example=[1, 2, 3],
             )
         assert not any(
             "Failed to validate serving input example" in call[0][0]
