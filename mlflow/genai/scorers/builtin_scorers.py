@@ -31,6 +31,10 @@ from mlflow.genai.judges.prompts.conversation_completeness import (
     CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
     CONVERSATION_COMPLETENESS_PROMPT,
 )
+from mlflow.genai.judges.prompts.conversational_role_adherence import (
+    CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME,
+    CONVERSATIONAL_ROLE_ADHERENCE_PROMPT,
+)
 from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
 from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME,
@@ -1942,6 +1946,78 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
     @property
     def instructions(self) -> str:
         return CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
+    """
+    Conversational role adherence evaluates whether an AI assistant maintains its assigned
+    role throughout a conversation.
+
+    This scorer analyzes the complete conversation to evaluate whether the assistant
+    adheres to its defined role as specified in the system message, or implicitly
+    maintains a consistent persona throughout the interaction.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversational_role_adherence".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalRoleAdherence
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = ConversationalRoleAdherence()(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalRoleAdherence
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalRoleAdherence()])
+    """
+
+    name: str = CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME
+    model: str | None = None
+    description: str = (
+        "Evaluate whether an AI assistant maintains its assigned role throughout "
+        "a conversation, checking for persona consistency and boundary violations."
+    )
+
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+            generate_rationale_first=True,
+        )
+
+    @property
+    def instructions(self) -> str:
+        return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
 
 
 @experimental(version="3.7.0")
