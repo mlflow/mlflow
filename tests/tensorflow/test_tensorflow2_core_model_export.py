@@ -127,3 +127,58 @@ def test_load_with_options(tmp_path, tf2_toy_model):
     with mock.patch("tensorflow.saved_model.load") as mock_load:
         mlflow.tensorflow.load_model(model_path, saved_model_kwargs=saved_model_kwargs)
         mock_load.assert_called_once_with(mock.ANY, **saved_model_kwargs)
+
+
+def test_save_model_sets_keras_backend_for_requirement_inference(
+    monkeypatch, tmp_path, tf2_toy_model
+):
+    """
+    Test that KERAS_BACKEND=tensorflow is passed to infer_pip_requirements.
+
+    Keras 3.x is backend-agnostic and may probe for available backends during init,
+    which can fail if those packages aren't installed. The tensorflow flavor should
+    set KERAS_BACKEND=tensorflow as a default (user's existing setting takes precedence).
+
+    See: https://github.com/mlflow/mlflow/issues/19316
+    """
+    monkeypatch.delenv("KERAS_BACKEND", raising=False)
+
+    model_path = os.path.join(tmp_path, "model")
+    captured_extra_env_vars = {}
+
+    original_infer = mlflow.models.infer_pip_requirements
+
+    def mock_infer(path, flavor, fallback=None, timeout=None, extra_env_vars=None):
+        captured_extra_env_vars.update(extra_env_vars or {})
+        return original_infer(path, flavor, fallback=fallback, timeout=timeout)
+
+    with mock.patch("mlflow.models.infer_pip_requirements", side_effect=mock_infer):
+        mlflow.tensorflow.save_model(tf2_toy_model.model, model_path)
+
+    assert captured_extra_env_vars.get("KERAS_BACKEND") == "tensorflow"
+
+
+def test_save_model_respects_user_keras_backend_setting(monkeypatch, tmp_path, tf2_toy_model):
+    """
+    Test that user's existing KERAS_BACKEND setting is respected.
+
+    If a user has explicitly set KERAS_BACKEND, the tensorflow flavor should not
+    override it when calling infer_pip_requirements.
+
+    See: https://github.com/mlflow/mlflow/issues/19316
+    """
+    monkeypatch.setenv("KERAS_BACKEND", "jax")
+
+    model_path = os.path.join(tmp_path, "model")
+    captured_extra_env_vars = {}
+
+    original_infer = mlflow.models.infer_pip_requirements
+
+    def mock_infer(path, flavor, fallback=None, timeout=None, extra_env_vars=None):
+        captured_extra_env_vars.update(extra_env_vars or {})
+        return original_infer(path, flavor, fallback=fallback, timeout=timeout)
+
+    with mock.patch("mlflow.models.infer_pip_requirements", side_effect=mock_infer):
+        mlflow.tensorflow.save_model(tf2_toy_model.model, model_path)
+
+    assert "KERAS_BACKEND" not in captured_extra_env_vars

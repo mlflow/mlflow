@@ -502,8 +502,15 @@ def save_model(
             default_reqs = get_default_pip_requirements(include_cloudpickle)
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            # NB: Keras 3.x is backend-agnostic and may probe for available backends during init,
+            # which can fail if those packages aren't installed. We set KERAS_BACKEND=tensorflow
+            # as a default for requirement inference (user's existing setting takes precedence).
+            # See: https://keras.io/getting_started/ and https://github.com/mlflow/mlflow/issues/19316
+            keras_backend_env = (
+                {"KERAS_BACKEND": "tensorflow"} if "KERAS_BACKEND" not in os.environ else {}
+            )
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs
+                path, FLAVOR_NAME, fallback=default_reqs, extra_env_vars=keras_backend_env
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
