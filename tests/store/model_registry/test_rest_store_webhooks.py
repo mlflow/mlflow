@@ -23,14 +23,14 @@ from tests.tracking.integration_test_utils import ServerThread
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[RestStore]:
+def store(tmp_path: Path, db_uri: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[RestStore]:
     """Set up a local MLflow server with proper webhook encryption key support."""
     # Set up encryption key for webhooks using monkeypatch
     encryption_key = Fernet.generate_key().decode("utf-8")
     monkeypatch.setenv(MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.name, encryption_key)
 
     # Configure backend stores
-    backend_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+    backend_uri = db_uri
     default_artifact_root = tmp_path.as_uri()
 
     # Force-reset backend stores before each test
