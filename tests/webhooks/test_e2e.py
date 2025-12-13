@@ -15,6 +15,7 @@ from cryptography.fernet import Fernet
 
 from mlflow import MlflowClient
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.helper_functions import get_safe_port
 from tests.webhooks.app import WEBHOOK_SECRET
@@ -25,7 +26,7 @@ def db_uri(cached_db: Path, tmp_path_factory: pytest.TempPathFactory) -> str:
     """Returns a SQLite URI for the module by copying the cached database."""
     tmp_dir = tmp_path_factory.mktemp("db")
     db_path = tmp_dir / "mlflow.db"
-    if cached_db.exists():
+    if not IS_TRACING_SDK_ONLY and cached_db.exists():
         shutil.copy2(cached_db, db_path)
     return f"sqlite:///{db_path}"
 
