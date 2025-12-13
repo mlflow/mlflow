@@ -117,77 +117,7 @@ class Assessment(_MlflowObject):
         ):
             self.run_id = self.metadata[AssessmentMetadataKey.SOURCE_RUN_ID]
 
-    def _validate_and_fix_proto_fields(self):
-        """
-        Validate and fix assessment fields to ensure they have proper types for proto conversion.
-
-        This method defensively handles cases where fields may be strings instead of proper
-        objects (e.g., source field being a string instead of AssessmentSource). This can
-        occur when assessments are retrieved from backends that may have simplified the
-        representation, or due to deserialization issues.
-
-        The method modifies fields in-place to convert strings to proper objects.
-        """
-        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-
-        # Validate and fix source field
-        if self.source is not None and isinstance(self.source, str):
-            _logger.warning(
-                f"Assessment '{self.name}' has string source '{self.source}'. "
-                f"Converting to AssessmentSource object."
-            )
-            self.source = AssessmentSource(
-                source_type=AssessmentSourceType.CODE,
-                source_id=self.source,
-            )
-        elif self.source is not None and not hasattr(self.source, "to_proto"):
-            raise TypeError(
-                f"Assessment '{self.name}' source must be AssessmentSource or string, "
-                f"got {type(self.source)}"
-            )
-
-        # Validate and fix feedback field and its nested source
-        if self.feedback is not None:
-            if isinstance(self.feedback, str):
-                raise TypeError(
-                    f"Assessment '{self.name}' feedback cannot be a string. "
-                    f"Expected Feedback object, got: {self.feedback}"
-                )
-            # Recursively validate feedback's source field
-            if hasattr(self.feedback, "source") and isinstance(self.feedback.source, str):
-                _logger.warning(
-                    f"Assessment '{self.name}' feedback has string source "
-                    f"'{self.feedback.source}'. Converting to AssessmentSource object."
-                )
-                self.feedback.source = AssessmentSource(
-                    source_type=AssessmentSourceType.CODE,
-                    source_id=self.feedback.source,
-                )
-
-        # Validate and fix expectation field and its nested source
-        if self.expectation is not None:
-            if isinstance(self.expectation, str):
-                raise TypeError(
-                    f"Assessment '{self.name}' expectation cannot be a string. "
-                    f"Expected Expectation object, got: {self.expectation}"
-                )
-            # Recursively validate expectation's source field
-            if hasattr(self.expectation, "source") and isinstance(
-                self.expectation.source, str
-            ):
-                _logger.warning(
-                    f"Assessment '{self.name}' expectation has string source "
-                    f"'{self.expectation.source}'. Converting to AssessmentSource object."
-                )
-                self.expectation.source = AssessmentSource(
-                    source_type=AssessmentSourceType.CODE,
-                    source_id=self.expectation.source,
-                )
-
     def to_proto(self):
-        # Defensive validation: ensure fields have proper types before proto conversion
-        self._validate_and_fix_proto_fields()
-
         assessment = ProtoAssessment()
         assessment.assessment_name = self.name
         assessment.trace_id = self.trace_id or ""
@@ -306,7 +236,7 @@ class Feedback(Assessment):
         self,
         name: str = DEFAULT_FEEDBACK_NAME,
         value: FeedbackValueType | None = None,
-        error: Exception | AssessmentError | None = None,
+        error: Exception | AssessmentError | str | None = None,
         source: AssessmentSource | None = None,
         trace_id: str | None = None,
         metadata: dict[str, str] | None = None,
@@ -331,6 +261,17 @@ class Feedback(Assessment):
                 error_message=str(error),
                 error_code=error.__class__.__name__,
                 stack_trace=get_stacktrace(error),
+            )
+        elif isinstance(error, str):
+            # Convert string errors to AssessmentError objects
+            error = AssessmentError(
+                error_message=error,
+                error_code="ASSESSMENT_ERROR",
+            )
+        elif error is not None and not isinstance(error, AssessmentError):
+            # Handle any other unexpected types
+            raise MlflowException.invalid_parameter_value(
+                f"'error' must be an Exception, AssessmentError, or string. Got: {type(error)}"
             )
 
         super().__init__(

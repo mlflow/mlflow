@@ -21,7 +21,6 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_error import AssessmentError
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
@@ -383,101 +382,6 @@ def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
     ]
 
 
-def _convert_string_source_to_assessment_source(source_str: str, context: str) -> AssessmentSource:
-    """
-    Convert a string source to a proper AssessmentSource object.
-
-    Args:
-        source_str: The string source ID to convert
-        context: Context description for logging (e.g., "for assessment 'MyScorer'")
-
-    Returns:
-        AssessmentSource object with CODE type and the given source_id
-    """
-    _logger.info(f"Converting string source '{source_str}' to AssessmentSource object {context}")
-    return AssessmentSource(
-        source_type=AssessmentSourceType.CODE,
-        source_id=source_str,
-    )
-
-
-def _validate_assessment_types(assessment: Assessment) -> None:
-    """
-    Validate that assessment has properly typed fields for proto conversion.
-
-    This function checks and converts assessment fields to ensure they have
-    the correct types required for protobuf serialization. Specifically, it
-    handles the case where the 'source' field is a string instead of an
-    AssessmentSource object, which can cause 'str' object has no attribute 'to_proto' errors.
-
-    Args:
-        assessment: The assessment object to validate
-
-    Raises:
-        TypeError: If any field has incorrect type and cannot be converted
-    """
-    if _logger.isEnabledFor(logging.DEBUG):
-        source_type = type(assessment.source) if hasattr(assessment, "source") else None
-        _logger.debug(
-            f"Validating assessment '{assessment.name}': "
-            f"type={type(assessment).__name__}, source_type={source_type}"
-        )
-
-    # Check source field
-    if hasattr(assessment, "source") and assessment.source is not None:
-        if isinstance(assessment.source, str):
-            assessment.source = _convert_string_source_to_assessment_source(
-                assessment.source, f"for assessment '{assessment.name}'"
-            )
-        elif not hasattr(assessment.source, "to_proto"):
-            raise TypeError(
-                f"Assessment source must have to_proto() method, got {type(assessment.source)}"
-            )
-
-    # Check feedback field if present
-    # Note: Feedback is also an Assessment, so it has its own source field
-    if hasattr(assessment, "feedback") and assessment.feedback is not None:
-        if not hasattr(assessment.feedback, "to_proto"):
-            raise TypeError(
-                f"Assessment feedback must have to_proto() method, got {type(assessment.feedback)}"
-            )
-        # Recursively validate the feedback's source field
-        if hasattr(assessment.feedback, "source") and assessment.feedback.source is not None:
-            if isinstance(assessment.feedback.source, str):
-                assessment.feedback.source = _convert_string_source_to_assessment_source(
-                    assessment.feedback.source, f"for feedback in assessment '{assessment.name}'"
-                )
-            elif not hasattr(assessment.feedback.source, "to_proto"):
-                raise TypeError(
-                    f"Feedback source must have to_proto() method, "
-                    f"got {type(assessment.feedback.source)}"
-                )
-
-    # Check expectation field if present
-    # Note: Expectation is also an Assessment, so it has its own source field
-    if hasattr(assessment, "expectation") and assessment.expectation is not None:
-        if not hasattr(assessment.expectation, "to_proto"):
-            raise TypeError(
-                f"Assessment expectation must have to_proto() method, "
-                f"got {type(assessment.expectation)}"
-            )
-        # Recursively validate the expectation's source field
-        if (
-            hasattr(assessment.expectation, "source")
-            and assessment.expectation.source is not None
-        ):
-            if isinstance(assessment.expectation.source, str):
-                assessment.expectation.source = _convert_string_source_to_assessment_source(
-                    assessment.expectation.source,
-                    f"for expectation in assessment '{assessment.name}'",
-                )
-            elif not hasattr(assessment.expectation.source, "to_proto"):
-                raise TypeError(
-                    f"Expectation source must have to_proto() method, "
-                    f"got {type(assessment.expectation.source)}"
-                )
-
-
 def _log_assessments(
     run_id: str | None,
     trace: Trace,
@@ -503,20 +407,10 @@ def _log_assessments(
             _logger.debug(f"No root span found for trace {trace.info.trace_id}")
 
         try:
-            _validate_assessment_types(assessment)
-        except Exception as e:
-            _logger.warning(
-                f"Skipping malformed assessment '{assessment.name}' for trace "
-                f"{trace.info.trace_id}: {e}"
-            )
-            continue
-
-        try:
             mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
         except Exception as e:
             _logger.warning(
-                f"Failed to log assessment '{assessment.name}' for trace "
-                f"{trace.info.trace_id}: {e}"
+                f"Failed to log assessment '{assessment.name}' for trace {trace.info.trace_id}: {e}"
             )
 
 
