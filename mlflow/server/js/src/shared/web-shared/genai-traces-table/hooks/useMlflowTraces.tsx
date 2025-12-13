@@ -40,7 +40,7 @@ import type {
   TableFilter,
   TableFilterOptions,
 } from '../types';
-import { getAssessmentInfos } from '../utils/AggregationUtils';
+import { ERROR_KEY, getAssessmentInfos } from '../utils/AggregationUtils';
 import { filterEvaluationResults } from '../utils/EvaluationsFilterUtils';
 import {
   shouldEnableUnifiedEvalTab,
@@ -214,13 +214,14 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
-      // Assessment filters with undefined value must always be filtered client-side
-      // because the backend cannot query for absence of an assessment.
+      // Assessment filters with undefined or 'Error' value must always be filtered client-side
+      // because the backend cannot query for absence of an assessment or error state.
       // Note: filter.value is already converted from string 'undefined' to actual undefined by useFilters
-      const isUndefinedAssessmentFilter =
-        filter.column === TracesTableColumnGroup.ASSESSMENT && filter.value === undefined;
+      const isClientOnlyAssessmentFilter =
+        filter.column === TracesTableColumnGroup.ASSESSMENT &&
+        (filter.value === undefined || filter.value === ERROR_KEY);
 
-      if (isUndefinedAssessmentFilter) {
+      if (isClientOnlyAssessmentFilter) {
         acc.clientFilters.push(filter);
       } else if (filter.column === TracesTableColumnGroup.ASSESSMENT && assessmentsFilteredOnClientSide) {
         acc.clientFilters.push(filter);

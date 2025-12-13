@@ -5,6 +5,7 @@ import {
   KnownEvaluationResultAssessmentName,
 } from '../components/GenAiEvaluationTracesReview.utils';
 import type { AssessmentFilter, EvalTraceComparisonEntry } from '../types';
+import { ERROR_KEY } from './AggregationUtils';
 
 function filterEval(
   comparisonEntry: EvalTraceComparisonEntry,
@@ -40,12 +41,15 @@ function filterEval(
       includeEval = includeEval && currentIsAssessmentRootCause;
     } else {
       // Filtering for undefined means we want traces with NO assessments for this name
+      // Filtering for ERROR_KEY means we want traces with assessments that have an errorMessage
       const matchesFilter =
         filterValue === undefined
           ? assessments.length === 0
-          : assessments.some(
-              (assessment) => (getEvaluationResultAssessmentValue(assessment) ?? undefined) === filterValue,
-            );
+          : filterValue === ERROR_KEY
+            ? assessments.some((assessment) => Boolean(assessment.errorMessage))
+            : assessments.some(
+                (assessment) => (getEvaluationResultAssessmentValue(assessment) ?? undefined) === filterValue,
+              );
       includeEval = includeEval && matchesFilter;
     }
   }
