@@ -1,5 +1,6 @@
 import contextlib
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -17,6 +18,16 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 
 from tests.helper_functions import get_safe_port
 from tests.webhooks.app import WEBHOOK_SECRET
+
+
+@pytest.fixture(scope="module")
+def db_uri(cached_db: Path, tmp_path_factory: pytest.TempPathFactory) -> str:
+    """Returns a SQLite URI for the module by copying the cached database."""
+    tmp_dir = tmp_path_factory.mktemp("db")
+    db_path = tmp_dir / "mlflow.db"
+    if cached_db.exists():
+        shutil.copy2(cached_db, db_path)
+    return f"sqlite:///{db_path}"
 
 
 @dataclass
@@ -41,9 +52,8 @@ def wait_until_ready(health_endpoint: str, max_attempts: int = 10) -> None:
 
 
 @contextlib.contextmanager
-def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
+def _run_mlflow_server(tmp_path: Path, db_uri: str) -> Generator[str, None, None]:
     port = get_safe_port()
-    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     artifact_root = (tmp_path / "artifacts").as_uri()
     with subprocess.Popen(
         [
@@ -52,7 +62,7 @@ def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
             "mlflow",
             "server",
             f"--port={port}",
-            f"--backend-store-uri={backend_store_uri}",
+            f"--backend-store-uri={db_uri}",
             f"--default-artifact-root={artifact_root}",
         ],
         cwd=tmp_path,
@@ -149,10 +159,9 @@ def app_client(tmp_path_factory: pytest.TempPathFactory) -> Generator[AppClient,
 
 @pytest.fixture(scope="module")
 def mlflow_server(
-    app_client: AppClient, tmp_path_factory: pytest.TempPathFactory
+    app_client: AppClient, tmp_path_factory: pytest.TempPathFactory, db_uri: str
 ) -> Generator[str, None, None]:
-    tmp_path = tmp_path_factory.mktemp("mlflow_server")
-    with _run_mlflow_server(tmp_path) as url:
+    with _run_mlflow_server(tmp_path_factory.mktemp("mlflow_server"), db_uri) as url:
         yield url
 
 
