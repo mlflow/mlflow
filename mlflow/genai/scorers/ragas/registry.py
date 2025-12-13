@@ -76,7 +76,6 @@ def get_metric_class(metric_name: str):
 
 
 def is_deterministic_metric(metric_name: str) -> bool:
-    """Check if a metric is deterministic (doesn't require LLM)."""
     deterministic_metrics = {
         "BleuScore",
         "RougeScore",

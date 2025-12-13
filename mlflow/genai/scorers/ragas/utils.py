@@ -1,5 +1,3 @@
-"""Utility functions and constants for RAGAS integration."""
-
 from __future__ import annotations
 
 from typing import Any

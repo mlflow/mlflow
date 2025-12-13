@@ -16,12 +16,6 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 
 
-def _create_llm_result(text: str):
-    """Create a LangChain LLMResult object from text."""
-    generation = Generation(text=text)
-    return LLMResult(generations=[[generation]])
-
-
 class DatabricksRagasLLM(BaseRagasLLM):
     """
     RAGAS LLM adapter for Databricks managed judge.
@@ -43,9 +37,9 @@ class DatabricksRagasLLM(BaseRagasLLM):
         return result.output
 
     async def agenerate_text(self, prompt: str, **kwargs):
-        # Return LLMResult object
         text = self.generate_text(prompt, **kwargs)
-        return _create_llm_result(text)
+        generation = Generation(text=text)
+        return LLMResult(generations=[[generation]])
 
     def get_model_name(self) -> str:
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
@@ -81,9 +75,9 @@ class DatabricksServingEndpointRagasLLM(BaseRagasLLM):
         return output.response
 
     async def agenerate_text(self, prompt: str, **kwargs):
-        # Return LLMResult object
         text = self.generate_text(prompt, **kwargs)
-        return _create_llm_result(text)
+        generation = Generation(text=text)
+        return LLMResult(generations=[[generation]])
 
     def get_model_name(self) -> str:
         return f"databricks:/{self._endpoint_name}"
