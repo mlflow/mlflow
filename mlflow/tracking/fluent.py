@@ -7,6 +7,7 @@ import atexit
 import contextlib
 import importlib
 import inspect
+import io
 import logging
 import os
 import threading
@@ -1637,6 +1638,38 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     """
     run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
+
+
+@experimental(version="3.8.0")
+def log_stream(
+    stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str, run_id: str | None = None
+) -> None:
+    """
+    Log a binary file-like object (e.g., ``io.BytesIO``) as an artifact.
+
+    Args:
+        stream: A binary file-like object supporting ``.read()`` method (e.g., ``io.BytesIO``).
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the stream content is saved (e.g. "dir/file.bin").
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import io
+
+        import mlflow
+
+        with mlflow.start_run():
+            # Log a BytesIO stream
+            bytes_stream = io.BytesIO(b"binary content")
+            mlflow.log_stream(bytes_stream, "binary_file.bin")
+
+    """
+    run_id = run_id or _get_or_start_run().info.run_id
+    MlflowClient().log_stream(run_id, stream, artifact_file)
 
 
 def log_figure(
