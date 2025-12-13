@@ -136,7 +136,7 @@ def get_resource_endpoint_configs(
 
 
 def get_endpoint_config(
-    endpoint_id: str,
+    endpoint_name: str,
     store: SqlAlchemyStore | None = None,
 ) -> GatewayEndpointConfig:
     """
@@ -151,7 +151,7 @@ def get_endpoint_config(
     backends.
 
     Args:
-        endpoint_id: Unique identifier for the endpoint.
+        endpoint_name: Unique identifier for the endpoint.
         store: Optional SqlAlchemyStore instance. If not provided, the current
             tracking store is used.
 
@@ -175,7 +175,7 @@ def get_endpoint_config(
         sql_endpoint = store._get_entity_or_raise(
             session,
             SqlGatewayEndpoint,
-            {"endpoint_id": endpoint_id},
+            {"name": endpoint_name},
             "GatewayEndpoint",
         )
 
