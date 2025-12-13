@@ -4121,6 +4121,7 @@ def _update_gateway_model_definition():
             "secret_id": [_assert_string],
             "model_name": [_assert_string],
             "updated_by": [_assert_string],
+            "provider": [_assert_string],
         },
     )
     model_definition = _get_tracking_store().update_gateway_model_definition(
@@ -4129,6 +4130,7 @@ def _update_gateway_model_definition():
         secret_id=request_message.secret_id or None,
         model_name=request_message.model_name or None,
         updated_by=request_message.updated_by or None,
+        provider=request_message.provider or None,
     )
     response_message = UpdateGatewayModelDefinition.Response()
     response_message.model_definition.CopyFrom(model_definition.to_proto())
