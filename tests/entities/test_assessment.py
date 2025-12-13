@@ -567,13 +567,7 @@ def test_feedback_converts_string_error_to_assessment_error():
 
 
 def test_feedback_converts_exception_error_to_assessment_error():
-    try:
-        raise ValueError("Test exception message")
-    except Exception as exc:
-        feedback = Feedback(
-            name="test_feedback",
-            error=exc,
-        )
+    feedback = Feedback(name="test_feedback", error=ValueError("Test exception message"))
 
     # Verify error was converted to AssessmentError
     assert isinstance(feedback.error, AssessmentError)
