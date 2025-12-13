@@ -65,8 +65,6 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
-          # Installing pyarrow < 18 to prevent lightgbm test pip installation resolution conflicts.
-          python -m pip install langchain_experimental "pyarrow<18"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
