@@ -361,6 +361,15 @@ MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", False
 )
 
+#: Specifies whether or not to use presigned URL redirects for proxied artifact downloads.
+#: When enabled, the tracking server will redirect download requests to presigned S3 URLs,
+#: allowing clients to download directly from S3 without the data passing through the server.
+#: This reduces server disk and memory usage for large artifact downloads.
+#: (default: ``False``)
+MLFLOW_ENABLE_PROXY_PRESIGNED_DOWNLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_PROXY_PRESIGNED_DOWNLOAD", False
+)
+
 #: Private environment variable that's set to ``True`` while running tests.
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
 

@@ -426,6 +426,35 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
         s3_client.download_file(bucket, s3_full_path, local_path, **download_kwargs)
 
+    def get_presigned_download_url(self, artifact_path, expiration=3600):
+        """
+        Generate a presigned URL for downloading an artifact directly from S3.
+
+        This method creates a time-limited URL that allows direct download from S3
+        without requiring AWS credentials. Useful for redirecting clients to download
+        directly from S3, bypassing the tracking server.
+
+        Args:
+            artifact_path: Relative path of the artifact within the S3 bucket,
+                relative to the repository's root path.
+            expiration: URL expiration time in seconds. Default is 3600 (1 hour).
+
+        Returns:
+            A presigned URL string that can be used to download the artifact.
+        """
+        (bucket, s3_root_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        s3_full_path = posixpath.join(s3_root_path, artifact_path)
+        s3_client = self._get_s3_client()
+        return s3_client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": s3_full_path,
+                **self._bucket_owner_params,
+            },
+            ExpiresIn=expiration,
+        )
+
     def delete_artifacts(self, artifact_path=None):
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
