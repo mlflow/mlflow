@@ -78,6 +78,7 @@ class ShapEvaluator(BuiltInEvaluator):
         self.y_true = self.dataset.labels_data
         self.label_list = self.evaluator_config.get("label_list")
         self.pos_label = self.evaluator_config.get("pos_label")
+        self.plot_seed = self.evaluator_config.get("shap_plot_seed", 42)
 
         if not (np.issubdtype(self.y_true.dtype, np.number) or self.y_true.dtype == np.bool_):
             # Note: python bool type inherits number type but np.bool_ does not inherit np.number.
@@ -253,7 +254,8 @@ class ShapEvaluator(BuiltInEvaluator):
             )
 
         def plot_summary():
-            shap.summary_plot(shap_values, show=False, color_bar=True)
+            rng = np.random.default_rng(self.plot_seed)
+            shap.summary_plot(shap_values, show=False, color_bar=True, rng=rng)
             _adjust_color_bar()
             _adjust_axis_tick()
 
