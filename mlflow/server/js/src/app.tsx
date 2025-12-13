@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { ApolloProvider } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { RawIntlProvider } from 'react-intl';
 
 import 'font-awesome/css/font-awesome.css';
 import './index.css';
 
-import { ApplyGlobalStyles } from '@databricks/design-system';
+import { ApplyGlobalStyles, DesignSystemEventProvider } from '@databricks/design-system';
 import '@databricks/design-system/dist/index.css';
 import '@databricks/design-system/dist/index-dark.css';
 import { Provider } from 'react-redux';
@@ -19,6 +19,7 @@ import { LegacySkeleton } from '@databricks/design-system';
 import { MlflowRouter as MlflowRouter } from './MlflowRouter';
 import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
 import { DarkThemeProvider } from './common/contexts/DarkThemeContext';
+import { telemetryClient } from './telemetry';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -30,6 +31,10 @@ export function MLFlowRoot() {
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
+
+  const logObservabilityEvent = useCallback((event: any) => {
+    telemetryClient.logEvent(event);
+  }, []);
 
   if (!intl) {
     return (
@@ -43,15 +48,17 @@ export function MLFlowRoot() {
     <ApolloProvider client={apolloClient}>
       <RawIntlProvider value={intl} key={intl.locale}>
         <Provider store={store}>
-          <DesignSystemContainer isDarkTheme={isDarkTheme}>
-            <ApplyGlobalStyles />
-            <MlflowThemeGlobalStyles />
-            <DarkThemeProvider setIsDarkTheme={setIsDarkTheme}>
-              <QueryClientProvider client={queryClient}>
-                <MlflowRouter />
-              </QueryClientProvider>
-            </DarkThemeProvider>
-          </DesignSystemContainer>
+          <DesignSystemEventProvider callback={logObservabilityEvent}>
+            <DesignSystemContainer isDarkTheme={isDarkTheme}>
+              <ApplyGlobalStyles />
+              <MlflowThemeGlobalStyles />
+              <DarkThemeProvider setIsDarkTheme={setIsDarkTheme}>
+                <QueryClientProvider client={queryClient}>
+                  <MlflowRouter />
+                </QueryClientProvider>
+              </DarkThemeProvider>
+            </DesignSystemContainer>
+          </DesignSystemEventProvider>
         </Provider>
       </RawIntlProvider>
     </ApolloProvider>
