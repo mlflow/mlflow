@@ -23,6 +23,7 @@ from mlflow.entities.assessment import (
     Expectation,
     Feedback,
 )
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -389,9 +390,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    # For JSON decode errors, parser handles it directly
-    assert isinstance(result.error, str)
-    assert "Invalid JSON response" in result.error
+    # String errors are converted to AssessmentError objects
+    assert isinstance(result.error, AssessmentError)
+    assert "Invalid JSON response" in result.error.error_message
 
     class MockLLMResultMissingField:
         def __init__(self):
@@ -414,9 +415,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    # For missing field errors, error is a plain string
-    assert isinstance(result.error, str)
-    assert "Response missing 'result' field" in result.error
+    # String errors are converted to AssessmentError objects
+    assert isinstance(result.error, AssessmentError)
+    assert "Response missing 'result' field" in result.error.error_message
 
     class MockLLMResultNone:
         def __init__(self):
@@ -436,9 +437,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    # For empty response errors, error is a plain string
-    assert isinstance(result.error, str)
-    assert "Empty response from Databricks judge" in result.error
+    # String errors are converted to AssessmentError objects
+    assert isinstance(result.error, AssessmentError)
+    assert "Empty response from Databricks judge" in result.error.error_message
 
 
 def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
