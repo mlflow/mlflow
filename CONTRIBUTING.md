@@ -1,6 +1,10 @@
 # Contributing to MLflow
 
-We welcome community contributions to MLflow. This page provides useful information about contributing to MLflow.
+Thank you for your interest in contributing to MLflow.
+
+If you are new to MLflow, a great place to start is the list of open issues labeled “good first issue”: https://github.com/mlflow/mlflow/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22
+
+(Then the rest of the file continues…)
 
 **Table of Contents**
 
