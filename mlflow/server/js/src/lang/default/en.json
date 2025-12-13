@@ -131,6 +131,10 @@
     "defaultMessage": "role",
     "description": "Placeholder for chat message role input"
   },
+  "/DvT6Y": {
+    "defaultMessage": "Error",
+    "description": "Error assessment label for filter dropdown"
+  },
   "/G/eHs": {
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
