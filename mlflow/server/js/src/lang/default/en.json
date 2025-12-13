@@ -5495,6 +5495,10 @@
     "defaultMessage": "No models found in experiment or all models are hidden. Select at least one model to view charts.",
     "description": "Label displayed in logged models chart view when no models are visible or selected"
   },
+  "oM11pD": {
+    "defaultMessage": "Error",
+    "description": "The label for an error assessment above a bar-chart in the summary stats."
+  },
   "oShuJS": {
     "defaultMessage": "Logged from",
     "description": "Label for the source (where it was logged from) of a logged model on the logged model details page. It can be e.g. a notebook or a file."
