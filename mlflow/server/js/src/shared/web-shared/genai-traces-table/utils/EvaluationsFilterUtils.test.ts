@@ -165,4 +165,42 @@ describe('filterEvaluationResults', () => {
     expect(noResults).toHaveLength(1);
     expect(noResults[0]).toBe(evalsWithMultipleAssessments[1]);
   });
+
+  it('filters on Error value to find assessments with errors', () => {
+    const makeEntry = (
+      assessments: RunEvaluationTracesDataEntry['responseAssessmentsByName'],
+    ): EvalTraceComparisonEntry => ({
+      currentRunValue: {
+        evaluationId: 'eval-1',
+        requestId: 'req-1',
+        inputs: {},
+        inputsId: 'inputs-1',
+        outputs: {},
+        targets: {},
+        overallAssessments: [],
+        responseAssessmentsByName: assessments,
+        metrics: {},
+      },
+    });
+
+    const evalsWithErrors: EvalTraceComparisonEntry[] = [
+      makeEntry({
+        testAssessment: [{ name: 'testAssessment', stringValue: 'yes' }],
+      }),
+      makeEntry({
+        testAssessment: [{ name: 'testAssessment', errorMessage: 'Some error occurred' }],
+      }),
+      makeEntry({
+        testAssessment: [{ name: 'testAssessment', stringValue: 'no' }],
+      }),
+    ];
+
+    const errorFilter: AssessmentFilter[] = [
+      { assessmentName: 'testAssessment', filterValue: 'Error', run: 'currentRun' },
+    ];
+
+    const errorResults = filterEvaluationResults(evalsWithErrors, errorFilter, undefined, 'currentRun');
+    expect(errorResults).toHaveLength(1);
+    expect(errorResults[0]).toBe(evalsWithErrors[1]);
+  });
 });
