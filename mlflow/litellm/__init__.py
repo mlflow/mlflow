@@ -95,9 +95,16 @@ def _patch_thread_pool():
         return
 
     def _patched_submit(original, *args, **kwargs):
-        if isinstance(args[0], Callable) and "success_handler" in args[0].__name__:
+        def _get_callback_arg_index(args) -> int | None:
+            # In LiteLLM < 1.79.1, the call signature was (callback, *args, **kwargs). Now, ctx.run
+            # is the first argument. https://github.com/BerriAI/litellm/commit/d8b44f4dbf183b2bb591a29362feaec4a1f5fcce
+            for i, arg in enumerate(args[:2]):
+                if isinstance(arg, Callable) and "success_handler" in arg.__name__:
+                    return i
+
+        if i := _get_callback_arg_index(args):
             # Immediately run the callback handler instead of submitting it to the thread pool
-            args[0](*args[1:], **kwargs)
+            args[i](*args[i + 1 :], **kwargs)
             return
         return original(*args, **kwargs)
 
