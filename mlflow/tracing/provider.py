@@ -455,10 +455,13 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
             processors.append(processor)
 
-        # Trace destination has highest precedence; ignore OTLP and defaults.
-        return processors
+        # Trace destination has highest precedence; definitely ignore defaults
+        # Ignore OTLP (unless dual export is set and we should use OTLP)
+        if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
+            return processors
 
-    # If no explicit trace destination, next honor OTLP configuration.
+    # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
+    # configuration.
     if should_use_otlp_exporter():
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
@@ -473,10 +476,15 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         )
         processors.append(otel_processor)
 
-        # If dual export is NOT enabled, OTLP-only; don't add any MLflow processors.
-        if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
+        # We have now added the OTLP processor.
+        # If dual export is not set, return.
+        # If dual export is set AND we have already added a set_destination processor, return.
+        # If dual export is set but no set_destination processor added, skip return and go
+        # to default processing to catch the default processor, if present.
+        if (not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or any(
+            not isinstance(p, OtelSpanProcessor) for p in processors
+        ):
             return processors
-
     # Finally, default MLflow-based processors (inference table in serving, else tracking URI).
     if is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():

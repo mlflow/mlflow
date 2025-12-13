@@ -2,7 +2,11 @@ import { CardGroup, SmallLogoCard } from "@site/src/components/Card";
 
 # MLflow GenAI Packaging Integrations
 
-MLflow 3 delivers built-in support for packaging and deploying applications written with the GenAI frameworks you depend on. Whether you're calling OpenAI directly, orchestrating chains with LangChain or LangGraph, indexing documents in LlamaIndex, wiring up agent patterns via ChatModel and ResponseAgent, or rolling your own with a PythonModel, MLflow provides native packaging and deployment APIs ("flavors") to streamline your path to production.
+MLflow 3 delivers built-in support for packaging and deploying applications written with the GenAI frameworks you depend on. Whether you're orchestrating chains with LangChain or LangGraph, indexing documents in LlamaIndex, wiring up agent patterns via ChatModel and ResponseAgent, or rolling your own with a PythonModel, MLflow provides native packaging and deployment APIs ("flavors") to streamline your path to production.
+
+:::note OpenAI Model Logging Deprecated
+The `mlflow.openai.log_model()` API has been deprecated. If you were using it to save prompts, please migrate to the [MLflow Prompt Registry](/genai/prompt-registry), which provides superior versioning, aliasing, lineage tracking, and collaboration features for managing prompts separately from models.
+:::
 
 ## Why MLflow Integrations?
 
@@ -34,9 +38,6 @@ Pick your integration from the list below and follow the concise guide—each on
 MLflow supports first-party flavors for these GenAI frameworks and patterns. Click to explore:
 
 <CardGroup isSmall>
-  <SmallLogoCard link="/genai/flavors/openai">
-    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
-  </SmallLogoCard>
   <SmallLogoCard link="/genai/flavors/langchain">
     <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
   </SmallLogoCard>

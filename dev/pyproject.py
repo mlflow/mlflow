@@ -227,6 +227,7 @@ def build(package_type: PackageType) -> None:
     )
     core_requirements = read_requirements_yaml(requirements_dir / "core-requirements.yaml")
     gateways_requirements = read_requirements_yaml(requirements_dir / "gateway-requirements.yaml")
+    genai_requirements = read_requirements_yaml(requirements_dir / "genai-requirements.yaml")
     package_version = re.search(
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     ).group(1)
@@ -350,7 +351,7 @@ def build(package_type: PackageType) -> None:
                     "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
                 ],
                 "gateway": gateways_requirements,
-                "genai": gateways_requirements,
+                "genai": genai_requirements,
                 # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747
                 "mcp": ["fastmcp<3,>=2.0.0", "click!=8.3.0"],
                 "sqlserver": ["mlflow-dbstore"],
