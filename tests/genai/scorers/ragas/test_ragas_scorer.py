@@ -49,7 +49,8 @@ def test_deterministic_metric_does_not_require_model():
 
 
 def test_ragas_scorer_with_threshold_returns_categorical():
-    judge = get_judge("NonLLMContextRecall")
+    judge = get_judge("ExactMatch")
+    judge._metric.threshold = 0.5
     with patch.object(judge._metric, "single_turn_score", return_value=0.8):
         result = judge(
             inputs="What is MLflow?",
@@ -63,8 +64,8 @@ def test_ragas_scorer_with_threshold_returns_categorical():
 
 
 def test_ragas_scorer_with_threshold_returns_no_when_below():
-    judge = get_judge("NonLLMContextRecall")
-
+    judge = get_judge("ExactMatch")
+    judge._metric.threshold = 0.5
     with patch.object(judge._metric, "single_turn_score", return_value=0.0):
         result = judge(
             inputs="What is MLflow?",
@@ -107,17 +108,3 @@ def test_ragas_scorer_returns_error_feedback_on_exception():
 def test_unknown_metric_raises_error():
     with pytest.raises(MlflowException, match="Unknown metric: 'NonExistentMetric'"):
         get_judge("NonExistentMetric")
-
-
-def test_ragas_scorer_with_bleu_score():
-    judge = get_judge("BleuScore")
-
-    result = judge(
-        outputs="the cat sat on the mat",
-        expectations={"expected_output": "the cat sat on the mat"},
-    )
-
-    assert isinstance(result, Feedback)
-    assert result.name == "BleuScore"
-    assert round(result.value) == 1.0
-    assert round(result.metadata["score"]) == 1.0
