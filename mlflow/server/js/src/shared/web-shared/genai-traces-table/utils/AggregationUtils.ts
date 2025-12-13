@@ -226,6 +226,10 @@ export function getAssessmentInfos(
               });
 
         const uniqueValues = new Set<AssessmentValueType>();
+        // If no assessments exist for this name, add undefined to track missing assessments
+        if (assessments.length === 0) {
+          uniqueValues.add(undefined);
+        }
         for (const currentAssessment of assessments) {
           let assessmentValue = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
           if (assessmentValue === null) assessmentValue = undefined;
@@ -251,6 +255,10 @@ export function getAssessmentInfos(
         };
       } else {
         const assessmentInfo = assessmentInfos[assessmentName];
+        // If no assessments exist for this name, add undefined to track missing assessments
+        if (assessments.length === 0) {
+          assessmentInfo.uniqueValues.add(undefined);
+        }
         for (const currentAssessment of assessments) {
           let value = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
           if (isNil(value)) value = undefined;
@@ -690,6 +698,11 @@ function getAssessmentBarChartValueText(
       return intl.formatMessage({
         defaultMessage: 'False',
         description: 'False assessment label',
+      });
+    } else if (value === ERROR_KEY) {
+      return intl.formatMessage({
+        defaultMessage: 'Error',
+        description: 'The label for an error assessment above a bar-chart in the summary stats.',
       });
     } else {
       return intl.formatMessage({

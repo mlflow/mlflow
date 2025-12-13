@@ -39,10 +39,16 @@ function filterEval(
         runValue?.overallAssessments[0]?.rootCauseAssessment?.assessmentName === assessmentName;
       includeEval = includeEval && currentIsAssessmentRootCause;
     } else {
-      const matchesFilter = assessments.some((assessment) => {
-        const value = getEvaluationResultAssessmentValue(assessment) ?? undefined;
-        return value === filterValue;
-      });
+      let matchesFilter: boolean;
+      if (filterValue === undefined) {
+        // Filtering for undefined means we want traces that have NO assessments for this name
+        matchesFilter = assessments.length === 0;
+      } else {
+        matchesFilter = assessments.some((assessment) => {
+          const value = getEvaluationResultAssessmentValue(assessment) ?? undefined;
+          return value === filterValue;
+        });
+      }
       includeEval = includeEval && matchesFilter;
     }
   }
