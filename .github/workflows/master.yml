@@ -285,7 +285,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install openai dspy deepeval litellm ragas
+          pip install openai dspy deepeval litellm ragas sacrebleu rapidfuzz
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
