@@ -332,10 +332,13 @@ export const useSearchMlflowTraces = ({
     if (!evalTraceComparisonEntries) return undefined;
 
     const hasClientFilters = clientFilters && clientFilters.length > 0;
-    const hasSearchQuery = searchQuery && searchQuery !== '';
+    // Only apply client-side search filtering when useClientSideFiltering is true.
+    // When false, searchQuery is already applied server-side via createMlflowSearchFilter.
+    const clientSearchQuery = useClientSideFiltering ? searchQuery : undefined;
+    const hasClientSearchQuery = clientSearchQuery && clientSearchQuery !== '';
 
     // Skip filtering if there are no client filters to apply
-    if (!hasClientFilters && !hasSearchQuery) {
+    if (!hasClientFilters && !hasClientSearchQuery) {
       return evalTraceComparisonEntries.reduce<ModelTraceInfoV3[]>((acc, entry) => {
         if (entry.currentRunValue?.traceInfo) {
           acc.push(entry.currentRunValue.traceInfo);
@@ -355,7 +358,7 @@ export const useSearchMlflowTraces = ({
     const res = filterEvaluationResults(
       evalTraceComparisonEntries,
       assessmentFilters || [],
-      searchQuery,
+      clientSearchQuery,
       currentRunDisplayName,
       undefined,
     ).reduce<ModelTraceInfoV3[]>((acc, entry) => {
@@ -366,7 +369,7 @@ export const useSearchMlflowTraces = ({
     }, []);
 
     return res;
-  }, [evalTraceComparisonEntries, clientFilters, searchQuery, currentRunDisplayName]);
+  }, [evalTraceComparisonEntries, clientFilters, searchQuery, currentRunDisplayName, useClientSideFiltering]);
 
   const tracesFilteredBySourceRun = useMemo(
     () => filterTracesByAssessmentSourceRunId(filteredTraces, runUuid),
