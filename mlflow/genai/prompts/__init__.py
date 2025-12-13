@@ -31,7 +31,6 @@ def suppress_genai_migration_warning():
         yield
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def register_prompt(
     name: str,
@@ -145,7 +144,6 @@ def register_prompt(
         )
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def search_prompts(
     filter_string: str | None = None,
@@ -155,7 +153,6 @@ def search_prompts(
         return registry_api.search_prompts(filter_string=filter_string, max_results=max_results)
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str,
@@ -222,7 +219,6 @@ def load_prompt(
         )
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def set_prompt_alias(name: str, alias: str, version: int) -> None:
     """
@@ -255,7 +251,6 @@ def set_prompt_alias(name: str, alias: str, version: int) -> None:
         return registry_api.set_prompt_alias(name=name, version=version, alias=alias)
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def delete_prompt_alias(name: str, alias: str) -> None:
     """
