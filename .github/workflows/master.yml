@@ -235,6 +235,8 @@ jobs:
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          DOCKER_BUILDKIT: 1
         run: |
           uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
