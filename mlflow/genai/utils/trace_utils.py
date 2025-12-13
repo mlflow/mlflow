@@ -154,18 +154,61 @@ def resolve_outputs_from_trace(
     return outputs
 
 
+def parse_tool_calls_from_trace(trace: Trace) -> list[dict[str, str]]:
+    """
+    Extract and format tool call information from TOOL type spans in a trace.
+
+    This function extracts tool spans (spans with span_type==SpanType.TOOL) from a trace
+    and formats them as conversation messages with role='tool'. Each tool message includes
+    the tool name, inputs, and outputs.
+
+    Args:
+        trace: A single Trace object to extract tool calls from.
+
+    Returns:
+        List of tool call messages in the format [{"role": "tool", "content": str}].
+        Tool content includes the tool name, inputs, and outputs formatted as a string.
+        Returns empty list if no tool spans are found.
+
+    Example:
+        >>> trace = mlflow.get_trace(trace_id)
+        >>> tool_messages = parse_tool_calls_from_trace(trace)
+        >>> # Returns: [{"role": "tool", "content": "Tool: name\\nInputs: ...\\nOutputs: ..."}]
+    """
+
+    tool_messages = []
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
+        tool_info = f"Tool: {tool_span.name}"
+        if tool_span.inputs:
+            tool_info += f"\nInputs: {tool_span.inputs}"
+        if tool_span.outputs:
+            tool_info += f"\nOutputs: {tool_span.outputs}"
+        tool_messages.append({"role": "tool", "content": tool_info})
+
+    return tool_messages
+
+
 def resolve_conversation_from_session(
     session: list[Trace],
+    *,
+    include_tool_calls: bool = False,
 ) -> list[dict[str, str]]:
     """
     Extract conversation history from traces in session.
 
     Args:
         session: List of traces from the same session.
+        include_tool_calls: If True, include tool call information from TOOL type spans
+                           in the conversation. Default is False for backward compatibility.
 
     Returns:
-        List of conversation messages in the format [{"role": "user"|"assistant", "content": str}].
-        Each trace contributes two messages: user (from input) and assistant (from output).
+        List of conversation messages in the format:
+        [{"role": "user"|"assistant"|"tool", "content": str}].
+        Each trace contributes user input and assistant output messages.
+        If include_tool_calls is True, tool call messages (with inputs/outputs)
+        are also included in chronological order.
     """
     # Sort traces by creation time (timestamp_ms)
     sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
@@ -177,6 +220,11 @@ def resolve_conversation_from_session(
             user_content = parse_inputs_to_str(inputs)
             if user_content and user_content.strip():
                 conversation.append({"role": "user", "content": user_content})
+
+        # Extract tool calls from TOOL type spans (if requested)
+        if include_tool_calls:
+            tool_messages = parse_tool_calls_from_trace(trace)
+            conversation.extend(tool_messages)
 
         # Extract and parse output (assistant message)
         if outputs := extract_outputs_from_trace(trace):
@@ -377,6 +425,11 @@ def parse_inputs_to_str(value: Any) -> str:
         return value
 
     value = _to_dict(value)
+
+    # Handle case where _to_dict returns a non-dict (e.g., a list that gets serialized
+    # and remains a list)
+    if not isinstance(value, dict):
+        return json.dumps(value, cls=TraceJSONEncoder)
 
     if (messages := value.get(_MESSAGES_KEY)) and len(messages) > 0:
         contents = [m.get(_CONTENT_KEY) for m in messages]

@@ -77,7 +77,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra extras --extra gateway --extra mcp
+          uv sync --extra extras --extra gateway --extra mcp --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
@@ -131,6 +131,7 @@ jobs:
             # https://github.com/actions/virtual-environments/issues/5022
             ./tests/db/compose.sh run --rm --no-TTY $service pytest \
               tests/store/tracking/test_sqlalchemy_store.py \
+              tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/db
               RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
@@ -285,7 +286,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install openai dspy deepeval
+          pip install openai dspy deepeval litellm
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
