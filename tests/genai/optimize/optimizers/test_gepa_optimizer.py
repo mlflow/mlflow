@@ -62,6 +62,7 @@ def test_gepa_optimizer_initialization():
     assert optimizer.reflection_model == "openai:/gpt-4o"
     assert optimizer.max_metric_calls == 100
     assert optimizer.display_progress_bar is False
+    assert optimizer.gepa_kwargs == {}
 
 
 def test_gepa_optimizer_initialization_with_custom_params():
@@ -73,6 +74,19 @@ def test_gepa_optimizer_initialization_with_custom_params():
     assert optimizer.reflection_model == "openai:/gpt-4o"
     assert optimizer.max_metric_calls == 100
     assert optimizer.display_progress_bar is True
+    assert optimizer.gepa_kwargs == {}
+
+
+def test_gepa_optimizer_initialization_with_gepa_kwargs():
+    gepa_kwargs_example = {"foo": "bar"}
+    optimizer = GepaPromptOptimizer(
+        reflection_model="openai:/gpt-4o",
+        gepa_kwargs=gepa_kwargs_example,
+    )
+    assert optimizer.reflection_model == "openai:/gpt-4o"
+    assert optimizer.max_metric_calls == 100
+    assert optimizer.display_progress_bar is False
+    assert optimizer.gepa_kwargs == gepa_kwargs_example
 
 
 def test_gepa_optimizer_optimize(
@@ -156,6 +170,38 @@ def test_gepa_optimizer_optimize_with_custom_reflection_model(
 
     call_kwargs = mock_gepa_module.optimize.call_args.kwargs
     assert call_kwargs["reflection_lm"] == "anthropic/claude-3-5-sonnet-20241022"
+
+
+def test_gepa_optimizer_optimize_with_custom_gepa_params(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_result = Mock()
+    mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
+    mock_gepa_module.optimize.return_value = mock_result
+    mock_gepa_module.EvaluationBatch = MagicMock()
+
+    optimizer = GepaPromptOptimizer(
+        reflection_model="openai:/gpt-4o-mini", gepa_kwargs={"foo": "bar"}
+    )
+
+    with patch.dict(sys.modules, mock_modules):
+        optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=sample_train_data,
+            target_prompts=sample_target_prompts,
+        )
+
+    call_kwargs = mock_gepa_module.optimize.call_args.kwargs
+    assert call_kwargs["foo"] == "bar"
 
 
 def test_gepa_optimizer_optimize_model_name_parsing(
