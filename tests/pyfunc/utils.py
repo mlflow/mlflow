@@ -28,7 +28,7 @@ def score_model_in_process(model_uri: str, data: str, content_type: str) -> "htt
             else:
                 assert content_type == scoring_server.CONTENT_TYPE_JSON
                 data = json.dumps({"dataframe_split": data.to_dict(orient="split")})
-        elif type(data) not in {str, dict}:
+        elif not isinstance(data, (str, dict)):
             data = json.dumps({"instances": data})
 
         return client.post("/invocations", content=data, headers={"Content-Type": content_type})
