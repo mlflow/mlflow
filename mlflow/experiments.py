@@ -12,6 +12,13 @@ from mlflow.utils.string_utils import _create_table
 EXPERIMENT_ID = click.option("--experiment-id", "-x", type=click.STRING, required=True)
 
 
+def _validate_max_results(ctx, param, value):
+    """Validate that max_results is non-negative."""
+    if value is not None and value < 0:
+        raise click.BadParameter("max-results must be a non-negative integer")
+    return value
+
+
 @click.group("experiments")
 def commands():
     """
@@ -55,12 +62,19 @@ def create(experiment_name, artifact_location):
     help="Select view type for experiments. Valid view types are "
     "'active_only' (default), 'deleted_only', and 'all'.",
 )
-def search_experiments(view):
+@click.option(
+    "--max-results",
+    type=click.INT,
+    default=None,
+    callback=_validate_max_results,
+    help="Maximum number of experiments to return. If not provided, returns all experiments.",
+)
+def search_experiments(view, max_results):
     """
     Search for experiments in the configured tracking server.
     """
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
-    experiments = mlflow.search_experiments(view_type=view_type)
+    experiments = mlflow.search_experiments(view_type=view_type, max_results=max_results)
     table = [
         [
             exp.experiment_id,
