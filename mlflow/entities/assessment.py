@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
 from dataclasses import dataclass
 from typing import Any
-
-_logger = logging.getLogger(__name__)
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
@@ -304,7 +301,6 @@ class Feedback(Assessment):
         # Convert ScalarMapContainer to a normal Python dict
         metadata = dict(proto.metadata) if proto.metadata else None
         feedback_value = FeedbackValue.from_proto(proto.feedback)
-
         feedback = cls(
             trace_id=get_trace_id_from_assessment_proto(proto),
             name=proto.assessment_name,

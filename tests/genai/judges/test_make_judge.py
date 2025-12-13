@@ -23,6 +23,7 @@ from mlflow.entities.assessment import (
     Expectation,
     Feedback,
 )
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -388,8 +389,6 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     assert isinstance(result, Feedback)
     assert result.error is not None
     # String errors are converted to AssessmentError objects
-    from mlflow.entities.assessment_error import AssessmentError
-
     assert isinstance(result.error, AssessmentError)
     assert "Invalid JSON response" in result.error.error_message
 
