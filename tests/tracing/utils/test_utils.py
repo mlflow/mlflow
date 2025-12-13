@@ -94,6 +94,66 @@ def test_aggregate_usage_from_spans():
     }
 
 
+def test_aggregate_usage_from_spans_with_cache_tokens():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
+        for i in range(2)
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 50,
+            TokenUsageKey.TOTAL_TOKENS: 150,
+            TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 80,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
+        },
+    )
+    spans[1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 50,
+            TokenUsageKey.TOTAL_TOKENS: 150,
+            TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 0,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 75,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 200,
+        TokenUsageKey.OUTPUT_TOKENS: 100,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 80,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 75,
+    }
+
+
+def test_aggregate_usage_from_spans_cache_tokens_omitted_when_zero():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=0, name="span_0"), trace_id="tr-123")
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 50,
+            TokenUsageKey.TOTAL_TOKENS: 150,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+    # Cache tokens should not be present when they are zero
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 150,
+    }
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
+    assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage
+
+
 def test_aggregate_usage_from_spans_skips_descendant_usage():
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),

@@ -377,3 +377,52 @@ def test_messages_autolog_with_thinking(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+
+
+DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE = Message(
+    id="test_id",
+    content=[TextBlock(text="test answer", type="text", citations=None)],
+    model="test_model",
+    role="assistant",
+    stop_reason="end_turn",
+    stop_sequence=None,
+    type="message",
+    usage=Usage(
+        input_tokens=100,
+        output_tokens=50,
+        cache_creation_input_tokens=80,
+        cache_read_input_tokens=20,
+    ),
+)
+
+
+def test_messages_autolog_with_cache_tokens(is_async):
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(
+        DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE, is_async
+    )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+
+    # Verify cache tokens are captured in span attributes
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_creation_input_tokens": 80,
+        "cache_read_input_tokens": 20,
+    }
+
+    # Verify cache tokens are aggregated in trace-level token usage
+    assert traces[0].info.token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_creation_input_tokens": 80,
+        "cache_read_input_tokens": 20,
+    }
