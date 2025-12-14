@@ -19,6 +19,14 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.tracking.dbmodels.models import (
+    SqlGatewayEndpoint,
+    SqlGatewayEndpointBinding,
+    SqlGatewayEndpointModelMapping,
+    SqlGatewayEndpointTag,
+    SqlGatewayModelDefinition,
+    SqlGatewaySecret,
+)
 from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
     get_resource_endpoint_configs,
@@ -35,16 +43,30 @@ def set_kek_passphrase(monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", TEST_PASSPHRASE)
 
 
+def _cleanup_database(store: SqlAlchemyStore):
+    """Clean up gateway-specific tables after each test."""
+    with store.ManagedSessionMaker() as session:
+        # Delete all rows in gateway tables in dependency order
+        for model in (
+            SqlGatewayEndpointTag,
+            SqlGatewayEndpointBinding,
+            SqlGatewayEndpointModelMapping,
+            SqlGatewayEndpoint,
+            SqlGatewayModelDefinition,
+            SqlGatewaySecret,
+        ):
+            session.query(model).delete()
+
+
 @pytest.fixture
-def store(tmp_path: Path):
+def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():
         s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
         yield s
+        _cleanup_database(s)
     else:
-        db_path = tmp_path / "mlflow.db"
-        db_uri = f"sqlite:///{db_path}"
         s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
         yield s
 
