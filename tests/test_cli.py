@@ -31,7 +31,11 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
 
-from tests.helper_functions import PROTOBUF_REQUIREMENT, get_safe_port, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    PROTOBUF_REQUIREMENT,
+    get_safe_port,
+    pyfunc_serve_and_score_model,
+)
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -566,7 +570,12 @@ def test_mlflow_gc_experiments(get_store_details, request):
     store.delete_experiment(exp_id_5)
     with pytest.raises(MlflowException, match=r"Experiments .+ can be deleted."):
         invoke_gc(
-            "--backend-store-uri", uri, "--experiment-ids", exp_id_5, "--older-than", "10d10h10m10s"
+            "--backend-store-uri",
+            uri,
+            "--experiment-ids",
+            exp_id_5,
+            "--older-than",
+            "10d10h10m10s",
         )
     experiments = store.search_experiments(view_type=ViewType.ALL)
     assert sorted([e.experiment_id for e in experiments]) == sorted(
@@ -813,7 +822,9 @@ def test_env_file_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 
     # Use the existing experiments search CLI command with --env-file
     result = runner.invoke(
-        cli, ["--env-file", str(env_file_path), "experiments", "search"], catch_exceptions=False
+        cli,
+        ["--env-file", str(env_file_path), "experiments", "search"],
+        catch_exceptions=False,
     )
 
     # Check that the command executed successfully
@@ -832,7 +843,9 @@ def test_env_file_loading_invalid_path() -> None:
 
     # Test error handling for non-existent file
     result = runner.invoke(
-        cli, ["--env-file", "nonexistent.env", "experiments", "search"], catch_exceptions=False
+        cli,
+        ["--env-file", "nonexistent.env", "experiments", "search"],
+        catch_exceptions=False,
     )
     assert result.exit_code != 0
     assert "Environment file 'nonexistent.env' does not exist" in result.output
@@ -843,7 +856,11 @@ def test_env_file_loading_invalid_path() -> None:
     [
         (["experiments", "search"], None, ViewType.ACTIVE_ONLY),
         (["experiments", "search", "--max-results", "50"], 50, ViewType.ACTIVE_ONLY),
-        (["experiments", "search", "--view", "all", "--max-results", "100"], 100, ViewType.ALL),
+        (
+            ["experiments", "search", "--view", "all", "--max-results", "100"],
+            100,
+            ViewType.ALL,
+        ),
     ],
 )
 def test_experiments_search_max_results(args, expected_max_results, expected_view):
@@ -873,16 +890,6 @@ def test_experiments_search_max_results_negative():
     )
     assert result.exit_code != 0
     assert "max-results must be a non-negative integer" in result.output
-
-
-def test_experiments_search_command_params():
-    from mlflow.experiments import commands
-
-    search_cmd = next((cmd for cmd in commands.commands.values() if cmd.name == "search"), None)
-    assert search_cmd is not None
-    param_names = [p.name for p in search_cmd.params]
-    assert "view" in param_names
-    assert "max_results" in param_names
 
 
 def test_server_with_env_file(tmp_path):
