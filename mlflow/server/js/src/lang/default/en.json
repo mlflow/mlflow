@@ -135,6 +135,10 @@
     "defaultMessage": "role",
     "description": "Placeholder for chat message role input"
   },
+  "/DvT6Y": {
+    "defaultMessage": "Error",
+    "description": "Error assessment label for filter dropdown"
+  },
   "/G/eHs": {
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
@@ -5578,6 +5582,10 @@
   "oKgZFA": {
     "defaultMessage": "No models found in experiment or all models are hidden. Select at least one model to view charts.",
     "description": "Label displayed in logged models chart view when no models are visible or selected"
+  },
+  "oM11pD": {
+    "defaultMessage": "Error",
+    "description": "The label for an error assessment above a bar-chart in the summary stats."
   },
   "oShuJS": {
     "defaultMessage": "Logged from",
