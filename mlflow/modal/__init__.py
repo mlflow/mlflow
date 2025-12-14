@@ -5,6 +5,7 @@ Modal is a serverless platform for running Python code in the cloud.
 See https://modal.com for more information.
 """
 
+import json
 import logging
 import os
 import re
@@ -380,6 +381,8 @@ class ModalDeploymentClient(BaseDeploymentClient):
                 ["modal", "deploy", app_file],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 cwd=tmp_dir.path(),
             )
 
@@ -464,6 +467,8 @@ class ModalDeploymentClient(BaseDeploymentClient):
             ["modal", "app", "stop", name],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
 
         # Don't fail if app doesn't exist (idempotent delete)
@@ -489,23 +494,30 @@ class ModalDeploymentClient(BaseDeploymentClient):
             List of deployment dictionaries
         """
         result = subprocess.run(
-            ["modal", "app", "list"],
+            ["modal", "app", "list", "--json"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
 
         if result.returncode != 0:
             raise MlflowException(f"Failed to list Modal apps: {result.stderr}")
 
-        # Parse the output to get app names
-        lines = result.stdout.strip().split("\n")
-
-        # Skip header line if present
-        return [
-            {"name": parts[0]}
-            for line in (lines[1:] if len(lines) > 1 else [])
-            if (parts := line.split())
-        ]
+        try:
+            apps = json.loads(result.stdout)
+            return [
+                {
+                    "name": app.get("Description", ""),
+                    "app_id": app.get("App ID", ""),
+                    "state": app.get("State", ""),
+                    "created_at": app.get("Created at", ""),
+                }
+                for app in apps
+            ]
+        except json.JSONDecodeError:
+            _logger.warning("Failed to parse Modal app list output as JSON")
+            return []
 
     def get_deployment(self, name: str, endpoint: str | None = None) -> dict[str, Any]:
         """
@@ -518,32 +530,38 @@ class ModalDeploymentClient(BaseDeploymentClient):
         Returns:
             Dictionary containing deployment information
         """
-        # Check if app exists
         result = subprocess.run(
-            ["modal", "app", "list"],
+            ["modal", "app", "list", "--json"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
 
         if result.returncode != 0:
             raise MlflowException(f"Failed to get Modal app info: {result.stderr}")
 
-        # Check if our app is in the list
-        if name not in result.stdout:
-            raise MlflowException(
-                f"Deployment '{name}' not found",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
+        try:
+            apps = json.loads(result.stdout)
+            for app in apps:
+                if app.get("Description") == name:
+                    workspace = self.workspace or os.environ.get("MODAL_WORKSPACE", "")
+                    return {
+                        "name": name,
+                        "app_id": app.get("App ID", ""),
+                        "state": app.get("State", ""),
+                        "created_at": app.get("Created at", ""),
+                        "endpoint_url": f"https://{workspace}--{name}-mlflowmodel-predict.modal.run"
+                        if workspace
+                        else None,
+                    }
+        except json.JSONDecodeError:
+            pass
 
-        # Get workspace for URL construction
-        workspace = self.workspace or os.environ.get("MODAL_WORKSPACE", "")
-
-        return {
-            "name": name,
-            "endpoint_url": f"https://{workspace}--{name}-mlflowmodel-predict.modal.run"
-            if workspace
-            else None,
-        }
+        raise MlflowException(
+            f"Deployment '{name}' not found",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
 
     def predict(
         self,
