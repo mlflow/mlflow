@@ -17,6 +17,18 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 CRYPTO_KEK_PASSPHRASE_ENV_VAR = "MLFLOW_CRYPTO_KEK_PASSPHRASE"
 CRYPTO_KEK_VERSION_ENV_VAR = "MLFLOW_CRYPTO_KEK_VERSION"
 
+# Default passphrase used when MLFLOW_CRYPTO_KEK_PASSPHRASE is not set.
+# This enables the gateway to work out-of-the-box for development and testing.
+#
+# SECURITY WARNING: Using the default passphrase means all MLflow installations share
+# the same encryption key. This is acceptable for development/testing but NOT for production.
+# For production deployments, always set MLFLOW_CRYPTO_KEK_PASSPHRASE to a unique,
+# high-entropy value from your secrets manager.
+#
+# If secrets were encrypted with one passphrase and the server is restarted with a different
+# passphrase (or the default), decryption will fail. The error message will indicate this.
+DEFAULT_KEK_PASSPHRASE = "mlflow-default-kek-passphrase-for-development-only"
+
 _logger = logging.getLogger(__name__)
 
 
@@ -131,8 +143,13 @@ class KEKManager:
     and updating DEKs in the database) or via the MLFLOW_CRYPTO_KEK_PASSPHRASE environment
     variable (which is used during normal server operation).
 
+    If no passphrase is provided and MLFLOW_CRYPTO_KEK_PASSPHRASE is not set, a default
+    passphrase is used. This enables the gateway to work out-of-the-box for development,
+    but is NOT recommended for production use.
+
     Args:
         passphrase: Optional passphrase. If None, reads from MLFLOW_CRYPTO_KEK_PASSPHRASE env var.
+            If env var is also not set, uses DEFAULT_KEK_PASSPHRASE.
         kek_version: Optional version identifier for this KEK. If None, reads from
             MLFLOW_CRYPTO_KEK_VERSION env var (default 1). Used to track which KEK version
             was used to wrap each DEK, enabling KEK rotation.
@@ -145,24 +162,17 @@ class KEKManager:
         if kek_version is None:
             kek_version = int(os.getenv(CRYPTO_KEK_VERSION_ENV_VAR, "1"))
 
+        # Use default passphrase if none provided
+        self._using_default_passphrase = not passphrase
         if not passphrase:
-            raise MlflowException(
-                "MLFLOW_CRYPTO_KEK_PASSPHRASE environment variable is required for "
-                "secrets management.\n\n"
-                "This passphrase is used to encrypt secrets in the database and must be set "
-                "on the MLflow server.\n\n"
-                "SECURITY: Use a high-entropy passphrase (32+ characters) from your secrets "
-                "manager to ensure strong protection.\n\n"
-                "For local development:\n"
-                "  export MLFLOW_CRYPTO_KEK_PASSPHRASE='my-dev-secret-at-least-32-chars'\n\n"
-                "For production (use your secrets manager):\n"
-                "  export MLFLOW_CRYPTO_KEK_PASSPHRASE='$(vault kv get "
-                "-field=passphrase mlflow/kek)'\n\n"
-                "For Kubernetes:\n"
-                "  Store passphrase in a Secret and inject via secretKeyRef\n\n"
-                "IMPORTANT: Users do NOT need this passphrase - only server administrators.\n"
-                "Users connect to the MLflow server over HTTPS and create secrets normally.",
-                error_code=INVALID_PARAMETER_VALUE,
+            passphrase = DEFAULT_KEK_PASSPHRASE
+            _logger.warning(
+                "MLFLOW_CRYPTO_KEK_PASSPHRASE not set. Using default passphrase for "
+                "secrets encryption. This is acceptable for local development (localhost) "
+                "but is a SECURITY RISK for remote or shared tracking servers. Anyone with "
+                "database access can decrypt secrets when using the default passphrase. "
+                "Set MLFLOW_CRYPTO_KEK_PASSPHRASE to a unique, high-entropy value for any "
+                "server accessible by multiple users or over a network."
             )
 
         self._kek_version = kek_version
@@ -217,6 +227,16 @@ class KEKManager:
             KEK version number
         """
         return self._kek_version
+
+    @property
+    def using_default_passphrase(self) -> bool:
+        """
+        Check if using the default passphrase.
+
+        Returns:
+            True if using the default passphrase (MLFLOW_CRYPTO_KEK_PASSPHRASE not set)
+        """
+        return self._using_default_passphrase
 
 
 def _generate_dek() -> bytes:
@@ -554,11 +574,27 @@ def _decrypt_secret(
             return plaintext
 
     except Exception as e:
-        raise MlflowException(
-            "Failed to decrypt secret. Check KEK passphrase, secret metadata, "
-            "or database integrity.",
-            error_code=INVALID_PARAMETER_VALUE,
-        ) from e
+        # Provide helpful error message if using default passphrase
+        if kek_manager.using_default_passphrase:
+            raise MlflowException(
+                "Failed to decrypt secret. The server is using the default KEK passphrase, "
+                "but the secret was likely encrypted with a custom passphrase.\n\n"
+                "This typically happens when:\n"
+                "1. Secrets were created with MLFLOW_CRYPTO_KEK_PASSPHRASE set\n"
+                "2. The server was restarted without MLFLOW_CRYPTO_KEK_PASSPHRASE\n\n"
+                "To fix this, set MLFLOW_CRYPTO_KEK_PASSPHRASE to the same value that was "
+                "used when the secrets were created:\n"
+                "  export MLFLOW_CRYPTO_KEK_PASSPHRASE='your-original-passphrase'\n\n"
+                "If you've lost the original passphrase, the encrypted secrets cannot be "
+                "recovered and must be recreated.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e
+        else:
+            raise MlflowException(
+                "Failed to decrypt secret. Check KEK passphrase, secret metadata, "
+                "or database integrity.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e
 
 
 def rotate_secret_encryption(

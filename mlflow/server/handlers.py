@@ -233,6 +233,7 @@ from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils.crypto import KEKManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -4367,6 +4368,18 @@ def _get_provider_config():
         raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_secrets_config():
+    kek_manager = KEKManager()
+    return jsonify(
+        {
+            "secrets_available": True,
+            "using_default_passphrase": kek_manager.using_default_passphrase,
+        }
+    )
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4459,6 +4472,11 @@ def get_gateway_endpoints():
         (
             _get_ajax_path("/mlflow/gateway/provider-config", version=3),
             _get_provider_config,
+            ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/secrets/config", version=3),
+            _get_secrets_config,
             ["GET"],
         ),
     ]
