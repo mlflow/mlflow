@@ -67,6 +67,34 @@ def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_reques
     assert data["status"] == "success"
 
 
+def test_record_with_session_and_installation_id(
+    mock_telemetry_client: TelemetryClient, mock_requests
+):
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+        session_id="session_id_override",
+        installation_id="installation_id_override",
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    assert mock_requests[0]["data"]["session_id"] == "session_id_override"
+    assert mock_requests[0]["data"]["installation_id"] == "installation_id_override"
+
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    assert mock_requests[1]["data"]["session_id"] == mock_telemetry_client.info["session_id"]
+    assert (
+        mock_requests[1]["data"]["installation_id"] == mock_telemetry_client.info["installation_id"]
+    )
+
+
 def test_batch_processing(mock_telemetry_client: TelemetryClient, mock_requests):
     mock_telemetry_client._batch_size = 3  # Set small batch size for testing
 
