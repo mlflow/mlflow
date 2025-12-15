@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -850,3 +851,173 @@ async def test_chat_completions_endpoint_invalid_json(store: SqlAlchemyStore):
         await chat_completions(mock_request)
 
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_chat(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-passthrough-key",
+        secret_value={"api_key": "sk-test-passthrough"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-passthrough-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name="openai-passthrough-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_name(
+        store, "openai-passthrough-endpoint", EndpointType.LLM_V1_CHAT
+    )
+
+    # Mock OpenAI API response
+    mock_response = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gpt-4o",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello from passthrough!"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+
+    # Mock aiohttp response
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.headers = {"Content-Type": "application/json"}
+    mock_resp.json = AsyncMock(return_value=mock_response)
+
+    mock_session = MagicMock()
+    mock_session.post = MagicMock(
+        return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_resp), __aexit__=AsyncMock())
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session):
+        payload = {"model": "test-model", "messages": [{"role": "user", "content": "Hello"}]}
+        response = await provider.passthrough_chat(payload)
+
+        # Verify response is raw OpenAI format
+        assert response["id"] == "chatcmpl-123"
+        assert response["model"] == "gpt-4o"
+        assert response["choices"][0]["message"]["content"] == "Hello from passthrough!"
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_embeddings(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-embed-passthrough-key",
+        secret_value={"api_key": "sk-test-embed"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-embed-passthrough-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="text-embedding-3-small",
+    )
+    store.create_gateway_endpoint(
+        name="openai-embed-passthrough-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    provider = _create_provider_from_endpoint_name(
+        store, "openai-embed-passthrough-endpoint", EndpointType.LLM_V1_EMBEDDINGS
+    )
+
+    # Mock OpenAI API response
+    mock_response = {
+        "object": "list",
+        "data": [{"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3]}],
+        "model": "text-embedding-3-small",
+        "usage": {"prompt_tokens": 5, "total_tokens": 5},
+    }
+
+    # Mock aiohttp response
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.headers = {"Content-Type": "application/json"}
+    mock_resp.json = AsyncMock(return_value=mock_response)
+
+    mock_session = MagicMock()
+    mock_session.post = MagicMock(
+        return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_resp), __aexit__=AsyncMock())
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session):
+        payload = {"model": "test-model", "input": "Test input"}
+        response = await provider.passthrough_embeddings(payload)
+
+        # Verify response is raw OpenAI format
+        assert response["model"] == "text-embedding-3-small"
+        assert response["data"][0]["embedding"] == [0.1, 0.2, 0.3]
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_responses(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-responses-key",
+        secret_value={"api_key": "sk-test-responses"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-responses-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name="openai-responses-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_name(
+        store, "openai-responses-endpoint", EndpointType.LLM_V1_CHAT
+    )
+
+    # Mock OpenAI Responses API response
+    mock_response = {
+        "id": "resp-123",
+        "object": "response",
+        "created": 1234567890,
+        "model": "gpt-4o",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Response from Responses API"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+
+    # Mock aiohttp response
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.headers = {"Content-Type": "application/json"}
+    mock_resp.json = AsyncMock(return_value=mock_response)
+
+    mock_session = MagicMock()
+    mock_session.post = MagicMock(
+        return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_resp), __aexit__=AsyncMock())
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session):
+        payload = {
+            "model": "test-model",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "response_format": {"type": "text"},
+        }
+        response = await provider.passthrough_responses(payload)
+
+        # Verify response is raw OpenAI format
+        assert response["id"] == "resp-123"
+        assert response["object"] == "response"
+        assert response["choices"][0]["message"]["content"] == "Response from Responses API"

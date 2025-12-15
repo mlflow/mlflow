@@ -1,6 +1,6 @@
 import json
 import os
-from typing import TYPE_CHECKING, AsyncIterable
+from typing import TYPE_CHECKING, Any, AsyncIterable
 from urllib.parse import urlparse, urlunparse
 
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_FUNCTIONS
@@ -603,3 +603,39 @@ class OpenAIProvider(BaseProvider):
             payload=OpenAIAdapter.embeddings_to_model(payload, self.config),
         )
         return OpenAIAdapter.model_to_embeddings(resp, self.config)
+
+    async def passthrough_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
+        payload_with_model = {**payload, "model": self.config.model.name}
+        if self.openai_config.openai_api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
+            payload_with_model.pop("model", None)
+
+        return await send_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path="chat/completions",
+            payload=payload_with_model,
+        )
+
+    async def passthrough_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
+        payload_with_model = {**payload, "model": self.config.model.name}
+        if self.openai_config.openai_api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
+            payload_with_model.pop("model", None)
+
+        return await send_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path="embeddings",
+            payload=payload_with_model,
+        )
+
+    async def passthrough_responses(self, payload: dict[str, Any]) -> dict[str, Any]:
+        payload_with_model = {**payload, "model": self.config.model.name}
+        if self.openai_config.openai_api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
+            payload_with_model.pop("model", None)
+
+        return await send_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path="responses",
+            payload=payload_with_model,
+        )

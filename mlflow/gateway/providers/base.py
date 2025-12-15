@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterable
+from typing import Any, AsyncIterable
 
 import numpy as np
 
@@ -68,6 +68,36 @@ class BaseProvider(ABC):
         raise AIGatewayException(
             status_code=501,
             detail=f"The embeddings route is not implemented for {self.NAME} models.",
+        )
+
+    async def passthrough_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """
+        Passthrough endpoint for OpenAI-compatible chat completions.
+        Accepts raw OpenAI request format and returns raw OpenAI response format.
+        """
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The passthrough chat route is not implemented for {self.NAME} models.",
+        )
+
+    async def passthrough_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """
+        Passthrough endpoint for OpenAI-compatible embeddings.
+        Accepts raw OpenAI request format and returns raw OpenAI response format.
+        """
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The passthrough embeddings route is not implemented for {self.NAME} models.",
+        )
+
+    async def passthrough_responses(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """
+        Passthrough endpoint for OpenAI Responses API.
+        Accepts raw OpenAI request format and returns raw OpenAI response format.
+        """
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The passthrough responses route is not implemented for {self.NAME} models.",
         )
 
     @staticmethod
