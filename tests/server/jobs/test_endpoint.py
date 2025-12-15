@@ -253,11 +253,12 @@ def test_job_endpoint_search(client: Client):
     )
     assert extract_job_ids(jobs) == [job1_id, job2_id]
 
-    jobs = client.search_job(
-        function_name="bad_fun_name",
-        params={"x": 7},
-    )
-    assert extract_job_ids(jobs) == []
+    with pytest.raises(requests.exceptions.HTTPError) as excinfo:  # noqa: PT011
+        client.search_job(
+            function_name="bad_fun_name",
+            params={"x": 7},
+        )
+    assert excinfo.value.response.status_code == 400
 
     jobs = client.search_job(
         function_name="simple_job_fun",

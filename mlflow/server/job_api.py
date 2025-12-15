@@ -102,7 +102,7 @@ def search_jobs(payload: SearchJobPayload) -> SearchJobsResponse:
     from mlflow.server.jobs import get_job_fn_fullname
 
     try:
-        fn_fullname = get_job_fn_fullname(payload.function_name)
+        fn_fullname = get_job_fn_fullname(payload.function_name) if payload.function_name else None
         store = _get_job_store()
         job_results = [
             Job.from_job_entity(job)
