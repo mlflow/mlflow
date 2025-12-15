@@ -7,6 +7,9 @@ import {
 import { UI_TELEMETRY_ENDPOINT } from './constants';
 import { LogQueue } from './LogQueue';
 
+// eslint-disable-next-line no-restricted-globals
+const scope = self as any as SharedWorkerGlobalScope;
+
 async function fetchConfig(): Promise<TelemetryConfig | null> {
   try {
     const response = await fetch(UI_TELEMETRY_ENDPOINT, {
@@ -51,6 +54,10 @@ class TelemetryLogger {
 
     this.logQueue.enqueue({ ...record, session_id: this.sessionId });
   }
+
+  public destroy(): void {
+    this.logQueue.destroy();
+  }
 }
 
 const logger = new TelemetryLogger();
@@ -58,17 +65,18 @@ const logger = new TelemetryLogger();
 function handleMessage(event: MessageEvent): void {
   const message = event.data;
 
-  if (message.type !== ClientToWorkerMessageType.LOG_EVENT) {
-    return;
+  switch (message.type) {
+    case ClientToWorkerMessageType.LOG_EVENT:
+      logger.addLogToQueue(message.payload as TelemetryRecord).catch((error) => {
+        console.error('[TelemetryWorker] Error logging event:', error);
+      });
+      break;
+    case ClientToWorkerMessageType.SHUTDOWN:
+      logger.destroy();
+      scope.close();
+      break;
   }
-
-  logger.addLogToQueue(message.payload as TelemetryRecord).catch((error) => {
-    console.error('[TelemetryWorker] Error logging event:', error);
-  });
 }
-
-// eslint-disable-next-line no-restricted-globals
-const scope = self as any as SharedWorkerGlobalScope;
 
 scope.onconnect = (event: MessageEvent) => {
   const port = event.ports[0];

@@ -4,6 +4,7 @@ export enum WorkerToClientMessageType {
 
 export enum ClientToWorkerMessageType {
   LOG_EVENT = 'LOG_EVENT',
+  SHUTDOWN = 'SHUTDOWN',
 }
 
 export interface TelemetryRecord {
