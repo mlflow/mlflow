@@ -246,13 +246,6 @@ async def chat_completions(request: Request):
 
     _validate_store(store)
 
-    # Validate this is a chat request
-    if "messages" not in body:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid chat request: missing 'messages' field",
-        )
-
     endpoint_type = EndpointType.LLM_V1_CHAT
     try:
         payload = chat.RequestPayload(**body)

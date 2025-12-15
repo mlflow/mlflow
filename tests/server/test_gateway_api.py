@@ -783,7 +783,7 @@ async def test_chat_completions_endpoint_missing_messages(store: SqlAlchemyStore
         }
     )
 
-    with pytest.raises(HTTPException, match="missing 'messages' field") as exc_info:
+    with pytest.raises(HTTPException, match="Invalid chat payload") as exc_info:
         await chat_completions(mock_request)
 
     assert exc_info.value.status_code == 400
