@@ -36,6 +36,7 @@ import { first, isEmpty } from 'lodash';
 import { PromptsListTableTagsBox } from './components/PromptDetailsTagsBox';
 import { PromptNotFoundView } from './components/PromptNotFoundView';
 import { useUpdatePromptVersionMetadataModal } from './hooks/useUpdatePromptVersionMetadataModal';
+import { useEditModelConfigModal } from './hooks/useEditModelConfigModal';
 import type { ThunkDispatch } from '../../../redux-types';
 import { setModelVersionAliasesApi } from '../../../model-registry/actions';
 import { ExperimentPageTabName } from '../../constants';
@@ -83,6 +84,10 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
   });
 
   const { EditPromptVersionMetadataModal, showEditPromptVersionMetadataModal } = useUpdatePromptVersionMetadataModal({
+    onSuccess: refetch,
+  });
+
+  const { EditModelConfigModal, openEditModelConfigModal } = useEditModelConfigModal({
     onSuccess: refetch,
   });
 
@@ -260,6 +265,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
                   showEditAliasesModal={showEditAliasesModal}
                   registeredPrompt={promptDetailsData?.prompt}
                   showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
+                  showEditModelConfigModal={openEditModelConfigModal}
                 />
               )}
               {mode === PromptVersionsTableMode.COMPARE && (
@@ -282,6 +288,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
       {CreatePromptModal}
       {DeletePromptModal}
       {EditPromptVersionMetadataModal}
+      {EditModelConfigModal}
     </ScrollablePageWrapper>
   );
 };

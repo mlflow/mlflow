@@ -2050,11 +2050,20 @@ class SqlGatewaySecret(Base):
     secret_id = Column(String(36), nullable=False)
     """
     Secret ID: `String` (limit 36 characters). *Primary Key* for ``secrets`` table.
+
+    NB: IMMUTABLE. This field is used as part of the AAD (Additional Authenticated Data) during
+    AES-GCM encryption. If modified, decryption will fail with authentication error. See
+    mlflow/utils/crypto.py:_create_aad() for details.
     """
     secret_name = Column(String(255), nullable=False)
     """
     Secret name: `String` (limit 255 characters). User-provided name for the secret.
     Defined as *Unique* in table schema to prevent confusing selection of secrets in the UI.
+
+    NB: IMMUTABLE. This field is used as part of the AAD (Additional Authenticated Data) during
+    AES-GCM encryption. If modified, decryption will fail with authentication error. To "rename"
+    a secret, create a new secret with the desired name and delete the old one. See
+    mlflow/utils/crypto.py:_create_aad() for details.
     """
     encrypted_value = Column(LargeBinary, nullable=False)
     """
