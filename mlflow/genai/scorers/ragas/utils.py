@@ -12,10 +12,6 @@ from mlflow.genai.utils.trace_utils import (
     resolve_outputs_from_trace,
 )
 
-RAGAS_NOT_INSTALLED_ERROR_MESSAGE = (
-    "RAGAS metrics require the 'ragas' package. Please install it with: pip install ragas"
-)
-
 
 def map_scorer_inputs_to_ragas_sample(
     inputs: Any = None,
@@ -49,8 +45,8 @@ def map_scorer_inputs_to_ragas_sample(
     retrieved_contexts = [str(ctx) for contexts in span_id_to_context.values() for ctx in contexts]
 
     reference = None
-    if expectations and "expected_output" in expectations:
-        reference = parse_outputs_to_str(expectations["expected_output"])
+    if expectations:
+        reference = ", ".join(expectations.values())
 
     return SingleTurnSample(
         user_input=user_input,
@@ -59,3 +55,46 @@ def map_scorer_inputs_to_ragas_sample(
         reference=reference,
         reference_contexts=retrieved_contexts or None,
     )
+
+
+def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: str) -> str:
+    """
+    Create an mlflow error message for missing RAGAS parameters.
+
+    Args:
+        ragas_param: The RAGAS parameter name that is missing
+        metric_name: The name of the RAGAS metric
+
+    Returns:
+        An mlflow error message for missing RAGAS parameters
+    """
+    ragas_to_mlflow_param_mapping = {
+        "user_input": "inputs",
+        "response": "outputs",
+        "reference": "expectations['expected_output']",
+        "retrieved_contexts": "trace with retrieval spans",
+        "reference_contexts": "trace with retrieval spans",
+    }
+    mlflow_param = ragas_to_mlflow_param_mapping.get(ragas_param, ragas_param)
+
+    message_parts = [
+        f"RAGAS metric '{metric_name}' requires '{mlflow_param}' parameter, which is missing."
+    ]
+
+    if ragas_param == "user_input":
+        message_parts.append("Example: judge(inputs='What is MLflow?', outputs='...')")
+    elif ragas_param == "response":
+        message_parts.append("Example: judge(inputs='...', outputs='MLflow is a platform')")
+    elif ragas_param == "reference":
+        message_parts.append(
+            "\nExample: judge(inputs='...', outputs='...', "
+            "expectations={'expected_output': ...}) or log an expectation to the trace: "
+            "mlflow.log_expectation(trace_id, name='expected_output', value=..., source=...)"
+        )
+    elif ragas_param in ["retrieved_contexts", "reference_contexts"]:
+        message_parts.append(
+            "\nMake sure your trace includes retrieval spans. "
+            "Example: use @mlflow.trace(span_type=SpanType.RETRIEVER) decorator"
+        )
+
+    return " ".join(message_parts)

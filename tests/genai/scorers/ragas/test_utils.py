@@ -3,34 +3,10 @@ from langchain_core.documents import Document
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.ragas.models import create_ragas_model
-from mlflow.genai.scorers.ragas.utils import map_scorer_inputs_to_ragas_sample
-
-
-def test_create_ragas_model_databricks():
-    model = create_ragas_model("databricks")
-    assert model.__class__.__name__ == "DatabricksRagasLLM"
-
-
-def test_create_ragas_model_databricks_serving_endpoint():
-    model = create_ragas_model("databricks:/my-endpoint")
-    assert model.__class__.__name__ == "DatabricksServingEndpointRagasLLM"
-
-
-def test_create_ragas_model_openai():
-    model = create_ragas_model("openai:/gpt-4")
-    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
-
-
-def test_create_ragas_model_with_provider_no_slash():
-    model = create_ragas_model("openai:gpt-4")
-    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
-
-
-def test_create_ragas_model_rejects_model_name_only():
-    with pytest.raises(MlflowException, match="Invalid model_uri format"):
-        create_ragas_model("gpt-4")
+from mlflow.genai.scorers.ragas.utils import (
+    create_mlflow_error_message_from_ragas_param,
+    map_scorer_inputs_to_ragas_sample,
+)
 
 
 def test_map_scorer_inputs_to_ragas_sample_basic():
@@ -80,3 +56,40 @@ def test_map_scorer_inputs_to_ragas_sample_with_trace():
     assert len(sample.retrieved_contexts) == 2
     assert "Document 1" in str(sample.retrieved_contexts)
     assert "Document 2" in str(sample.retrieved_contexts)
+
+
+@pytest.mark.parametrize(
+    ("ragas_param", "expected_mlflow_param", "expected_guidance"),
+    [
+        ("user_input", "inputs", "judge(inputs='What is MLflow?'"),
+        (
+            "response",
+            "outputs",
+            "judge(inputs='...', outputs='MLflow is a platform'",
+        ),
+        (
+            "reference",
+            "expectations['expected_output']",
+            "expectations={'expected_output':",
+        ),
+        (
+            "retrieved_contexts",
+            "trace with retrieval spans",
+            "retrieval spans",
+        ),
+        (
+            "reference_contexts",
+            "trace with retrieval spans",
+            "retrieval spans",
+        ),
+    ],
+)
+def test_create_mlflow_error_message_from_ragas_param(
+    ragas_param, expected_mlflow_param, expected_guidance
+):
+    metric_name = "TestMetric"
+    error_message = create_mlflow_error_message_from_ragas_param(ragas_param, metric_name)
+
+    assert metric_name in error_message
+    assert expected_mlflow_param in error_message
+    assert expected_guidance in error_message
