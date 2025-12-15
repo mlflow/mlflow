@@ -607,21 +607,13 @@ def test_feedback_passes_through_assessment_error():
     assert proto.feedback.error.error_code == "CUSTOM_ERROR_CODE"
 
 
-def test_feedback_rejects_invalid_error_types():
-    # Test with integer
+@pytest.mark.parametrize(
+    "invalid_error",
+    [123, ["error"], {"error": "message"}],
+    ids=["int", "list", "dict"],
+)
+def test_feedback_rejects_invalid_error_types(invalid_error):
     with pytest.raises(
         MlflowException, match="'error' must be an Exception, AssessmentError, or string"
     ):
-        Feedback(name="test", error=123)
-
-    # Test with list
-    with pytest.raises(
-        MlflowException, match="'error' must be an Exception, AssessmentError, or string"
-    ):
-        Feedback(name="test", error=["error"])
-
-    # Test with dict
-    with pytest.raises(
-        MlflowException, match="'error' must be an Exception, AssessmentError, or string"
-    ):
-        Feedback(name="test", error={"error": "message"})
+        Feedback(name="test", error=invalid_error)
