@@ -126,6 +126,22 @@ def is_scalar(function: "FunctionInfo") -> bool:
     return function.data_type != ColumnTypeName.TABLE_TYPE
 
 
+def escape_uc_identifier(full_name: str) -> str:
+    """
+    Escape a Unity Catalog function name for safe SQL interpolation.
+
+    Takes a fully qualified UC name (catalog.schema.function) and escapes each
+    part with backticks to prevent SQL injection.
+    """
+    parts = full_name.split(".")
+    if len(parts) != 3:
+        raise ValueError(
+            f"Invalid Unity Catalog function name format: {full_name}. "
+            "Expected format: catalog.schema.function"
+        )
+    return ".".join(f"`{p.replace('`', '``')}`" for p in parts)
+
+
 def get_execute_function_sql_stmt(
     function: "FunctionInfo",
     json_params: dict[str, Any],
@@ -135,10 +151,11 @@ def get_execute_function_sql_stmt(
 
     parts = []
     output_params = []
+    safe_name = escape_uc_identifier(function.full_name)
     if is_scalar(function):
-        parts.append(f"SELECT {function.full_name}(")
+        parts.append(f"SELECT {safe_name}(")
     else:
-        parts.append(f"SELECT * FROM {function.full_name}(")
+        parts.append(f"SELECT * FROM {safe_name}(")
     if function.input_params is None or function.input_params.parameters is None:
         assert not json_params, "Function has no parameters but parameters were provided."
     else:
