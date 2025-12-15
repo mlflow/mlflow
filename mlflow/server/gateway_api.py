@@ -230,7 +230,7 @@ async def chat_completions(request: Request):
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
     # Extract endpoint name from "model" parameter
-    endpoint_name = body.get("model")
+    endpoint_name = body.pop("model", None)
     if not endpoint_name:
         raise HTTPException(
             status_code=400,
