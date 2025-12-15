@@ -29,6 +29,7 @@ from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import make_streaming_response, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.utils import _get_store
@@ -148,6 +149,15 @@ def _create_provider_from_endpoint_name(
     return provider_class(gateway_endpoint_config)
 
 
+def _validate_store(store: AbstractStore):
+    if not isinstance(store, SqlAlchemyStore):
+        raise HTTPException(
+            status_code=500,
+            detail="Gateway endpoints are only available with SqlAlchemyStore, "
+            f"got {type(store).__name__}.",
+        )
+
+
 @gateway_router.post("/{endpoint_name}/mlflow/invocations")
 @translate_http_exception
 async def invocations(endpoint_name: str, request: Request):
@@ -165,12 +175,7 @@ async def invocations(endpoint_name: str, request: Request):
 
     store = _get_store()
 
-    if not isinstance(store, SqlAlchemyStore):
-        raise HTTPException(
-            status_code=500,
-            detail="Gateway endpoints are only available with SqlAlchemyStore, "
-            f"got {type(store).__name__}.",
-        )
+    _validate_store(store)
 
     # Detect request type based on payload structure
     if "messages" in body:
@@ -239,12 +244,7 @@ async def chat_completions(request: Request):
 
     store = _get_store()
 
-    if not isinstance(store, SqlAlchemyStore):
-        raise HTTPException(
-            status_code=500,
-            detail="Gateway endpoints are only available with SqlAlchemyStore, "
-            f"got {type(store).__name__}.",
-        )
+    _validate_store(store)
 
     # Validate this is a chat request
     if "messages" not in body:
