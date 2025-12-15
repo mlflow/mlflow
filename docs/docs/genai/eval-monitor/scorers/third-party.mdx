@@ -12,15 +12,44 @@ MLflow integrates with popular third-party evaluation frameworks, allowing you t
 
 ## DeepEval Integration
 
-[DeepEval](https://docs.confident-ai.com/) is a comprehensive evaluation framework for LLM applications that provides metrics for RAG systems, agents, conversational AI, and safety evaluation. MLflow's DeepEval integration allows you to use any DeepEval metric as an MLflow scorer.
+[DeepEval](https://docs.confident-ai.com/) is a comprehensive evaluation framework for LLM applications that provides metrics for RAG systems, agents, conversational AI, and safety evaluation. MLflow's DeepEval integration allows you to use nearly any DeepEval metric as an MLflow scorer.
+
+### Prerequisites
+
+DeepEval scorers require the `deepeval` package:
+
+```bash
+pip install deepeval
+```
 
 ### Quick Start
 
-Import DeepEval scorers directly from MLflow and use them with <APILink fn="mlflow.genai.evaluate">evaluate</APILink>:
+You can use DeepEval scorers ad-hoc or in batch evaluations.
+
+**Ad-hoc Usage**
+
+Call scorers directly on individual inputs:
+
+```python
+from mlflow.genai.scorers.deepeval import AnswerRelevancy
+
+scorer = AnswerRelevancy(threshold=0.7, model="openai:/gpt-4")
+feedback = scorer(
+    inputs="What is MLflow?",
+    outputs="MLflow is an open-source platform for managing machine learning workflows.",
+)
+
+print(feedback.value)  # "yes" or "no"
+print(feedback.metadata["score"])  # 0.85
+```
+
+**Batch Evaluation**
+
+Use DeepEval scorers with <APILink fn="mlflow.genai.evaluate">evaluate</APILink> for batch processing:
 
 ```python
 import mlflow
-from mlflow.genai.scorers.deepeval import AnswerRelevancy, Faithfulness, TaskCompletion
+from mlflow.genai.scorers.deepeval import AnswerRelevancy, Faithfulness
 
 eval_dataset = [
     {
@@ -37,7 +66,7 @@ results = mlflow.genai.evaluate(
     data=eval_dataset,
     scorers=[
         AnswerRelevancy(threshold=0.7, model="openai:/gpt-4"),
-        Faithfulness(threshold=0.8, model="databricks"),
+        Faithfulness(threshold=0.8, model="openai:/gpt-4"),
     ],
 )
 ```
@@ -52,11 +81,11 @@ Evaluate retrieval quality and answer generation in RAG systems:
 
 | Scorer | What does it evaluate? | Requires trace? |
 |--------|------------------------|-----------------|
-| <APILink fn="mlflow.genai.scorers.deepeval.AnswerRelevancy">AnswerRelevancy</APILink> | Is the output relevant to the input query? | No |
-| <APILink fn="mlflow.genai.scorers.deepeval.Faithfulness">Faithfulness</APILink> | Is the output factually consistent with retrieval context? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.ContextualRecall">ContextualRecall</APILink> | Does retrieval context contain all necessary information? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.ContextualPrecision">ContextualPrecision</APILink> | Are relevant nodes ranked higher than irrelevant ones? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.ContextualRelevancy">ContextualRelevancy</APILink> | Is the retrieval context relevant to the query? | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.AnswerRelevancy">AnswerRelevancy</APILink> | Is the output relevant to the input query? ([DeepEval docs](https://deepeval.com/docs/metrics-answer-relevancy)) | No |
+| <APILink fn="mlflow.genai.scorers.deepeval.Faithfulness">Faithfulness</APILink> | Is the output factually consistent with retrieval context? ([DeepEval docs](https://deepeval.com/docs/metrics-faithfulness)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.ContextualRecall">ContextualRecall</APILink> | Does retrieval context contain all necessary information? ([DeepEval docs](https://deepeval.com/docs/metrics-contextual-recall)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.ContextualPrecision">ContextualPrecision</APILink> | Are relevant nodes ranked higher than irrelevant ones? ([DeepEval docs](https://deepeval.com/docs/metrics-contextual-precision)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.ContextualRelevancy">ContextualRelevancy</APILink> | Is the retrieval context relevant to the query? ([DeepEval docs](https://deepeval.com/docs/metrics-contextual-relevancy)) | Yes |
 
 #### Agentic Metrics
 
@@ -64,12 +93,12 @@ Evaluate AI agent performance and behavior:
 
 | Scorer | What does it evaluate? | Requires trace? |
 |--------|------------------------|-----------------|
-| <APILink fn="mlflow.genai.scorers.deepeval.TaskCompletion">TaskCompletion</APILink> | Does the agent successfully complete its assigned task? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.ToolCorrectness">ToolCorrectness</APILink> | Does the agent use the correct tools? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.ArgumentCorrectness">ArgumentCorrectness</APILink> | Are tool arguments correct? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.StepEfficiency">StepEfficiency</APILink> | Does the agent take an optimal path? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.PlanAdherence">PlanAdherence</APILink> | Does the agent follow its plan? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.PlanQuality">PlanQuality</APILink> | Is the agent's plan well-structured? | No |
+| <APILink fn="mlflow.genai.scorers.deepeval.TaskCompletion">TaskCompletion</APILink> | Does the agent successfully complete its assigned task? ([DeepEval docs](https://deepeval.com/docs/metrics-task-completion)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.ToolCorrectness">ToolCorrectness</APILink> | Does the agent use the correct tools? ([DeepEval docs](https://deepeval.com/docs/metrics-tool-correctness)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.ArgumentCorrectness">ArgumentCorrectness</APILink> | Are tool arguments correct? ([DeepEval docs](https://deepeval.com/docs/metrics-argument-correctness)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.StepEfficiency">StepEfficiency</APILink> | Does the agent take an optimal path? ([DeepEval docs](https://deepeval.com/docs/metrics-step-efficiency)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.PlanAdherence">PlanAdherence</APILink> | Does the agent follow its plan? ([DeepEval docs](https://deepeval.com/docs/metrics-plan-adherence)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.PlanQuality">PlanQuality</APILink> | Is the agent's plan well-structured? ([DeepEval docs](https://deepeval.com/docs/metrics-plan-quality)) | No |
 
 #### Conversational Metrics
 
@@ -77,13 +106,13 @@ Evaluate multi-turn conversations and dialogue systems:
 
 | Scorer | What does it evaluate? | Requires session? |
 |--------|------------------------|-------------------|
-| <APILink fn="mlflow.genai.scorers.deepeval.TurnRelevancy">TurnRelevancy</APILink> | Is each turn relevant to the conversation? | No |
-| <APILink fn="mlflow.genai.scorers.deepeval.RoleAdherence">RoleAdherence</APILink> | Does the assistant maintain its assigned role? | No |
-| <APILink fn="mlflow.genai.scorers.deepeval.KnowledgeRetention">KnowledgeRetention</APILink> | Does the agent retain information across turns? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.ConversationCompleteness">ConversationCompleteness</APILink> | Are all user questions addressed? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.GoalAccuracy">GoalAccuracy</APILink> | Does the conversation achieve its goal? | Yes |
-| <APILink fn="mlflow.genai.scorers.deepeval.ToolUse">ToolUse</APILink> | Does the agent use tools appropriately in conversation? | No |
-| <APILink fn="mlflow.genai.scorers.deepeval.TopicAdherence">TopicAdherence</APILink> | Does the conversation stay on topic? | No |
+| <APILink fn="mlflow.genai.scorers.deepeval.TurnRelevancy">TurnRelevancy</APILink> | Is each turn relevant to the conversation? ([DeepEval docs](https://deepeval.com/docs/metrics-turn-relevancy)) | No |
+| <APILink fn="mlflow.genai.scorers.deepeval.RoleAdherence">RoleAdherence</APILink> | Does the assistant maintain its assigned role? ([DeepEval docs](https://deepeval.com/docs/metrics-role-adherence)) | No |
+| <APILink fn="mlflow.genai.scorers.deepeval.KnowledgeRetention">KnowledgeRetention</APILink> | Does the agent retain information across turns? ([DeepEval docs](https://deepeval.com/docs/metrics-knowledge-retention)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.ConversationCompleteness">ConversationCompleteness</APILink> | Are all user questions addressed? ([DeepEval docs](https://deepeval.com/docs/metrics-conversation-completeness)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.GoalAccuracy">GoalAccuracy</APILink> | Does the conversation achieve its goal? ([DeepEval docs](https://deepeval.com/docs/metrics-goal-accuracy)) | Yes |
+| <APILink fn="mlflow.genai.scorers.deepeval.ToolUse">ToolUse</APILink> | Does the agent use tools appropriately in conversation? ([DeepEval docs](https://deepeval.com/docs/metrics-tool-use)) | No |
+| <APILink fn="mlflow.genai.scorers.deepeval.TopicAdherence">TopicAdherence</APILink> | Does the conversation stay on topic? ([DeepEval docs](https://deepeval.com/docs/metrics-topic-adherence)) | No |
 
 :::info Multi-Turn Evaluation
 Some conversational metrics (marked with "Yes" in Requires session?) evaluate entire conversation sessions rather than individual turns. These require traces with `mlflow.trace.session` metadata. See the [Evaluate Conversations](/genai/eval-monitor/running-evaluation/multi-turn) guide for details.
@@ -95,12 +124,12 @@ Detect harmful content, bias, and policy violations:
 
 | Scorer | What does it evaluate? |
 |--------|------------------------|
-| <APILink fn="mlflow.genai.scorers.deepeval.Bias">Bias</APILink> | Does the output contain biased content? |
-| <APILink fn="mlflow.genai.scorers.deepeval.Toxicity">Toxicity</APILink> | Does the output contain toxic language? |
-| <APILink fn="mlflow.genai.scorers.deepeval.NonAdvice">NonAdvice</APILink> | Does the model inappropriately provide advice in restricted domains? |
-| <APILink fn="mlflow.genai.scorers.deepeval.Misuse">Misuse</APILink> | Could the output be used for harmful purposes? |
-| <APILink fn="mlflow.genai.scorers.deepeval.PIILeakage">PIILeakage</APILink> | Does the output leak personally identifiable information? |
-| <APILink fn="mlflow.genai.scorers.deepeval.RoleViolation">RoleViolation</APILink> | Does the assistant break out of its assigned role? |
+| <APILink fn="mlflow.genai.scorers.deepeval.Bias">Bias</APILink> | Does the output contain biased content? ([DeepEval docs](https://deepeval.com/docs/metrics-bias)) |
+| <APILink fn="mlflow.genai.scorers.deepeval.Toxicity">Toxicity</APILink> | Does the output contain toxic language? ([DeepEval docs](https://deepeval.com/docs/metrics-toxicity)) |
+| <APILink fn="mlflow.genai.scorers.deepeval.NonAdvice">NonAdvice</APILink> | Does the model inappropriately provide advice in restricted domains? ([DeepEval docs](https://deepeval.com/docs/metrics-non-advice)) |
+| <APILink fn="mlflow.genai.scorers.deepeval.Misuse">Misuse</APILink> | Could the output be used for harmful purposes? ([DeepEval docs](https://deepeval.com/docs/metrics-misuse)) |
+| <APILink fn="mlflow.genai.scorers.deepeval.PIILeakage">PIILeakage</APILink> | Does the output leak personally identifiable information? ([DeepEval docs](https://deepeval.com/docs/metrics-pii-leakage)) |
+| <APILink fn="mlflow.genai.scorers.deepeval.RoleViolation">RoleViolation</APILink> | Does the assistant break out of its assigned role? ([DeepEval docs](https://deepeval.com/docs/metrics-role-violation)) |
 
 #### General Metrics
 
@@ -108,10 +137,10 @@ Additional evaluation metrics for common use cases:
 
 | Scorer | What does it evaluate? |
 |--------|------------------------|
-| <APILink fn="mlflow.genai.scorers.deepeval.Hallucination">Hallucination</APILink> | Does the LLM fabricate information not in the context? |
-| <APILink fn="mlflow.genai.scorers.deepeval.Summarization">Summarization</APILink> | Is the summary accurate and complete? |
-| <APILink fn="mlflow.genai.scorers.deepeval.JsonCorrectness">JsonCorrectness</APILink> | Does JSON output match the expected schema? |
-| <APILink fn="mlflow.genai.scorers.deepeval.PromptAlignment">PromptAlignment</APILink> | Does the output align with prompt instructions? |
+| <APILink fn="mlflow.genai.scorers.deepeval.Hallucination">Hallucination</APILink> | Does the LLM fabricate information not in the context? ([DeepEval docs](https://deepeval.com/docs/metrics-hallucination)) |
+| <APILink fn="mlflow.genai.scorers.deepeval.Summarization">Summarization</APILink> | Is the summary accurate and complete? ([DeepEval docs](https://deepeval.com/docs/metrics-summarization)) |
+| <APILink fn="mlflow.genai.scorers.deepeval.JsonCorrectness">JsonCorrectness</APILink> | Does JSON output match the expected schema? ([DeepEval docs](https://deepeval.com/docs/metrics-json-correctness)) |
+| <APILink fn="mlflow.genai.scorers.deepeval.PromptAlignment">PromptAlignment</APILink> | Does the output align with prompt instructions? ([DeepEval docs](https://deepeval.com/docs/metrics-prompt-alignment)) |
 
 #### Deterministic Metrics
 
@@ -119,118 +148,27 @@ Fast, rule-based metrics that don't require LLM calls:
 
 | Scorer | What does it evaluate? |
 |--------|------------------------|
-| <APILink fn="mlflow.genai.scorers.deepeval.ExactMatch">ExactMatch</APILink> | Does output exactly match expected output? |
-| <APILink fn="mlflow.genai.scorers.deepeval.PatternMatch">PatternMatch</APILink> | Does output match a regex pattern? |
+| <APILink fn="mlflow.genai.scorers.deepeval.ExactMatch">ExactMatch</APILink> | Does output exactly match expected output? ([DeepEval docs](https://deepeval.com/docs/metrics-exact-match)) |
+| <APILink fn="mlflow.genai.scorers.deepeval.PatternMatch">PatternMatch</APILink> | Does output match a regex pattern? ([DeepEval docs](https://deepeval.com/docs/metrics-pattern-match)) |
 
 ### Configuration
 
-#### Model Selection
-
-DeepEval scorers support all MLflow-compatible model URIs:
+DeepEval scorers support flexible configuration options:
 
 ```python
 from mlflow.genai.scorers.deepeval import AnswerRelevancy
 
-# OpenAI model
-scorer = AnswerRelevancy(model="openai:/gpt-4")
-
-# Databricks model serving endpoint
-scorer = AnswerRelevancy(model="databricks:/my-endpoint")
-
-# Databricks foundation model (default)
-scorer = AnswerRelevancy(model="databricks")
-```
-
-#### Threshold Configuration
-
-All DeepEval scorers support a `threshold` parameter that determines pass/fail criteria:
-
-```python
-# Lower threshold = more lenient (more likely to pass)
-scorer = AnswerRelevancy(threshold=0.5)
-
-# Higher threshold = more strict (less likely to pass)
-scorer = AnswerRelevancy(threshold=0.9)
-```
-
-DeepEval metrics typically return scores in the range 0.0-1.0. The scorer passes if `score >= threshold`.
-
-#### Additional Parameters
-
-Most scorers accept an `include_reason` parameter to include detailed explanations:
-
-```python
 scorer = AnswerRelevancy(
-    threshold=0.7,
-    model="openai:/gpt-4",
-    include_reason=True,  # Include detailed rationale
+    model="openai:/gpt-4",  # Model URI (also supports "databricks", "databricks:/endpoint", etc.)
+    threshold=0.7,  # Pass/fail threshold (0.0-1.0, scorer passes if score >= threshold)
+    include_reason=True,  # Include detailed rationale in feedback
 )
 ```
 
-### Working with Traces
-
-Many DeepEval scorers (especially RAG and Agentic metrics) require MLflow traces to extract context information:
-
-```python
-import mlflow
-from mlflow.genai.scorers.deepeval import Faithfulness, ToolCorrectness
-
-# Automatic tracing with your application
-mlflow.langchain.autolog()
-
-
-def my_rag_app(query):
-    # Your RAG application code
-    ...
-
-
-# Evaluate with traces
-results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=my_rag_app,  # Generates traces automatically
-    scorers=[
-        Faithfulness(threshold=0.8),  # Extracts retrieval context from trace
-    ],
-)
-```
-
-#### What Information Do Scorers Extract from Traces?
-
-Different scorer types extract different information:
-
-- **RAG Metrics**: Extract retrieval context from `RETRIEVER` spans
-- **Agentic Metrics**: Extract tool calls and arguments from `TOOL` spans
-- **All Metrics**: Can extract inputs/outputs from the root span
-
-```python
-# You can also evaluate pre-collected traces
-trace = mlflow.get_trace("trace-id")
-scorer = Faithfulness(threshold=0.8)
-feedback = scorer(trace=trace)
-```
-
-### Output Format
-
-DeepEval scorers return MLflow <APILink fn="mlflow.entities.Feedback">Feedback</APILink> objects with:
-
-- **Value**: Binary pass/fail (`yes`/`no`) based on threshold
-- **Rationale**: Detailed explanation from DeepEval
-- **Metadata**: Contains the raw numeric score and threshold
-- **Source**: Identifies the scorer as `deepeval/{metric_name}`
-
-```python
-feedback = scorer(inputs="query", outputs="response")
-
-print(feedback.value)  # "yes" or "no"
-print(feedback.rationale)  # Detailed explanation
-print(feedback.metadata)  # {"score": 0.85, "threshold": 0.7}
-print(feedback.source)  # AssessmentSource(source_type="LLM_JUDGE",
-#                   source_id="deepeval/AnswerRelevancy")
-```
 
 ### Dynamic Scorer Creation with get_judge()
 
-The <APILink fn="mlflow.genai.scorers.deepeval.get_judge">get_judge</APILink> function allows you to create DeepEval scorers dynamically by name. This is useful for selecting metrics that may not be namespaced in MLflow.
+The <APILink fn="mlflow.genai.scorers.deepeval.get_judge">get_judge</APILink> function allows you to create DeepEval scorers dynamically by name:
 
 ```python
 from mlflow.genai.scorers.deepeval import get_judge
@@ -247,38 +185,6 @@ feedback = scorer(
     outputs="MLflow is a platform for ML workflows.",
 )
 ```
-
-## When to Use Third-party Scorers
-
-### Use Third-party Scorers When:
-
-✅ **Specialized Domain Expertise**: The third-party framework provides domain-specific metrics (e.g., RAG evaluation, agent assessment)
-
-✅ **Proven Metrics**: You want battle-tested evaluation metrics with research backing
-
-✅ **Consistent Benchmarking**: You're comparing against published benchmarks using specific metrics
-
-✅ **Rapid Prototyping**: You need quick access to comprehensive evaluation metrics without custom development
-
-### Use Built-in MLflow Scorers When:
-
-⚠️ **Simplicity**: You need basic evaluation metrics without additional dependencies
-
-⚠️ **Custom Requirements**: Your evaluation criteria are highly specific to your application
-
-⚠️ **Minimal Dependencies**: You want to minimize external package requirements
-
-## Installation
-
-DeepEval scorers require the `deepeval` package to be installed separately:
-
-```bash
-pip install deepeval
-```
-
-:::tip
-The integration is designed to work seamlessly - DeepEval metrics are automatically converted to MLflow's scorer interface, so you can mix and match with MLflow's built-in scorers.
-:::
 
 ## Next Steps
 
