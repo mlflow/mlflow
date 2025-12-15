@@ -43,14 +43,6 @@ runs:
     - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
-    - name: Configure conda-forge mirror
-      if: runner.os == 'Linux'
-      shell: bash
-      # TODO: Remove this workaround once https://github.com/conda/infrastructure/issues/1254 is resolved
-      run: |
-        if [ -f /usr/share/miniconda/bin/conda ]; then
-          /usr/share/miniconda/bin/conda config --append 'custom_multichannels.conda-forge' 'https://prefix.dev/conda-forge'
-        fi
     - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.

@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class TurnRelevancy(DeepEvalScorer):
     """
     Evaluates the relevance of each conversation turn.
@@ -21,7 +24,7 @@ class TurnRelevancy(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -38,6 +41,7 @@ class TurnRelevancy(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class RoleAdherence(DeepEvalScorer):
     """
     Evaluates whether the agent stays in character throughout the conversation.
@@ -50,7 +54,7 @@ class RoleAdherence(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -67,6 +71,7 @@ class RoleAdherence(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class KnowledgeRetention(DeepEvalScorer):
     """
     Evaluates the chatbot's ability to retain and use information from earlier in the conversation.
@@ -80,7 +85,7 @@ class KnowledgeRetention(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -97,6 +102,7 @@ class KnowledgeRetention(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class ConversationCompleteness(DeepEvalScorer):
     """
     Evaluates whether the conversation satisfies the user's needs and goals.
@@ -109,7 +115,7 @@ class ConversationCompleteness(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -128,6 +134,7 @@ class ConversationCompleteness(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class GoalAccuracy(DeepEvalScorer):
     """
     Evaluates the accuracy of achieving conversation goals in a multi-turn context.
@@ -141,7 +148,7 @@ class GoalAccuracy(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -158,6 +165,7 @@ class GoalAccuracy(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class ToolUse(DeepEvalScorer):
     """
     Evaluates the effectiveness of tool usage throughout a conversation.
@@ -171,7 +179,7 @@ class ToolUse(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -188,6 +196,7 @@ class ToolUse(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class TopicAdherence(DeepEvalScorer):
     """
     Evaluates adherence to specified topics throughout a conversation.
@@ -200,7 +209,7 @@ class TopicAdherence(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
