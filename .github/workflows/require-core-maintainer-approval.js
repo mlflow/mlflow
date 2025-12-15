@@ -13,7 +13,16 @@ const EXEMPTION_RULES = [
   // Exemption for GenAI evaluation PRs.
   {
     authors: ["alkispoly-db", "AveshCSingh", "danielseong1", "smoorjani", "SomtochiUmeh", "xsh310"],
-    allowed: ["mlflow/genai/", "tests/genai/", "docs/"],
+    allowed: [
+      "mlflow/genai/",
+      "tests/genai/",
+      "docs/",
+      // do not add backslash at the end, this should match with files like assessment_source.py, too
+      "mlflow/entities/assessment",
+      "mlflow/entities/dataset",
+      "mlflow/entities/evaluation",
+      "mlflow/entities/scorer",
+    ],
     excludes: [
       "mlflow/genai/agent_server/",
       "mlflow/genai/git_versioning/",
