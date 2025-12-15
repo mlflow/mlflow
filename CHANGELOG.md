@@ -4,40 +4,43 @@
 
 MLflow 3.8.0rc0 includes several major features and improvements
 
-Features:
+### Major Features
 
-- [UI] Add prompt model config to the prompt registry UI (#19279, @chenmoneygithub)
 - [Tracking] Enhance encryption security (#19253, @BenWilson2)
-- [Tracing] Support display in progress traces (#19265, @B-Step62)
 - [Tracking] Fix and simplify Gateway store interfaces (#19346, @BenWilson2)
-- [Evaluation] Add inference_params support for LLM Judges (#19152, @debu-sinha)
-- [Tracing] Support batch span export to UC Table (#19324, @B-Step62)
 - [Tracking] Add endpoint tags (#19308, @BenWilson2)
-- [Docs / Evaluation] Add MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS to limit concurrent scorer execution (#19248, @debu-sinha)
-- [Tracking] [Endpoints] [9/x] Add provider, model, and configuration handling (#19009, @BenWilson2)
-- [Evaluation / Tracking] Enable search_datasets in Databricks managed MLflow (#19254, @alkispoly-db)
-- [Evaluation] [2/6][Builtin Judges] Conversational Tool Call Efficiency (#19245, @joelrobin18)
-- [Tracking] [Endpoints] [8/x] Add credential cache (#19014, @BenWilson2)
-- [Evaluation] [1/4] Add basic deepeval judge wrapping (#18988, @smoorjani)
-- [Prompts] [ML-59440] render text prompt previews in markdown (#19200, @ispoljari)
-- [Tracking] [Endpoints] [7/x] Add rest store implementation (#19008, @BenWilson2)
-- [Prompts] Add model config to prompt (backend and docs change) (#19174, @chenmoneygithub)
-- [UI] Add linked prompts filter for trace search tab (#19192, @TomeHirata)
-- [Evaluation] Automatically wrap async functions when passed to predict_fn (#19249, @smoorjani)
-- [Tracking] [Endpoints] [6/x] Protos and entities interfaces (#19007, @BenWilson2)
-- [Tracking] [Endpoints] [5/x] SQL Store backend for Endpoints (#19006, @BenWilson2)
-- [Tracking] [Endpoints] [4/x] Abstract store interface (#19005, @BenWilson2)
-- [Evaluation] [1/6][Builtin Judges] Conversational Safety Judge (#19106, @joelrobin18)
-- [Tracking] [Endpoints] [3/x] Entities base definitions (#19004, @BenWilson2)
 - [Tracking] [Endpoints] [1/x] Add backend DB tables for Endpoints (#19002, @BenWilson2)
+- [Tracking] [Endpoints] [3/x] Entities base definitions (#19004, @BenWilson2)
+- [Tracking] [Endpoints] [4/x] Abstract store interface (#19005, @BenWilson2)
+- [Tracking] [Endpoints] [5/x] SQL Store backend for Endpoints (#19006, @BenWilson2)
+- [Tracking] [Endpoints] [6/x] Protos and entities interfaces (#19007, @BenWilson2)
+- [Tracking] [Endpoints] [7/x] Add rest store implementation (#19008, @BenWilson2)
+- [Tracking] [Endpoints] [8/x] Add credential cache (#19014, @BenWilson2)
+- [Tracking] [Endpoints] [9/x] Add provider, model, and configuration handling (#19009, @BenWilson2)
+- [Prompts] Add model config to prompt (backend and docs change) (#19174, @chenmoneygithub)
+- [Prompts] Add prompt model config to the prompt registry UI (#19279, @chenmoneygithub)
 - [Prompts] Add unified cache + TTL for prompt loading (#18963, @chenmoneygithub)
-- [Evaluation / UI] Add show/hide visibility control for Evaluation runs chart view (#18797) (#18852, @pradpalnis)
-- [Tracking] Add mlflow experiments get command (#19097, @alkispoly-db)
+- [Tracing] Support display in progress traces (#19265, @B-Step62)
+- [Evaluation] [1/4] Add basic `deepeval` judge wrapping (#18988, @smoorjani)
+- [Evaluation] [1/6][builtin judges] Conversational Safety Judge (#19106, @joelrobin18)
+- [Evaluation] [2/6][builtin judges] Conversational Tool Call Efficiency (#19245, @joelrobin18)
+- [Evaluation] Automatically wrap async functions when passed to predict_fn (#19249, @smoorjani)
 
-Bug fixes:
+### Features
+
+- [Tracing] Support batch span export to UC Table (#19324, @B-Step62)
+- [Evaluation] Add `inference_params` support for LLM Judges (#19152, @debu-sinha)
+- [Evaluation / Tracking] Enable `search_datasets` in Databricks managed MLflow (#19254, @alkispoly-db)
+- [Evaluation / UI] Add show/hide visibility control for Evaluation runs chart view (#18797) (#18852, @pradpalnis)
+- [Prompts] Render text prompt previews in markdown (#19200, @ispoljari)
+- [UI] Add linked prompts filter for trace search tab (#19192, @TomeHirata)
+- [Docs / Evaluation] Add `MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS` to limit concurrent scorer execution (#19248, @debu-sinha)
+- [Tracking] Add `mlflow experiments get` command (#19097, @alkispoly-db)
+
+### Bug fixes
 
 - [UI] [Bug fix] Traces UI: Support filtering on assessments with multiple values (e.g. error and boolean) (#19262, @dbczumar)
-- [Evaluation / Tracing] Fix error initialization in Feedback  (#19340, @alkispoly-db)
+- [Evaluation / Tracing] Fix error initialization in Feedback (#19340, @alkispoly-db)
 - [Models] Switch container build to subprocess for Sagemaker (#19277, @BenWilson2)
 - [Scoring] Fix scorers issue on Strands traces (#18835, @joelrobin18)
 - [Tracking] Stop initializing backend stores in artifacts only mode (#19167, @mprahl)
@@ -51,7 +54,7 @@ Bug fixes:
 - [Tracking] Update docker compose to use --artifacts-destination not --default-artifact-root (#19215, @B-Step62)
 - [Build] Reduce clint error message verbosity by consolidating README instructions (#19155, @copilot-swe-agent)
 
-Documentation updates:
+### Documentation updates
 
 - [Evaluation] Fix non-reproducible code examples in deep-learning.mdx (#19376, @saumilyagupta)
 - [Docs / Evaluation] fix: Confusing documentation for `mlflow.genai.evaluate()` (#19380, @brandonhawi)
