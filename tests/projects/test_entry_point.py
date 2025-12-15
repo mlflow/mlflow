@@ -108,7 +108,6 @@ def test_path_parameter():
 
 
 def test_uri_parameter():
-    """Tests parameter resolution for parameters of type `uri`."""
     project = load_project()
     entry_point = project.get_entry_point("download_uri")
     with (

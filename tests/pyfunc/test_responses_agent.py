@@ -1146,6 +1146,20 @@ def test_create_function_call_output_item():
                     "type": "message",
                 },
                 {
+                    "type": "mcp_approval_request",
+                    "id": "mcp_approval_request_123",
+                    "arguments": "{}",
+                    "name": "system__ai__python_exec",
+                    "server_label": "python_exec",
+                },
+                {
+                    "type": "mcp_approval_response",
+                    "id": "mcp_approval_response_123",
+                    "approval_request_id": "mcp_approval_request_123",
+                    "approve": True,
+                    "reason": "The request was approved",
+                },
+                {
                     "type": "function_call",
                     "id": "chatcmpl_56a443d8-bf71-4f71-aff5-082191c4db1e",
                     "call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
@@ -1162,6 +1176,25 @@ def test_create_function_call_output_item():
                 {"content": "what is 4*3 in python"},
                 {"role": "assistant", "content": '"I can help you calculate 4*3"'},
                 {"role": "assistant", "content": "I can help you calculate 4*"},
+                {
+                    "role": "assistant",
+                    "content": "mcp approval request",
+                    "tool_calls": [
+                        {
+                            "id": "mcp_approval_request_123",
+                            "type": "function",
+                            "function": {
+                                "arguments": "{}",
+                                "name": "system__ai__python_exec",
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "content": "True",
+                    "tool_call_id": "mcp_approval_request_123",
+                },
                 {
                     "role": "assistant",
                     "content": "tool call",

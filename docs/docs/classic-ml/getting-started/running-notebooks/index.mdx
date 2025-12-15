@@ -125,9 +125,9 @@ This guide shows you how to connect your development environment to an MLflow Ex
 
         ```bash
         # For Option A
-        mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+        mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
         # For Option B
-        mlflow ui --port 5000
+        mlflow server --port 5000
         ```
 
         If you have the remote tracking server running (option C), access the MLflow UI at the same URI.
@@ -135,7 +135,7 @@ This guide shows you how to connect your development environment to an MLflow Ex
 
         :::info[ACCESS DENIED?]
 
-          When using the remove tracking server, you may hit an access denied error when accessing the MLflow UI
+          When using the remote tracking server, you may hit an access denied error when accessing the MLflow UI
           from a browser.
 
           > Invalid Host header - possible DNS rebinding attack detected

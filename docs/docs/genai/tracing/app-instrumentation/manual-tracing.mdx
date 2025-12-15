@@ -1,25 +1,27 @@
-import Tabs from "@theme/Tabs"
-import TabItem from "@theme/TabItem"
 import { APILink } from "@site/src/components/APILink";
+import useBaseUrl from '@docusaurus/useBaseUrl';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '@site/src/components/TabsWrapper';
 
 # Manual Tracing
 
-In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your Python code using MLflow's manual tracing APIs. This is especially useful when you need to instrument your custom Python code.
-
-:::tip
-Looking for the Typescript guide? Checkout the <ins>[Typescript SDK](/genai/tracing/app-instrumentation/typescript-sdk)</ins> documentation.
-:::
+In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your GenAI application by using MLflow's manual tracing APIs.
 
 ## Decorator
 
-The <APILink fn="mlflow.trace" /> decorator allows you to create a span for any function. This approach provides a simple yet effective way to add tracing to your code with minimal effort:
+The `mlflow.trace` decorator allows you to create a span for any function. This approach provides a simple yet effective way to add tracing to your code with minimal effort:
 
 - 🔗 **MLflow detects the parent-child relationships** between functions, making it compatible with auto-tracing integrations.
 - 🛡️ **Captures exceptions** during function execution and records them as span events.
 - 📊 **Automatically logs the function's name, inputs, outputs, and execution time**.
-- 🤝 **Can be used alongside auto-tracing** features, such as `mlflow.openai.autolog`.
+- 🤝 **Can be used alongside auto-tracing** features.
 
-The @mlflow.trace decorator currently supports the following types of functions:
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+The `@mlflow.trace` decorator currently supports the following types of functions:
 
 | Function Type   | Supported       |
 | --------------- | --------------- |
@@ -27,8 +29,6 @@ The @mlflow.trace decorator currently supports the following types of functions:
 | Async           | Yes (>= 2.16.0) |
 | Generator       | Yes (>= 2.20.2) |
 | Async Generator | Yes (>= 2.20.2) |
-
-### Example
 
 The following code is a minimum example of using the decorator for tracing Python functions.
 
@@ -59,23 +59,124 @@ def trace_test(x):
 trace_test(4)
 ```
 
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+The `@mlflow.trace` decorator is useful when you want to trace a class method.
+
+:::note
+Decorator requires TypeScript version 5.0+ and it can only be applied to class method.
+:::
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+class MyClass {
+    @mlflow.trace({ spanType: mlflow.SpanType.LLM })
+    generateText(prompt: string) {
+        return "It's sunny in Seattle!";
+    }
+}
+```
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
 ![Tracing Decorator](/images/llms/tracing/trace-decorator.png)
 
 :::note
 When a trace contains multiple spans with same name, MLflow appends an auto-incrementing suffix to them, such as `_1`, `_2`.
 :::
 
-### Customizing Spans
+## Function Wrapping
 
-The <APILink fn="mlflow.trace" /> decorator accepts following arguments to customize the span to be created:
+Function wrapping provides a flexible way to add tracing to existing functions without modifying their definitions. This is particularly useful when you want to add tracing to third-party functions or functions defined outside of your control. By wrapping an external function with `mlflow.trace`, you can capture its inputs, outputs, and execution context.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+:::note
+When wrapping functions dynamically, the concept of "outermost" still applies. The tracing wrapper should be applied at the point where you want to capture the entire call to the wrapped function.
+:::
+
+```python
+import math
+import mlflow
+
+
+def invocation(x, y, exp=2):
+    # Wrap an external function from the math library
+    traced_pow = mlflow.trace(math.pow)
+    raised = traced_pow(x, exp)
+
+    traced_factorial = mlflow.trace(math.factorial)
+    factorial = traced_factorial(int(raised))
+    return factorial
+
+
+invocation(4, 2)
+```
+
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+**Named Function**:
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+const getWeather = async (city: string) => {
+    return `The weather in ${city} is sunny`;
+};
+
+// Wrap the function with mlflow.trace to create a traced function.
+const tracedGetWeather = mlflow.trace(
+    getWeather,
+    { name: 'get-weather' }
+);
+
+// Invoke the traced function as usual.
+await tracedGetWeather('San Francisco');
+```
+
+**Anonymous Function**:
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+const getWeather = mlflow.trace(
+    (city: string) => {
+        return `The weather in ${city} is sunny`;
+    },
+    // When wrapping an anonymous function, you need to specify the span name.
+    { name: 'get-weather' }
+);
+
+// Invoke the traced function as usual.
+getWeather('San Francisco');
+```
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+## Customizing Spans
+
+The `mlflow.trace` decorator accepts following arguments to customize the span to be created:
 
 - 🏷️ **`name` parameter** to override the span name from the default (the name of decorated function)
 - 🎯 **`span_type` parameter** to set the type of span. Set either one of built-in [Span Types](/genai/concepts/span#span-types) or a string.
 - 🏗️ **`attributes` parameter** to add custom attributes to the span.
 
-:::tip[Decorator Order]
-When combining `@mlflow.trace` with other decorators (e.g., from web frameworks), it's crucial for it to be the outermost. For a clear example of correct vs. incorrect ordering, please refer to [Using @mlflow.trace with Other Decorators](#using-mlflowtrace-with-other-decorators).
-:::
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
 
 ```python
 from mlflow.entities import SpanType
@@ -90,7 +191,37 @@ def invoke(prompt: str):
     )
 ```
 
-Alternatively, you can update the span dynamically inside the function by using <APILink fn="mlflow.get_current_active_span" /> API.
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+class MyClass {
+    @mlflow.trace({
+        name: "call-local-llm",
+        spanType: mlflow.SpanType.LLM,
+        attributes: {"model": "gpt-4o-mini"}
+    })
+    generateText(prompt: string) {
+        return "It's sunny in Seattle!";
+    }
+}
+```
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+Alternatively, you can update the span dynamically inside the function.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+Use the <APILink fn="mlflow.get_current_active_span" /> API.
 
 ```python
 from mlflow.entities import SpanType
@@ -106,13 +237,342 @@ def invoke(prompt: str):
     return client.invoke(messages=[{"role": "user", "content": prompt}], model=model_id)
 ```
 
-### Using `@mlflow.trace` with Other Decorators
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+Use the `mlflow.getCurrentActiveSpan` API.
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+class MyClass {
+    @mlflow.trace({ spanType: mlflow.SpanType.LLM })
+    generateText(prompt: string) {
+        const modelId = "gpt-4o-mini";
+        const span = mlflow.getCurrentActiveSpan();
+        span?.setAttribute("model", modelId);
+        return "It's sunny in Seattle!";
+    }
+}
+```
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+## Adding Trace Tags
+
+Tags can be added to traces to provide additional metadata at the trace level. There are a few different ways to set tags on a trace. Please refer to the [how-to guide](/genai/tracing/attach-tags) for the other methods.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+```python
+@mlflow.trace
+def my_func(x):
+    mlflow.update_current_trace(tags={"fruit": "apple"})
+    return x + 1
+```
+
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+class MyClass {
+    @mlflow.trace({ spanType: mlflow.SpanType.LLM })
+    generateText(prompt: string) {
+        mlflow.updateCurrentTrace({ tags: { fruit: "apple" } });
+        return "It's sunny in Seattle!";
+    }
+}
+```
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+## Customizing Request and Response Previews in the UI
+
+The Traces tab in the MLflow UI displays a list of traces, and the `Request` and `Response` columns show a preview of the end-to-end input and output of each trace. This allows you to quickly understand what each trace represents.
+
+By default, these previews are truncated to a fixed number of characters. However, you can customize what's shown in these columns by using the `request_preview` and `response_preview` parameters. This is particularly useful for complex inputs or outputs where the default truncation might not show the most relevant information.
+
+Below is an example of setting a custom request preview for a trace that processes a long document and user instructions, aiming to render the most relevant information in the UI's `Request` column:
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+```python
+import mlflow
+
+
+@mlflow.trace(name="Summarization Pipeline")
+def summarize_document(document_content: str, user_instructions: str):
+    # Construct a custom preview for the request column
+    # For example, show beginning of document and user instructions
+    request_p = f"Doc: {document_content[:30]}... Instr: {user_instructions[:30]}..."
+    mlflow.update_current_trace(request_preview=request_p)
+
+    # Simulate LLM call
+    # messages = [
+    #     {"role": "system", "content": "Summarize the following document based on user instructions."},
+    #     {"role": "user", "content": f"Document: {document_content}\nInstructions: {user_instructions}"}
+    # ]
+    # completion = client.chat.completions.create(model="gpt-4o-mini", messages=messages)
+    # summary = completion.choices[0].message.content
+    summary = f"Summary of document starting with '{document_content[:20]}...' based on '{user_instructions}'"
+
+    # Customize the response preview
+    response_p = f"Summary: {summary[:50]}..."
+    mlflow.update_current_trace(response_preview=response_p)
+
+    return summary
+
+
+# Example Call
+long_document = (
+    "This is a very long document that contains many details about various topics..."
+    * 10
+)
+instructions = "Focus on the key takeaways regarding topic X."
+summary_result = summarize_document(long_document, instructions)
+```
+
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+class MyClass {
+    @mlflow.trace({ name: "Summarization Pipeline" })
+    summarizeDocument(documentContent: string, userInstructions: string) {
+        // Construct a custom preview for the request column
+        // For example, show beginning of document and user instructions
+        const requestPreview = `Doc: ${documentContent.slice(0, 30)}... Instr: ${userInstructions.slice(0, 30)}...`;
+        mlflow.updateCurrentTrace({ requestPreview: requestPreview });
+
+        // Simulate LLM call
+        // const messages = [
+        //   { role: "system", content: "Summarize the following document based on user instructions." },
+        //   { role: "user", content: `Document: ${documentContent}\nInstructions: ${userInstructions}` }
+        // ];
+        // const completion = await client.chat.completions.create({ model: "gpt-4o-mini", messages });
+        // const summary = completion.choices[0].message.content;
+        const summary = `Summary of document starting with '${documentContent.slice(0, 20)}...' based on '${userInstructions}'`;
+
+        // Customize the response preview
+        const responsePreview = `Summary: ${summary.slice(0, 50)}...`;
+        mlflow.updateCurrentTrace({ responsePreview: responsePreview });
+
+        return summary;
+    }
+}
+```
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+By setting `request_preview` and `response_preview` on the trace (typically the root span), you control how the overall interaction is summarized in the main trace list view, making it easier to identify and understand traces at a glance.
+
+## Code Block
+
+In addition to the decorator, MLflow allows for creating a span that can then be accessed within any encapsulated arbitrary code block. It can be useful for capturing complex interactions within your code in finer detail than what is possible by capturing the boundaries of a single function.
+
+Similarly to the decorator, the code block automatically captures parent-child relationship, exceptions, execution time, and works with auto-tracing. However, the name, inputs, and outputs of the span must be provided manually.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+Use the <APILink fn="mlflow.start_span" /> context manager.
+
+```python
+import mlflow
+
+with mlflow.start_span(name="my_span") as span:
+    span.set_inputs({"x": 1, "y": 2})
+    z = x + y
+    span.set_outputs(z)
+```
+
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+Use the `mlflow.withSpan` function wrapper.
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+const result = await mlflow.withSpan(
+    async (span: mlflow.Span) => {
+        const x = 1;
+        const y = 2;
+        span.setInputs({ "x": x, "y": y });
+        const z = x + y;
+        span.setOutputs(z);
+    },
+    {
+        name: "MySpan",
+    }
+);
+```
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+Below is a slightly more complex example that uses code block in conjunction with both the decorator and auto-tracing for OpenAI.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+```python
+import mlflow
+import openai
+from mlflow.entities import SpanType
+
+# Enable auto-tracing for OpenAI
+mlflow.openai.autolog()
+
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def start_session():
+    messages = [{"role": "system", "content": "You are a friendly chat bot"}]
+    while True:
+        with mlflow.start_span(name="User") as span:
+            span.set_inputs(messages)
+            user_input = input(">> ")
+            span.set_outputs(user_input)
+
+        if user_input == "BYE":
+            break
+
+        messages.append({"role": "user", "content": user_input})
+
+        response = openai.OpenAI().chat.completions.create(
+            model="gpt-4o-mini",
+            max_tokens=100,
+            messages=messages,
+        )
+        answer = response.choices[0].message.content
+        print(f"🤖: {answer}")
+
+        messages.append({"role": "assistant", "content": answer})
+
+
+start_session()
+```
+
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+import * as readline from "readline";
+
+const openai = tracedOpenAI(new OpenAI());
+
+class MyClass {
+    @mlflow.trace({ spanType: mlflow.SpanType.CHAIN })
+    async startSession() {
+        var messages: OpenAI.ChatCompletionMessageParam[] = [{"role": "system", "content": "You are a friendly chat bot"}];
+        // Create readline interface for user input
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+
+        const getUserInput = (prompt: string): Promise<string> => {
+            return new Promise((resolve) => {
+                    rl.question(prompt, (answer) => {
+                    resolve(answer);
+                });
+            });
+        };
+
+        while (true) {
+            let userInput: string = "";
+
+            await mlflow.withSpan(
+                async (span) => {
+                    span.setInputs({ messages });
+                    userInput = await getUserInput(">> ");
+                    span.setOutputs({ userInput });
+                },
+                { name: "User" }
+            );
+
+            if (userInput === "BYE") {
+                break;
+            }
+
+            messages.push({ role: "user", content: userInput });
+
+            const response = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                max_tokens: 100,
+                messages: messages
+            });
+
+            const answer = response.choices[0].message.content || "";
+            console.log(`🤖: ${answer}`);
+
+            messages.push({ role: "assistant", content: answer });
+        }
+
+        rl.close();
+    }
+}
+
+const myClass = new MyClass();
+myClass.startSession();
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Automatic Exception Handling
+
+If an `Exception` is raised during processing of a trace-instrumented operation, an indication will be shown within the UI that the invocation was not successful and a partial capture of data will be available to aid in debugging. Additionally, details about the Exception that was raised will be included within `Events` of the partially completed span, further aiding the identification of where issues are occurring within your code.
+
+<video src={useBaseUrl("/images/llms/tracing/trace-exception.mp4")} controls loop autoPlay muted aria-label="Trace Error" />
+
+---
+
+:::note Python Only Features
+The below documentation applies only to the MLflow Python SDK.
+:::
+
+## Using `@mlflow.trace` with Other Decorators
 
 When applying multiple decorators to a single function, it's crucial to place `@mlflow.trace` as the **outermost** decorator (the one at the very top). This ensures that MLflow can capture the entire execution of the function, including the behavior of any inner decorators.
 
 If `@mlflow.trace` is not the outermost decorator, its visibility into the function's execution may be limited or incorrect, potentially leading to incomplete traces or misrepresentation of the function's inputs, outputs, and execution time.
 
 Consider the following conceptual example:
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
 
 ```python
 import mlflow
@@ -163,78 +623,19 @@ if __name__ == "__main__":
     my_other_complex_function(5, 3)
 ```
 
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
 In the `my_complex_function` example (correct order), `@mlflow.trace` will capture the full execution, including the time added by `simple_timing_decorator`. In `my_other_complex_function` (incorrect order), the trace captured by MLflow might not accurately reflect the total execution time or could miss modifications to inputs/outputs made by `simple_timing_decorator` before `@mlflow.trace` sees them.
 
-### Adding Trace Tags
-
-Tags can be added to traces to provide additional metadata at the trace level. There are a few different ways to set tags on a trace. Please refer to the [how-to guide](/genai/tracing/attach-tags) for the other methods.
-
-```python
-@mlflow.trace
-def my_func(x):
-    mlflow.update_current_trace(tags={"fruit": "apple"})
-    return x + 1
-```
-
-### Customizing Request and Response Previews in the UI
-
-The Traces tab in the MLflow UI displays a list of traces, and the `Request` and `Response` columns show a preview of the end-to-end input and output of each trace. This allows you to quickly understand what each trace represents.
-
-By default, these previews are truncated to a fixed number of characters. However, you can customize what's shown in these columns by using the `request_preview` and `response_preview` parameters within the <APILink fn="mlflow.update_current_trace" /> function. This is particularly useful for complex inputs or outputs where the default truncation might not show the most relevant information.
-
-Below is an example of setting a custom request preview for a trace that processes a long document and user instructions, aiming to render the most relevant information in the UI's `Request` column:
-
-```python
-import mlflow
-
-
-@mlflow.trace(name="Summarization Pipeline")
-def summarize_document(document_content: str, user_instructions: str):
-    # Construct a custom preview for the request column
-    # For example, show beginning of document and user instructions
-    request_p = f"Doc: {document_content[:30]}... Instr: {user_instructions[:30]}..."
-    mlflow.update_current_trace(request_preview=request_p)
-
-    # Simulate LLM call
-    # messages = [
-    #     {"role": "system", "content": "Summarize the following document based on user instructions."},
-    #     {"role": "user", "content": f"Document: {document_content}\nInstructions: {user_instructions}"}
-    # ]
-    # completion = client.chat.completions.create(model="gpt-4o-mini", messages=messages)
-    # summary = completion.choices[0].message.content
-    summary = f"Summary of document starting with '{document_content[:20]}...' based on '{user_instructions}'"
-
-    # Customize the response preview
-    response_p = f"Summary: {summary[:50]}..."
-    mlflow.update_current_trace(response_preview=response_p)
-
-    return summary
-
-
-# Example Call
-long_document = (
-    "This is a very long document that contains many details about various topics..."
-    * 10
-)
-instructions = "Focus on the key takeaways regarding topic X."
-summary_result = summarize_document(long_document, instructions)
-```
-
-By setting `request_preview` and `response_preview` on the trace (typically the root span), you control how the overall interaction is summarized in the main trace list view, making it easier to identify and understand traces at a glance.
-
-### Automatic Exception Handling
-
-If an `Exception` is raised during processing of a trace-instrumented operation, an indication will be shown within the UI that the invocation was not successful and a partial capture of data will be available to aid in debugging. Additionally, details about the Exception that was raised will be included within `Events` of the partially completed span, further aiding the identification of where issues are occurring within your code.
-
-![Trace Error](/images/llms/tracing/trace-exception.gif)
-
-### Combining with Auto-Tracing
-
-The `@mlflow.trace` decorator can be used in conjunction with auto tracing to combine auto-tracing with manually defined spans in a single cohesive and integrated trace. Learn more [here](/genai/tracing/app-instrumentation/automatic#combining-manual-and-automatic-tracing).
-
-### Streaming
+## Streaming
 
 The `@mlflow.trace` decorator can be used to trace functions that return a generator or an iterator, since MLflow 2.20.2.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
 
 ```python
 @mlflow.trace
@@ -242,6 +643,10 @@ def stream_data():
     for i in range(5):
         yield i
 ```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 The above example will generate a trace with a single span for the `stream_data` function. By default, MLflow will capture all elements yielded by the generator as a list in the span's output. In the example above, the output of the span will be `[0, 1, 2, 3, 4]`.
 
@@ -251,12 +656,20 @@ A span for a stream function will start when the returned iterator starts to be 
 
 If you want to aggregate the elements to be a single span output, you can use the `output_reducer` parameter to specify a custom function to aggregate the elements. The custom function should take a list of yielded elements as inputs.
 
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
 ```python
 @mlflow.trace(output_reducer=lambda x: ",".join(x))
 def stream_data():
     for c in "hello":
         yield c
 ```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 In the example above, the output of the span will be `"h,e,l,l,o"`. The raw chunks can still be found in the `Events` tab of the span.
 
@@ -265,6 +678,10 @@ The following is an advanced example that uses the `output_reducer` to consolida
 :::tip
 Of course, we recommend using the [auto-tracing for OpenAI](/genai/tracing/integrations/listing/openai) for examples like this, which does the same job but with one-liner code. The example below is for demonstration purposes.
 :::
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
 
 ```python
 import mlflow
@@ -315,95 +732,21 @@ for chunk in predict([{"role": "user", "content": "Hello"}]):
     print(chunk)
 ```
 
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
 In the example above, the generated `predict` span will have a single chat completion message as the output, which is aggregated by the custom reducer function.
 
-### Function Wrapping
-
-Function wrapping provides a flexible way to add tracing to existing functions without modifying their definitions. This is particularly useful when you want to add tracing to third-party functions or functions defined outside of your control. By wrapping an external function with <APILink fn="mlflow.trace" />, you can capture its inputs, outputs, and execution context.
-
-:::note
-When wrapping functions dynamically, the concept of "outermost" still applies. The tracing wrapper should be applied at the point where you want to capture the entire call to the wrapped function.
-:::
-
-```python
-import math
-import mlflow
-
-
-def invocation(x, y, exp=2):
-    # Wrap an external function from the math library
-    traced_pow = mlflow.trace(math.pow)
-    raised = traced_pow(x, exp)
-
-    traced_factorial = mlflow.trace(math.factorial)
-    factorial = traced_factorial(int(raised))
-    return factorial
-
-
-invocation(4, 2)
-```
-
-## Context Manager
-
-In addition to the decorator, MLflow allows for creating a span that can then be accessed within any encapsulated arbitrary code block using the <APILink fn="mlflow.start_span" /> context manager. It can be useful for capturing complex interactions within your code in finer detail than what is possible by capturing the boundaries of a single function.
-
-Similarly to the decorator, the context manager automatically captures parent-child relationship, exceptions, execution time, and works with auto-tracing. However, the name, inputs, and outputs of the span must be provided manually. You can set them via the <APILink fn="mlflow.entities.Span" /> object that is returned from the context manager.
-
-```python
-import mlflow
-
-with mlflow.start_span(name="my_span") as span:
-    span.set_inputs({"x": 1, "y": 2})
-    z = x + y
-    span.set_outputs(z)
-```
-
-Below is a slightly more complex example that uses the <APILink fn="mlflow.start_span" /> context manager in conjunction with both the decorator and auto-tracing for OpenAI.
-
-```python
-import mlflow
-import openai
-from mlflow.entities import SpanType
-
-# Enable auto-tracing for OpenAI
-mlflow.openai.autolog()
-
-
-@mlflow.trace(span_type=SpanType.CHAIN)
-def start_session():
-    messages = [{"role": "system", "content": "You are a friendly chat bot"}]
-    while True:
-        with mlflow.start_span(name="User") as span:
-            span.set_inputs(messages)
-            user_input = input(">> ")
-            span.set_outputs(user_input)
-
-        if user_input == "BYE":
-            break
-
-        messages.append({"role": "user", "content": user_input})
-
-        response = openai.OpenAI().chat.completions.create(
-            model="gpt-4o-mini",
-            max_tokens=100,
-            messages=messages,
-        )
-        answer = response.choices[0].message.content
-        print(f"🤖: {answer}")
-
-        messages.append({"role": "assistant", "content": answer})
-
-
-start_session()
-```
-
-## Advanced Features
-
-### Multi Threading
+## Multi Threading
 
 MLflow Tracing is thread-safe, traces are isolated by default per thread. But you can also create a trace that spans multiple threads with a few additional steps.
 
 MLflow uses Python's built-in [ContextVar](https://docs.python.org/3/library/contextvars.html) mechanism to ensure thread safety, which is not propagated across threads by default. Therefore, you need to manually copy the context from the main thread to the worker thread, as shown in the example below.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
 
 ```python
 import contextvars
@@ -457,15 +800,23 @@ questions = [
 main(questions)
 ```
 
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
 ![Multi threaded tracing](/images/llms/tracing/tracing-multi-thread.png)
 
 :::tip
 In contrast, `ContextVar` is copied to **async** tasks by default. Therefore, you don't need to manually copy the context when using `asyncio`, which might be an easier way to handle concurrent I/O-bound tasks in Python with MLflow Tracing.
 :::
 
-### Async Support
+## Async Support
 
 The `@mlflow.trace` decorator works seamlessly with async functions:
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
 
 ```python
 import asyncio
@@ -491,6 +842,10 @@ async def async_pipeline(items: list[str]) -> list[str]:
 # Run the async pipeline
 asyncio.run(async_pipeline(["item1", "item2", "item3"]))
 ```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Next Steps
 

@@ -23,7 +23,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
+from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.utils.environment import _PythonEnv
 
 if TYPE_CHECKING:
@@ -105,7 +105,7 @@ def _start_huey_consumer_proc(
     huey_instance_key: str,
     max_job_parallelism: int,
 ):
-    from mlflow.server import MLFLOW_HUEY_INSTANCE_KEY
+    from mlflow.server.constants import MLFLOW_HUEY_INSTANCE_KEY
     from mlflow.utils.process import _exec_cmd
 
     return _exec_cmd(
@@ -420,9 +420,7 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
     ]
 
     # Check for missing required parameters
-    missing_params = [param for param in required_params if param not in params]
-
-    if missing_params:
+    if missing_params := [param for param in required_params if param not in params]:
         raise MlflowException.invalid_parameter_value(
             f"Missing required parameters for function '{function.__name__}': {missing_params}. "
             f"Expected parameters: {list(sig.parameters.keys())}"
@@ -430,7 +428,7 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
 
 
 def _check_requirements(backend_store_uri: str | None = None) -> None:
-    from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+    from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
     from mlflow.utils.uri import extract_db_type_from_uri
 
     if os.name == "nt":

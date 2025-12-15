@@ -38,6 +38,9 @@ export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 
 export const DEFAULT_RUN_PLACEHOLDER_NAME = 'monitor';
 
+const SPANS_LOCATION_TAG_KEY = 'mlflow.trace.spansLocation';
+export const TRACKING_STORE_SPANS_LOCATION = 'TRACKING_STORE';
+
 export const getRowIdFromEvaluation = (evaluation?: RunEvaluationTracesDataEntry) => {
   return evaluation?.evaluationId || '';
 };
@@ -142,6 +145,13 @@ export const getTraceInfoOutputs = (traceInfo: ModelTraceInfoV3) => {
   return traceInfo.response_preview || traceInfo.response || traceInfo.trace_metadata?.['mlflow.traceOutputs'] || '';
 };
 
+/**
+ * Returns the "spans location" tag value if present.
+ */
+export function getSpansLocation(traceInfo?: ModelTraceInfoV3): string | undefined {
+  return traceInfo?.tags[SPANS_LOCATION_TAG_KEY] || undefined;
+}
+
 const isExpectationAssessment = (assessment: Assessment): assessment is ExpectationAssessment => {
   return Boolean('expectation' in assessment && assessment.expectation);
 };
@@ -238,9 +248,15 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
 
   traceInfo.assessments?.forEach((assessment) => {
     const assessmentName = assessment.assessment_name;
+
     if (LIST_TRACES_IGNORE_ASSESSMENTS.includes(assessmentName)) {
       return;
     }
+
+    if (assessment.valid === false) {
+      return;
+    }
+
     if (isExpectationAssessment(assessment)) {
       processExpectationAssessment(assessment, targets);
     } else {

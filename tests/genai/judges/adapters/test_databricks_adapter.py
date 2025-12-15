@@ -321,6 +321,53 @@ def test_invoke_databricks_serving_endpoint_with_response_schema():
         assert output.response == '{"result": 8, "rationale": "Good quality"}'
 
 
+def test_invoke_databricks_serving_endpoint_with_inference_params() -> None:
+    captured_payload = None
+
+    def mock_post(*args, **kwargs):
+        nonlocal captured_payload
+        captured_payload = kwargs.get("json")
+
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "Test response"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+        mock_response.headers = {"x-request-id": "test-id"}
+        return mock_response
+
+    mock_creds = mock.Mock()
+    mock_creds.host = "https://test.databricks.com"
+    mock_creds.token = "test-token"
+
+    inference_params = {"temperature": 0.5, "max_tokens": 100, "top_p": 0.9}
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
+        ),
+    ):
+        result = _invoke_databricks_serving_endpoint(
+            model_name="test-model",
+            prompt="test prompt",
+            num_retries=1,
+            inference_params=inference_params,
+        )
+
+        # Verify inference_params were included in the payload
+        assert captured_payload is not None
+        assert captured_payload["temperature"] == 0.5
+        assert captured_payload["max_tokens"] == 100
+        assert captured_payload["top_p"] == 0.9
+
+    assert result.response == "Test response"
+
+
 def test_record_success_telemetry_with_databricks_agents() -> None:
     # Mock the telemetry function separately
     mock_telemetry_module = mock.MagicMock()
@@ -491,7 +538,6 @@ def test_call_chat_completions_success(user_prompt, system_prompt, mock_databric
 
 
 def test_call_chat_completions_with_custom_session_name(mock_databricks_rag_eval):
-    """Test that custom session name is used when provided."""
     with (
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
@@ -533,3 +579,64 @@ def test_call_chat_completions_client_error(mock_databricks_rag_eval):
     ):
         with pytest.raises(RuntimeError, match="RAG client failed"):
             call_chat_completions("test prompt", "system prompt")
+
+
+def test_call_chat_completions_with_use_case_supported():
+    call_args = None
+
+    # Create a mock client with the real method (not a MagicMock) so inspect.signature works
+    class MockRAGClient:
+        def get_chat_completions_result(self, user_prompt, system_prompt, use_case=None):
+            nonlocal call_args
+            call_args = {
+                "user_prompt": user_prompt,
+                "system_prompt": system_prompt,
+                "use_case": use_case,
+            }
+            return AttrDict({"output": "test response", "error_message": None})
+
+    mock_context = mock.MagicMock()
+    mock_context.get_context.return_value.build_managed_rag_client.return_value = MockRAGClient()
+    mock_context.eval_context = lambda func: func
+
+    mock_env_vars = mock.MagicMock()
+
+    mock_module = mock.MagicMock()
+    mock_module.context = mock_context
+    mock_module.env_vars = mock_env_vars
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
+        ),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_module}),
+    ):
+        result = call_chat_completions("test prompt", "system prompt", use_case="judge_alignment")
+
+        # Verify use_case was passed since the method signature supports it
+        assert call_args == {
+            "user_prompt": "test prompt",
+            "system_prompt": "system prompt",
+            "use_case": "judge_alignment",
+        }
+
+        assert result.output == "test response"
+
+
+def test_call_chat_completions_with_use_case_not_supported(mock_databricks_rag_eval):
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
+        ),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
+    ):
+        # Even though we pass use_case, it won't be forwarded since the mock doesn't support it
+        result = call_chat_completions("test prompt", "system prompt", use_case="judge_alignment")
+
+        # Verify use_case was NOT passed (backward compatibility)
+        mock_databricks_rag_eval["rag_client"].get_chat_completions_result.assert_called_once_with(
+            user_prompt="test prompt",
+            system_prompt="system prompt",
+        )
+
+        assert result.output == "test response"

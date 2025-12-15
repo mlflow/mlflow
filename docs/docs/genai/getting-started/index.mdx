@@ -8,7 +8,7 @@ import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import useBaseUrl from '@docusaurus/useBaseUrl';
-import { Code2, TestTube, Rocket, Eye, Database, Shield, Zap, Users, TrendingUp, BookOpen, PlayCircle, Target, Settings } from "lucide-react";
+import { Code2, TestTube, Rocket, Eye, Database, Shield, Zap, PlayCircle, Target } from "lucide-react";
 
 # Getting Started with MLflow for GenAI
 
@@ -17,9 +17,13 @@ import { Code2, TestTube, Rocket, Eye, Database, Shield, Zap, Users, TrendingUp,
 MLflow transforms how software engineers build, evaluate, and deploy GenAI applications. Get complete observability, systematic evaluation, and deployment confidence—all while maintaining the flexibility to use any framework or model provider.
 
 <div style={{margin: '2rem 0', textAlign: 'center'}}>
-  <img
-    src={useBaseUrl('/images/llms/tracing/tracing-top.gif')}
-    alt="MLflow Tracing UI showing detailed GenAI observability"
+  <video
+    src={useBaseUrl('/images/llms/tracing/tracing-top.mp4')}
+    controls
+    loop
+    autoPlay
+    muted
+    aria-label="MLflow Tracing UI showing detailed GenAI observability"
     style={{maxWidth: '100%', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'}}
   />
 </div>
@@ -272,15 +276,6 @@ MLflow provides deep integrations with popular GenAI frameworks. Choose your fra
     description="Instrument RAG pipelines and document processing workflows with LlamaIndex support"
     href="/genai/flavors/llama-index"
     linkText="Use LlamaIndex →"
-    containerHeight={64}
-  />
-  <TileCard
-    image="/images/logos/openai-logo.svg"
-    iconSize={48}
-    title="OpenAI Integration"
-    description="Track completions, embeddings, and function calls with native OpenAI instrumentation"
-    href="/genai/flavors/openai"
-    linkText="Use OpenAI →"
     containerHeight={64}
   />
   <TileCard

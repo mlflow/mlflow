@@ -66,7 +66,7 @@ def test_log_artifact(dbfs_fuse_artifact_repo, test_file, artifact_path, artifac
     dbfs_fuse_artifact_repo.log_artifact(test_file, artifact_path)
     expected_file_path = os.path.join(
         artifact_dir,
-        artifact_path if artifact_path else "",
+        artifact_path or "",
         os.path.basename(test_file),
     )
     with open(expected_file_path, "rb") as handle:
@@ -93,7 +93,7 @@ def test_log_artifact_empty_file(dbfs_fuse_artifact_repo, test_dir, artifact_dir
 )
 def test_log_artifacts(dbfs_fuse_artifact_repo, test_dir, artifact_path, artifact_dir):
     dbfs_fuse_artifact_repo.log_artifacts(test_dir, artifact_path)
-    artifact_dst_path = os.path.join(artifact_dir, artifact_path if artifact_path else "")
+    artifact_dst_path = os.path.join(artifact_dir, artifact_path or "")
     assert os.path.exists(artifact_dst_path)
     expected_contents = {
         "subdir/test.txt": TEST_FILE_2_CONTENT,

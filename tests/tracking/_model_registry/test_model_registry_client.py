@@ -155,7 +155,6 @@ def test_search_registered_models(mock_store):
 
 
 def test_search_registered_models_unity_catalog_no_prompt_filter(mock_store):
-    """Test that Unity Catalog doesn't get automatic prompt filter added"""
     mock_store.search_registered_models.return_value = PagedList(
         [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
     )
@@ -175,7 +174,6 @@ def test_search_registered_models_unity_catalog_no_prompt_filter(mock_store):
 
 
 def test_search_registered_models_non_unity_catalog_with_prompt_filter(mock_store):
-    """Test that non-Unity Catalog registries that support prompts get prompt filter added"""
     mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
     prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
 
@@ -463,7 +461,6 @@ def test_get_model_version_by_alias(mock_store):
 
 
 def test_search_registered_models_excludes_chat_prompts(mock_store):
-    """Test that search_registered_models excludes chat prompts correctly."""
     # This test ensures the prompt filter logic works with new prompt types
     mock_store.search_registered_models.return_value = PagedList(
         [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
@@ -482,7 +479,6 @@ def test_search_registered_models_excludes_chat_prompts(mock_store):
 
 
 def test_search_registered_models_excludes_text_prompts(mock_store):
-    """Test that search_registered_models excludes text prompts correctly."""
     mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
 
     client = newModelRegistryClient()
@@ -526,7 +522,6 @@ def test_search_registered_models_preserves_existing_prompt_filter(mock_store):
 
 
 def test_search_registered_models_with_complex_filter(mock_store):
-    """Test that search_registered_models works with complex filter strings."""
     mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
 
     client = newModelRegistryClient()
@@ -541,7 +536,6 @@ def test_search_registered_models_with_complex_filter(mock_store):
 
 
 def test_search_registered_models_with_pagination(mock_store):
-    """Test that search_registered_models works with pagination parameters."""
     mock_store.search_registered_models.return_value = PagedList(
         [RegisteredModel("Model 1")], "next_token"
     )

@@ -148,7 +148,7 @@ def create_experiments(store, experiment_names):
 
 
 def test_file_store_deprecation_warning(tmp_path):
-    with pytest.warns(FutureWarning, match="Filesystem tracking backend.*is deprecated"):
+    with pytest.warns(FutureWarning, match="filesystem tracking backend.*will be deprecated"):
         FileStore(str(tmp_path / "mlruns"))
 
 
@@ -435,7 +435,7 @@ def _verify_experiment(fs, exp_id, exp_data):
 
 def _verify_logged(store, run_id, metrics, params, tags):
     run = store.get_run(run_id)
-    all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     assert len(all_metrics) == len(metrics)
     logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
     assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
@@ -619,6 +619,25 @@ def test_record_logged_model(store):
         match="Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'",
     ):
         store.record_logged_model(run_id, m.get_tags_dict())
+
+
+def test_hard_delete_logged_model(store):
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.delete_logged_model(model.model_id)
+    model_dir = store._get_model_dir(exp_id, model.model_id)
+    assert os.path.exists(model_dir)
+    store._hard_delete_logged_model(model.model_id)
+    assert not os.path.exists(model_dir)
+
+
+def test_get_deleted_logged_models(store):
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert store._get_deleted_logged_models() == []
+    store.delete_logged_model(model.model_id)
+    assert store._get_deleted_logged_models(older_than=1000000) == []
+    assert store._get_deleted_logged_models() == [model.model_id]
 
 
 def test_get_experiment(store):
@@ -3968,3 +3987,53 @@ def test_get_experiment_missing_and_empty_metadata_file(tmp_path):
     # Should raise MissingConfigException about invalid metadata
     with pytest.raises(MissingConfigException, match=rf"Experiment {exp_id} is invalid with empty"):
         fs._get_experiment(exp_id)
+
+
+def test_malicious_meta_yaml_in_artifact_folder_path_traversal(tmp_path):
+    """
+    Regression test for ZDI-CAN-26649: Directory traversal via malicious meta.yaml.
+
+    Attack flow that should be blocked:
+    1. Create experiment with artifact_location pointing to FileStore root
+    2. Create a run - artifacts go to {root}/{run_id}/artifacts/
+    3. Plant malicious meta.yaml in artifacts folder with arbitrary artifact_uri
+    4. Try to use "artifacts" as run_uuid to access files via the malicious artifact_uri
+
+    The fix validates that run directories have required subdirectories (metrics/, params/,
+    artifacts/), which artifact folders do not have.
+    """
+    root_dir = tmp_path / "mlruns"
+    root_dir.mkdir()
+    fs = FileStore(str(root_dir))
+
+    exp_id = fs.create_experiment("malicious_exp", artifact_location=str(root_dir))
+    run = fs.create_run(
+        experiment_id=exp_id, user_id="attacker", start_time=0, tags=[], run_name=""
+    )
+    run_id = run.info.run_id
+
+    assert Path(run.info.artifact_uri) == root_dir / run_id / "artifacts"
+
+    artifacts_dir = root_dir / run_id / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    target_dir = tmp_path / "sensitive_data"
+    target_dir.mkdir()
+
+    malicious_meta = {
+        "run_id": "artifacts",
+        "run_uuid": "artifacts",
+        "experiment_id": run_id,
+        "user_id": "attacker",
+        "status": 1,
+        "start_time": 0,
+        "end_time": None,
+        "lifecycle_stage": "active",
+        "artifact_uri": str(target_dir),
+        "tags": [],
+    }
+    write_yaml(str(artifacts_dir), "meta.yaml", malicious_meta)
+
+    # The fix should prevent the artifact folder from being treated as a run directory
+    with pytest.raises(MlflowException, match="Run 'artifacts' not found"):
+        fs.get_run("artifacts")

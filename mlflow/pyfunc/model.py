@@ -55,8 +55,25 @@ from mlflow.types.llm import (
     ChatMessage,
     ChatParams,
 )
+from mlflow.types.responses import (
+    Message,
+    OutputItem,
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    ResponsesAgentStreamEvent,
+    create_annotation_added,
+    create_function_call_item,
+    create_function_call_output_item,
+    create_reasoning_item,
+    create_text_delta,
+    create_text_output_item,
+    output_to_responses_items_stream,
+    responses_agent_output_reducer,
+    responses_to_cc,
+    to_chat_completions_input,
+)
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     is_in_databricks_serverless_runtime,
@@ -824,26 +841,6 @@ def _maybe_decompress_cloudpickle_load(path, compression):
         return cloudpickle.load(f)
 
 
-from mlflow.types.responses import (
-    Message,
-    OutputItem,
-    ResponsesAgentRequest,
-    ResponsesAgentResponse,
-    ResponsesAgentStreamEvent,
-    create_annotation_added,
-    create_function_call_item,
-    create_function_call_output_item,
-    create_reasoning_item,
-    create_text_delta,
-    create_text_output_item,
-    output_to_responses_items_stream,
-    responses_agent_output_reducer,
-    responses_to_cc,
-    to_chat_completions_input,
-)
-
-
-@experimental(version="3.0.0")
 class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     """
     A base class for creating ResponsesAgent models. It can be used as a wrapper around any
@@ -1047,7 +1044,7 @@ def _save_model_with_class_artifacts_params(
             fetched from huggingface hub using repo_id `prajjwal1/bert-tiny` directly. If ``None``,
             no artifacts are added to the model.
         conda_env: Either a dictionary representation of a Conda environment or the path to a Conda
-            environment yaml file. If provided, this decsribes the environment this model should be
+            environment yaml file. If provided, this describes the environment this model should be
             run in. At minimum, it should specify the dependencies contained in
             :func:`get_default_conda_env()`. If ``None``, the default
             :func:`get_default_conda_env()` environment is added to the model.

@@ -2,6 +2,8 @@ from functools import wraps
 from typing import Any
 
 from mlflow.entities.assessment import Feedback
+from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.utils.docstring_utils import format_docstring
@@ -114,7 +116,9 @@ def is_context_relevant(
         )
     else:
         prompt = get_prompt(request, str(context))
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+        )
 
     return _sanitize_feedback(feedback)
 
@@ -195,7 +199,9 @@ def is_context_sufficient(
             expected_response=expected_response,
             expected_facts=expected_facts,
         )
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+        )
 
     return _sanitize_feedback(feedback)
 
@@ -249,6 +255,11 @@ def is_correct(
     """
     from mlflow.genai.judges.prompts.correctness import CORRECTNESS_FEEDBACK_NAME, get_prompt
 
+    if expected_response is not None and expected_facts is not None:
+        raise MlflowException(
+            "Only one of expected_response or expected_facts should be provided, not both."
+        )
+
     model = model or get_default_model()
     assessment_name = name or CORRECTNESS_FEEDBACK_NAME
 
@@ -269,7 +280,9 @@ def is_correct(
             expected_response=expected_response,
             expected_facts=expected_facts,
         )
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+        )
 
     return _sanitize_feedback(feedback)
 
@@ -346,7 +359,9 @@ def is_grounded(
             response=response,
             context=context,
         )
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+        )
 
     return _sanitize_feedback(feedback)
 
@@ -385,7 +400,9 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
         feedback = safety(response=content, assessment_name=assessment_name)
     else:
         prompt = get_prompt(content=content)
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+        )
 
     return _sanitize_feedback(feedback)
 
@@ -449,7 +466,10 @@ def meets_guidelines(
     else:
         prompt = get_prompt(guidelines, context)
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=name or GUIDELINES_FEEDBACK_NAME
+            model,
+            prompt,
+            assessment_name=name or GUIDELINES_FEEDBACK_NAME,
+            use_case=USE_CASE_BUILTIN_JUDGE,
         )
 
     return _sanitize_feedback(feedback)

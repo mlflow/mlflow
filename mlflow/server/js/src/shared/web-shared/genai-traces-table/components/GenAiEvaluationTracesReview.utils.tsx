@@ -15,6 +15,8 @@ import type {
 } from '../types';
 import { getEvaluationResultAssessmentBackgroundColor, getEvaluationResultIconColor } from '../utils/Colors';
 
+const ERROR_VALUE = 'Error';
+
 export const INPUT_REQUEST_KEY = 'request';
 const INPUT_MESSAGES_KEY = 'messages';
 
@@ -130,6 +132,15 @@ export function getAssessmentValueLabel(
   assessmentInfo: AssessmentInfo,
   value: AssessmentValueType,
 ): { content: string; icon?: JSX.Element } {
+  // Handle error value first, before checking dtype
+  if (value === ERROR_VALUE) {
+    return {
+      content: intl.formatMessage({
+        defaultMessage: 'Error',
+        description: 'Error assessment label for filter dropdown',
+      }),
+    };
+  }
   if (assessmentInfo.dtype === 'pass-fail') {
     if (value === KnownEvaluationResultAssessmentStringValue.YES) {
       return {

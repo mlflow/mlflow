@@ -10,13 +10,19 @@ from mlflow.entities import ScorerVersion, Span, Trace, TraceData, TraceInfo, Tr
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
+    PromptVersion,
     RegisteredModel,
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -45,7 +51,11 @@ from mlflow.protos.service_pb2 import (
     CalculateTraceFilterCorrelation,
     CreateExperiment,
     DeleteScorer,
+    DeleteTraceTag,
+    DeleteTraceTagV3,
     GetScorer,
+    GetTrace,
+    LinkPromptsToTrace,
     ListScorers,
     ListScorerVersions,
     RegisterScorer,
@@ -54,6 +64,8 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetTraceTag,
+    SetTraceTagV3,
     TraceLocation,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
@@ -82,6 +94,8 @@ from mlflow.server.handlers import (
     _delete_registered_model_alias,
     _delete_registered_model_tag,
     _delete_scorer,
+    _delete_trace_tag,
+    _delete_trace_tag_v3,
     _deprecated_search_traces_v2,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
@@ -93,7 +107,9 @@ from mlflow.server.handlers import (
     _get_registered_model,
     _get_request_message,
     _get_scorer,
+    _get_trace,
     _get_trace_artifact_repo,
+    _link_prompts_to_trace,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
@@ -111,6 +127,8 @@ from mlflow.server.handlers import (
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
+    _set_trace_tag,
+    _set_trace_tag_v3,
     _transition_stage,
     _update_model_version,
     _update_registered_model,
@@ -118,6 +136,7 @@ from mlflow.server.handlers import (
     _validate_source_run,
     catch_mlflow_exception,
     get_endpoints,
+    get_trace_artifact_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -134,6 +153,7 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.providers import _PROVIDER_BACKEND_AVAILABLE
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
@@ -185,7 +205,7 @@ def mock_evaluation_dataset():
     dataset.last_updated_by = "test_user"
     dataset.tags = {"env": "test", "version": "1.0"}
     dataset.experiment_ids = ["0", "1"]
-    dataset.records = []
+    dataset._records = []
     dataset.schema = json.dumps(
         {"inputs": {"question": "string"}, "expectations": {"accuracy": "float"}}
     )
@@ -394,7 +414,6 @@ def test_catch_mlflow_exception():
 
 
 def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
 
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path}")
@@ -1366,7 +1385,6 @@ def test_get_dataset_records_pagination(mock_tracking_store):
 
 
 def test_register_scorer(mock_get_request_message, mock_tracking_store):
-    """Test register_scorer handler."""
     experiment_id = "123"
     name = "accuracy_scorer"
     serialized_scorer = "serialized_scorer_data"
@@ -1403,7 +1421,6 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
 
 
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
-    """Test list_scorers handler."""
     experiment_id = "123"
 
     mock_get_request_message.return_value = ListScorers(experiment_id=experiment_id)
@@ -1445,7 +1462,6 @@ def test_list_scorers(mock_get_request_message, mock_tracking_store):
 
 
 def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
-    """Test list_scorer_versions handler."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1488,7 +1504,6 @@ def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
 
 
 def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
-    """Test get_scorer handler with specific version."""
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
@@ -1522,7 +1537,6 @@ def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
 
 
 def test_get_scorer_without_version(mock_get_request_message, mock_tracking_store):
-    """Test get_scorer handler without version (should return latest)."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1553,7 +1567,6 @@ def test_get_scorer_without_version(mock_get_request_message, mock_tracking_stor
 
 
 def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_store):
-    """Test delete_scorer handler with specific version."""
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
@@ -1573,7 +1586,6 @@ def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_stor
 
 
 def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_store):
-    """Test delete_scorer handler without version (should delete all versions)."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1716,7 +1728,6 @@ def test_calculate_trace_filter_correlation_with_nan_npmi(
 
 
 def test_databricks_tracking_store_registration():
-    """Test that Databricks tracking store is properly registered."""
     registry = TrackingStoreRegistryWrapper()
 
     # Test that the correct store type is returned for databricks scheme
@@ -1731,7 +1742,6 @@ def test_databricks_tracking_store_registration():
 
 
 def test_databricks_model_registry_store_registration():
-    """Test that Databricks model registry stores are properly registered."""
     registry = ModelRegistryStoreRegistryWrapper()
 
     # Test that the correct store type is returned for databricks
@@ -1762,7 +1772,6 @@ def test_databricks_model_registry_store_registration():
 
 
 def test_search_experiments_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_experiments converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_experiments_proto = SearchExperiments()
     search_experiments_proto.max_results = 10
@@ -1785,7 +1794,6 @@ def test_search_experiments_empty_page_token(mock_get_request_message, mock_trac
 def test_search_registered_models_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
-    """Test that _search_registered_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_registered_models_proto = SearchRegisteredModels()
     search_registered_models_proto.max_results = 10
@@ -1808,7 +1816,6 @@ def test_search_registered_models_empty_page_token(
 def test_search_model_versions_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
-    """Test that _search_model_versions converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_model_versions_proto = SearchModelVersions()
     search_model_versions_proto.max_results = 10
@@ -1829,7 +1836,6 @@ def test_search_model_versions_empty_page_token(
 
 
 def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_traces_v3 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     # SearchTracesV3 requires locations field
     search_traces_proto = SearchTracesV3()
@@ -1856,7 +1862,6 @@ def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracki
 def test_deprecated_search_traces_v2_empty_page_token(
     mock_get_request_message, mock_tracking_store
 ):
-    """Test that _deprecated_search_traces_v2 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_traces_proto = SearchTraces()
     search_traces_proto.max_results = 10
@@ -1877,7 +1882,6 @@ def test_deprecated_search_traces_v2_empty_page_token(
 
 
 def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_logged_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_logged_models_proto = SearchLoggedModels()
     search_logged_models_proto.max_results = 10
@@ -1898,7 +1902,6 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
 
 
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
-    """Test that _list_webhooks converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     list_webhooks_proto = ListWebhooks()
     list_webhooks_proto.max_results = 10
@@ -1993,3 +1996,536 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
     # Verify response was created
     assert response is not None
     assert response.status_code == 200
+
+
+def test_get_trace_handler(mock_get_request_message, mock_tracking_store):
+    trace_id = "test-trace-123"
+
+    get_trace_proto = GetTrace(trace_id=trace_id, allow_partial=True)
+    mock_get_request_message.return_value = get_trace_proto
+
+    otel_span = OTelReadableSpan(
+        name="test",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={
+            "mlflow.spanInputs": json.dumps("inputs"),
+            "mlflow.spanOutputs": json.dumps("outputs"),
+            "mlflow.spanType": json.dumps("span_type"),
+        },
+    )
+    mock_span = Span(otel_span)
+
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    response = _get_trace()
+
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
+
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert "trace" in response_data
+    trace = response_data["trace"]
+    assert trace["trace_info"]["trace_id"] == trace_id
+    assert len(trace["spans"]) == 1
+
+
+def test_get_trace_handler_with_allow_partial_false(mock_get_request_message, mock_tracking_store):
+    trace_id = "test-trace-456"
+
+    get_trace_proto = GetTrace(trace_id=trace_id, allow_partial=False)
+    mock_get_request_message.return_value = get_trace_proto
+
+    otel_span = OTelReadableSpan(
+        name="test",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={},
+    )
+    mock_span = Span(otel_span)
+
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    response = _get_trace()
+
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=False)
+
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert "trace" in response_data
+
+
+def test_get_trace_handler_not_found(mock_get_request_message, mock_tracking_store):
+    trace_id = "non-existent-trace"
+
+    get_trace_proto = GetTrace(trace_id=trace_id)
+    mock_get_request_message.return_value = get_trace_proto
+
+    mock_tracking_store.get_trace.side_effect = MlflowException(
+        f"Trace with ID {trace_id} is not found.",
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
+
+    response = _get_trace()
+
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=False)
+
+    assert response is not None
+    assert response.status_code == 404
+    response_data = json.loads(response.get_data())
+    assert "error_code" in response_data
+    assert response_data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_get_trace_artifact_handler(mock_tracking_store):
+    trace_id = "test-trace-artifact-123"
+
+    otel_span = OTelReadableSpan(
+        name="test_span",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={
+            "mlflow.spanInputs": json.dumps({"input": "test_input"}),
+            "mlflow.spanOutputs": json.dumps({"output": "test_output"}),
+        },
+    )
+    mock_span = Span(otel_span)
+
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+
+    mock_tracking_store.get_trace.return_value = mock_trace
+    mock_tracking_store.batch_get_traces.return_value = [mock_trace]
+
+    with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+        response = get_trace_artifact_handler()
+
+    # Verify the store was called correctly
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
+
+    # Verify response headers and status
+    assert response is not None
+    assert response.status_code == 200
+    assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+
+def test_get_trace_artifact_handler_missing_request_id(mock_tracking_store):
+    with app.test_request_context(method="GET"):
+        response = get_trace_artifact_handler()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "error_code" in response_data
+    assert response_data["error_code"] == "BAD_REQUEST"
+    assert 'must include the "request_id" query parameter' in response_data["message"]
+
+
+def test_get_trace_artifact_handler_trace_not_found(mock_tracking_store):
+    trace_id = "non-existent-trace"
+    mock_tracking_store.get_trace.side_effect = MlflowException(
+        f"Trace with ID {trace_id} is not found.",
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
+
+    with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+        response = get_trace_artifact_handler()
+
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
+
+    assert response.status_code == 404
+    response_data = json.loads(response.get_data())
+    assert "error_code" in response_data
+    assert response_data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+    assert f"Trace with ID {trace_id} is not found" in response_data["message"]
+
+
+def test_get_trace_artifact_handler_fallback_to_batch_get_traces(mock_tracking_store):
+    trace_id = "test-trace-batch-123"
+
+    otel_span = OTelReadableSpan(
+        name="test_span_batch",
+        context=build_otel_context(456, 789),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={
+            "mlflow.spanInputs": json.dumps({"input": "batch_input"}),
+            "mlflow.spanOutputs": json.dumps({"output": "batch_output"}),
+        },
+    )
+    mock_span = Span(otel_span)
+
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("2"),
+            request_time=1234567890,
+            execution_duration=3000,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+
+    # Simulate get_trace not being implemented
+    mock_tracking_store.get_trace.side_effect = MlflowNotImplementedException(
+        "get_trace is not implemented"
+    )
+    mock_tracking_store.batch_get_traces.return_value = [mock_trace]
+
+    with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+        response = get_trace_artifact_handler()
+
+    # Verify both methods were called
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
+    mock_tracking_store.batch_get_traces.assert_called_once_with([trace_id], None)
+
+    # Verify successful response
+    assert response is not None
+    assert response.status_code == 200
+    assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+
+def test_get_trace_artifact_handler_batch_get_traces_not_found(mock_tracking_store):
+    trace_id = "non-existent-batch-trace"
+
+    # Simulate get_trace not being implemented
+    mock_tracking_store.get_trace.side_effect = MlflowNotImplementedException(
+        "get_trace is not implemented"
+    )
+    # batch_get_traces returns empty list (trace not found)
+    mock_tracking_store.batch_get_traces.return_value = []
+
+    with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+        response = get_trace_artifact_handler()
+
+    # Verify both methods were called
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
+    mock_tracking_store.batch_get_traces.assert_called_once_with([trace_id], None)
+
+    # Verify 404 response
+    assert response.status_code == 404
+    response_data = json.loads(response.get_data())
+    assert "error_code" in response_data
+    assert response_data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+    assert f"Trace with id={trace_id} not found" in response_data["message"]
+
+
+def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_store):
+    trace_id = "test-trace-artifact-repo-123"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("3"),
+        request_time=1234567890,
+        execution_duration=4000,
+        state=TraceState.OK,
+    )
+
+    trace_data = {
+        "spans": [
+            {
+                "name": "artifact_span",
+                "context": {"trace_id": trace_id, "span_id": "123"},
+                "parent_id": None,
+                "start_time": 100,
+                "end_time": 200,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {},
+                "events": [],
+            }
+        ]
+    }
+
+    # Simulate batch_get_traces not being implemented
+    mock_tracking_store.get_trace.side_effect = MlflowNotImplementedException(
+        "get_trace is not implemented"
+    )
+    mock_tracking_store.batch_get_traces.side_effect = MlflowNotImplementedException(
+        "batch_get_traces is not implemented"
+    )
+    mock_tracking_store.get_trace_info.return_value = trace_info
+
+    # Mock the artifact repo
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.download_trace_data.return_value = trace_data
+
+    with mock.patch(
+        "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
+    ):
+        with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+            response = get_trace_artifact_handler()
+
+    # Verify the fallback path was taken
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
+    mock_tracking_store.batch_get_traces.assert_called_once_with([trace_id], None)
+    mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
+    mock_artifact_repo.download_trace_data.assert_called_once()
+
+    # Verify successful response
+    assert response is not None
+    assert response.status_code == 200
+    assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+
+def test_delete_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
+    """Test v2 delete_trace_tag handler with request_id parameter.
+
+    Verifies that when the Flask route uses request_id path parameter,
+    the _delete_trace_tag handler is called and invokes store.delete_trace_tag().
+    """
+
+    request_id = "tr-123v2"
+    tag_key = "tk"
+
+    # Create the request message
+    request_msg = DeleteTraceTag(key=tag_key)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v2 handler with request_id parameter
+    response = _delete_trace_tag(request_id=request_id)
+
+    # Verify the store method was called with correct parameters
+    mock_tracking_store.delete_trace_tag.assert_called_once_with(request_id, tag_key)
+
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_delete_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store):
+    """Test v3 delete_trace_tag handler with trace_id parameter.
+
+    Verifies that when the Flask route uses trace_id path parameter,
+    the _delete_trace_tag_v3 handler is called and invokes store.delete_trace_tag().
+    This is similar to v2 but uses the v3 proto message and route parameter naming.
+    """
+
+    trace_id = "tr-v3-456"
+    tag_key = "tk"
+
+    # Create the request message with V3
+    request_msg = DeleteTraceTagV3(key=tag_key)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v3 handler with trace_id parameter
+    response = _delete_trace_tag_v3(trace_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    # Both v2 and v3 call the same store method
+    mock_tracking_store.delete_trace_tag.assert_called_once_with(trace_id, tag_key)
+
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_set_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
+    """Test v2 set_trace_tag handler with request_id parameter.
+
+    Verifies that when the Flask route uses request_id path parameter,
+    the _set_trace_tag handler is called and invokes store.set_trace_tag().
+    """
+    trace_id = "tr-test-v2-123"
+    tag_key = "tk"
+    tag_value = "tv"
+
+    # Create the request message
+    request_msg = SetTraceTag(key=tag_key, value=tag_value)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v2 handler with request_id parameter
+    response = _set_trace_tag(request_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_set_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store):
+    """Test v3 set_trace_tag handler with trace_id parameter.
+
+    Verifies that when the Flask route uses trace_id path parameter,
+    the _set_trace_tag_v3 handler is called and invokes store.set_trace_tag().
+    This is similar to v2 but uses the v3 proto message and route parameter naming.
+    """
+    trace_id = "tr-test-v3-456"
+    tag_key = "tk"
+    tag_value = "tv"
+
+    # Create the request message (v3 version)
+    request_msg = SetTraceTagV3(key=tag_key, value=tag_value)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v3 handler with trace_id parameter
+    response = _set_trace_tag_v3(trace_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    # Note: Both handlers call the same store method
+    mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_store):
+    """Test link_prompts_to_trace handler.
+
+    Verifies that the handler correctly parses the request and calls
+    store.link_prompts_to_trace() with the appropriate PromptVersion objects.
+    """
+    trace_id = "tr-test-123"
+    prompt_versions_refs = [
+        LinkPromptsToTrace.PromptVersionRef(name="prompt1", version="1"),
+        LinkPromptsToTrace.PromptVersionRef(name="prompt2", version="2"),
+    ]
+
+    # Create the request message
+    request_msg = LinkPromptsToTrace(trace_id=trace_id, prompt_versions=prompt_versions_refs)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the handler
+    response = _link_prompts_to_trace()
+
+    # Verify the store method was called with correct parameters
+    # The handler should convert PromptVersionRef to PromptVersion objects
+    call_args = mock_tracking_store.link_prompts_to_trace.call_args
+    assert call_args[1]["trace_id"] == trace_id
+
+    prompt_versions = call_args[1]["prompt_versions"]
+    assert len(prompt_versions) == 2
+    assert isinstance(prompt_versions[0], PromptVersion)
+    assert prompt_versions[0].name == "prompt1"
+    assert prompt_versions[0].version == 1
+    assert isinstance(prompt_versions[1], PromptVersion)
+    assert prompt_versions[1].name == "prompt2"
+    assert prompt_versions[1].version == 2
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_providers():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "providers" in data
+        assert isinstance(data["providers"], list)
+        assert len(data["providers"]) > 0
+        assert "openai" in data["providers"]
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_models():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models?provider=openai")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "models" in data
+        assert isinstance(data["models"], list)
+        assert len(data["models"]) > 0
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_models_all_providers():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "models" in data
+        assert isinstance(data["models"], list)
+        assert len(data["models"]) > 0
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=openai")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "auth_modes" in data
+        assert "default_mode" in data
+        assert data["default_mode"] == "api_key"
+        assert len(data["auth_modes"]) >= 1
+        api_key_mode = data["auth_modes"][0]
+        assert api_key_mode["mode"] == "api_key"
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config_with_multiple_auth_modes():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=bedrock")
+        assert response.status_code == 200
+        data = response.get_json()
+
+        assert "auth_modes" in data
+        assert data["default_mode"] == "access_keys"
+        assert len(data["auth_modes"]) >= 2
+
+        access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
+        assert len(access_keys_mode["secret_fields"]) == 2
+        assert any(f["name"] == "aws_secret_access_key" for f in access_keys_mode["secret_fields"])
+        assert any(f["name"] == "aws_region_name" for f in access_keys_mode["config_fields"])
+
+        iam_role_mode = next(m for m in data["auth_modes"] if m["mode"] == "iam_role")
+        assert any(f["name"] == "aws_role_name" for f in iam_role_mode["config_fields"])
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config_missing_provider():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config")
+        assert response.status_code == 400
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_litellm_not_available():
+    with mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
+            assert response.status_code == 400
+            data = response.get_json()
+            assert "LiteLLM is not installed" in data["message"]

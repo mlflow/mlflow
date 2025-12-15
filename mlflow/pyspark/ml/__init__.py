@@ -259,10 +259,10 @@ def _gen_stage_hierarchy_recursively(stage, uid_to_indexed_name_map):
     stage_name = uid_to_indexed_name_map[stage.uid]
 
     if isinstance(stage, Pipeline):
-        sub_stages = []
-        for sub_stage in stage.getStages():
-            sub_hierarchy = _gen_stage_hierarchy_recursively(sub_stage, uid_to_indexed_name_map)
-            sub_stages.append(sub_hierarchy)
+        sub_stages = [
+            _gen_stage_hierarchy_recursively(sub_stage, uid_to_indexed_name_map)
+            for sub_stage in stage.getStages()
+        ]
         return {"name": stage_name, "stages": sub_stages}
     elif isinstance(stage, OneVsRest):
         classifier_hierarchy = _gen_stage_hierarchy_recursively(
@@ -472,8 +472,6 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
 
 
 def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
-    tuning_param_maps = []
-
     def gen_log_key(param):
         if param.parent not in uid_to_indexed_name_map:
             raise ValueError(
@@ -482,16 +480,17 @@ def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
             )
         return f"{uid_to_indexed_name_map[param.parent]}.{param.name}"
 
-    for eps in param_search_estimator.getEstimatorParamMaps():
-        tuning_param_maps.append({gen_log_key(k): v for k, v in eps.items()})
-    return tuning_param_maps
+    return [
+        {gen_log_key(k): v for k, v in eps.items()}
+        for eps in param_search_estimator.getEstimatorParamMaps()
+    ]
 
 
 def _get_param_search_metrics_and_best_index(param_search_estimator, param_search_model):
     """
     Return a tuple of `(metrics_dict, best_index)`
     `metrics_dict` is a dict of metric_name --> metric_values for each param map
-    - For CrossValidatorModel, the result dict contains metrics of avg_metris and std_metrics
+    - For CrossValidatorModel, the result dict contains metrics of avg_metrics and std_metrics
       for each param map.
     - For TrainValidationSplitModel, the result dict contains metrics for each param map.
 
@@ -752,13 +751,12 @@ def _get_columns_with_unsupported_data_type(df):
     from mlflow.types.schema import DataType
 
     supported_spark_types = DataType.get_spark_types()
-    unsupported_columns = []
-    for field in df.schema.fields:
-        if (field.dataType not in supported_spark_types) and not isinstance(
-            field.dataType, VectorUDT
-        ):
-            unsupported_columns.append(field)
-    return unsupported_columns
+    return [
+        field
+        for field in df.schema.fields
+        if (field.dataType not in supported_spark_types)
+        and not isinstance(field.dataType, VectorUDT)
+    ]
 
 
 def _check_or_set_model_prediction_column(spark_model, input_spark_df):

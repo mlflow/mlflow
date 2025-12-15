@@ -9,6 +9,7 @@ import {
   assessmentValueToSerializedString,
   serializedStringToAssessmentValueV2,
 } from '../../hooks/useAssessmentFilters';
+import { ERROR_KEY } from '../../utils/AggregationUtils';
 import { useExperimentVersionsQuery } from '../../hooks/useExperimentVersionsQuery';
 import { useGenAiExperimentRunsForComparison } from '../../hooks/useGenAiExperimentRunsForComparison';
 import {
@@ -16,6 +17,7 @@ import {
   STATE_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   SOURCE_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import { TracesTableColumnGroup } from '../../types';
@@ -132,6 +134,14 @@ export const TableFilterItemValueInput = ({
         };
       });
 
+      // Add Error option when assessment contains errors, similar to how bar charts handle it
+      if (assessmentInfo.containsErrors) {
+        options.push({
+          value: assessmentValueToSerializedString(ERROR_KEY),
+          renderValue: () => getAssessmentValueLabel(intl, theme, assessmentInfo, ERROR_KEY).content,
+        });
+      }
+
       return (
         <TableFilterItemTypeahead
           id={id}
@@ -177,6 +187,24 @@ export const TableFilterItemValueInput = ({
         placeholder="Select source"
         width={200}
         canSearchCustomValue={false}
+      />
+    );
+  }
+
+  // Only available in OSS
+  if (tableFilter.column === LINKED_PROMPTS_COLUMN_ID) {
+    const promptOptions = tableFilterOptions.prompt || [];
+    return (
+      <TableFilterItemTypeahead
+        id={id}
+        item={promptOptions.find((item) => item.value === tableFilter.value)}
+        options={promptOptions}
+        onChange={(value: string) => {
+          onChange({ ...tableFilter, value }, index);
+        }}
+        placeholder="Select prompt"
+        width={200}
+        canSearchCustomValue
       />
     );
   }

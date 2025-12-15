@@ -1,3 +1,4 @@
+import json
 import os
 
 import click
@@ -9,6 +10,13 @@ from mlflow.utils.data_utils import is_uri
 from mlflow.utils.string_utils import _create_table
 
 EXPERIMENT_ID = click.option("--experiment-id", "-x", type=click.STRING, required=True)
+
+
+def _validate_max_results(ctx, param, value):
+    """Validate that max_results is non-negative."""
+    if value is not None and value < 0:
+        raise click.BadParameter("max-results must be a non-negative integer")
+    return value
 
 
 @click.group("experiments")
@@ -54,12 +62,19 @@ def create(experiment_name, artifact_location):
     help="Select view type for experiments. Valid view types are "
     "'active_only' (default), 'deleted_only', and 'all'.",
 )
-def search_experiments(view):
+@click.option(
+    "--max-results",
+    type=click.INT,
+    default=None,
+    callback=_validate_max_results,
+    help="Maximum number of experiments to return. If not provided, returns all experiments.",
+)
+def search_experiments(view, max_results):
     """
     Search for experiments in the configured tracking server.
     """
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
-    experiments = mlflow.search_experiments(view_type=view_type)
+    experiments = mlflow.search_experiments(view_type=view_type, max_results=max_results)
     table = [
         [
             exp.experiment_id,
@@ -71,6 +86,62 @@ def search_experiments(view):
         for exp in experiments
     ]
     click.echo(_create_table(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
+
+
+@commands.command("get")
+@EXPERIMENT_ID
+@click.option(
+    "--output",
+    type=click.Choice(["json", "table"]),
+    default="table",
+    help="Output format: 'table' (default) or 'json'.",
+)
+def get_experiment(experiment_id, output):
+    """
+    Get details of an experiment by ID.
+
+    Displays experiment information including name, artifact location, lifecycle stage,
+    tags, creation time, and last update time.
+
+    \b
+    Examples:
+
+    .. code-block:: bash
+
+        # Get experiment in table format (default)
+        mlflow experiments get --experiment-id 1
+
+        # Get experiment in JSON format
+        mlflow experiments get --experiment-id 1 --output json
+
+        # Using short option
+        mlflow experiments get -x 0
+    """
+    store = _get_store()
+    experiment = store.get_experiment(experiment_id)
+
+    if output == "json":
+        experiment_dict = dict(experiment)
+        click.echo(json.dumps(experiment_dict, indent=2))
+    elif output == "table":
+        table_data = [
+            ["Experiment ID", experiment.experiment_id],
+            ["Name", experiment.name],
+            ["Artifact Location", experiment.artifact_location],
+            ["Lifecycle Stage", experiment.lifecycle_stage],
+            ["Creation Time", experiment.creation_time or "N/A"],
+            ["Last Update Time", experiment.last_update_time or "N/A"],
+        ]
+
+        if experiment.tags:
+            tags_str = ", ".join([f"{k}={v}" for k, v in experiment.tags.items()])
+            table_data.append(["Tags", tags_str])
+        else:
+            table_data.append(["Tags", ""])
+
+        max_field_width = max(len(row[0]) for row in table_data)
+        for field, value in table_data:
+            click.echo(f"{field.ljust(max_field_width + 2)}: {value}")
 
 
 @commands.command("delete")

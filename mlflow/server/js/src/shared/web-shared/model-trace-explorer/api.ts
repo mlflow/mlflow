@@ -15,7 +15,7 @@ import { fetchAPI, getAjaxUrl } from './ModelTraceExplorer.request.utils';
 import { createTraceV4SerializedLocation } from './ModelTraceExplorer.utils';
 
 export const deleteAssessment = ({ traceId, assessmentId }: { traceId: string; assessmentId: string }) =>
-  fetchAPI(`/ajax-api/3.0/mlflow/traces/${traceId}/assessments/${assessmentId}`, 'DELETE');
+  fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}/assessments/${assessmentId}`), 'DELETE');
 
 // these fields are set by the server on create
 export type CreateAssessmentPayload = {
@@ -31,10 +31,10 @@ export const createAssessment = ({
 }: {
   payload: CreateAssessmentPayload;
 }): Promise<CreateAssessmentV3Response> =>
-  fetchAPI(`/ajax-api/3.0/mlflow/traces/${payload.assessment.trace_id}/assessments`, 'POST', payload);
+  fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${payload.assessment.trace_id}/assessments`), 'POST', payload);
 
 export const fetchTraceInfoV3 = ({ traceId }: { traceId: string }) =>
-  fetchAPI(`/ajax-api/3.0/mlflow/traces/${traceId}`);
+  fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}`));
 
 export type UpdateAssessmentPayload = {
   // we only support updating these fields
@@ -61,7 +61,7 @@ export const updateAssessment = ({
   traceId: string;
   assessmentId: string;
   payload: UpdateAssessmentPayload;
-}) => fetchAPI(`/ajax-api/3.0/mlflow/traces/${traceId}/assessments/${assessmentId}`, 'PATCH', payload);
+}) => fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}/assessments/${assessmentId}`), 'PATCH', payload);
 
 export type CreateAssessmentV4Response = Assessment;
 
@@ -193,6 +193,21 @@ export const getBatchTracesV4 = async ({
   } = await fetchAPI(urlWithParams, 'GET');
 
   return data;
+};
+
+/**
+ * Traces API: get a single trace (info + spans) with optional partial support. Only supported
+ * by OSS SQLAlchemyStore now.
+ */
+export const getExperimentTraceV3 = ({ traceId }: { traceId: string }) => {
+  const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/traces/get`);
+
+  const queryParams = new URLSearchParams();
+  queryParams.append('trace_id', traceId);
+  queryParams.append('allow_partial', 'true');
+  const urlWithParams = `${endpointPath}?${queryParams.toString()}`;
+
+  return fetchAPI(urlWithParams, 'GET');
 };
 
 // prettier-ignore

@@ -10,11 +10,6 @@ const sidebarsClassicML: SidebarsConfig = {
       label: 'MLflow',
     },
     {
-      type: 'link',
-      label: 'MLflow 3.0',
-      href: 'https://mlflow.org/docs/latest/genai/mlflow-3',
-    },
-    {
       type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',
@@ -157,44 +152,14 @@ const sidebarsClassicML: SidebarsConfig = {
               ],
             },
             {
-              type: 'category',
-              label: 'Scikit Learn',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/sklearn/quickstart/quickstart-sklearn-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/sklearn/guide/index',
-                  label: 'Scikit Learn within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/sklearn/index',
-              },
+              type: 'doc',
+              id: 'traditional-ml/sklearn/index',
+              label: 'Scikit-learn',
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/xgboost/index',
               label: 'XGBoost',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/xgboost/quickstart/quickstart-xgboost-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/xgboost/guide/index',
-                  label: 'XGBoost within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/xgboost/index',
-              },
             },
             {
               type: 'doc',
@@ -217,25 +182,6 @@ const sidebarsClassicML: SidebarsConfig = {
           label: 'Deep Learning',
           items: [
             {
-              type: 'category',
-              label: 'Keras',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/keras/quickstart/quickstart-keras-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/keras/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/keras/index',
-              },
-            },
-            {
               type: 'doc',
               id: 'deep-learning/pytorch/index',
               label: 'PyTorch',
@@ -244,6 +190,11 @@ const sidebarsClassicML: SidebarsConfig = {
               type: 'doc',
               id: 'deep-learning/tensorflow/index',
               label: 'TensorFlow',
+            },
+            {
+              type: 'doc',
+              id: 'deep-learning/keras/index',
+              label: 'Keras',
             },
             {
               type: 'category',
@@ -324,34 +275,30 @@ const sidebarsClassicML: SidebarsConfig = {
               label: 'Sentence Transformers',
               items: [
                 {
-                  type: 'doc',
-                  id: 'deep-learning/sentence-transformers/guide/index',
-                },
-                {
                   type: 'category',
                   label: 'Tutorials',
                   items: [
                     {
                       type: 'doc',
                       id: 'deep-learning/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart-ipynb',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers-ipynb',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'deep-learning/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers-ipynb',
+                      label: 'Quickstart',
                     },
                     {
                       type: 'doc',
                       id: 'deep-learning/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers-ipynb',
+                      label: 'Semantic Similarity',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'deep-learning/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers-ipynb',
+                      label: 'Semantic Search',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers-ipynb',
+                      label: 'Paraphrase Mining',
                     },
                   ],
-                  link: {
-                    type: 'doc',
-                    id: 'deep-learning/sentence-transformers/tutorials/index',
-                  },
                 },
               ],
               link: {
@@ -360,18 +307,9 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/spacy/index',
               label: 'spaCy',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/spacy/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/spacy/index',
-              },
             },
           ],
           link: {
@@ -462,39 +400,10 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
     },
     {
-      type: 'category',
+      type: 'doc',
+      id: 'evaluation/index',
       label: 'Evaluate',
       className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'evaluation/function-eval',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/dataset-eval',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/model-eval',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/metrics-visualizations',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/shap',
-        },
-        {
-          type: 'doc',
-          id: 'evaluation/plugin-evaluators',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'evaluation/index',
-      },
     },
     {
       type: 'category',
@@ -616,9 +525,15 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'link',
           label: 'CLI',
-          href: `${apiReferencePrefix()}cli.html`,
+          href: `${apiReferencePrefix()}api_reference/cli.html`,
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'mlflow-3/index',
+      label: 'MLflow 3.0 Migration',
+      className: 'sidebar-top-level-category',
     },
     {
       type: 'category',

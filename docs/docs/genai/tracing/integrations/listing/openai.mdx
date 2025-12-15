@@ -3,9 +3,9 @@ sidebar_position: 1
 sidebar_label: OpenAI
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import ImageBox from "@site/src/components/ImageBox";
@@ -13,7 +13,7 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing OpenAI
 
-<ImageBox src="/images/llms/tracing/openai-tracing.gif" alt="OpenAI Tracing via autolog" />
+<video src={useBaseUrl("/images/llms/tracing/openai-tracing.mp4")} controls loop autoPlay muted aria-label="OpenAI Tracing via autolog" />
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for OpenAI. By enabling auto tracing
 for OpenAI by calling the <APILink fn="mlflow.openai.autolog" /> function, MLflow will capture traces for LLM invocation and log them to the active MLflow Experiment. In Typescript, you can instead use the `tracedOpenAI` function to wrap the OpenAI client.
@@ -49,10 +49,6 @@ MLflow trace automatically captures the following information about OpenAI calls
 - Function calling if returned in the response
 - Built-in tools such as web search, file search, computer use, etc.
 - Any exception if raised
-
-:::tip
-
-MLflow OpenAI integration is not only about tracing. MLflow offers full tracking experience for OpenAI, including model tracking, prompt management, and evaluation. Please checkout the **[MLflow OpenAI Flavor](/genai/flavors/openai)** to learn more!
 
 :::
 
@@ -445,7 +441,7 @@ The following example implements a simple function calling agent using OpenAI Fu
 
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
-    Refer to the [Typescript OpenAI Quickstart](/genai/tracing/quickstart/typescript-openai) for the example of function calling agent in Typescript SDK.
+    Refer to the [Typescript OpenAI Quickstart](/genai/tracing/quickstart) for the example of function calling agent in Typescript SDK.
   </TabItem>
 </Tabs>
 

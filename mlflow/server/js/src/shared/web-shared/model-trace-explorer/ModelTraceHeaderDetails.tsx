@@ -12,12 +12,13 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { type ModelTrace, type ModelTraceInfoV3 } from './ModelTrace.types';
+import { type ModelTrace, type ModelTraceInfoV3, type ModelTraceState } from './ModelTrace.types';
 import { createTraceV4LongIdentifier, doesTraceSupportV4API, isV3ModelTraceInfo } from './ModelTraceExplorer.utils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
+import { ModelTraceHeaderStatusTag } from './ModelTraceHeaderStatusTag';
 import { useParams } from './RoutingUtils';
 import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
 import { SESSION_ID_METADATA_KEY, MLFLOW_TRACE_USER_KEY, TOKEN_USAGE_METADATA_KEY } from './constants';
@@ -30,7 +31,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   const [showNotification, setShowNotification] = useState(false);
   const { rootNode } = useModelTraceExplorerViewState();
   const { experimentId } = useParams();
-
   const tags = Object.entries(modelTraceInfo.tags ?? {}).filter(([key]) => isUserFacingTag(key));
 
   const [modelTraceId, modelTraceIdToDisplay] = useMemo(() => {
@@ -57,6 +57,12 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
     return (modelTraceInfo as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_USER_KEY];
   }, [modelTraceInfo]);
 
+  // Derive status label/icon from TraceInfo (V3 only)
+  const statusState: ModelTraceState | undefined = useMemo(
+    () => (isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.state : undefined),
+    [modelTraceInfo],
+  );
+
   const latency = useMemo((): string | undefined => {
     if (rootNode) {
       return spanTimeFormatter(rootNode.end - rootNode.start);
@@ -70,7 +76,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   };
 
   const getTruncatedLabel = (label: string) => truncateToFirstLineWithMaxLength(label, 40);
-  const getTruncatedSessionLabel = (label: string) => (label.length > 10 ? `${label.slice(0, 10)}...` : label);
 
   const handleCopy = useCallback(() => {
     setShowNotification(true);
@@ -78,8 +83,17 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   }, []);
 
   return (
-    <>
-      <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.md, flexWrap: 'wrap' }}>
+    <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'row',
+          gap: theme.spacing.md,
+          rowGap: theme.spacing.sm,
+          flexWrap: 'wrap',
+        }}
+      >
+        {statusState && <ModelTraceHeaderStatusTag statusState={statusState} getTruncatedLabel={getTruncatedLabel} />}
         {modelTraceId && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="ID" description="Label for the ID section" />}
@@ -108,7 +122,12 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           />
         )}
         {sessionId && experimentId && (
-          <ModelTraceHeaderSessionIdTag handleCopy={handleCopy} experimentId={experimentId} sessionId={sessionId} />
+          <ModelTraceHeaderSessionIdTag
+            handleCopy={handleCopy}
+            experimentId={experimentId}
+            sessionId={sessionId}
+            traceId={modelTraceId}
+          />
         )}
         {userId && (
           <ModelTraceHeaderMetricSection
@@ -177,6 +196,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           <Notification.Viewport />
         </Notification.Provider>
       )}
-    </>
+    </div>
   );
 };

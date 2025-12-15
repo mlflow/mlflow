@@ -1,30 +1,7 @@
-import { compact, has, isArray, isNil, isObject, isString } from 'lodash';
+import { compact, has, isArray, isObject, isString } from 'lodash';
 
-import type { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
+import type { ModelTraceChatMessage, ModelTraceContentParts, ModelTraceToolCall } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
-
-/**
- * Vercel AI SDK Input format:
- *
- * Format 1 (with messages):
- * {
- *   messages: [
- *     {
- *       role: "user" | "assistant" | "system" | "tool",
- *       content: [
- *         { type: "text", text: "..." },
- *         { type: "image", image: "..." },
- *         ...
- *       ]
- *     }
- *   ]
- * }
- *
- * Format 2 (with prompt):
- * {
- *   prompt: "..."
- * }
- */
 
 type VercelAITextContent = {
   type: 'text';
@@ -36,42 +13,27 @@ type VercelAIImageContent = {
   image: string | URL;
 };
 
-type VercelAIContentPart = VercelAITextContent | VercelAIImageContent;
+type VercelAIToolCall = {
+  type: 'tool-call';
+  toolCallId: string;
+  toolName: string;
+  input: string;
+  providerOptions: Record<string, any>;
+};
 
-type VercelAIMessage = {
+type VercelAIToolCallResult = {
+  type: 'tool-result';
+  toolCallId: string;
+  toolName: string;
+  output: any;
+};
+
+type VercelAIContentPart = VercelAITextContent | VercelAIImageContent | VercelAIToolCall | VercelAIToolCallResult;
+
+export type VercelAIMessage = {
   role: 'user' | 'assistant' | 'system' | 'tool' | 'function';
   content: string | VercelAIContentPart[];
   name?: string;
-  tool_call_id?: string;
-};
-
-type VercelAIMessagesInput = {
-  messages: VercelAIMessage[];
-};
-
-type VercelAIPromptInput = {
-  prompt: string;
-};
-
-/**
- * Vercel AI SDK Output format:
- *
- * {
- *   text?: string,
- *   response?: {
- *     messages?: [...],
- *     text?: string
- *   },
- *   ...
- * }
- */
-type VercelAIOutput = {
-  text?: string;
-  response?: {
-    messages?: VercelAIMessage[];
-    text?: string;
-  };
-  messages?: VercelAIMessage[];
 };
 
 const isVercelAIContentPart = (obj: unknown): obj is VercelAIContentPart => {
@@ -89,7 +51,21 @@ const isVercelAIContentPart = (obj: unknown): obj is VercelAIContentPart => {
     return isString(typedObj.image);
   }
 
+  if (isVercelAIToolCall(obj)) return true;
+
+  if (typedObj.type === 'tool-result' && has(obj, 'output')) {
+    return true;
+  }
+
   return false;
+};
+
+const isVercelAIToolCall = (obj: unknown): obj is VercelAIToolCall => {
+  if (!isObject(obj)) {
+    return false;
+  }
+
+  return has(obj, 'toolCallId') && has(obj, 'toolName') && has(obj, 'input');
 };
 
 const isVercelAIMessage = (obj: unknown): obj is VercelAIMessage => {
@@ -123,7 +99,17 @@ const normalizeVercelAIContentPart = (item: VercelAIContentPart): ModelTraceCont
     case 'image': {
       return { type: 'image_url', image_url: { url: item.image as string } };
     }
+    case 'tool-call': {
+      return { type: 'text', text: '' };
+    }
+    case 'tool-result': {
+      return { type: 'text', text: JSON.stringify(item.output) };
+    }
   }
+};
+
+const extractToolCalls = (content: VercelAIContentPart[]): ModelTraceToolCall[] => {
+  return content.filter((item) => item.type === 'tool-call').map(processVercelAIToolCall);
 };
 
 const processVercelAIMessage = (message: VercelAIMessage): ModelTraceChatMessage | null => {
@@ -133,28 +119,34 @@ const processVercelAIMessage = (message: VercelAIMessage): ModelTraceChatMessage
       content: message.content,
       role: message.role,
       ...(message.name && { name: message.name }),
-      ...(message.tool_call_id && { tool_call_id: message.tool_call_id }),
     });
   } else {
     // Convert content parts array to ModelTraceContentParts
     const contentParts: ModelTraceContentParts[] = message.content.map(normalizeVercelAIContentPart);
+    const toolCalls: ModelTraceToolCall[] = extractToolCalls(message.content);
+    const toolCallId = message.content.find((item) => item.type === 'tool-result')?.toolCallId;
 
     return prettyPrintChatMessage({
-      type: 'message',
       content: contentParts,
       role: message.role,
       ...(message.name && { name: message.name }),
-      ...(message.tool_call_id && { tool_call_id: message.tool_call_id }),
+      ...(toolCallId && { tool_call_id: toolCallId }),
+      ...(toolCalls && toolCalls.length > 0 && { tool_calls: toolCalls }),
     });
   }
 };
 
+const processVercelAIToolCall = (toolCall: VercelAIToolCall): ModelTraceToolCall => {
+  return {
+    id: toolCall.toolCallId,
+    function: {
+      name: toolCall.toolName,
+      arguments: JSON.stringify(toolCall.input),
+    },
+  };
+};
 /**
- * Normalize Vercel AI chat input format
- *
- * Handles two formats:
- * 1. { messages: [...] }
- * 2. { prompt: "..." }
+ * Normalize Vercel AI chat input format (generateText.doGenerate)
  */
 export const normalizeVercelAIChatInput = (obj: unknown): ModelTraceChatMessage[] | null => {
   if (!isObject(obj)) {
@@ -163,19 +155,8 @@ export const normalizeVercelAIChatInput = (obj: unknown): ModelTraceChatMessage[
 
   const typedObj = obj as any;
 
-  // Format 1: messages array
   if (has(obj, 'messages') && isArray(typedObj.messages) && typedObj.messages.every(isVercelAIMessage)) {
     return compact(typedObj.messages.map(processVercelAIMessage));
-  }
-
-  // Format 2: prompt string
-  if (has(obj, 'prompt') && isString(typedObj.prompt)) {
-    const message = prettyPrintChatMessage({
-      type: 'message',
-      role: 'user',
-      content: typedObj.prompt,
-    });
-    return message ? [message] : null;
   }
 
   return null;
@@ -183,13 +164,7 @@ export const normalizeVercelAIChatInput = (obj: unknown): ModelTraceChatMessage[
 
 /**
  * Normalize Vercel AI chat output format
- *
- * Handles various output formats:
- * 1. { text: "..." }
- * 2. { response: { text: "..." } }
- * 3. { response: { messages: [...] } }
- * 4. { messages: [...] }
- */
+ **/
 export const normalizeVercelAIChatOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
   if (!isObject(obj)) {
     return null;
@@ -197,38 +172,25 @@ export const normalizeVercelAIChatOutput = (obj: unknown): ModelTraceChatMessage
 
   const typedObj = obj as any;
 
-  // Check for messages in the response
-  if (
-    has(obj, 'response.messages') &&
-    isArray(typedObj.response.messages) &&
-    typedObj.response.messages.every(isVercelAIMessage)
-  ) {
-    return compact(typedObj.response.messages.map(processVercelAIMessage));
-  }
-
-  // Check for messages at the top level
-  if (has(obj, 'messages') && isArray(typedObj.messages) && typedObj.messages.every(isVercelAIMessage)) {
-    return compact(typedObj.messages.map(processVercelAIMessage));
-  }
-
-  // Check for text in response
-  if (has(obj, 'response.text') && isString(typedObj.response.text)) {
-    const message = prettyPrintChatMessage({
-      type: 'message',
-      role: 'assistant',
-      content: typedObj.response.text,
-    });
-    return message ? [message] : null;
-  }
-
-  // Check for text at top level
   if (has(obj, 'text') && isString(typedObj.text)) {
-    const message = prettyPrintChatMessage({
-      type: 'message',
-      role: 'assistant',
-      content: typedObj.text,
-    });
-    return message ? [message] : null;
+    return compact([
+      prettyPrintChatMessage({
+        type: 'message',
+        content: typedObj.text,
+        role: 'assistant',
+      }),
+    ]);
+  }
+
+  if (has(obj, 'toolCalls') && isArray(typedObj.toolCalls) && typedObj.toolCalls.every(isVercelAIToolCall)) {
+    return compact([
+      prettyPrintChatMessage({
+        type: 'message',
+        content: '',
+        role: 'assistant',
+        tool_calls: compact(typedObj.toolCalls.map(processVercelAIToolCall)),
+      }),
+    ]);
   }
 
   return null;

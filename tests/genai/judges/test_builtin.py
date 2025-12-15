@@ -10,10 +10,11 @@ from mlflow.entities.assessment import (
     AssessmentSourceType,
     Feedback,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers import RelevanceToQuery, Safety, Scorer
+from mlflow.genai.scorers import RelevanceToQuery, Safety, Scorer, UserFrustration
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import _sanitize_scorer_feedback
@@ -106,7 +107,9 @@ def test_sanitize_scorer_feedback_preserves_empty_string():
     )
     sanitized = _sanitize_scorer_feedback(feedback)
     assert sanitized.value == ""
-    assert sanitized.error == "Empty value"
+    # String errors are converted to AssessmentError objects
+    assert sanitized.error.error_message == "Empty value"
+    assert sanitized.error.error_code == "ASSESSMENT_ERROR"
 
 
 def test_sanitize_scorer_feedback_handles_categorical_rating_input():
@@ -304,6 +307,19 @@ def test_is_correct_oss():
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
     assert "Paris" in prompt
+
+
+def test_is_correct_rejects_both_expected_response_and_expected_facts():
+    with pytest.raises(
+        MlflowException,
+        match="Only one of expected_response or expected_facts should be provided, not both",
+    ):
+        judges.is_correct(
+            request="What is the capital of France?",
+            response="Paris is the capital of France.",
+            expected_response="Paris",
+            expected_facts=["Paris is the capital of France"],
+        )
 
 
 def test_is_context_sufficient_oss():
@@ -539,3 +555,28 @@ def test_ser_deser():
         assert isinstance(deserialized, Safety)
         assert deserialized.name == "safety"
         assert deserialized.required_columns == {"inputs", "outputs"}
+
+
+def test_ser_deser_session_level_scorer():
+    scorer = UserFrustration()
+
+    # Verify the scorer is session-level
+    assert scorer.is_session_level_scorer is True
+
+    # Test serialization
+    serialized_dict = scorer.model_dump()
+    assert serialized_dict["is_session_level_scorer"] is True
+    assert serialized_dict["name"] == "user_frustration"
+    assert serialized_dict["builtin_scorer_class"] == "UserFrustration"
+
+    # Test deserialization from dict
+    deserialized = Scorer.model_validate(serialized_dict)
+    assert isinstance(deserialized, UserFrustration)
+    assert deserialized.name == "user_frustration"
+    assert deserialized.is_session_level_scorer is True
+
+    # Test deserialization from SerializedScorer object
+    serialized_obj = SerializedScorer(**serialized_dict)
+    deserialized2 = Scorer.model_validate(serialized_obj)
+    assert isinstance(deserialized2, UserFrustration)
+    assert deserialized2.is_session_level_scorer is True

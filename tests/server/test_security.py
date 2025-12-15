@@ -195,7 +195,6 @@ def test_notebook_trace_renderer_skips_x_frame_options(monkeypatch: pytest.Monke
 
 
 def test_wildcard_hosts(test_app, monkeypatch: pytest.MonkeyPatch):
-    """Test that wildcard hosts allow all."""
     monkeypatch.setenv("MLFLOW_SERVER_ALLOWED_HOSTS", "*")
     security.init_security_middleware(test_app)
     client = Client(test_app)
