@@ -4574,7 +4574,7 @@ def test_list_providers(mlflow_client_with_secrets):
     import requests
 
     base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-providers")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-providers")
     assert response.status_code == 200
     data = response.json()
     assert "providers" in data
@@ -4590,7 +4590,7 @@ def test_list_models(mlflow_client_with_secrets):
     import requests
 
     base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-models")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models")
     assert response.status_code == 200
     data = response.json()
     assert "models" in data
@@ -4603,7 +4603,7 @@ def test_list_models(mlflow_client_with_secrets):
     assert "mode" in model
 
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-models", params={"provider": "openai"}
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models", params={"provider": "openai"}
     )
     assert response.status_code == 200
     filtered_data = response.json()
@@ -4620,7 +4620,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
     # Test simple provider (openai) - should have single api_key auth mode
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
         params={"provider": "openai"},
     )
     assert response.status_code == 200
@@ -4634,7 +4634,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
     # Test multi-mode provider (bedrock) - should have multiple auth modes
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
         params={"provider": "bedrock"},
     )
     assert response.status_code == 200
@@ -4655,7 +4655,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
     # Unknown providers get a generic fallback
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
         params={"provider": "unknown_provider"},
     )
     assert response.status_code == 200
@@ -4664,5 +4664,5 @@ def test_get_provider_config(mlflow_client_with_secrets):
     assert data["auth_modes"][0]["mode"] == "api_key"
 
     # Missing provider parameter returns 400
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config")
     assert response.status_code == 400

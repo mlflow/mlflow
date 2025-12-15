@@ -1948,7 +1948,7 @@ service MlflowService {
   }
 
   // Set a tag on an endpoint
-  rpc setGatewayEndpointTag(SetEndpointTag) returns (SetEndpointTag.Response) {
+  rpc setGatewayEndpointTag(SetGatewayEndpointTag) returns (SetGatewayEndpointTag.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1966,7 +1966,7 @@ service MlflowService {
   }
 
   // Delete a tag from an endpoint
-  rpc deleteGatewayEndpointTag(DeleteEndpointTag) returns (DeleteEndpointTag.Response) {
+  rpc deleteGatewayEndpointTag(DeleteGatewayEndpointTag) returns (DeleteGatewayEndpointTag.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -4400,7 +4400,7 @@ message ListGatewayEndpointBindings {
   }
 }
 
-message SetEndpointTag {
+message SetGatewayEndpointTag {
   // ID of the endpoint to set tag on
   optional string endpoint_id = 1;
   // Tag key to set
@@ -4411,7 +4411,7 @@ message SetEndpointTag {
   message Response {}
 }
 
-message DeleteEndpointTag {
+message DeleteGatewayEndpointTag {
   // ID of the endpoint to delete tag from
   optional string endpoint_id = 1;
   // Tag key to delete
