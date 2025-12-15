@@ -24,6 +24,7 @@ from mlflow.entities import (
     ExperimentTag,
     Feedback,
     FileInfo,
+    GatewayEndpointTag,
     GatewayResourceType,
     Metric,
     Param,
@@ -118,6 +119,7 @@ from mlflow.protos.service_pb2 import (
     DeleteExperimentTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -146,7 +148,6 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetScorer,
-    GetSecretsConfig,
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
@@ -181,6 +182,7 @@ from mlflow.protos.service_pb2 import (
     SearchTracesV3,
     SetDatasetTags,
     SetExperimentTag,
+    SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
@@ -609,26 +611,10 @@ def _assert_item_type_string(x):
 
 
 def _assert_secret_value(x):
-    """Validate secret_value is a non-empty string without ever printing the value in errors."""
-    if not isinstance(x, str):
-        raise MlflowException(
-            message="Parameter 'secret_value' must be a string.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    """Validate secret_value is a non-empty dict without ever printing the values in errors."""
     if not x:
         raise MlflowException(
             message="Missing value for required parameter 'secret_value'.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-
-def _assert_optional_secret_value(x):
-    """Validate secret_value is a string if provided, without ever printing the value in errors."""
-    if x is None or x == "":
-        return
-    if not isinstance(x, str):
-        raise MlflowException(
-            message="Parameter 'secret_value' must be a string.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -3864,7 +3850,7 @@ def _delete_scorer():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _create_secret():
+def _create_gateway_secret():
     request_message = _get_request_message(
         CreateGatewaySecret(),
         schema={
@@ -3875,16 +3861,13 @@ def _create_secret():
             "created_by": [_assert_string],
         },
     )
-    # Parse secret_value JSON string to dict (frontend sends JSON-encoded secret fields)
-    secret_value = json.loads(request_message.secret_value)
-    # Parse auth_config_json string to dict if provided
     auth_config = None
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
 
-    secret = _get_tracking_store().create_secret(
+    secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
-        secret_value=secret_value,
+        secret_value=dict(request_message.secret_value),
         provider=request_message.provider or None,
         auth_config=auth_config,
         created_by=request_message.created_by or None,
@@ -3896,7 +3879,7 @@ def _create_secret():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_secret_info():
+def _get_gateway_secret_info():
     request_message = _get_request_message(
         GetGatewaySecretInfo(),
         schema={
@@ -3911,30 +3894,25 @@ def _get_secret_info():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _update_secret():
+def _update_gateway_secret():
     request_message = _get_request_message(
         UpdateGatewaySecret(),
         schema={
             "secret_id": [_assert_required, _assert_string],
-            "secret_value": [_assert_optional_secret_value],
-            "credential_name": [_assert_string],
             "auth_config_json": [_assert_string],
             "updated_by": [_assert_string],
         },
     )
-    # Parse secret_value JSON string to dict if provided (frontend sends JSON-encoded secret fields)
-    secret_value = None
-    if request_message.secret_value:
-        secret_value = json.loads(request_message.secret_value)
-    # Parse auth_config_json string to dict if provided
     auth_config = None
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
 
-    secret = _get_tracking_store().update_secret(
+    # Empty map means no update to secret_value
+    secret_value = dict(request_message.secret_value) or None
+
+    secret = _get_tracking_store().update_gateway_secret(
         secret_id=request_message.secret_id,
         secret_value=secret_value,
-        credential_name=request_message.credential_name or None,
         auth_config=auth_config,
         updated_by=request_message.updated_by or None,
     )
@@ -3945,21 +3923,21 @@ def _update_secret():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _delete_secret():
+def _delete_gateway_secret():
     request_message = _get_request_message(
         DeleteGatewaySecret(),
         schema={
             "secret_id": [_assert_required, _assert_string],
         },
     )
-    _get_tracking_store().delete_secret(request_message.secret_id)
+    _get_tracking_store().delete_gateway_secret(request_message.secret_id)
     response_message = DeleteGatewaySecret.Response()
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _list_secrets():
+def _list_gateway_secrets():
     request_message = _get_request_message(
         ListGatewaySecretInfos(),
         schema={
@@ -3981,7 +3959,7 @@ def _list_secrets():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _create_endpoint():
+def _create_gateway_endpoint():
     request_message = _get_request_message(
         CreateGatewayEndpoint(),
         schema={
@@ -3989,7 +3967,7 @@ def _create_endpoint():
             "created_by": [_assert_string],
         },
     )
-    endpoint = _get_tracking_store().create_endpoint(
+    endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_definition_ids=list(request_message.model_definition_ids),
         created_by=request_message.created_by or None,
@@ -4001,14 +3979,14 @@ def _create_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_endpoint():
+def _get_gateway_endpoint():
     request_message = _get_request_message(
         GetGatewayEndpoint(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
         },
     )
-    endpoint = _get_tracking_store().get_endpoint(request_message.endpoint_id)
+    endpoint = _get_tracking_store().get_gateway_endpoint(request_message.endpoint_id)
     response_message = GetGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
     return _wrap_response(response_message)
@@ -4016,7 +3994,7 @@ def _get_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _update_endpoint():
+def _update_gateway_endpoint():
     request_message = _get_request_message(
         UpdateGatewayEndpoint(),
         schema={
@@ -4025,7 +4003,7 @@ def _update_endpoint():
             "updated_by": [_assert_string],
         },
     )
-    endpoint = _get_tracking_store().update_endpoint(
+    endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
         updated_by=request_message.updated_by or None,
@@ -4037,28 +4015,28 @@ def _update_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _delete_endpoint():
+def _delete_gateway_endpoint():
     request_message = _get_request_message(
         DeleteGatewayEndpoint(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
         },
     )
-    _get_tracking_store().delete_endpoint(request_message.endpoint_id)
+    _get_tracking_store().delete_gateway_endpoint(request_message.endpoint_id)
     response_message = DeleteGatewayEndpoint.Response()
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _list_endpoints():
+def _list_gateway_endpoints():
     request_message = _get_request_message(
         ListGatewayEndpoints(),
         schema={
             "provider": [_assert_string],
         },
     )
-    endpoints = _get_tracking_store().list_endpoints(
+    endpoints = _get_tracking_store().list_gateway_endpoints(
         provider=request_message.provider or None,
     )
     response_message = ListGatewayEndpoints.Response()
@@ -4073,7 +4051,7 @@ def _list_endpoints():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _create_model_definition():
+def _create_gateway_model_definition():
     request_message = _get_request_message(
         CreateGatewayModelDefinition(),
         schema={
@@ -4084,7 +4062,7 @@ def _create_model_definition():
             "created_by": [_assert_string],
         },
     )
-    model_definition = _get_tracking_store().create_model_definition(
+    model_definition = _get_tracking_store().create_gateway_model_definition(
         name=request_message.name,
         secret_id=request_message.secret_id,
         provider=request_message.provider,
@@ -4098,14 +4076,14 @@ def _create_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_model_definition():
+def _get_gateway_model_definition():
     request_message = _get_request_message(
         GetGatewayModelDefinition(),
         schema={
             "model_definition_id": [_assert_required, _assert_string],
         },
     )
-    model_definition = _get_tracking_store().get_model_definition(
+    model_definition = _get_tracking_store().get_gateway_model_definition(
         request_message.model_definition_id
     )
     response_message = GetGatewayModelDefinition.Response()
@@ -4115,7 +4093,7 @@ def _get_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _list_model_definitions():
+def _list_gateway_model_definitions():
     request_message = _get_request_message(
         ListGatewayModelDefinitions(),
         schema={
@@ -4123,7 +4101,7 @@ def _list_model_definitions():
             "secret_id": [_assert_string],
         },
     )
-    model_definitions = _get_tracking_store().list_model_definitions(
+    model_definitions = _get_tracking_store().list_gateway_model_definitions(
         provider=request_message.provider or None,
         secret_id=request_message.secret_id or None,
     )
@@ -4134,7 +4112,7 @@ def _list_model_definitions():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _update_model_definition():
+def _update_gateway_model_definition():
     request_message = _get_request_message(
         UpdateGatewayModelDefinition(),
         schema={
@@ -4143,14 +4121,16 @@ def _update_model_definition():
             "secret_id": [_assert_string],
             "model_name": [_assert_string],
             "updated_by": [_assert_string],
+            "provider": [_assert_string],
         },
     )
-    model_definition = _get_tracking_store().update_model_definition(
+    model_definition = _get_tracking_store().update_gateway_model_definition(
         model_definition_id=request_message.model_definition_id,
         name=request_message.name or None,
         secret_id=request_message.secret_id or None,
         model_name=request_message.model_name or None,
         updated_by=request_message.updated_by or None,
+        provider=request_message.provider or None,
     )
     response_message = UpdateGatewayModelDefinition.Response()
     response_message.model_definition.CopyFrom(model_definition.to_proto())
@@ -4159,14 +4139,14 @@ def _update_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _delete_model_definition():
+def _delete_gateway_model_definition():
     request_message = _get_request_message(
         DeleteGatewayModelDefinition(),
         schema={
             "model_definition_id": [_assert_required, _assert_string],
         },
     )
-    _get_tracking_store().delete_model_definition(request_message.model_definition_id)
+    _get_tracking_store().delete_gateway_model_definition(request_message.model_definition_id)
     response_message = DeleteGatewayModelDefinition.Response()
     return _wrap_response(response_message)
 
@@ -4178,7 +4158,7 @@ def _delete_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _attach_model_to_endpoint():
+def _attach_model_to_gateway_endpoint():
     request_message = _get_request_message(
         AttachModelToGatewayEndpoint(),
         schema={
@@ -4200,7 +4180,7 @@ def _attach_model_to_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _detach_model_from_endpoint():
+def _detach_model_from_gateway_endpoint():
     request_message = _get_request_message(
         DetachModelFromGatewayEndpoint(),
         schema={
@@ -4223,7 +4203,7 @@ def _detach_model_from_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _create_endpoint_binding():
+def _create_gateway_endpoint_binding():
     request_message = _get_request_message(
         CreateGatewayEndpointBinding(),
         schema={
@@ -4246,7 +4226,7 @@ def _create_endpoint_binding():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _delete_endpoint_binding():
+def _delete_gateway_endpoint_binding():
     request_message = _get_request_message(
         DeleteGatewayEndpointBinding(),
         schema={
@@ -4266,7 +4246,7 @@ def _delete_endpoint_binding():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _list_endpoint_bindings():
+def _list_gateway_endpoint_bindings():
     request_message = _get_request_message(
         ListGatewayEndpointBindings(),
         schema={
@@ -4283,6 +4263,44 @@ def _list_endpoint_bindings():
     response_message = ListGatewayEndpointBindings.Response()
     response_message.bindings.extend([b.to_proto() for b in bindings])
     return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_gateway_endpoint_tag():
+    request_message = _get_request_message(
+        SetGatewayEndpointTag(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+            "value": [_assert_string],
+        },
+    )
+    tag = GatewayEndpointTag(request_message.key, request_message.value)
+    _get_tracking_store().set_gateway_endpoint_tag(request_message.endpoint_id, tag)
+    response_message = SetGatewayEndpointTag.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_gateway_endpoint_tag():
+    request_message = _get_request_message(
+        DeleteGatewayEndpointTag(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_gateway_endpoint_tag(
+        request_message.endpoint_id, request_message.key
+    )
+    response_message = DeleteGatewayEndpointTag.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
 
 
 @catch_mlflow_exception
@@ -4315,18 +4333,6 @@ def _get_provider_config():
         return jsonify(config)
     except (ImportError, ValueError) as e:
         raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _get_secrets_config():
-    """Check if secrets encryption is available (passphrase is configured)."""
-    from mlflow.server.constants import CRYPTO_KEK_PASSPHRASE_ENV_VAR
-
-    secrets_available = bool(os.getenv(CRYPTO_KEK_PASSPHRASE_ENV_VAR))
-    response_message = GetSecretsConfig.Response()
-    response_message.secrets_available = secrets_available
-    return _wrap_response(response_message)
 
 
 def _get_rest_path(base_path, version=2):
@@ -4409,17 +4415,17 @@ def get_gateway_endpoints():
     """Returns endpoint tuples for gateway provider/model discovery APIs."""
     return [
         (
-            _get_ajax_path("/mlflow/endpoints/supported-providers", version=3),
+            _get_ajax_path("/mlflow/gateway/supported-providers", version=3),
             _list_supported_providers,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/endpoints/supported-models", version=3),
+            _get_ajax_path("/mlflow/gateway/supported-models", version=3),
             _list_supported_models,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/endpoints/provider-config", version=3),
+            _get_ajax_path("/mlflow/gateway/provider-config", version=3),
             _get_provider_config,
             ["GET"],
         ),
@@ -4765,29 +4771,31 @@ HANDLERS = {
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
     # Secrets APIs
-    CreateGatewaySecret: _create_secret,
-    GetGatewaySecretInfo: _get_secret_info,
-    UpdateGatewaySecret: _update_secret,
-    DeleteGatewaySecret: _delete_secret,
-    ListGatewaySecretInfos: _list_secrets,
-    GetSecretsConfig: _get_secrets_config,
+    CreateGatewaySecret: _create_gateway_secret,
+    GetGatewaySecretInfo: _get_gateway_secret_info,
+    UpdateGatewaySecret: _update_gateway_secret,
+    DeleteGatewaySecret: _delete_gateway_secret,
+    ListGatewaySecretInfos: _list_gateway_secrets,
     # Endpoints APIs
-    CreateGatewayEndpoint: _create_endpoint,
-    GetGatewayEndpoint: _get_endpoint,
-    UpdateGatewayEndpoint: _update_endpoint,
-    DeleteGatewayEndpoint: _delete_endpoint,
-    ListGatewayEndpoints: _list_endpoints,
+    CreateGatewayEndpoint: _create_gateway_endpoint,
+    GetGatewayEndpoint: _get_gateway_endpoint,
+    UpdateGatewayEndpoint: _update_gateway_endpoint,
+    DeleteGatewayEndpoint: _delete_gateway_endpoint,
+    ListGatewayEndpoints: _list_gateway_endpoints,
     # Model Definitions APIs
-    CreateGatewayModelDefinition: _create_model_definition,
-    GetGatewayModelDefinition: _get_model_definition,
-    ListGatewayModelDefinitions: _list_model_definitions,
-    UpdateGatewayModelDefinition: _update_model_definition,
-    DeleteGatewayModelDefinition: _delete_model_definition,
+    CreateGatewayModelDefinition: _create_gateway_model_definition,
+    GetGatewayModelDefinition: _get_gateway_model_definition,
+    ListGatewayModelDefinitions: _list_gateway_model_definitions,
+    UpdateGatewayModelDefinition: _update_gateway_model_definition,
+    DeleteGatewayModelDefinition: _delete_gateway_model_definition,
     # Endpoint Model Mappings APIs
-    AttachModelToGatewayEndpoint: _attach_model_to_endpoint,
-    DetachModelFromGatewayEndpoint: _detach_model_from_endpoint,
+    AttachModelToGatewayEndpoint: _attach_model_to_gateway_endpoint,
+    DetachModelFromGatewayEndpoint: _detach_model_from_gateway_endpoint,
     # Endpoint Bindings APIs
-    CreateGatewayEndpointBinding: _create_endpoint_binding,
-    DeleteGatewayEndpointBinding: _delete_endpoint_binding,
-    ListGatewayEndpointBindings: _list_endpoint_bindings,
+    CreateGatewayEndpointBinding: _create_gateway_endpoint_binding,
+    DeleteGatewayEndpointBinding: _delete_gateway_endpoint_binding,
+    ListGatewayEndpointBindings: _list_gateway_endpoint_bindings,
+    # Endpoint Tags APIs
+    SetGatewayEndpointTag: _set_gateway_endpoint_tag,
+    DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
 }

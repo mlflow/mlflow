@@ -5,9 +5,13 @@ This module provides integration with DeepEval metrics, allowing them to be used
 with MLflow's judge interface.
 
 Example usage:
-    >>> from mlflow.genai.scorers.deepeval import get_judge
-    >>> judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
-    >>> feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
+
+.. code-block:: python
+
+    from mlflow.genai.scorers.deepeval import get_judge
+
+    judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
+    feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
 """
 
 from __future__ import annotations
@@ -20,32 +24,43 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import get_metric_class, is_deterministic_metric
 from mlflow.genai.scorers.deepeval.utils import map_scorer_inputs_to_deepeval_test_case
+from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class DeepEvalScorer(Scorer):
+    """
+    Base scorer class for DeepEval metrics.
+
+    Args:
+        metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy").
+            If not provided, will use the class-level metric_name attribute.
+        model: {{ model }}
+        metric_kwargs: Additional metric-specific parameters
+    """
+
     _metric: Any = PrivateAttr()
 
     def __init__(
         self,
-        metric_name: str,
+        metric_name: str | None = None,
         model: str = "databricks",
         **metric_kwargs,
     ):
-        """
-        Initialize a DeepEval metric scorer.
+        # Use class attribute if metric_name not provided
+        if metric_name is None:
+            metric_name = self.metric_name
 
-        Args:
-            metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy")
-            model: Model URI in MLflow format (default: "databricks")
-            metric_kwargs: Additional metric-specific parameters
-        """
         super().__init__(name=metric_name)
 
         metric_class = get_metric_class(metric_name)
@@ -120,6 +135,8 @@ class DeepEvalScorer(Scorer):
             )
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 def get_judge(
     metric_name: str,
     model: str = "databricks",
@@ -130,18 +147,21 @@ def get_judge(
 
     Args:
         metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy", "Faithfulness")
-        model: Model URI in MLflow format (default: "databricks")
+        model: {{ model }}
         metric_kwargs: Additional metric-specific parameters (e.g., threshold, include_reason)
 
     Returns:
         DeepEvalScorer instance that can be called with MLflow's judge interface
 
     Examples:
-        >>> judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
-        >>> feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
 
-        >>> judge = get_judge("Faithfulness", model="openai:/gpt-4")
-        >>> feedback = judge(trace=trace)
+    .. code-block:: python
+
+        judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
+        feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
+
+        judge = get_judge("Faithfulness", model="openai:/gpt-4")
+        feedback = judge(trace=trace)
     """
     return DeepEvalScorer(
         metric_name=metric_name,
@@ -150,7 +170,79 @@ def get_judge(
     )
 
 
+# Import namespaced metric classes from scorers subdirectory
+from mlflow.genai.scorers.deepeval.scorers import (
+    AnswerRelevancy,
+    ArgumentCorrectness,
+    Bias,
+    ContextualPrecision,
+    ContextualRecall,
+    ContextualRelevancy,
+    ConversationCompleteness,
+    ExactMatch,
+    Faithfulness,
+    GoalAccuracy,
+    Hallucination,
+    JsonCorrectness,
+    KnowledgeRetention,
+    Misuse,
+    NonAdvice,
+    PatternMatch,
+    PIILeakage,
+    PlanAdherence,
+    PlanQuality,
+    PromptAlignment,
+    RoleAdherence,
+    RoleViolation,
+    StepEfficiency,
+    Summarization,
+    TaskCompletion,
+    ToolCorrectness,
+    ToolUse,
+    TopicAdherence,
+    Toxicity,
+    TurnRelevancy,
+)
+
 __all__ = [
+    # Core classes
     "DeepEvalScorer",
     "get_judge",
+    # RAG metrics
+    "AnswerRelevancy",
+    "Faithfulness",
+    "ContextualRecall",
+    "ContextualPrecision",
+    "ContextualRelevancy",
+    # Agentic metrics
+    "TaskCompletion",
+    "ToolCorrectness",
+    "ArgumentCorrectness",
+    "StepEfficiency",
+    "PlanAdherence",
+    "PlanQuality",
+    # Conversational metrics
+    "TurnRelevancy",
+    "RoleAdherence",
+    "KnowledgeRetention",
+    "ConversationCompleteness",
+    "GoalAccuracy",
+    "ToolUse",
+    "TopicAdherence",
+    # Safety metrics
+    "Bias",
+    "Toxicity",
+    "NonAdvice",
+    "Misuse",
+    "PIILeakage",
+    "RoleViolation",
+    # General metrics
+    "Hallucination",
+    "Summarization",
+    "JsonCorrectness",
+    "PromptAlignment",
+    # Deterministic metrics
+    "ExactMatch",
+    "PatternMatch",
+    "experimental",
 ]

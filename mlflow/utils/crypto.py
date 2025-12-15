@@ -165,27 +165,36 @@ class KEKManager:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        self._kek = self._derive_kek(passphrase)
         self._kek_version = kek_version
+        self._kek = self._derive_kek(passphrase, kek_version)
         _logger.debug("KEK derived from passphrase (version %d)", kek_version)
 
-    def _derive_kek(self, passphrase: str) -> bytes:
+    def _derive_kek(self, passphrase: str, kek_version: int) -> bytes:
         """
         Derive a 256-bit KEK from passphrase using PBKDF2-HMAC-SHA256.
 
         Args:
             passphrase: Admin-provided passphrase
+            kek_version: KEK version number to fold into salt
 
         Returns:
             32-byte (256-bit) KEK
+
+        NB: We fold kek_version into the salt to ensure that different KEK versions
+        produce different KEKs even if the same passphrase is accidentally reused.
+        This provides defense-in-depth against passphrase reuse during KEK rotation.
+        The version is encoded as 4 big-endian bytes appended to the base salt.
         """
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+        # NB: Folding kek_version into salt ensures unique KEK per version even with same passphrase
+        versioned_salt = MLFLOW_KEK_SALT + kek_version.to_bytes(4, "big")
+
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=AES_256_KEY_LENGTH,
-            salt=MLFLOW_KEK_SALT,
+            salt=versioned_salt,
             iterations=PBKDF2_ITERATIONS,
         )
         return kdf.derive(passphrase.encode("utf-8"))
@@ -232,24 +241,31 @@ def _generate_dek() -> bytes:
     return AESGCM.generate_key(bit_length=256)
 
 
-def encrypt_with_aes_gcm(
-    plaintext: bytes, key: bytes, nonce: bytes | None = None, aad: bytes | None = None
+def _encrypt_with_aes_gcm(
+    plaintext: bytes,
+    key: bytes,
+    *,
+    aad: bytes | None = None,
+    _nonce_for_testing: bytes | None = None,
 ) -> AESGCMResult:
     """
-    Encrypt plaintext using AES-256-GCM.
+    Encrypt plaintext using AES-256-GCM. INTERNAL FUNCTION.
 
     AES-GCM provides authenticated encryption with associated data (AEAD),
     which means tampering is detected automatically during decryption.
 
-    CRITICAL: Never reuse a nonce with the same key. Nonce reuse compromises security.
+    CRITICAL: Never reuse a nonce with the same key. Nonce reuse completely compromises
+    AES-GCM security, allowing attackers to recover plaintext and forge messages.
 
     Args:
         plaintext: Data to encrypt
         key: 32-byte AES-256 key
-        nonce: Optional 12-byte nonce. If None, generates random nonce.
         aad: Optional Additional Authenticated Data. If provided, this data is
              authenticated but not encrypted. Useful for binding encryption to
              metadata (e.g., secret_id + secret_name) to prevent substitution attacks.
+        _nonce_for_testing: FOR TESTING ONLY. 12-byte nonce for deterministic encryption
+            in tests. In production, leave as None to generate a cryptographically secure
+            random nonce. DO NOT use this parameter in production code.
 
     Returns:
         AESGCMResult with nonce and ciphertext
@@ -266,10 +282,7 @@ def encrypt_with_aes_gcm(
     if len(key) != AES_256_KEY_LENGTH:
         raise ValueError(f"Key must be {AES_256_KEY_LENGTH} bytes (256 bits), got {len(key)}")
 
-    if nonce is None:
-        nonce = os.urandom(GCM_NONCE_LENGTH)
-    elif len(nonce) != GCM_NONCE_LENGTH:
-        raise ValueError(f"Nonce must be {GCM_NONCE_LENGTH} bytes (96 bits), got {len(nonce)}")
+    nonce = os.urandom(GCM_NONCE_LENGTH) if _nonce_for_testing is None else _nonce_for_testing
 
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -336,7 +349,7 @@ def wrap_dek(dek: bytes, kek: bytes) -> bytes:
     Returns:
         Wrapped (encrypted) DEK with nonce prepended
     """
-    result = encrypt_with_aes_gcm(dek, kek)
+    result = _encrypt_with_aes_gcm(dek, kek)
     return result.nonce + result.ciphertext
 
 
@@ -478,7 +491,7 @@ def _encrypt_secret(
     dek = _generate_dek()
     aad = _create_aad(secret_id, secret_name)
 
-    result = encrypt_with_aes_gcm(secret_bytes, dek, aad=aad)
+    result = _encrypt_with_aes_gcm(secret_bytes, dek, aad=aad)
     encrypted_value = result.nonce + result.ciphertext
 
     kek = kek_manager.get_kek()

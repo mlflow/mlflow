@@ -2449,7 +2449,7 @@ def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_s
 @pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
 def test_list_providers():
     with app.test_client() as c:
-        response = c.get("/ajax-api/3.0/mlflow/endpoints/supported-providers")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
         assert response.status_code == 200
         data = response.get_json()
         assert "providers" in data
@@ -2461,7 +2461,7 @@ def test_list_providers():
 @pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
 def test_list_models():
     with app.test_client() as c:
-        response = c.get("/ajax-api/3.0/mlflow/endpoints/supported-models?provider=openai")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models?provider=openai")
         assert response.status_code == 200
         data = response.get_json()
         assert "models" in data
@@ -2472,7 +2472,7 @@ def test_list_models():
 @pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
 def test_list_models_all_providers():
     with app.test_client() as c:
-        response = c.get("/ajax-api/3.0/mlflow/endpoints/supported-models")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models")
         assert response.status_code == 200
         data = response.get_json()
         assert "models" in data
@@ -2483,7 +2483,7 @@ def test_list_models_all_providers():
 @pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
 def test_get_provider_config():
     with app.test_client() as c:
-        response = c.get("/ajax-api/3.0/mlflow/endpoints/provider-config?provider=openai")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=openai")
         assert response.status_code == 200
         data = response.get_json()
         assert "auth_modes" in data
@@ -2491,14 +2491,13 @@ def test_get_provider_config():
         assert data["default_mode"] == "api_key"
         assert len(data["auth_modes"]) >= 1
         api_key_mode = data["auth_modes"][0]
-        assert api_key_mode["credential_name"] == "OPENAI_API_KEY"
         assert api_key_mode["mode"] == "api_key"
 
 
 @pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
 def test_get_provider_config_with_multiple_auth_modes():
     with app.test_client() as c:
-        response = c.get("/ajax-api/3.0/mlflow/endpoints/provider-config?provider=bedrock")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=bedrock")
         assert response.status_code == 200
         data = response.get_json()
 
@@ -2507,7 +2506,6 @@ def test_get_provider_config_with_multiple_auth_modes():
         assert len(data["auth_modes"]) >= 2
 
         access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
-        assert access_keys_mode["credential_name"] == "AWS_ACCESS_KEY_ID"
         assert len(access_keys_mode["secret_fields"]) == 2
         assert any(f["name"] == "aws_secret_access_key" for f in access_keys_mode["secret_fields"])
         assert any(f["name"] == "aws_region_name" for f in access_keys_mode["config_fields"])
@@ -2519,7 +2517,7 @@ def test_get_provider_config_with_multiple_auth_modes():
 @pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
 def test_get_provider_config_missing_provider():
     with app.test_client() as c:
-        response = c.get("/ajax-api/3.0/mlflow/endpoints/provider-config")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config")
         assert response.status_code == 400
 
 
@@ -2527,36 +2525,7 @@ def test_get_provider_config_missing_provider():
 def test_litellm_not_available():
     with mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False):
         with app.test_client() as c:
-            response = c.get("/ajax-api/3.0/mlflow/endpoints/supported-providers")
+            response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
             assert response.status_code == 400
             data = response.get_json()
             assert "LiteLLM is not installed" in data["message"]
-
-
-def test_get_secrets_config_returns_true_when_passphrase_set(monkeypatch):
-    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-secure-passphrase")
-    with app.test_client() as c:
-        response = c.get("/api/3.0/mlflow/secrets/config")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert "secrets_available" in data
-        assert data["secrets_available"] is True
-
-
-def test_get_secrets_config_returns_false_when_passphrase_not_set(monkeypatch):
-    monkeypatch.delenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", raising=False)
-    with app.test_client() as c:
-        response = c.get("/api/3.0/mlflow/secrets/config")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert "secrets_available" in data
-        assert data["secrets_available"] is False
-
-
-def test_get_secrets_config_returns_false_for_empty_passphrase(monkeypatch):
-    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "")
-    with app.test_client() as c:
-        response = c.get("/api/3.0/mlflow/secrets/config")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data["secrets_available"] is False

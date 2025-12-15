@@ -3,22 +3,28 @@ from typing import Any, TypedDict
 
 from typing_extensions import NotRequired
 
-# Check if the provider backend is available without importing it (import is slow ~2.7s)
 _PROVIDER_BACKEND_AVAILABLE = importlib.util.find_spec("litellm") is not None
 
+_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
 
-class SecretFieldDict(TypedDict):
-    """Schema for a secret field in auth configuration."""
 
+class FieldDict(TypedDict):
     name: str
-    type: str
     description: str
+    secret: bool
     required: bool
+    default: NotRequired[str | None]
 
 
-class ConfigFieldDict(TypedDict):
-    """Schema for a non-secret config field in auth configuration."""
+class AuthModeDict(TypedDict):
+    display_name: str
+    description: str
+    fields: list[FieldDict]
+    default: NotRequired[bool]
+    runtime_auth: NotRequired[str]
 
+
+class ResponseFieldDict(TypedDict):
     name: str
     type: str
     description: str
@@ -26,48 +32,30 @@ class ConfigFieldDict(TypedDict):
     default: NotRequired[str | None]
 
 
-class AuthModeDict(TypedDict):
-    """Schema for an authentication mode."""
-
+class AuthModeResponseDict(TypedDict):
+    mode: str
     display_name: str
     description: str
-    credential_name: str
-    secret_fields: list[SecretFieldDict]
-    config_fields: list[ConfigFieldDict]
-    completion_params: list[str]
-    default: NotRequired[bool]
-    runtime_auth: NotRequired[str]
+    secret_fields: list[ResponseFieldDict]
+    config_fields: list[ResponseFieldDict]
 
 
 class ProviderConfigResponse(TypedDict):
-    """Response type for get_provider_config_response."""
-
-    auth_modes: list[dict[str, Any]]
+    auth_modes: list[AuthModeResponseDict]
     default_mode: str
 
 
 def _get_model_cost():
-    """Lazy import of model_cost from the provider backend."""
     from litellm import model_cost
 
     return model_cost
-
-
-def _get_provider_fields():
-    """Lazy import of get_provider_fields from the provider backend."""
-    from litellm import get_provider_fields
-
-    return get_provider_fields
 
 
 # Auth modes for providers with multiple authentication options.
 # Each mode defines:
 #   - display_name: Human-readable name for UI
 #   - description: Help text explaining this auth method
-#   - credential_name: Display name of the primary secret (for UI)
-#   - secret_fields: Fields stored encrypted in encrypted_value JSON
-#   - config_fields: Non-secret fields stored in auth_config JSON
-#   - completion_params: Parameter names passed to completion() calls
+#   - fields: List of fields with secret flag indicating if encrypted
 #   - default: True if this is the default auth mode for the provider
 #   - runtime_auth: Optional runtime auth handler name
 #
@@ -84,119 +72,92 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
         "access_keys": {
             "display_name": "Access Keys",
             "description": "Use AWS Access Key ID and Secret Access Key",
-            "credential_name": "AWS_ACCESS_KEY_ID",
-            "secret_fields": [
+            "default": True,
+            "fields": [
                 {
                     "name": "aws_access_key_id",
-                    "type": "string",
                     "description": "AWS Access Key ID",
+                    "secret": True,
                     "required": True,
                 },
                 {
                     "name": "aws_secret_access_key",
-                    "type": "string",
                     "description": "AWS Secret Access Key",
+                    "secret": True,
                     "required": True,
                 },
-            ],
-            "config_fields": [
                 {
                     "name": "aws_region_name",
-                    "type": "string",
                     "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
                     "required": False,
                 },
             ],
-            "completion_params": [
-                "aws_access_key_id",
-                "aws_secret_access_key",
-                "aws_region_name",
-            ],
-            "default": True,
         },
         "iam_role": {
             "display_name": "IAM Role Assumption",
             "description": "Assume an IAM role using base credentials (for cross-account access)",
-            "credential_name": "AWS_ACCESS_KEY_ID",
-            "secret_fields": [
+            "fields": [
                 {
                     "name": "aws_access_key_id",
-                    "type": "string",
                     "description": "AWS Access Key ID (for assuming role)",
+                    "secret": True,
                     "required": True,
                 },
                 {
                     "name": "aws_secret_access_key",
-                    "type": "string",
                     "description": "AWS Secret Access Key",
+                    "secret": True,
                     "required": True,
                 },
-            ],
-            "config_fields": [
                 {
                     "name": "aws_role_name",
-                    "type": "string",
                     "description": "IAM Role ARN to assume",
+                    "secret": False,
                     "required": True,
                 },
                 {
                     "name": "aws_session_name",
-                    "type": "string",
                     "description": "Session name for assumed role",
+                    "secret": False,
                     "required": False,
                 },
                 {
                     "name": "aws_region_name",
-                    "type": "string",
                     "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
                     "required": False,
                 },
-            ],
-            "completion_params": [
-                "aws_access_key_id",
-                "aws_secret_access_key",
-                "aws_role_name",
-                "aws_session_name",
-                "aws_region_name",
             ],
         },
         "session_token": {
             "display_name": "Session Token (STS)",
             "description": "Use temporary credentials with session token",
-            "credential_name": "AWS_ACCESS_KEY_ID",
-            "secret_fields": [
+            "fields": [
                 {
                     "name": "aws_access_key_id",
-                    "type": "string",
                     "description": "AWS Access Key ID",
+                    "secret": True,
                     "required": True,
                 },
                 {
                     "name": "aws_secret_access_key",
-                    "type": "string",
                     "description": "AWS Secret Access Key",
+                    "secret": True,
                     "required": True,
                 },
                 {
                     "name": "aws_session_token",
-                    "type": "string",
                     "description": "AWS Session Token",
+                    "secret": True,
                     "required": True,
                 },
-            ],
-            "config_fields": [
                 {
                     "name": "aws_region_name",
-                    "type": "string",
                     "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
                     "required": False,
                 },
-            ],
-            "completion_params": [
-                "aws_access_key_id",
-                "aws_secret_access_key",
-                "aws_session_token",
-                "aws_region_name",
             ],
         },
     },
@@ -204,196 +165,191 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
         "api_key": {
             "display_name": "API Key",
             "description": "Use Azure OpenAI API Key",
-            "credential_name": "AZURE_API_KEY",
-            "secret_fields": [
+            "default": True,
+            "fields": [
                 {
                     "name": "api_key",
-                    "type": "string",
                     "description": "Azure OpenAI API Key",
+                    "secret": True,
                     "required": True,
                 },
-            ],
-            "config_fields": [
                 {
                     "name": "api_base",
-                    "type": "string",
                     "description": "Azure OpenAI endpoint URL",
+                    "secret": False,
                     "required": True,
                 },
                 {
                     "name": "api_version",
-                    "type": "string",
                     "description": "API version (e.g., 2024-02-01)",
+                    "secret": False,
                     "required": False,
                     "default": "2024-02-01",
                 },
             ],
-            "completion_params": ["api_key", "api_base", "api_version"],
-            "default": True,
         },
         "service_principal": {
             "display_name": "Service Principal",
             "description": "Use Azure AD Service Principal (client credentials)",
-            "credential_name": "AZURE_CLIENT_SECRET",
-            "secret_fields": [
+            "runtime_auth": "azure_service_principal",
+            "fields": [
                 {
                     "name": "client_secret",
-                    "type": "string",
                     "description": "Azure AD Client Secret",
+                    "secret": True,
                     "required": True,
                 },
-            ],
-            "config_fields": [
                 {
                     "name": "api_base",
-                    "type": "string",
                     "description": "Azure OpenAI endpoint URL",
+                    "secret": False,
                     "required": True,
                 },
                 {
                     "name": "client_id",
-                    "type": "string",
                     "description": "Azure AD Application (Client) ID",
+                    "secret": False,
                     "required": True,
                 },
                 {
                     "name": "tenant_id",
-                    "type": "string",
                     "description": "Azure AD Tenant ID",
+                    "secret": False,
                     "required": True,
                 },
                 {
                     "name": "api_version",
-                    "type": "string",
                     "description": "API version (e.g., 2024-02-01)",
+                    "secret": False,
                     "required": False,
                     "default": "2024-02-01",
                 },
             ],
-            "completion_params": [
-                "api_base",
-                "api_version",
-            ],
-            "runtime_auth": "azure_service_principal",
         },
     },
     "vertex_ai": {
         "service_account_json": {
             "display_name": "Service Account JSON",
             "description": "Use GCP Service Account credentials (JSON key file contents)",
-            "credential_name": "GOOGLE_APPLICATION_CREDENTIALS",
-            "secret_fields": [
+            "default": True,
+            "fields": [
                 {
                     "name": "vertex_credentials",
-                    "type": "json",
                     "description": "Service Account JSON key file contents",
+                    "secret": True,
                     "required": True,
                 },
-            ],
-            "config_fields": [
                 {
                     "name": "vertex_project",
-                    "type": "string",
                     "description": "GCP Project ID",
+                    "secret": False,
                     "required": True,
                 },
                 {
                     "name": "vertex_location",
-                    "type": "string",
                     "description": "GCP Region (e.g., us-central1)",
+                    "secret": False,
                     "required": False,
                     "default": "us-central1",
                 },
             ],
-            "completion_params": ["vertex_credentials", "vertex_project", "vertex_location"],
-            "default": True,
         },
     },
     "databricks": {
         "pat_token": {
             "display_name": "Personal Access Token",
             "description": "Use Databricks Personal Access Token",
-            "credential_name": "DATABRICKS_TOKEN",
-            "secret_fields": [
+            "default": True,
+            "fields": [
                 {
                     "name": "api_key",
-                    "type": "string",
                     "description": "Databricks Personal Access Token",
+                    "secret": True,
                     "required": True,
                 },
-            ],
-            "config_fields": [
                 {
                     "name": "api_base",
-                    "type": "string",
                     "description": "Databricks workspace URL",
+                    "secret": False,
                     "required": True,
                 },
             ],
-            "completion_params": ["api_key", "api_base"],
-            "default": True,
         },
         "oauth_m2m": {
             "display_name": "OAuth M2M (Service Principal)",
             "description": "Use OAuth machine-to-machine authentication",
-            "credential_name": "DATABRICKS_CLIENT_SECRET",
-            "secret_fields": [
+            "runtime_auth": "databricks_oauth_m2m",
+            "fields": [
                 {
                     "name": "client_secret",
-                    "type": "string",
                     "description": "OAuth Client Secret",
+                    "secret": True,
                     "required": True,
                 },
-            ],
-            "config_fields": [
                 {
                     "name": "api_base",
-                    "type": "string",
                     "description": "Databricks workspace URL",
+                    "secret": False,
                     "required": True,
                 },
                 {
                     "name": "client_id",
-                    "type": "string",
                     "description": "OAuth Client ID",
+                    "secret": False,
                     "required": True,
                 },
             ],
-            "completion_params": ["api_base"],
-            "runtime_auth": "databricks_oauth_m2m",
         },
     },
 }
 
 
-def _get_credential_fields(provider: str) -> list[dict[str, Any]]:
-    """
-    Get credential fields for a provider from LiteLLM.
+def _build_response_field(field: FieldDict) -> ResponseFieldDict:
+    response: ResponseFieldDict = {
+        "name": field["name"],
+        "type": "string",
+        "description": field.get("description", ""),
+        "required": field.get("required", True),
+    }
+    if "default" in field:
+        response["default"] = field["default"]
+    return response
 
-    Args:
-        provider: The LiteLLM provider name
 
-    Returns:
-        List of credential field dictionaries
-    """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        return []
+def _build_auth_mode_response(mode_id: str, mode_config: AuthModeDict) -> AuthModeResponseDict:
+    secret_fields: list[ResponseFieldDict] = []
+    config_fields: list[ResponseFieldDict] = []
 
-    get_provider_fields = _get_provider_fields()
-    provider_fields = get_provider_fields(provider)
+    for field in mode_config["fields"]:
+        response_field = _build_response_field(field)
+        if field.get("secret"):
+            secret_fields.append(response_field)
+        else:
+            config_fields.append(response_field)
 
-    if provider_fields and len(provider_fields) > 0:
-        return [
+    return {
+        "mode": mode_id,
+        "display_name": mode_config["display_name"],
+        "description": mode_config["description"],
+        "secret_fields": secret_fields,
+        "config_fields": config_fields,
+    }
+
+
+def _build_simple_api_key_mode(provider: str, description: str | None = None) -> AuthModeDict:
+    return {
+        "display_name": "API Key",
+        "description": description or f"Use {provider.title()} API Key",
+        "default": True,
+        "fields": [
             {
-                "name": field["field_name"],
-                "type": field.get("field_type", "string"),
-                "description": field.get("field_description", ""),
+                "name": "api_key",
+                "description": f"{provider.title()} API Key",
+                "secret": True,
                 "required": True,
-            }
-            for field in provider_fields
-        ]
-
-    return []
+            },
+        ],
+    }
 
 
 def get_provider_config_response(provider: str) -> ProviderConfigResponse:
@@ -413,33 +369,18 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
                 - mode: Auth mode identifier (e.g., 'access_keys', 'api_key')
                 - display_name: Human-readable name
                 - description: Help text
-                - credential_name: Display name of primary secret
                 - secret_fields: Fields to store encrypted
                 - config_fields: Non-secret config fields
             - default_mode: The recommended default auth mode
-
-    Raises:
-        ImportError: If litellm is not installed
-        ValueError: If provider is not valid or not provided
     """
     if not provider:
         raise ValueError("Provider parameter is required")
 
-    # Check if provider has defined auth modes
     if provider in _PROVIDER_AUTH_MODES:
-        auth_modes = []
-        default_mode = None
+        auth_modes: list[AuthModeResponseDict] = []
+        default_mode: str | None = None
         for mode_id, mode_config in _PROVIDER_AUTH_MODES[provider].items():
-            auth_modes.append(
-                {
-                    "mode": mode_id,
-                    "display_name": mode_config["display_name"],
-                    "description": mode_config["description"],
-                    "credential_name": mode_config["credential_name"],
-                    "secret_fields": mode_config["secret_fields"],
-                    "config_fields": mode_config["config_fields"],
-                }
-            )
+            auth_modes.append(_build_auth_mode_response(mode_id, mode_config))
             if mode_config.get("default"):
                 default_mode = mode_id
         return {
@@ -447,57 +388,9 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
             "default_mode": default_mode or auth_modes[0]["mode"],
         }
 
-    # For simple providers, create a single auth mode from credential fields
-    if credential_fields := _get_credential_fields(provider):
-        primary_field = credential_fields[0]
-        auth_mode = {
-            "mode": "api_key",
-            "display_name": "API Key",
-            "description": f"Use {provider.title()} API Key",
-            "credential_name": primary_field["name"],
-            "secret_fields": [
-                {
-                    "name": "api_key",
-                    "type": "string",
-                    "description": primary_field.get("description", "API Key"),
-                    "required": True,
-                }
-            ],
-            "config_fields": [
-                {
-                    "name": field["name"],
-                    "type": field.get("type", "string"),
-                    "description": field.get("description", ""),
-                    "required": field.get("required", True),
-                    "default": field.get("default"),
-                }
-                for field in credential_fields[1:]
-            ],
-        }
-        return {
-            "auth_modes": [auth_mode],
-            "default_mode": "api_key",
-        }
-
-    # Fallback for unknown providers
+    simple_mode = _build_simple_api_key_mode(provider)
     return {
-        "auth_modes": [
-            {
-                "mode": "api_key",
-                "display_name": "API Key",
-                "description": f"Use {provider.title()} API Key",
-                "credential_name": f"{provider.upper()}_API_KEY",
-                "secret_fields": [
-                    {
-                        "name": "api_key",
-                        "type": "string",
-                        "description": f"{provider.title()} API Key",
-                        "required": True,
-                    }
-                ],
-                "config_fields": [],
-            }
-        ],
+        "auth_modes": [_build_auth_mode_response("api_key", simple_mode)],
         "default_mode": "api_key",
     }
 
@@ -511,9 +404,6 @@ def get_all_providers() -> list[str]:
 
     Returns:
         List of provider names that support chat/completion/embedding
-
-    Raises:
-        ImportError: If litellm is not installed
     """
     if not _PROVIDER_BACKEND_AVAILABLE:
         raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
@@ -522,9 +412,7 @@ def get_all_providers() -> list[str]:
     providers = set()
     for _, info in model_cost.items():
         mode = info.get("mode")
-        # Include providers with chat/completion/embedding models
-        # mode=None indicates legacy completion models for backwards compatibility
-        if mode in ("chat", "completion", "embedding", None):
+        if mode in _SUPPORTED_MODEL_MODES:
             if provider := info.get("litellm_provider"):
                 providers.add(provider)
 
@@ -554,9 +442,6 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - max_output_tokens: Maximum output token limit
             - input_cost_per_token: Cost per input token (USD)
             - output_cost_per_token: Cost per output token (USD)
-
-    Raises:
-        ImportError: If litellm is not installed
     """
     if not _PROVIDER_BACKEND_AVAILABLE:
         raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
@@ -567,11 +452,8 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if provider and info.get("litellm_provider") != provider:
             continue
 
-        # Include chat/completion/embedding models
-        # mode=None indicates legacy completion models for backwards compatibility
-        # Exclude image_generation, audio, etc.
         mode = info.get("mode")
-        if mode not in ("chat", "completion", "embedding", None):
+        if mode not in _SUPPORTED_MODEL_MODES:
             continue
 
         models.append(
