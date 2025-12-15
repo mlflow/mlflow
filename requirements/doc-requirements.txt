@@ -26,3 +26,5 @@ polars>=1
 openai
 # required for the haystack
 haystack-ai
+# required for deepeval scorer documentation
+deepeval
