@@ -286,7 +286,8 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install openai dspy deepeval litellm
+          # TODO: Fix test_conversational_role_adherence_with_session and unpin litellm
+          pip install openai dspy deepeval 'litellm<1.80.10'
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
