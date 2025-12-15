@@ -70,8 +70,8 @@ def submit_job(payload: SubmitJobPayload) -> Job:
     from mlflow.server.jobs import get_job_fn_fullname, submit_job
     from mlflow.server.jobs.utils import _load_function
 
-    fn_fullname = get_job_fn_fullname(payload.function_name)
     try:
+        fn_fullname = get_job_fn_fullname(payload.function_name)
         function = _load_function(fn_fullname)
         job = submit_job(function, payload.params, payload.timeout)
         return Job.from_job_entity(job)
@@ -101,9 +101,8 @@ def search_jobs(payload: SearchJobPayload) -> SearchJobsResponse:
     from mlflow.server.handlers import _get_job_store
     from mlflow.server.jobs import get_job_fn_fullname
 
-    fn_fullname = get_job_fn_fullname(payload.function_name)
-
     try:
+        fn_fullname = get_job_fn_fullname(payload.function_name)
         store = _get_job_store()
         job_results = [
             Job.from_job_entity(job)

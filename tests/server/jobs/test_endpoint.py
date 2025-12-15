@@ -108,7 +108,8 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             "PYTHONPATH": os.path.dirname(__file__),
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
             "_MLFLOW_ALLOWED_JOB_FUNCTION_LIST": (
-                "test_endpoint.simple_job_fun,invalid_format_no_module,"
+                "test_endpoint.simple_job_fun,"
+                "invalid_format_no_module,"
                 "non_existent_module.some_function,os.non_existent_function,"
                 "test_endpoint.job_assert_tracking_uri"
             ),
@@ -164,12 +165,15 @@ def test_job_endpoint_invalid_function_format(client: Client):
     response = client.post("/ajax-api/3.0/jobs/", payload=payload)
     assert response.status_code == 400
     error_json = response.json()
-    assert "Invalid function fullname format" in error_json["detail"]
+    assert (
+        "The job function invalid_format_no_module does not exist or not in the allowed list"
+        in error_json["detail"]
+    )
 
 
 def test_job_endpoint_module_not_found(client: Client):
     payload = {
-        "function_name": "non_existent_module.some_function",
+        "function_name": "some_function",
         "params": {"x": 3, "y": 4},
     }
     response = client.post("/ajax-api/3.0/jobs/", payload=payload)

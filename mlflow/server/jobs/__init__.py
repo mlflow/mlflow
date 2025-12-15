@@ -36,16 +36,14 @@ def _build_job_function_fullname_map():
             case [*module_parts, func_name] if module_parts:
                 if exist_fullname := _job_function_fullname_map.get(func_name):
                     if exist_fullname != fn_fullname:
-                        raise MlflowException.invalid_parameter_value(
+                        _logger.warning(
                             f"The 2 job functions {fn_fullname} and {exist_fullname} have the same "
                             f"function name, this is not allowed."
                         )
                 else:
                     _job_function_fullname_map[func_name] = fn_fullname
             case _:
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid function fullname in the allowed list: {fn_fullname}"
-                )
+                _logger.warning(f"Invalid function fullname in the allowed list: {fn_fullname}")
 
 
 _build_job_function_fullname_map()
