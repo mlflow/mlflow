@@ -6,8 +6,15 @@ async function getMaintainers({ github, context }) {
   return collaborators
     .filter(
       ({ role_name, login }) =>
-        ["admin", "maintain"].includes(role_name)
-        || ["alkispoly-db", "AveshCSingh", "danielseong1", "smoorjani", "SomtochiUmeh", "xsh310"].includes(login)
+        ["admin", "maintain"].includes(role_name) ||
+        [
+          "alkispoly-db",
+          "AveshCSingh",
+          "danielseong1",
+          "smoorjani",
+          "SomtochiUmeh",
+          "xsh310",
+        ].includes(login)
     )
     .map(({ login }) => login)
     .sort();
