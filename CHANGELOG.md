@@ -6,28 +6,16 @@ MLflow 3.8.0rc0 includes several major features and improvements
 
 ### Major Features
 
-- [Tracking] Enhance encryption security (#19253, @BenWilson2)
-- [Tracking] Fix and simplify Gateway store interfaces (#19346, @BenWilson2)
-- [Tracking] Add endpoint tags (#19308, @BenWilson2)
-- [Tracking] [Endpoints] [1/x] Add backend DB tables for Endpoints (#19002, @BenWilson2)
-- [Tracking] [Endpoints] [3/x] Entities base definitions (#19004, @BenWilson2)
-- [Tracking] [Endpoints] [4/x] Abstract store interface (#19005, @BenWilson2)
-- [Tracking] [Endpoints] [5/x] SQL Store backend for Endpoints (#19006, @BenWilson2)
-- [Tracking] [Endpoints] [6/x] Protos and entities interfaces (#19007, @BenWilson2)
-- [Tracking] [Endpoints] [7/x] Add rest store implementation (#19008, @BenWilson2)
-- [Tracking] [Endpoints] [8/x] Add credential cache (#19014, @BenWilson2)
-- [Tracking] [Endpoints] [9/x] Add provider, model, and configuration handling (#19009, @BenWilson2)
-- [Prompts] Add model config to prompt (backend and docs change) (#19174, @chenmoneygithub)
-- [Prompts] Add prompt model config to the prompt registry UI (#19279, @chenmoneygithub)
-- [Prompts] Add unified cache + TTL for prompt loading (#18963, @chenmoneygithub)
-- [Tracing] Support display in progress traces (#19265, @B-Step62)
-- [Evaluation] [1/4] Add basic `deepeval` judge wrapping (#18988, @smoorjani)
-- [Evaluation] [1/6][builtin judges] Conversational Safety Judge (#19106, @joelrobin18)
-- [Evaluation] [2/6][builtin judges] Conversational Tool Call Efficiency (#19245, @joelrobin18)
-- [Evaluation] Automatically wrap async functions when passed to predict_fn (#19249, @smoorjani)
+- 🔑 **API Key Management**: New API key management system for the MLflow Tracking Server, enabling secure storage and management of LLM provider credentials with encrypted secret storage, credential caching, and multi-provider support. (#19002, #19004, #19005, #19006, #19007, #19008, #19009, #19014, #19253, #19308, #19346, @BenWilson2)
+- ⚙️ **Prompt Model Configuration**: Prompts can now include model configuration, allowing you to associate specific model settings with prompt templates for more reproducible LLM workflows. (#18963, #19174, #19279, @chenmoneygithub)
+- ⏳ **In-Progress Trace Display**: The Traces UI now supports displaying spans from in-progress traces with auto-polling, enabling real-time debugging and monitoring of long-running LLM applications. (#19265, @B-Step62)
+- ⚖️ **DeepEval Judges Integration**: New `get_judge` API enables using DeepEval's evaluation metrics as MLflow scorers, providing access to 20+ evaluation metrics including answer relevancy, faithfulness, and hallucination detection. (#18988, @smoorjani)
+- 🛡️ **Conversational Safety Scorer**: New built-in scorer for evaluating safety of multi-turn conversations, analyzing entire conversation histories for hate speech, harassment, violence, and other safety concerns. (#19106, @joelrobin18)
+- ⚡ **Conversational Tool Call Efficiency Scorer**: New built-in scorer for evaluating tool call efficiency in multi-turn agent interactions, detecting redundant calls, missing batching opportunities, and poor tool selections. (#19245, @joelrobin18)
 
 ### Features
 
+- [Evaluation] Automatically wrap async functions when passed to predict_fn (#19249, @smoorjani)
 - [Tracing] Support batch span export to UC Table (#19324, @B-Step62)
 - [Evaluation] Add `inference_params` support for LLM Judges (#19152, @debu-sinha)
 - [Evaluation / Tracking] Enable `search_datasets` in Databricks managed MLflow (#19254, @alkispoly-db)
