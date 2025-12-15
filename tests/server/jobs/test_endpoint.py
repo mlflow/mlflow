@@ -148,7 +148,7 @@ def test_job_endpoint(client: Client):
     job_json.pop("last_update_time")
     assert job_json == {
         "job_id": job_id,
-        "function_fullname": "test_endpoint.simple_job_fun",
+        "function_name": "simple_job_fun",
         "params": {"x": 3, "y": 4},
         "timeout": None,
         "status": "SUCCEEDED",
@@ -302,7 +302,7 @@ def test_job_endpoint_search(client: Client):
     response = client.post(
         "/ajax-api/3.0/jobs/search",
         payload={
-            "function_fullname": "test_endpoint.simple_job_fun",
+            "function_name": "simple_job_fun",
             "statuses": ["BAD_STATUS"],
         },
     )
