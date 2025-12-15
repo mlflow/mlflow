@@ -115,6 +115,18 @@ class TelemetryClient {
       payload,
     });
   }
+
+  public shutdown(): void {
+    this.port?.postMessage({
+      type: ClientToWorkerMessageType.SHUTDOWN,
+    });
+    this.port = null;
+  }
+
+  // used for restarting the worker after a shutdown
+  public start(): void {
+    this.ready = this.initWorker();
+  }
 }
 
 // Singleton instance
