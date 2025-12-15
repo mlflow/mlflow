@@ -177,6 +177,7 @@ class GatewayStoreMixin:
         secret_id: str | None = None,
         model_name: str | None = None,
         updated_by: str | None = None,
+        provider: str | None = None,
     ) -> GatewayModelDefinition:
         """
         Update a model definition.
@@ -187,6 +188,7 @@ class GatewayStoreMixin:
             secret_id: Optional new secret ID.
             model_name: Optional new model name.
             updated_by: Username of the updater.
+            provider: Optional new provider.
 
         Returns:
             Updated ModelDefinition entity.

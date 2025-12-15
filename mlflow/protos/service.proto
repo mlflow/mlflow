@@ -4256,6 +4256,8 @@ message UpdateGatewayModelDefinition {
   optional string model_name = 4;
   // Username of the updater
   optional string updated_by = 5;
+  // Optional new provider
+  optional string provider = 6;
 
   message Response {
     // The updated model definition
