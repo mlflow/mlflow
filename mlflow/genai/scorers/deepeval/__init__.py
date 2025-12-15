@@ -5,9 +5,13 @@ This module provides integration with DeepEval metrics, allowing them to be used
 with MLflow's judge interface.
 
 Example usage:
-    >>> from mlflow.genai.scorers.deepeval import get_judge
-    >>> judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
-    >>> feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
+
+.. code-block:: python
+
+    from mlflow.genai.scorers.deepeval import get_judge
+
+    judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
+    feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
 """
 
 from __future__ import annotations
@@ -21,7 +25,8 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.utils import CategoricalRating
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
+from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import (
@@ -33,28 +38,32 @@ from mlflow.genai.scorers.deepeval.utils import (
     map_session_to_deepeval_conversational_test_case,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class DeepEvalScorer(Scorer):
+    """
+    Base scorer class for DeepEval metrics.
+
+    Args:
+        metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy").
+            If not provided, will use the class-level metric_name attribute.
+        model: {{ model }}
+        metric_kwargs: Additional metric-specific parameters
+    """
+
     _metric: Any = PrivateAttr()
 
     def __init__(
         self,
         metric_name: str | None = None,
-        model: str = "databricks",
-        **metric_kwargs,
+        model: str | None = None,
+        **metric_kwargs: Any,
     ):
-        """
-        Initialize a DeepEval metric scorer.
-
-        Args:
-            metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy").
-                If not provided, will use the class-level metric_name attribute.
-            model: Model URI in MLflow format (default: "databricks")
-            metric_kwargs: Additional metric-specific parameters
-        """
         # Use class attribute if metric_name not provided
         if metric_name is None:
             metric_name = self.metric_name
@@ -63,9 +72,16 @@ class DeepEvalScorer(Scorer):
 
         metric_class = get_metric_class(metric_name)
 
-        if is_deterministic_metric(metric_name):
+        # Store model URI and whether metric is deterministic
+        self._is_deterministic = is_deterministic_metric(metric_name)
+
+        if self._is_deterministic:
+            # Deterministic metrics don't need a model
             self._metric = metric_class(**metric_kwargs)
+            self._model_uri = None
         else:
+            model = model or get_default_model()
+            self._model_uri = model
             deepeval_model = create_deepeval_model(model)
             self._metric = metric_class(
                 model=deepeval_model,
@@ -108,9 +124,17 @@ class DeepEvalScorer(Scorer):
         Returns:
             Feedback object with pass/fail value, rationale, and score in metadata
         """
+        # Use appropriate source type based on whether metric is deterministic
+        if self._is_deterministic:
+            source_type = AssessmentSourceType.CODE
+            source_id = f"deepeval/{self.name}"
+        else:
+            source_type = AssessmentSourceType.LLM_JUDGE
+            source_id = self._model_uri
+
         assessment_source = AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE,
-            source_id=f"deepeval/{self.name}",
+            source_type=source_type,
+            source_id=source_id,
         )
 
         try:
@@ -157,28 +181,33 @@ class DeepEvalScorer(Scorer):
             )
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 def get_judge(
     metric_name: str,
-    model: str = "databricks",
-    **metric_kwargs,
+    model: str | None = None,
+    **metric_kwargs: Any,
 ) -> DeepEvalScorer:
     """
     Get a DeepEval metric as an MLflow judge.
 
     Args:
         metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy", "Faithfulness")
-        model: Model URI in MLflow format (default: "databricks")
+        model: {{ model }}
         metric_kwargs: Additional metric-specific parameters (e.g., threshold, include_reason)
 
     Returns:
         DeepEvalScorer instance that can be called with MLflow's judge interface
 
     Examples:
-        >>> judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
-        >>> feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
 
-        >>> judge = get_judge("Faithfulness", model="openai:/gpt-4")
-        >>> feedback = judge(trace=trace)
+    .. code-block:: python
+
+        judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
+        feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
+
+        judge = get_judge("Faithfulness", model="openai:/gpt-4")
+        feedback = judge(trace=trace)
     """
     return DeepEvalScorer(
         metric_name=metric_name,

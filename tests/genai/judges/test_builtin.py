@@ -107,7 +107,9 @@ def test_sanitize_scorer_feedback_preserves_empty_string():
     )
     sanitized = _sanitize_scorer_feedback(feedback)
     assert sanitized.value == ""
-    assert sanitized.error == "Empty value"
+    # String errors are converted to AssessmentError objects
+    assert sanitized.error.error_message == "Empty value"
+    assert sanitized.error.error_code == "ASSESSMENT_ERROR"
 
 
 def test_sanitize_scorer_feedback_handles_categorical_rating_input():

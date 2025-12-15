@@ -7,6 +7,10 @@
     "defaultMessage": "Assessments",
     "description": "Label for the assessments pane"
   },
+  "+/Zrmm": {
+    "defaultMessage": "Temperature",
+    "description": "Label for temperature input"
+  },
   "+1d2x/": {
     "defaultMessage": "Run judge on traces",
     "description": "Title for running judge on traces"
@@ -130,6 +134,10 @@
   "/DcBLQ": {
     "defaultMessage": "role",
     "description": "Placeholder for chat message role input"
+  },
+  "/DvT6Y": {
+    "defaultMessage": "Error",
+    "description": "Error assessment label for filter dropdown"
   },
   "/G/eHs": {
     "defaultMessage": "Run judge",
@@ -531,6 +539,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
   },
+  "3Cwqj9": {
+    "defaultMessage": "e.g., gpt-4, claude-3-opus",
+    "description": "Placeholder for model name input"
+  },
   "3D2Znf": {
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"
@@ -773,6 +785,10 @@
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
+  },
+  "5lsHqm": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button for the edit model config modal"
   },
   "5m2VPy": {
     "defaultMessage": "Image grid",
@@ -1257,6 +1273,10 @@
   "9mAGv0": {
     "defaultMessage": "Model name",
     "description": "Text for form title on creating model in the model registry"
+  },
+  "9oh44C": {
+    "defaultMessage": "Stop Sequences (comma-separated)",
+    "description": "Label for stop sequences input"
   },
   "9pJlQd": {
     "defaultMessage": "No prompt versions created",
@@ -2526,6 +2546,10 @@
     "defaultMessage": "Created at",
     "description": "Label for the creation timestamp of a logged model on the logged model details page"
   },
+  "MX4ypf": {
+    "defaultMessage": "Save",
+    "description": "Save button for the edit model config modal"
+  },
   "MZNjYJ": {
     "defaultMessage": "Actions ({count})",
     "description": "Actions dropdown button label with count of selected sessions"
@@ -2917,6 +2941,10 @@
     "defaultMessage": "Error",
     "description": "Title for error fallback component in the MLflow experiment chat sessions page"
   },
+  "QZXOSm": {
+    "defaultMessage": "Frequency Penalty",
+    "description": "Label for frequency penalty input"
+  },
   "QcEYpD": {
     "defaultMessage": "Add to evaluation dataset",
     "description": "Add traces to evaluation dataset action"
@@ -2952,6 +2980,10 @@
   "R/4/8G": {
     "defaultMessage": "Metric",
     "description": "Label for the metric column in the logged model details metrics table"
+  },
+  "R1FeSE": {
+    "defaultMessage": "Advanced settings (optional)",
+    "description": "Toggle button for advanced settings in prompt creation modal"
   },
   "R3Lb6z": {
     "defaultMessage": "The requested resource was not found.",
@@ -3008,6 +3040,10 @@
   "Rlwm5V": {
     "defaultMessage": "Name is required",
     "description": "A validation state for the prompt name in the prompt creation modal"
+  },
+  "RmmAwm": {
+    "defaultMessage": "Top P",
+    "description": "Label for top P input"
   },
   "Rs+SVS": {
     "defaultMessage": "Ready",
@@ -3080,6 +3116,10 @@
   "SZj964": {
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
+  },
+  "Sb+wLa": {
+    "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
+    "description": "Help text explaining model configuration purpose"
   },
   "Sb0Z4Z": {
     "defaultMessage": ", . : / - = and blank spaces are not allowed",
@@ -3368,6 +3408,10 @@
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
   },
+  "VSitCY": {
+    "defaultMessage": "Top K",
+    "description": "Label for top K input"
+  },
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
@@ -3443,6 +3487,10 @@
   "W8bOkn": {
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "W99FRU": {
+    "defaultMessage": "Model Name",
+    "description": "Label for model name input in model config form"
   },
   "WDqWWa": {
     "defaultMessage": "Show all runs",
@@ -4386,6 +4434,10 @@
   "eM4+ab": {
     "defaultMessage": "Source",
     "description": "Experiment page > traces table > source column header"
+  },
+  "eMbUhX": {
+    "defaultMessage": "e.g., openai, anthropic, google",
+    "description": "Placeholder for provider input"
   },
   "eNUbaN": {
     "defaultMessage": "Y-axis:",
@@ -5531,6 +5583,10 @@
     "defaultMessage": "No models found in experiment or all models are hidden. Select at least one model to view charts.",
     "description": "Label displayed in logged models chart view when no models are visible or selected"
   },
+  "oM11pD": {
+    "defaultMessage": "Error",
+    "description": "The label for an error assessment above a bar-chart in the summary stats."
+  },
   "oShuJS": {
     "defaultMessage": "Logged from",
     "description": "Label for the source (where it was logged from) of a logged model on the logged model details page. It can be e.g. a notebook or a file."
@@ -5719,6 +5775,10 @@
     "defaultMessage": "Value",
     "description": "Run page > Overview > Parameters table > Value column header"
   },
+  "qKGnLV": {
+    "defaultMessage": "Model Config:",
+    "description": "Label for model configuration in the prompt details page"
+  },
   "qMwRy3": {
     "defaultMessage": "Registered Models",
     "description": "Header for displaying models in the model registry"
@@ -5867,6 +5927,10 @@
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
   },
+  "rstugP": {
+    "defaultMessage": "Max Tokens",
+    "description": "Label for max tokens input"
+  },
   "rxMHgr": {
     "defaultMessage": "Stage transition",
     "description": "Title for a model version stage transition modal"
@@ -5958,6 +6022,10 @@
   "sXqvoN": {
     "defaultMessage": "Ignore column ordering",
     "description": "Toggle text that determines whether to ignore column order in the\n                      model comparison page"
+  },
+  "sXyBDU": {
+    "defaultMessage": "Model Configuration",
+    "description": "Section header for model configuration in prompt creation"
   },
   "sbHChH": {
     "defaultMessage": "Dataset name is required",
@@ -6078,6 +6146,10 @@
   "uSVfB9": {
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > retrieval grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
+  },
+  "uX2XCM": {
+    "defaultMessage": "Edit Model Configuration",
+    "description": "Title for the edit model config modal"
   },
   "uXW7SK": {
     "defaultMessage": "Iterate on quality with offline evaluations and comparisons.",
@@ -6279,6 +6351,10 @@
     "defaultMessage": "Registered at:",
     "description": "A label for the registration timestamp in the prompt details page"
   },
+  "wJX0a/": {
+    "defaultMessage": "Provider",
+    "description": "Label for model provider input"
+  },
   "wKXJ6U": {
     "defaultMessage": "Toggle visibility of evaluation runs",
     "description": "Evaluation runs table > toggle visibility of runs > accessible label"
@@ -6354,6 +6430,10 @@
   "x/YJtF": {
     "defaultMessage": "MLflow MCP server",
     "description": "Home page news card title one"
+  },
+  "x03ytD": {
+    "defaultMessage": "e.g., END, ###, STOP",
+    "description": "Placeholder for stop sequences input"
   },
   "x0K27S": {
     "defaultMessage": "Nothing to compare!",
@@ -6442,6 +6522,10 @@
   "xnr5KT": {
     "defaultMessage": "No events found",
     "description": "Empty state for the events tab in the model trace explorer. Events are logs of arbitrary things (e.g. exceptions) that occur during the execution of a span, and can be user-defined."
+  },
+  "xpwj4T": {
+    "defaultMessage": "Presence Penalty",
+    "description": "Label for presence penalty input"
   },
   "xq0Rde": {
     "defaultMessage": "New",

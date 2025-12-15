@@ -18,7 +18,7 @@ def test_deepeval_scorer_with_exact_match_metric():
     assert result.name == "ExactMatch"
     assert result.value == CategoricalRating.YES
     assert result.metadata["score"] == 1.0
-    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert result.source.source_type == AssessmentSourceType.CODE
     assert result.source.source_id == "deepeval/ExactMatch"
 
 
