@@ -115,11 +115,11 @@ from mlflow.protos.service_pb2 import (
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
-    DeleteEndpointTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -181,8 +181,8 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     SetDatasetTags,
-    SetEndpointTag,
     SetExperimentTag,
+    SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
@@ -4267,7 +4267,7 @@ def _list_gateway_endpoint_bindings():
 @_disable_if_artifacts_only
 def _set_gateway_endpoint_tag():
     request_message = _get_request_message(
-        SetEndpointTag(),
+        SetGatewayEndpointTag(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4276,7 +4276,7 @@ def _set_gateway_endpoint_tag():
     )
     tag = GatewayEndpointTag(request_message.key, request_message.value)
     _get_tracking_store().set_gateway_endpoint_tag(request_message.endpoint_id, tag)
-    response_message = SetEndpointTag.Response()
+    response_message = SetGatewayEndpointTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4286,7 +4286,7 @@ def _set_gateway_endpoint_tag():
 @_disable_if_artifacts_only
 def _delete_gateway_endpoint_tag():
     request_message = _get_request_message(
-        DeleteEndpointTag(),
+        DeleteGatewayEndpointTag(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4295,7 +4295,7 @@ def _delete_gateway_endpoint_tag():
     _get_tracking_store().delete_gateway_endpoint_tag(
         request_message.endpoint_id, request_message.key
     )
-    response_message = DeleteEndpointTag.Response()
+    response_message = DeleteGatewayEndpointTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4413,17 +4413,17 @@ def get_gateway_endpoints():
     """Returns endpoint tuples for gateway provider/model discovery APIs."""
     return [
         (
-            _get_ajax_path("/mlflow/endpoints/supported-providers", version=3),
+            _get_ajax_path("/mlflow/gateway/supported-providers", version=3),
             _list_supported_providers,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/endpoints/supported-models", version=3),
+            _get_ajax_path("/mlflow/gateway/supported-models", version=3),
             _list_supported_models,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/endpoints/provider-config", version=3),
+            _get_ajax_path("/mlflow/gateway/provider-config", version=3),
             _get_provider_config,
             ["GET"],
         ),
@@ -4794,6 +4794,6 @@ HANDLERS = {
     DeleteGatewayEndpointBinding: _delete_gateway_endpoint_binding,
     ListGatewayEndpointBindings: _list_gateway_endpoint_bindings,
     # Endpoint Tags APIs
-    SetEndpointTag: _set_gateway_endpoint_tag,
-    DeleteEndpointTag: _delete_gateway_endpoint_tag,
+    SetGatewayEndpointTag: _set_gateway_endpoint_tag,
+    DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
 }
