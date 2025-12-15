@@ -93,7 +93,7 @@ const AssessmentCard = ({ assessment }: { assessment: FeedbackAssessment }) => {
       {/* Result value */}
       {!hasError && value !== undefined && (
         <div css={{ display: 'flex', alignItems: 'center' }}>
-          <AssessmentDisplayValue jsonValue={JSON.stringify(value)} />
+          <AssessmentDisplayValue jsonValue={JSON.stringify(value)} assessmentName={assessment.assessment_name} />
         </div>
       )}
 
