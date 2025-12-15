@@ -205,3 +205,63 @@ async def invocations(endpoint_name: str, request: Request):
             status_code=400,
             detail="Invalid request: payload format must be either chat or embeddings",
         )
+
+
+@gateway_router.post("/mlflow/v1/chat/completions")
+@translate_http_exception
+async def chat_completions(request: Request):
+    """
+    OpenAI-compatible chat completions endpoint.
+
+    This endpoint follows the OpenAI API format where the endpoint name is specified
+    via the "model" parameter in the request body, allowing clients to use the
+    standard OpenAI SDK.
+
+    Example:
+        POST /gateway/mlflow/v1/chat/completions
+        {
+            "model": "my-endpoint-name",
+            "messages": [{"role": "user", "content": "Hello"}]
+        }
+    """
+    try:
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+
+    # Extract endpoint name from "model" parameter
+    endpoint_name = body.get("model")
+    if not endpoint_name:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required 'model' parameter in request body",
+        )
+
+    store = _get_store()
+
+    if not isinstance(store, SqlAlchemyStore):
+        raise HTTPException(
+            status_code=500,
+            detail="Gateway endpoints are only available with SqlAlchemyStore, "
+            f"got {type(store).__name__}.",
+        )
+
+    # Validate this is a chat request
+    if "messages" not in body:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid chat request: missing 'messages' field",
+        )
+
+    endpoint_type = EndpointType.LLM_V1_CHAT
+    try:
+        payload = chat.RequestPayload(**body)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
+
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+
+    if payload.stream:
+        return await make_streaming_response(provider.chat_stream(payload))
+    else:
+        return await provider.chat(payload)
