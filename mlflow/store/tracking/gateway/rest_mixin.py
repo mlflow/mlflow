@@ -373,6 +373,7 @@ class RestGatewayStoreMixin:
         secret_id: str | None = None,
         model_name: str | None = None,
         updated_by: str | None = None,
+        provider: str | None = None,
     ) -> GatewayModelDefinition:
         """
         Update a model definition.
@@ -383,6 +384,7 @@ class RestGatewayStoreMixin:
             secret_id: Optional new secret ID.
             model_name: Optional new model name.
             updated_by: Optional identifier of the user updating the definition.
+            provider: Optional new provider.
 
         Returns:
             The updated GatewayModelDefinition object.
@@ -394,6 +396,7 @@ class RestGatewayStoreMixin:
                 secret_id=secret_id,
                 model_name=model_name,
                 updated_by=updated_by,
+                provider=provider,
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayModelDefinition, req_body)
