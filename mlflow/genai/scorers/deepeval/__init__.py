@@ -66,7 +66,6 @@ class DeepEvalScorer(Scorer):
 
         metric_class = get_metric_class(metric_name)
 
-        # Store model URI and whether metric is deterministic
         self._is_deterministic = is_deterministic_metric(metric_name)
 
         if self._is_deterministic:
@@ -104,7 +103,6 @@ class DeepEvalScorer(Scorer):
         Returns:
             Feedback object with pass/fail value, rationale, and score in metadata
         """
-        # Use appropriate source type based on whether metric is deterministic
         if self._is_deterministic:
             source_type = AssessmentSourceType.CODE
             source_id = None
