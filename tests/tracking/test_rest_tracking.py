@@ -4668,6 +4668,39 @@ def test_get_provider_config(mlflow_client_with_secrets):
     assert response.status_code == 400
 
 
+def test_get_secrets_config_with_custom_passphrase(mlflow_client_with_secrets):
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/secrets/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["secrets_available"] is True
+    assert data["using_default_passphrase"] is False
+
+
+def test_get_secrets_config_with_default_passphrase(tmp_path: Path, monkeypatch):
+    from tests.tracking.integration_test_utils import ServerThread, get_safe_port
+
+    monkeypatch.delenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", raising=False)
+
+    backend_uri = f"sqlite:///{tmp_path}/mlflow.db"
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+
+    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store.engine.dispose()
+
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=artifact_uri)
+
+    with ServerThread(app, get_safe_port()) as url:
+        response = requests.get(f"{url}/ajax-api/3.0/mlflow/secrets/config")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["secrets_available"] is True
+        assert data["using_default_passphrase"] is True
+
+
 def test_endpoint_with_orphaned_model_definition(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 
