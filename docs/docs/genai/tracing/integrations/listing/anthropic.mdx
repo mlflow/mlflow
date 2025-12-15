@@ -7,10 +7,16 @@ import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import ImageBox from "@site/src/components/ImageBox";
+import { Users, BookOpen, Scale } from "lucide-react";
 
 # Tracing Anthropic
 
-![Anthropic Tracing via autolog](/images/llms/anthropic/anthropic-tracing.png)
+<ImageBox src="/images/llms/anthropic/anthropic-tracing.png" alt="Anthropic Tracing via autolog" />
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for Anthropic LLMs. By enabling auto tracing
 for Anthropic by calling the <APILink fn="mlflow.anthropic.autolog" /> function, MLflow will capture nested traces and log them to the active MLflow Experiment upon invocation of Anthropic Python SDK. In Typescript, you can instead use the `tracedAnthropic` function to wrap the Anthropic client.
@@ -46,12 +52,98 @@ MLflow trace automatically captures the following information about Anthropic ca
 - Function calling if returned in the response
 - Token usage information
 - Any exception if raised
+- and more...
+
+## Getting Started
+
+<StepHeader number={1} title="Install Dependencies" />
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+```bash
+pip install mlflow anthropic
+```
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+```bash
+npm install mlflow-anthropic @anthropic-ai/sdk
+```
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={2} title="Start MLflow Server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Enable Tracing and Make API Calls" />
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Chat Completion API" default>
+
+    Enable tracing with `mlflow.anthropic.autolog()` and make API calls as usual.
+
+```python
+import anthropic
+import mlflow
+
+# Enable auto-tracing for Anthropic
+mlflow.anthropic.autolog()
+
+# Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("Anthropic")
+
+# Invoke the Anthropic model as usual.
+# Make sure your API key is set via the ANTHROPIC_API_KEY environment variable.
+client = anthropic.Anthropic()
+
+message = client.messages.create(
+    model="claude-sonnet-4-5-2025092",
+    max_tokens=512,
+    messages=[
+        {"role": "user", "content": "Hello, Claude"},
+    ],
+)
+```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+    Wrap the Anthropic client with the `tracedAnthropic` function and make API calls as usual.
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { tracedAnthropic } from "mlflow-anthropic";
+
+// Wrap the Anthropic client with the tracedAnthropic function
+const client = tracedAnthropic(new Anthropic());
+
+// Invoke the client as usual
+const message = await client.messages.create({
+  model: "claude-3-7-sonnet-20250219",
+  max_tokens: 512,
+  messages: [
+    { role: "user", content: "Hello, Claude" },
+  ],
+});
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={4} title="View Traces in MLflow UI" />
+
+Browse to the MLflow UI at http://localhost:5000 (or your MLflow server URL) and you should see the traces for the Anthropic API calls.
+
+<ImageBox src="/images/llms/anthropic/anthropic-basic-tracing.png" alt="Anthropic Tracing" />
 
 ## Supported APIs
 
 MLflow supports automatic tracing for the following Anthropic APIs:
-
-### Python
 
 | Chat Completion | Function Calling | Streaming |  Async   | Image | Batch |
 | :-------------: | :--------------: | :-------: | :------: | :---: | :---: |
@@ -63,69 +155,7 @@ MLflow supports automatic tracing for the following Anthropic APIs:
 
 </div>
 
-### TypeScript / JavaScript
-
-| Chat Completion | Function Calling | Streaming | Async |
-| :-------------: | :--------------: | :-------: | :---: |
-|       ✅        |     ✅ (\*2)     |     -     |  ✅   |
-
-<div style={{ fontSize: '0.9em', marginTop: '10px' }}>
-
-(\*2) Function calls in responses are captured and can be rendered in the MLflow UI. The TypeScript SDK is natively async.
-
-</div>
-
 To request support for additional APIs, please open a [feature request](https://github.com/mlflow/mlflow/issues) on GitHub.
-
-## Basic Example
-
-<Tabs>
-  <TabItem value="python" label="Python" default>
-    ```python
-    import anthropic
-    import mlflow
-
-    # Enable auto-tracing for Anthropic
-    mlflow.anthropic.autolog()
-
-    # Optional: Set a tracking URI and an experiment
-    mlflow.set_tracking_uri("http://localhost:5000")
-    mlflow.set_experiment("Anthropic")
-
-    # Configure your API key.
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-    # Use the create method to create new message.
-    message = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
-        max_tokens=1024,
-        messages=[
-            {"role": "user", "content": "Hello, Claude"},
-        ],
-    )
-    ```
-
-  </TabItem>
-  <TabItem value="typescript" label="JS / TS">
-    ```typescript
-    import Anthropic from "@anthropic-ai/sdk";
-    import { tracedAnthropic } from "mlflow-anthropic";
-
-    // Wrap the Anthropic client with the tracedAnthropic function
-    const client = tracedAnthropic(new Anthropic());
-
-    // Invoke the client as usual
-    const message = await client.messages.create({
-        model: "claude-3-7-sonnet-20250219",
-        max_tokens: 1024,
-        messages: [
-            {"role": "user", "content": "Hello, Claude"},
-        ],
-    });
-    ```
-
-  </TabItem>
-</Tabs>
 
 ## Async
 
@@ -152,7 +182,7 @@ MLflow Tracing has supported the asynchronous API of the Anthropic SDK since MLf
 
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
-    Anthropic Typescript / Javascript SDK is natively async. See the basic example above.
+    Anthropic Typescript / Javascript SDK is natively async. See the Getting Started example above.
   </TabItem>
 </Tabs>
 
@@ -172,7 +202,7 @@ import asyncio
 from mlflow.entities import SpanType
 
 client = anthropic.AsyncAnthropic()
-model_name = "claude-3-5-sonnet-20241022"
+model_name = "claude-sonnet-4-5-20250929"
 
 
 # Define the tool function. Decorate it with `@mlflow.trace` to create a span for its execution.
@@ -264,6 +294,7 @@ available in the `token_usage` field of the trace info object.
 
 ```python
 import json
+import anthropic
 import mlflow
 
 mlflow.anthropic.autolog()
@@ -341,7 +372,7 @@ Messages.create:
   Total tokens: 20
 ```
 
-### Supported APIs:
+#### Supported APIs:
 
 Token usage tracking is supported for the following Anthropic APIs:
 
@@ -358,3 +389,35 @@ Token usage tracking is supported for the following Anthropic APIs:
 ## Disable auto-tracing
 
 Auto tracing for Anthropic can be disabled globally by calling `mlflow.anthropic.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
+
+## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>
