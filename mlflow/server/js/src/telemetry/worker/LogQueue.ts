@@ -76,6 +76,7 @@ export class LogQueue {
       if (!response.ok) {
         console.error(`[LogQueue] Failed to upload batch: ${response.status}`);
         this.queue.unshift(...records);
+        return;
       }
 
       const responseJson = await response.json();
