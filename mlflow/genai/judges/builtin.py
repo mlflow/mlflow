@@ -478,6 +478,72 @@ def is_tool_call_efficient(
     return _sanitize_feedback(feedback)
 
 
+def _validate_tool_calls_with_expectations(
+    actual_tools_called: list["FunctionCall"],
+    expected_tool_calls: list["FunctionCall"],
+    scorer_name: str,
+    check_order: bool = True,
+) -> tuple["Feedback | None", bool]:
+    """
+    Validate actual tool calls against expected tool calls.
+
+    Args:
+        actual_tools_called: List of actual FunctionCall objects from trace
+        expected_tool_calls: List of expected FunctionCall objects
+        scorer_name: Name of the scorer for feedback
+        check_order: Whether to validate order of tool calls (True) or just presence (False)
+
+    Returns:
+        A tuple of (validation_feedback, validation_complete) where:
+        - validation_feedback: Feedback with "yes"/"no" if validation completed, or None
+        - validation_complete: True if validation is complete, False if LLM judge should be used
+    """
+    has_any_arguments = any(call.arguments for call in expected_tool_calls)
+
+    def matches(actual: "FunctionCall", expected: "FunctionCall") -> bool:
+        if actual.name != expected.name:
+            return False
+        if not has_any_arguments:
+            return True
+        return (actual.arguments or {}) == (expected.arguments or {})
+
+    def create_failure_feedback(rationale: str) -> Feedback:
+        return Feedback(name=scorer_name, value=CategoricalRating.NO, rationale=rationale)
+
+    if check_order:
+        for i, expected in enumerate(expected_tool_calls):
+            if i >= len(actual_tools_called):
+                return create_failure_feedback(
+                    f"Expected tool call at position {i} not found. Expected: {expected.name}"
+                ), True
+            actual = actual_tools_called[i]
+            if not matches(actual, expected):
+                expected_args = expected.arguments or {}
+                actual_args = actual.arguments or {}
+                return create_failure_feedback(
+                    f"Tool call mismatch at position {i}. "
+                    f"Expected: {expected.name}: {expected_args}, "
+                    f"Got: {actual.name}: {actual_args}"
+                ), True
+    else:
+        for expected in expected_tool_calls:
+            if not any(matches(actual, expected) for actual in actual_tools_called):
+                expected_args = expected.arguments or {}
+                return create_failure_feedback(
+                    f"Expected tool call {expected.name}: {expected_args} not found in "
+                    f"actual tool calls."
+                ), True
+
+    if has_any_arguments:
+        return Feedback(
+            name=scorer_name,
+            value=CategoricalRating.YES,
+            rationale="All expected tool calls were made with correct parameters.",
+        ), True
+
+    return None, False
+
+
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def is_tool_call_correct(
@@ -487,6 +553,8 @@ def is_tool_call_correct(
     available_tools: list["ChatTool"],
     name: str | None = None,
     model: str | None = None,
+    expected_tool_calls: list["FunctionCall"] | None = None,
+    check_order: bool = False,
 ) -> Feedback:
     """
     LLM judge determines whether the agent's tool calls and their arguments are correct
@@ -503,6 +571,12 @@ def is_tool_call_correct(
             Each element should be a dictionary containing the tool name and description.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        expected_tool_calls: Optional list of expected FunctionCall objects for validation.
+            If provided with arguments, performs exact match validation.
+            If provided with only tool names (no arguments), validates tool names then
+            falls through to LLM judge.
+        check_order: Whether to validate order of tool calls (True) or just presence (False).
+            Only applies when expected_tool_calls is provided. Defaults to True.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -553,6 +627,17 @@ def is_tool_call_correct(
 
     model = model or get_default_model()
     assessment_name = name or TOOL_CALL_CORRECTNESS_FEEDBACK_NAME
+
+    if expected_tool_calls:
+        validation_feedback, validation_complete = _validate_tool_calls_with_expectations(
+            actual_tools_called=tools_called,
+            expected_tool_calls=expected_tool_calls,
+            scorer_name=assessment_name,
+            check_order=check_order,
+        )
+
+        if validation_complete:
+            return validation_feedback
 
     prompt = get_prompt(request=request, tools_called=tools_called, available_tools=available_tools)
     feedback = invoke_judge_model(

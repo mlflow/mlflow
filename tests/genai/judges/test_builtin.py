@@ -667,3 +667,88 @@ def test_is_tool_call_correct_with_custom_name_and_model():
     args, kwargs = mock_invoke.call_args
     assert args[0] == "anthropic:/claude-3-sonnet"
     assert kwargs["assessment_name"] == "custom_correctness_check"
+
+
+@pytest.mark.parametrize(
+    ("tools_called", "expected_tool_calls", "expected_value", "expected_rationale"),
+    [
+        # Exact match success
+        (
+            [FunctionCall(name="get_weather", arguments={"city": "Paris"}, outputs="Sunny, 22°C")],
+            [FunctionCall(name="get_weather", arguments={"city": "Paris"})],
+            CategoricalRating.YES,
+            "All expected tool calls were made with correct parameters.",
+        ),
+        # Exact match failure - extra argument in actual
+        (
+            [
+                FunctionCall(
+                    name="get_weather",
+                    arguments={"city": "Paris", "unit": "celsius"},
+                    outputs="Sunny, 22°C",
+                )
+            ],
+            [FunctionCall(name="get_weather", arguments={"city": "Paris"})],
+            CategoricalRating.NO,
+            "Tool call mismatch at position 0. "
+            "Expected: get_weather: {'city': 'Paris'}, "
+            "Got: get_weather: {'city': 'Paris', 'unit': 'celsius'}",
+        ),
+        # Name mismatch with name-only validation
+        (
+            [FunctionCall(name="get_weather", arguments={"city": "Paris"}, outputs="Sunny, 22°C")],
+            [FunctionCall(name="wrong_tool")],
+            CategoricalRating.NO,
+            "Tool call mismatch at position 0. "
+            "Expected: wrong_tool: {}, "
+            "Got: get_weather: {'city': 'Paris'}",
+        ),
+    ],
+)
+def test_is_tool_call_correct_with_expected_tool_calls(
+    tools_called, expected_tool_calls, expected_value, expected_rationale
+):
+    feedback = judges.is_tool_call_correct(
+        request="Get weather for Paris",
+        tools_called=tools_called,
+        available_tools=[],
+        expected_tool_calls=expected_tool_calls,
+        check_order=True,
+    )
+
+    assert feedback.name == "tool_call_correctness"
+    assert feedback.value == expected_value
+    assert feedback.rationale == expected_rationale
+
+
+def test_is_tool_call_correct_with_name_only_expected_calls():
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="tool_call_correctness",
+            value=CategoricalRating.YES,
+            rationale="Tool usage is appropriate",
+        ),
+    ) as mock_invoke:
+        feedback = judges.is_tool_call_correct(
+            request="Get weather for Paris",
+            tools_called=[
+                FunctionCall(
+                    name="get_weather",
+                    arguments={"city": "Paris"},
+                    outputs="Sunny, 22°C",
+                )
+            ],
+            available_tools=[],
+            expected_tool_calls=[FunctionCall(name="get_weather")],
+            check_order=True,
+        )
+
+        assert feedback.name == "tool_call_correctness"
+        assert feedback.value == CategoricalRating.YES
+
+        mock_invoke.assert_called_once()
+        args, kwargs = mock_invoke.call_args
+        assert len(args) == 2
+        assert kwargs["assessment_name"] == "tool_call_correctness"
+        assert kwargs["use_case"] == "builtin_judge"

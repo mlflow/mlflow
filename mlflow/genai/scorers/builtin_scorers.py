@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import logging
 import math
@@ -8,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import pydantic
 
 if TYPE_CHECKING:
+    from mlflow.genai.utils.type import FunctionCall
     from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
@@ -807,11 +810,43 @@ class ToolCallCorrectness(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
+    **Evaluation Modes:**
+
+    1. **With Expectations (Deterministic):** If you provide expected tool calls via the
+       `expectations` parameter, the scorer performs exact validation against your specifications:
+
+       - Returns "yes" if actual tool calls match expected tool calls
+       - Returns "no" with detailed rationale if there's any mismatch
+       - Uses `check_order` parameter to control whether order matters
+
+    2. **Without Expectations (LLM Judge):** If no expectations are provided, the scorer uses
+       an LLM judge to evaluate whether tool choices and arguments are reasonable given the
+       user's request.
+
+    **Expectations Format:**
+
+    When using expectations, provide a dictionary with an 'expected_tool_calls' key containing
+    a list of expected tool calls. Each tool call can be specified as either:
+
+    - A dictionary: ``{'name': 'tool_name', 'arguments': {'param': 'value'}}``
+    - A FunctionCall object: ``FunctionCall(name='tool_name', arguments={'param': 'value'})``
+
+    **Validation Behavior:**
+
+    - **With arguments:** If any tool call specifies arguments, all arguments must match exactly.
+      The actual tool call must have the same parameters with the same values (no extra or
+      missing parameters allowed).
+    - **Without arguments:** If all expected tool calls omit arguments (tool call name only),
+      the scorer validates that the tool names match, then defers to the LLM judge to
+      evaluate correctness.
+
     Args:
         name: The name of the scorer. Defaults to "tool_call_correctness".
         model: {{ model }}
+        check_order: If True, validates tool calls in exact order. If False, only validates
+            that all expected tool calls are present. Defaults to False.
 
-    Example (direct usage):
+    Example (direct usage with LLM judge):
 
     .. code-block:: python
 
@@ -819,8 +854,52 @@ class ToolCallCorrectness(BuiltInScorer):
         from mlflow.genai.scorers import ToolCallCorrectness
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedback = ToolCallCorrectness(name="my_tool_call_correctness")(trace=trace)
+        feedback = ToolCallCorrectness()(trace=trace)
         print(feedback)
+
+    Example (with expectations - exact match validation):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ToolCallCorrectness
+
+        trace = mlflow.get_trace("<your-trace-id>")
+
+        # Exact match: All arguments must match exactly
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search", "arguments": {"query": "MLflow"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ]
+        }
+
+        # Ordered validation (default)
+        scorer = ToolCallCorrectness(check_order=True)
+        feedback = scorer(trace=trace, expectations=expectations)
+        print(feedback.value)  # "yes" if tools and arguments match exactly in order
+
+        # Unordered validation
+        scorer = ToolCallCorrectness(check_order=False)
+        feedback = scorer(trace=trace, expectations=expectations)
+        print(feedback.value)  # "yes" if all expected tools with exact arguments are present
+
+    Example (name-only validation with LLM judge):
+
+    .. code-block:: python
+
+        # Name-only: Validates tool names, then uses LLM judge for arguments
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search"},
+                {"name": "summarize"},
+            ]
+        }
+
+        scorer = ToolCallCorrectness()
+        feedback = scorer(trace=trace, expectations=expectations)
+        # Returns "no" immediately if tool names don't match
+        # Defers to LLM judge to evaluate if tool names match
 
     Example (with evaluate):
 
@@ -834,6 +913,7 @@ class ToolCallCorrectness(BuiltInScorer):
 
     name: str = "tool_call_correctness"
     model: str | None = None
+    check_order: bool = False
     required_columns: set[str] = {"trace"}
     description: str = (
         "Evaluate whether the tools called and the arguments they are called with "
@@ -855,9 +935,87 @@ class ToolCallCorrectness(BuiltInScorer):
                     "the user's request."
                 ),
             ),
+            JudgeField(
+                name="expectations",
+                description=(
+                    "A dictionary containing expected tool calls. Must contain an "
+                    "'expected_tool_calls' key with a list of expected tool calls: "
+                    "[{'name': str, 'arguments': dict}, ...]. The 'arguments' field is optional; "
+                    "if provided, requires exact match. If omitted, validates tool names then "
+                    "uses LLM judge (optional)."
+                ),
+            ),
         ]
 
-    def __call__(self, *, trace: Trace) -> Feedback:
+    def _parse_expected_tool_calls(
+        self,
+        expected_tool_calls: list[dict[str, Any] | "FunctionCall"],
+    ) -> list["FunctionCall"]:
+        from mlflow.genai.utils.type import FunctionCall
+
+        parsed_expected_tool_calls = []
+        for i, expected in enumerate(expected_tool_calls):
+            if isinstance(expected, dict):
+                try:
+                    tool_info = FunctionCall(
+                        name=expected.get("name"),
+                        arguments=expected.get("arguments"),
+                    )
+                    parsed_expected_tool_calls.append(tool_info)
+                except Exception as e:
+                    raise MlflowException(
+                        f"{self.name}: Invalid expected tool call at index {i}. Error: {e}"
+                    )
+            elif isinstance(expected, FunctionCall):
+                parsed_expected_tool_calls.append(expected)
+            else:
+                raise MlflowException(
+                    f"{self.name}: Expected tool call at index {i} must be a dictionary "
+                    "or FunctionCall object."
+                )
+        return parsed_expected_tool_calls
+
+    def __call__(self, *, trace: Trace, expectations: dict[str, Any] | None = None) -> Feedback:
+        """
+        Evaluate tool call correctness.
+
+        Args:
+            trace: The trace of the model's execution containing tool call information.
+            expectations: Optional dictionary containing expected tool calls. If provided,
+                must contain 'expected_tool_calls' key with a list of expected tool calls:
+                [{'name': str, 'arguments': dict}, ...]. Validation behavior:
+                - With arguments: Requires exact match of all parameters. Returns "yes" if
+                  all match, "no" with detailed rationale if any mismatch.
+                - Without arguments (name-only): Validates tool names match, then defers to
+                  LLM judge to evaluate if arguments are appropriate.
+                - If no expectations provided, uses LLM judge to evaluate overall correctness.
+
+        Returns:
+            Feedback object with assessment results.
+        """
+
+        fields = resolve_scorer_fields(
+            trace,
+            self,
+            expectations=expectations,
+            model=self.model,
+            extract_expectations=True,
+        )
+
+        parsed_expected_tool_calls = None
+        if fields.expectations and "expected_tool_calls" in fields.expectations:
+            expected_tool_calls = fields.expectations["expected_tool_calls"]
+
+            if not isinstance(expected_tool_calls, list):
+                raise MlflowException(
+                    f"{self.name} requires 'expected_tool_calls' to be a list of "
+                    "tool call dictionaries."
+                )
+
+            parsed_expected_tool_calls = self._parse_expected_tool_calls(
+                expected_tool_calls=expected_tool_calls
+            )
+
         request = extract_request_from_trace(trace)
         available_tools = extract_available_tools_from_trace(trace)
         tools_called = extract_tools_called_from_trace(trace)
@@ -868,6 +1026,8 @@ class ToolCallCorrectness(BuiltInScorer):
             available_tools=available_tools,
             name=self.name,
             model=self.model,
+            expected_tool_calls=parsed_expected_tool_calls,
+            check_order=self.check_order,
         )
 
 

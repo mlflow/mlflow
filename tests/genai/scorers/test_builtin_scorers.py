@@ -9,6 +9,7 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
@@ -1889,3 +1890,233 @@ def test_summarization_with_trace():
         assert result.value == "yes"
         assert result.rationale == "Accurate summary"
         mock_invoke_judge.assert_called_once()
+
+
+def create_trace_with_tool_calls():
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs({"question": "What is the stock price for AAPL?"})
+
+        with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool1:
+            tool1.set_inputs({"symbol": "AAPL", "date": "2024-01-01"})
+            tool1.set_outputs({"price": 150.0})
+
+        with mlflow.start_span(name="get_market_cap", span_type=SpanType.TOOL) as tool2:
+            tool2.set_inputs({"symbol": "AAPL"})
+            tool2.set_outputs({"market_cap": "2.5T"})
+
+        root_span.set_outputs("AAPL price is $150 with market cap of 2.5T.")
+
+    return mlflow.get_trace(root_span.trace_id)
+
+
+@pytest.mark.parametrize(
+    (
+        "expected_tool_calls",
+        "check_order",
+        "expected_value",
+        "expected_rationale",
+        "use_function_call_objects",
+    ),
+    [
+        # Ordered success case with exact match
+        (
+            [
+                {"name": "get_stock_price", "arguments": {"symbol": "AAPL", "date": "2024-01-01"}},
+                {"name": "get_market_cap", "arguments": {"symbol": "AAPL"}},
+            ],
+            True,
+            "yes",
+            "All expected tool calls were made with correct parameters.",
+            False,
+        ),
+        # Ordered success case with FunctionCall objects
+        (
+            [
+                {"name": "get_stock_price", "arguments": {"symbol": "AAPL", "date": "2024-01-01"}},
+                {"name": "get_market_cap", "arguments": {"symbol": "AAPL"}},
+            ],
+            True,
+            "yes",
+            "All expected tool calls were made with correct parameters.",
+            True,
+        ),
+        # Unordered success case with exact match
+        (
+            [
+                {"name": "get_market_cap", "arguments": {"symbol": "AAPL"}},
+                {"name": "get_stock_price", "arguments": {"symbol": "AAPL", "date": "2024-01-01"}},
+            ],
+            False,
+            "yes",
+            "All expected tool calls were made with correct parameters.",
+            False,
+        ),
+        # Wrong tool case
+        (
+            [{"name": "wrong_tool", "arguments": {"symbol": "AAPL"}}],
+            True,
+            "no",
+            "Tool call mismatch at position 0. "
+            "Expected: wrong_tool: {'symbol': 'AAPL'}, "
+            "Got: get_stock_price: {'symbol': 'AAPL', 'date': '2024-01-01'}",
+            False,
+        ),
+        # Wrong order case - correct tools but wrong order
+        (
+            [
+                {"name": "get_market_cap", "arguments": {"symbol": "AAPL"}},
+                {"name": "get_stock_price", "arguments": {"symbol": "AAPL", "date": "2024-01-01"}},
+            ],
+            True,
+            "no",
+            "Tool call mismatch at position 0. "
+            "Expected: get_market_cap: {'symbol': 'AAPL'}, "
+            "Got: get_stock_price: {'symbol': 'AAPL', 'date': '2024-01-01'}",
+            False,
+        ),
+        # Partial arguments mismatch (exact match required)
+        (
+            [
+                {"name": "get_stock_price", "arguments": {"symbol": "AAPL"}},
+                {"name": "get_market_cap", "arguments": {"symbol": "AAPL"}},
+            ],
+            True,
+            "no",
+            "Tool call mismatch at position 0. "
+            "Expected: get_stock_price: {'symbol': 'AAPL'}, "
+            "Got: get_stock_price: {'symbol': 'AAPL', 'date': '2024-01-01'}",
+            False,
+        ),
+    ],
+)
+def test_tool_call_correctness_with_expectations(
+    expected_tool_calls,
+    check_order,
+    expected_value,
+    expected_rationale,
+    use_function_call_objects,
+):
+    from mlflow.genai.utils.type import FunctionCall
+
+    trace = create_trace_with_tool_calls()
+
+    if use_function_call_objects:
+        expected_tool_calls = [
+            FunctionCall(name=tc["name"], arguments=tc["arguments"]) for tc in expected_tool_calls
+        ]
+
+    scorer = ToolCallCorrectness(check_order=check_order)
+    result = scorer(trace=trace, expectations={"expected_tool_calls": expected_tool_calls})
+
+    assert result.name == "tool_call_correctness"
+    assert result.value == expected_value
+    assert result.rationale == expected_rationale
+
+
+@pytest.mark.parametrize(
+    ("check_order", "expected_names"),
+    [
+        (True, ["get_stock_price", "get_market_cap"]),
+        (False, ["get_market_cap", "get_stock_price"]),  # Order reversed from actual
+    ],
+)
+def test_tool_call_correctness_with_name_only_validation_success(check_order, expected_names):
+    trace = create_trace_with_tool_calls()
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value="yes",
+            rationale="Tool calls are correct",
+        )
+
+        scorer = ToolCallCorrectness(check_order=check_order)
+        result = scorer(
+            trace=trace,
+            expectations={"expected_tool_calls": [{"name": name} for name in expected_names]},
+        )
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == "yes"
+        mock_invoke.assert_called_once()
+
+        args, kwargs = mock_invoke.call_args
+        assert len(args) == 2
+        assert kwargs["assessment_name"] == "tool_call_correctness"
+        assert kwargs["use_case"] == "builtin_judge"
+
+
+def test_tool_call_correctness_with_name_only_validation_failure():
+    trace = create_trace_with_tool_calls()
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        scorer = ToolCallCorrectness(check_order=True)
+        result = scorer(
+            trace=trace,
+            expectations={
+                "expected_tool_calls": [
+                    {"name": "wrong_tool"},
+                    {"name": "get_market_cap"},
+                ]
+            },
+        )
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == "no"
+        assert "mismatch" in result.rationale.lower()
+        mock_invoke.assert_not_called()
+
+
+def test_tool_call_correctness_without_expectations():
+    trace = create_trace_with_tool_calls()
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value="yes",
+            rationale="Correct tool usage",
+        )
+
+        scorer = ToolCallCorrectness()
+        result = scorer(trace=trace)
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == "yes"
+        mock_invoke.assert_called_once()
+
+        args, kwargs = mock_invoke.call_args
+        assert len(args) == 2
+        assert kwargs["assessment_name"] == "tool_call_correctness"
+        assert kwargs["use_case"] == "builtin_judge"
+
+
+def test_tool_call_correctness_expectations_invalid_format():
+    trace = create_trace_with_tool_calls()
+
+    scorer = ToolCallCorrectness()
+
+    with pytest.raises(MlflowException, match="list"):
+        scorer(trace=trace, expectations={"expected_tool_calls": "invalid"})
+
+
+def test_tool_call_correctness_without_expected_tool_calls_key_uses_llm_judge():
+    trace = create_trace_with_tool_calls()
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value="yes",
+            rationale="Correct tool usage",
+        )
+
+        scorer = ToolCallCorrectness()
+        result = scorer(trace=trace, expectations={"wrong_key": []})
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == "yes"
+        mock_invoke.assert_called_once()
+
+        args, kwargs = mock_invoke.call_args
+        assert len(args) == 2
+        assert kwargs["assessment_name"] == "tool_call_correctness"
+        assert kwargs["use_case"] == "builtin_judge"
