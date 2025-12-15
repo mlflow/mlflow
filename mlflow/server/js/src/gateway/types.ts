@@ -67,7 +67,7 @@ export interface SecretInfo {
 
 export interface CreateSecretRequest {
   secret_name: string;
-  secret_value: string;
+  secret_value: Record<string, string>;
   provider?: string;
   auth_config_json?: string;
   created_by?: string;
