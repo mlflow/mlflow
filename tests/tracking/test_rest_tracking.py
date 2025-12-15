@@ -4669,8 +4669,6 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
 
 def test_get_secrets_config_with_custom_passphrase(mlflow_client_with_secrets):
-    import requests
-
     base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
 
     response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/secrets/config")
@@ -4681,13 +4679,6 @@ def test_get_secrets_config_with_custom_passphrase(mlflow_client_with_secrets):
 
 
 def test_get_secrets_config_with_default_passphrase(tmp_path: Path, monkeypatch):
-    import requests
-
-    from mlflow.server import handlers
-    from mlflow.server.fastapi_app import app
-    from mlflow.server.handlers import initialize_backend_stores
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-
     from tests.tracking.integration_test_utils import ServerThread, get_safe_port
 
     monkeypatch.delenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", raising=False)

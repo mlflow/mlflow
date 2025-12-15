@@ -168,9 +168,11 @@ class KEKManager:
             passphrase = DEFAULT_KEK_PASSPHRASE
             _logger.warning(
                 "MLFLOW_CRYPTO_KEK_PASSPHRASE not set. Using default passphrase for "
-                "secrets encryption. This is acceptable for development/testing but "
-                "NOT recommended for production. Set MLFLOW_CRYPTO_KEK_PASSPHRASE to "
-                "a unique, high-entropy value for production deployments."
+                "secrets encryption. This is acceptable for local development (localhost) "
+                "but is a SECURITY RISK for remote or shared tracking servers. Anyone with "
+                "database access can decrypt secrets when using the default passphrase. "
+                "Set MLFLOW_CRYPTO_KEK_PASSPHRASE to a unique, high-entropy value for any "
+                "server accessible by multiple users or over a network."
             )
 
         self._kek = self._derive_kek(passphrase)
