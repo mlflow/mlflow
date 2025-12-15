@@ -1,14 +1,19 @@
 import json
+import threading
 import uuid
 from typing import Any, Iterator
 
 import sqlalchemy
 
-import mlflow.store.db.utils
 from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.store.db.utils import (
+    _get_managed_session_maker,
+    _safe_initialize_tables,
+    create_sqlalchemy_engine_with_retry,
+)
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
@@ -26,6 +31,11 @@ class SqlAlchemyJobStore(AbstractJobStore):
     for MLflow Job entities.
     """
 
+    # Class-level cache for SQLAlchemy engines to prevent connection pool leaks
+    # when multiple store instances are created with the same database URI.
+    _engine_map: dict[str, sqlalchemy.engine.Engine] = {}
+    _engine_map_lock = threading.Lock()
+
     def __init__(self, db_uri):
         """
         Create a database backed store.
@@ -36,13 +46,18 @@ class SqlAlchemyJobStore(AbstractJobStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
-        mlflow.store.db.utils._safe_initialize_tables(self.engine)
+        # Use cached engine if available to prevent connection pool leaks
+        if db_uri not in SqlAlchemyJobStore._engine_map:
+            with SqlAlchemyJobStore._engine_map_lock:
+                if db_uri not in SqlAlchemyJobStore._engine_map:
+                    SqlAlchemyJobStore._engine_map[db_uri] = create_sqlalchemy_engine_with_retry(
+                        db_uri
+                    )
+        self.engine = SqlAlchemyJobStore._engine_map[db_uri]
+        _safe_initialize_tables(self.engine)
 
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
-            SessionMaker, self.db_type
-        )
+        self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
 
     def create_job(self, function_fullname: str, params: str, timeout: float | None = None) -> Job:
         """
