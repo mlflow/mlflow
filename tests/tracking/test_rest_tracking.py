@@ -4700,9 +4700,6 @@ def test_endpoint_with_orphaned_model_definition(mlflow_client_with_secrets):
     assert fetched_endpoint.model_mappings[0].model_definition.secret_id is None
     assert fetched_endpoint.model_mappings[0].model_definition.secret_name is None
 
-    store.delete_gateway_endpoint(endpoint.endpoint_id)
-    store.delete_gateway_model_definition(model_def.model_definition_id)
-
 
 def test_update_model_definition_provider(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
