@@ -60,19 +60,19 @@ def get_job(job_id: str) -> Job:
 
 
 class SubmitJobPayload(BaseModel):
-    function_fullname: str
+    function_name: str
     params: dict[str, Any]
     timeout: float | None = None
 
 
 @job_api_router.post("/", response_model=Job)
 def submit_job(payload: SubmitJobPayload) -> Job:
-    from mlflow.server.jobs import submit_job
+    from mlflow.server.jobs import get_job_fn_fullname, submit_job
     from mlflow.server.jobs.utils import _load_function
 
-    function_fullname = payload.function_fullname
+    fn_fullname = get_job_fn_fullname(payload.function_name)
     try:
-        function = _load_function(function_fullname)
+        function = _load_function(fn_fullname)
         job = submit_job(function, payload.params, payload.timeout)
         return Job.from_job_entity(job)
     except MlflowException as e:
@@ -83,7 +83,7 @@ def submit_job(payload: SubmitJobPayload) -> Job:
 
 
 class SearchJobPayload(BaseModel):
-    function_fullname: str | None = None
+    function_name: str | None = None
     params: dict[str, Any] | None = None
     statuses: list[JobStatus] | None = None
 
@@ -99,13 +99,16 @@ class SearchJobsResponse(BaseModel):
 @job_api_router.post("/search", response_model=SearchJobsResponse)
 def search_jobs(payload: SearchJobPayload) -> SearchJobsResponse:
     from mlflow.server.handlers import _get_job_store
+    from mlflow.server.jobs import get_job_fn_fullname
+
+    fn_fullname = get_job_fn_fullname(payload.function_name)
 
     try:
         store = _get_job_store()
         job_results = [
             Job.from_job_entity(job)
             for job in store.list_jobs(
-                function_fullname=payload.function_fullname,
+                function_fullname=fn_fullname,
                 statuses=payload.statuses,
                 params=payload.params,
             )

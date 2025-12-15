@@ -9,11 +9,17 @@ from mlflow.entities._job import Job as JobEntity
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 from mlflow.utils.environment import _PythonEnv
+from mlflow.utils.import_hooks import register_post_import_hook as register_post_import_hook
 
 _logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+# map key is the function name, and map value is the function full name like
+# `<module_name>.<function_name>`
+_job_function_fullname_map = {}
 
 
 _ALLOWED_JOB_FUNCTION_LIST = [
@@ -22,6 +28,27 @@ _ALLOWED_JOB_FUNCTION_LIST = [
 
 if allowed_job_function_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_FUNCTION_LIST"):
     _ALLOWED_JOB_FUNCTION_LIST += allowed_job_function_list_env.split(",")
+
+
+def _build_job_function_fullname_map():
+    for fn_fullname in _ALLOWED_JOB_FUNCTION_LIST:
+        match fn_fullname.split("."):
+            case [*module_parts, func_name] if module_parts:
+                if exist_fullname := _job_function_fullname_map.get(func_name):
+                    if exist_fullname != fn_fullname:
+                        raise MlflowException.invalid_parameter_value(
+                            f"The 2 job functions {fn_fullname} and {exist_fullname} have the same "
+                            f"function name, this is not allowed."
+                        )
+                else:
+                    _job_function_fullname_map[func_name] = fn_fullname
+            case _:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid function fullname in the allowed list: {fn_fullname}"
+                )
+
+
+_build_job_function_fullname_map()
 
 
 class TransientError(RuntimeError):
@@ -95,8 +122,10 @@ def job(
         )
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
+        fn_fullname = f"{fn.__module__}.{fn.__name__}"
+
         fn._job_fn_metadata = JobFunctionMetadata(
-            fn_fullname=f"{fn.__module__}.{fn.__name__}",
+            fn_fullname=fn_fullname,
             max_workers=max_workers,
             transient_error_classes=transient_error_classes,
             python_env=python_env,
@@ -208,3 +237,14 @@ def get_job(job_id: str) -> JobEntity:
     """
     job_store = _get_job_store()
     return job_store.get_job(job_id)
+
+
+def get_job_fn_fullname(fn_name: str) -> str:
+    """
+    Get the full name of the job function by the job function name
+    """
+    if fn_name not in _job_function_fullname_map:
+        raise MlflowException.invalid_parameter_value(
+            f"The job function {fn_name} does not exist or not in the allowed list."
+        )
+    return _job_function_fullname_map[fn_name]
