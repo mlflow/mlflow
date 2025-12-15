@@ -61,7 +61,8 @@ def test_tracking_scheme_without_existing_mlruns(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     items_in_tmp = list(tmp_path.iterdir())
     assert items_in_tmp == []
-    assert False, (os.environ.get("MLFLOW_TRACKING_URI"), mlflow.get_tracking_uri())
+    print("🚗 MLFLOW_TRACKING_URI 🚗")  # noqa: T201
+    print(os.environ.get("MLFLOW_TRACKING_URI"), mlflow.get_tracking_uri())  # noqa: T201
     (tmp_path / "some_file.txt").touch()
     store = _get_store()
     assert isinstance(store, SqlAlchemyStore)
