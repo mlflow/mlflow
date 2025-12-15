@@ -46,7 +46,13 @@ class TokenUsageKey:
 
     @classmethod
     def all_keys(cls):
-        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
+        return [
+            cls.INPUT_TOKENS,
+            cls.OUTPUT_TOKENS,
+            cls.TOTAL_TOKENS,
+            cls.CACHE_CREATION_INPUT_TOKENS,
+            cls.CACHE_READ_INPUT_TOKENS,
+        ]
 
 
 class TraceSizeStatsKey:
