@@ -115,11 +115,11 @@ from mlflow.protos.service_pb2 import (
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
+    DeleteEndpointTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
-    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -148,6 +148,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetScorer,
+    GetSecretsConfig,
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
@@ -181,8 +182,8 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     SetDatasetTags,
+    SetEndpointTag,
     SetExperimentTag,
-    SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
@@ -3861,6 +3862,7 @@ def _create_gateway_secret():
             "created_by": [_assert_string],
         },
     )
+    print('secret_value', request_message.secret_value)
     auth_config = None
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
@@ -3899,10 +3901,16 @@ def _update_gateway_secret():
         UpdateGatewaySecret(),
         schema={
             "secret_id": [_assert_required, _assert_string],
+            "secret_value": [_assert_optional_secret_value],
             "auth_config_json": [_assert_string],
             "updated_by": [_assert_string],
         },
     )
+    # Parse secret_value JSON string to dict if provided (frontend sends JSON-encoded secret fields)
+    secret_value = None
+    if request_message.secret_value:
+        secret_value = json.loads(request_message.secret_value)
+    # Parse auth_config_json string to dict if provided
     auth_config = None
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
@@ -4121,7 +4129,6 @@ def _update_gateway_model_definition():
             "secret_id": [_assert_string],
             "model_name": [_assert_string],
             "updated_by": [_assert_string],
-            "provider": [_assert_string],
         },
     )
     model_definition = _get_tracking_store().update_gateway_model_definition(
@@ -4130,7 +4137,6 @@ def _update_gateway_model_definition():
         secret_id=request_message.secret_id or None,
         model_name=request_message.model_name or None,
         updated_by=request_message.updated_by or None,
-        provider=request_message.provider or None,
     )
     response_message = UpdateGatewayModelDefinition.Response()
     response_message.model_definition.CopyFrom(model_definition.to_proto())
@@ -4269,7 +4275,7 @@ def _list_gateway_endpoint_bindings():
 @_disable_if_artifacts_only
 def _set_gateway_endpoint_tag():
     request_message = _get_request_message(
-        SetGatewayEndpointTag(),
+        SetEndpointTag(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4278,7 +4284,7 @@ def _set_gateway_endpoint_tag():
     )
     tag = GatewayEndpointTag(request_message.key, request_message.value)
     _get_tracking_store().set_gateway_endpoint_tag(request_message.endpoint_id, tag)
-    response_message = SetGatewayEndpointTag.Response()
+    response_message = SetEndpointTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4288,7 +4294,7 @@ def _set_gateway_endpoint_tag():
 @_disable_if_artifacts_only
 def _delete_gateway_endpoint_tag():
     request_message = _get_request_message(
-        DeleteGatewayEndpointTag(),
+        DeleteEndpointTag(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4297,7 +4303,7 @@ def _delete_gateway_endpoint_tag():
     _get_tracking_store().delete_gateway_endpoint_tag(
         request_message.endpoint_id, request_message.key
     )
-    response_message = DeleteGatewayEndpointTag.Response()
+    response_message = DeleteEndpointTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4333,6 +4339,18 @@ def _get_provider_config():
         return jsonify(config)
     except (ImportError, ValueError) as e:
         raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_secrets_config():
+    """Check if secrets encryption is available (passphrase is configured)."""
+    from mlflow.server.constants import CRYPTO_KEK_PASSPHRASE_ENV_VAR
+
+    secrets_available = bool(os.getenv(CRYPTO_KEK_PASSPHRASE_ENV_VAR))
+    response_message = GetSecretsConfig.Response()
+    response_message.secrets_available = secrets_available
+    return _wrap_response(response_message)
 
 
 def _get_rest_path(base_path, version=2):
@@ -4415,17 +4433,17 @@ def get_gateway_endpoints():
     """Returns endpoint tuples for gateway provider/model discovery APIs."""
     return [
         (
-            _get_ajax_path("/mlflow/gateway/supported-providers", version=3),
+            _get_ajax_path("/mlflow/endpoints/supported-providers", version=3),
             _list_supported_providers,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/gateway/supported-models", version=3),
+            _get_ajax_path("/mlflow/endpoints/supported-models", version=3),
             _list_supported_models,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/gateway/provider-config", version=3),
+            _get_ajax_path("/mlflow/endpoints/provider-config", version=3),
             _get_provider_config,
             ["GET"],
         ),
@@ -4796,6 +4814,7 @@ HANDLERS = {
     DeleteGatewayEndpointBinding: _delete_gateway_endpoint_binding,
     ListGatewayEndpointBindings: _list_gateway_endpoint_bindings,
     # Endpoint Tags APIs
-    SetGatewayEndpointTag: _set_gateway_endpoint_tag,
-    DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
+    SetEndpointTag: _set_gateway_endpoint_tag,
+    DeleteEndpointTag: _delete_gateway_endpoint_tag,
+    GetSecretsConfig: _get_secrets_config,
 }

@@ -33,7 +33,6 @@ export interface AuthMode {
   mode: string;
   display_name: string;
   description?: string;
-  credential_name: string;
   secret_fields: SecretField[];
   config_fields: ConfigField[];
 }
@@ -68,7 +67,7 @@ export interface SecretInfo {
 
 export interface CreateSecretRequest {
   secret_name: string;
-  secret_value: string;
+  secret_value: Record<string, string>;
   provider?: string;
   auth_config_json?: string;
   created_by?: string;

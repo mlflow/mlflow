@@ -76,7 +76,15 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
           </div>
         )}
 
-        {/* Auth Config - show non-encrypted configuration if present (exclude auth_mode which is shown separately) */}
+        {/* Masked Key */}
+        <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
+          <Typography.Text color="secondary" css={labelStyle}>
+            <FormattedMessage defaultMessage="Masked Key" description="Masked API key label" />
+          </Typography.Text>
+          <MaskedValueDisplay maskedValue={secret.masked_value} />
+        </div>
+
+        {/* Config - show non-encrypted configuration if present (exclude auth_mode which is shown separately) */}
         {authConfig && Object.keys(authConfig).filter((k) => k !== 'auth_mode').length > 0 && (
           <div css={rowStyle}>
             <Typography.Text color="secondary" css={labelStyle}>
@@ -96,14 +104,6 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
             </div>
           </div>
         )}
-
-        {/* Masked value */}
-        <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
-          <Typography.Text color="secondary" css={labelStyle}>
-            <FormattedMessage defaultMessage="Masked Key" description="Masked API key label" />
-          </Typography.Text>
-          <MaskedValueDisplay maskedValue={secret.masked_value} />
-        </div>
 
         {/* Created info */}
         <div css={rowStyle}>

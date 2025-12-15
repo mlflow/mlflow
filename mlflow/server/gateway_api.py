@@ -29,7 +29,6 @@ from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import make_streaming_response, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.utils import _get_store
@@ -149,15 +148,6 @@ def _create_provider_from_endpoint_name(
     return provider_class(gateway_endpoint_config)
 
 
-def _validate_store(store: AbstractStore):
-    if not isinstance(store, SqlAlchemyStore):
-        raise HTTPException(
-            status_code=500,
-            detail="Gateway endpoints are only available with SqlAlchemyStore, "
-            f"got {type(store).__name__}.",
-        )
-
-
 @gateway_router.post("/{endpoint_name}/mlflow/invocations")
 @translate_http_exception
 async def invocations(endpoint_name: str, request: Request):
@@ -175,7 +165,12 @@ async def invocations(endpoint_name: str, request: Request):
 
     store = _get_store()
 
-    _validate_store(store)
+    if not isinstance(store, SqlAlchemyStore):
+        raise HTTPException(
+            status_code=500,
+            detail="Gateway endpoints are only available with SqlAlchemyStore, "
+            f"got {type(store).__name__}.",
+        )
 
     # Detect request type based on payload structure
     if "messages" in body:
@@ -210,51 +205,3 @@ async def invocations(endpoint_name: str, request: Request):
             status_code=400,
             detail="Invalid request: payload format must be either chat or embeddings",
         )
-
-
-@gateway_router.post("/mlflow/v1/chat/completions")
-@translate_http_exception
-async def chat_completions(request: Request):
-    """
-    OpenAI-compatible chat completions endpoint.
-
-    This endpoint follows the OpenAI API format where the endpoint name is specified
-    via the "model" parameter in the request body, allowing clients to use the
-    standard OpenAI SDK.
-
-    Example:
-        POST /gateway/mlflow/v1/chat/completions
-        {
-            "model": "my-endpoint-name",
-            "messages": [{"role": "user", "content": "Hello"}]
-        }
-    """
-    try:
-        body = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
-
-    # Extract endpoint name from "model" parameter
-    endpoint_name = body.pop("model", None)
-    if not endpoint_name:
-        raise HTTPException(
-            status_code=400,
-            detail="Missing required 'model' parameter in request body",
-        )
-
-    store = _get_store()
-
-    _validate_store(store)
-
-    endpoint_type = EndpointType.LLM_V1_CHAT
-    try:
-        payload = chat.RequestPayload(**body)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
-
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
-
-    if payload.stream:
-        return await make_streaming_response(provider.chat_stream(payload))
-    else:
-        return await provider.chat(payload)

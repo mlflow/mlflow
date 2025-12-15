@@ -104,8 +104,6 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     if (!validateForm()) return;
 
     try {
-      // Serialize secret fields as JSON for the secret value
-      const secretValue = JSON.stringify(formData.secretFields);
       // Build auth_config with auth_mode included
       const authConfig: Record<string, any> = { ...formData.configFields };
       if (formData.authMode) {
@@ -115,7 +113,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
 
       await createSecret({
         secret_name: formData.name,
-        secret_value: secretValue,
+        secret_value: formData.secretFields,
         provider,
         auth_config_json: authConfigJson,
       });

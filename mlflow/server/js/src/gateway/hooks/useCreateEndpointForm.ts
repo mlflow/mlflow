@@ -210,7 +210,6 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
 
         if (values.secretMode === 'new') {
           // Serialize secret fields as JSON for the secret value
-          const secretValue = JSON.stringify(values.newSecret.secretFields);
           // Serialize config fields as JSON for auth config
           // Build auth_config with auth_mode included
           const authConfig: Record<string, any> = { ...values.newSecret.configFields };
@@ -221,7 +220,7 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
 
           const secretResponse = await createSecret({
             secret_name: values.newSecret.name,
-            secret_value: secretValue,
+            secret_value: values.newSecret.secretFields,
             provider: values.provider,
             auth_config_json: authConfigJson,
           });

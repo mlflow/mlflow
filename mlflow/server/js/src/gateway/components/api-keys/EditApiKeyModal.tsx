@@ -103,15 +103,16 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
     try {
       // Serialize secret fields as JSON for the secret value
       const secretValue = JSON.stringify(formData.secretFields);
-      // Serialize config fields as JSON for auth config
-      const authConfigJson =
-        Object.keys(formData.configFields).length > 0 ? JSON.stringify(formData.configFields) : undefined;
+      // Build auth_config with auth_mode included
+      const authConfig: Record<string, string> = { ...formData.configFields };
+      if (formData.authMode) {
+        authConfig['auth_mode'] = formData.authMode;
+      }
+      const authConfigJson = Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined;
 
       await updateSecret({
         secret_id: secret.secret_id,
         secret_value: secretValue,
-        // Include credential_name if auth mode changed
-        credential_name: formData.authMode || undefined,
         auth_config_json: authConfigJson,
       });
 
@@ -136,7 +137,7 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
     return message;
   }, [mutationError, intl]);
 
-  // Get the selected auth mode based on formData.authMode or secret's credential_name
+  // Get the selected auth mode based on formData.authMode
   const selectedAuthMode = useMemo(() => {
     if (!providerConfig?.auth_modes?.length) return undefined;
     if (formData.authMode) {

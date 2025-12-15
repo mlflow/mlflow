@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
 import { timestampToDate } from '../../utils/dateUtils';
 import { formatAuthMethodName, formatCredentialFieldName } from '../../utils/providerUtils';
+import { parseAuthConfig } from '../../utils/secretUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { MaskedValueDisplay } from './MaskedValueDisplay';
 import type { SecretInfo } from '../../types';
@@ -99,26 +100,32 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
               marginTop: theme.spacing.md,
             }}
           >
-            {selectedSecret.auth_config?.['auth_mode'] && (
+            {/* Auth Type - only show if auth_mode is set */}
+            {parseAuthConfig(selectedSecret)?.['auth_mode'] && (
               <>
                 <Typography.Text color="secondary">
-                  <FormattedMessage defaultMessage="Auth method:" description="Label for auth method" />
+                  <FormattedMessage defaultMessage="Auth Type:" description="Auth type label" />
                 </Typography.Text>
                 <Typography.Text>
-                  {formatAuthMethodName(String(selectedSecret.auth_config['auth_mode']))}
+                  {formatAuthMethodName(String(parseAuthConfig(selectedSecret)!['auth_mode']))}
                 </Typography.Text>
               </>
             )}
+            {/* Masked Key */}
             <Typography.Text color="secondary">
-              <FormattedMessage defaultMessage="Masked key:" description="Label for masked key value" />
+              <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label" />
             </Typography.Text>
             <MaskedValueDisplay maskedValue={selectedSecret.masked_value} />
+            {/* Config */}
+            <AuthConfigDisplay secret={selectedSecret} />
+            {/* Last updated */}
             <Typography.Text color="secondary">
-              <FormattedMessage defaultMessage="Last updated:" description="Label for last updated" />
+              <FormattedMessage defaultMessage="Last Updated:" description="Label for last updated" />
             </Typography.Text>
             <Typography.Text>
               <TimeAgo date={timestampToDate(selectedSecret.last_updated_at)} />
             </Typography.Text>
+            {/* Created */}
             <Typography.Text color="secondary">
               <FormattedMessage defaultMessage="Created:" description="Label for created date" />
             </Typography.Text>
@@ -133,7 +140,6 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
                 <Typography.Text>{selectedSecret.created_by}</Typography.Text>
               </>
             )}
-            <AuthConfigDisplay secret={selectedSecret} />
           </div>
         </div>
       )}

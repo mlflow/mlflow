@@ -6,7 +6,6 @@ import {
   Card,
   ChevronRightIcon,
   importantify,
-  LinkIcon,
   PencilIcon,
   Spinner,
   Tag,
@@ -20,6 +19,7 @@ import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import GatewayRoutes from '../routes';
 import { formatProviderName, formatAuthMethodName, formatCredentialFieldName } from '../utils/providerUtils';
+import { parseAuthConfig } from '../utils/secretUtils';
 import { timestampToDate } from '../utils/dateUtils';
 import { formatTokens, formatCost } from '../utils/formatters';
 import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
@@ -32,8 +32,8 @@ import { MaskedValueDisplay } from '../components/secrets/MaskedValueDisplay';
 
 const EndpointDetailsPage = () => {
   const { theme } = useDesignSystemTheme();
-  const navigate = useNavigate();
   const intl = useIntl();
+  const navigate = useNavigate();
   const { endpointId } = useParams<{ endpointId: string }>();
 
   const { data, error, isLoading } = useEndpointQuery(endpointId ?? '');
@@ -288,6 +288,9 @@ const ModelCard = ({
     [modelMetadata?.output_cost_per_token],
   );
 
+  // Parse auth config using shared utils
+  const authConfig = useMemo(() => parseAuthConfig(secretData?.secret), [secretData?.secret]);
+
   if (!modelDefinition) {
     return null;
   }
@@ -336,24 +339,24 @@ const ModelCard = ({
         </div>
 
         {/* Model specs - context and cost */}
-        {modelMetadata && (contextWindow || inputCost || outputCost) && (
+        {modelMetadata && (contextWindow !== '-' || inputCost !== '-' || outputCost !== '-') && (
           <>
             <Typography.Text color="secondary">
               <FormattedMessage defaultMessage="Specs:" description="Model specs label" />
             </Typography.Text>
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               {[
-                contextWindow &&
+                contextWindow !== '-' &&
                   intl.formatMessage(
                     { defaultMessage: 'Context: {tokens}', description: 'Context window size' },
                     { tokens: contextWindow },
                   ),
-                inputCost &&
+                inputCost !== '-' &&
                   intl.formatMessage(
                     { defaultMessage: 'Input: {cost}', description: 'Input cost' },
                     { cost: inputCost },
                   ),
-                outputCost &&
+                outputCost !== '-' &&
                   intl.formatMessage(
                     { defaultMessage: 'Output: {cost}', description: 'Output cost' },
                     { cost: outputCost },
@@ -367,19 +370,29 @@ const ModelCard = ({
 
         {/* API Key Name */}
         <Typography.Text color="secondary">
-          <FormattedMessage defaultMessage="Api Key Name:" description="API key name label" />
+          <FormattedMessage defaultMessage="API Key Name:" description="API key name label" />
         </Typography.Text>
         {secret ? (
-          <Typography.Text>{secret.secret_name}</Typography.Text>
+          <Typography.Text bold>{secret.secret_name}</Typography.Text>
         ) : (
           <Typography.Text color="secondary">
             <FormattedMessage defaultMessage="Loading..." description="Loading secret" />
           </Typography.Text>
         )}
 
-        {/* API Key (masked value) */}
+        {/* Auth Type - only show if auth_mode is set in auth_config (indicates multi-auth provider) */}
+        {authConfig?.['auth_mode'] && (
+          <>
+            <Typography.Text color="secondary">
+              <FormattedMessage defaultMessage="Auth Type:" description="Auth type label" />
+            </Typography.Text>
+            <Typography.Text>{formatAuthMethodName(String(authConfig['auth_mode']))}</Typography.Text>
+          </>
+        )}
+
+        {/* Masked Key */}
         <Typography.Text color="secondary">
-          <FormattedMessage defaultMessage="Api Key:" description="API key value label" />
+          <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label" />
         </Typography.Text>
         {secret ? (
           <MaskedValueDisplay maskedValue={secret.masked_value} compact />
@@ -387,17 +400,7 @@ const ModelCard = ({
           <Typography.Text color="secondary">—</Typography.Text>
         )}
 
-        {/* Auth type - only show if auth_mode is set in auth_config (indicates multi-auth provider) */}
-        {secret?.auth_config?.['auth_mode'] && (
-          <>
-            <Typography.Text color="secondary">
-              <FormattedMessage defaultMessage="Auth Type:" description="Auth type label" />
-            </Typography.Text>
-            <Typography.Text>{formatAuthMethodName(String(secret.auth_config['auth_mode']))}</Typography.Text>
-          </>
-        )}
-
-        {/* Auth Config section - display non-encrypted configuration */}
+        {/* Config - display non-encrypted configuration */}
         <AuthConfigDisplay secret={secret} />
       </div>
     </div>
@@ -408,21 +411,8 @@ const ModelCard = ({
 const AuthConfigDisplay = ({ secret }: { secret: SecretInfo | undefined }) => {
   const { theme } = useDesignSystemTheme();
 
-  // Memoize auth config parsing
-  const authConfig = useMemo(() => {
-    if (!secret) return null;
-
-    // Parse auth_config_json if it exists, otherwise use auth_config
-    if (secret.auth_config_json) {
-      try {
-        return JSON.parse(secret.auth_config_json) as Record<string, unknown>;
-      } catch {
-        // Invalid JSON, ignore
-        return null;
-      }
-    }
-    return secret.auth_config ?? null;
-  }, [secret]);
+  // Parse auth config using shared utils
+  const authConfig = useMemo(() => parseAuthConfig(secret), [secret]);
 
   // Filter out auth_mode since it's already shown separately as "Auth Type"
   if (!authConfig) return null;

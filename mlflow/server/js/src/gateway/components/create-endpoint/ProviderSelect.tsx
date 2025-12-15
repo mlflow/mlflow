@@ -12,7 +12,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProvidersQuery } from '../../hooks/useProvidersQuery';
 import { groupProviders, formatProviderName } from '../../utils/providerUtils';
-import { useMemo, useCallback, useState, useEffect } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 
 interface ProviderSelectProps {
   value: string;
@@ -28,42 +28,33 @@ interface ProviderItem {
   group: 'common' | 'other';
 }
 
-export const ProviderSelect = ({
+interface ProviderSelectComboboxProps {
+  providerItems: ProviderItem[];
+  value: string;
+  onChange: (provider: string) => void;
+  disabled?: boolean;
+  error?: string;
+  componentIdPrefix: string;
+}
+
+const ProviderSelectCombobox = ({
+  providerItems,
   value,
   onChange,
   disabled,
   error,
-  componentIdPrefix = 'mlflow.gateway.provider-select',
-}: ProviderSelectProps) => {
-  const { theme } = useDesignSystemTheme();
+  componentIdPrefix,
+}: ProviderSelectComboboxProps) => {
   const intl = useIntl();
-  const { data: providers, isLoading } = useProvidersQuery();
 
-  // Create provider items with display names and group info
-  const allProviderItems = useMemo((): ProviderItem[] => {
-    if (!providers) return [];
-
-    const { common, other } = groupProviders(providers);
-
-    const commonItems: ProviderItem[] = common.map((p) => ({
-      provider: p,
-      displayName: formatProviderName(p),
-      group: 'common' as const,
-    }));
-
-    const otherItems: ProviderItem[] = other.map((p) => ({
-      provider: p,
-      displayName: formatProviderName(p),
-      group: 'other' as const,
-    }));
-
-    return [...commonItems, ...otherItems];
-  }, [providers]);
+  // Track filtered items separately from all items
+  // The type includes null to match useComboboxState's setItems signature
+  const [filteredItems, setFilteredItems] = useState<(ProviderItem | null)[]>(providerItems);
 
   // Find the currently selected item
   const selectedItem = useMemo(() => {
-    return allProviderItems.find((item) => item.provider === value) ?? null;
-  }, [allProviderItems, value]);
+    return providerItems.find((item) => item.provider === value) ?? null;
+  }, [providerItems, value]);
 
   // Handle selection change
   const handleChange = useCallback(
@@ -75,18 +66,17 @@ export const ProviderSelect = ({
     [onChange],
   );
 
-  // State for filtered items (required for typeahead filtering to work)
-  // Type includes null because useComboboxState expects (T | null)[]
-  const [filteredItems, setFilteredItems] = useState<(ProviderItem | null)[]>(allProviderItems);
-
-  // Reset filtered items when allProviderItems changes (e.g., after async load)
-  useEffect(() => {
-    setFilteredItems(allProviderItems);
-  }, [allProviderItems]);
+  // Wrap formOnChange to defer state updates and avoid "Cannot update while rendering" warning
+  const deferredFormOnChange = useCallback(
+    (item: ProviderItem | null) => {
+      setTimeout(() => handleChange(item), 0);
+    },
+    [handleChange],
+  );
 
   const comboboxState = useComboboxState<ProviderItem | null>({
     componentId: componentIdPrefix,
-    allItems: allProviderItems,
+    allItems: providerItems,
     items: filteredItems,
     setItems: setFilteredItems,
     multiSelect: false,
@@ -97,15 +87,16 @@ export const ProviderSelect = ({
       return item.displayName.toLowerCase().includes(lowerQuery) || item.provider.toLowerCase().includes(lowerQuery);
     },
     formValue: selectedItem,
-    formOnChange: handleChange,
+    formOnChange: deferredFormOnChange,
     initialInputValue: selectedItem?.displayName ?? '',
   });
 
   // Group filtered items for rendering with section headers
   const groupedItems = useMemo(() => {
-    const nonNullItems = filteredItems.filter((item): item is ProviderItem => item !== null);
-    const common = nonNullItems.filter((item) => item.group === 'common');
-    const other = nonNullItems.filter((item) => item.group === 'other');
+    // Filter out nulls and group by category
+    const validItems = filteredItems.filter((item): item is ProviderItem => item !== null);
+    const common = validItems.filter((item) => item.group === 'common');
+    const other = validItems.filter((item) => item.group === 'other');
     return { common, other };
   }, [filteredItems]);
 
@@ -169,25 +160,8 @@ export const ProviderSelect = ({
     return items;
   }, [groupedItems, comboboxState, intl, componentIdPrefix]);
 
-  if (isLoading) {
-    return (
-      <div>
-        <FormUI.Label htmlFor={componentIdPrefix}>
-          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-        </FormUI.Label>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
-          <Spinner size="small" />
-          <FormattedMessage defaultMessage="Loading providers..." description="Loading message for providers" />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div css={{ minWidth: 300 }}>
-      <FormUI.Label htmlFor={componentIdPrefix}>
-        <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-      </FormUI.Label>
+    <>
       <TypeaheadComboboxRoot id={componentIdPrefix} comboboxState={comboboxState}>
         <TypeaheadComboboxInput
           placeholder={intl.formatMessage({
@@ -206,6 +180,68 @@ export const ProviderSelect = ({
         </TypeaheadComboboxMenu>
       </TypeaheadComboboxRoot>
       {error && <FormUI.Message type="error" message={error} />}
+    </>
+  );
+};
+
+export const ProviderSelect = ({
+  value,
+  onChange,
+  disabled,
+  error,
+  componentIdPrefix = 'mlflow.gateway.provider-select',
+}: ProviderSelectProps) => {
+  const { theme } = useDesignSystemTheme();
+  const { data: providers, isLoading } = useProvidersQuery();
+
+  // Create provider items with display names and group info
+  const allProviderItems = useMemo((): ProviderItem[] => {
+    if (!providers) return [];
+
+    const { common, other } = groupProviders(providers);
+
+    const commonItems: ProviderItem[] = common.map((p) => ({
+      provider: p,
+      displayName: formatProviderName(p),
+      group: 'common' as const,
+    }));
+
+    const otherItems: ProviderItem[] = other.map((p) => ({
+      provider: p,
+      displayName: formatProviderName(p),
+      group: 'other' as const,
+    }));
+
+    return [...commonItems, ...otherItems];
+  }, [providers]);
+
+  if (isLoading || allProviderItems.length === 0) {
+    return (
+      <div>
+        <FormUI.Label htmlFor={componentIdPrefix}>
+          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+        </FormUI.Label>
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
+          <Spinner size="small" />
+          <FormattedMessage defaultMessage="Loading providers..." description="Loading message for providers" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div css={{ minWidth: 300 }}>
+      <FormUI.Label htmlFor={componentIdPrefix}>
+        <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+      </FormUI.Label>
+      <ProviderSelectCombobox
+        providerItems={allProviderItems}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        error={error}
+        componentIdPrefix={componentIdPrefix}
+      />
     </div>
   );
 };

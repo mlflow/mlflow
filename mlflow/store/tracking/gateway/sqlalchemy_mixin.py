@@ -249,6 +249,10 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_secret.kek_version = encrypted.kek_version
                 sql_secret.masked_value = masked_value
 
+            # Update credential_name if provided (allows switching auth modes)
+            if credential_name is not None:
+                sql_secret.credential_name = credential_name
+
             if auth_config is not None:
                 # Empty dict {} explicitly clears auth_config, non-empty dict replaces it
                 sql_secret.auth_config = json.dumps(auth_config) if auth_config else None
