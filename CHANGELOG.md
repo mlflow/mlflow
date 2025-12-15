@@ -2,7 +2,13 @@
 
 ## 3.8.0rc0 (2025-12-15)
 
-MLflow 3.8.0rc0 includes several major features and improvements
+MLflow 3.8.0rc0 includes several major features and improvements. More features to come in the final 3.8.0 release!
+
+To try out this release candidate:
+
+```bash
+pip install mlflow==3.8.0rc0
+```
 
 ### Major Features
 
