@@ -1407,6 +1407,101 @@ class Correctness(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
+class Fluency(BuiltInScorer):
+    """
+    Fluency evaluates the grammatical correctness, natural flow, and linguistic quality of text.
+
+    This scorer analyzes text to determine if it is grammatically correct, reads naturally,
+    flows smoothly, and uses varied sentence structure. It returns "yes" or "no".
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "fluency".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Fluency
+
+        assessment = Fluency()(outputs="The cat sat on the mat.")
+        print(assessment)  # Feedback with value "yes"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Fluency
+
+        data = [
+            {
+                "inputs": {"question": "What is the capital of France?"},
+                "outputs": "The capital of France is Paris.",
+            },
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[Fluency()])
+    """
+
+    name: str = "fluency"
+    model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate grammatical correctness, natural flow, and linguistic quality of text."
+    )
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    def _get_judge(self) -> InstructionsJudge:
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=Literal["yes", "no"],
+            )
+        return self._judge
+
+    @property
+    def instructions(self) -> str:
+        return """
+You are a linguistic expert evaluating the Fluency of AI-generated text in {{ outputs }}.
+
+Definition: Fluency measures the grammatical correctness, natural flow, and linguistic quality
+of the text, regardless of factual accuracy.
+
+Evaluation Checklist:
+- Grammar: Is the text free of spelling and grammatical errors?
+- Naturalness: Does it read like natural human writing, avoiding "stiff" or "robotic" phrasing?
+- Flow: Do sentences transition smoothly, or is the text choppy?
+- Variety: Is there variation in sentence structure and vocabulary?
+"""
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="outputs",
+                description="The text to evaluate for fluency, e.g. 'The cat sat on the mat.'",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        return self._get_judge()._evaluate_impl(
+            outputs=outputs,
+            trace=trace,
+        )
+
+
+@format_docstring(_MODEL_API_DOC)
 class Equivalence(BuiltInScorer):
     """
     Equivalence compares outputs against expected outputs for semantic equivalence.
