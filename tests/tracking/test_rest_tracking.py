@@ -4666,3 +4666,72 @@ def test_get_provider_config(mlflow_client_with_secrets):
     # Missing provider parameter returns 400
     response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config")
     assert response.status_code == 400
+
+
+def test_endpoint_with_orphaned_model_definition(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="orphan-test-key",
+        secret_value={"api_key": "sk-orphan-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="orphan-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="orphan-test-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    assert len(endpoint.model_mappings) == 1
+    assert endpoint.model_mappings[0].model_definition.secret_id == secret.secret_id
+    assert endpoint.model_mappings[0].model_definition.secret_name == "orphan-test-key"
+
+    store.delete_gateway_secret(secret.secret_id)
+
+    fetched_endpoint = store.get_gateway_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint.model_mappings) == 1
+    assert fetched_endpoint.model_mappings[0].model_definition.secret_id is None
+    assert fetched_endpoint.model_mappings[0].model_definition.secret_name is None
+
+
+def test_update_model_definition_provider(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="provider-update-secret",
+        secret_value={"api_key": "sk-provider-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="provider-update-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    assert model_def.provider == "openai"
+    assert model_def.model_name == "gpt-4"
+
+    updated = store.update_gateway_model_definition(
+        model_definition_id=model_def.model_definition_id,
+        provider="anthropic",
+        model_name="claude-3-5-haiku-latest",
+    )
+
+    assert updated.provider == "anthropic"
+    assert updated.model_name == "claude-3-5-haiku-latest"
+
+    fetched = store.get_gateway_model_definition(model_def.model_definition_id)
+    assert fetched.provider == "anthropic"
+    assert fetched.model_name == "claude-3-5-haiku-latest"
+
+    store.delete_gateway_model_definition(model_def.model_definition_id)
+    store.delete_gateway_secret(secret.secret_id)
