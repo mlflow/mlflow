@@ -3,11 +3,21 @@ sidebar_position: 10
 sidebar_label: Ollama
 ---
 
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Users, BookOpen, Scale } from "lucide-react";
+import ImageBox from "@site/src/components/ImageBox";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+
 # Tracing Ollama
 
-![Ollama Tracing via autolog](/images/llms/tracing/ollama-tracing.png)
+[MLflow Tracing](../../) provides automatic tracing capability for [Ollama](https://ollama.com/) models through the OpenAI SDK integration. Because Ollama exposes an OpenAI-compatible API, you can simply use `mlflow.openai.autolog()` to trace Ollama calls.
 
-[Ollama](https://ollama.com/) is an open-source platform that enables users to run large language models (LLMs) locally on their devices, such as Llama 3.2, Gemma 2, Mistral, Code Llama, and more.
+<ImageBox src="/images/llms/tracing/openai-function-calling.png" alt="Ollama Tracing via autolog" />
 
 Since the local LLM endpoint served by Ollama is compatible with the OpenAI API, you can query it via OpenAI SDK and enable tracing for Ollama with `mlflow.openai.autolog()`. Any LLM interactions via Ollama will be recorded to the active MLflow Experiment.
 
@@ -17,106 +27,159 @@ import mlflow
 mlflow.openai.autolog()
 ```
 
-### Example Usage
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
 
-1. Run the Ollama server with the desired LLM model.
+```bash
+npm install mlflow-openai openai
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={2} title="Start MLflow server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Run Ollama server" />
+
+Ensure your Ollama server is running and the model you want to use is pulled.
 
 ```bash
 ollama run llama3.2:1b
 ```
 
-2. Enable auto-tracing for OpenAI SDK.
+<StepHeader number={4} title="Enable tracing and call Ollama" />
 
-```
-import mlflow
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
-# Enable auto-tracing for OpenAI
-mlflow.openai.autolog()
+    ```python
+    import mlflow
+    from openai import OpenAI
 
-# Optional: Set a tracking URI and an experiment
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("Ollama")
-```
+    # Enable auto-tracing for OpenAI (works with Ollama)
+    mlflow.openai.autolog()
 
-3. Query the LLM and see the traces in the MLflow UI.
+    # Optional: Set a tracking URI and an experiment
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("Ollama")
 
-```python
-from openai import OpenAI
+    # Initialize the OpenAI client with Ollama API endpoint
+    client = OpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="dummy",
+    )
 
-client = OpenAI(
-    base_url="http://localhost:11434/v1",  # The local Ollama REST endpoint
-    api_key="dummy",  # Required to instantiate OpenAI client, it can be a random string
-)
+    response = client.chat.completions.create(
+        model="llama3.2:1b",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Why is the sky blue?"},
+        ],
+        temperature=0.1,
+        max_tokens=100,
+    )
+    ```
 
-response = client.chat.completions.create(
-    model="llama3.2:1b",
-    messages=[
-        {"role": "system", "content": "You are a science teacher."},
-        {"role": "user", "content": "Why is the sky blue?"},
-    ],
-)
-```
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+    ```typescript
+    import { OpenAI } from "openai";
+    import { tracedOpenAI } from "mlflow-openai";
+
+    // Wrap the OpenAI client and point to Ollama endpoint
+    const client = tracedOpenAI(
+      new OpenAI({
+        baseURL: "http://localhost:11434/v1",
+        apiKey: "dummy",
+      })
+    );
+
+    const response = await client.chat.completions.create({
+      model: "llama3.2:1b",
+      messages: [
+        { role: "system", content: "You are a helpful assistant." },
+        { role: "user", content: "Why is the sky blue?" },
+      ],
+      temperature: 0.1,
+      max_tokens: 100,
+    });
+    ```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={5} title="View traces in MLflow UI" />
+
+Browse to your MLflow UI (for example, http://localhost:5000) and open the `Ollama` experiment to see traces for the calls above.
+
+<ImageBox src="/images/llms/tracing/basic-openai-trace.png" alt="Ollama Tracing" />
+
+→ View <u>[Next Steps](#next-steps)</u> for learning about more MLflow features like user feedback tracking, prompt management, and evaluation.
+
+## Supported APIs
+
+MLflow supports automatic tracing for the following Ollama APIs through the OpenAI integration:
+
+| Chat Completion | Function Calling | Streaming | Async    |
+| --------------- | ---------------- | --------- | -------- |
+| ✅              | ✅               | ✅ (\*1)  | ✅ (\*2) |
+
+(*1) Streaming support requires MLflow 2.15.0 or later.
+(*2) Async support requires MLflow 2.21.0 or later.
+
+To request support for additional APIs, please open a [feature request](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml) on GitHub.
+
+## Streaming and Async Support
+
+MLflow supports tracing for streaming and async Ollama APIs. Visit the [OpenAI Tracing documentation](../openai) for example code snippets for tracing streaming and async calls through OpenAI SDK.
+
+## Combine with Manual Tracing
+
+To control the tracing behavior more precisely, MLflow provides [Manual Tracing SDK](/genai/tracing/app-instrumentation/manual-tracing) to create spans for your custom code. Manual tracing can be used in conjunction with auto-tracing to create a custom trace while keeping the auto-tracing convenience. For more details, please refer to the [Combine with Manual Tracing](/genai/tracing/integrations/listing/openai#combine-with-manual-tracing) section in the OpenAI Tracing documentation.
 
 ## Token usage
 
-MLflow >= 3.2.0 supports token usage tracking for local LLM endpoint served through OpenAI SDK. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
-available in the `token_usage` field of the trace info object.
+MLflow >= 3.2.0 supports token usage tracking for Ollama models through the OpenAI SDK integration. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object. See the [Token Usage](/genai/tracing/integrations/listing/openai#token-usage) documentation for more details.
 
-```python
-import json
-import mlflow
+## Disable auto-tracing
 
-mlflow.openai.autolog()
+Auto tracing for Ollama (through OpenAI SDK) can be disabled globally by calling `mlflow.openai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
 
-from openai import OpenAI
+## Next steps
 
-client = OpenAI(
-    base_url="http://localhost:11434/v1",  # The local Ollama REST endpoint
-    api_key="dummy",  # Required to instantiate OpenAI client, it can be a random string
-)
-
-response = client.chat.completions.create(
-    model="llama3.2:1b",
-    messages=[
-        {"role": "system", "content": "You are a science teacher."},
-        {"role": "user", "content": "Why is the sky blue?"},
-    ],
-)
-
-# Get the trace object just created
-last_trace_id = mlflow.get_last_active_trace_id()
-trace = mlflow.get_trace(trace_id=last_trace_id)
-
-# Print the token usage
-total_usage = trace.info.token_usage
-print("== Total token usage: ==")
-print(f"  Input tokens: {total_usage['input_tokens']}")
-print(f"  Output tokens: {total_usage['output_tokens']}")
-print(f"  Total tokens: {total_usage['total_tokens']}")
-
-# Print the token usage for each LLM call
-print("\n== Detailed usage for each LLM call: ==")
-for span in trace.data.spans:
-    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
-        print(f"{span.name}:")
-        print(f"  Input tokens: {usage['input_tokens']}")
-        print(f"  Output tokens: {usage['output_tokens']}")
-        print(f"  Total tokens: {usage['total_tokens']}")
-```
-
-```bash
-== Total token usage: ==
-  Input tokens: 23
-  Output tokens: 194
-  Total tokens: 217
-
-== Detailed usage for each LLM call: ==
-Completions:
-  Input tokens: 23
-  Output tokens: 194
-  Total tokens: 217
-```
-
-### Disable auto-tracing
-
-Auto tracing for Ollama can be disabled globally by calling `mlflow.openai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>
