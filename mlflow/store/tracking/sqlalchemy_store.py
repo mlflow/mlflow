@@ -249,8 +249,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri] = (
                         mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
                     )
-        print("🚗 Engine 🚗")  # noqa: T201
-        print(self.engine)  # noqa: T201
+        print("🚗 Engine map 🚗")  # noqa: T201
+        print(SqlAlchemyStore._db_uri_sql_alchemy_engine_map)  # noqa: T201
         self.engine = SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri]
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
