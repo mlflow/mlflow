@@ -12,6 +12,7 @@ from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Completeness,
+    ConversationalRoleAdherence,
     ConversationalSafety,
     ConversationalToolCallEfficiency,
     ConversationCompleteness,
@@ -1602,6 +1603,52 @@ def test_conversational_tool_call_efficiency_instructions():
     instructions = scorer.instructions
     assert "tool" in instructions.lower()
     assert "efficient" in instructions.lower() or "redundant" in instructions.lower()
+
+
+def test_conversational_role_adherence_with_session():
+    session_id = "test_session_role"
+    traces = []
+    for i, (question, answer) in enumerate(
+        [
+            ("What can you cook?", "I can help you make many dishes!"),
+            ("How do I make soup?", "Start by boiling vegetables..."),
+        ]
+    ):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.InstructionsJudge.__call__"
+    ) as mock_judge_call:
+        mock_judge_call.return_value = Feedback(
+            name="conversational_role_adherence",
+            value=CategoricalRating.YES,
+            rationale="Role maintained across session.",
+        )
+
+        scorer = ConversationalRoleAdherence()
+        result = scorer(session=traces)
+
+        assert result.name == "conversational_role_adherence"
+        assert result.value == CategoricalRating.YES
+        mock_judge_call.assert_called_once()
+
+
+def test_conversational_role_adherence_get_input_fields():
+    scorer = ConversationalRoleAdherence()
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_conversational_role_adherence_instructions():
+    scorer = ConversationalRoleAdherence()
+    instructions = scorer.instructions
+    assert "role" in instructions.lower()
+    assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
 
 
 def test_session_level_scorer_with_invalid_kwargs():
