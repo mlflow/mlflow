@@ -3,12 +3,13 @@ from unittest.mock import Mock, patch
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers.deepeval import get_scorer
+from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
+from mlflow.genai.scorers.deepeval import AnswerRelevancy, KnowledgeRetention, get_scorer
 
 
 def test_deepeval_scorer_with_exact_match_metric():
-    scorer = get_scorer("ExactMatch")
-    result = scorer(
+    judge = get_scorer("ExactMatch")
+    result = judge(
         inputs="What is MLflow?",
         outputs="MLflow is a platform",
         expectations={"expected_output": "MLflow is a platform"},
@@ -18,13 +19,14 @@ def test_deepeval_scorer_with_exact_match_metric():
     assert result.name == "ExactMatch"
     assert result.value == CategoricalRating.YES
     assert result.metadata["score"] == 1.0
-    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
-    assert result.source.source_id == "deepeval/ExactMatch"
+    assert result.metadata[FRAMEWORK_METADATA_KEY] == "deepeval"
+    assert result.source.source_type == AssessmentSourceType.CODE
+    assert result.source.source_id is None
 
 
 def test_deepeval_scorer_handles_failure_with_exact_match():
-    scorer = get_scorer("ExactMatch")
-    result = scorer(
+    judge = get_scorer("ExactMatch")
+    result = judge(
         inputs="What is MLflow?",
         outputs="MLflow is different",
         expectations={"expected_output": "MLflow is a platform"},
@@ -32,6 +34,7 @@ def test_deepeval_scorer_handles_failure_with_exact_match():
 
     assert result.value == CategoricalRating.NO
     assert result.metadata["score"] == 0.0
+    assert result.metadata[FRAMEWORK_METADATA_KEY] == "deepeval"
 
 
 def test_metric_kwargs_passed_to_deepeval_metric():
@@ -69,13 +72,17 @@ def test_deepeval_scorer_returns_error_feedback_on_exception():
         with patch("mlflow.genai.scorers.deepeval.create_deepeval_model") as mock_create_model:
             mock_create_model.return_value = Mock()
 
-            scorer = get_scorer("AnswerRelevancy")
-            result = scorer(inputs="What is MLflow?", outputs="Test output")
+            with patch("mlflow.genai.scorers.deepeval.get_default_model") as mock_get_default:
+                mock_get_default.return_value = "openai:/gpt-4o-mini"
 
-            assert isinstance(result, Feedback)
-            assert result.name == "AnswerRelevancy"
-            assert result.value is None
-            assert result.error is not None
-            assert result.error.error_code == "RuntimeError"
-            assert result.error.error_message == "Test error"
-            assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+                judge = get_scorer("AnswerRelevancy")
+                result = judge(inputs="What is MLflow?", outputs="Test output")
+
+                assert isinstance(result, Feedback)
+                assert result.name == "AnswerRelevancy"
+                assert result.value is None
+                assert result.error is not None
+                assert result.error.error_code == "RuntimeError"
+                assert result.error.error_message == "Test error"
+                assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+                assert result.source.source_id == "openai:/gpt-4o-mini"
