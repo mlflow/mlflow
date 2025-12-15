@@ -142,6 +142,38 @@ class GatewayEndpointModelMapping(_MlflowObject):
 
 
 @dataclass
+class GatewayEndpointTag(_MlflowObject):
+    """
+    Represents a tag (key-value pair) associated with a gateway endpoint.
+
+    Tags are used for categorization, filtering, and metadata storage for endpoints.
+
+    Args:
+        key: Tag key (max 250 characters).
+        value: Tag value (max 5000 characters, can be None).
+    """
+
+    key: str
+    value: str | None
+
+    def to_proto(self):
+        from mlflow.protos.service_pb2 import GatewayEndpointTag as ProtoGatewayEndpointTag
+
+        proto = ProtoGatewayEndpointTag()
+        proto.key = self.key
+        if self.value is not None:
+            proto.value = self.value
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            key=proto.key,
+            value=proto.value or None,
+        )
+
+
+@dataclass
 class GatewayEndpoint(_MlflowObject):
     """
     Represents an LLM gateway endpoint with its associated model configurations.
@@ -152,6 +184,7 @@ class GatewayEndpoint(_MlflowObject):
         created_at: Timestamp (milliseconds) when the endpoint was created.
         last_updated_at: Timestamp (milliseconds) when the endpoint was last updated.
         model_mappings: List of model mappings bound to this endpoint.
+        tags: List of tags associated with this endpoint.
         created_by: User ID who created the endpoint.
         last_updated_by: User ID who last updated the endpoint.
     """
@@ -161,6 +194,7 @@ class GatewayEndpoint(_MlflowObject):
     created_at: int
     last_updated_at: int
     model_mappings: list[GatewayEndpointModelMapping] = field(default_factory=list)
+    tags: list["GatewayEndpointTag"] = field(default_factory=list)
     created_by: str | None = None
     last_updated_by: str | None = None
 
@@ -171,6 +205,7 @@ class GatewayEndpoint(_MlflowObject):
         proto.created_at = self.created_at
         proto.last_updated_at = self.last_updated_at
         proto.model_mappings.extend([m.to_proto() for m in self.model_mappings])
+        proto.tags.extend([t.to_proto() for t in self.tags])
         proto.created_by = self.created_by or ""
         proto.last_updated_by = self.last_updated_by or ""
         return proto
@@ -185,6 +220,7 @@ class GatewayEndpoint(_MlflowObject):
             model_mappings=[
                 GatewayEndpointModelMapping.from_proto(m) for m in proto.model_mappings
             ],
+            tags=[GatewayEndpointTag.from_proto(t) for t in proto.tags],
             created_by=proto.created_by or None,
             last_updated_by=proto.last_updated_by or None,
         )

@@ -665,56 +665,6 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'category',
-          label: 'OpenAI',
-          items: [
-            {
-              type: 'doc',
-              id: 'flavors/openai/guide/index',
-              label: 'Guide',
-            },
-            {
-              type: 'doc',
-              id: 'flavors/openai/autologging/index',
-              label: 'Autologging Support',
-            },
-            {
-              type: 'category',
-              label: 'Tutorials',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
-                  label: 'OpenAI Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
-                  label: 'Chat Completions with OpenAI',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
-                  label: 'Building a Code Assistant with OpenAI & MLflow',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
-                  label: 'Embeddings Support with OpenAI in MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/openai/notebooks/index',
-              },
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/openai/index',
-          },
-        },
-        {
-          type: 'category',
           label: 'DSPy',
           items: [
             {

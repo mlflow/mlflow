@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pydantic
 
@@ -26,6 +26,8 @@ class AdapterInvocationInput:
         num_retries: Number of retries on transient failures.
         response_format: Optional Pydantic model class for structured output format.
         use_case: Optional use case for telemetry tracking. Only used by some adapters.
+        inference_params: Optional dictionary of inference parameters to pass to the
+            model (e.g., temperature, top_p, max_tokens).
     """
 
     model_uri: str
@@ -35,6 +37,7 @@ class AdapterInvocationInput:
     num_retries: int = 10
     response_format: type[pydantic.BaseModel] | None = None
     use_case: str | None = None
+    inference_params: dict[str, Any] | None = None
 
     def __post_init__(self):
         self._model_provider: str | None = None

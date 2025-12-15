@@ -4,7 +4,12 @@ import click
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import _get_store
-from mlflow.utils.crypto import KEKManager, rotate_secret_encryption
+from mlflow.utils.crypto import (
+    CRYPTO_KEK_PASSPHRASE_ENV_VAR,
+    CRYPTO_KEK_VERSION_ENV_VAR,
+    KEKManager,
+    rotate_secret_encryption,
+)
 
 
 @click.group("crypto", help="Commands for managing MLflow's cryptographic passphrase.")
@@ -88,7 +93,7 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
         # Step 6: Restart server
         $ systemctl start mlflow-server
     """
-    old_passphrase = os.getenv("MLFLOW_CRYPTO_KEK_PASSPHRASE")
+    old_passphrase = os.getenv(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
     if not old_passphrase:
         raise MlflowException(
             "MLFLOW_CRYPTO_KEK_PASSPHRASE environment variable must be set to the "
@@ -99,7 +104,7 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
             "  mlflow crypto rotate-kek --new-passphrase 'new-passphrase'"
         )
 
-    old_version = int(os.getenv("MLFLOW_CRYPTO_KEK_VERSION", "1"))
+    old_version = int(os.getenv(CRYPTO_KEK_VERSION_ENV_VAR, "1"))
     new_version = old_version + 1
 
     if not yes:
