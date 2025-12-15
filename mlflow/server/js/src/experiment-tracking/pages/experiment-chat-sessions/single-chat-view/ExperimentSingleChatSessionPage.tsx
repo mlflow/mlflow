@@ -21,6 +21,7 @@ import {
   isV3ModelTraceInfo,
   ModelTraceExplorer,
   ModelTraceExplorerUpdateTraceContextProvider,
+  shouldEnableAssessmentsInSessions,
   shouldUseTracesV4API,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -35,6 +36,9 @@ import {
 } from './ExperimentSingleChatConversation';
 import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
+import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatSessionScoreResults';
+import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
+import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
 
 const ContextProviders = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
@@ -85,6 +89,8 @@ const ExperimentSingleChatSessionPageImpl = () => {
     return traceInfos?.sort((a, b) => new Date(a.request_time).getTime() - new Date(b.request_time).getTime());
   }, [traceInfos]);
 
+  const chatSessionMetrics = useExperimentSingleChatMetrics({ traceInfos: sortedTraceInfos });
+
   const getTrace = getTraceV3;
   const getAssessmentTitle = useCallback((assessmentName: string) => assessmentName, []);
   const {
@@ -108,11 +114,27 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <TracesV3Toolbar
-        // prettier-ignore
-        viewState="single-chat-session"
-        sessionId={sessionId}
-      />
+      <div
+        css={
+          shouldEnableAssessmentsInSessions()
+            ? {
+                '& > div': {
+                  borderBottom: 'none',
+                },
+              }
+            : undefined
+        }
+      >
+        <TracesV3Toolbar
+          // prettier-ignore
+          viewState="single-chat-session"
+          sessionId={sessionId}
+        />
+      </div>
+
+      {shouldEnableAssessmentsInSessions() && (
+        <ExperimentSingleChatSessionMetrics chatSessionMetrics={chatSessionMetrics} />
+      )}
       {isLoadingTraceDatas || isLoadingTraceInfos ? (
         <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <ExperimentSingleChatSessionSidebarSkeleton />
@@ -135,6 +157,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
             chatRefs={chatRefs}
             getAssessmentTitle={getAssessmentTitle}
           />
+          {shouldEnableAssessmentsInSessions() && <ExperimentSingleChatSessionScoreResults traces={traces ?? []} />}
         </div>
       )}
       <Drawer.Root

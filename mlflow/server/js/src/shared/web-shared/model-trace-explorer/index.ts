@@ -1,6 +1,7 @@
 export { ModelTraceExplorer } from './ModelTraceExplorer';
 export { SimplifiedModelTraceExplorer } from './SimplifiedModelTraceExplorer';
 export { ExpectationValuePreview } from './assessments-pane/ExpectationValuePreview';
+export { AssessmentsPane } from './assessments-pane/AssessmentsPane';
 export { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 export { ModelTraceExplorerOSSNotebookRenderer } from './oss-notebook-renderer/ModelTraceExplorerOSSNotebookRenderer';
 export { default as ModelTraceExplorerResizablePane } from './ModelTraceExplorerResizablePane';
@@ -17,6 +18,7 @@ export {
   tryDeserializeAttribute,
   parseTraceUri,
   getTotalTokens,
+  isSessionLevelAssessment,
   displayErrorNotification,
   displaySuccessNotification,
 } from './ModelTraceExplorer.utils';

@@ -1,7 +1,12 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { ModelSpanType } from './ModelTrace.types';
-import type { ModelTraceChatMessage, ModelTraceSpanNode, RawModelTraceChatMessage } from './ModelTrace.types';
+import type {
+  Assessment,
+  ModelTraceChatMessage,
+  ModelTraceSpanNode,
+  RawModelTraceChatMessage,
+} from './ModelTrace.types';
 import {
   MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
@@ -32,7 +37,9 @@ import {
   decodeSpanId,
   getDefaultActiveTab,
   getTotalTokens,
+  getTraceTokenUsage,
   convertOtelAttributesToMap,
+  isSessionLevelAssessment,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -707,6 +714,45 @@ describe('getTotalTokens', () => {
   });
 });
 
+describe('getTraceTokenUsage', () => {
+  it('should return token usage object from trace metadata', () => {
+    const result = getTraceTokenUsage(MOCK_TRACE_INFO_V3);
+    expect(result).toEqual({
+      input_tokens: 100,
+      output_tokens: 200,
+      total_tokens: 300,
+    });
+  });
+
+  it('should return empty object if trace metadata is not present', () => {
+    const result = getTraceTokenUsage({ ...MOCK_TRACE_INFO_V3, trace_metadata: undefined } as any);
+    expect(result).toEqual({});
+  });
+
+  it('should return empty object if tokenUsage key is not present', () => {
+    const result = getTraceTokenUsage({ ...MOCK_TRACE_INFO_V3, trace_metadata: {} });
+    expect(result).toEqual({});
+  });
+
+  it('should return empty object if tokenUsage is not valid JSON', () => {
+    const result = getTraceTokenUsage({
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: { 'mlflow.trace.tokenUsage': 'invalid' },
+    });
+    expect(result).toEqual({});
+  });
+
+  it('should return partial token usage if only some fields are present', () => {
+    const result = getTraceTokenUsage({
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: { 'mlflow.trace.tokenUsage': '{"input_tokens": 50}' },
+    });
+    expect(result).toEqual({
+      input_tokens: 50,
+    });
+  });
+});
+
 describe('convertOtelAttributesToMap', () => {
   it('should return unchanged span if attributes do not use key-value array format', () => {
     const modelTraceSpan = {
@@ -867,5 +913,80 @@ describe('convertOtelAttributesToMap', () => {
       span_id: '1',
       events: [{ attributes: { converted: 'value' } }],
     });
+  });
+});
+
+describe('isSessionLevelAssessment', () => {
+  it('should return true when assessment has session metadata', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'mlflow.trace.session': 'session-123',
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(true);
+  });
+
+  it('should return false when assessment has no session metadata', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'other.key': 'value',
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when assessment metadata is empty object', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {},
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when assessment has no metadata at all', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when session metadata is empty string', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'mlflow.trace.session': '',
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when session metadata is null', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'mlflow.trace.session': null,
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
   });
 });

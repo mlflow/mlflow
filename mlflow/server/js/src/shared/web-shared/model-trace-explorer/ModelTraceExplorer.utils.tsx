@@ -13,6 +13,7 @@ import {
   compact,
   keyBy,
   isObject,
+  isEmpty,
 } from 'lodash';
 import { useMemo } from 'react';
 
@@ -72,7 +73,7 @@ import {
   synthesizeVoltAgentChatMessages,
 } from './chat-utils';
 import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
-import { TOKEN_USAGE_METADATA_KEY } from './constants';
+import { ASSESSMENT_SESSION_METADATA_KEY, TOKEN_USAGE_METADATA_KEY } from './constants';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
@@ -1256,5 +1257,21 @@ export const getTotalTokens = (traceInfo: ModelTraceInfoV3): number | null => {
     return parsedTokenUsage?.total_tokens ?? null;
   } catch {
     return null;
+  }
+};
+
+export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
+  return !isEmpty(assessment.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]);
+};
+
+export const getTraceTokenUsage = (traceInfo: ModelTraceInfoV3): Record<string, number> => {
+  const tokenUsage = traceInfo?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
+  if (!tokenUsage) {
+    return {};
+  }
+  try {
+    return JSON.parse(tokenUsage) || {};
+  } catch {
+    return {};
   }
 };

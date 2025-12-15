@@ -4,7 +4,7 @@ import { Button, importantify, PlusIcon, useDesignSystemTheme } from '@databrick
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { Assessment, ExpectationAssessment, ModelTrace } from '../ModelTrace.types';
-import { isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
+import { isV3ModelTraceInfo, isSessionLevelAssessment } from '../ModelTraceExplorer.utils';
 import { AssessmentDisplayValue } from '../assessments-pane/AssessmentDisplayValue';
 import { getAssessmentValue } from '../assessments-pane/utils';
 
@@ -23,7 +23,10 @@ export const SingleChatTurnAssessments = ({
   const { theme } = useDesignSystemTheme();
   const info = isV3ModelTraceInfo(trace.info) ? trace.info : null;
 
-  if (!info?.assessments || isEmpty(info?.assessments)) {
+  const turnLevelAssessments =
+    info?.assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+
+  if (!info?.assessments || isEmpty(turnLevelAssessments)) {
     return (
       <div css={{ display: 'flex', justifyContent: 'flex-start' }}>
         <Button
@@ -44,7 +47,7 @@ export const SingleChatTurnAssessments = ({
 
   return (
     <div css={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
-      {info?.assessments.map((assessment, index) => {
+      {turnLevelAssessments.map((assessment, index) => {
         const title = getAssessmentTitle(assessment.assessment_name);
         const value = getAssessmentValue(assessment)?.toString() ?? '';
         return (

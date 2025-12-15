@@ -14,3 +14,4 @@ export const SOURCE_NAME_METADATA_KEY = 'mlflow.source.name';
 export const SOURCE_TYPE_METADATA_KEY = 'mlflow.source.type';
 export const TOKEN_USAGE_METADATA_KEY = 'mlflow.trace.tokenUsage';
 export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
+export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';
