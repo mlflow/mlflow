@@ -57,7 +57,10 @@ def test_tracking_scheme_with_existing_mlruns(tmp_path, monkeypatch):
 
 
 def test_tracking_scheme_without_existing_mlruns(tmp_path, monkeypatch):
+    assert tmp_path.exists()
     monkeypatch.chdir(tmp_path)
+    items_in_tmp = list(tmp_path.iterdir())
+    assert items_in_tmp == []
     store = _get_store()
     assert isinstance(store, SqlAlchemyStore)
 
