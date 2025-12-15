@@ -104,6 +104,33 @@ class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
 _suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 
+def _get_gateway_litellm_params(endpoint_name: str) -> dict[str, Any]:
+    """
+    Get LiteLLM parameters for routing through MLflow Gateway.
+
+    When using Gateway, LiteLLM's OpenAI-compatible mode routes requests through
+    the Gateway endpoint, which handles credential resolution and provider routing.
+
+    Args:
+        endpoint_name: The Gateway endpoint name (e.g., "my-openai-endpoint").
+
+    Returns:
+        Dictionary with model, api_base, and api_key for LiteLLM.
+    """
+    from mlflow.environment_variables import MLFLOW_TRACKING_URI
+    from mlflow.tracking import get_tracking_uri
+
+    # Prefer MLFLOW_TRACKING_URI env var over get_tracking_uri() because the server
+    # sets _tracking_uri to the backend store URI (e.g., sqlite://), but server-side
+    # jobs need the HTTP URL to reach the gateway endpoint.
+    tracking_uri = MLFLOW_TRACKING_URI.get() or get_tracking_uri()
+    return {
+        "model": "openai/default",  # Gateway ignores this; uses endpoint config
+        "api_base": f"{tracking_uri}/gateway/{endpoint_name}",
+        "api_key": "not-needed",  # Gateway handles authentication
+    }
+
+
 def _invoke_litellm(
     litellm_model_uri: str,
     messages: list["litellm.Message"],
@@ -112,6 +139,8 @@ def _invoke_litellm(
     response_format: type[pydantic.BaseModel] | None,
     include_response_format: bool,
     inference_params: dict[str, Any] | None = None,
+    api_base: str | None = None,
+    api_key: str | None = None,
 ) -> "litellm.ModelResponse":
     """
     Invoke litellm completion with retry support.
@@ -125,6 +154,8 @@ def _invoke_litellm(
         include_response_format: Whether to include response_format in the request.
         inference_params: Optional dictionary of additional inference parameters to pass
             to the model (e.g., temperature, top_p, max_tokens).
+        api_base: Optional API base URL for routing (used for Gateway endpoints).
+        api_key: Optional API key override (used for Gateway endpoints).
 
     Returns:
         The litellm ModelResponse object.
@@ -149,6 +180,13 @@ def _invoke_litellm(
         # certain call parameters (e.g. GPT-4 doesn't support 'response_format')
         "drop_params": True,
     }
+
+    # Add api_base and api_key if provided (for Gateway routing)
+    if api_base is not None:
+        kwargs["api_base"] = api_base
+    if api_key is not None:
+        kwargs["api_key"] = api_key
+
     if include_response_format:
         # LiteLLM supports passing Pydantic models directly for response_format
         kwargs["response_format"] = response_format or _get_default_judge_response_schema()
@@ -174,8 +212,10 @@ def _invoke_litellm_and_handle_tools(
     Invoke litellm with retry support and handle tool calling loop.
 
     Args:
-        provider: The provider name (e.g., 'openai', 'anthropic').
-        model_name: The model name.
+        provider: The provider name (e.g., 'openai', 'anthropic', 'gateway').
+            When provider is 'gateway', requests are routed through MLflow Gateway
+            using the model_name as the endpoint name.
+        model_name: The model name, or endpoint name when provider is 'gateway'.
         messages: List of ChatMessage objects.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
@@ -197,7 +237,17 @@ def _invoke_litellm_and_handle_tools(
 
     messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
-    litellm_model_uri = f"{provider}/{model_name}"
+    # Handle Gateway routing: gateway:/{endpoint_name} -> route via api_base
+    if provider == "gateway":
+        gateway_params = _get_gateway_litellm_params(model_name)
+        litellm_model_uri = gateway_params["model"]
+        api_base = gateway_params["api_base"]
+        api_key = gateway_params["api_key"]
+    else:
+        litellm_model_uri = f"{provider}/{model_name}"
+        api_base = None
+        api_key = None
+
     tools = []
 
     if trace is not None:
@@ -244,6 +294,8 @@ def _invoke_litellm_and_handle_tools(
                     response_format=response_format,
                     include_response_format=include_response_format,
                     inference_params=inference_params,
+                    api_base=api_base,
+                    api_key=api_key,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):

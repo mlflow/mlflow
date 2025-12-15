@@ -18,6 +18,7 @@ R = TypeVar("R")
 
 _ALLOWED_JOB_FUNCTION_LIST = [
     # Putting all allowed job function in the list
+    "mlflow.server.jobs.scorer_invoke.invoke_scorer_job",
 ]
 
 if allowed_job_function_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_FUNCTION_LIST"):

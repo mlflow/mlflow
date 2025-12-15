@@ -163,6 +163,12 @@ async def invocations(endpoint_name: str, request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
+    # Remove 'model' from the request body if present.
+    # Gateway endpoints already define the model, and LiteLLM includes 'model'
+    # in requests even when using api_base routing. Silently ignoring it here
+    # allows LiteLLM-based clients to work seamlessly with Gateway endpoints.
+    body.pop("model", None)
+
     store = _get_store()
 
     if not isinstance(store, SqlAlchemyStore):
@@ -178,6 +184,13 @@ async def invocations(endpoint_name: str, request: Request):
         endpoint_type = EndpointType.LLM_V1_CHAT
         try:
             payload = chat.RequestPayload(**body)
+            # Clear fields that weren't explicitly provided by the client.
+            # This prevents Pydantic defaults (e.g., temperature=0.0) from being
+            # sent to models that don't support them. We set unset fields to None
+            # so the provider's exclude_none=True serialization will omit them.
+            for field_name in payload.model_fields:
+                if field_name not in payload.model_fields_set:
+                    setattr(payload, field_name, None)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
@@ -205,3 +218,16 @@ async def invocations(endpoint_name: str, request: Request):
             status_code=400,
             detail="Invalid request: payload format must be either chat or embeddings",
         )
+
+
+@gateway_router.post("/{endpoint_name}/chat/completions")
+@translate_http_exception
+async def chat_completions(endpoint_name: str, request: Request):
+    """
+    OpenAI-compatible chat completions endpoint.
+
+    This is an alias for the invocations endpoint that matches the OpenAI API path,
+    enabling LiteLLM and other OpenAI-compatible clients to use Gateway endpoints
+    via api_base routing.
+    """
+    return await invocations(endpoint_name, request)

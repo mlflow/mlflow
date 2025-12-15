@@ -3844,6 +3844,113 @@ def _delete_scorer():
     return response
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _invoke_scorer():
+    """
+    Invoke a scorer on a set of traces and return assessment results.
+
+    This is a JSON-based endpoint (prototype) that:
+    1. Deserializes a scorer from the request
+    2. Fetches traces by ID
+    3. Executes the scorer on each trace
+    4. Optionally persists assessments
+    5. Returns results
+
+    Request JSON:
+    {
+        "experiment_id": "...",
+        "serialized_scorer": "...",  // JSON string
+        "trace_ids": ["trace-1", "trace-2"],
+        "persist_results": true  // optional, default true
+    }
+    """
+    from mlflow.genai.scorers.base import Scorer
+
+    request_json = _get_request_json()
+    if not request_json:
+        raise MlflowException(
+            "Request body must be JSON",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Validate required fields
+    experiment_id = request_json.get("experiment_id")
+    if not experiment_id:
+        raise MlflowException(
+            "experiment_id is required",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    serialized_scorer_str = request_json.get("serialized_scorer")
+    if not serialized_scorer_str:
+        raise MlflowException(
+            "serialized_scorer is required",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    trace_ids = request_json.get("trace_ids", [])
+    if not trace_ids:
+        raise MlflowException(
+            "At least one trace_id is required",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if len(trace_ids) > 1000:
+        raise MlflowException(
+            "Maximum 1000 traces per request",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    persist_results = request_json.get("persist_results", True)
+
+    # Deserialize scorer
+    try:
+        serialized_scorer = json.loads(serialized_scorer_str)
+        scorer = Scorer.model_validate(serialized_scorer)
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to deserialize scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Fetch traces
+    tracking_store = _get_tracking_store()
+    traces = tracking_store.batch_get_traces(trace_ids=trace_ids)
+    trace_map = {t.info.trace_id: t for t in traces}
+
+    missing = set(trace_ids) - set(trace_map.keys())
+    if missing:
+        raise MlflowException(
+            f"Traces not found: {missing}",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+
+    # Execute scorer on each trace
+    results = []
+    for trace_id in trace_ids:
+        trace = trace_map[trace_id]
+        result = _execute_scorer_on_trace(
+            scorer=scorer,
+            trace=trace,
+            persist_results=persist_results,
+        )
+        results.append(result)
+
+    # Build response
+    successful = sum(1 for r in results if r["success"])
+    response_data = {
+        "results": results,
+        "scorer_name": scorer.name,
+        "total_traces": len(trace_ids),
+        "successful_evaluations": successful,
+        "failed_evaluations": len(trace_ids) - successful,
+    }
+
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps(response_data))
+    return response
+
+
 # =============================================================================
 # Secrets Management Handlers
 # =============================================================================
@@ -3862,7 +3969,7 @@ def _create_gateway_secret():
             "created_by": [_assert_string],
         },
     )
-    print('secret_value', request_message.secret_value)
+    print("secret_value", request_message.secret_value)
     auth_config = None
     if request_message.auth_config_json:
         auth_config = json.loads(request_message.auth_config_json)
@@ -4353,6 +4460,220 @@ def _get_secrets_config():
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _invoke_scorer_async():
+    """
+    Submit one job per trace and return list of jobs.
+
+    Design decision: One job per trace ensures credential freshness for long-running
+    bulk operations. Each job is short-lived, so credentials fetched at job start
+    are always fresh (LLM API credentials cached with ~5min TTL).
+
+    The trace_ids in each job is a list to support future batching where a single
+    job could process multiple traces while credentials remain fresh.
+
+    Request JSON:
+    {
+        "experiment_id": "...",
+        "serialized_scorer": "...",  // JSON string
+        "trace_ids": ["trace-1", "trace-2"],
+        "persist_results": true,  // optional, default true
+        "timeout": 300  // optional, per-job timeout in seconds
+    }
+
+    Response JSON:
+    {
+        "jobs": [
+            {"job_id": "job-...", "trace_ids": ["trace-1"]},
+            {"job_id": "job-...", "trace_ids": ["trace-2"]}
+        ]
+    }
+    """
+    request_json = _get_request_json()
+    if not request_json:
+        raise MlflowException(
+            "Request body must be JSON",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Validate required fields
+    experiment_id = request_json.get("experiment_id")
+    if not experiment_id:
+        raise MlflowException(
+            "experiment_id is required",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    serialized_scorer = request_json.get("serialized_scorer")
+    if not serialized_scorer:
+        raise MlflowException(
+            "serialized_scorer is required",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    trace_ids = request_json.get("trace_ids", [])
+    if not trace_ids:
+        raise MlflowException(
+            "At least one trace_id is required",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if len(trace_ids) > 1000:
+        raise MlflowException(
+            "Maximum 1000 traces per request",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    persist_results = request_json.get("persist_results", True)
+    timeout = request_json.get("timeout")
+
+    # Submit ONE JOB PER TRACE (for now)
+    from mlflow.server.jobs import submit_job
+    from mlflow.server.jobs.scorer_invoke import invoke_scorer_job
+
+    jobs = []
+    for trace_id in trace_ids:
+        job = submit_job(
+            function=invoke_scorer_job,
+            params={
+                "experiment_id": experiment_id,
+                "trace_ids": [trace_id],  # List for future batching support
+                "serialized_scorer": serialized_scorer,
+                "persist_results": persist_results,
+            },
+            timeout=timeout,
+        )
+        jobs.append({"job_id": job.job_id, "trace_ids": [trace_id]})
+
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps({"jobs": jobs}))
+    return response
+
+
+def _execute_scorer_on_trace(scorer, trace, persist_results):
+    """Execute scorer on a single trace and return result dict."""
+    import mlflow
+
+    try:
+        # Extract inputs/outputs from trace root span
+        root_span = trace.data._get_root_span()
+        inputs = root_span.inputs if root_span else None
+        outputs = root_span.outputs if root_span else None
+
+        # Extract expectations from trace assessments
+        expectations = {}
+        for assessment in trace.info.assessments or []:
+            if assessment.expectation is not None:
+                expectations[assessment.name] = assessment.expectation.value
+
+        # Execute scorer with all extracted data
+        value = scorer.run(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations or None,
+            trace=trace,
+        )
+
+        # Standardize result to list of Feedback/Assessment objects
+        assessments = _standardize_scorer_result(scorer.name, value)
+
+        # Convert assessments to JSON-serializable dicts
+        assessment_dicts = []
+        for assessment in assessments:
+            assessment.trace_id = trace.info.trace_id
+            if root_span:
+                assessment.span_id = root_span.span_id
+
+            # Persist if requested
+            if persist_results:
+                mlflow.log_assessment(trace_id=trace.info.trace_id, assessment=assessment)
+
+            # Convert to dict for response
+            assessment_dicts.append(_assessment_to_dict(assessment))
+
+        return {
+            "trace_id": trace.info.trace_id,
+            "success": True,
+            "assessments": assessment_dicts,
+        }
+
+    except Exception as e:
+        return {
+            "trace_id": trace.info.trace_id,
+            "success": False,
+            "error_message": str(e),
+            "error_type": type(e).__name__,
+            "assessments": [],
+        }
+
+
+def _standardize_scorer_result(scorer_name, value):
+    """Convert scorer return value to list of Assessment objects."""
+    from mlflow.entities import Assessment, Feedback
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+
+    if value is None:
+        return []
+
+    # Already a list of assessments
+    if isinstance(value, list):
+        return value
+
+    # Single Assessment/Feedback object
+    if isinstance(value, (Assessment, Feedback)):
+        return [value]
+
+    # Primitive value - wrap in Feedback
+    if isinstance(value, (bool, int, float, str)):
+        feedback = Feedback(
+            name=scorer_name,
+            value=value,
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        )
+        return [feedback]
+
+    raise MlflowException(
+        f"Unsupported scorer return type: {type(value).__name__}",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
+def _assessment_to_dict(assessment):
+    """Convert Assessment to JSON-serializable dict."""
+    result = {
+        "name": assessment.name,
+        "trace_id": assessment.trace_id,
+        "span_id": assessment.span_id,
+        "assessment_id": assessment.assessment_id,
+    }
+
+    if assessment.rationale:
+        result["rationale"] = assessment.rationale
+
+    # Handle Feedback vs Expectation
+    if assessment.feedback:
+        result["type"] = "feedback"
+        result["value"] = assessment.feedback.value
+        if assessment.feedback.error:
+            result["error"] = {
+                "message": assessment.feedback.error.message,
+                "stack_trace": assessment.feedback.error.stack_trace,
+            }
+    elif assessment.expectation:
+        result["type"] = "expectation"
+        result["value"] = assessment.expectation.value
+
+    if assessment.source:
+        result["source"] = {
+            "source_type": assessment.source.source_type.value
+            if hasattr(assessment.source.source_type, "value")
+            else str(assessment.source.source_type),
+            "source_id": assessment.source.source_id,
+        }
+
+    return result
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4426,6 +4747,15 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
         + get_gateway_endpoints()
+        # Scorer invoke endpoints (prototype - JSON-based)
+        + [(_add_static_prefix("/api/3.0/mlflow/scorer/invoke"), _invoke_scorer, ["POST"])]
+        + [
+            (
+                _add_static_prefix("/api/3.0/mlflow/scorer/invoke-async"),
+                _invoke_scorer_async,
+                ["POST"],
+            )
+        ]
     )
 
 

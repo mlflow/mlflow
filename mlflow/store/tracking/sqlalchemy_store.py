@@ -2057,6 +2057,36 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
+    def _sync_scorer_endpoint_binding(
+        self, session: Session, scorer_name: str, endpoint_id: str | None
+    ) -> None:
+        """
+        Sync endpoint binding for a scorer within the same database session.
+
+        Deletes any existing binding for the scorer, then creates a new binding
+        if endpoint_id is provided. This ensures atomic updates when a scorer's
+        endpoint association changes.
+
+        Args:
+            session: The SQLAlchemy session (must be within an active transaction).
+            scorer_name: The scorer name used as resource_id in the binding.
+            endpoint_id: The endpoint ID to bind, or None to only delete existing binding.
+        """
+        # Delete existing binding for this scorer
+        session.query(SqlGatewayEndpointBinding).filter(
+            SqlGatewayEndpointBinding.resource_type == "scorer_job",
+            SqlGatewayEndpointBinding.resource_id == scorer_name,
+        ).delete()
+
+        # Create new binding if endpoint_id is provided
+        if endpoint_id:
+            binding = SqlGatewayEndpointBinding(
+                endpoint_id=endpoint_id,
+                resource_type="scorer_job",
+                resource_id=scorer_name,
+            )
+            session.add(binding)
+
     def register_scorer(
         self, experiment_id: str, name: str, serialized_scorer: str
     ) -> ScorerVersion:
@@ -2116,6 +2146,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             session.add(sql_scorer_version)
             session.flush()
+
+            # Parse endpoint_id from serialized_scorer and sync binding atomically
+            endpoint_id = None
+            try:
+                data = json.loads(serialized_scorer)
+                endpoint_id = data.get("endpoint_id")
+            except json.JSONDecodeError:
+                pass
+
+            # Sync endpoint binding (delete old, create new) - atomic with scorer creation
+            self._sync_scorer_endpoint_binding(session, name, endpoint_id)
 
             return sql_scorer_version.to_mlflow_entity()
 
@@ -2299,8 +2340,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             for sql_scorer_version in sql_scorer_versions:
                 session.delete(sql_scorer_version)
 
-            # If we're deleting all versions, also delete the scorer record
+            # If we're deleting all versions, also delete the scorer record and bindings
             if version is None:
+                # Delete endpoint bindings for this scorer (atomic with scorer deletion)
+                self._sync_scorer_endpoint_binding(session, name, endpoint_id=None)
                 session.delete(scorer)
 
     def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
