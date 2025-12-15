@@ -20,9 +20,9 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
-    DeleteEndpointTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DetachModelFromGatewayEndpoint,
@@ -33,7 +33,7 @@ from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
-    SetEndpointTag,
+    SetGatewayEndpointTag,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
@@ -74,8 +74,8 @@ class RestGatewayStoreMixin:
         CreateGatewayEndpointBinding,
         DeleteGatewayEndpointBinding,
         ListGatewayEndpointBindings,
-        SetEndpointTag,
-        DeleteEndpointTag,
+        SetGatewayEndpointTag,
+        DeleteGatewayEndpointTag,
     }
 
     # ========== Secrets Management APIs ==========
@@ -551,13 +551,13 @@ class RestGatewayStoreMixin:
             tag: GatewayEndpointTag with key and value to set.
         """
         req_body = message_to_json(
-            SetEndpointTag(
+            SetGatewayEndpointTag(
                 endpoint_id=endpoint_id,
                 key=tag.key,
                 value=tag.value,
             )
         )
-        self._call_endpoint(SetEndpointTag, req_body)
+        self._call_endpoint(SetGatewayEndpointTag, req_body)
 
     def delete_gateway_endpoint_tag(self, endpoint_id: str, key: str) -> None:
         """
@@ -568,9 +568,9 @@ class RestGatewayStoreMixin:
             key: Tag key to delete.
         """
         req_body = message_to_json(
-            DeleteEndpointTag(
+            DeleteGatewayEndpointTag(
                 endpoint_id=endpoint_id,
                 key=key,
             )
         )
-        self._call_endpoint(DeleteEndpointTag, req_body)
+        self._call_endpoint(DeleteGatewayEndpointTag, req_body)

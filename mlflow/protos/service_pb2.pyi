@@ -2033,7 +2033,7 @@ class ListGatewayEndpointBindings(_message.Message):
     resource_id: str
     def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ...) -> None: ...
 
-class SetEndpointTag(_message.Message):
+class SetGatewayEndpointTag(_message.Message):
     __slots__ = ("endpoint_id", "key", "value")
     class Response(_message.Message):
         __slots__ = ()
@@ -2046,7 +2046,7 @@ class SetEndpointTag(_message.Message):
     value: str
     def __init__(self, endpoint_id: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
-class DeleteEndpointTag(_message.Message):
+class DeleteGatewayEndpointTag(_message.Message):
     __slots__ = ("endpoint_id", "key")
     class Response(_message.Message):
         __slots__ = ()
