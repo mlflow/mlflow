@@ -3367,7 +3367,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             joint_count=joint_count,
         )
 
-    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
+    def log_spans(
+        self,
+        location: str,
+        spans: list[Span],
+        tracking_uri=None,
+        model_id: str | None = None,
+    ) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
 
@@ -3376,6 +3382,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment.
             spans: List of Span entities to log. All spans must belong to the same trace.
             tracking_uri: The tracking URI to use. Default to None.
+            model_id: Optional model ID to associate with the trace.
 
         Returns:
             List of logged Span entities.
@@ -3554,6 +3561,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             value=session_id,
                         )
                     )
+
+            if model_id:
+                session.merge(
+                    SqlTraceMetadata(
+                        request_id=trace_id,
+                        key=TraceMetadataKey.MODEL_ID,
+                        value=model_id,
+                    )
+                )
 
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,

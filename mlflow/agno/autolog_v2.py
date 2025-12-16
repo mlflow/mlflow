@@ -9,7 +9,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
+from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, MLFLOW_MODEL_ID_HEADER
 
 _logger = logging.getLogger(__name__)
 _agno_instrumentor = None
@@ -53,7 +53,7 @@ def _setup_otel_instrumentation() -> None:
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-        from mlflow.tracking.fluent import _get_experiment_id
+        from mlflow.tracking.fluent import _get_experiment_id, get_active_model_id
 
         tracking_uri = mlflow.get_tracking_uri()
 
@@ -62,9 +62,11 @@ def _setup_otel_instrumentation() -> None:
 
         experiment_id = _get_experiment_id()
 
-        exporter = OTLPSpanExporter(
-            endpoint=endpoint, headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
-        )
+        headers = {MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
+        if active_model_id := get_active_model_id():
+            headers[MLFLOW_MODEL_ID_HEADER] = active_model_id
+
+        exporter = OTLPSpanExporter(endpoint=endpoint, headers=headers)
 
         tracer_provider = trace.get_tracer_provider()
         if not isinstance(tracer_provider, TracerProvider):
