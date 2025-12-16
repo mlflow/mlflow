@@ -1868,7 +1868,7 @@ class ListGatewayModelDefinitions(_message.Message):
     def __init__(self, provider: _Optional[str] = ..., secret_id: _Optional[str] = ...) -> None: ...
 
 class UpdateGatewayModelDefinition(_message.Message):
-    __slots__ = ("model_definition_id", "name", "secret_id", "model_name", "updated_by")
+    __slots__ = ("model_definition_id", "name", "secret_id", "model_name", "updated_by", "provider")
     class Response(_message.Message):
         __slots__ = ("model_definition",)
         MODEL_DEFINITION_FIELD_NUMBER: _ClassVar[int]
@@ -1879,12 +1879,14 @@ class UpdateGatewayModelDefinition(_message.Message):
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
     model_definition_id: str
     name: str
     secret_id: str
     model_name: str
     updated_by: str
-    def __init__(self, model_definition_id: _Optional[str] = ..., name: _Optional[str] = ..., secret_id: _Optional[str] = ..., model_name: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+    provider: str
+    def __init__(self, model_definition_id: _Optional[str] = ..., name: _Optional[str] = ..., secret_id: _Optional[str] = ..., model_name: _Optional[str] = ..., updated_by: _Optional[str] = ..., provider: _Optional[str] = ...) -> None: ...
 
 class DeleteGatewayModelDefinition(_message.Message):
     __slots__ = ("model_definition_id",)

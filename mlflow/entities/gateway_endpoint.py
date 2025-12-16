@@ -58,8 +58,10 @@ class GatewayModelDefinition(_MlflowObject):
         proto = ProtoGatewayModelDefinition()
         proto.model_definition_id = self.model_definition_id
         proto.name = self.name
-        proto.secret_id = self.secret_id
-        proto.secret_name = self.secret_name
+        if self.secret_id is not None:
+            proto.secret_id = self.secret_id
+        if self.secret_name is not None:
+            proto.secret_name = self.secret_name
         proto.provider = self.provider
         proto.model_name = self.model_name
         proto.created_at = self.created_at
@@ -75,8 +77,8 @@ class GatewayModelDefinition(_MlflowObject):
         return cls(
             model_definition_id=proto.model_definition_id,
             name=proto.name,
-            secret_id=proto.secret_id,
-            secret_name=proto.secret_name,
+            secret_id=proto.secret_id or None,
+            secret_name=proto.secret_name or None,
             provider=proto.provider,
             model_name=proto.model_name,
             created_at=proto.created_at,
