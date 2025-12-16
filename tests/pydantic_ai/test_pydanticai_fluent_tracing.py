@@ -1,4 +1,5 @@
 import importlib.metadata
+from contextlib import asynccontextmanager
 from unittest.mock import patch
 
 import pytest
@@ -305,8 +306,6 @@ async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool
 
 @pytest.mark.asyncio
 async def test_agent_run_stream_creates_trace(simple_agent):
-    from contextlib import asynccontextmanager
-
     response, usage = _make_streaming_response_without_tool(input_tokens=10, output_tokens=5)
 
     @asynccontextmanager
@@ -342,8 +341,6 @@ async def test_agent_run_stream_creates_trace(simple_agent):
 
 @pytest.mark.skipif(not HAS_RUN_STREAM_SYNC, reason="run_stream_sync added in pydantic-ai 1.10.0")
 def test_agent_run_stream_sync_creates_trace(simple_agent):
-    from contextlib import asynccontextmanager
-
     response, usage = _make_streaming_response_without_tool(input_tokens=10, output_tokens=5)
 
     @asynccontextmanager
@@ -385,8 +382,6 @@ def test_agent_run_stream_sync_creates_trace(simple_agent):
 
 @pytest.mark.asyncio
 async def test_agent_run_stream_with_tool(agent_with_tool):
-    from contextlib import asynccontextmanager
-
     sequence = _make_streaming_response_with_tool()
 
     @asynccontextmanager
@@ -429,8 +424,6 @@ async def test_agent_run_stream_with_tool(agent_with_tool):
 
 @pytest.mark.skipif(not HAS_RUN_STREAM_SYNC, reason="run_stream_sync added in pydantic-ai 1.10.0")
 def test_agent_run_stream_sync_with_tool(agent_with_tool):
-    from contextlib import asynccontextmanager
-
     sequence = _make_streaming_response_with_tool()
 
     @asynccontextmanager
