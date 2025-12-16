@@ -1,11 +1,12 @@
 from unittest import mock
-from unittest.mock import call, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
 from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
@@ -1682,6 +1683,7 @@ def test_last_turn_knowledge_retention_success():
         assert isinstance(result, Feedback)
         assert result.value == "yes"
         mock_invoke_judge.assert_called_once()
+        # ALKIS: We should check that mock_invoke_judge receives the whole session
 
 
 def test_knowledge_retention_success():
@@ -1702,25 +1704,31 @@ def test_knowledge_retention_success():
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     traces.append(mlflow.get_trace(span.trace_id))
 
-    # Mock the judge to return "yes"
-    with patch(
-        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
-        return_value=Feedback(
-            name="last_turn_knowledge_retention",
-            value="yes",
-            rationale="AI correctly recalled the user loves Python",
+    # Create a fake last-turn scorer that returns "yes"
+    fake_scorer = Mock(spec=Scorer)
+    fake_scorer.return_value = Feedback(
+        name="last_turn_knowledge_retention",
+        value="yes",
+        rationale="AI correctly recalled the user loves Python",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="test-model",
         ),
-    ) as mock_invoke_judge:
-        scorer = KnowledgeRetention()
-        result = scorer(session=traces)
+    )
 
-        # Should return single Feedback with value "yes"
-        assert isinstance(result, Feedback)
-        assert result.value == "yes"
-        assert "successful" in result.rationale.lower()
+    scorer = KnowledgeRetention(single_turn_scorer=fake_scorer)
+    result = scorer(session=traces)
 
-        # Only turn 1 evaluated (turn 0 is context-building)
-        mock_invoke_judge.assert_called_once()
+    # Should return single Feedback with value "yes"
+    assert isinstance(result, Feedback)
+    assert result.value == "yes"
+    assert "successful" in result.rationale.lower()
+
+    # Only turn 1 evaluated (turn 0 is context-building)
+    fake_scorer.assert_called_once()
+    call_args = fake_scorer.call_args
+    assert "session" in call_args.kwargs
+    assert len(call_args.kwargs["session"]) == 2  # Traces 0-1
 
 
 def test_knowledge_retention_failure():
@@ -1741,25 +1749,31 @@ def test_knowledge_retention_failure():
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     traces.append(mlflow.get_trace(span.trace_id))
 
-    # Mock the judge to return "no"
-    with patch(
-        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
-        return_value=Feedback(
-            name="last_turn_knowledge_retention",
-            value="no",
-            rationale="AI incorrectly recalled name as Bob instead of Alice",
+    # Create a fake last-turn scorer that returns "no"
+    fake_scorer = Mock(spec=Scorer)
+    fake_scorer.return_value = Feedback(
+        name="last_turn_knowledge_retention",
+        value="no",
+        rationale="AI incorrectly recalled name as Bob instead of Alice",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="test-model",
         ),
-    ):
-        scorer = KnowledgeRetention()
-        result = scorer(session=traces)
+    )
 
-        # Should return single Feedback with value "no"
-        assert isinstance(result, Feedback)
-        assert result.value == "no"
-        assert "failed" in result.rationale.lower() or "no" in result.rationale.lower()
+    scorer = KnowledgeRetention(single_turn_scorer=fake_scorer)
+    result = scorer(session=traces)
 
-        # Verify rationale mentions the specific turn
-        assert "Turn 1" in result.rationale
+    # Should return single Feedback with value "no"
+    assert isinstance(result, Feedback)
+    assert result.value == "no"
+    assert "failed" in result.rationale.lower() or "no" in result.rationale.lower()
+
+    # Verify rationale mentions the specific turn
+    assert "Turn 1" in result.rationale
+
+    # Verify rationale includes the specific turn rationale from the last-turn scorer
+    assert "AI incorrectly recalled name as Bob instead of Alice" in result.rationale
 
 
 def test_knowledge_retention_single_turn():
