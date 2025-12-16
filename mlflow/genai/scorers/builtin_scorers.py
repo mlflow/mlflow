@@ -35,9 +35,7 @@ from mlflow.genai.judges.prompts.conversational_role_adherence import (
     CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME,
     CONVERSATIONAL_ROLE_ADHERENCE_PROMPT,
 )
-from mlflow.genai.judges.prompts.conversational_safety import (
-    CONVERSATIONAL_SAFETY_PROMPT,
-)
+from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
 from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME,
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT,
