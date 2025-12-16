@@ -3,12 +3,12 @@ from unittest.mock import Mock, patch
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers.deepeval import get_judge
+from mlflow.genai.scorers.deepeval import get_scorer
 
 
 def test_deepeval_scorer_with_exact_match_metric():
-    judge = get_judge("ExactMatch")
-    result = judge(
+    scorer = get_scorer("ExactMatch")
+    result = scorer(
         inputs="What is MLflow?",
         outputs="MLflow is a platform",
         expectations={"expected_output": "MLflow is a platform"},
@@ -23,8 +23,8 @@ def test_deepeval_scorer_with_exact_match_metric():
 
 
 def test_deepeval_scorer_handles_failure_with_exact_match():
-    judge = get_judge("ExactMatch")
-    result = judge(
+    scorer = get_scorer("ExactMatch")
+    result = scorer(
         inputs="What is MLflow?",
         outputs="MLflow is different",
         expectations={"expected_output": "MLflow is a platform"},
@@ -48,7 +48,7 @@ def test_metric_kwargs_passed_to_deepeval_metric():
         with patch("mlflow.genai.scorers.deepeval.create_deepeval_model") as mock_create_model:
             mock_create_model.return_value = Mock()
 
-            get_judge("AnswerRelevancy", threshold=0.9, include_reason=True, custom_param="value")
+            get_scorer("AnswerRelevancy", threshold=0.9, include_reason=True, custom_param="value")
 
             call_kwargs = mock_metric_class.call_args[1]
             assert call_kwargs["threshold"] == 0.9
@@ -69,8 +69,8 @@ def test_deepeval_scorer_returns_error_feedback_on_exception():
         with patch("mlflow.genai.scorers.deepeval.create_deepeval_model") as mock_create_model:
             mock_create_model.return_value = Mock()
 
-            judge = get_judge("AnswerRelevancy")
-            result = judge(inputs="What is MLflow?", outputs="Test output")
+            scorer = get_scorer("AnswerRelevancy")
+            result = scorer(inputs="What is MLflow?", outputs="Test output")
 
             assert isinstance(result, Feedback)
             assert result.name == "AnswerRelevancy"
