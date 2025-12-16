@@ -12,12 +12,13 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { type ModelTrace, type ModelTraceInfoV3 } from './ModelTrace.types';
+import { type ModelTrace, type ModelTraceInfoV3, type ModelTraceState } from './ModelTrace.types';
 import { createTraceV4LongIdentifier, doesTraceSupportV4API, isV3ModelTraceInfo } from './ModelTraceExplorer.utils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
+import { ModelTraceHeaderStatusTag } from './ModelTraceHeaderStatusTag';
 import { useParams } from './RoutingUtils';
 import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
 import { SESSION_ID_METADATA_KEY, MLFLOW_TRACE_USER_KEY, TOKEN_USAGE_METADATA_KEY } from './constants';
@@ -30,7 +31,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   const [showNotification, setShowNotification] = useState(false);
   const { rootNode } = useModelTraceExplorerViewState();
   const { experimentId } = useParams();
-
   const tags = Object.entries(modelTraceInfo.tags ?? {}).filter(([key]) => isUserFacingTag(key));
 
   const [modelTraceId, modelTraceIdToDisplay] = useMemo(() => {
@@ -56,6 +56,12 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   const userId = useMemo(() => {
     return (modelTraceInfo as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_USER_KEY];
   }, [modelTraceInfo]);
+
+  // Derive status label/icon from TraceInfo (V3 only)
+  const statusState: ModelTraceState | undefined = useMemo(
+    () => (isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.state : undefined),
+    [modelTraceInfo],
+  );
 
   const latency = useMemo((): string | undefined => {
     if (rootNode) {
@@ -87,6 +93,7 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           flexWrap: 'wrap',
         }}
       >
+        {statusState && <ModelTraceHeaderStatusTag statusState={statusState} getTruncatedLabel={getTruncatedLabel} />}
         {modelTraceId && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="ID" description="Label for the ID section" />}

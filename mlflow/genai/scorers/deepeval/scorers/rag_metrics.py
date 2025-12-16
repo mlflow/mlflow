@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class AnswerRelevancy(DeepEvalScorer):
     """
     Evaluates whether the output is relevant to the input.
@@ -19,7 +22,7 @@ class AnswerRelevancy(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -39,6 +42,7 @@ class AnswerRelevancy(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class Faithfulness(DeepEvalScorer):
     """
     Evaluates whether the output is factually consistent with the retrieval context.
@@ -49,7 +53,7 @@ class Faithfulness(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -65,6 +69,7 @@ class Faithfulness(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class ContextualRecall(DeepEvalScorer):
     """
     Evaluates whether the retrieval context contains all necessary information.
@@ -75,7 +80,7 @@ class ContextualRecall(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -91,6 +96,7 @@ class ContextualRecall(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class ContextualPrecision(DeepEvalScorer):
     """
     Evaluates whether relevant nodes in the retrieval context are ranked higher than
@@ -102,7 +108,7 @@ class ContextualPrecision(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -120,6 +126,7 @@ class ContextualPrecision(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class ContextualRelevancy(DeepEvalScorer):
     """
     Evaluates the overall relevance of information in the retrieval context.
@@ -130,7 +137,7 @@ class ContextualRelevancy(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:

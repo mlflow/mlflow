@@ -595,37 +595,32 @@ const config: Config = {
             to: '/genai/flavors/llama-index/notebooks/llama_index_workflow_tutorial',
             from: ['/llms/llama-index/notebooks/llama_index_workflow_tutorial'],
           },
+          // Redirect deprecated OpenAI model logging pages to prompt registry
           {
-            to: '/genai/flavors/openai',
-            from: ['/llms/openai'],
-          },
-          {
-            to: '/genai/flavors/openai/autologging',
-            from: ['/llms/openai/autologging'],
-          },
-          {
-            to: '/genai/flavors/openai/guide',
-            from: ['/llms/openai/guide'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks',
-            from: ['/llms/openai/notebooks'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-chat-completions',
-            from: ['/llms/openai/notebooks/openai-chat-completions'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-code-helper',
-            from: ['/llms/openai/notebooks/openai-code-helper'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-embeddings-generation',
-            from: ['/llms/openai/notebooks/openai-embeddings-generation'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-quickstart',
-            from: ['/llms/openai/notebooks/openai-quickstart'],
+            to: '/genai/prompt-registry',
+            from: [
+              '/llms/openai',
+              '/llms/openai/guide',
+              '/llms/openai/guide/index',
+              '/llms/openai/autologging',
+              '/llms/openai/autologging/index',
+              '/llms/openai/notebooks',
+              '/llms/openai/notebooks/index',
+              '/llms/openai/notebooks/openai-quickstart-ipynb',
+              '/llms/openai/notebooks/openai-chat-completions-ipynb',
+              '/genai/flavors/openai',
+              '/genai/flavors/openai/index',
+              '/genai/flavors/openai/guide',
+              '/genai/flavors/openai/guide/index',
+              '/genai/flavors/openai/autologging',
+              '/genai/flavors/openai/autologging/index',
+              '/genai/flavors/openai/notebooks',
+              '/genai/flavors/openai/notebooks/index',
+              '/genai/flavors/openai/notebooks/openai-quickstart-ipynb',
+              '/genai/flavors/openai/notebooks/openai-chat-completions-ipynb',
+              '/genai/flavors/openai/notebooks/openai-code-helper-ipynb',
+              '/genai/flavors/openai/notebooks/openai-embeddings-generation-ipynb',
+            ],
           },
 
           // Evaluation and Monitoring Redirects

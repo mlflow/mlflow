@@ -115,11 +115,11 @@ from mlflow.protos.service_pb2 import (
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
-    DeleteEndpointTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -181,8 +181,8 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     SetDatasetTags,
-    SetEndpointTag,
     SetExperimentTag,
+    SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
@@ -225,6 +225,7 @@ from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils.crypto import KEKManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -4121,6 +4122,7 @@ def _update_gateway_model_definition():
             "secret_id": [_assert_string],
             "model_name": [_assert_string],
             "updated_by": [_assert_string],
+            "provider": [_assert_string],
         },
     )
     model_definition = _get_tracking_store().update_gateway_model_definition(
@@ -4129,6 +4131,7 @@ def _update_gateway_model_definition():
         secret_id=request_message.secret_id or None,
         model_name=request_message.model_name or None,
         updated_by=request_message.updated_by or None,
+        provider=request_message.provider or None,
     )
     response_message = UpdateGatewayModelDefinition.Response()
     response_message.model_definition.CopyFrom(model_definition.to_proto())
@@ -4267,7 +4270,7 @@ def _list_gateway_endpoint_bindings():
 @_disable_if_artifacts_only
 def _set_gateway_endpoint_tag():
     request_message = _get_request_message(
-        SetEndpointTag(),
+        SetGatewayEndpointTag(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4276,7 +4279,7 @@ def _set_gateway_endpoint_tag():
     )
     tag = GatewayEndpointTag(request_message.key, request_message.value)
     _get_tracking_store().set_gateway_endpoint_tag(request_message.endpoint_id, tag)
-    response_message = SetEndpointTag.Response()
+    response_message = SetGatewayEndpointTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4286,7 +4289,7 @@ def _set_gateway_endpoint_tag():
 @_disable_if_artifacts_only
 def _delete_gateway_endpoint_tag():
     request_message = _get_request_message(
-        DeleteEndpointTag(),
+        DeleteGatewayEndpointTag(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4295,7 +4298,7 @@ def _delete_gateway_endpoint_tag():
     _get_tracking_store().delete_gateway_endpoint_tag(
         request_message.endpoint_id, request_message.key
     )
-    response_message = DeleteEndpointTag.Response()
+    response_message = DeleteGatewayEndpointTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4331,6 +4334,18 @@ def _get_provider_config():
         return jsonify(config)
     except (ImportError, ValueError) as e:
         raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_secrets_config():
+    kek_manager = KEKManager()
+    return jsonify(
+        {
+            "secrets_available": True,
+            "using_default_passphrase": kek_manager.using_default_passphrase,
+        }
+    )
 
 
 def _get_rest_path(base_path, version=2):
@@ -4413,18 +4428,23 @@ def get_gateway_endpoints():
     """Returns endpoint tuples for gateway provider/model discovery APIs."""
     return [
         (
-            _get_ajax_path("/mlflow/endpoints/supported-providers", version=3),
+            _get_ajax_path("/mlflow/gateway/supported-providers", version=3),
             _list_supported_providers,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/endpoints/supported-models", version=3),
+            _get_ajax_path("/mlflow/gateway/supported-models", version=3),
             _list_supported_models,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/endpoints/provider-config", version=3),
+            _get_ajax_path("/mlflow/gateway/provider-config", version=3),
             _get_provider_config,
+            ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/secrets/config", version=3),
+            _get_secrets_config,
             ["GET"],
         ),
     ]
@@ -4794,6 +4814,6 @@ HANDLERS = {
     DeleteGatewayEndpointBinding: _delete_gateway_endpoint_binding,
     ListGatewayEndpointBindings: _list_gateway_endpoint_bindings,
     # Endpoint Tags APIs
-    SetEndpointTag: _set_gateway_endpoint_tag,
-    DeleteEndpointTag: _delete_gateway_endpoint_tag,
+    SetGatewayEndpointTag: _set_gateway_endpoint_tag,
+    DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
 }

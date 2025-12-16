@@ -261,8 +261,9 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
 
         logged_model = mlflow.last_logged_model()
         model_conf = Model.load(logged_model.model_uri)
+        artifact_path = local_file_uri_to_path(logged_model.artifact_location)
         input_example = pd.read_json(
-            os.path.join(logged_model.artifact_location, "input_example.json"), orient="split"
+            os.path.join(artifact_path, "input_example.json"), orient="split"
         )
         model_signature_input_names = [inp.name for inp in model_conf.signature.inputs.inputs]
         assert "XLarge Bags" in model_signature_input_names
@@ -388,7 +389,7 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     model = xgb.train(bst_params, dtrain)
     run = get_latest_run()
     run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    artifacts_dir = local_file_uri_to_path(run.info.artifact_uri)
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
@@ -412,7 +413,7 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     model = xgb.train(bst_params, dtrain)
     run = get_latest_run()
     run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    artifacts_dir = local_file_uri_to_path(run.info.artifact_uri)
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
@@ -445,7 +446,7 @@ def test_xgb_autolog_logs_feature_importance_for_linear_boosters(dtrain):
 
     run = get_latest_run()
     run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    artifacts_dir = local_file_uri_to_path(run.info.artifact_uri)
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
