@@ -11,7 +11,6 @@ from mlflow.pydantic_ai.autolog import (
 )
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.autologging_utils.safety import _store_patch, _wrap_patch
 
@@ -65,7 +64,6 @@ def _patch_method(cls, method_name):
         safe_patch(FLAVOR_NAME, cls, method_name, patched_class_call)
 
 
-@experimental(version="3.0.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """

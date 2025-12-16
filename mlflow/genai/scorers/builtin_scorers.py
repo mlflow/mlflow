@@ -31,6 +31,10 @@ from mlflow.genai.judges.prompts.conversation_completeness import (
     CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
     CONVERSATION_COMPLETENESS_PROMPT,
 )
+from mlflow.genai.judges.prompts.conversational_role_adherence import (
+    CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME,
+    CONVERSATIONAL_ROLE_ADHERENCE_PROMPT,
+)
 from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
 from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME,
@@ -38,6 +42,7 @@ from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
 )
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.fluency import FLUENCY_ASSESSMENT_NAME, FLUENCY_PROMPT
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.relevance_to_query import (
@@ -1403,6 +1408,85 @@ class Correctness(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
+class Fluency(BuiltInScorer):
+    """
+    Fluency evaluates the grammatical correctness, natural flow, and linguistic quality of text.
+
+    This scorer analyzes text to determine if it is grammatically correct, reads naturally,
+    flows smoothly, and uses varied sentence structure. It returns "yes" or "no".
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "fluency".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Fluency
+
+        assessment = Fluency()(outputs="The cat sat on the mat.")
+        print(assessment)  # Feedback with value "yes"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Fluency
+
+        data = [
+            {
+                "inputs": {"question": "What is the capital of France?"},
+                "outputs": "The capital of France is Paris.",
+            },
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[Fluency()])
+    """
+
+    name: str = FLUENCY_ASSESSMENT_NAME
+    model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate grammatical correctness, natural flow, and linguistic quality of text."
+    )
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    def _get_judge(self) -> InstructionsJudge:
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=Literal["yes", "no"],
+            )
+        return self._judge
+
+    @property
+    def instructions(self) -> str:
+        return FLUENCY_PROMPT
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return self._get_judge().get_input_fields()
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        return self._get_judge()._evaluate_impl(
+            outputs=outputs,
+            trace=trace,
+        )
+
+
+@format_docstring(_MODEL_API_DOC)
 class Equivalence(BuiltInScorer):
     """
     Equivalence compares outputs against expected outputs for semantic equivalence.
@@ -1639,7 +1723,7 @@ class BuiltInSessionLevelScorer(BuiltInScorer):
                 f"Session level scorers can only accept the `session` and `expectations` "
                 f"parameters. Got unexpected keyword argument(s): {invalid_args}"
             )
-        return self._get_judge()(session=session, expectations=expectations)
+        return self._get_judge()._evaluate_impl(session=session, expectations=expectations)
 
 
 @experimental(version="3.7.0")
@@ -1653,10 +1737,10 @@ class UserFrustration(BuiltInSessionLevelScorer):
     determine if the user shows explicit or implicit frustration directed at the AI.
     It evaluates the entire conversation and returns one of three values:
 
-    - "no_frustration": user not frustrated at any point in the conversation
-    - "frustration_resolved": user is frustrated at some point in the conversation,
+    - "none": user not frustrated at any point in the conversation
+    - "resolved": user is frustrated at some point in the conversation,
       but leaves the conversation satisfied
-    - "frustration_not_resolved": user is still frustrated at the end of the conversation
+    - "unresolved": user is still frustrated at the end of the conversation
 
     You can invoke the scorer directly with a session for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
@@ -1681,8 +1765,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
 
         assessment = UserFrustration(name="my_user_frustration_judge")(session=session)
         print(assessment)
-        # Feedback with value "no_frustration", "frustration_resolved", or
-        # "frustration_not_resolved"
+        # Feedback with value "none", "resolved", or "unresolved"
 
     Example (with evaluate):
 
@@ -1709,9 +1792,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal[
-                "no_frustration", "frustration_resolved", "frustration_not_resolved"
-            ],
+            feedback_value_type=Literal["none", "resolved", "unresolved"],
         )
 
     @property
@@ -1944,6 +2025,78 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
+    """
+    Conversational role adherence evaluates whether an AI assistant maintains its assigned
+    role throughout a conversation.
+
+    This scorer analyzes the complete conversation to evaluate whether the assistant
+    adheres to its defined role as specified in the system message, or implicitly
+    maintains a consistent persona throughout the interaction.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversational_role_adherence".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalRoleAdherence
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = ConversationalRoleAdherence()(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalRoleAdherence
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalRoleAdherence()])
+    """
+
+    name: str = CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME
+    model: str | None = None
+    description: str = (
+        "Evaluate whether an AI assistant maintains its assigned role throughout "
+        "a conversation, checking for persona consistency and boundary violations."
+    )
+
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+            generate_rationale_first=True,
+        )
+
+    @property
+    def instructions(self) -> str:
+        return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
+
+
 @experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class Completeness(BuiltInScorer):
@@ -2042,7 +2195,7 @@ class Completeness(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._get_judge()(
+        return self._get_judge()._evaluate_impl(
             inputs=inputs,
             outputs=outputs,
             trace=trace,
