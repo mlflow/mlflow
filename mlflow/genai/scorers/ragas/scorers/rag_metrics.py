@@ -15,9 +15,6 @@ class ContextPrecision(RagasScorer):
     Evaluates whether relevant nodes in the retrieval context are ranked higher than
     irrelevant ones.
 
-    This metric assesses the quality of your retriever by checking if the most relevant
-    retrieved context are ranked higher than less relevant ones.
-
     Args:
         model: {{ model }}
         **metric_kwargs: Additional metric-specific parameters
@@ -37,10 +34,7 @@ class ContextPrecision(RagasScorer):
 @experimental(version="3.8.0")
 class NonLLMContextPrecisionWithReference(RagasScorer):
     """
-    Evaluates context precision using non-LLM methods with reference.
-
-    This is a deterministic metric that evaluates context precision without using an LLM,
-    requiring a reference for comparison.
+    Deterministic metric that evaluates context precision using non-LLM methods using expectations.
 
     Args:
         **metric_kwargs: Additional metric-specific parameters
@@ -63,10 +57,6 @@ class ContextRecall(RagasScorer):
     """
     Evaluates whether the retrieval context contains all necessary information.
 
-    This metric measures how much of the expected output can be attributed to the nodes in
-    the retrieval context. It assesses the quality of the retriever by checking if all
-    required information is present in the retrieved documents.
-
     Args:
         model: {{ model }}
         **metric_kwargs: Additional metric-specific parameters
@@ -86,9 +76,7 @@ class ContextRecall(RagasScorer):
 @experimental(version="3.8.0")
 class NonLLMContextRecall(RagasScorer):
     """
-    Evaluates context recall using non-LLM methods.
-
-    This is a deterministic metric that evaluates context recall without using an LLM.
+    Deterministic metric that evaluates context recall without using an LLM.
 
     Args:
         **metric_kwargs: Additional metric-specific parameters
@@ -110,9 +98,6 @@ class NonLLMContextRecall(RagasScorer):
 class ContextEntityRecall(RagasScorer):
     """
     Evaluates entity recall in the retrieval context.
-
-    This metric measures how many entities from the ground truth are present in the
-    retrieved context.
 
     Args:
         model: {{ model }}
@@ -136,9 +121,6 @@ class NoiseSensitivity(RagasScorer):
     """
     Evaluates how sensitive the model is to noise in the retrieval context.
 
-    This metric assesses whether the model is distracted by irrelevant information in
-    the retrieved documents.
-
     Args:
         model: {{ model }}
         **metric_kwargs: Additional metric-specific parameters
@@ -160,10 +142,6 @@ class NoiseSensitivity(RagasScorer):
 class Faithfulness(RagasScorer):
     """
     Evaluates whether the output is factually consistent with the retrieval context.
-
-    This metric determines if claims in the output can be inferred from the provided context.
-    It helps detect hallucinations by checking if the generated content is grounded in the
-    retrieved documents.
 
     Args:
         model: {{ model }}
