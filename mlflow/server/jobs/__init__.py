@@ -184,7 +184,7 @@ def submit_job(
     # enqueue job
     _get_or_init_huey_instance(func_fullname).submit_task(
         job.job_id,
-        function,
+        func_fullname,
         params,
         timeout,
     )

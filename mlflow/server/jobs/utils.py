@@ -213,7 +213,7 @@ def _exec_job_in_subproc(
 
 def _exec_job(
     job_id: str,
-    function: Callable[..., Any],
+    fn_fullname: str,
     params: dict[str, Any],
     timeout: float | None,
 ) -> None:
@@ -222,6 +222,7 @@ def _exec_job(
     job_store = _get_job_store()
     job_store.start_job(job_id)
 
+    function = _load_function(fn_fullname)
     fn_metadata = function._job_fn_metadata
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -270,12 +271,14 @@ def _get_or_init_huey_instance(instance_key: str):
     from huey import SqliteHuey
     from huey.serializer import Serializer
 
-    class CloudPickleSerializer(Serializer):
+    class JsonSerializer(Serializer):
         def serialize(self, data):
-            return cloudpickle.dumps(data)
+            return json.dumps(data._asdict()).encode("utf-8")
 
         def deserialize(self, data):
-            return cloudpickle.loads(data)
+            from huey.registry import Message
+
+            return Message(**json.loads(data.decode("utf-8")))
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
@@ -286,7 +289,7 @@ def _get_or_init_huey_instance(instance_key: str):
             huey_instance = SqliteHuey(
                 filename=huey_store_file,
                 results=False,
-                serializer=CloudPickleSerializer(),
+                serializer=JsonSerializer(),
             )
             huey_submit_task_fn = huey_instance.task(retries=0)(_exec_job)
             _huey_instance_map[instance_key] = HueyInstance(
