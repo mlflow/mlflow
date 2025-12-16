@@ -4,7 +4,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.deepeval import AnswerRelevancy, KnowledgeRetention, get_scorer
+from mlflow.genai.scorers.deepeval import get_scorer
 
 
 def test_deepeval_scorer_with_exact_match_metric():
