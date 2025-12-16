@@ -973,7 +973,7 @@ mlflow.genai.scorers.deepeval.Toxicity.model_post_init
 mlflow.genai.scorers.deepeval.TurnRelevancy
 mlflow.genai.scorers.deepeval.TurnRelevancy.model_post_init
 mlflow.genai.scorers.deepeval.experimental
-mlflow.genai.scorers.deepeval.get_judge
+mlflow.genai.scorers.deepeval.get_scorer
 mlflow.genai.scorers.deepeval.scorers.ExactMatch
 mlflow.genai.scorers.deepeval.scorers.Hallucination
 mlflow.genai.scorers.deepeval.scorers.JsonCorrectness
