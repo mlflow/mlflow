@@ -4,14 +4,52 @@ import { JSONBig } from '../../core/utils/json';
 import { GetCredentialsForTraceDataDownload, GetCredentialsForTraceDataUpload } from '../spec';
 import { getRequestHeaders, makeRequest } from '../utils';
 import { ArtifactsClient } from './base';
+import { AuthProvider, HeadersProvider } from '../../auth';
+
+/**
+ * Options for creating a DatabricksArtifactsClient.
+ */
+export interface DatabricksArtifactsClientOptions {
+  /**
+   * The Databricks workspace host URL
+   */
+  host: string;
+
+  /**
+   * Authentication provider (new mode)
+   */
+  authProvider?: AuthProvider;
+
+  /**
+   * Databricks personal access token (legacy mode)
+   * @deprecated Use authProvider instead
+   */
+  databricksToken?: string;
+}
 
 export class DatabricksArtifactsClient implements ArtifactsClient {
   private host: string;
-  private databricksToken?: string;
+  private headersProvider: HeadersProvider;
 
-  constructor(options: { host: string; databricksToken?: string }) {
+  constructor(options: DatabricksArtifactsClientOptions) {
     this.host = options.host;
-    this.databricksToken = options.databricksToken;
+
+    if (options.authProvider) {
+      // New mode: Use AuthProvider
+      this.headersProvider = options.authProvider.getHeadersProvider();
+    } else {
+      // Legacy mode: Use databricksToken directly (backwards compatibility)
+      this.headersProvider = this.createLegacyHeadersProvider(options.databricksToken);
+    }
+  }
+
+  /**
+   * Create a legacy headers provider for backwards compatibility.
+   */
+  private createLegacyHeadersProvider(databricksToken?: string): HeadersProvider {
+    return async () => {
+      return getRequestHeaders(databricksToken);
+    };
   }
 
   /**
@@ -56,10 +94,11 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
    */
   private async getCredentialsForTraceDataUpload(traceId: string): Promise<ArtifactCredentialInfo> {
     const url = GetCredentialsForTraceDataUpload.getEndpoint(this.host, traceId);
+    const headers = await this.headersProvider();
     const response = await makeRequest<GetCredentialsForTraceDataUpload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      headers
     );
     return response.credential_info;
   }
@@ -72,10 +111,11 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     traceId: string
   ): Promise<ArtifactCredentialInfo> {
     const url = GetCredentialsForTraceDataDownload.getEndpoint(this.host, traceId);
+    const headers = await this.headersProvider();
     const response = await makeRequest<GetCredentialsForTraceDataDownload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      headers
     );
 
     if (response.credential_info) {

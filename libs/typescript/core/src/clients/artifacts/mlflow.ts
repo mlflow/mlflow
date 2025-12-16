@@ -3,11 +3,27 @@ import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
 import { TraceInfo } from '../../core/entities/trace_info';
 import { getRequestHeaders, makeRequest } from '../utils';
 import { ArtifactsClient } from './base';
+import { AuthProvider, HeadersProvider } from '../../auth';
 
 /**
  * Trace data file name constant - matches Python SDK
  */
 const TRACE_DATA_FILE_NAME = 'traces.json';
+
+/**
+ * Options for creating an MlflowArtifactsClient.
+ */
+export interface MlflowArtifactsClientOptions {
+  /**
+   * The MLflow tracking server host URL
+   */
+  host: string;
+
+  /**
+   * Authentication provider (optional, for authenticated artifact endpoints)
+   */
+  authProvider?: AuthProvider;
+}
 
 /**
  * MLflow OSS Artifacts Client
@@ -17,10 +33,20 @@ const TRACE_DATA_FILE_NAME = 'traces.json';
  */
 export class MlflowArtifactsClient implements ArtifactsClient {
   private readonly host: string;
+  private headersProvider: HeadersProvider;
 
-  constructor(options: { host: string }) {
+  constructor(options: MlflowArtifactsClientOptions) {
     this.host = options.host;
+
+    if (options.authProvider) {
+      // Use AuthProvider for authenticated requests
+      this.headersProvider = options.authProvider.getHeadersProvider();
+    } else {
+      // Default: no auth (OSS MLflow artifact endpoints often don't require auth)
+      this.headersProvider = async () => getRequestHeaders();
+    }
   }
+
   /**
    * Upload trace data to MLflow artifact storage.
    *
@@ -36,7 +62,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
 
     // Upload trace data to the artifact store
     const artifactUrl = this.getArtifactUrlForTrace(traceInfo);
-    const headers = getRequestHeaders();
+    const headers = await this.headersProvider();
     await makeRequest<void>('PUT', artifactUrl, headers, traceDataJson);
   }
 
@@ -52,7 +78,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
   async downloadTraceData(traceInfo: TraceInfo): Promise<TraceData> {
     // Download the trace data file
     const artifactUrl = this.getArtifactUrlForTrace(traceInfo);
-    const headers = getRequestHeaders();
+    const headers = await this.headersProvider();
 
     const traceDataJson = await makeRequest<SerializedTraceData>('GET', artifactUrl, headers);
 
