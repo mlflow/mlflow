@@ -73,8 +73,8 @@ def submit_job(payload: SubmitJobPayload) -> Job:
     from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
 
     job_name = payload.job_name
-    function_fullname = get_job_fn_fullname(job_name)
     try:
+        function_fullname = get_job_fn_fullname(job_name)
         function = _load_function(function_fullname)
         job = submit_job(function, payload.params, payload.timeout)
         return Job.from_job_entity(job)
@@ -86,7 +86,7 @@ def submit_job(payload: SubmitJobPayload) -> Job:
 
 
 class SearchJobPayload(BaseModel):
-    function_fullname: str | None = None
+    job_name: str | None = None
     params: dict[str, Any] | None = None
     statuses: list[JobStatus] | None = None
 
@@ -108,7 +108,7 @@ def search_jobs(payload: SearchJobPayload) -> SearchJobsResponse:
         job_results = [
             Job.from_job_entity(job)
             for job in store.list_jobs(
-                job_name=payload.function_fullname,
+                job_name=payload.job_name,
                 statuses=payload.statuses,
                 params=payload.params,
             )
