@@ -1683,7 +1683,15 @@ def test_last_turn_knowledge_retention_success():
         assert isinstance(result, Feedback)
         assert result.value == "yes"
         mock_invoke_judge.assert_called_once()
-        # ALKIS: We should check that mock_invoke_judge receives the whole session
+
+        # Verify the judge receives the conversation with both turns
+        call_kwargs = mock_invoke_judge.call_args.kwargs
+        assert "prompt" in call_kwargs
+        # The conversation should include both turns (user + assistant messages)
+        prompt_messages = call_kwargs["prompt"]
+        conversation_content = prompt_messages[1].content
+        assert "My name is Alice and I love Python" in conversation_content
+        assert "What programming language do I like?" in conversation_content
 
 
 def test_knowledge_retention_success():
