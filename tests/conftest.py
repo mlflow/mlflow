@@ -901,3 +901,13 @@ def db_uri(cached_db: Path) -> Iterator[str]:
             shutil.copy2(cached_db, db_path)
 
         yield f"sqlite:///{db_path}"
+
+
+@pytest.fixture(autouse=True)
+def clear_engine_map():
+    try:
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+        SqlAlchemyStore._db_uri_sql_alchemy_engine_map.clear()
+    except ImportError:
+        pass
