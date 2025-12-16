@@ -584,8 +584,8 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    # Now we have 9 scorers for OSS and 11 for Databricks
-    assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
+    # Now we have 10 scorers for OSS and 12 for Databricks
+    assert len(scorers) == (12 if tracking_uri == "databricks" else 10)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
