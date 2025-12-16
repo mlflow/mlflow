@@ -11,6 +11,76 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+const BUILTIN_SCORER_ASSESSMENT_DISPLAY = {
+  user_frustration: {
+    none: {
+      color: 'lime' as TagColors,
+      icon: CheckCircleIcon,
+      label: (
+        <FormattedMessage
+          defaultMessage="None"
+          description="Label for a user_frustration assessment with 'none' value"
+        />
+      ),
+    },
+    resolved: {
+      color: 'lemon' as TagColors,
+      icon: CheckCircleIcon,
+      label: (
+        <FormattedMessage
+          defaultMessage="Resolved"
+          description="Label for a user_frustration assessment with 'resolved' value"
+        />
+      ),
+    },
+    unresolved: {
+      color: 'coral' as TagColors,
+      icon: XCircleIcon,
+      label: (
+        <FormattedMessage
+          defaultMessage="Unresolved"
+          description="Label for a user_frustration assessment with 'unresolved' value"
+        />
+      ),
+    },
+  },
+} as const;
+
+type BuiltInScorerAssessmentName = keyof typeof BUILTIN_SCORER_ASSESSMENT_DISPLAY;
+
+const getBuiltInScorerAssessmentDisplay = (
+  assessmentName: string | undefined,
+  parsedValue: any,
+  theme: any,
+  skipIcons: boolean,
+): { color: TagColors; children: React.ReactNode } | undefined => {
+  if (!assessmentName) {
+    return undefined;
+  }
+
+  const builtInAssessment = BUILTIN_SCORER_ASSESSMENT_DISPLAY[assessmentName as BuiltInScorerAssessmentName];
+  if (!builtInAssessment) {
+    return undefined;
+  }
+
+  const valueKey = String(parsedValue ?? '') as keyof typeof builtInAssessment;
+  const displayConfig = builtInAssessment[valueKey];
+  if (!displayConfig) {
+    return undefined;
+  }
+
+  const IconComponent = displayConfig.icon;
+  return {
+    color: displayConfig.color,
+    children: (
+      <>
+        {!skipIcons && <IconComponent css={{ marginRight: theme.spacing.xs }} />}
+        {displayConfig.label}
+      </>
+    ),
+  };
+};
+
 // displays a single JSON-strigified assessment value as a tag
 export const AssessmentDisplayValue = ({
   jsonValue,
@@ -18,12 +88,14 @@ export const AssessmentDisplayValue = ({
   prefix,
   skipIcons = false,
   overrideColor,
+  assessmentName,
 }: {
   jsonValue: string;
   className?: string;
   prefix?: React.ReactNode;
   skipIcons?: boolean;
   overrideColor?: TagColors;
+  assessmentName?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -42,7 +114,12 @@ export const AssessmentDisplayValue = ({
 
   let color: TagColors = 'default';
   let children: React.ReactNode = JSON.stringify(parsedValue, null, 2);
-  if (parsedValue === 'yes') {
+
+  const builtInDisplay = getBuiltInScorerAssessmentDisplay(assessmentName, parsedValue, theme, skipIcons);
+  if (builtInDisplay) {
+    color = builtInDisplay.color;
+    children = builtInDisplay.children;
+  } else if (parsedValue === 'yes') {
     color = 'lime';
     children = (
       <>
