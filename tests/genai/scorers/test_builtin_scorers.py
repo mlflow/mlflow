@@ -1620,9 +1620,7 @@ def test_conversational_role_adherence_with_session():
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
         traces.append(mlflow.get_trace(span.trace_id))
 
-    with patch(
-        "mlflow.genai.judges.instructions_judge.InstructionsJudge.__call__"
-    ) as mock_judge_call:
+    with patch("mlflow.genai.judges.instructions_judge.invoke_judge_model") as mock_judge_call:
         mock_judge_call.return_value = Feedback(
             name="conversational_role_adherence",
             value=CategoricalRating.YES,
