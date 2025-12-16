@@ -24,6 +24,8 @@ PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
 # run_stream_sync was added in pydantic-ai 1.10.0
 HAS_RUN_STREAM_SYNC = hasattr(Agent, "run_stream_sync")
+# Streaming tests require pydantic-ai >= 1.0.0 due to API changes
+HAS_STABLE_STREAMING_API = PYDANTIC_AI_VERSION >= Version("1.0.0")
 
 
 def _make_dummy_response_without_tool():
@@ -304,6 +306,9 @@ async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool
     assert span3.parent_id == spans[0].span_id
 
 
+@pytest.mark.skipif(
+    not HAS_STABLE_STREAMING_API, reason="Streaming API stabilized in pydantic-ai 1.0.0"
+)
 @pytest.mark.asyncio
 async def test_agent_run_stream_creates_trace(simple_agent):
     response, usage = _make_streaming_response_without_tool(input_tokens=10, output_tokens=5)
@@ -339,6 +344,9 @@ async def test_agent_run_stream_creates_trace(simple_agent):
     assert usage_attr.get("total_tokens") == 15
 
 
+@pytest.mark.skipif(
+    not HAS_STABLE_STREAMING_API, reason="Streaming API stabilized in pydantic-ai 1.0.0"
+)
 @pytest.mark.skipif(not HAS_RUN_STREAM_SYNC, reason="run_stream_sync added in pydantic-ai 1.10.0")
 def test_agent_run_stream_sync_creates_trace(simple_agent):
     response, usage = _make_streaming_response_without_tool(input_tokens=10, output_tokens=5)
@@ -380,6 +388,9 @@ def test_agent_run_stream_sync_creates_trace(simple_agent):
     assert usage_attr.get("total_tokens") == 15
 
 
+@pytest.mark.skipif(
+    not HAS_STABLE_STREAMING_API, reason="Streaming API stabilized in pydantic-ai 1.0.0"
+)
 @pytest.mark.asyncio
 async def test_agent_run_stream_with_tool(agent_with_tool):
     sequence = _make_streaming_response_with_tool()
@@ -422,6 +433,9 @@ async def test_agent_run_stream_with_tool(agent_with_tool):
     assert spans[3].parent_id == spans[0].span_id
 
 
+@pytest.mark.skipif(
+    not HAS_STABLE_STREAMING_API, reason="Streaming API stabilized in pydantic-ai 1.0.0"
+)
 @pytest.mark.skipif(not HAS_RUN_STREAM_SYNC, reason="run_stream_sync added in pydantic-ai 1.10.0")
 def test_agent_run_stream_sync_with_tool(agent_with_tool):
     sequence = _make_streaming_response_with_tool()
