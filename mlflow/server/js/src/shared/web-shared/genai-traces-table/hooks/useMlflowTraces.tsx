@@ -626,7 +626,7 @@ export const createMlflowSearchFilter = (
     filter.push(`attributes.run_id = '${runUuid}'`);
   }
   if (searchQuery) {
-    filter.push(`span.attributes.mlflow.spanInputs ILIKE '%${searchQuery}%'`);
+    filter.push(`span.attributes.\`mlflow.spanInputs\` ILIKE '%${searchQuery}%'`);
   }
   if (timeRange) {
     const timestampField = 'attributes.timestamp_ms';
