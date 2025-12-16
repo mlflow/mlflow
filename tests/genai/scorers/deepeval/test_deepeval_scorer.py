@@ -8,8 +8,8 @@ from mlflow.genai.scorers.deepeval import get_scorer
 
 
 def test_deepeval_scorer_with_exact_match_metric():
-    judge = get_scorer("ExactMatch")
-    result = judge(
+    scorer = get_scorer("ExactMatch")
+    result = scorer(
         inputs="What is MLflow?",
         outputs="MLflow is a platform",
         expectations={"expected_output": "MLflow is a platform"},
@@ -25,8 +25,8 @@ def test_deepeval_scorer_with_exact_match_metric():
 
 
 def test_deepeval_scorer_handles_failure_with_exact_match():
-    judge = get_scorer("ExactMatch")
-    result = judge(
+    scorer = get_scorer("ExactMatch")
+    result = scorer(
         inputs="What is MLflow?",
         outputs="MLflow is different",
         expectations={"expected_output": "MLflow is a platform"},
@@ -38,7 +38,10 @@ def test_deepeval_scorer_handles_failure_with_exact_match():
 
 
 def test_metric_kwargs_passed_to_deepeval_metric():
-    with patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class:
+    with (
+        patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class,
+        patch("mlflow.genai.scorers.deepeval.create_deepeval_model") as mock_create_model,
+    ):
         mock_metric_class = Mock()
         mock_metric_instance = Mock()
         mock_metric_instance.score = 0.8
@@ -47,42 +50,38 @@ def test_metric_kwargs_passed_to_deepeval_metric():
         mock_metric_instance.is_successful.return_value = True
         mock_metric_class.return_value = mock_metric_instance
         mock_get_metric_class.return_value = mock_metric_class
+        mock_create_model.return_value = Mock()
 
-        with patch("mlflow.genai.scorers.deepeval.create_deepeval_model") as mock_create_model:
-            mock_create_model.return_value = Mock()
+        get_scorer("AnswerRelevancy", threshold=0.9, include_reason=True, custom_param="value")
 
-            get_scorer("AnswerRelevancy", threshold=0.9, include_reason=True, custom_param="value")
-
-            call_kwargs = mock_metric_class.call_args[1]
-            assert call_kwargs["threshold"] == 0.9
-            assert call_kwargs["include_reason"] is True
-            assert call_kwargs["custom_param"] == "value"
-            assert call_kwargs["verbose_mode"] is False
-            assert call_kwargs["async_mode"] is False
+        call_kwargs = mock_metric_class.call_args[1]
+        assert call_kwargs["threshold"] == 0.9
+        assert call_kwargs["include_reason"] is True
+        assert call_kwargs["custom_param"] == "value"
+        assert call_kwargs["verbose_mode"] is False
+        assert call_kwargs["async_mode"] is False
 
 
 def test_deepeval_scorer_returns_error_feedback_on_exception():
-    with patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class:
+    with (
+        patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class,
+        patch("mlflow.genai.scorers.deepeval.create_deepeval_model") as mock_create_model,
+    ):
         mock_metric_class = Mock()
         mock_metric_instance = Mock()
         mock_metric_instance.measure.side_effect = RuntimeError("Test error")
         mock_metric_class.return_value = mock_metric_instance
         mock_get_metric_class.return_value = mock_metric_class
+        mock_create_model.return_value = Mock()
 
-        with patch("mlflow.genai.scorers.deepeval.create_deepeval_model") as mock_create_model:
-            mock_create_model.return_value = Mock()
+        scorer = get_scorer("AnswerRelevancy", model="openai:/gpt-4o")
+        result = scorer(inputs="What is MLflow?", outputs="Test output")
 
-            with patch("mlflow.genai.scorers.deepeval.get_default_model") as mock_get_default:
-                mock_get_default.return_value = "openai:/gpt-4o-mini"
-
-                judge = get_scorer("AnswerRelevancy")
-                result = judge(inputs="What is MLflow?", outputs="Test output")
-
-                assert isinstance(result, Feedback)
-                assert result.name == "AnswerRelevancy"
-                assert result.value is None
-                assert result.error is not None
-                assert result.error.error_code == "RuntimeError"
-                assert result.error.error_message == "Test error"
-                assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
-                assert result.source.source_id == "openai:/gpt-4o-mini"
+        assert isinstance(result, Feedback)
+        assert result.name == "AnswerRelevancy"
+        assert result.value is None
+        assert result.error is not None
+        assert result.error.error_code == "RuntimeError"
+        assert result.error.error_message == "Test error"
+        assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+        assert result.source.source_id == "openai:/gpt-4o"
