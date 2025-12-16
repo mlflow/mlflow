@@ -2096,8 +2096,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
 
     Args:
         name: The name of the scorer. Defaults to "knowledge_retention".
-        single_turn_scorer: Scorer to use for evaluating each turn.
-            Defaults to LastTurnKnowledgeRetention().
+        last_turn_scorer: Scorer to use for evaluating each turn.
         model: {{ model }}
 
     Example (direct usage):
@@ -2135,35 +2134,33 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
 
     name: str = KNOWLEDGE_RETENTION_ASSESSMENT_NAME
     model: str | None = None
-    single_turn_scorer: Scorer = pydantic.Field(
-        default_factory=lambda: _LastTurnKnowledgeRetention()
-    )
+    last_turn_scorer: Scorer = pydantic.Field(default_factory=lambda: _LastTurnKnowledgeRetention())
     description: str = (
         "Evaluate whether the AI correctly retains information provided by users "
         "in earlier conversation turns without forgetting, contradicting, or distorting it."
     )
 
-    def __init__(self, /, single_turn_scorer: Scorer | None = None, **kwargs):
+    def __init__(self, /, last_turn_scorer: Scorer | None = None, **kwargs):
         """
         Initialize KnowledgeRetention scorer.
 
         Args:
-            single_turn_scorer: Scorer to use for evaluating each turn.
-                Defaults to LastTurnKnowledgeRetention().
+            last_turn_scorer: Optional custom scorer to use for evaluating knowledge
+                retention of each turn.
             **kwargs: Additional arguments passed to parent (name, model, etc.)
         """
-        if single_turn_scorer is not None:
-            kwargs["single_turn_scorer"] = single_turn_scorer
+        if last_turn_scorer is not None:
+            kwargs["last_turn_scorer"] = last_turn_scorer
         super().__init__(**kwargs)
 
     def _create_judge(self) -> InstructionsJudge:
         """
         This method is required by BuiltInSessionLevelScorer but is not used.
-        KnowledgeRetention uses composition (delegating to single_turn_scorer)
+        KnowledgeRetention uses composition (delegating to last_turn_scorer)
         rather than creating its own judge.
         """
         raise NotImplementedError(
-            "KnowledgeRetention uses composition with single_turn_scorer "
+            "KnowledgeRetention uses composition with last_turn_scorer "
             "and does not use a judge directly."
         )
 
@@ -2171,11 +2168,11 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
     def instructions(self) -> str:
         """
         This property is required by BuiltInSessionLevelScorer but is not used.
-        KnowledgeRetention uses composition (delegating to single_turn_scorer)
+        KnowledgeRetention uses composition (delegating to last_turn_scorer)
         rather than using its own instructions.
         """
         raise NotImplementedError(
-            "KnowledgeRetention uses composition with single_turn_scorer "
+            "KnowledgeRetention uses composition with last_turn_scorer "
             "and does not use instructions directly."
         )
 
@@ -2241,10 +2238,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         turn_idx: int,
         sorted_traces: list[Trace],
     ) -> Feedback:
-        """Evaluate a single turn for knowledge retention using the single_turn_scorer."""
+        """Evaluate a single turn for knowledge retention using the last_turn_scorer."""
         session_up_to_turn = sorted_traces[: turn_idx + 1]
 
-        return self.single_turn_scorer(session=session_up_to_turn)
+        return self.last_turn_scorer(session=session_up_to_turn)
 
     def _compute_aggregate(self, per_turn_results: list[dict[str, Any]]) -> Feedback:
         """Compute aggregate knowledge retention feedback using worst-case logic."""

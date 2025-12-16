@@ -1650,7 +1650,7 @@ def test_conversational_role_adherence_instructions():
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
 
 
-def test_knowledge_retention_uses_default_single_turn_scorer():
+def test_knowledge_retention_uses_default_last_turn_scorer():
     session_id = "test_session_default_scorer"
     session = []
 
@@ -1720,7 +1720,7 @@ def test_knowledge_retention_success():
         ),
     )
 
-    scorer = KnowledgeRetention(single_turn_scorer=fake_scorer)
+    scorer = KnowledgeRetention(last_turn_scorer=fake_scorer)
     result = scorer(session=traces)
 
     assert isinstance(result, Feedback)
@@ -1763,7 +1763,7 @@ def test_knowledge_retention_failure():
         ),
     )
 
-    scorer = KnowledgeRetention(single_turn_scorer=fake_scorer)
+    scorer = KnowledgeRetention(last_turn_scorer=fake_scorer)
     result = scorer(session=traces)
 
     assert isinstance(result, Feedback)
@@ -1796,7 +1796,7 @@ def test_knowledge_retention_single_turn():
         ),
     )
 
-    scorer = KnowledgeRetention(single_turn_scorer=fake_scorer)
+    scorer = KnowledgeRetention(last_turn_scorer=fake_scorer)
     result = scorer(session=traces)
 
     assert isinstance(result, Feedback)
