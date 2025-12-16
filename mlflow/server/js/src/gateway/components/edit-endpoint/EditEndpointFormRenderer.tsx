@@ -4,7 +4,6 @@ import {
   Breadcrumb,
   Button,
   FormUI,
-  Input,
   Radio,
   Spinner,
   Tag,
@@ -12,6 +11,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, FormProvider, UseFormReturn } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint/ProviderSelect';
@@ -170,7 +170,7 @@ export const EditEndpointFormRenderer = ({
                     <FormUI.Label htmlFor="mlflow.gateway.edit-endpoint.name">
                       <FormattedMessage defaultMessage="Name" description="Label for endpoint name input" />
                     </FormUI.Label>
-                    <Input
+                    <GatewayInput
                       id="mlflow.gateway.edit-endpoint.name"
                       componentId="mlflow.gateway.edit-endpoint.name"
                       {...field}

@@ -1,4 +1,5 @@
-import { Input, FormUI, Spinner, useDesignSystemTheme, Radio } from '@databricks/design-system';
+import { FormUI, Spinner, useDesignSystemTheme, Radio } from '@databricks/design-system';
+import { GatewayInput } from '../common';
 import { useEffect, useMemo, useCallback, useRef } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
@@ -143,7 +144,7 @@ export const SecretFormFields = ({
           <FormUI.Label htmlFor={`${componentIdPrefix}.name`}>
             <FormattedMessage defaultMessage="API key name" description="Label for API key name input" />
           </FormUI.Label>
-          <Input
+          <GatewayInput
             id={`${componentIdPrefix}.name`}
             componentId={`${componentIdPrefix}.name`}
             value={value.name}
@@ -219,7 +220,7 @@ export const SecretFormFields = ({
             {formatCredentialFieldName(field.name)}
             {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
           </FormUI.Label>
-          <Input
+          <GatewayInput
             id={`${componentIdPrefix}.config.${field.name}`}
             componentId={`${componentIdPrefix}.config.${field.name}`}
             value={value.configFields[field.name] ?? ''}

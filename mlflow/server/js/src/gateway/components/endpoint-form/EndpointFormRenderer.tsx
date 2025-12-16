@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from 'react';
-import { Alert, Button, FormUI, Input, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, FormUI, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint/ProviderSelect';
@@ -188,7 +189,7 @@ export const EndpointFormRenderer = ({
               rules={{ required: 'Name is required' }}
               render={({ field, fieldState }) => (
                 <div>
-                  <Input
+                  <GatewayInput
                     id={`${componentIdPrefix}.name`}
                     componentId={`${componentIdPrefix}.name`}
                     {...field}

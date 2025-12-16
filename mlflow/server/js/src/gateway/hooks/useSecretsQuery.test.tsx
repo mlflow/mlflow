@@ -22,6 +22,7 @@ function createWrapper() {
 const generateMockSecret = (id: string, provider = 'openai'): SecretInfo => ({
   secret_id: `secret-${id}`,
   secret_name: `api-key-${id}`,
+  masked_value: 'sk-****',
   provider,
   created_at: 1700000000000,
   last_updated_at: 1700000000000 + 1000,

@@ -26,7 +26,11 @@ const generateMockEndpoint = (id: string, provider = 'openai'): Endpoint => ({
   last_updated_at: 1700000000000 + 1000,
   model_mappings: [
     {
-      model_mapping_id: `mm-${id}`,
+      mapping_id: `mm-${id}`,
+      endpoint_id: `ep-${id}`,
+      model_definition_id: `md-${id}`,
+      weight: 1,
+      created_at: 1700000000000,
       model_definition: {
         model_definition_id: `md-${id}`,
         name: `model-def-${id}`,

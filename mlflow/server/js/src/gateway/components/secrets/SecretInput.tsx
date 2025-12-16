@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
-import { Input, Button, useDesignSystemTheme, VisibleIcon, VisibleOffIcon } from '@databricks/design-system';
+import { Button, useDesignSystemTheme, VisibleIcon, VisibleOffIcon } from '@databricks/design-system';
 import type { InputProps } from '@databricks/design-system';
+import { GatewayInput } from '../common';
 
 interface SecretInputProps extends Omit<InputProps, 'type' | 'suffix'> {
   /** Current value */
@@ -27,24 +28,14 @@ export const SecretInput = ({ value, onChange, disabled, componentId, ...props }
   }, []);
 
   return (
-    <Input
+    <GatewayInput
       {...props}
       componentId={componentId}
-      // Use "text" type to avoid browser password manager prompts
       type="text"
-      // Prevent password managers from recognizing this field
-      autoComplete="off"
-      data-1p-ignore="true"
-      data-lpignore="true"
-      data-form-type="other"
-      // Use CSS to mask the text when not visible
       css={{
         fontFamily: 'monospace',
         // Use -webkit-text-security for masking (works in webkit browsers)
-        // Falls back to showing text in other browsers
         WebkitTextSecurity: isVisible ? 'none' : 'disc',
-        // For Firefox compatibility, we use a different approach
-        // The input remains type="text" but visually masked
       }}
       value={value}
       onChange={onChange}

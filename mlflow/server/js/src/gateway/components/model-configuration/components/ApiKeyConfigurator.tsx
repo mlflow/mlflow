@@ -11,8 +11,10 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { FormUI, Input, Radio, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { FormUI, Radio, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { GatewayInput } from '../../common';
+import { SecretInput } from '../../secrets/SecretInput';
 import { SecretSelector } from '../../secrets/SecretSelector';
 import { formatCredentialFieldName } from '../../../utils/providerUtils';
 import type { ApiKeyConfiguration, NewSecretData } from '../types';
@@ -266,7 +268,7 @@ function NewSecretForm({
         <FormUI.Label htmlFor={`${componentIdPrefix}.name`}>
           <FormattedMessage defaultMessage="API key name" description="Label for API key name input" />
         </FormUI.Label>
-        <Input
+        <GatewayInput
           id={`${componentIdPrefix}.name`}
           componentId={`${componentIdPrefix}.name`}
           value={value.name}
@@ -328,14 +330,9 @@ function NewSecretForm({
             {formatCredentialFieldName(field.name)}
             {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
           </FormUI.Label>
-          <Input
+          <SecretInput
             id={`${componentIdPrefix}.secret.${field.name}`}
             componentId={`${componentIdPrefix}.secret.${field.name}`}
-            type="password"
-            autoComplete="off"
-            data-1p-ignore
-            data-lpignore="true"
-            data-form-type="other"
             value={value.secretFields[field.name] ?? ''}
             onChange={(e) => onSecretFieldChange(field.name, e.target.value)}
             placeholder={field.description}
@@ -355,7 +352,7 @@ function NewSecretForm({
             {formatCredentialFieldName(field.name)}
             {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
           </FormUI.Label>
-          <Input
+          <GatewayInput
             id={`${componentIdPrefix}.config.${field.name}`}
             componentId={`${componentIdPrefix}.config.${field.name}`}
             value={value.configFields[field.name] ?? ''}
