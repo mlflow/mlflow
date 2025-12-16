@@ -39,8 +39,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
   const { theme } = useDesignSystemTheme();
   const [paneWidth, setPaneWidth] = useState(500);
   const contentStyle: Interpolation<Theme> = { flex: 1, marginTop: -theme.spacing.md, overflowY: 'auto' };
-  const { assessmentsPaneExpanded, assessmentsPaneEnabled } = useModelTraceExplorerViewState();
-
+  const { assessmentsPaneExpanded, assessmentsPaneEnabled, isInComparisonView } = useModelTraceExplorerViewState();
   if (isNil(activeSpan)) {
     return <Empty description="Please select a span to view more information" />;
   }
@@ -129,7 +128,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
     />
   );
 
-  return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+  return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={DEFAULT_SPLIT_RATIO}
       paneWidth={paneWidth}

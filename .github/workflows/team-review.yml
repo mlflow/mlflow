@@ -5,6 +5,10 @@ on:
     types:
       - labeled
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   review:
     runs-on: ubuntu-slim

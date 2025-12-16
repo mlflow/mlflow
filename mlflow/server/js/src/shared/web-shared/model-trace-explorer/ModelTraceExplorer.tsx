@@ -1,112 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
 
 import { getLargeTraceDisplaySizeThreshold, shouldBlockLargeTraceDisplay } from './FeatureUtils';
 import type { ModelTrace } from './ModelTrace.types';
 import { getModelTraceId, getModelTraceSize } from './ModelTraceExplorer.utils';
-import { ModelTraceExplorerDetailView } from './ModelTraceExplorerDetailView';
 import { ModelTraceExplorerErrorState } from './ModelTraceExplorerErrorState';
 import { ModelTraceExplorerGenericErrorState } from './ModelTraceExplorerGenericErrorState';
 import { ModelTraceExplorerTraceTooLargeView } from './ModelTraceExplorerTraceTooLargeView';
-import {
-  ModelTraceExplorerViewStateProvider,
-  useModelTraceExplorerViewState,
-} from './ModelTraceExplorerViewStateContext';
+import { ModelTraceExplorerViewStateProvider } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
 import { useGetModelTraceInfo } from './hooks/useGetModelTraceInfo';
 import { useTraceCachedActions } from './hooks/useTraceCachedActions';
-import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
-
-const ModelTraceExplorerContent = ({
-  modelTraceInfo,
-  className,
-  selectedSpanId,
-  onSelectSpan,
-}: {
-  modelTraceInfo: ModelTrace['info'];
-  className?: string;
-  selectedSpanId?: string;
-  onSelectSpan?: (selectedSpanId?: string) => void;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  const { activeView, setActiveView } = useModelTraceExplorerViewState();
-
-  const handleValueChange = useCallback(
-    (value: string) => {
-      setActiveView(value as 'summary' | 'detail');
-    },
-    [
-      // prettier-ignore
-      setActiveView,
-    ],
-  );
-
-  return (
-    <Tabs.Root
-      componentId="shared.model-trace-explorer.view-mode-toggle"
-      value={activeView}
-      onValueChange={handleValueChange}
-      css={{
-        '& > div:nth-of-type(2)': {
-          marginBottom: 0,
-          flexShrink: 0,
-        },
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        overflow: 'hidden',
-      }}
-    >
-      <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
-        <ModelTraceHeaderDetails modelTraceInfo={modelTraceInfo} />
-      </div>
-      <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
-        <Tabs.Trigger value="summary">
-          <FormattedMessage
-            defaultMessage="Summary"
-            description="Label for the summary view tab in the model trace explorer"
-          />
-        </Tabs.Trigger>
-        <Tabs.Trigger value="detail">
-          <FormattedMessage
-            defaultMessage="Details & Timeline"
-            description="Label for the details & timeline view tab in the model trace explorer"
-          />
-        </Tabs.Trigger>
-      </Tabs.List>
-      <Tabs.Content
-        value="summary"
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
-        <ModelTraceExplorerSummaryView />
-      </Tabs.Content>
-      <Tabs.Content
-        value="detail"
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
-        <ModelTraceExplorerDetailView
-          modelTraceInfo={modelTraceInfo}
-          className={className}
-          selectedSpanId={selectedSpanId}
-          onSelectSpan={onSelectSpan}
-        />
-      </Tabs.Content>
-    </Tabs.Root>
-  );
-};
+import { ModelTraceExplorerContent } from './ModelTraceExplorerContent';
+import { ModelTraceExplorerComparisonView } from './ModelTraceExplorerComparisonView';
 
 const ContextProviders = ({ children }: { traceId: string; children: React.ReactNode }) => {
   return <ErrorBoundary fallbackRender={ModelTraceExplorerErrorState}>{children}</ErrorBoundary>;
@@ -119,6 +25,7 @@ export const ModelTraceExplorerImpl = ({
   selectedSpanId,
   onSelectSpan,
   collapseAssessmentPane,
+  isInComparisonView,
 }: {
   modelTrace: ModelTrace;
   className?: string;
@@ -130,6 +37,7 @@ export const ModelTraceExplorerImpl = ({
    * If set to `'force-open'`, the assessments pane will be expanded regardless of whether there are any assessments.
    */
   collapseAssessmentPane?: boolean | 'force-open';
+  isInComparisonView?: boolean;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [forceDisplay, setForceDisplay] = useState(false);
@@ -181,15 +89,21 @@ export const ModelTraceExplorerImpl = ({
         initialActiveView={initialActiveView}
         selectedSpanIdOnRender={selectedSpanId}
         assessmentsPaneEnabled={assessmentsPaneEnabled}
+        isInComparisonView={isInComparisonView}
         initialAssessmentsPaneCollapsed={collapseAssessmentPane}
         isTraceInitialLoading={isTraceInitialLoading}
       >
-        <ModelTraceExplorerContent
-          modelTraceInfo={modelTrace.info}
-          className={className}
-          selectedSpanId={selectedSpanId}
-          onSelectSpan={onSelectSpan}
-        />
+        <ModelTraceHeaderDetails modelTraceInfo={modelTrace.info} />
+        {isInComparisonView ? (
+          <ModelTraceExplorerComparisonView modelTraceInfo={modelTrace.info} />
+        ) : (
+          <ModelTraceExplorerContent
+            modelTraceInfo={modelTrace.info}
+            className={className}
+            selectedSpanId={selectedSpanId}
+            onSelectSpan={onSelectSpan}
+          />
+        )}
       </ModelTraceExplorerViewStateProvider>
     </ContextProviders>
   );

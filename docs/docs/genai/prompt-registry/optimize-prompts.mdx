@@ -4,7 +4,7 @@ sidebar_label: Optimize Prompts
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import { CardGroup, Card } from "@site/src/components/Card";
+import { CardGroup, Card, SmallLogoCard } from "@site/src/components/Card";
 
 # Optimize Prompts (Experimental)
 
@@ -351,6 +351,27 @@ optimizer = GepaPromptOptimizer(
 
 ## Advanced Usage
 
+### Works with Any Agent Framework
+
+MLflow's optimization is **framework-agnostic**—it works seamlessly with LangChain, LangGraph, OpenAI Agent, Pydantic AI, CrewAI, AutoGen, or any custom framework. No need to rewrite your existing agents or switch frameworks.
+
+See these framework-specific guides for detailed examples:
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/langchain-optimization">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/langgraph-optimization">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/openai-agent-optimization">
+    <span>![OpenAI Agent Logo](/images/logos/openai-agent-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/pydantic-ai-optimization">
+    <span>![Pydantic AI Logo](/images/logos/pydanticai-logo.png)</span>
+  </SmallLogoCard>
+</CardGroup>
+
 ### Using Custom Scorers
 
 Define custom evaluation metrics to guide optimization:
@@ -475,74 +496,6 @@ result = mlflow.genai.optimize_prompts(
 # Access optimized prompts
 optimized_plan = result.optimized_prompts[0]
 optimized_answer = result.optimized_prompts[1]
-```
-
-### Works with Any Agent Framework
-
-MLflow's optimization is **framework-agnostic**—it works seamlessly with LangChain, DSPy, CrewAI, AutoGen, or any custom framework. No need to rewrite your existing agents or switch frameworks.
-
-The example below shows how easy it is to optimize prompts in a LangChain workflow with minimal changes. Note that we call <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink> instead of <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink> inside `predict_fn`.
-
-```python
-import mlflow
-from mlflow.genai.scorers import Correctness
-from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
-from langchain.prompts import PromptTemplate
-from langchain.llms import OpenAI
-from langchain.chains import LLMChain
-
-
-def predict_fn(input_language, output_language, text):
-    template = PromptTemplate(
-        input_variables=["input_language", "output_language", "text"],
-        template=prompt.to_single_brace_format(),  # call to_single_brace_format
-    )
-
-    llm = OpenAI(temperature=0.7)
-
-    chain = LLMChain(llm=llm, prompt=template)
-
-    result = chain.run(
-        input_language=input_language, output_language=output_language, text=text
-    )
-
-    return result
-
-
-dataset = [
-    {
-        "inputs": {
-            "input_language": "English",
-            "output_language": "French",
-            "text": "Hello, how are you?",
-        },
-        "expectations": {"expected_response": "Bonjour, comment allez-vous?"},
-    },
-    {
-        "inputs": {
-            "input_language": "English",
-            "output_language": "Spanish",
-            "text": "Good morning",
-        },
-        "expectations": {"expected_response": "Buenos días"},
-    },
-    {
-        "inputs": {
-            "input_language": "English",
-            "output_language": "German",
-            "text": "Thank you very much",
-        },
-        "expectations": {"expected_response": "Vielen Dank"},
-    },
-]
-
-result = mlflow.genai.optimize_prompts(
-    predict_fn=predict_fn,
-    train_data=dataset,
-    prompt_uris=[prompt.uri],
-    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
-    scorers=[Correctness(model="openai:/gpt-5")],
-)
 ```
 
 ## Result Object

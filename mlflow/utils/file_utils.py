@@ -526,8 +526,7 @@ def yield_file_in_chunks(file, chunk_size=100000000):
     """
     with open(file, "rb") as f:
         while True:
-            chunk = f.read(chunk_size)
-            if chunk:
+            if chunk := f.read(chunk_size):
                 yield chunk
             else:
                 break

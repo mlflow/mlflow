@@ -33,7 +33,8 @@ from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, Tens
 from mlflow.types.schema import AnyType, Array, Map, Object, Property
 from mlflow.utils.proto_json_utils import dump_input_data
 
-from tests.helper_functions import pyfunc_scoring_endpoint, pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_scoring_endpoint
+from tests.pyfunc.utils import score_model_in_process
 from tests.tracing.helper import get_traces
 
 
@@ -1693,11 +1694,10 @@ def test_enforce_schema_in_python_model_serving(sample_params_basic):
         "bool_list": [True, False],
         "double_array": np.array([1.0, 2.0]),
     }
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=dump_input_data(["a", "b"], params=test_params),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200
     prediction = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -1713,11 +1713,10 @@ def test_enforce_schema_in_python_model_serving(sample_params_basic):
     with pytest.raises(TypeError, match=r"Object of type int32 is not JSON serializable"):
         dump_input_data(["a", "b"], params={"int_param": np.int32(1)})
 
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=dump_input_data(["a", "b"], params={"double_param": "invalid"}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 400
     assert (
@@ -1727,11 +1726,10 @@ def test_enforce_schema_in_python_model_serving(sample_params_basic):
 
     # Can not pass bytes to request
     with pytest.raises(TypeError, match=r"Object of type bytes is not JSON serializable"):
-        pyfunc_serve_and_score_model(
+        score_model_in_process(
             model_info.model_uri,
             data=dump_input_data(["a", "b"], params={"str_param": b"bytes"}),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-            extra_args=["--env-manager", "local"],
         )
 
 
@@ -1811,11 +1809,10 @@ cloudpickle==2.2.1
     assert local_predict.values[0].tolist() == ["input"]
 
     # model serving is compatible
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_uri,
         data=dump_input_data(["a", "b"]),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200
     prediction = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -1909,11 +1906,10 @@ pandas==2.0.3
     assert local_predict.values[0].tolist() == ["input"]
 
     # model serving is compatible
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_uri,
         data=dump_input_data(["a", "b"]),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200
     prediction = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -2114,11 +2110,10 @@ def test_pyfunc_model_input_example_with_params(
             else:
                 payload = json.dumps({"inputs": example})
 
-        response = pyfunc_serve_and_score_model(
+        response = score_model_in_process(
             model_info.model_uri,
             data=payload,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-            extra_args=["--env-manager", "local"],
         )
         assert response.status_code == 200, response.content
         result = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -2263,11 +2258,10 @@ def test_input_example_validation_during_logging(
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     serving_input_example = mlflow_model.get_serving_input(local_path)
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=serving_input_example,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     if is_unified_llm_input(example):
@@ -2417,11 +2411,10 @@ def test_pyfunc_model_serving_with_dicts(data, schema, format_key):
     elif format_key in ("dataframe_split", "dataframe_records"):
         payload = {format_key: df.to_dict(orient=format_key[10:])}
 
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=json.dumps(payload),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -2471,11 +2464,10 @@ def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
     elif format_key in ("dataframe_split", "dataframe_records"):
         payload = {format_key: df.to_dict(orient=format_key[10:])}
 
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=json.dumps(payload),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -2617,11 +2609,10 @@ def test_pyfunc_model_scoring_with_objects_and_arrays(data, format_key):
     elif format_key == "dataframe_records":
         payload = {format_key: df.to_dict(orient="records")}
 
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=json.dumps(payload),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -2652,11 +2643,10 @@ def test_pyfunc_model_scoring_with_objects_and_arrays_instances(data):
         )
 
     df = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=json.dumps({"instances": data}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -2690,11 +2680,10 @@ def test_pyfunc_model_scoring_with_objects_and_arrays_instances_errors(data):
             signature=infer_signature(data),
         )
 
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=json.dumps({"instances": data}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 400, response.content
     assert "Failed to enforce schema" in json.loads(response.content.decode("utf-8"))["message"]
@@ -2732,11 +2721,10 @@ def test_pyfunc_model_scoring_instances_backwards_compatibility(data, schema):
             signature=ModelSignature(schema),
         )
 
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=json.dumps({"instances": data}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -2921,11 +2909,10 @@ def test_pyfunc_model_schema_enforcement_map_type(data, schema, format_key):
 
             return super().default(o)
 
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=json.dumps(payload, cls=CustomJsonEncoder),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -2997,11 +2984,10 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
     elif format_key == "dataframe_records":
         payload = {format_key: df.to_dict(orient="records")}
 
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=json.dumps(payload),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
@@ -3145,11 +3131,10 @@ def test_schema_enforcement_for_anytype(input_example, expected_schema, payload_
     pd.testing.assert_frame_equal(prediction, df)
 
     data = convert_input_example_to_serving_input(payload_example)
-    response = pyfunc_serve_and_score_model(
+    response = score_model_in_process(
         model_info.model_uri,
         data=data,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]

@@ -15,7 +15,7 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer
-from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.genai.scorers.builtin_scorers import Guidelines, RelevanceToQuery, UserFrustration
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
@@ -353,23 +353,201 @@ def test_create_webhook(mock_requests, mock_telemetry_client: TelemetryClient):
 
 def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
     @mlflow.genai.scorer
-    def sample_scorer(inputs, outputs, expectations):
+    def decorator_scorer():
         return 1.0
 
-    model = TestModel()
+    instructions_judge = make_judge(
+        name="quality_judge",
+        instructions="Evaluate if {{ outputs }} is high quality",
+        model="openai:/gpt-4",
+    )
+
+    session_level_instruction_judge = make_judge(
+        name="conversation_quality",
+        instructions="Evaluate if the {{ conversation }} is engaging and coherent",
+        model="openai:/gpt-4",
+    )
+
+    guidelines_scorer = Guidelines(
+        name="politeness",
+        guidelines=["Be polite", "Be respectful"],
+    )
+
+    builtin_scorer = RelevanceToQuery(name="relevance_check")
+
+    session_level_builtin_scorer = UserFrustration(name="frustration_check")
+
     data = [
         {
-            "inputs": {"model_input": ["What is the capital of France?"]},
-            "outputs": "The capital of France is Paris.",
+            "inputs": {"model_input": ["What is MLflow?"]},
+            "outputs": "MLflow is an open source platform.",
         }
     ]
-    with mock.patch("mlflow.genai.judges.is_context_relevant"):
+
+    model = TestModel()
+
+    with (
+        mock.patch("mlflow.genai.judges.utils.invocation_utils.invoke_judge_model"),
+    ):
+        # Test with all scorer kinds and scopes, without predict_fn
         mlflow.genai.evaluate(
             data=data,
-            scorers=[sample_scorer, RelevanceToQuery(name="my_judge")],
+            scorers=[
+                decorator_scorer,
+                instructions_judge,
+                session_level_instruction_judge,
+                guidelines_scorer,
+                builtin_scorer,
+                session_level_builtin_scorer,
+            ],
+        )
+
+        expected_params = {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+                {"class": "UserDefinedScorer", "kind": "instructions", "scope": "response"},
+                {"class": "UserDefinedScorer", "kind": "instructions", "scope": "session"},
+                {"class": "Guidelines", "kind": "guidelines", "scope": "response"},
+                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "response"},
+                {"class": "UserFrustration", "kind": "builtin", "scope": "session"},
+            ],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
+            "eval_data_provided_fields": ["inputs", "outputs"],
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+        # Test with predict_fn
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[builtin_scorer, guidelines_scorer],
             predict_fn=model.predict,
         )
-        expected_params = {"builtin_scorers": ["RelevanceToQuery"]}
+        expected_params = {
+            "predict_fn_provided": True,
+            "scorer_info": [
+                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "response"},
+                {"class": "Guidelines", "kind": "guidelines", "scope": "response"},
+            ],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
+            "eval_data_provided_fields": ["inputs", "outputs"],
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+
+def test_genai_evaluate_telemetry_data_fields(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
+    @mlflow.genai.scorer
+    def sample_scorer():
+        return 1.0
+
+    with mock.patch("mlflow.genai.judges.utils.invocation_utils.invoke_judge_model"):
+        # Test with list of dicts
+        data_list = [
+            {
+                "inputs": {"question": "Q1"},
+                "outputs": "A1",
+                "expectations": {"answer": "Expected1"},
+            },
+            {
+                "inputs": {"question": "Q2"},
+                "outputs": "A2",
+                "expectations": {"answer": "Expected2"},
+            },
+        ]
+        mlflow.genai.evaluate(data=data_list, scorers=[sample_scorer])
+        expected_params = {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+            ],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 2,
+            "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+        # Test with pandas DataFrame
+        df_data = pd.DataFrame(
+            [
+                {"inputs": {"question": "Q1"}, "outputs": "A1"},
+                {"inputs": {"question": "Q2"}, "outputs": "A2"},
+                {"inputs": {"question": "Q3"}, "outputs": "A3"},
+            ]
+        )
+        mlflow.genai.evaluate(data=df_data, scorers=[sample_scorer])
+        expected_params = {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+            ],
+            "eval_data_type": "pd.DataFrame",
+            "eval_data_size": 3,
+            "eval_data_provided_fields": ["inputs", "outputs"],
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+        # Test with list of Traces
+        trace_ids = []
+        for i in range(2):
+            with mlflow.start_span(name=f"test_span_{i}") as span:
+                span.set_inputs({"question": f"Q{i}"})
+                span.set_outputs({"answer": f"A{i}"})
+                trace_ids.append(span.trace_id)
+
+        traces = [mlflow.get_trace(trace_id) for trace_id in trace_ids]
+        mlflow.genai.evaluate(data=traces, scorers=[sample_scorer])
+        expected_params = {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+            ],
+            "eval_data_type": "list[Trace]",
+            "eval_data_size": 2,
+            "eval_data_provided_fields": ["inputs", "outputs", "trace"],
+        }
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+        # Test with EvaluationDataset
+        from mlflow.genai.datasets import create_dataset
+
+        dataset = create_dataset("test_dataset")
+        dataset_data = [
+            {
+                "inputs": {"question": "Q1"},
+                "outputs": "A1",
+                "expectations": {"answer": "Expected1"},
+            },
+            {
+                "inputs": {"question": "Q2"},
+                "outputs": "A2",
+                "expectations": {"answer": "Expected2"},
+            },
+        ]
+        dataset.merge_records(dataset_data)
+        mlflow.genai.evaluate(data=dataset, scorers=[sample_scorer])
+        expected_params = {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+            ],
+            "eval_data_type": "EvaluationDataset",
+            "eval_data_size": 2,
+            "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
+        }
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
         )
@@ -754,7 +932,7 @@ def test_invoke_custom_judge_model(
         else:
             with (
                 mock.patch(
-                    "mlflow.genai.judges.utils.invocation_utils._invoke_litellm_and_handle_tools",
+                    "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
                     return_value=(mock_response, 10),
                 ),
                 mock.patch(

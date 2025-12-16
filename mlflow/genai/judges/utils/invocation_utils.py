@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import traceback
-import warnings
 from typing import TYPE_CHECKING
 
 import pydantic
@@ -15,39 +13,14 @@ if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-    _invoke_databricks_default_judge,
-)
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    _invoke_databricks_serving_endpoint_judge,
-    _record_judge_model_usage_failure_databricks_telemetry,
-    _record_judge_model_usage_success_databricks_telemetry,
-)
-from mlflow.genai.judges.adapters.gateway_adapter import _invoke_via_gateway
+from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.judges.utils.parsing_utils import (
-    _sanitize_justification,
-    _strip_markdown_code_blocks,
-)
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.genai.judges.adapters.utils import get_adapter
+from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.telemetry.utils import _is_in_databricks
-from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
-
-
-def _is_litellm_available() -> bool:
-    try:
-        import litellm  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
 
 
 class FieldExtraction(pydantic.BaseModel):
@@ -65,15 +38,17 @@ def invoke_judge_model(
     trace: Trace | None = None,
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
+    use_case: str | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
 
-    Routes to the appropriate implementation based on the model URI:
-    - "databricks": Uses databricks.agents.evals library for default judge,
-                    direct API for regular endpoints
-    - LiteLLM-supported providers: Uses LiteLLM if available
-    - Native providers: Falls back to AI Gateway adapters
+    Routes to the appropriate adapter based on the model URI and configuration.
+    Uses a factory pattern to select the correct adapter:
+    - DatabricksManagedJudgeAdapter: For the default Databricks judge
+    - DatabricksServingEndpointAdapter: For Databricks serving endpoints
+    - LiteLLMAdapter: For LiteLLM-supported providers
+    - GatewayAdapter: Fallback for native providers
 
     Args:
         model_uri: The model URI.
@@ -83,6 +58,9 @@ def invoke_judge_model(
         trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
         response_format: Optional Pydantic model class for structured output format.
+        use_case: The use case for the chat completion. Only applicable when using the
+            Databricks default judge and only used if supported by the installed
+            databricks-agents version.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -90,134 +68,20 @@ def invoke_judge_model(
     Raises:
         MlflowException: If the model cannot be invoked or dependencies are missing.
     """
-    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-        return _invoke_databricks_default_judge(prompt, assessment_name)
+    adapter = get_adapter(model_uri=model_uri, prompt=prompt)
 
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-    from mlflow.types.llm import ChatMessage
-
-    model_provider, model_name = _parse_model_uri(model_uri)
-    in_databricks = _is_in_databricks()
-
-    # Handle Databricks endpoints (not the default judge) with proper telemetry
-    if model_provider in {"databricks", "endpoints"} and isinstance(prompt, str):
-        if model_provider == "endpoints":
-            warnings.warn(
-                "The legacy provider 'endpoints' is deprecated and will be removed in a future"
-                "release. Please update your code to use the 'databricks' provider instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-        try:
-            output = _invoke_databricks_serving_endpoint_judge(
-                model_name=model_name,
-                prompt=prompt,
-                assessment_name=assessment_name,
-                num_retries=num_retries,
-                response_format=response_format,
-            )
-            feedback = output.feedback
-            feedback.trace_id = trace.info.trace_id if trace is not None else None
-
-            # Record success telemetry only when in Databricks
-            if in_databricks:
-                try:
-                    _record_judge_model_usage_success_databricks_telemetry(
-                        request_id=output.request_id,
-                        model_provider=output.model_provider,
-                        endpoint_name=output.model_name,
-                        num_prompt_tokens=output.num_prompt_tokens,
-                        num_completion_tokens=output.num_completion_tokens,
-                    )
-                except Exception as telemetry_error:
-                    _logger.debug(
-                        "Failed to record judge model usage success telemetry. Error: %s",
-                        telemetry_error,
-                        exc_info=True,
-                    )
-
-            return feedback
-
-        except Exception:
-            # Record failure telemetry only when in Databricks
-            if in_databricks:
-                try:
-                    provider = "databricks" if model_provider == "endpoints" else model_provider
-                    _record_judge_model_usage_failure_databricks_telemetry(
-                        model_provider=provider,
-                        endpoint_name=model_name,
-                        error_code="UNKNOWN",
-                        error_message=traceback.format_exc(),
-                    )
-                except Exception as telemetry_error:
-                    _logger.debug(
-                        "Failed to record judge model usage failure telemetry. Error: %s",
-                        telemetry_error,
-                        exc_info=True,
-                    )
-            raise
-
-    # Handle all other cases (including non-Databricks, ChatMessage prompts, traces)
-    messages = [ChatMessage(role="user", content=prompt)] if isinstance(prompt, str) else prompt
-    total_cost = None
-    if _is_litellm_available():
-        response, total_cost = _invoke_litellm_and_handle_tools(
-            provider=model_provider,
-            model_name=model_name,
-            messages=messages,
-            trace=trace,
-            num_retries=num_retries,
-            response_format=response_format,
-        )
-    elif trace is not None:
-        raise MlflowException(
-            "LiteLLM is required for using traces with judges. "
-            "Please install it with `pip install litellm`.",
-            error_code=BAD_REQUEST,
-        )
-    else:
-        if not isinstance(prompt, str):
-            raise MlflowException(
-                "This judge is not supported by native LLM providers. Please install "
-                "LiteLLM with `pip install litellm` to use this judge.",
-                error_code=BAD_REQUEST,
-            )
-        if response_format is not None:
-            _logger.warning(
-                "Structured output is not supported by native LLM providers. Please install "
-                "LiteLLM with `pip install litellm` to use this judge.",
-            )
-        response = _invoke_via_gateway(model_uri, model_provider, prompt)
-
-    cleaned_response = _strip_markdown_code_blocks(response)
-
-    try:
-        response_dict = json.loads(cleaned_response)
-    except json.JSONDecodeError as e:
-        raise MlflowException(
-            f"Failed to parse response from judge model. Response: {response}",
-            error_code=BAD_REQUEST,
-        ) from e
-
-    metadata = {AssessmentMetadataKey.JUDGE_COST: total_cost} if total_cost else None
-
-    feedback = Feedback(
-        name=assessment_name,
-        value=response_dict["result"],
-        rationale=_sanitize_justification(response_dict.get("rationale", "")),
-        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri),
-        trace_id=trace.info.trace_id if trace is not None else None,
-        metadata=metadata,
+    input_params = AdapterInvocationInput(
+        model_uri=model_uri,
+        prompt=prompt,
+        assessment_name=assessment_name,
+        trace=trace,
+        num_retries=num_retries,
+        response_format=response_format,
+        use_case=use_case,
     )
 
-    if "error" in response_dict:
-        feedback.error = response_dict["error"]
-        raise MlflowException(
-            f"Judge evaluation failed with error: {response_dict['error']}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    return feedback
+    output = adapter.invoke(input_params)
+    return output.feedback
 
 
 def get_chat_completions_with_structured_output(

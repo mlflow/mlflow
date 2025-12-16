@@ -1,10 +1,9 @@
 import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 import type { PredefinedError } from '@databricks/web-shared/errors';
 import type { ScheduledScorer, ScorerConfig } from '../types';
-import { transformScheduledScorer } from '../utils/scorerTransformUtils';
-import type { GetScheduledScorersResponse } from './useGetScheduledScorers';
+import { transformScheduledScorer, convertRegisterScorerResponseToConfig } from '../utils/scorerTransformUtils';
 import { updateScheduledScorersCache } from './scheduledScorersCacheUtils';
-import { listScheduledScorers, updateScheduledScorers } from '../api';
+import { registerScorer, type RegisterScorerResponse } from '../api';
 
 // Define request and response types based on monitoring_service.proto
 export type UpdateScheduledScorersRequest = {
@@ -35,38 +34,26 @@ export const useUpdateScheduledScorerMutation = () => {
     } // TVariables - input type
   >({
     mutationFn: async ({ experimentId, scheduledScorers }) => {
-      // First, fetch existing scorers
-      const existingData: GetScheduledScorersResponse = await listScheduledScorers(experimentId);
-
-      // Get existing scorers or empty array if none exist
-      const existingScorerConfigs = existingData.scheduled_scorers?.scorers || [];
-
-      // Create a map of scheduled scorer names to update
-      const updateMap = new Map(scheduledScorers.map((scorer) => [scorer.name, scorer]));
-
-      // Update existing scorers in place, keeping ones not being updated
-      const updatedScorerConfigs = existingScorerConfigs.map((existingConfig) => {
-        const updatedScorer = updateMap.get(existingConfig.name);
-        if (updatedScorer) {
-          // Transform and replace with updated scorer
-          return transformScheduledScorer(updatedScorer);
-        }
-        // Keep existing scorer as-is
-        return existingConfig;
+      // The backend will update if the name already exists
+      const updatePromises = scheduledScorers.map(async (scorer) => {
+        const scorerConfig = transformScheduledScorer(scorer);
+        const registerResponse: RegisterScorerResponse = await registerScorer(experimentId, scorerConfig);
+        return convertRegisterScorerResponseToConfig(registerResponse);
       });
 
-      // Add any new scorers that didn't exist before
-      scheduledScorers.forEach((scorer) => {
-        const exists = existingScorerConfigs.some((existing) => existing.name === scorer.name);
-        if (!exists) {
-          updatedScorerConfigs.push(transformScheduledScorer(scorer));
-        }
-      });
+      // Wait for all updates to complete and collect the updated configs
+      const updatedScorerConfigs = await Promise.all(updatePromises);
 
-      return updateScheduledScorers(experimentId, { scorers: updatedScorerConfigs });
+      // Return response in expected format
+      return {
+        experiment_id: experimentId,
+        scheduled_scorers: {
+          scorers: updatedScorerConfigs,
+        },
+      };
     },
     onSuccess: (data, variables) => {
-      updateScheduledScorersCache(queryClient, data, variables.experimentId);
+      updateScheduledScorersCache(queryClient, data, variables.experimentId, true);
     },
   });
 };

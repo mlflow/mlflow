@@ -60,7 +60,6 @@ from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
-    get_uri_scheme,
     is_databricks_uri,
 )
 
@@ -76,15 +75,13 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
 )
 _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
     "Model logged without a signature. Signatures are required for Databricks UC model registry "
-    "as they validate model inputs and denote the expected schema of model outputs. "
-    f"Please visit https://www.mlflow.org/docs/{mlflow.__version__.replace('.dev0', '')}/"
-    "model/signatures.html#how-to-set-signatures-on-models for instructions on setting "
-    "signature on models."
+    "as they validate model inputs and denote the expected schema of model outputs. Please set "
+    "`input_example` parameter when logging the model to auto infer the model signature. To "
+    "manually set the signature, please visit https://www.mlflow.org/docs/"
+    f"{mlflow.__version__.replace('.dev0', '')}/ml/model/signatures.html for "
+    "instructions on setting signature on models."
 )
-_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING = (
-    "Model logged without a signature and input example. Please set `input_example` parameter "
-    "when logging the model to auto infer the model signature."
-)
+
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
 METADATA_FILES = [
@@ -724,8 +721,7 @@ class Model:
     def to_dict(self) -> dict[str, Any]:
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-        databricks_runtime = get_databricks_runtime_version()
-        if databricks_runtime:
+        if databricks_runtime := get_databricks_runtime_version():
             res["databricks_runtime"] = databricks_runtime
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
@@ -923,7 +919,7 @@ class Model:
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
             if mlflow_model.signature is None and is_databricks_uri(tracking_uri):
-                _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING, extra={"color": "red"})
+                _logger.info(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
 
             env_vars = None
             # validate input example works for serving when logging the model
@@ -1223,17 +1219,12 @@ class Model:
                 # We check signature presence here as some flavors have a default signature as a
                 # fallback when not provided by user, which is set during flavor's save_model()
                 # call.
-                if mlflow_model.signature is None:
-                    if serving_input is None:
-                        _logger.warning(
-                            _LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING, extra={"color": "red"}
-                        )
-                    elif (
-                        tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-                    ):
-                        _logger.warning(
-                            _LOG_MODEL_MISSING_SIGNATURE_WARNING, extra={"color": "red"}
-                        )
+                if (
+                    mlflow_model.signature is None
+                    and serving_input is None
+                    and is_databricks_uri(tracking_uri)
+                ):
+                    _logger.info(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
 
                 env_vars = None
                 # validate input example works for serving when logging the model

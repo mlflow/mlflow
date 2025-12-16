@@ -13,11 +13,16 @@ export const IS_PROMPT_TAG_VALUE = 'true';
 export const PROMPT_TYPE_TEXT = 'text' as const;
 export const PROMPT_TYPE_CHAT = 'chat' as const;
 export const PROMPT_TYPE_TAG_KEY = '_mlflow_prompt_type';
+// Tag key used to store comma-separated experiment IDs associated with a prompt
+export const PROMPT_EXPERIMENT_IDS_TAG_KEY = '_mlflow_experiment_ids';
 
 // Query parameter name for specifying prompt version in URLs
 export const PROMPT_VERSION_QUERY_PARAM = 'promptVersion';
 
-export type PromptsTableMetadata = { onEditTags: (editedEntity: RegisteredPrompt) => void };
+export type PromptsTableMetadata = {
+  onEditTags: (editedEntity: RegisteredPrompt) => void;
+  experimentId?: string;
+};
 export type PromptsVersionsTableMetadata = {
   showEditAliasesModal: (versionNumber: string) => void;
   aliasesByVersion: Record<string, string[]>;
@@ -25,7 +30,6 @@ export type PromptsVersionsTableMetadata = {
 };
 
 export enum PromptVersionsTableMode {
-  TABLE = 'table',
   PREVIEW = 'preview',
   COMPARE = 'compare',
 }
@@ -80,4 +84,31 @@ export const parseLinkedPromptsFromRunTags = (
   }
 
   return [];
+};
+
+/**
+ * Builds a filter clause from a search string.
+ * If the search string contains SQL-like keywords (ILIKE, LIKE, =, !=),
+ * it's treated as a raw filter query. Otherwise, it's treated as a simple
+ * name search and wrapped with ILIKE pattern matching.
+ *
+ * @param searchFilter - The search string to process
+ * @returns The filter clause, or an empty string if searchFilter is empty
+ */
+export const buildSearchFilterClause = (searchFilter?: string): string => {
+  if (!searchFilter) {
+    return '';
+  }
+
+  // Check if the search filter looks like a SQL-like query
+  // If so, treat it as a raw filter query; otherwise, treat it as a simple name search
+  const sqlKeywordPattern = /(\s+(ILIKE|LIKE)\s+)|=|!=/i;
+
+  if (sqlKeywordPattern.test(searchFilter)) {
+    // User provided a SQL-like filter, use it directly
+    return searchFilter;
+  } else {
+    // Simple name search
+    return `name ILIKE '%${searchFilter}%'`;
+  }
 };

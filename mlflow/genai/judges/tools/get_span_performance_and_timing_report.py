@@ -507,9 +507,9 @@ class GetSpanPerformanceAndTimingReportTool(JudgeTool):
             ]
         )
 
-        for pair in concurrent_pairs:
-            lines.append(
-                f"{pair.span1_num:<10} {pair.span2_num:<10} "
-                f"{pair.span1_name:<30} {pair.span2_name:<30} "
-                f"{pair.overlap_s:>10.3f}s"
-            )
+        lines.extend(
+            f"{pair.span1_num:<10} {pair.span2_num:<10} "
+            f"{pair.span1_name:<30} {pair.span2_name:<30} "
+            f"{pair.overlap_s:>10.3f}s"
+            for pair in concurrent_pairs
+        )

@@ -13,6 +13,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import type { Theme, Interpolation } from '@emotion/react';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
+import { EvalRunsVisibilityHeaderCell } from './EvalRunsVisibilityHeaderCell';
 
 export interface ExperimentEvaluationRunsTableMeta {
   setSelectedRunUuid: (runUuid: string) => void;
@@ -124,10 +125,12 @@ export const getExperimentEvalRunsDefaultColumns = (
   if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
     unselectableColumns.push({
       id: EvalRunsTableColumnId.visibility,
+      header: EvalRunsVisibilityHeaderCell,
       cell: VisiblityCell,
-      enableResizing: true,
-      size: 32,
-      meta: { styles: { minWidth: 32, maxWidth: 32 } },
+      enableResizing: false,
+      enableSorting: false,
+      size: 40,
+      meta: { styles: { minWidth: 40, maxWidth: 40, padding: '0 4px' } },
     });
   }
 

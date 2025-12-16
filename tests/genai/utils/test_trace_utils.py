@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 from unittest import mock
@@ -11,14 +12,17 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 import mlflow
 from mlflow.entities.assessment import Expectation
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
+from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     convert_predict_fn,
+    create_minimal_trace,
     extract_expectations_from_trace,
     extract_inputs_from_trace,
     extract_outputs_from_trace,
@@ -27,6 +31,8 @@ from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
+    parse_tool_calls_from_trace,
+    resolve_conversation_from_session,
 )
 from mlflow.tracing.utils import build_otel_context
 
@@ -378,7 +384,6 @@ def create_span(
     ],
 )
 def test_get_retrieval_context_from_trace(spans, expected_retrieval_context):
-    """Test traces.extract_retrieval_context_from_trace."""
     trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=spans))
     assert extract_retrieval_context_from_trace(trace) == expected_retrieval_context
 
@@ -695,3 +700,240 @@ def test_does_store_support_trace_linking():
                 run_id="run-123",
             )
         mock_client.link_traces_to_run.assert_called_once()
+
+
+def test_create_minimal_trace_restores_session_metadata():
+    source = DatasetRecordSource(
+        source_type=DatasetRecordSourceType.TRACE,
+        source_data={"trace_id": "tr-original", "session_id": "session_1"},
+    )
+
+    eval_item = EvalItem(
+        request_id="req-123",
+        inputs={"question": "test"},
+        outputs="answer",
+        expectations={},
+        source=source,
+    )
+
+    trace = create_minimal_trace(eval_item)
+
+    # Verify session metadata was restored
+    assert trace.info.trace_metadata.get("mlflow.trace.session") == "session_1"
+    assert trace.data._get_root_span().inputs == {"question": "test"}
+    assert trace.data._get_root_span().outputs == "answer"
+
+
+def test_create_minimal_trace_without_source():
+    eval_item = EvalItem(
+        request_id="req-123",
+        inputs={"question": "test"},
+        outputs="answer",
+        expectations={},
+        source=None,
+    )
+
+    trace = create_minimal_trace(eval_item)
+
+    # Should create trace successfully without session metadata
+    assert trace is not None
+    assert "mlflow.trace.session" not in trace.info.trace_metadata
+    assert trace.data._get_root_span().inputs == {"question": "test"}
+    assert trace.data._get_root_span().outputs == "answer"
+
+
+def test_create_minimal_trace_with_source_but_no_session():
+    source = DatasetRecordSource(
+        source_type=DatasetRecordSourceType.TRACE,
+        source_data={"trace_id": "tr-original"},  # No session_id
+    )
+
+    eval_item = EvalItem(
+        request_id="req-123",
+        inputs={"question": "test"},
+        outputs="answer",
+        expectations={},
+        source=source,
+    )
+
+    trace = create_minimal_trace(eval_item)
+
+    # Should work without session metadata
+    assert trace is not None
+    assert "mlflow.trace.session" not in trace.info.trace_metadata
+    assert trace.data._get_root_span().inputs == {"question": "test"}
+    assert trace.data._get_root_span().outputs == "answer"
+
+
+def test_parse_tool_calls_from_trace():
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs({"question": "What is the stock price?"})
+
+        with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"symbol": "AAPL"})
+            tool_span.set_outputs({"price": 150.0})
+
+        with mlflow.start_span(name="get_market_cap", span_type=SpanType.TOOL) as tool_span2:
+            tool_span2.set_inputs({"symbol": "AAPL"})
+            tool_span2.set_outputs({"market_cap": "2.5T"})
+
+        root_span.set_outputs("AAPL price is $150.")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_messages = parse_tool_calls_from_trace(trace)
+
+    assert len(tool_messages) == 2
+    assert tool_messages[0] == {
+        "role": "tool",
+        "content": "Tool: get_stock_price\nInputs: {'symbol': 'AAPL'}\nOutputs: {'price': 150.0}",
+    }
+    assert tool_messages[1] == {
+        "role": "tool",
+        "content": (
+            "Tool: get_market_cap\nInputs: {'symbol': 'AAPL'}\nOutputs: {'market_cap': '2.5T'}"
+        ),
+    }
+
+
+def test_parse_tool_calls_from_trace_no_tools():
+    with mlflow.start_span(name="root") as span:
+        span.set_inputs({"question": "Hello"})
+        span.set_outputs("Hi there")
+
+    trace = mlflow.get_trace(span.trace_id)
+    tool_messages = parse_tool_calls_from_trace(trace)
+
+    assert tool_messages == []
+
+
+def test_parse_tool_calls_from_trace_tool_without_outputs():
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs({"query": "test"})
+
+        with mlflow.start_span(name="my_tool", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"param": "value"})
+
+        root_span.set_outputs("result")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_messages = parse_tool_calls_from_trace(trace)
+
+    assert len(tool_messages) == 1
+    assert tool_messages[0] == {
+        "role": "tool",
+        "content": "Tool: my_tool\nInputs: {'param': 'value'}",
+    }
+
+
+def test_resolve_conversation_from_session():
+    session_id = "test_session_resolve"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "What is AAPL price?"}]})
+        span.set_outputs("AAPL is $150.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    with mlflow.start_span(name="turn_1") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "How about MSFT?"}]})
+        span.set_outputs("MSFT is $300.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    conversation = resolve_conversation_from_session(traces)
+
+    assert len(conversation) == 4
+    assert conversation[0] == {"role": "user", "content": "What is AAPL price?"}
+    assert conversation[1] == {"role": "assistant", "content": "AAPL is $150."}
+    assert conversation[2] == {"role": "user", "content": "How about MSFT?"}
+    assert conversation[3] == {"role": "assistant", "content": "MSFT is $300."}
+
+
+def test_resolve_conversation_from_session_with_tool_calls():
+    session_id = "test_session_with_tools"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as root_span:
+        root_span.set_inputs({"messages": [{"role": "user", "content": "Get AAPL price"}]})
+
+        with mlflow.start_span(name="get_stock_price", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"symbol": "AAPL"})
+            tool_span.set_outputs({"price": 150})
+
+        root_span.set_outputs("AAPL is $150.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(root_span.trace_id))
+
+    conversation = resolve_conversation_from_session(traces, include_tool_calls=False)
+    assert len(conversation) == 2
+    assert conversation[0]["role"] == "user"
+    assert conversation[1]["role"] == "assistant"
+
+    conversation_with_tools = resolve_conversation_from_session(traces, include_tool_calls=True)
+    assert len(conversation_with_tools) == 3
+    assert conversation_with_tools[0] == {"role": "user", "content": "Get AAPL price"}
+    assert conversation_with_tools[1] == {
+        "role": "tool",
+        "content": "Tool: get_stock_price\nInputs: {'symbol': 'AAPL'}\nOutputs: {'price': 150}",
+    }
+    assert conversation_with_tools[2] == {"role": "assistant", "content": "AAPL is $150."}
+
+
+def test_resolve_conversation_from_session_empty():
+    assert resolve_conversation_from_session([]) == []
+
+
+def test_convert_predict_fn_async_function():
+    async def async_predict_fn(request):
+        await asyncio.sleep(0.01)
+        return "async test response"
+
+    sample_input = {"request": {"messages": [{"role": "user", "content": "test"}]}}
+
+    converted_fn = convert_predict_fn(async_predict_fn, sample_input)
+
+    result = converted_fn(request=sample_input)
+    assert result == "async test response"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    purge_traces()
+
+
+def test_evaluate_with_async_predict_fn():
+    async def async_predict_fn(request):
+        await asyncio.sleep(0.01)
+        return "async test response"
+
+    sample_input = {"request": {"messages": [{"role": "user", "content": "test"}]}}
+
+    @scorer
+    def dummy_scorer(inputs, outputs):
+        return 0
+
+    mlflow.genai.evaluate(
+        data=[{"inputs": sample_input}],
+        predict_fn=async_predict_fn,
+        scorers=[dummy_scorer],
+    )
+    assert len(get_traces()) == 1
+    purge_traces()
+
+
+def test_convert_predict_fn_async_function_with_timeout(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", "1")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", "true")
+
+    async def slow_async_predict_fn(request):
+        await asyncio.sleep(2)
+        return "should timeout"
+
+    sample_input = {"request": {"messages": [{"role": "user", "content": "test"}]}}
+
+    converted_fn = convert_predict_fn(slow_async_predict_fn, sample_input)
+
+    with pytest.raises(asyncio.TimeoutError):  # noqa: PT011
+        converted_fn(request=sample_input)
+
+    assert len(get_traces()) == 0

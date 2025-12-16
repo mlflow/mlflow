@@ -2,13 +2,13 @@ import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 
 import {
   GearIcon,
+  GavelIcon,
   ListBorderIcon,
   ListIcon,
   ModelsIcon,
   PlusMinusSquareIcon,
   UserIcon,
   TextBoxIcon,
-  SparkleIcon,
 } from '@databricks/design-system';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
@@ -63,13 +63,10 @@ const ModelsTabConfig = {
 };
 const ScorersTabConfig = {
   label: (
-    <FormattedMessage
-      defaultMessage="Scorers"
-      description="Label for the scorers tab in the MLflow experiment navbar"
-    />
+    <FormattedMessage defaultMessage="Judges" description="Label for the judges tab in the MLflow experiment navbar" />
   ),
-  icon: <SparkleIcon />,
-  getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Scorers),
+  icon: <GavelIcon />,
+  getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Judges),
 };
 
 export type GenAIExperimentTabConfigMapProps = {
@@ -83,7 +80,7 @@ export const getGenAIExperimentTabConfigMap = ({
   [ExperimentPageTabName.Traces]: TracesTabConfig,
   [ExperimentPageTabName.EvaluationRuns]: EvaluationsTabConfig,
   [ExperimentPageTabName.Models]: ModelsTabConfig,
-  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
+  ...(enableScorersUI() && { [ExperimentPageTabName.Judges]: ScorersTabConfig }),
 });
 
 export const getGenAIExperimentWithPromptsTabConfigMap = ({
@@ -92,7 +89,7 @@ export const getGenAIExperimentWithPromptsTabConfigMap = ({
   ...(includeRunsTab && { [ExperimentPageTabName.Runs]: RunsTabConfig }),
   [ExperimentPageTabName.Traces]: TracesTabConfig,
   [ExperimentPageTabName.Models]: ModelsTabConfig,
-  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
+  ...(enableScorersUI() && { [ExperimentPageTabName.Judges]: ScorersTabConfig }),
 });
 
 export const GenAIExperimentWithPromptsTabConfigMap = getGenAIExperimentTabConfigMap();
@@ -109,9 +106,9 @@ export const CustomExperimentTabConfigMap: TabConfigMap = {
     ),
   },
   [ExperimentPageTabName.Traces]: TracesTabConfig,
+  ...(enableScorersUI() && { [ExperimentPageTabName.Judges]: ScorersTabConfig }),
 };
 
 export const DefaultTabConfigMap: TabConfigMap = {
   ...CustomExperimentTabConfigMap,
-  ...(enableScorersUI() && { [ExperimentPageTabName.Scorers]: ScorersTabConfig }),
 };

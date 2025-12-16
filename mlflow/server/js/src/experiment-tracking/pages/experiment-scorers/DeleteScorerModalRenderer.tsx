@@ -27,7 +27,7 @@ export const DeleteScorerModalRenderer: React.FC<DeleteScorerModalRendererProps>
     <DangerModal
       componentId={`${COMPONENT_ID_PREFIX}.delete-modal`}
       title={
-        <FormattedMessage defaultMessage="Delete scorer" description="Title for the delete scorer confirmation modal" />
+        <FormattedMessage defaultMessage="Delete judge" description="Title for the delete judge confirmation modal" />
       }
       visible={isOpen}
       onCancel={onClose}
@@ -36,8 +36,8 @@ export const DeleteScorerModalRenderer: React.FC<DeleteScorerModalRendererProps>
     >
       <>
         <FormattedMessage
-          defaultMessage="Are you sure you want to delete the scorer ''{scorerName}''? This action cannot be undone."
-          description="Confirmation message for deleting a scorer"
+          defaultMessage="Are you sure you want to delete the judge ''{scorerName}''? This action cannot be undone."
+          description="Confirmation message for deleting a judge"
           values={{ scorerName: scorer.name }}
         />
         {error && (
