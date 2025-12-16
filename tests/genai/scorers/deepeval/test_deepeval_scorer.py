@@ -1,10 +1,36 @@
 from unittest.mock import Mock, patch
 
+import pytest
+
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.deepeval import get_scorer
+from mlflow.genai.scorers.deepeval import AnswerRelevancy, KnowledgeRetention, get_scorer
+
+
+@pytest.fixture
+def mock_deepeval_model():
+    """Create a mock DeepEval model that satisfies DeepEval's validation."""
+    from deepeval.models.base_model import DeepEvalBaseLLM
+
+    class MockDeepEvalModel(DeepEvalBaseLLM):
+        def __init__(self):
+            super().__init__(model_name="mock-model")
+
+        def load_model(self):
+            return self
+
+        def generate(self, prompt: str, schema=None) -> str:
+            return "mock response"
+
+        async def a_generate(self, prompt: str, schema=None) -> str:
+            return "mock response"
+
+        def get_model_name(self) -> str:
+            return "mock-model"
+
+    return MockDeepEvalModel()
 
 
 def test_deepeval_scorer_with_exact_match_metric():
@@ -85,3 +111,103 @@ def test_deepeval_scorer_returns_error_feedback_on_exception():
         assert result.error.error_message == "Test error"
         assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
         assert result.source.source_id == "openai:/gpt-4o"
+
+
+def test_multi_turn_metric_is_session_level_scorer(mock_deepeval_model):
+    with patch(
+        "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
+    ):
+        knowledge_retention = KnowledgeRetention()
+        assert knowledge_retention.is_session_level_scorer is True
+
+        answer_relevancy = AnswerRelevancy()
+        assert answer_relevancy.is_session_level_scorer is False
+
+
+def test_multi_turn_metric_requires_session_parameter(mock_deepeval_model):
+    with patch(
+        "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
+    ):
+        scorer = KnowledgeRetention()
+
+        result = scorer(inputs="test", outputs="test")
+        assert result.error is not None
+        assert "requires 'session' parameter" in result.error.error_message
+
+
+def test_multi_turn_metric_with_session(mock_deepeval_model):
+    mock_conversational_test_case = Mock()
+
+    with (
+        patch(
+            "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
+        ),
+        patch(
+            "mlflow.genai.scorers.deepeval.map_session_to_deepeval_conversational_test_case",
+            return_value=mock_conversational_test_case,
+        ) as mock_map_session,
+    ):
+        mock_traces = [Mock(), Mock(), Mock()]
+
+        scorer = KnowledgeRetention()
+
+        # Mock the metric's behavior after it's created
+        scorer._metric.score = 0.85
+        scorer._metric.reason = "Good knowledge retention"
+        scorer._metric.threshold = 0.7
+        scorer._metric.is_successful = Mock(return_value=True)
+        scorer._metric.measure = Mock()
+
+        result = scorer(session=mock_traces)
+
+        # Verify session mapping was called
+        mock_map_session.assert_called_once_with(session=mock_traces, expectations=None)
+
+        # Verify metric.measure was called with conversational test case
+        scorer._metric.measure.assert_called_once_with(
+            mock_conversational_test_case, _show_indicator=False
+        )
+
+        # Verify result
+        assert isinstance(result, Feedback)
+        assert result.name == "KnowledgeRetention"
+        assert result.value == CategoricalRating.YES
+        assert result.metadata["score"] == 0.85
+
+
+def test_single_turn_metric_ignores_session_parameter():
+    mock_test_case = Mock()
+    mock_metric_instance = Mock()
+    mock_metric_instance.score = 0.9
+    mock_metric_instance.reason = "Highly relevant"
+    mock_metric_instance.threshold = 0.7
+    mock_metric_instance.is_successful.return_value = True
+
+    with (
+        patch("mlflow.genai.scorers.deepeval.create_deepeval_model"),
+        patch(
+            "mlflow.genai.scorers.deepeval.get_metric_class",
+            return_value=Mock(return_value=mock_metric_instance),
+        ),
+        patch(
+            "mlflow.genai.scorers.deepeval.map_scorer_inputs_to_deepeval_test_case",
+            return_value=mock_test_case,
+        ) as mock_map_inputs,
+        patch(
+            "mlflow.genai.scorers.deepeval.map_session_to_deepeval_conversational_test_case"
+        ) as mock_map_session,
+    ):
+        mock_traces = [Mock(), Mock()]
+
+        scorer = AnswerRelevancy()
+
+        # Single-turn metric should use inputs/outputs even when session is provided
+        result = scorer(inputs="question", outputs="answer", session=mock_traces)
+
+        # Verify single-turn mapping was called, NOT session mapping
+        mock_map_inputs.assert_called_once()
+        mock_map_session.assert_not_called()
+
+        # Verify result
+        assert isinstance(result, Feedback)
+        assert result.value == CategoricalRating.YES

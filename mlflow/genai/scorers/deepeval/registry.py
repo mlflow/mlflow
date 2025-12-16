@@ -18,15 +18,14 @@ _METRIC_REGISTRY = {
     "StepEfficiency": ("deepeval.metrics.StepEfficiencyMetric", False),
     "PlanAdherence": ("deepeval.metrics.PlanAdherenceMetric", False),
     "PlanQuality": ("deepeval.metrics.PlanQualityMetric", False),
-    # Conversational Metrics
-    # TODO: Add support for conversational metrics with ConversationalTestCase
-    # "TurnRelevancy": ("deepeval.metrics.TurnRelevancyMetric", False),
-    # "RoleAdherence": ("deepeval.metrics.RoleAdherenceMetric", False),
-    # "KnowledgeRetention": ("deepeval.metrics.KnowledgeRetentionMetric", False),
-    # "ConversationCompleteness": ("deepeval.metrics.ConversationCompletenessMetric", False),
-    # "GoalAccuracy": ("deepeval.metrics.GoalAccuracyMetric", False),
-    # "ToolUse": ("deepeval.metrics.ToolUseMetric", False),
-    # "TopicAdherence": ("deepeval.metrics.TopicAdherenceMetric", False),
+    # Conversational Metrics (multi-turn session-level)
+    "TurnRelevancy": ("deepeval.metrics.TurnRelevancyMetric", False),
+    "RoleAdherence": ("deepeval.metrics.RoleAdherenceMetric", False),
+    "KnowledgeRetention": ("deepeval.metrics.KnowledgeRetentionMetric", False),
+    "ConversationCompleteness": ("deepeval.metrics.ConversationCompletenessMetric", False),
+    "GoalAccuracy": ("deepeval.metrics.GoalAccuracyMetric", False),
+    "ToolUse": ("deepeval.metrics.ToolUseMetric", False),
+    "TopicAdherence": ("deepeval.metrics.TopicAdherenceMetric", False),
     # Safety Metrics
     "Bias": ("deepeval.metrics.BiasMetric", False),
     "Toxicity": ("deepeval.metrics.ToxicityMetric", False),
