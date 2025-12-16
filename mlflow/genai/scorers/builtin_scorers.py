@@ -2085,7 +2085,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
     KnowledgeRetention evaluates whether AI responses retain, contradict, or distort
     information provided by users in earlier conversation turns.
 
-    This scorer analyzes each turn of a conversation (starting from turn 2) to assess
+    This scorer analyzes each turn of a conversation to assess
     if the AI correctly retains and uses information from previous user inputs. It
     returns "yes" if all turns maintain correct knowledge retention, or "no" if any
     turn shows contradiction, distortion, or problematic forgetting.
