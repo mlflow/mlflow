@@ -2206,13 +2206,11 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
                 f"parameters. Got unexpected keyword argument(s): {invalid_args}"
             )
 
-        if not session or len(session) < 2:
+        if not session:
             return Feedback(
                 name=self.name,
                 value="yes",
-                rationale=(
-                    "Conversation too short to evaluate knowledge retention (need at least 2 turns)"
-                ),
+                rationale="No conversation to evaluate (empty session)",
                 source=AssessmentSource(
                     source_type=AssessmentSourceType.LLM_JUDGE,
                     source_id=self.model or get_default_model(),
@@ -2222,10 +2220,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         # Sort traces by timestamp
         sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
 
-        # Evaluate each turn starting from turn 1 (skip turn 0 - no prior context)
+        # Evaluate each turn starting from turn 0
         per_turn_results = []
 
-        for turn_idx in range(1, len(sorted_traces)):
+        for turn_idx in range(len(sorted_traces)):
             # Evaluate this turn (scorer will receive traces[0:turn_idx+1])
             feedback = self._evaluate_turn(
                 turn_idx=turn_idx,

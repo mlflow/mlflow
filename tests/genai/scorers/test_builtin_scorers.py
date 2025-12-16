@@ -1732,11 +1732,16 @@ def test_knowledge_retention_success():
     assert result.value == "yes"
     assert "successful" in result.rationale.lower()
 
-    # Only turn 1 evaluated (turn 0 is context-building)
-    fake_scorer.assert_called_once()
-    call_args = fake_scorer.call_args
-    assert "session" in call_args.kwargs
-    assert len(call_args.kwargs["session"]) == 2  # Traces 0-1
+    # Both turn 0 and turn 1 evaluated
+    assert fake_scorer.call_count == 2
+
+    # Verify first call (turn 0) received 1 trace
+    first_call_args = fake_scorer.call_args_list[0]
+    assert len(first_call_args.kwargs["session"]) == 1  # Trace 0 only
+
+    # Verify second call (turn 1) received 2 traces
+    second_call_args = fake_scorer.call_args_list[1]
+    assert len(second_call_args.kwargs["session"]) == 2  # Traces 0-1
 
 
 def test_knowledge_retention_failure():
@@ -1795,13 +1800,30 @@ def test_knowledge_retention_single_turn():
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     traces.append(mlflow.get_trace(span.trace_id))
 
-    scorer = KnowledgeRetention()
+    # Create a fake single-turn scorer that returns "yes"
+    fake_scorer = Mock(spec=Scorer)
+    fake_scorer.return_value = Feedback(
+        name="last_turn_knowledge_retention",
+        value="yes",
+        rationale="Single turn evaluated - no prior context to contradict",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="test-model",
+        ),
+    )
+
+    scorer = KnowledgeRetention(single_turn_scorer=fake_scorer)
     result = scorer(session=traces)
 
-    # Should return "yes" with rationale explaining conversation too short
+    # Should evaluate the single turn and return the result
     assert isinstance(result, Feedback)
     assert result.value == "yes"
-    assert "too short" in result.rationale.lower()
+    assert "successful" in result.rationale.lower()
+
+    # Verify turn 0 was evaluated
+    fake_scorer.assert_called_once()
+    call_args = fake_scorer.call_args
+    assert len(call_args.kwargs["session"]) == 1  # Single trace
 
 
 def test_knowledge_retention_empty_session():
@@ -1811,7 +1833,7 @@ def test_knowledge_retention_empty_session():
     # Should return "yes" with rationale explaining no evaluation needed
     assert isinstance(result, Feedback)
     assert result.value == "yes"
-    assert "too short" in result.rationale.lower()
+    assert "empty session" in result.rationale.lower()
 
 
 def test_knowledge_retention_multi_turn():
@@ -1846,8 +1868,13 @@ def test_knowledge_retention_multi_turn():
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     traces.append(mlflow.get_trace(span.trace_id))
 
-    # Mock the judge to return yes, yes, no for turns 1, 2, 3
+    # Mock the judge to return yes, yes, yes, no for turns 0, 1, 2, 3
     mock_responses = [
+        Feedback(
+            name="last_turn_knowledge_retention",
+            value="yes",
+            rationale="First turn - no prior context to contradict",
+        ),
         Feedback(
             name="last_turn_knowledge_retention",
             value="yes",
@@ -1877,13 +1904,14 @@ def test_knowledge_retention_multi_turn():
         assert result.value == "no"
         assert "failed" in result.rationale.lower() or "no" in result.rationale.lower()
 
-        # Verify all three turns were evaluated (turn 0 is context)
-        assert mock_invoke_judge.call_count == 3
+        # Verify all four turns were evaluated (starting from turn 0)
+        assert mock_invoke_judge.call_count == 4
 
         # Verify rationale mentions the specific failed turn
         assert "Turn 3" in result.rationale or "turn 3" in result.rationale.lower()
 
         # Verify rationale shows successful turns too
+        assert "Turn 0" in result.rationale or "turn 0" in result.rationale.lower()
         assert "Turn 1" in result.rationale or "turn 1" in result.rationale.lower()
         assert "Turn 2" in result.rationale or "turn 2" in result.rationale.lower()
 
