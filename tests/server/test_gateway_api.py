@@ -1023,3 +1023,111 @@ async def test_openai_passthrough_responses(store: SqlAlchemyStore):
         assert response["object"] == "response"
         assert response["status"] == "completed"
         assert response["output"][0]["content"][0]["text"] == "Response from Responses API"
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-stream-passthrough-key",
+        secret_value={"api_key": "sk-test-stream"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-stream-passthrough-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name="openai-stream-passthrough-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    provider = _create_provider_from_endpoint_name(
+        store, "openai-stream-passthrough-endpoint", EndpointType.LLM_V1_CHAT
+    )
+
+    # Mock streaming response chunks
+    mock_stream_chunks = [
+        b'data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4o","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}]}\n\n',  # noqa: E501
+        b'data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4o","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n',  # noqa: E501
+        b'data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4o","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',  # noqa: E501
+    ]
+
+    async def mock_stream_generator():
+        for chunk in mock_stream_chunks:
+            yield chunk
+
+    # Mock send_stream_request to return an async generator
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_stream_request", return_value=mock_stream_generator()
+    ):
+        payload = {
+            "model": "test-model",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "stream": True,
+        }
+        response_stream = await provider.passthrough_openai_chat(payload)
+
+        chunks = [chunk async for chunk in response_stream]
+
+        assert len(chunks) == 3
+        assert chunks[0] == mock_stream_chunks[0]
+        assert chunks[-1] == mock_stream_chunks[-1]
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-responses-stream-key",
+        secret_value={"api_key": "sk-test-responses-stream"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-responses-stream-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name="openai-responses-stream-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    provider = _create_provider_from_endpoint_name(
+        store, "openai-responses-stream-endpoint", EndpointType.LLM_V1_CHAT
+    )
+
+    # Mock streaming response chunks for Responses API
+    mock_stream_chunks = [
+        b'data: {"type":"response.created","response":{"id":"resp_1","object":"response","created_at":1741290958,"status":"in_progress","error":null,"incomplete_details":null,"instructions":"You are a helpful assistant.","max_output_tokens":null,"model":"gpt-4.1-2025-04-14","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[],"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}\n\n',  # noqa: E501
+        b'data: {"type":"response.output_item.added","output_index":0,"item":{"id":"msg_1","type":"message","status":"in_progress","role":"assistant","content":[]}}\n\n',  # noqa: E501
+        b'data: {"type":"response.content_part.added","item_id":"msg_1","output_index":0,"content_index":0,"part":{"type":"output_text","text":"","annotations":[]}}\n\n',  # noqa: E501
+        b'data: {"type":"response.output_text.delta","item_id":"msg_1","output_index":0,"content_index":0,"delta":"Hi"}\n\n',  # noqa: E501
+        b'data: {"type":"response.output_text.done","item_id":"msg_1","output_index":0,"content_index":0,"text":"Hi there! How can I assist you today?"}\n\n',  # noqa: E501
+        b'data: {"type":"response.content_part.done","item_id":"msg_1","output_index":0,"content_index":0,"part":{"type":"output_text","text":"Hi there! How can I assist you today?","annotations":[]}}\n\n',  # noqa: E501
+        b'data: {"type":"response.output_item.done","output_index":0,"item":{"id":"msg_1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"Hi there! How can I assist you today?","annotations":[]}]}}\n\n',  # noqa: E501
+        b'data: {"type":"response.completed","response":{"id":"resp_1","object":"response","created_at":1741290958,"status":"completed","error":null,"incomplete_details":null,"instructions":"You are a helpful assistant.","max_output_tokens":null,"model":"gpt-4.1-2025-04-14","output":[{"id":"msg_1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"Hi there! How can I assist you today?","annotations":[]}]}],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"store":true,"temperature":1.0,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[],"top_p":1.0,"truncation":"disabled","usage":{"input_tokens":37,"output_tokens":11,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":48},"user":null,"metadata":{}}}\n\n',  # noqa: E501
+    ]
+
+    async def mock_stream_generator():
+        for chunk in mock_stream_chunks:
+            yield chunk
+
+    # Mock send_stream_request to return an async generator
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_stream_request", return_value=mock_stream_generator()
+    ):
+        payload = {
+            "model": "test-model",
+            "input": [{"role": "user", "content": "Hello"}],
+            "instructions": "You are a helpful assistant",
+            "stream": True,
+        }
+        response_stream = await provider.passthrough_openai_responses(payload)
+
+        chunks = [chunk async for chunk in response_stream]
+
+        assert len(chunks) == 8
+        assert chunks[0] == mock_stream_chunks[0]
+        assert chunks[-1] == mock_stream_chunks[-1]

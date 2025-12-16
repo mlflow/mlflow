@@ -300,12 +300,15 @@ async def openai_passthrough_chat(request: Request):
     OpenAI provider with the configured API key and model. The 'model' parameter
     in the request specifies which MLflow endpoint to use.
 
+    Supports streaming responses when the 'stream' parameter is set to true.
+
     Example:
         POST /gateway/openai/v1/chat/completions
         {
             "model": "my-openai-endpoint",
             "messages": [{"role": "user", "content": "Hello"}],
-            "temperature": 0.7
+            "temperature": 0.7,
+            "stream": true
         }
     """
     try:
@@ -318,7 +321,12 @@ async def openai_passthrough_chat(request: Request):
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    return await provider.passthrough_openai_chat(body)
+    response = await provider.passthrough_openai_chat(body)
+
+    # If streaming, wrap the response with make_streaming_response
+    if body.get("stream"):
+        return await make_streaming_response(response)
+    return response
 
 
 @gateway_router.post("/openai/v1/embeddings")
@@ -363,12 +371,15 @@ async def openai_passthrough_responses(request: Request):
     OpenAI provider with the configured API key and model. The 'model' parameter
     in the request specifies which MLflow endpoint to use.
 
+    Supports streaming responses when the 'stream' parameter is set to true.
+
     Example:
         POST /gateway/openai/v1/responses
         {
             "model": "my-openai-endpoint",
-            "messages": [{"role": "user", "content": "Hello"}],
-            "response_format": {"type": "text"}
+            "input": [{"type": "text", "text": "Hello"}],
+            "instructions": "You are a helpful assistant",
+            "stream": true
         }
     """
     try:
@@ -381,4 +392,9 @@ async def openai_passthrough_responses(request: Request):
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    return await provider.passthrough_openai_responses(body)
+    response = await provider.passthrough_openai_responses(body)
+
+    # If streaming, wrap the response with make_streaming_response
+    if body.get("stream"):
+        return await make_streaming_response(response)
+    return response

@@ -604,17 +604,28 @@ class OpenAIProvider(BaseProvider):
         )
         return OpenAIAdapter.model_to_embeddings(resp, self.config)
 
-    async def passthrough_openai_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def passthrough_openai_chat(
+        self, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
         payload_with_model = {**payload, "model": self.config.model.name}
         if self.openai_config.openai_api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
             payload_with_model.pop("model", None)
 
-        return await send_request(
-            headers=self.headers,
-            base_url=self.base_url,
-            path="chat/completions",
-            payload=payload_with_model,
-        )
+        # Check if streaming is requested
+        if payload_with_model.get("stream"):
+            return send_stream_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path="chat/completions",
+                payload=payload_with_model,
+            )
+        else:
+            return await send_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path="chat/completions",
+                payload=payload_with_model,
+            )
 
     async def passthrough_openai_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
         payload_with_model = {**payload, "model": self.config.model.name}
@@ -628,14 +639,25 @@ class OpenAIProvider(BaseProvider):
             payload=payload_with_model,
         )
 
-    async def passthrough_openai_responses(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def passthrough_openai_responses(
+        self, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
         payload_with_model = {**payload, "model": self.config.model.name}
         if self.openai_config.openai_api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
             payload_with_model.pop("model", None)
 
-        return await send_request(
-            headers=self.headers,
-            base_url=self.base_url,
-            path="responses",
-            payload=payload_with_model,
-        )
+        # Check if streaming is requested
+        if payload_with_model.get("stream"):
+            return send_stream_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path="responses",
+                payload=payload_with_model,
+            )
+        else:
+            return await send_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path="responses",
+                payload=payload_with_model,
+            )
