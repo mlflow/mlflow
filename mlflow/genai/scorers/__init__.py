@@ -3,6 +3,9 @@ from typing import TYPE_CHECKING
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, scorer
 from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorers
 
+# Metadata keys for scorer feedback
+FRAMEWORK_METADATA_KEY = "mlflow.scorer.framework"
+
 # NB: We use lazy imports for builtin_scorers to avoid a circular dependency issue.
 #
 # The circular dependency chain:
@@ -31,6 +34,7 @@ _LAZY_IMPORTS = {
     "ConversationalToolCallEfficiency",
     "Correctness",
     "ExpectationsGuidelines",
+    "Fluency",
     "Guidelines",
     "Equivalence",
     "RelevanceToQuery",
@@ -80,6 +84,7 @@ if TYPE_CHECKING:
         Correctness,
         Equivalence,
         ExpectationsGuidelines,
+        Fluency,
         Guidelines,
         RelevanceToQuery,
         RetrievalGroundedness,
@@ -99,6 +104,7 @@ __all__ = [
     "ConversationCompleteness",
     "Correctness",
     "ExpectationsGuidelines",
+    "Fluency",
     "Guidelines",
     "Equivalence",
     "RelevanceToQuery",

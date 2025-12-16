@@ -8,12 +8,17 @@ from mlflow.entities.span import SpanAttributeKey, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.trace_utils import (
+    _to_dict,
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
+)
+from mlflow.tracing.utils.truncation import (
+    _get_last_message,
+    _get_text_content_from_message,
 )
 
 DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE = (
@@ -93,6 +98,31 @@ def _dict_to_kv_list(d: dict[str, Any]) -> list[str]:
     return [f"{k}: {v}" for k, v in d.items()]
 
 
+def _extract_last_user_message_content(value: Any) -> str:
+    """
+    Extract the content of the last user message from inputs for multi-turn conversations.
+
+    Args:
+        value: Input value that may contain messages
+
+    Returns:
+        String content of the last user message
+    """
+    if isinstance(value, str):
+        return value
+
+    try:
+        value_dict = _to_dict(value)
+        messages = value_dict.get("messages")
+        if messages and isinstance(messages, list) and len(messages) > 0:
+            last_user_message = _get_last_message(messages, "user")
+            return _get_text_content_from_message(last_user_message)
+    except Exception:
+        pass
+
+    return parse_inputs_to_str(value)
+
+
 def map_scorer_inputs_to_deepeval_test_case(
     metric_name: str,
     inputs: Any = None,
@@ -165,7 +195,7 @@ def map_session_to_deepeval_conversational_test_case(
 
         user_turn = Turn(
             role="user",
-            content=parse_inputs_to_str(inputs),
+            content=_extract_last_user_message_content(inputs),
         )
         turns.append(user_turn)
 

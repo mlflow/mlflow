@@ -138,7 +138,8 @@ class FileStore(AbstractStore):
             "February 2026. Consider transitioning to a database backend (e.g., "
             "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
             "See https://github.com/mlflow/mlflow/issues/18534 for more details and migration "
-            "guidance.",
+            "guidance. For migrating existing data, "
+            "https://github.com/mlflow/mlflow-export-import can be used.",
             FutureWarning,
             stacklevel=2,
         )

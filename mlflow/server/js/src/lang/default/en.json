@@ -2770,6 +2770,10 @@
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
   },
+  "OcYzCN": {
+    "defaultMessage": "Unresolved",
+    "description": "Label for a user_frustration assessment with 'unresolved' value"
+  },
   "OeKIA4": {
     "defaultMessage": "Expectations added for a trace",
     "description": "Description for expectations variable"
@@ -3144,6 +3148,10 @@
   "SknPqh": {
     "defaultMessage": "Judge type",
     "description": "Label for judge type selection"
+  },
+  "Sm0bXt": {
+    "defaultMessage": "None",
+    "description": "Label for a user_frustration assessment with 'none' value"
   },
   "SnPghu": {
     "defaultMessage": "Delete sessions",
@@ -5766,6 +5774,10 @@
   "q8rYCQ": {
     "defaultMessage": "Data Type",
     "description": "Field label for assessment data type in a creation form"
+  },
+  "q90WPh": {
+    "defaultMessage": "Resolved",
+    "description": "Label for a user_frustration assessment with 'resolved' value"
   },
   "q90jVU": {
     "defaultMessage": "End:",

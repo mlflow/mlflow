@@ -27,6 +27,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
+from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import (
@@ -72,7 +73,6 @@ class DeepEvalScorer(Scorer):
 
         metric_class = get_metric_class(metric_name)
 
-        # Store model URI and whether metric is deterministic
         self._is_deterministic = is_deterministic_metric(metric_name)
 
         if self._is_deterministic:
@@ -92,12 +92,6 @@ class DeepEvalScorer(Scorer):
 
     @property
     def is_session_level_scorer(self) -> bool:
-        """
-        Check if this scorer is a session-level (multi-turn) scorer.
-
-        Dynamically checks if the underlying DeepEval metric is an instance of
-        BaseConversationalMetric, making it future-proof for new multi-turn metrics.
-        """
         from deepeval.metrics.base_metric import BaseConversationalMetric
 
         return isinstance(self._metric, BaseConversationalMetric)
@@ -124,10 +118,9 @@ class DeepEvalScorer(Scorer):
         Returns:
             Feedback object with pass/fail value, rationale, and score in metadata
         """
-        # Use appropriate source type based on whether metric is deterministic
         if self._is_deterministic:
             source_type = AssessmentSourceType.CODE
-            source_id = f"deepeval/{self.name}"
+            source_id = None
         else:
             source_type = AssessmentSourceType.LLM_JUDGE
             source_id = self._model_uri
@@ -141,7 +134,7 @@ class DeepEvalScorer(Scorer):
             if self.is_session_level_scorer:
                 if session is None:
                     raise MlflowException.invalid_parameter_value(
-                        f"Multi-turn metric '{self.name}' requires 'session' parameter "
+                        f"Multi-turn scorer '{self.name}' requires 'session' parameter "
                         f"containing a list of traces from the conversation."
                     )
                 test_case = map_session_to_deepeval_conversational_test_case(
@@ -171,6 +164,7 @@ class DeepEvalScorer(Scorer):
                 metadata={
                     "score": score,
                     "threshold": self._metric.threshold,
+                    FRAMEWORK_METADATA_KEY: "deepeval",
                 },
             )
         except Exception as e:
