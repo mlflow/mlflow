@@ -1599,10 +1599,16 @@ class Equivalence(BuiltInScorer):
         return _sanitize_feedback(feedback)
 
 
-class BuiltInSessionLevelScorer(BuiltInScorer):
+class SessionLevelScorer(Judge):
     """
-    Abstract base class for built-in session-level scorers.
-    Session-level scorers evaluate entire conversation sessions rather than individual traces.
+    Base class for session-level scorers that evaluate entire conversation sessions.
+
+    Provides common functionality for session-level scorers including:
+    - Judge instance caching via _create_judge() pattern
+    - Standard __call__ signature accepting session parameter
+    - Session input field definition
+
+    This class is used by both public built-in scorers and internal implementation details.
     """
 
     required_columns: set[str] = {"trace"}
@@ -1649,6 +1655,19 @@ class BuiltInSessionLevelScorer(BuiltInScorer):
                 f"parameters. Got unexpected keyword argument(s): {invalid_args}"
             )
         return self._get_judge()._evaluate_impl(session=session, expectations=expectations)
+
+
+class BuiltInSessionLevelScorer(BuiltInScorer, SessionLevelScorer):
+    """
+    Abstract base class for PUBLIC built-in session-level scorers.
+
+    Session-level scorers evaluate entire conversation sessions rather than individual traces.
+
+    This class is reserved for scorers that are part of the public API. Internal
+    implementation details should inherit from SessionLevelScorer directly.
+    """
+    # All functionality now inherited from SessionLevelScorer
+    # BuiltInScorer provides special serialization for public API
 
 
 @experimental(version="3.7.0")
@@ -2022,39 +2041,18 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
 
 
-@experimental(version="3.8.0")
-@format_docstring(_MODEL_API_DOC)
-class LastTurnKnowledgeRetention(BuiltInSessionLevelScorer):
+# Internal implementation detail for KnowledgeRetention - not part of public API
+class _LastTurnKnowledgeRetention(SessionLevelScorer):
     """
-    LastTurnKnowledgeRetention evaluates the last turn of a conversation to determine
-    if the AI response correctly retains information provided by the user in earlier turns.
+    Internal scorer for evaluating knowledge retention in the last turn of a conversation.
 
-    This scorer accepts a conversation session (list of traces) and uses an LLM judge
-    to evaluate whether the last AI response correctly retains, or incorrectly
-    contradicts/distorts, user-provided information from earlier turns.
+    This class is an implementation detail of KnowledgeRetention and should not be used directly.
+    For public API, use KnowledgeRetention instead.
+
+    Evaluates the last turn of a conversation to determine if the AI response correctly
+    retains information provided by the user in earlier turns.
 
     Returns "yes" if retention is correct, "no" if there are retention issues.
-
-    Args:
-        name: The name of the scorer. Defaults to "last_turn_knowledge_retention".
-        model: {{ model }}
-
-    Example:
-
-    .. code-block:: python
-
-        import mlflow
-        from mlflow.genai.scorers import LastTurnKnowledgeRetention
-
-        # Session with conversation up to the turn to evaluate
-        session = [
-            mlflow.get_trace(trace_id_0),  # Turn 0
-            mlflow.get_trace(trace_id_1),  # Turn 1 - last turn to evaluate
-        ]
-
-        scorer = LastTurnKnowledgeRetention()
-        feedback = scorer(session=session)
-        print(feedback.value)  # "yes" or "no"
     """
 
     name: str = "last_turn_knowledge_retention"
@@ -2137,7 +2135,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
     name: str = KNOWLEDGE_RETENTION_ASSESSMENT_NAME
     model: str | None = None
     single_turn_scorer: Scorer = pydantic.Field(
-        default_factory=lambda: LastTurnKnowledgeRetention()
+        default_factory=lambda: _LastTurnKnowledgeRetention()
     )
     description: str = (
         "Evaluate whether the AI correctly retains information provided by users "

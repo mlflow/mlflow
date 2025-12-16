@@ -22,7 +22,6 @@ from mlflow.genai.scorers import (
     ExpectationsGuidelines,
     Guidelines,
     KnowledgeRetention,
-    LastTurnKnowledgeRetention,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
@@ -1651,8 +1650,8 @@ def test_conversational_role_adherence_instructions():
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
 
 
-def test_last_turn_knowledge_retention_success():
-    session_id = "test_session_last_turn"
+def test_knowledge_retention_uses_default_single_turn_scorer():
+    session_id = "test_session_default_scorer"
     session = []
 
     with mlflow.start_span(name="turn_0") as span:
@@ -1673,21 +1672,25 @@ def test_last_turn_knowledge_retention_success():
             name="last_turn_knowledge_retention",
             value="yes",
             rationale="AI correctly recalled the user loves Python",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="test-model",
+            ),
         ),
     ) as mock_invoke_judge:
-        scorer = LastTurnKnowledgeRetention()
+        scorer = KnowledgeRetention()
         result = scorer(session=session)
 
         assert isinstance(result, Feedback)
         assert result.value == "yes"
-        mock_invoke_judge.assert_called_once()
+        assert "successful" in result.rationale.lower()
 
-        call_kwargs = mock_invoke_judge.call_args.kwargs
-        assert "prompt" in call_kwargs
-        prompt_messages = call_kwargs["prompt"]
-        conversation_content = prompt_messages[1].content
+        assert mock_invoke_judge.call_count == 2
+
+        first_call_kwargs = mock_invoke_judge.call_args_list[0].kwargs
+        assert "prompt" in first_call_kwargs
+        conversation_content = first_call_kwargs["prompt"][1].content
         assert "My name is Alice and I love Python" in conversation_content
-        assert "What programming language do I like?" in conversation_content
 
 
 def test_knowledge_retention_success():
