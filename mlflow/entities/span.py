@@ -368,6 +368,12 @@ class Span:
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
         """
+        # Validate required fields - empty bytes indicate missing trace_id or span_id
+        if not otel_proto_span.trace_id:
+            raise ValueError("trace_id is required but was empty")
+        if not otel_proto_span.span_id:
+            raise ValueError("span_id is required but was empty")
+
         trace_id = _otel_proto_bytes_to_id(otel_proto_span.trace_id)
         span_id = _otel_proto_bytes_to_id(otel_proto_span.span_id)
         parent_id = None

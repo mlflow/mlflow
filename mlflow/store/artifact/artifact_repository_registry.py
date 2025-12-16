@@ -19,6 +19,7 @@ from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.artifact.uc_volume_artifact_repo import uc_volume_artifact_repo_factory
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme, is_uc_volumes_uri
+from mlflow.utils.workspace_context import get_request_workspace
 
 
 class ArtifactRepositoryRegistry:
@@ -80,7 +81,15 @@ class ArtifactRepositoryRegistry:
                 f"Could not find a registered artifact repository for: {artifact_uri}. "
                 f"Currently registered schemes are: {list(self._registry.keys())}"
             )
-        return repository(artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri)
+        repository_instance = repository(
+            artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+        )
+
+        workspace_name = get_request_workspace()
+        if workspace_name and hasattr(repository_instance, "for_workspace"):
+            repository_instance = repository_instance.for_workspace(workspace_name)
+
+        return repository_instance
 
     def get_registered_artifact_repositories(self):
         """
