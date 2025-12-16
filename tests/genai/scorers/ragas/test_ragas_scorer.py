@@ -9,8 +9,6 @@ from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.ragas import (
     AspectCritic,
-    BleuScore,
-    ChrfScore,
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
@@ -19,9 +17,6 @@ from mlflow.genai.scorers.ragas import (
     Faithfulness,
     InstanceRubrics,
     NoiseSensitivity,
-    NonLLMContextPrecisionWithReference,
-    NonLLMContextRecall,
-    NonLLMStringSimilarity,
     RagasScorer,
     RougeScore,
     RubricsScore,
@@ -143,17 +138,12 @@ def test_missing_reference_parameter_returns_mlflow_error():
     [
         # RAG Metrics
         (ContextPrecision, "ContextPrecision", {}),
-        (NonLLMContextPrecisionWithReference, "NonLLMContextPrecisionWithReference", {}),
         (ContextRecall, "ContextRecall", {}),
-        (NonLLMContextRecall, "NonLLMContextRecall", {}),
         (ContextEntityRecall, "ContextEntityRecall", {}),
         (NoiseSensitivity, "NoiseSensitivity", {}),
         (Faithfulness, "Faithfulness", {}),
         # Comparison Metrics
         (FactualCorrectness, "FactualCorrectness", {}),
-        (NonLLMStringSimilarity, "NonLLMStringSimilarity", {}),
-        (BleuScore, "BleuScore", {}),
-        (ChrfScore, "ChrfScore", {}),
         (RougeScore, "RougeScore", {}),
         (StringPresence, "StringPresence", {}),
         (ExactMatch, "ExactMatch", {}),
