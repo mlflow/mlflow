@@ -1666,6 +1666,7 @@ class BuiltInSessionLevelScorer(BuiltInScorer, SessionLevelScorer):
     This class is reserved for scorers that are part of the public API. Internal
     implementation details should inherit from SessionLevelScorer directly.
     """
+
     # All functionality now inherited from SessionLevelScorer
     # BuiltInScorer provides special serialization for public API
 
