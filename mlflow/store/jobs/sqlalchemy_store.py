@@ -80,7 +80,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = SqlJob(
                 id=job_id,
                 creation_time=creation_time,
-                function_fullname=function_fullname,
+                job_name=function_fullname,
                 params=params,
                 timeout=timeout,
                 status=JobStatus.PENDING.to_int(),
@@ -246,7 +246,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
                 # Apply filters
                 if function_fullname is not None:
-                    query = query.filter(SqlJob.function_fullname == function_fullname)
+                    query = query.filter(SqlJob.job_name == function_fullname)
 
                 if statuses:
                     query = query.filter(

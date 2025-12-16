@@ -22,7 +22,7 @@ class Job(BaseModel):
 
     job_id: str
     creation_time: int
-    function_fullname: str
+    job_name: str
     params: dict[str, Any]
     timeout: float | None
     status: JobStatus
@@ -35,7 +35,7 @@ class Job(BaseModel):
         return cls(
             job_id=job.job_id,
             creation_time=job.creation_time,
-            function_fullname=job.function_fullname,
+            job_name=job.job_name,
             params=json.loads(job.params),
             timeout=job.timeout,
             status=job.status,
