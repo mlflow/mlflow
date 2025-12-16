@@ -23,8 +23,7 @@ export const SingleChatTurnAssessments = ({
   const { theme } = useDesignSystemTheme();
   const info = isV3ModelTraceInfo(trace.info) ? trace.info : null;
 
-  const turnLevelAssessments =
-    info?.assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+  const turnLevelAssessments = info?.assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
 
   if (!info?.assessments || isEmpty(turnLevelAssessments)) {
     return (
