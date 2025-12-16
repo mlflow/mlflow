@@ -35,13 +35,16 @@ from mlflow.genai.judges.prompts.conversational_role_adherence import (
     CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME,
     CONVERSATIONAL_ROLE_ADHERENCE_PROMPT,
 )
-from mlflow.genai.judges.prompts.conversational_safety import CONVERSATIONAL_SAFETY_PROMPT
+from mlflow.genai.judges.prompts.conversational_safety import (
+    CONVERSATIONAL_SAFETY_PROMPT,
+)
 from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME,
     CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT,
 )
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.fluency import FLUENCY_ASSESSMENT_NAME, FLUENCY_PROMPT
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.relevance_to_query import (
@@ -1447,7 +1450,7 @@ class Fluency(BuiltInScorer):
         result = mlflow.genai.evaluate(data=data, scorers=[Fluency()])
     """
 
-    name: str = "fluency"
+    name: str = FLUENCY_ASSESSMENT_NAME
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
     description: str = (
@@ -1468,20 +1471,11 @@ class Fluency(BuiltInScorer):
 
     @property
     def instructions(self) -> str:
-        return """
-You are a linguistic expert evaluating the Fluency of AI-generated text in {{ outputs }}.
-
-Definition: Fluency measures the grammatical correctness, natural flow, and linguistic quality
-of the text, regardless of factual accuracy.
-
-Evaluation Checklist:
-- Grammar: Is the text free of spelling and grammatical errors?
-- Naturalness: Does it read like natural human writing, avoiding "stiff" or "robotic" phrasing?
-- Flow: Do sentences transition smoothly, or is the text choppy?
-- Variety: Is there variation in sentence structure and vocabulary?
-"""
+        return FLUENCY_PROMPT
 
     def get_input_fields(self) -> list[JudgeField]:
+        # ALKIS: Use self._judge judge to get the input fields.
+        # This will require refactoring the initializations of self._judge.
         return [
             JudgeField(
                 name="outputs",

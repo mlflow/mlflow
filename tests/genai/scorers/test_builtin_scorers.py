@@ -635,10 +635,28 @@ def test_safety_get_input_fields():
         assert field_names == ["outputs"]
 
 
-def test_fluency_non_databricks():
-    mlflow.set_tracking_uri("file://")
-    fluency_scorer = Fluency()
-    assert fluency_scorer.name == "fluency"
+def test_fluency_get_input_fields():
+    fluency = Fluency(name="test")
+    field_names = [field.name for field in fluency.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_default_name():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "The text is fluent.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        scorer = Fluency()
+        result = scorer(outputs="The cat sat on the mat.")
+
+        assert result.name == "fluency"
+        assert result.value == CategoricalRating.YES
 
 
 @pytest.mark.usefixtures("mock_openai_env")
