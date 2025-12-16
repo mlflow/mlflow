@@ -40,6 +40,7 @@ class TransientError(RuntimeError):
 
 @dataclass
 class JobFunctionMetadata:
+    name: str
     fn_fullname: str
     max_workers: int
     transient_error_classes: list[type[Exception]] | None = None
@@ -47,6 +48,7 @@ class JobFunctionMetadata:
 
 
 def job(
+    name: str,
     max_workers: int,
     transient_error_classes: list[type[Exception]] | None = None,
     python_version: str | None = None,
@@ -58,6 +60,7 @@ def job(
     Each job is executed in an individual subprocess.
 
     Args:
+        name: The static name of the job function.
         max_workers: The maximum number of workers that are allowed to run the jobs
             using this job function.
         transient_error_classes: (optional) Specify a list of classes that are regarded as
@@ -96,6 +99,7 @@ def job(
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
         fn._job_fn_metadata = JobFunctionMetadata(
+            name=name,
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
             transient_error_classes=transient_error_classes,
@@ -177,14 +181,16 @@ def submit_job(
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 
+    fn_meta = function._job_fn_metadata
+
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(func_fullname, serialized_params, timeout)
+    job = job_store.create_job(fn_meta.name, serialized_params, timeout)
 
     # enqueue job
-    _get_or_init_huey_instance(func_fullname).submit_task(
+    _get_or_init_huey_instance(fn_meta.name).submit_task(
         job.job_id,
-        func_fullname,
+        fn_meta.name,
         params,
         timeout,
     )

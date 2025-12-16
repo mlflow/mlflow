@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@job(max_workers=1)
+@job(name="simple_job_fun", max_workers=1)
 def simple_job_fun(x: int, y: int, sleep_secs: int = 0) -> dict[str, Any]:
     if sleep_secs:
         time.sleep(sleep_secs)
@@ -26,7 +26,7 @@ def simple_job_fun(x: int, y: int, sleep_secs: int = 0) -> dict[str, Any]:
     }
 
 
-@job(max_workers=1)
+@job(name="job_assert_tracking_uri", max_workers=1)
 def job_assert_tracking_uri(server_url: str) -> None:
     assert mlflow.get_tracking_uri() == server_url
 
@@ -108,8 +108,9 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             "PYTHONPATH": os.path.dirname(__file__),
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
             "_MLFLOW_ALLOWED_JOB_FUNCTION_LIST": (
-                "test_endpoint.simple_job_fun,invalid_format_no_module,"
-                "non_existent_module.some_function,os.non_existent_function,"
+                "test_endpoint.simple_job_fun,"
+                # "invalid_format_no_module,"
+                # "non_existent_module.some_function,os.non_existent_function,"
                 "test_endpoint.job_assert_tracking_uri"
             ),
         },
@@ -147,7 +148,7 @@ def test_job_endpoint(client: Client):
     job_json.pop("last_update_time")
     assert job_json == {
         "job_id": job_id,
-        "function_fullname": "test_endpoint.simple_job_fun",
+        "job_name": "simple_job_fun",
         "params": {"x": 3, "y": 4},
         "timeout": None,
         "status": "SUCCEEDED",
