@@ -378,7 +378,13 @@ const config: Config = {
           },
           {
             to: '/genai/tracing/quickstart',
-            from: ['/genai/tracing/quickstart/typescript-openai', '/genai/tracing/quickstart/python-openai'],
+            from: [
+              '/genai/tracing/quickstart/typescript-openai',
+              '/genai/tracing/quickstart/python-openai',
+              '/genai/tracing/app-instrumentation/typescript-sdk',
+              '/genai/tracing/app-instrumentation',
+              '/tracing/api',
+            ],
           },
           {
             to: '/genai/tracing/faq',
@@ -403,10 +409,6 @@ const config: Config = {
           {
             to: '/genai/tracing/app-instrumentation/manual-tracing',
             from: ['/tracing/api/manual-instrumentation'],
-          },
-          {
-            to: '/genai/tracing/app-instrumentation',
-            from: ['/tracing/api'],
           },
           {
             to: '/genai/tracing/search-traces',
