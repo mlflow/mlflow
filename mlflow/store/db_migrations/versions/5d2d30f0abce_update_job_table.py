@@ -20,7 +20,9 @@ def upgrade():
         # Drop old index that referenced `function_fullname`
         batch_op.drop_index("index_jobs_function_status_creation_time")
         # Rename the column
-        batch_op.alter_column("function_fullname", new_column_name="job_name", existing_type=String(500))
+        batch_op.alter_column(
+            "function_fullname", new_column_name="job_name", existing_type=String(500)
+        )
 
     with op.batch_alter_table("jobs", schema=None) as batch_op:
         # Recreate the index referencing the new column name
@@ -43,4 +45,3 @@ def downgrade():
             ["function_fullname", "status", "creation_time"],
             unique=False,
         )
-
