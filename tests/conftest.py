@@ -905,9 +905,22 @@ def db_uri(cached_db: Path) -> Iterator[str]:
 
 @pytest.fixture(autouse=True)
 def clear_engine_map():
+    """
+    Clear the SQLAlchemy engine cache in all stores between tests.
+
+    Each SQLAlchemy store caches engines by database URI to prevent connection pool leaks.
+    This fixture clears the cache between tests to ensure test isolation and prevent
+    engines from one test affecting another.
+    """
     try:
+        from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+        from mlflow.store.model_registry.sqlalchemy_store import (
+            SqlAlchemyStore as ModelRegistrySqlAlchemyStore,
+        )
         from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-        SqlAlchemyStore._db_uri_sql_alchemy_engine_map.clear()
+        SqlAlchemyStore._engine_map.clear()
+        ModelRegistrySqlAlchemyStore._engine_map.clear()
+        SqlAlchemyJobStore._engine_map.clear()
     except ImportError:
         pass
