@@ -33,9 +33,6 @@ class AspectCritic(RagasScorer):
 
     metric_name: ClassVar[str] = "AspectCritic"
 
-    def __init__(self, model: str | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=model, **metric_kwargs)
-
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
@@ -67,9 +64,6 @@ class RubricsScore(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "RubricsScore"
-
-    def __init__(self, model: str | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=model, **metric_kwargs)
 
 
 @experimental(version="3.8.0")
@@ -120,6 +114,3 @@ class InstanceRubrics(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "InstanceRubrics"
-
-    def __init__(self, model: str | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=model, **metric_kwargs)

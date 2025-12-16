@@ -33,9 +33,6 @@ class ContextPrecision(RagasScorer):
 
     metric_name: ClassVar[str] = "ContextPrecision"
 
-    def __init__(self, model: str | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=model, **metric_kwargs)
-
 
 @experimental(version="3.8.0")
 class NonLLMContextPrecisionWithReference(RagasScorer):
@@ -58,9 +55,6 @@ class NonLLMContextPrecisionWithReference(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "NonLLMContextPrecisionWithReference"
-
-    def __init__(self, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
 
 
 @experimental(version="3.8.0")
@@ -88,9 +82,6 @@ class ContextRecall(RagasScorer):
 
     metric_name: ClassVar[str] = "ContextRecall"
 
-    def __init__(self, model: str | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=model, **metric_kwargs)
-
 
 @experimental(version="3.8.0")
 class NonLLMContextRecall(RagasScorer):
@@ -112,9 +103,6 @@ class NonLLMContextRecall(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "NonLLMContextRecall"
-
-    def __init__(self, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
 
 
 @experimental(version="3.8.0")
@@ -141,9 +129,6 @@ class ContextEntityRecall(RagasScorer):
 
     metric_name: ClassVar[str] = "ContextEntityRecall"
 
-    def __init__(self, model: str | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=model, **metric_kwargs)
-
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
@@ -168,9 +153,6 @@ class NoiseSensitivity(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "NoiseSensitivity"
-
-    def __init__(self, model: str | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=model, **metric_kwargs)
 
 
 @experimental(version="3.8.0")
@@ -197,6 +179,3 @@ class Faithfulness(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "Faithfulness"
-
-    def __init__(self, model: str | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=model, **metric_kwargs)

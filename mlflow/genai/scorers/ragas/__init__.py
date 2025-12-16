@@ -60,10 +60,14 @@ class RagasScorer(Scorer):
 
     def __init__(
         self,
-        metric_name: str,
+        metric_name: str | None = None,
         model: str | None = None,
         **metric_kwargs,
     ):
+        # Use  class attribute if metric_name not provided
+        if metric_name is None:
+            metric_name = self.metric_name
+
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model

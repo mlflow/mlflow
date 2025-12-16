@@ -31,6 +31,3 @@ class SummarizationScore(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "SummarizationScore"
-
-    def __init__(self, model: str | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, model=model, **metric_kwargs)
