@@ -725,3 +725,29 @@ class GeminiProvider(BaseProvider):
                 break
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
+
+    async def passthrough_gemini_generate_content(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """
+        Passthrough endpoint for Gemini generateContent API.
+        Accepts raw Gemini request format and returns raw Gemini response format.
+        """
+        return await send_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path=f"{self.config.model.name}:generateContent",
+            payload=payload,
+        )
+
+    async def passthrough_gemini_stream_generate_content(
+        self, payload: dict[str, Any]
+    ) -> AsyncIterable[bytes]:
+        """
+        Passthrough endpoint for Gemini streamGenerateContent API.
+        Accepts raw Gemini request format and returns raw Gemini streaming response format.
+        """
+        return send_stream_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path=f"{self.config.model.name}:streamGenerateContent?alt=sse",
+            payload=payload,
+        )

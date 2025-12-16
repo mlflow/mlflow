@@ -141,6 +141,30 @@ class BaseProvider(ABC):
             detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
         )
 
+    async def passthrough_gemini_generate_content(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """
+        Passthrough endpoint for Gemini generateContent API.
+        Accepts raw Gemini request format and returns raw Gemini response format.
+        """
+        raise AIGatewayException(
+            status_code=501,
+            detail="The passthrough Gemini generateContent route is not implemented for "
+            f"{self.NAME} models.",
+        )
+
+    async def passthrough_gemini_stream_generate_content(
+        self, payload: dict[str, Any]
+    ) -> AsyncIterable[bytes]:
+        """
+        Passthrough endpoint for Gemini streamGenerateContent API.
+        Accepts raw Gemini request format and returns raw Gemini streaming response format.
+        """
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The passthrough Gemini streamGenerateContent route is not implemented for "
+            f"{self.NAME} models.",
+        )
+
     @staticmethod
     def check_for_model_field(payload):
         if "model" in payload:
