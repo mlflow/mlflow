@@ -118,7 +118,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         wait_job_finalize(submitted_job.job_id)
         job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
-        assert job.function_fullname == "tests.server.jobs.test_jobs.json_in_out_fun"
+        assert job.job_name == "json_in_out_fun"
         assert job.params == '{"data": {"x": 3, "y": 4}}'
         assert job.result == '{"res": 7}'
         assert job.parsed_result == {"res": 7}
@@ -143,7 +143,7 @@ def test_error_job(monkeypatch, tmp_path):
 
         # check database record correctness.
         assert job.job_id == submitted_job.job_id
-        assert job.function_fullname == "tests.server.jobs.test_jobs.err_fun"
+        assert job.job_name == "err_fun"
         assert job.params == '{"data": null}'
         assert job.result.startswith("RuntimeError()")
         assert job.status == JobStatus.FAILED
@@ -270,12 +270,12 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
 
             jobs = list(job_store.list_jobs())
             for job in jobs:
-                if job.function_fullname.endswith("job_fun_parallelism2"):
+                if job.job_name == "job_fun_parallelism2":
                     if job.status == JobStatus.RUNNING:
                         p2_parallelism += 1
                     elif job.status == JobStatus.SUCCEEDED:
                         p2_succeeded_count += 1
-                elif job.function_fullname.endswith("job_fun_parallelism3"):
+                elif job.job_name == "job_fun_parallelism3":
                     if job.status == JobStatus.RUNNING:
                         p3_parallelism += 1
                     elif job.status == JobStatus.SUCCEEDED:
@@ -466,7 +466,7 @@ def test_job_timeout(monkeypatch, tmp_path):
 
         # check database record correctness.
         assert job.job_id == job_id
-        assert job.function_fullname == "tests.server.jobs.test_jobs.sleep_fun"
+        assert job.job_name == "sleep_fun"
         assert job.timeout == 3.0
         assert job.result is None
         assert job.status == JobStatus.TIMEOUT
