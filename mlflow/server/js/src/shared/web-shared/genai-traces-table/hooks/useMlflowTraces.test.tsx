@@ -1191,7 +1191,7 @@ describe('useSearchMlflowTraces', () => {
     // Verify the search query was sent to the backend
     const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body).filter).toContain("span.attributes.`mlflow.spanInputs` ILIKE '%test query%'");
+    expect(JSON.parse(body).filter).toContain("span.attributes.mlflow.spanInputs ILIKE '%test query%'");
 
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data?.[0].trace_id).toBe('trace_1');
@@ -1270,7 +1270,7 @@ describe('useSearchMlflowTraces', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(apiCallSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        filter: "span.attributes.`mlflow.spanInputs` ILIKE '%test query%'",
+        filter: "span.attributes.mlflow.spanInputs ILIKE '%test query%'",
         locations: [{ type: 'UC_SCHEMA', uc_schema: { catalog_name: 'catalog', schema_name: 'schema' } }],
       }),
     );
