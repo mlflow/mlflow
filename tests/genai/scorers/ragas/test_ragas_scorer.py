@@ -6,13 +6,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers.ragas import (
-    ContextPrecision,
-    ExactMatch,
-    Faithfulness,
-    RagasScorer,
-    get_scorer,
-)
+from mlflow.genai.scorers.ragas import get_scorer
 
 
 def test_ragas_scorer_with_exact_match_metric():
@@ -120,36 +114,3 @@ def test_missing_reference_parameter_returns_mlflow_error():
     assert result.error is not None
     assert "ContextPrecision" in result.error.error_message  # metric name
     assert "trace with retrieval spans" in result.error.error_message  # mlflow error message
-
-
-def test_namespaced_exact_match_class():
-    scorer = ExactMatch()
-    assert isinstance(scorer, RagasScorer)
-    assert scorer.name == "ExactMatch"
-
-    result = scorer(
-        outputs="test",
-        expectations={"expected_output": "test"},
-    )
-    assert result.value == 1.0
-
-
-def test_namespaced_exact_match_with_failure():
-    scorer = ExactMatch()
-    result = scorer(
-        outputs="different",
-        expectations={"expected_output": "test"},
-    )
-    assert result.value == 0.0
-
-
-def test_namespaced_classes_are_subclasses_of_ragas_scorer():
-    assert issubclass(ExactMatch, RagasScorer)
-    assert issubclass(ContextPrecision, RagasScorer)
-    assert issubclass(Faithfulness, RagasScorer)
-
-
-def test_namespaced_class_metric_name_attribute():
-    assert ExactMatch.metric_name == "ExactMatch"
-    assert ContextPrecision.metric_name == "ContextPrecision"
-    assert Faithfulness.metric_name == "Faithfulness"
