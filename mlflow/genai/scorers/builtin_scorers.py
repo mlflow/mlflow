@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 import mlflow
-from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
@@ -44,6 +44,10 @@ from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTI
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.knowledge_retention import (
+    KNOWLEDGE_RETENTION_ASSESSMENT_NAME,
+    KNOWLEDGE_RETENTION_PROMPT,
+)
 from mlflow.genai.judges.prompts.relevance_to_query import (
     RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
 )
@@ -63,6 +67,7 @@ from mlflow.genai.judges.utils import (
 )
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
+    Scorer,
     ScorerKind,
     SerializedScorer,
 )
@@ -2015,6 +2020,292 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
     @property
     def instructions(self) -> str:
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class LastTurnKnowledgeRetention(BuiltInSessionLevelScorer):
+    """
+    LastTurnKnowledgeRetention evaluates the last turn of a conversation to determine
+    if the AI response correctly retains information provided by the user in earlier turns.
+
+    This scorer accepts a conversation session (list of traces) and uses an LLM judge
+    to evaluate whether the last AI response correctly retains, or incorrectly
+    contradicts/distorts, user-provided information from earlier turns.
+
+    Returns "yes" if retention is correct, "no" if there are retention issues.
+
+    Args:
+        name: The name of the scorer. Defaults to "last_turn_knowledge_retention".
+        model: {{ model }}
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import LastTurnKnowledgeRetention
+
+        # Session with conversation up to the turn to evaluate
+        session = [
+            mlflow.get_trace(trace_id_0),  # Turn 0
+            mlflow.get_trace(trace_id_1),  # Turn 1 - last turn to evaluate
+        ]
+
+        scorer = LastTurnKnowledgeRetention()
+        feedback = scorer(session=session)
+        print(feedback.value)  # "yes" or "no"
+    """
+
+    name: str = "last_turn_knowledge_retention"
+    model: str | None = None
+    description: str = (
+        "Evaluate whether the last AI response in a conversation correctly retains information "
+        "provided by users in earlier conversation turns."
+    )
+
+    def _create_judge(self) -> InstructionsJudge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+        )
+
+    @property
+    def instructions(self) -> str:
+        return KNOWLEDGE_RETENTION_PROMPT
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class KnowledgeRetention(BuiltInSessionLevelScorer):
+    """
+    KnowledgeRetention evaluates whether AI responses retain, contradict, or distort
+    information provided by users in earlier conversation turns.
+
+    This scorer analyzes each turn of a conversation (starting from turn 2) to assess
+    if the AI correctly retains and uses information from previous user inputs. It
+    returns "yes" if all turns maintain correct knowledge retention, or "no" if any
+    turn shows contradiction, distortion, or problematic forgetting.
+
+    The scorer's rationale describes which specific turns had retention issues.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "knowledge_retention".
+        single_turn_scorer: Scorer to use for evaluating each turn.
+            Defaults to LastTurnKnowledgeRetention().
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import KnowledgeRetention
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = KnowledgeRetention()(session=session)
+        print(assessment)
+        # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import KnowledgeRetention
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[KnowledgeRetention()])
+    """
+
+    name: str = KNOWLEDGE_RETENTION_ASSESSMENT_NAME
+    model: str | None = None
+    single_turn_scorer: Scorer = pydantic.Field(
+        default_factory=lambda: LastTurnKnowledgeRetention()
+    )
+    description: str = (
+        "Evaluate whether the AI correctly retains information provided by users "
+        "in earlier conversation turns without forgetting, contradicting, or distorting it."
+    )
+
+    def __init__(self, /, single_turn_scorer: Scorer | None = None, **kwargs):
+        """
+        Initialize KnowledgeRetention scorer.
+
+        Args:
+            single_turn_scorer: Scorer to use for evaluating each turn.
+                Defaults to LastTurnKnowledgeRetention().
+            **kwargs: Additional arguments passed to parent (name, model, etc.)
+        """
+        if single_turn_scorer is not None:
+            kwargs["single_turn_scorer"] = single_turn_scorer
+        super().__init__(**kwargs)
+
+    def _create_judge(self) -> InstructionsJudge:
+        """
+        This method is required by BuiltInSessionLevelScorer but is not used.
+        KnowledgeRetention uses composition (delegating to single_turn_scorer)
+        rather than creating its own judge.
+        """
+        raise NotImplementedError(
+            "KnowledgeRetention uses composition with single_turn_scorer "
+            "and does not use a judge directly."
+        )
+
+    @property
+    def instructions(self) -> str:
+        """
+        This property is required by BuiltInSessionLevelScorer but is not used.
+        KnowledgeRetention uses composition (delegating to single_turn_scorer)
+        rather than using its own instructions.
+        """
+        raise NotImplementedError(
+            "KnowledgeRetention uses composition with single_turn_scorer "
+            "and does not use instructions directly."
+        )
+
+    def __call__(
+        self,
+        *,
+        session: list[Trace] | None = None,
+        expectations: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Feedback:
+        """
+        Evaluate knowledge retention across conversation turns.
+
+        Args:
+            session: List of traces from the same conversation session.
+            expectations: Not used for this scorer.
+            **kwargs: Additional arguments (will raise TypeError if provided).
+
+        Returns:
+            A single Feedback object with value "yes" or "no", plus detailed rationale
+            describing which turns (if any) had retention issues.
+        """
+        if kwargs:
+            invalid_args = ", ".join(f"'{k}'" for k in kwargs.keys())
+            raise TypeError(
+                f"Session level scorers can only accept the `session` and `expectations` "
+                f"parameters. Got unexpected keyword argument(s): {invalid_args}"
+            )
+
+        if not session or len(session) < 2:
+            return Feedback(
+                name=self.name,
+                value="yes",
+                rationale=(
+                    "Conversation too short to evaluate knowledge retention (need at least 2 turns)"
+                ),
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE,
+                    source_id=self.model or get_default_model(),
+                ),
+            )
+
+        # Sort traces by timestamp
+        sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
+
+        # Evaluate each turn starting from turn 1 (skip turn 0 - no prior context)
+        per_turn_results = []
+
+        for turn_idx in range(1, len(sorted_traces)):
+            # Evaluate this turn (scorer will receive traces[0:turn_idx+1])
+            feedback = self._evaluate_turn(
+                turn_idx=turn_idx,
+                sorted_traces=sorted_traces,
+            )
+
+            per_turn_results.append(
+                {
+                    "turn": turn_idx,
+                    "value": feedback.value,
+                    "rationale": feedback.rationale,
+                }
+            )
+
+        # Aggregate results
+        return self._compute_aggregate(per_turn_results)
+
+    def _evaluate_turn(
+        self,
+        turn_idx: int,
+        sorted_traces: list[Trace],
+    ) -> Feedback:
+        """Evaluate a single turn for knowledge retention using the single_turn_scorer."""
+        # Pass session slice (all traces up to and including current turn) to scorer
+        # This allows the scorer to see the full conversation history up to this point
+        session_up_to_turn = sorted_traces[: turn_idx + 1]
+
+        # Call single_turn_scorer with session containing conversation up to current turn
+        return self.single_turn_scorer(session=session_up_to_turn)
+
+    def _compute_aggregate(self, per_turn_results: list[dict[str, Any]]) -> Feedback:
+        """Compute aggregate knowledge retention feedback using worst-case logic."""
+        if not per_turn_results:
+            return Feedback(
+                name=self.name,
+                value="yes",
+                rationale="No turns evaluated (conversation too short or missing data)",
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE,
+                    source_id=self.model or get_default_model(),
+                ),
+            )
+
+        # Count yes/no
+        failed_turns = [r for r in per_turn_results if str(r["value"]).lower() == "no"]
+        total_turns = len(per_turn_results)
+
+        # Worst-case aggregation: any "no" means overall "no"
+        if failed_turns:
+            aggregate_value = "no"
+
+            # Build detailed rationale
+            rationale_lines = [f"Knowledge retention evaluation across {total_turns} turn(s):"]
+
+            for result in per_turn_results:
+                status = "✗" if str(result["value"]).lower() == "no" else "✓"
+                turn_summary = result["rationale"][:100]  # Truncate if too long
+                rationale_lines.append(f"- Turn {result['turn']}: {status} {turn_summary}")
+
+            rationale_lines.append(
+                f"\nOverall: NO - Knowledge retention failed in {len(failed_turns)} "
+                f"out of {total_turns} turn(s)."
+            )
+            rationale = "\n".join(rationale_lines)
+        else:
+            aggregate_value = "yes"
+            rationale = (
+                f"Knowledge retention successful across all {total_turns} evaluated turn(s). "
+                f"AI correctly retained and used information from prior user inputs."
+            )
+
+        return Feedback(
+            name=self.name,
+            value=aggregate_value,
+            rationale=rationale,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id=self.model or get_default_model(),
+            ),
+        )
 
 
 @experimental(version="3.7.0")

@@ -20,6 +20,8 @@ from mlflow.genai.scorers import (
     Equivalence,
     ExpectationsGuidelines,
     Guidelines,
+    KnowledgeRetention,
+    LastTurnKnowledgeRetention,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
@@ -1646,6 +1648,222 @@ def test_conversational_role_adherence_instructions():
     instructions = scorer.instructions
     assert "role" in instructions.lower()
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
+
+
+def test_last_turn_knowledge_retention_success():
+    session_id = "test_session_last_turn"
+    session = []
+
+    # Turn 0: User provides information
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"question": "My name is Alice and I love Python"})
+        span.set_outputs("Nice to meet you Alice! Python is great.")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    session.append(mlflow.get_trace(span.trace_id))
+
+    # Turn 1: User asks follow-up (last turn to evaluate)
+    with mlflow.start_span(name="turn_1") as span:
+        span.set_inputs({"question": "What programming language do I like?"})
+        span.set_outputs("You mentioned you love Python!")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    session.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="last_turn_knowledge_retention",
+            value="yes",
+            rationale="AI correctly recalled the user loves Python",
+        ),
+    ) as mock_invoke_judge:
+        scorer = LastTurnKnowledgeRetention()
+        result = scorer(session=session)
+
+        assert isinstance(result, Feedback)
+        assert result.value == "yes"
+        mock_invoke_judge.assert_called_once()
+
+
+def test_knowledge_retention_success():
+    session_id = "test_session_kr_success"
+    traces = []
+
+    # Turn 0: User provides information
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"question": "My name is Alice and I love Python"})
+        span.set_outputs("Nice to meet you Alice! Python is great.")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    # Turn 1: User asks follow-up
+    with mlflow.start_span(name="turn_1") as span:
+        span.set_inputs({"question": "What programming language do I like?"})
+        span.set_outputs("You mentioned you love Python!")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    # Mock the judge to return "yes"
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="last_turn_knowledge_retention",
+            value="yes",
+            rationale="AI correctly recalled the user loves Python",
+        ),
+    ) as mock_invoke_judge:
+        scorer = KnowledgeRetention()
+        result = scorer(session=traces)
+
+        # Should return single Feedback with value "yes"
+        assert isinstance(result, Feedback)
+        assert result.value == "yes"
+        assert "successful" in result.rationale.lower()
+
+        # Only turn 1 evaluated (turn 0 is context-building)
+        mock_invoke_judge.assert_called_once()
+
+
+def test_knowledge_retention_failure():
+    session_id = "test_session_kr_failure"
+    traces = []
+
+    # Turn 0: User provides information
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"question": "My name is Alice"})
+        span.set_outputs("Nice to meet you Alice!")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    # Turn 1: AI contradicts user information
+    with mlflow.start_span(name="turn_1") as span:
+        span.set_inputs({"question": "What's my name?"})
+        span.set_outputs("Your name is Bob!")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    # Mock the judge to return "no"
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="last_turn_knowledge_retention",
+            value="no",
+            rationale="AI incorrectly recalled name as Bob instead of Alice",
+        ),
+    ):
+        scorer = KnowledgeRetention()
+        result = scorer(session=traces)
+
+        # Should return single Feedback with value "no"
+        assert isinstance(result, Feedback)
+        assert result.value == "no"
+        assert "failed" in result.rationale.lower() or "no" in result.rationale.lower()
+
+        # Verify rationale mentions the specific turn
+        assert "Turn 1" in result.rationale
+
+
+def test_knowledge_retention_single_turn():
+    session_id = "test_session_single"
+    traces = []
+
+    # Single turn
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"question": "Hello"})
+        span.set_outputs("Hi there!")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    scorer = KnowledgeRetention()
+    result = scorer(session=traces)
+
+    # Should return "yes" with rationale explaining conversation too short
+    assert isinstance(result, Feedback)
+    assert result.value == "yes"
+    assert "too short" in result.rationale.lower()
+
+
+def test_knowledge_retention_empty_session():
+    scorer = KnowledgeRetention()
+    result = scorer(session=[])
+
+    # Should return "yes" with rationale explaining no evaluation needed
+    assert isinstance(result, Feedback)
+    assert result.value == "yes"
+    assert "too short" in result.rationale.lower()
+
+
+def test_knowledge_retention_multi_turn():
+    session_id = "test_session_multi_turn"
+    traces = []
+
+    # Turn 0: User provides multiple pieces of information
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"question": "My name is Alice, I'm from Seattle, and I work in AI"})
+        span.set_outputs("Nice to meet you Alice! Seattle is a great tech hub.")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    # Turn 1: User asks about one piece of info - should pass
+    with mlflow.start_span(name="turn_1") as span:
+        span.set_inputs({"question": "What city am I from?"})
+        span.set_outputs("You're from Seattle.")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    # Turn 2: User asks about another piece - should pass
+    with mlflow.start_span(name="turn_2") as span:
+        span.set_inputs({"question": "What do I work in?"})
+        span.set_outputs("You work in AI.")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    # Turn 3: User asks about name but AI gets it wrong - should fail
+    with mlflow.start_span(name="turn_3") as span:
+        span.set_inputs({"question": "What's my name again?"})
+        span.set_outputs("Your name is Bob.")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    # Mock the judge to return yes, yes, no for turns 1, 2, 3
+    mock_responses = [
+        Feedback(
+            name="last_turn_knowledge_retention",
+            value="yes",
+            rationale="Correctly recalled Seattle",
+        ),
+        Feedback(
+            name="last_turn_knowledge_retention",
+            value="yes",
+            rationale="Correctly recalled AI work",
+        ),
+        Feedback(
+            name="last_turn_knowledge_retention",
+            value="no",
+            rationale="Incorrectly recalled name as Bob instead of Alice",
+        ),
+    ]
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        side_effect=mock_responses,
+    ) as mock_invoke_judge:
+        scorer = KnowledgeRetention()
+        result = scorer(session=traces)
+
+        # Should return "no" because turn 3 failed
+        assert isinstance(result, Feedback)
+        assert result.value == "no"
+        assert "failed" in result.rationale.lower() or "no" in result.rationale.lower()
+
+        # Verify all three turns were evaluated (turn 0 is context)
+        assert mock_invoke_judge.call_count == 3
+
+        # Verify rationale mentions the specific failed turn
+        assert "Turn 3" in result.rationale or "turn 3" in result.rationale.lower()
+
+        # Verify rationale shows successful turns too
+        assert "Turn 1" in result.rationale or "turn 1" in result.rationale.lower()
+        assert "Turn 2" in result.rationale or "turn 2" in result.rationale.lower()
 
 
 def test_session_level_scorer_with_invalid_kwargs():
