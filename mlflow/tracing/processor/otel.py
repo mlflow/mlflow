@@ -75,15 +75,15 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
                 with self._trace_manager.get_trace(mlflow_span.trace_id) as trace:
                     metadatas = trace.info.trace_metadata
 
-                # Add metadata added in MLflow span processor if NOT in dual mode.
-                if self._should_register_traces:
-                    # TODO: should we also add metadata added in _get_basic_trace_metadata() ?
-                    metadatas.update(resolve_env_metadata())
-                if metadatas:
-                    with _bypass_attribute_guard(mlflow_span._span):
-                        for key, value in metadatas.items():
-                            attribute_key = SpanAttributeKey.METADATA.format(key=key)
-                            mlflow_span.set_attribute(attribute_key, value)
+                    # Add metadata added in MLflow span processor if NOT in dual mode.
+                    if self._should_register_traces:
+                        # TODO: should we also add metadata added in _get_basic_trace_metadata() ?
+                        metadatas.update(resolve_env_metadata())
+                    if metadatas:
+                        with _bypass_attribute_guard(mlflow_span._span):
+                            for key, value in metadatas.items():
+                                attribute_key = SpanAttributeKey.METADATA.format(key=key)
+                                mlflow_span.set_attribute(attribute_key, value)
             except Exception as e:
                 _logger.warning(
                     f"Adding metadata to root span failed: {e}",

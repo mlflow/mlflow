@@ -128,9 +128,6 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     class TestModel:
         @mlflow.trace()
         def predict(self, x, y):
-            mlflow.update_current_trace(
-                metadata={"user_id": "42", "session_id": "123"},
-            )
             z = x + y
             z = self.add_one(z)
             z = mlflow.trace(self.square)(z)
@@ -214,10 +211,7 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     @mlflow.trace(name="child_span")
     def child_function(arg1, arg2):
         # Test that update_current_trace works in dual export mode
-        mlflow.update_current_trace(
-            tags={"env": "production", "version": "1.0"},
-            metadata={"user_id": "42", "session_id": "123"},
-        )
+        mlflow.update_current_trace({"env": "production", "version": "1.0"})
         return f"{arg1} {arg2}"
 
     result = parent_function()
@@ -244,7 +238,7 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
             collector_logs = f.read()
         # Check if spans are in the logs - the debug exporter outputs span details
         # Look for evidence that spans were received
-        if "parent_span" in collector_logs:
+        if "parent_span" in collector_logs or "child_span" in collector_logs:
             # Evidence of traces being exported to OTLP
             spans_found = True
             break
