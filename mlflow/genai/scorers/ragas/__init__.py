@@ -98,12 +98,12 @@ class RagasScorer(Scorer):
         if self._is_deterministic:
             assessment_source = AssessmentSource(
                 source_type=AssessmentSourceType.CODE,
-                source_id=f"ragas/{self.name}",
+                source_id=self.name,
             )
         else:
             assessment_source = AssessmentSource(
                 source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id=f"ragas/{self._model}",
+                source_id=self._model,
             )
 
         try:
@@ -127,7 +127,7 @@ class RagasScorer(Scorer):
 
             # RAGAS metrics may have thresholds to map to binary feedback
             threshold = getattr(self._metric, "threshold", None)
-            metadata = {}
+            metadata = {"library": "ragas"}
 
             if threshold is not None:
                 metadata["threshold"] = threshold
