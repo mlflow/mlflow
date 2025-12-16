@@ -5090,7 +5090,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
 
                 # Handle span.attributes.<attribute> format
                 if key_name.startswith("attributes."):
-                    attr_name = key_name[len("attributes.") :]
+                    attr_name = SearchTraceUtils._trim_backticks(key_name[len("attributes.") :])
                     # Search within the content JSON for the specific attribute
                     # TODO: we should improve this by saving only the attributes into the table.
                     if comparator == "RLIKE":
