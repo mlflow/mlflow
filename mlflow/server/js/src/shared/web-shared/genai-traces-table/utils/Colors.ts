@@ -26,11 +26,74 @@ const ERROR_BARCHART_BAR_COLOR = '#f09065';
 
 const TAG_PASS_COLOR = '#02B30214'; // From tagBackgroundLime.
 
+const BUILTIN_SCORER_ASSESSMENT_COLORS = {
+  user_frustration: {
+    name: 'user_frustration',
+    valueColors: {
+      none: {
+        bar: PASS_BARCHART_BAR_COLOR,
+        tag: TAG_PASS_COLOR,
+        icon: (theme: ThemeType) => (theme.isDarkMode ? theme.colors.green400 : theme.colors.green600),
+        text: (theme: ThemeType) => (theme.isDarkMode ? theme.colors.green400 : theme.colors.green600),
+      },
+      resolved: {
+        bar: (theme: ThemeType) => theme.colors.yellow400,
+        tag: (theme: ThemeType) => (theme.isDarkMode ? withAlpha(theme.colors.yellow800, 0.6) : theme.colors.yellow200),
+        icon: (theme: ThemeType) => (theme.isDarkMode ? theme.colors.yellow400 : theme.colors.yellow600),
+        text: (theme: ThemeType) => (theme.isDarkMode ? theme.colors.yellow400 : theme.colors.yellow600),
+      },
+      unresolved: {
+        bar: FAIL_BARCHART_BAR_COLOR,
+        tag: (theme: ThemeType) => (theme.isDarkMode ? withAlpha(theme.colors.red800, 0.6) : theme.colors.red200),
+        icon: (theme: ThemeType) => (theme.isDarkMode ? theme.colors.red400 : theme.colors.red600),
+        text: (theme: ThemeType) => (theme.isDarkMode ? theme.colors.red400 : theme.colors.red600),
+      },
+    },
+  },
+} as const;
+
+const getBuiltInScorerAssessmentColors = (
+  assessmentInfo: AssessmentInfo,
+  assessmentValue: AssessmentValueType | string | null | undefined,
+  theme: ThemeType,
+):
+  | {
+      bar?: string;
+      tag?: string;
+      icon?: string;
+      text?: string;
+    }
+  | undefined => {
+  const builtInAssessment =
+    BUILTIN_SCORER_ASSESSMENT_COLORS[assessmentInfo.name as keyof typeof BUILTIN_SCORER_ASSESSMENT_COLORS];
+  if (!builtInAssessment) {
+    return undefined;
+  }
+
+  const valueKey = String(assessmentValue ?? '') as keyof typeof builtInAssessment.valueColors;
+  const colors = builtInAssessment.valueColors[valueKey];
+  if (!colors) {
+    return undefined;
+  }
+
+  return {
+    bar: typeof colors.bar === 'function' ? colors.bar(theme) : colors.bar,
+    tag: typeof colors.tag === 'function' ? colors.tag(theme) : colors.tag,
+    icon: typeof colors.icon === 'function' ? colors.icon(theme) : colors.icon,
+    text: typeof colors.text === 'function' ? colors.text(theme) : colors.text,
+  };
+};
+
 export const getEvaluationResultIconColor = (
   theme: ThemeType,
   assessmentInfo: AssessmentInfo,
   assessment?: RunEvaluationResultAssessment | { stringValue: string; errorMessage?: string },
 ) => {
+  const builtInScorerColors = getBuiltInScorerAssessmentColors(assessmentInfo, assessment?.stringValue, theme);
+  if (builtInScorerColors?.icon) {
+    return builtInScorerColors.icon;
+  }
+
   if (assessmentInfo.dtype === 'pass-fail') {
     // Return the color based on the assessment value
     if (assessment?.stringValue === KnownEvaluationResultAssessmentStringValue.YES) {
@@ -52,6 +115,11 @@ export const getEvaluationResultAssessmentBackgroundColor = (
   assessment?: RunEvaluationResultAssessment | { stringValue: string; booleanValue?: string; errorMessage?: string },
   iconOnly = false,
 ) => {
+  const builtInScorerColors = getBuiltInScorerAssessmentColors(assessmentInfo, assessment?.stringValue, theme);
+  if (builtInScorerColors?.tag) {
+    return builtInScorerColors.tag;
+  }
+
   if (assessmentInfo.dtype === 'pass-fail') {
     // Return the color based on the assessment value
     if (assessment?.stringValue === KnownEvaluationResultAssessmentStringValue.YES) {
@@ -79,6 +147,11 @@ export const getEvaluationResultTextColor = (
 ) => {
   if (assessment?.errorMessage) {
     return theme.colors.textValidationWarning;
+  }
+
+  const builtInScorerColors = getBuiltInScorerAssessmentColors(assessmentInfo, assessment?.stringValue, theme);
+  if (builtInScorerColors?.text) {
+    return builtInScorerColors.text;
   }
 
   if (assessmentInfo.dtype === 'pass-fail') {
@@ -110,6 +183,12 @@ export const getAssessmentValueBarBackgroundColor = (
   if (isError) {
     return ERROR_BARCHART_BAR_COLOR;
   }
+
+  const builtInScorerColors = getBuiltInScorerAssessmentColors(assessmentInfo, assessmentValue, theme);
+  if (builtInScorerColors?.bar) {
+    return builtInScorerColors.bar;
+  }
+
   if (assessmentInfo.dtype === 'pass-fail') {
     // Return the color based on the assessment value
     if (assessmentValue === KnownEvaluationResultAssessmentStringValue.YES) {
