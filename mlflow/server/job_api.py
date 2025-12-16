@@ -105,7 +105,7 @@ def search_jobs(payload: SearchJobPayload) -> SearchJobsResponse:
         job_results = [
             Job.from_job_entity(job)
             for job in store.list_jobs(
-                function_fullname=payload.function_fullname,
+                job_name=payload.function_fullname,
                 statuses=payload.statuses,
                 params=payload.params,
             )
