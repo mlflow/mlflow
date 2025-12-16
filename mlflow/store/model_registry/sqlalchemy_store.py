@@ -102,6 +102,15 @@ class SqlAlchemyStore(AbstractStore):
     _engine_map: dict[str, sqlalchemy.engine.Engine] = {}
     _engine_map_lock = threading.Lock()
 
+    @classmethod
+    def _get_or_create_engine(cls, db_uri: str) -> sqlalchemy.engine.Engine:
+        """Get a cached engine or create a new one for the given database URI."""
+        if db_uri not in cls._engine_map:
+            with cls._engine_map_lock:
+                if db_uri not in cls._engine_map:
+                    cls._engine_map[db_uri] = create_sqlalchemy_engine_with_retry(db_uri)
+        return cls._engine_map[db_uri]
+
     def __init__(self, db_uri):
         """
         Create a database backed store.
@@ -118,14 +127,7 @@ class SqlAlchemyStore(AbstractStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        # Use cached engine if available to prevent connection pool leaks
-        if db_uri not in SqlAlchemyStore._engine_map:
-            with SqlAlchemyStore._engine_map_lock:
-                if db_uri not in SqlAlchemyStore._engine_map:
-                    SqlAlchemyStore._engine_map[db_uri] = create_sqlalchemy_engine_with_retry(
-                        db_uri
-                    )
-        self.engine = SqlAlchemyStore._engine_map[db_uri]
+        self.engine = self._get_or_create_engine(db_uri)
         if not _all_tables_exist(self.engine):
             _initialize_tables(self.engine)
         # Verify that all model registry tables exist.
