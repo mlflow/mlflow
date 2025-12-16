@@ -1655,14 +1655,12 @@ def test_last_turn_knowledge_retention_success():
     session_id = "test_session_last_turn"
     session = []
 
-    # Turn 0: User provides information
     with mlflow.start_span(name="turn_0") as span:
         span.set_inputs({"question": "My name is Alice and I love Python"})
         span.set_outputs("Nice to meet you Alice! Python is great.")
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     session.append(mlflow.get_trace(span.trace_id))
 
-    # Turn 1: User asks follow-up (last turn to evaluate)
     with mlflow.start_span(name="turn_1") as span:
         span.set_inputs({"question": "What programming language do I like?"})
         span.set_outputs("You mentioned you love Python!")
@@ -1684,10 +1682,8 @@ def test_last_turn_knowledge_retention_success():
         assert result.value == "yes"
         mock_invoke_judge.assert_called_once()
 
-        # Verify the judge receives the conversation with both turns
         call_kwargs = mock_invoke_judge.call_args.kwargs
         assert "prompt" in call_kwargs
-        # The conversation should include both turns (user + assistant messages)
         prompt_messages = call_kwargs["prompt"]
         conversation_content = prompt_messages[1].content
         assert "My name is Alice and I love Python" in conversation_content
@@ -1698,21 +1694,18 @@ def test_knowledge_retention_success():
     session_id = "test_session_kr_success"
     traces = []
 
-    # Turn 0: User provides information
     with mlflow.start_span(name="turn_0") as span:
         span.set_inputs({"question": "My name is Alice and I love Python"})
         span.set_outputs("Nice to meet you Alice! Python is great.")
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     traces.append(mlflow.get_trace(span.trace_id))
 
-    # Turn 1: User asks follow-up
     with mlflow.start_span(name="turn_1") as span:
         span.set_inputs({"question": "What programming language do I like?"})
         span.set_outputs("You mentioned you love Python!")
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     traces.append(mlflow.get_trace(span.trace_id))
 
-    # Create a fake last-turn scorer that returns "yes"
     fake_scorer = Mock(spec=Scorer)
     fake_scorer.return_value = Feedback(
         name="last_turn_knowledge_retention",
@@ -1727,42 +1720,35 @@ def test_knowledge_retention_success():
     scorer = KnowledgeRetention(single_turn_scorer=fake_scorer)
     result = scorer(session=traces)
 
-    # Should return single Feedback with value "yes"
     assert isinstance(result, Feedback)
     assert result.value == "yes"
     assert "successful" in result.rationale.lower()
 
-    # Both turn 0 and turn 1 evaluated
     assert fake_scorer.call_count == 2
 
-    # Verify first call (turn 0) received 1 trace
     first_call_args = fake_scorer.call_args_list[0]
-    assert len(first_call_args.kwargs["session"]) == 1  # Trace 0 only
+    assert len(first_call_args.kwargs["session"]) == 1
 
-    # Verify second call (turn 1) received 2 traces
     second_call_args = fake_scorer.call_args_list[1]
-    assert len(second_call_args.kwargs["session"]) == 2  # Traces 0-1
+    assert len(second_call_args.kwargs["session"]) == 2
 
 
 def test_knowledge_retention_failure():
     session_id = "test_session_kr_failure"
     traces = []
 
-    # Turn 0: User provides information
     with mlflow.start_span(name="turn_0") as span:
         span.set_inputs({"question": "My name is Alice"})
         span.set_outputs("Nice to meet you Alice!")
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     traces.append(mlflow.get_trace(span.trace_id))
 
-    # Turn 1: AI contradicts user information
     with mlflow.start_span(name="turn_1") as span:
         span.set_inputs({"question": "What's my name?"})
         span.set_outputs("Your name is Bob!")
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     traces.append(mlflow.get_trace(span.trace_id))
 
-    # Create a fake last-turn scorer that returns "no"
     fake_scorer = Mock(spec=Scorer)
     fake_scorer.return_value = Feedback(
         name="last_turn_knowledge_retention",
@@ -1777,15 +1763,12 @@ def test_knowledge_retention_failure():
     scorer = KnowledgeRetention(single_turn_scorer=fake_scorer)
     result = scorer(session=traces)
 
-    # Should return single Feedback with value "no"
     assert isinstance(result, Feedback)
     assert result.value == "no"
     assert "failed" in result.rationale.lower() or "no" in result.rationale.lower()
 
-    # Verify rationale mentions the specific turn
     assert "Turn 1" in result.rationale
 
-    # Verify rationale includes the specific turn rationale from the last-turn scorer
     assert "AI incorrectly recalled name as Bob instead of Alice" in result.rationale
 
 
@@ -1793,14 +1776,12 @@ def test_knowledge_retention_single_turn():
     session_id = "test_session_single"
     traces = []
 
-    # Single turn
     with mlflow.start_span(name="turn_0") as span:
         span.set_inputs({"question": "Hello"})
         span.set_outputs("Hi there!")
         mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
     traces.append(mlflow.get_trace(span.trace_id))
 
-    # Create a fake single-turn scorer that returns "yes"
     fake_scorer = Mock(spec=Scorer)
     fake_scorer.return_value = Feedback(
         name="last_turn_knowledge_retention",
@@ -1815,22 +1796,19 @@ def test_knowledge_retention_single_turn():
     scorer = KnowledgeRetention(single_turn_scorer=fake_scorer)
     result = scorer(session=traces)
 
-    # Should evaluate the single turn and return the result
     assert isinstance(result, Feedback)
     assert result.value == "yes"
     assert "successful" in result.rationale.lower()
 
-    # Verify turn 0 was evaluated
     fake_scorer.assert_called_once()
     call_args = fake_scorer.call_args
-    assert len(call_args.kwargs["session"]) == 1  # Single trace
+    assert len(call_args.kwargs["session"]) == 1
 
 
 def test_knowledge_retention_empty_session():
     scorer = KnowledgeRetention()
     result = scorer(session=[])
 
-    # Should return "yes" with rationale explaining no evaluation needed
     assert isinstance(result, Feedback)
     assert result.value == "yes"
     assert "empty session" in result.rationale.lower()

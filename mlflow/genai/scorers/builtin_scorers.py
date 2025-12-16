@@ -2217,14 +2217,11 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
                 ),
             )
 
-        # Sort traces by timestamp
         sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
 
-        # Evaluate each turn starting from turn 0
         per_turn_results = []
 
         for turn_idx in range(len(sorted_traces)):
-            # Evaluate this turn (scorer will receive traces[0:turn_idx+1])
             feedback = self._evaluate_turn(
                 turn_idx=turn_idx,
                 sorted_traces=sorted_traces,
@@ -2238,7 +2235,6 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
                 }
             )
 
-        # Aggregate results
         return self._compute_aggregate(per_turn_results)
 
     def _evaluate_turn(
@@ -2247,11 +2243,8 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         sorted_traces: list[Trace],
     ) -> Feedback:
         """Evaluate a single turn for knowledge retention using the single_turn_scorer."""
-        # Pass session slice (all traces up to and including current turn) to scorer
-        # This allows the scorer to see the full conversation history up to this point
         session_up_to_turn = sorted_traces[: turn_idx + 1]
 
-        # Call single_turn_scorer with session containing conversation up to current turn
         return self.single_turn_scorer(session=session_up_to_turn)
 
     def _compute_aggregate(self, per_turn_results: list[dict[str, Any]]) -> Feedback:
@@ -2267,15 +2260,12 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
                 ),
             )
 
-        # Count yes/no
         failed_turns = [r for r in per_turn_results if str(r["value"]).lower() == "no"]
         total_turns = len(per_turn_results)
 
-        # Worst-case aggregation: any "no" means overall "no"
         if failed_turns:
             aggregate_value = "no"
 
-            # Build detailed rationale
             rationale_lines = [f"Knowledge retention evaluation across {total_turns} turn(s):"]
 
             for result in per_turn_results:
@@ -2543,6 +2533,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
         UserFrustration(),
         ConversationCompleteness(),
         Completeness(),
+        KnowledgeRetention(),
     ]
     if is_databricks_uri(mlflow.get_tracking_uri()):
         scorers.extend([Safety(), RetrievalRelevance()])
