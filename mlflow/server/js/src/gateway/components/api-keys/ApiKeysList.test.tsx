@@ -130,7 +130,7 @@ describe('ApiKeysList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('No API keys created yet')).toBeInTheDocument();
+    expect(screen.getByText('No API keys created')).toBeInTheDocument();
   });
 
   test('renders secrets list', () => {

@@ -151,7 +151,7 @@ describe('GatewayLayout', () => {
     expect(screen.getByText('AI Gateway requires a SQL backend')).toBeInTheDocument();
   });
 
-  test('shows unsupported backend message for Internal Server Error', () => {
+  test('does not show unsupported message for Internal Server Error', () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -167,7 +167,10 @@ describe('GatewayLayout', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('AI Gateway requires a SQL backend')).toBeInTheDocument();
+    // Internal Server Error should NOT be treated as unsupported backend
+    // Generic 500 errors should be handled as notifications, not backend compatibility issues
+    expect(screen.queryByText('AI Gateway requires a SQL backend')).not.toBeInTheDocument();
+    expect(screen.getByText('AI Gateway')).toBeInTheDocument();
   });
 
   test('does not show unsupported message for other errors', () => {

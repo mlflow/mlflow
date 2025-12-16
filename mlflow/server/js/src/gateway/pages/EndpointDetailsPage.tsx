@@ -19,7 +19,9 @@ import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
 import { useEndpointDetails } from '../hooks/useEndpointDetails';
 import { ModelCard, ConnectedResourcesSection } from '../components/endpoint-details';
 import { DeleteEndpointModal } from '../components/endpoints/DeleteEndpointModal';
-import type { EndpointModelMapping, Model } from '../types';
+import { ApiKeyDetailsDrawer } from '../components/api-keys/ApiKeyDetailsDrawer';
+import type { EndpointModelMapping, Model, SecretInfo } from '../types';
+import { useState, useCallback } from 'react';
 
 /**
  * Container component for the Endpoint Details page.
@@ -44,6 +46,15 @@ const EndpointDetailsPage = () => {
     handleDeleteModalClose,
     handleDeleteSuccess,
   } = useEndpointDetails(endpointId ?? '');
+
+  // API Key details drawer state
+  const [selectedSecret, setSelectedSecret] = useState<SecretInfo | null>(null);
+  const handleKeyClick = useCallback((secret: SecretInfo) => {
+    setSelectedSecret(secret);
+  }, []);
+  const handleKeyDrawerClose = useCallback(() => {
+    setSelectedSecret(null);
+  }, []);
 
   if (isLoading) {
     return (
@@ -163,6 +174,7 @@ const EndpointDetailsPage = () => {
                           modelMetadata={modelsData?.find(
                             (m: Model) => m.model === mapping.model_definition?.model_name,
                           )}
+                          onKeyClick={handleKeyClick}
                         />
                       ))}
                     </div>
@@ -234,6 +246,9 @@ const EndpointDetailsPage = () => {
         onClose={handleDeleteModalClose}
         onSuccess={handleDeleteSuccess}
       />
+
+      {/* API Key details drawer */}
+      <ApiKeyDetailsDrawer open={selectedSecret !== null} secret={selectedSecret} onClose={handleKeyDrawerClose} />
     </div>
   );
 };

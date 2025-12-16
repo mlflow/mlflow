@@ -609,10 +609,11 @@ def _assert_item_type_string(x):
 
 
 def _assert_secret_value(x):
-    """Validate secret_value is a non-empty string without ever printing the value in errors."""
-    if not isinstance(x, str):
+    """Validate secret_value is a non-empty map without ever printing the value in errors."""
+    # secret_value is a map<string, string> in proto, so it's a dict-like object
+    if not hasattr(x, "__iter__") or isinstance(x, str):
         raise MlflowException(
-            message="Parameter 'secret_value' must be a string.",
+            message="Parameter 'secret_value' must be a map of string to string.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not x:
@@ -623,12 +624,13 @@ def _assert_secret_value(x):
 
 
 def _assert_optional_secret_value(x):
-    """Validate secret_value is a string if provided, without ever printing the value in errors."""
-    if x is None or x == "":
+    """Validate secret_value is a map if provided, without ever printing the value in errors."""
+    # secret_value is a map<string, string> in proto, so it's a dict-like object
+    if x is None or (hasattr(x, "__len__") and len(x) == 0):
         return
-    if not isinstance(x, str):
+    if not hasattr(x, "__iter__") or isinstance(x, str):
         raise MlflowException(
-            message="Parameter 'secret_value' must be a string.",
+            message="Parameter 'secret_value' must be a map of string to string.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -3875,8 +3877,8 @@ def _create_secret():
             "created_by": [_assert_string],
         },
     )
-    # Parse secret_value JSON string to dict (frontend sends JSON-encoded secret fields)
-    secret_value = json.loads(request_message.secret_value)
+    # secret_value is a map<string, string> in proto, so it's already a dict-like object
+    secret_value = dict(request_message.secret_value)
     # Parse auth_config_json string to dict if provided
     auth_config = None
     if request_message.auth_config_json:
@@ -3921,10 +3923,10 @@ def _update_secret():
             "updated_by": [_assert_string],
         },
     )
-    # Parse secret_value JSON string to dict if provided (frontend sends JSON-encoded secret fields)
+    # secret_value is a map<string, string> in proto, so convert to dict if provided
     secret_value = None
     if request_message.secret_value:
-        secret_value = json.loads(request_message.secret_value)
+        secret_value = dict(request_message.secret_value)
     # Parse auth_config_json string to dict if provided
     auth_config = None
     if request_message.auth_config_json:
@@ -4421,6 +4423,11 @@ def get_gateway_endpoints():
         (
             _get_ajax_path("/mlflow/endpoints/provider-config", version=3),
             _get_provider_config,
+            ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/gateway/secrets/config", version=3),
+            _get_secrets_config,
             ["GET"],
         ),
     ]

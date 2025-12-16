@@ -82,7 +82,7 @@ describe('EndpointsList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('No endpoints created yet')).toBeInTheDocument();
+    expect(screen.getByText('No endpoints created')).toBeInTheDocument();
   });
 
   test('renders endpoints list', () => {

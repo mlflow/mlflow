@@ -3,6 +3,7 @@ import {
   Button,
   ChainIcon,
   ChevronRightIcon,
+  CloudModelIcon,
   Drawer,
   Empty,
   importantify,
@@ -130,23 +131,44 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     );
   }
 
-  if (!endpoints?.length) {
-    return (
-      <Empty
-        image={<ChainIcon />}
-        title={formatMessage({
-          defaultMessage: 'No endpoints created yet',
-          description: 'Empty state title for endpoints list',
-        })}
-        description={
-          <FormattedMessage
-            defaultMessage="Create an endpoint with models and API keys to securely connect MLflow features to your preferred GenAI providers."
-            description="Empty state message for endpoints list explaining the feature"
-          />
-        }
-      />
-    );
-  }
+  const isFiltered = searchFilter.trim().length > 0 || filter.providers.length > 0;
+
+  const getEmptyState = () => {
+    const isEmptyList = endpoints?.length === 0;
+    if (filteredEndpoints.length === 0 && isFiltered) {
+      return (
+        <Empty
+          title={
+            <FormattedMessage
+              defaultMessage="No endpoints found"
+              description="Empty state title when filter returns no results"
+            />
+          }
+          description={null}
+        />
+      );
+    }
+    if (isEmptyList) {
+      return (
+        <Empty
+          image={<CloudModelIcon />}
+          title={
+            <FormattedMessage
+              defaultMessage="No endpoints created"
+              description="Empty state title for endpoints list"
+            />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage='Use "Create endpoint" button to create a new endpoint'
+              description="Empty state message for endpoints list explaining how to create"
+            />
+          }
+        />
+      );
+    }
+    return null;
+  };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -166,115 +188,104 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
         <EndpointsFilterButton availableProviders={availableProviders} filter={filter} onFilterChange={setFilter} />
       </div>
 
-      {filteredEndpoints.length === 0 ? (
-        <Empty
-          image={<SearchIcon />}
-          description={
-            <FormattedMessage
-              defaultMessage="No endpoints match your filter"
-              description="Empty state message when filter returns no results"
-            />
-          }
-        />
-      ) : (
-        <Table
-          scrollable
-          css={{
-            border: `1px solid ${theme.colors.borderDecorative}`,
-            borderRadius: theme.general.borderRadiusBase,
-          }}
-        >
-          <TableRow isHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.name-header" css={{ flex: 2 }}>
-              <FormattedMessage defaultMessage="Name" description="Endpoint name column header" />
-            </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.provider-header" css={{ flex: 1 }}>
-              <FormattedMessage defaultMessage="Provider" description="Provider column header" />
-            </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.models-header" css={{ flex: 2 }}>
-              <FormattedMessage defaultMessage="Models" description="Models column header" />
-            </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.bindings-header" css={{ flex: 1 }}>
-              <FormattedMessage defaultMessage="Connected resources" description="Connected resources column header" />
-            </TableHeader>
-            <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header" css={{ flex: 1 }}>
-              <FormattedMessage defaultMessage="Last modified" description="Last modified column header" />
-            </TableHeader>
-            <TableHeader
-              componentId="mlflow.gateway.endpoints-list.actions-header"
-              css={{ flex: 0, minWidth: 96, maxWidth: 96 }}
-            />
-          </TableRow>
-          {filteredEndpoints.map((endpoint) => (
-            <TableRow key={endpoint.endpoint_id}>
-              <TableCell css={{ flex: 2 }}>
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                  <ChainIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
-                  <Link
-                    to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
-                    css={{
-                      color: theme.colors.actionPrimaryBackgroundDefault,
-                      textDecoration: 'none',
-                      fontWeight: theme.typography.typographyBoldFontWeight,
-                      '&:hover': {
-                        textDecoration: 'underline',
-                      },
-                    }}
-                  >
-                    {endpoint.name ?? endpoint.endpoint_id}
-                  </Link>
-                </div>
-              </TableCell>
-              <TableCell css={{ flex: 1 }}>
-                <ProviderCell modelMappings={endpoint.model_mappings} />
-              </TableCell>
-              <TableCell css={{ flex: 2 }}>
-                <ModelsCell modelMappings={endpoint.model_mappings} />
-              </TableCell>
-              <TableCell css={{ flex: 1 }}>
-                <BindingsCell
-                  bindings={bindingsByEndpoint.get(endpoint.endpoint_id) ?? []}
-                  onViewBindings={() =>
-                    setBindingsDrawerEndpoint({
-                      endpointId: endpoint.endpoint_id,
-                      endpointName: endpoint.name ?? endpoint.endpoint_id,
-                      bindings: bindingsByEndpoint.get(endpoint.endpoint_id) ?? [],
-                    })
-                  }
-                />
-              </TableCell>
-              <TableCell css={{ flex: 1 }}>
-                <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
-              </TableCell>
-              <TableCell css={{ flex: 0, minWidth: 96, maxWidth: 96 }}>
-                <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-                  <Link to={GatewayRoutes.getEditEndpointRoute(endpoint.endpoint_id)}>
-                    <Button
-                      componentId="mlflow.gateway.endpoints-list.edit-button"
-                      type="primary"
-                      icon={<PencilIcon />}
-                      aria-label={formatMessage({
-                        defaultMessage: 'Edit endpoint',
-                        description: 'Gateway > Endpoints list > Edit endpoint button aria label',
-                      })}
-                    />
-                  </Link>
+      <Table
+        scrollable
+        empty={getEmptyState()}
+        css={{
+          border: `1px solid ${theme.colors.borderDecorative}`,
+          borderRadius: theme.general.borderRadiusBase,
+        }}
+      >
+        <TableRow isHeader>
+          <TableHeader componentId="mlflow.gateway.endpoints-list.name-header" css={{ flex: 2 }}>
+            <FormattedMessage defaultMessage="Name" description="Endpoint name column header" />
+          </TableHeader>
+          <TableHeader componentId="mlflow.gateway.endpoints-list.provider-header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Provider" description="Provider column header" />
+          </TableHeader>
+          <TableHeader componentId="mlflow.gateway.endpoints-list.models-header" css={{ flex: 2 }}>
+            <FormattedMessage defaultMessage="Models" description="Models column header" />
+          </TableHeader>
+          <TableHeader componentId="mlflow.gateway.endpoints-list.bindings-header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Connected resources" description="Connected resources column header" />
+          </TableHeader>
+          <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Last modified" description="Last modified column header" />
+          </TableHeader>
+          <TableHeader
+            componentId="mlflow.gateway.endpoints-list.actions-header"
+            css={{ flex: 0, minWidth: 96, maxWidth: 96 }}
+          />
+        </TableRow>
+        {filteredEndpoints.map((endpoint) => (
+          <TableRow key={endpoint.endpoint_id}>
+            <TableCell css={{ flex: 2 }}>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                <ChainIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
+                <Link
+                  to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
+                  css={{
+                    color: theme.colors.actionPrimaryBackgroundDefault,
+                    textDecoration: 'none',
+                    fontWeight: theme.typography.typographyBoldFontWeight,
+                    '&:hover': {
+                      textDecoration: 'underline',
+                    },
+                  }}
+                >
+                  {endpoint.name ?? endpoint.endpoint_id}
+                </Link>
+              </div>
+            </TableCell>
+            <TableCell css={{ flex: 1 }}>
+              <ProviderCell modelMappings={endpoint.model_mappings} />
+            </TableCell>
+            <TableCell css={{ flex: 2 }}>
+              <ModelsCell modelMappings={endpoint.model_mappings} />
+            </TableCell>
+            <TableCell css={{ flex: 1 }}>
+              <BindingsCell
+                bindings={bindingsByEndpoint.get(endpoint.endpoint_id) ?? []}
+                onViewBindings={() =>
+                  setBindingsDrawerEndpoint({
+                    endpointId: endpoint.endpoint_id,
+                    endpointName: endpoint.name ?? endpoint.endpoint_id,
+                    bindings: bindingsByEndpoint.get(endpoint.endpoint_id) ?? [],
+                  })
+                }
+              />
+            </TableCell>
+            <TableCell css={{ flex: 1 }}>
+              <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
+            </TableCell>
+            <TableCell css={{ flex: 0, minWidth: 96, maxWidth: 96 }}>
+              <div css={{ display: 'flex', gap: theme.spacing.xs }}>
+                <Link to={GatewayRoutes.getEditEndpointRoute(endpoint.endpoint_id)}>
                   <Button
-                    componentId="mlflow.gateway.endpoints-list.delete-button"
+                    componentId="mlflow.gateway.endpoints-list.edit-button"
                     type="primary"
-                    icon={<TrashIcon />}
+                    icon={<PencilIcon />}
                     aria-label={formatMessage({
-                      defaultMessage: 'Delete endpoint',
-                      description: 'Gateway > Endpoints list > Delete endpoint button aria label',
+                      defaultMessage: 'Edit endpoint',
+                      description: 'Gateway > Endpoints list > Edit endpoint button aria label',
                     })}
-                    onClick={() => handleDeleteClick(endpoint)}
                   />
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </Table>
-      )}
+                </Link>
+                <Button
+                  componentId="mlflow.gateway.endpoints-list.delete-button"
+                  type="primary"
+                  icon={<TrashIcon />}
+                  aria-label={formatMessage({
+                    defaultMessage: 'Delete endpoint',
+                    description: 'Gateway > Endpoints list > Delete endpoint button aria label',
+                  })}
+                  onClick={() => handleDeleteClick(endpoint)}
+                />
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </Table>
 
       {/* Bindings drawer */}
       <EndpointBindingsDrawer

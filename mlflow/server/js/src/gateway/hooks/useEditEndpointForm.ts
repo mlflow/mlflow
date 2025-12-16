@@ -214,8 +214,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
         return values.existingSecretId;
       }
 
-      // Serialize secret fields as JSON for the secret value
-      const secretValue = JSON.stringify(values.newSecret.secretFields);
       // Build auth_config with auth_mode included
       const authConfig: Record<string, any> = { ...values.newSecret.configFields };
       if (values.newSecret.authMode) {
@@ -226,7 +224,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       try {
         const secretResponse = await createSecret({
           secret_name: values.newSecret.name,
-          secret_value: secretValue,
+          secret_value: values.newSecret.secretFields,
           provider: values.provider,
           auth_config_json: authConfigJson,
         });

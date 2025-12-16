@@ -2534,7 +2534,7 @@ def test_litellm_not_available():
 def test_get_secrets_config_returns_true_when_passphrase_set(monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-secure-passphrase")
     with app.test_client() as c:
-        response = c.get("/api/3.0/mlflow/secrets/config")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/secrets/config")
         assert response.status_code == 200
         data = response.get_json()
         assert "secrets_available" in data
@@ -2545,7 +2545,7 @@ def test_get_secrets_config_returns_true_when_passphrase_set(monkeypatch):
 def test_get_secrets_config_returns_false_when_passphrase_not_set(monkeypatch):
     monkeypatch.delenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", raising=False)
     with app.test_client() as c:
-        response = c.get("/api/3.0/mlflow/secrets/config")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/secrets/config")
         assert response.status_code == 200
         data = response.get_json()
         assert "secrets_available" in data
@@ -2556,7 +2556,7 @@ def test_get_secrets_config_returns_false_when_passphrase_not_set(monkeypatch):
 def test_get_secrets_config_returns_false_for_empty_passphrase(monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "")
     with app.test_client() as c:
-        response = c.get("/api/3.0/mlflow/secrets/config")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/secrets/config")
         assert response.status_code == 200
         data = response.get_json()
         assert data["secrets_available"] is False
@@ -2565,7 +2565,7 @@ def test_get_secrets_config_returns_false_for_empty_passphrase(monkeypatch):
 
 def test_get_secrets_config_gateway_available_reflects_backend():
     with app.test_client() as c:
-        response = c.get("/api/3.0/mlflow/secrets/config")
+        response = c.get("/ajax-api/3.0/mlflow/gateway/secrets/config")
         assert response.status_code == 200
         data = response.get_json()
         assert data["gateway_available"] == _PROVIDER_BACKEND_AVAILABLE
@@ -2574,7 +2574,7 @@ def test_get_secrets_config_gateway_available_reflects_backend():
 def test_get_secrets_config_gateway_unavailable_when_backend_missing():
     with mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False):
         with app.test_client() as c:
-            response = c.get("/api/3.0/mlflow/secrets/config")
+            response = c.get("/ajax-api/3.0/mlflow/gateway/secrets/config")
             assert response.status_code == 200
             data = response.get_json()
             assert data["gateway_available"] is False

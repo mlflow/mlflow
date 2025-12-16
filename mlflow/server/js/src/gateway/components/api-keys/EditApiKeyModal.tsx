@@ -101,8 +101,6 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
     if (!secret || !validateForm()) return;
 
     try {
-      // Serialize secret fields as JSON for the secret value
-      const secretValue = JSON.stringify(formData.secretFields);
       // Build auth_config with auth_mode included
       const authConfig: Record<string, string> = { ...formData.configFields };
       if (formData.authMode) {
@@ -112,7 +110,7 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
 
       await updateSecret({
         secret_id: secret.secret_id,
-        secret_value: secretValue,
+        secret_value: formData.secretFields,
         auth_config_json: authConfigJson,
       });
 

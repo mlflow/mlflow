@@ -11,12 +11,13 @@ import type { ModelDefinition, Model, SecretInfo } from '../../types';
 interface ModelCardProps {
   modelDefinition: ModelDefinition | undefined;
   modelMetadata: Model | undefined;
+  onKeyClick?: (secret: SecretInfo) => void;
 }
 
 /**
  * Displays a model configuration card with provider, model name, specs, and API key info.
  */
-export const ModelCard = ({ modelDefinition, modelMetadata }: ModelCardProps) => {
+export const ModelCard = ({ modelDefinition, modelMetadata, onKeyClick }: ModelCardProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -136,7 +137,26 @@ export const ModelCard = ({ modelDefinition, modelMetadata }: ModelCardProps) =>
             <FormattedMessage defaultMessage="Loading..." description="Loading secret" />
           </Typography.Text>
         ) : secret ? (
-          <Typography.Text bold>{secret.secret_name}</Typography.Text>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => onKeyClick?.(secret)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                onKeyClick?.(secret);
+              }
+            }}
+            css={{
+              color: theme.colors.actionPrimaryBackgroundDefault,
+              fontWeight: theme.typography.typographyBoldFontWeight,
+              cursor: 'pointer',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}
+          >
+            {secret.secret_name}
+          </span>
         ) : (
           <Tag color="coral" componentId="mlflow.gateway.endpoint-details.api-key-not-found">
             <FormattedMessage defaultMessage="API key not found" description="API key not found message" />
