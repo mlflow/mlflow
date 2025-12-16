@@ -16,8 +16,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
-import cloudpickle
-
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
@@ -181,9 +179,11 @@ def _exec_job_in_subproc(
         job_cmd = [sys.executable, "-m", _JOB_ENTRY_MODULE]
 
     result_file = str(Path(tmpdir) / "result.json")
-    transient_error_classes_file = str(Path(tmpdir) / "transient_error_classes.pkl")
-    with open(transient_error_classes_file, "wb") as f:
-        cloudpickle.dump(transient_error_classes, f)
+    transient_error_classes_file = str(Path(tmpdir) / "transient_error_classes")
+    transient_error_classes = transient_error_classes or []
+    with open(transient_error_classes_file, "w") as f:
+        for cls in transient_error_classes:
+            f.write(f"{cls.__module__}.{cls.__name__}\n")
 
     with subprocess.Popen(
         job_cmd,
