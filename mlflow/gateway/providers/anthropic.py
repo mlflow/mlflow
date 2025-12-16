@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import AsyncIterable
+from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import AnthropicConfig, EndpointConfig
 from mlflow.gateway.constants import (
@@ -447,3 +447,29 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         # ```
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
+
+    async def passthrough_anthropic_messages(
+        self, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        """
+        Passthrough endpoint for Anthropic Messages API.
+        Accepts raw Anthropic request format and returns raw Anthropic response format.
+        Supports streaming if the 'stream' parameter is set to True.
+        """
+        # Add model name from config
+        payload["model"] = self.config.model.name
+
+        if payload.get("stream"):
+            return send_stream_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path="messages",
+                payload=payload,
+            )
+        else:
+            return await send_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path="messages",
+                payload=payload,
+            )

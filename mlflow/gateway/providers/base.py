@@ -111,6 +111,20 @@ class BaseProvider(ABC):
             detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
         )
 
+    async def passthrough_anthropic_messages(
+        self, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        """
+        Passthrough endpoint for Anthropic Messages API.
+        Accepts raw Anthropic request format and returns raw Anthropic response format.
+        Supports streaming if the 'stream' parameter is set to True.
+        """
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The passthrough Anthropic messages route is not implemented for {self.NAME}"
+            "models.",
+        )
+
     @staticmethod
     def check_for_model_field(payload):
         if "model" in payload:

@@ -28,6 +28,7 @@ from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.server.gateway_api import (
     _create_provider_from_endpoint_name,
+    anthropic_passthrough_messages,
     chat_completions,
     gateway_router,
     invocations,
@@ -1160,3 +1161,129 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
         assert b"response.content_part.done" in chunks[5]
         assert b"response.output_item.done" in chunks[6]
         assert b"response.completed" in chunks[7]
+
+
+# =============================================================================
+# Anthropic Messages API passthrough endpoint tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_anthropic_passthrough_messages(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="anthropic-passthrough-key",
+        secret_value={"api_key": "sk-ant-test"},
+        provider="anthropic",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="anthropic-passthrough-model",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+    store.create_gateway_endpoint(
+        name="anthropic-passthrough-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "anthropic-passthrough-endpoint",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+        }
+    )
+
+    mock_response = {
+        "id": "msg_01XFDUDYJgAACzvnptvVoYEL",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": "Hello! How can I assist you today?"}],
+        "model": "claude-3-5-sonnet-20241022",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 10, "output_tokens": 20},
+    }
+
+    with mock.patch(
+        "mlflow.gateway.providers.anthropic.send_request", return_value=mock_response
+    ) as mock_send:
+        response = await anthropic_passthrough_messages(mock_request)
+
+        assert mock_send.called
+        call_args = mock_send.call_args
+        assert call_args[1]["path"] == "messages"
+        assert call_args[1]["payload"]["model"] == "claude-3-5-sonnet-20241022"
+        assert call_args[1]["payload"]["messages"] == [{"role": "user", "content": "Hello"}]
+        assert call_args[1]["payload"]["max_tokens"] == 1024
+
+        assert response["id"] == "msg_01XFDUDYJgAACzvnptvVoYEL"
+        assert response["model"] == "claude-3-5-sonnet-20241022"
+        assert response["content"][0]["text"] == "Hello! How can I assist you today?"
+
+
+@pytest.mark.asyncio
+async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="anthropic-stream-passthrough-key",
+        secret_value={"api_key": "sk-ant-test-stream"},
+        provider="anthropic",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="anthropic-stream-passthrough-model",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+    store.create_gateway_endpoint(
+        name="anthropic-stream-passthrough-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "anthropic-stream-passthrough-endpoint",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "stream": True,
+        }
+    )
+
+    mock_stream_chunks = [
+        b'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01XFDUDYJgAACzvnptvVoYEL","type":"message","role":"assistant","content":[],"model":"claude-3-5-sonnet-20241022","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":10,"output_tokens":0}}}\n\n',  # noqa: E501
+        b'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',  # noqa: E501
+        b'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}\n\n',  # noqa: E501
+        b'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"!"}}\n\n',  # noqa: E501
+        b'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+        b'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":20}}\n\n',  # noqa: E501
+        b'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+    ]
+
+    async def mock_stream_generator():
+        for chunk in mock_stream_chunks:
+            yield chunk
+
+    with mock.patch(
+        "mlflow.gateway.providers.anthropic.send_stream_request",
+        return_value=mock_stream_generator(),
+    ) as mock_send_stream:
+        response = await anthropic_passthrough_messages(mock_request)
+
+        assert mock_send_stream.called
+        assert isinstance(response, StreamingResponse)
+        assert response.media_type == "text/event-stream"
+
+        chunks = [chunk async for chunk in response.body_iterator]
+
+        assert len(chunks) == 7
+        assert b"message_start" in chunks[0]
+        assert b"content_block_start" in chunks[1]
+        assert b"content_block_delta" in chunks[2]
+        assert b"Hello" in chunks[2]
+        assert b"content_block_delta" in chunks[3]
+        assert b"!" in chunks[3]
+        assert b"content_block_stop" in chunks[4]
+        assert b"message_delta" in chunks[5]
+        assert b"message_stop" in chunks[6]
