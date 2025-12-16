@@ -36,10 +36,10 @@ class Client:
         self.server_url = server_url
 
     def submit_job(
-        self, function_fullname: str, params: dict[str, Any], timeout: float | None = None
+        self, job_name: str, params: dict[str, Any], timeout: float | None = None
     ) -> dict[str, Any]:
         payload = {
-            "function_fullname": function_fullname,
+            "job_name": job_name,
             "params": params,
             "timeout": timeout,
         }
@@ -140,7 +140,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
 
 def test_job_endpoint(client: Client):
     job_id = client.submit_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"x": 3, "y": 4},
     )["job_id"]
     job_json = client.wait_job(job_id)

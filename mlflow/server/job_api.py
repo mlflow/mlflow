@@ -62,7 +62,7 @@ def get_job(job_id: str) -> Job:
 
 
 class SubmitJobPayload(BaseModel):
-    function_fullname: str
+    job_name: str
     params: dict[str, Any]
     timeout: float | None = None
 
@@ -70,9 +70,10 @@ class SubmitJobPayload(BaseModel):
 @job_api_router.post("/", response_model=Job)
 def submit_job(payload: SubmitJobPayload) -> Job:
     from mlflow.server.jobs import submit_job
-    from mlflow.server.jobs.utils import _load_function
+    from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
 
-    function_fullname = payload.function_fullname
+    job_name = payload.job_name
+    function_fullname = get_job_fn_fullname(job_name)
     try:
         function = _load_function(function_fullname)
         job = submit_job(function, payload.params, payload.timeout)
