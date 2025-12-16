@@ -50,6 +50,10 @@ class NonLLMContextPrecisionWithReference(RagasScorer):
 
     metric_name: ClassVar[str] = "NonLLMContextPrecisionWithReference"
 
+    def __init__(self, **metric_kwargs):
+        self._validate_kwargs(**metric_kwargs)
+        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
+
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
@@ -91,6 +95,10 @@ class NonLLMContextRecall(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "NonLLMContextRecall"
+
+    def __init__(self, **metric_kwargs):
+        self._validate_kwargs(**metric_kwargs)
+        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
 
 
 @experimental(version="3.8.0")

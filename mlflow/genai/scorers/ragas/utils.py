@@ -108,7 +108,7 @@ def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: 
     elif ragas_param == "rubrics":
         message_parts.append(
             "\nExample: judge(inputs='...', outputs='...', "
-            "expectations={'rubrics': {'score0_description': '...', 'score1_description': '...'}})"
+            "expectations={'rubrics': {'0': 'rubric for score 0', '1': 'rubric for score 1'}})"
         )
 
     return " ".join(message_parts)

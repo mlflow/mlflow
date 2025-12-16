@@ -6,7 +6,28 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers.ragas import get_scorer
+from mlflow.genai.scorers.ragas import (
+    AspectCritic,
+    BleuScore,
+    ChrfScore,
+    ContextEntityRecall,
+    ContextPrecision,
+    ContextRecall,
+    ExactMatch,
+    FactualCorrectness,
+    Faithfulness,
+    InstanceRubrics,
+    NoiseSensitivity,
+    NonLLMContextPrecisionWithReference,
+    NonLLMContextRecall,
+    NonLLMStringSimilarity,
+    RagasScorer,
+    RougeScore,
+    RubricsScore,
+    StringPresence,
+    SummarizationScore,
+    get_scorer,
+)
 
 
 def test_ragas_scorer_with_exact_match_metric():
@@ -114,3 +135,38 @@ def test_missing_reference_parameter_returns_mlflow_error():
     assert result.error is not None
     assert "ContextPrecision" in result.error.error_message  # metric name
     assert "trace with retrieval spans" in result.error.error_message  # mlflow error message
+
+
+@pytest.mark.parametrize(
+    ("scorer_class", "expected_metric_name", "metric_kwargs"),
+    [
+        # RAG Metrics
+        (ContextPrecision, "ContextPrecision", {}),
+        (NonLLMContextPrecisionWithReference, "NonLLMContextPrecisionWithReference", {}),
+        (ContextRecall, "ContextRecall", {}),
+        (NonLLMContextRecall, "NonLLMContextRecall", {}),
+        (ContextEntityRecall, "ContextEntityRecall", {}),
+        (NoiseSensitivity, "NoiseSensitivity", {}),
+        (Faithfulness, "Faithfulness", {}),
+        # Comparison Metrics
+        (FactualCorrectness, "FactualCorrectness", {}),
+        (NonLLMStringSimilarity, "NonLLMStringSimilarity", {}),
+        (BleuScore, "BleuScore", {}),
+        (ChrfScore, "ChrfScore", {}),
+        (RougeScore, "RougeScore", {}),
+        (StringPresence, "StringPresence", {}),
+        (ExactMatch, "ExactMatch", {}),
+        # General Purpose Metrics
+        (AspectCritic, "AspectCritic", {"name": "test", "definition": "test"}),
+        (RubricsScore, "RubricsScore", {}),
+        (InstanceRubrics, "InstanceRubrics", {}),
+        # Summarization Metrics
+        (SummarizationScore, "SummarizationScore", {}),
+    ],
+)
+def test_namespaced_class_properly_instantiates(scorer_class, expected_metric_name, metric_kwargs):
+    assert issubclass(scorer_class, RagasScorer)
+    assert scorer_class.metric_name == expected_metric_name
+    scorer = scorer_class(**metric_kwargs)
+    assert isinstance(scorer, RagasScorer)
+    assert scorer.name == expected_metric_name

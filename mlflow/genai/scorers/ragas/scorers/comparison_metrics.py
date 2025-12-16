@@ -61,6 +61,10 @@ class NonLLMStringSimilarity(RagasScorer):
 
     metric_name: ClassVar[str] = "NonLLMStringSimilarity"
 
+    def __init__(self, **metric_kwargs):
+        self._validate_kwargs(**metric_kwargs)
+        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
+
 
 @experimental(version="3.8.0")
 class BleuScore(RagasScorer):
@@ -83,6 +87,10 @@ class BleuScore(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "BleuScore"
+
+    def __init__(self, **metric_kwargs):
+        self._validate_kwargs(**metric_kwargs)
+        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
 
 
 @experimental(version="3.8.0")
@@ -107,6 +115,10 @@ class ChrfScore(RagasScorer):
 
     metric_name: ClassVar[str] = "ChrfScore"
 
+    def __init__(self, **metric_kwargs):
+        self._validate_kwargs(**metric_kwargs)
+        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
+
 
 @experimental(version="3.8.0")
 class RougeScore(RagasScorer):
@@ -130,11 +142,15 @@ class RougeScore(RagasScorer):
 
     metric_name: ClassVar[str] = "RougeScore"
 
+    def __init__(self, **metric_kwargs):
+        self._validate_kwargs(**metric_kwargs)
+        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
+
 
 @experimental(version="3.8.0")
 class StringPresence(RagasScorer):
     """
-    Checks if a specific string is present in the output.
+    Checks if the expected output is present in the output.
 
     Args:
         **metric_kwargs: Additional metric-specific parameters
@@ -152,6 +168,10 @@ class StringPresence(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "StringPresence"
+
+    def __init__(self, **metric_kwargs):
+        self._validate_kwargs(**metric_kwargs)
+        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
 
 
 @experimental(version="3.8.0")
@@ -175,3 +195,7 @@ class ExactMatch(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "ExactMatch"
+
+    def __init__(self, **metric_kwargs):
+        self._validate_kwargs(**metric_kwargs)
+        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)

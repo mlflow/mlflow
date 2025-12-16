@@ -64,7 +64,6 @@ class RagasScorer(Scorer):
         model: str | None = None,
         **metric_kwargs,
     ):
-        # Use  class attribute if metric_name not provided
         if metric_name is None:
             metric_name = self.metric_name
 
@@ -172,6 +171,13 @@ class RagasScorer(Scorer):
                 error=e,
                 source=assessment_source,
             )
+
+    def _validate_kwargs(self, **metric_kwargs):
+        if is_deterministic_metric(self.metric_name):
+            if "model" in metric_kwargs:
+                raise MlflowException.invalid_parameter_value(
+                    f"{self.metric_name} got an unexpected keyword argument 'model'"
+                )
 
 
 @experimental(version="3.8.0")

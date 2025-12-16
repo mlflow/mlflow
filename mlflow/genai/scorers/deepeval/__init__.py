@@ -24,6 +24,7 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.base import Scorer
@@ -133,6 +134,13 @@ class DeepEvalScorer(Scorer):
                 error=e,
                 source=assessment_source,
             )
+
+    def _validate_kwargs(self, **metric_kwargs):
+        if is_deterministic_metric(self.metric_name):
+            if "model" in metric_kwargs:
+                raise MlflowException.invalid_parameter_value(
+                    f"{self.metric_name} got an unexpected keyword argument 'model'"
+                )
 
 
 @experimental(version="3.8.0")
