@@ -221,6 +221,7 @@ docs = [
   "polars>=1",
   "openai",
   "haystack-ai",
+  "deepeval",
 ]
 
 [tool.uv]
