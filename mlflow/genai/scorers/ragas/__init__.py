@@ -61,10 +61,11 @@ class RagasScorer(Scorer):
     def __init__(
         self,
         metric_name: str,
-        model: str = get_default_model(),
+        model: str | None = None,
         **metric_kwargs,
     ):
         super().__init__(name=metric_name)
+        model = model or get_default_model()
         self._model = model
         metric_class = get_metric_class(metric_name)
 
@@ -173,7 +174,7 @@ class RagasScorer(Scorer):
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
-    model: str = get_default_model(),
+    model: str | None = None,
     **metric_kwargs,
 ) -> RagasScorer:
     """
@@ -203,6 +204,7 @@ def get_scorer(
         judge = get_scorer("ExactMatch")
         feedback = judge(outputs="Paris", expectations={"expected_output": "Paris"})
     """
+    model = model or get_default_model()
     return RagasScorer(
         metric_name=metric_name,
         model=model,
