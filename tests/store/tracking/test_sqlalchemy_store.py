@@ -6952,6 +6952,73 @@ def test_search_traces_with_prompts_filter_multiple_prompts(store: SqlAlchemySto
     assert traces[0].request_id == trace2_id
 
 
+def test_search_traces_with_span_attributute_backticks(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_attribute_backticks")
+    trace_info_1 = _create_trace(store, "trace_1", exp_id)
+    trace_info_2 = _create_trace(store, "trace_2", exp_id)
+
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_trace1",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_info_1.trace_id, cls=TraceJSONEncoder),
+                "mlflow.experimentId": json.dumps(exp_id, cls=TraceJSONEncoder),
+                "mlflow.spanInputs": json.dumps({"input": "test1"}, cls=TraceJSONEncoder),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_info_1.trace_id,
+        "LLM",
+    )
+
+    span2 = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_trace2",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_info_2.trace_id, cls=TraceJSONEncoder),
+                "mlflow.experimentId": json.dumps(exp_id, cls=TraceJSONEncoder),
+                "mlflow.spanInputs": json.dumps({"input": "test2"}, cls=TraceJSONEncoder),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_info_2.trace_id,
+        "LLM",
+    )
+
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test1%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace_info_1.trace_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test2%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace_info_2.trace_id
+
+
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
     trace_id = "tr-123"
