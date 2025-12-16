@@ -12,6 +12,7 @@ import tempfile
 import threading
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -271,14 +272,28 @@ def _get_or_init_huey_instance(instance_key: str):
     from huey import SqliteHuey
     from huey.serializer import Serializer
 
+    class CustomJSONEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, datetime):
+                return {
+                    "__type__": "datetime",
+                    "value": obj.isoformat(),
+                }
+            return super().default(obj)
+
+    def json_loader_object_hook(d):
+        if d.get("__type__") == "datetime":
+            return datetime.fromisoformat(d["value"])
+        return d
+
     class JsonSerializer(Serializer):
         def serialize(self, data):
-            return json.dumps(data._asdict()).encode("utf-8")
+            return json.dumps(data._asdict(), cls=CustomJSONEncoder).encode("utf-8")
 
         def deserialize(self, data):
             from huey.registry import Message
 
-            return Message(**json.loads(data.decode("utf-8")))
+            return Message(**json.loads(data.decode("utf-8"), object_hook=json_loader_object_hook))
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
@@ -393,11 +408,10 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
             job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
         params = json.loads(job.params)
-        function = _load_function(job.function_fullname)
         timeout = job.timeout
         # enqueue job
         _get_or_init_huey_instance(job.function_fullname).submit_task(
-            job.job_id, function, params, timeout
+            job.job_id, job.function_fullname, params, timeout
         )
 
 
