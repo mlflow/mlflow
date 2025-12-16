@@ -212,7 +212,51 @@ def get_scorer(
     )
 
 
+from mlflow.genai.scorers.ragas.scorers import (
+    AspectCritic,
+    BleuScore,
+    ChrfScore,
+    ContextEntityRecall,
+    ContextPrecision,
+    ContextRecall,
+    ExactMatch,
+    FactualCorrectness,
+    Faithfulness,
+    InstanceRubrics,
+    NoiseSensitivity,
+    NonLLMContextPrecisionWithReference,
+    NonLLMContextRecall,
+    NonLLMStringSimilarity,
+    RougeScore,
+    RubricsScore,
+    StringPresence,
+    SummarizationScore,
+)
+
 __all__ = [
+    # Core classes
     "RagasScorer",
     "get_scorer",
+    # RAG metrics
+    "ContextPrecision",
+    "NonLLMContextPrecisionWithReference",
+    "ContextRecall",
+    "NonLLMContextRecall",
+    "ContextEntityRecall",
+    "NoiseSensitivity",
+    "Faithfulness",
+    # Comparison metrics
+    "FactualCorrectness",
+    "NonLLMStringSimilarity",
+    "BleuScore",
+    "ChrfScore",
+    "RougeScore",
+    "StringPresence",
+    "ExactMatch",
+    # General purpose metrics
+    "AspectCritic",
+    "RubricsScore",
+    "InstanceRubrics",
+    # Other tasks
+    "SummarizationScore",
 ]
