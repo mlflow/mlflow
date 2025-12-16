@@ -4,8 +4,6 @@ import zlib
 from collections.abc import Callable
 
 import pytest
-
-# from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from fastapi import HTTPException
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -191,10 +189,6 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
         f"Logs: {collector_logs[:2000]}"
     )
 
-    # Verify Metadata are added in root span
-    assert f'{SpanAttributeKey.METADATA.format(key="session_id")}: Str("123")' in collector_logs
-    assert f'{SpanAttributeKey.METADATA.format(key="user_id")}: Str("42")' in collector_logs
-
 
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
 def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
@@ -291,10 +285,6 @@ def test_decompress_otlp_body_valid(
 def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expected_error: str):
     with pytest.raises(HTTPException, match=expected_error, check=lambda e: e.status_code == 400):
         decompress_otlp_body(invalid_data, encoding)
-
-    # Verify Metadata are added in root span
-    assert f'{SpanAttributeKey.METADATA.format(key="session_id")}: Str("123")' in collector_logs
-    assert f'{SpanAttributeKey.METADATA.format(key="user_id")}: Str("42")' in collector_logs
 
 
 def test_metadata_added_in_root_span_with_otel_export(monkeypatch):
