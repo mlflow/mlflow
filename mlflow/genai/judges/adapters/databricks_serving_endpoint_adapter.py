@@ -125,6 +125,17 @@ def _invoke_databricks_serving_endpoint(
             if isinstance(prompt, str):
                 messages = [{"role": "user", "content": prompt}]
             else:
+                from mlflow.types.llm import ChatMessage
+
+                if not isinstance(prompt, list) or (
+                    prompt and not all(isinstance(msg, ChatMessage) for msg in prompt)
+                ):
+                    prompt_type = type(prompt).__name__
+                    raise MlflowException(
+                        f"Invalid prompt type: expected str or list[ChatMessage], "
+                        f"got {prompt_type}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 messages = [{"role": msg.role, "content": msg.content} for msg in prompt]
 
             payload = {"messages": messages}

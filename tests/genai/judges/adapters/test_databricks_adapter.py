@@ -368,6 +368,33 @@ def test_invoke_databricks_serving_endpoint_with_inference_params() -> None:
     assert result.response == "Test response"
 
 
+@pytest.mark.parametrize(
+    "invalid_prompt",
+    [
+        123,  # Not a string or list
+        ["not a ChatMessage", "also invalid"],  # List but not ChatMessage instances
+    ],
+)
+def test_invoke_databricks_serving_endpoint_invalid_prompt_type(invalid_prompt) -> None:
+    mock_creds = mock.Mock()
+    mock_creds.host = "https://test.databricks.com"
+    mock_creds.token = "test-token"
+
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_creds,
+        ),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="Invalid prompt type: expected str or list\\[ChatMessage\\]",
+        ):
+            _invoke_databricks_serving_endpoint(
+                model_name="test-model", prompt=invalid_prompt, num_retries=0
+            )
+
+
 def test_record_success_telemetry_with_databricks_agents() -> None:
     # Mock the telemetry function separately
     mock_telemetry_module = mock.MagicMock()
