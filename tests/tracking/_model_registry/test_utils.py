@@ -277,8 +277,6 @@ def test_get_store_sqlalchemy_store(db_type, monkeypatch):
     uri = f"{db_type}://hostname/database"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
-    # Clear the engine cache to ensure a fresh engine is created for this test
-    SqlAlchemyStore._engine_map.clear()
     with (
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
         mock.patch("sqlalchemy.event.listens_for"),
