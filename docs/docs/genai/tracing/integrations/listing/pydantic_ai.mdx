@@ -255,12 +255,14 @@ mlflow.pydantic_ai.autolog()
 
 agent = Agent("openai:gpt-4o", instrument=True)
 
+
 async def main():
     async with agent.run_stream("Tell me a joke") as response:
         # Stream the text as it arrives
         async for chunk in response.stream_text(delta=True):
             print(chunk, end="", flush=True)
         print()
+
 
 asyncio.run(main())
 ```
