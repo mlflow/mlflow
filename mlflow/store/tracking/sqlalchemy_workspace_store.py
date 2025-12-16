@@ -56,9 +56,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         self._workspace_provider = None
         super().__init__(db_uri, default_artifact_root)
 
-    def supports_workspaces(self) -> bool:
-        return True
-
     def _get_query(self, session, model):
         query = super()._get_query(session, model)
         workspace = self._get_active_workspace()
@@ -311,11 +308,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
         return sql_assessment
-
-    def _with_workspace_field(self, instance):
-        if hasattr(instance, "workspace"):
-            instance.workspace = self._get_active_workspace()
-        return instance
 
     def _get_workspace_provider_instance(self):
         if self._workspace_provider is None:

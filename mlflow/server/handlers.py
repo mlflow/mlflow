@@ -227,7 +227,9 @@ from mlflow.protos.webhooks_pb2 import (
     WebhookService,
 )
 from mlflow.server.validation import _validate_content_type
-from mlflow.server.workspace_helpers import _get_workspace_store
+from mlflow.server.workspace_helpers import (
+    _get_workspace_store,
+)
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -360,8 +362,14 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
     @classmethod
     def _get_sqlalchemy_store(cls, store_uri):
         from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+        from mlflow.store.model_registry.sqlalchemy_workspace_store import (
+            WorkspaceAwareSqlAlchemyStore,
+        )
 
-        return SqlAlchemyStore(store_uri)
+        store_cls = (
+            WorkspaceAwareSqlAlchemyStore if MLFLOW_ENABLE_WORKSPACES.get() else SqlAlchemyStore
+        )
+        return store_cls(store_uri)
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri):
@@ -567,18 +575,32 @@ def _get_job_store(backend_store_uri: str | None = None) -> AbstractJobStore:
     """
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR
     from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+    from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
     from mlflow.utils.uri import extract_db_type_from_uri
 
     global _job_store
     if _job_store is None:
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        if not store_uri:
+            raise MlflowException.invalid_parameter_value("Job store requires a backend store URI")
         try:
             extract_db_type_from_uri(store_uri)
         except MlflowException:
             # Require a database backend URI for the job store
-            raise ValueError("Job store requires a database backend URI")
+            # Raise MlflowException so the CLI/REST layer returns a structured 400
+            # instead of surfacing a generic 500 from ValueError
+            raise MlflowException.invalid_parameter_value("Job store requires a backend store URI")
 
-        _job_store = SqlAlchemyJobStore(store_uri)
+        store_cls = (
+            WorkspaceAwareSqlAlchemyJobStore
+            if MLFLOW_ENABLE_WORKSPACES.get()
+            else SqlAlchemyJobStore
+        )
+        _job_store = store_cls(store_uri)
+
+        if MLFLOW_ENABLE_WORKSPACES.get():
+            _verify_job_store_workspace_support(_job_store)
+
     return _job_store
 
 
@@ -589,16 +611,25 @@ def initialize_backend_stores(
     workspace_store_uri: str | None = None,
 ) -> None:
     tracking_store = _get_tracking_store(backend_store_uri, default_artifact_root)
-
-    if MLFLOW_ENABLE_WORKSPACES.get():
-        # Initialize the workspace store to verify it's correctly configured
-        _get_workspace_store(workspace_store_uri, tracking_uri=backend_store_uri)
-        _verify_tracking_store_workspace_support(tracking_store)
-
+    registry_store = None
     try:
-        _get_model_registry_store(registry_store_uri)
+        registry_store = _get_model_registry_store(registry_store_uri)
     except UnsupportedModelRegistryStoreURIException:
         pass
+
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        if not default_artifact_root:
+            raise MlflowException.invalid_parameter_value(
+                "--enable-workspaces requires --default-artifact-root to be set."
+            )
+
+        # Initialize the workspace store to verify it's correctly configured
+        _get_workspace_store(
+            workspace_uri=workspace_store_uri,
+            tracking_uri=backend_store_uri,
+        )
+        _verify_tracking_store_workspace_support(tracking_store)
+        _verify_model_registry_store_workspace_support(registry_store)
 
 
 def _verify_tracking_store_workspace_support(tracking_store: AbstractTrackingStore) -> None:
@@ -606,6 +637,31 @@ def _verify_tracking_store_workspace_support(tracking_store: AbstractTrackingSto
     if not callable(supports_fn) or not supports_fn():
         raise MlflowException(
             "The configured tracking store does not support workspace-aware operations. "
+            "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
+            error_code=INVALID_STATE,
+        )
+
+
+def _verify_model_registry_store_workspace_support(
+    registry_store: AbstractModelRegistryStore,
+) -> None:
+    if registry_store is None:
+        return
+
+    supports_fn = getattr(registry_store, "supports_workspaces", None)
+    if not callable(supports_fn) or not supports_fn():
+        raise MlflowException(
+            "The configured model registry store does not support workspace-aware operations. "
+            "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
+            error_code=INVALID_STATE,
+        )
+
+
+def _verify_job_store_workspace_support(job_store: AbstractJobStore) -> None:
+    supports_fn = getattr(job_store, "supports_workspaces", None)
+    if not callable(supports_fn) or not supports_fn():
+        raise MlflowException(
+            "The configured job store does not support workspace-aware operations. "
             "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
             error_code=INVALID_STATE,
         )

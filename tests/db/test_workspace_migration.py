@@ -96,6 +96,8 @@ _WORKSPACE_TABLES = (
     "secrets",
     "endpoints",
     "model_definitions",
+    "webhooks",
+    "jobs",
 )
 
 _REGISTERED_MODEL_TAGS = sa.table(
@@ -1034,6 +1036,8 @@ def test_workspace_migration_downgrade_reverts_schema(tmp_path):
             "model_version_tags",
             "registered_model_aliases",
             "evaluation_datasets",
+            "webhooks",
+            "jobs",
         ):
             column_names = {col["name"] for col in inspector.get_columns(table)}
             assert "workspace" not in column_names

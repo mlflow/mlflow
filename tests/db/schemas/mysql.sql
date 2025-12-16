@@ -84,6 +84,7 @@ CREATE TABLE jobs (
 	creation_time BIGINT NOT NULL,
 	job_name VARCHAR(500),
 	params TEXT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	timeout DOUBLE,
 	status INTEGER NOT NULL,
 	result TEXT,

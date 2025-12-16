@@ -212,11 +212,13 @@ def submit_job(
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     job = job_store.create_job(fn_meta.name, serialized_params, timeout)
+    workspace = job.workspace
 
     # enqueue job
     huey_instance = _get_or_init_huey_instance(fn_meta.name)
     huey_instance.submit_task(
         job.job_id,
+        workspace,
         fn_meta.name,
         params,
         timeout,

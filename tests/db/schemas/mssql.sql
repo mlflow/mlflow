@@ -83,6 +83,7 @@ CREATE TABLE jobs (
 	creation_time BIGINT NOT NULL,
 	job_name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	params VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	timeout FLOAT,
 	status INTEGER NOT NULL,
 	result VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
