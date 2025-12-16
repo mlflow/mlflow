@@ -121,7 +121,7 @@ client.chat.completions.create({
 
 </TabItem>
 
-<TabItem value="otel" label="OpenTelemetry" default>
+<TabItem value="otel" label="OpenTelemetry">
 MLflow Server exposes an OTLP endpoint at `/v1/traces` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)). This endpoint accepts traces from any native OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc.
 
 The following example shows how to collect traces from a FastAPI application using OpenTelemetry FastAPI instrumentation.
