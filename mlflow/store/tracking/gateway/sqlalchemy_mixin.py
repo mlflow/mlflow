@@ -428,6 +428,7 @@ class SqlAlchemyGatewayStoreMixin:
         secret_id: str | None = None,
         model_name: str | None = None,
         updated_by: str | None = None,
+        provider: str | None = None,
     ) -> GatewayModelDefinition:
         """
         Update a model definition.
@@ -438,6 +439,7 @@ class SqlAlchemyGatewayStoreMixin:
             secret_id: Optional new secret ID.
             model_name: Optional new model name.
             updated_by: Username of the updater.
+            provider: Optional new provider.
 
         Returns:
             Updated GatewayModelDefinition entity.
@@ -464,6 +466,8 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_model_def.secret_id = secret_id
             if model_name is not None:
                 sql_model_def.model_name = model_name
+            if provider is not None:
+                sql_model_def.provider = provider
 
             sql_model_def.last_updated_at = get_current_time_millis()
             if updated_by:
