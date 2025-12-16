@@ -21,7 +21,8 @@ def test_ragas_scorer_with_exact_match_metric():
     assert result.name == "ExactMatch"
     assert result.value == 1.0
     assert result.source.source_type == AssessmentSourceType.CODE
-    assert result.source.source_id == "ragas/ExactMatch"
+    assert result.source.source_id == "ExactMatch"
+    assert result.metadata["library"] == "ragas"
 
 
 def test_ragas_scorer_handles_failure_with_exact_match():
