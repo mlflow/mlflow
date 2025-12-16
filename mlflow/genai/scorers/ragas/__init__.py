@@ -29,6 +29,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
+from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.ragas.models import create_ragas_model
 from mlflow.genai.scorers.ragas.registry import get_metric_class, is_deterministic_metric
@@ -128,7 +129,7 @@ class RagasScorer(Scorer):
 
             # RAGAS metrics may have thresholds to map to binary feedback
             threshold = getattr(self._metric, "threshold", None)
-            metadata = {"library": "ragas"}
+            metadata = {FRAMEWORK_METADATA_KEY: "ragas"}
 
             if threshold is not None:
                 metadata["threshold"] = threshold
