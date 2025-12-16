@@ -180,10 +180,12 @@ def submit_job(
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     job = job_store.create_job(func_fullname, serialized_params, timeout)
+    workspace = job.workspace
 
     # enqueue job
     _get_or_init_huey_instance(func_fullname).submit_task(
         job.job_id,
+        workspace,
         function,
         params,
         timeout,
