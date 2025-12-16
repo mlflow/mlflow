@@ -6,6 +6,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
+from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.ragas import get_scorer
 
 
@@ -22,7 +23,7 @@ def test_ragas_scorer_with_exact_match_metric():
     assert result.value == 1.0
     assert result.source.source_type == AssessmentSourceType.CODE
     assert result.source.source_id == "ExactMatch"
-    assert result.metadata["library"] == "ragas"
+    assert result.metadata[FRAMEWORK_METADATA_KEY] == "ragas"
 
 
 def test_ragas_scorer_handles_failure_with_exact_match():
