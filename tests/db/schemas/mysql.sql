@@ -75,7 +75,7 @@ CREATE TABLE inputs (
 CREATE TABLE jobs (
 	id VARCHAR(36) NOT NULL,
 	creation_time BIGINT NOT NULL,
-	function_fullname VARCHAR(500) NOT NULL,
+	job_name VARCHAR(500),
 	params TEXT NOT NULL,
 	timeout DOUBLE,
 	status INTEGER NOT NULL,

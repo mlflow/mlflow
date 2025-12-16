@@ -5,6 +5,7 @@ Create Date: 2025-12-16 16:31:47.921120
 """
 
 from alembic import op
+from sqlalchemy import String
 
 # revision identifiers, used by Alembic.
 revision = "5d2d30f0abce"
@@ -19,7 +20,7 @@ def upgrade():
         # Drop old index that referenced `function_fullname`
         batch_op.drop_index("index_jobs_function_status_creation_time")
         # Rename the column
-        batch_op.alter_column("function_fullname", new_column_name="job_name")
+        batch_op.alter_column("function_fullname", new_column_name="job_name", existing_type=String(500))
 
     with op.batch_alter_table("jobs", schema=None) as batch_op:
         # Recreate the index referencing the new column name
@@ -42,3 +43,4 @@ def downgrade():
             ["function_fullname", "status", "creation_time"],
             unique=False,
         )
+
