@@ -318,7 +318,7 @@ async def openai_passthrough_chat(request: Request):
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    return await provider.passthrough_chat(body)
+    return await provider.passthrough_openai_chat(body)
 
 
 @gateway_router.post("/openai/v1/embeddings")
@@ -350,7 +350,7 @@ async def openai_passthrough_embeddings(request: Request):
     provider = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
-    return await provider.passthrough_embeddings(body)
+    return await provider.passthrough_openai_embeddings(body)
 
 
 @gateway_router.post("/openai/v1/responses")
@@ -381,4 +381,4 @@ async def openai_passthrough_responses(request: Request):
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    return await provider.passthrough_responses(body)
+    return await provider.passthrough_openai_responses(body)

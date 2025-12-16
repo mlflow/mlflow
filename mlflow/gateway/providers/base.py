@@ -70,7 +70,7 @@ class BaseProvider(ABC):
             detail=f"The embeddings route is not implemented for {self.NAME} models.",
         )
 
-    async def passthrough_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def passthrough_openai_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
         """
         Passthrough endpoint for OpenAI-compatible chat completions.
         Accepts raw OpenAI request format and returns raw OpenAI response format.
@@ -80,7 +80,7 @@ class BaseProvider(ABC):
             detail=f"The passthrough chat route is not implemented for {self.NAME} models.",
         )
 
-    async def passthrough_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def passthrough_openai_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
         """
         Passthrough endpoint for OpenAI-compatible embeddings.
         Accepts raw OpenAI request format and returns raw OpenAI response format.
@@ -90,7 +90,7 @@ class BaseProvider(ABC):
             detail=f"The passthrough embeddings route is not implemented for {self.NAME} models.",
         )
 
-    async def passthrough_responses(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def passthrough_openai_responses(self, payload: dict[str, Any]) -> dict[str, Any]:
         """
         Passthrough endpoint for OpenAI Responses API.
         Accepts raw OpenAI request format and returns raw OpenAI response format.
