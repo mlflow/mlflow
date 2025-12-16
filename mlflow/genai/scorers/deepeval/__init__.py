@@ -25,7 +25,8 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
-from mlflow.genai.judges.utils import CategoricalRating
+from mlflow.genai.judges.utils import CategoricalRating, get_default_model
+from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import get_metric_class, is_deterministic_metric
@@ -54,8 +55,8 @@ class DeepEvalScorer(Scorer):
     def __init__(
         self,
         metric_name: str | None = None,
-        model: str = "databricks",
-        **metric_kwargs,
+        model: str | None = None,
+        **metric_kwargs: Any,
     ):
         # Use class attribute if metric_name not provided
         if metric_name is None:
@@ -65,10 +66,15 @@ class DeepEvalScorer(Scorer):
 
         metric_class = get_metric_class(metric_name)
 
-        if is_deterministic_metric(metric_name):
+        self._is_deterministic = is_deterministic_metric(metric_name)
+
+        if self._is_deterministic:
             # Deterministic metrics don't need a model
             self._metric = metric_class(**metric_kwargs)
+            self._model_uri = None
         else:
+            model = model or get_default_model()
+            self._model_uri = model
             deepeval_model = create_deepeval_model(model)
             self._metric = metric_class(
                 model=deepeval_model,
@@ -97,9 +103,16 @@ class DeepEvalScorer(Scorer):
         Returns:
             Feedback object with pass/fail value, rationale, and score in metadata
         """
+        if self._is_deterministic:
+            source_type = AssessmentSourceType.CODE
+            source_id = None
+        else:
+            source_type = AssessmentSourceType.LLM_JUDGE
+            source_id = self._model_uri
+
         assessment_source = AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE,
-            source_id=f"deepeval/{self.name}",
+            source_type=source_type,
+            source_id=source_id,
         )
 
         try:
@@ -125,6 +138,7 @@ class DeepEvalScorer(Scorer):
                 metadata={
                     "score": score,
                     "threshold": self._metric.threshold,
+                    FRAMEWORK_METADATA_KEY: "deepeval",
                 },
             )
         except Exception as e:
@@ -139,8 +153,8 @@ class DeepEvalScorer(Scorer):
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
-    model: str = "databricks",
-    **metric_kwargs,
+    model: str | None = None,
+    **metric_kwargs: Any,
 ) -> DeepEvalScorer:
     """
     Get a DeepEval metric as an MLflow scorer.
