@@ -76,12 +76,6 @@ class DeepEvalScorer(Scorer):
 
     @property
     def is_session_level_scorer(self) -> bool:
-        """
-        Check if this scorer is a session-level (multi-turn) scorer.
-
-        Dynamically checks if the underlying DeepEval metric is an instance of
-        BaseConversationalMetric, making it future-proof for new multi-turn metrics.
-        """
         from deepeval.metrics.base_metric import BaseConversationalMetric
 
         return isinstance(self._metric, BaseConversationalMetric)
@@ -117,7 +111,7 @@ class DeepEvalScorer(Scorer):
             if self.is_session_level_scorer:
                 if session is None:
                     raise MlflowException.invalid_parameter_value(
-                        f"Multi-turn metric '{self.name}' requires 'session' parameter "
+                        f"Multi-turn scorer '{self.name}' requires 'session' parameter "
                         f"containing a list of traces from the conversation."
                     )
                 test_case = map_session_to_deepeval_conversational_test_case(
