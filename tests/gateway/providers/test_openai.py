@@ -905,7 +905,7 @@ async def test_openai_passthrough_chat():
     with mock.patch(
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
-        payload = {"model": "test-model", "messages": [{"role": "user", "content": "Hello"}]}
+        payload = {"messages": [{"role": "user", "content": "Hello"}]}
         response = await provider.passthrough_openai_chat(payload)
 
         # Verify send_request was called with correct parameters
@@ -946,7 +946,7 @@ async def test_openai_passthrough_embeddings():
     with mock.patch(
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
-        payload = {"model": "test-model", "input": "Test input"}
+        payload = {"input": "Test input"}
         response = await provider.passthrough_openai_embeddings(payload)
 
         # Verify send_request was called with correct parameters
@@ -981,7 +981,6 @@ async def test_openai_passthrough_responses():
     ) as mock_send:
         # Responses API uses 'input' and 'instructions' instead of 'messages'
         payload = {
-            "model": "test-model",
             "input": [{"type": "text", "text": "Hello"}],
             "instructions": "You are a helpful assistant",
             "response_format": {"type": "text"},
@@ -1038,7 +1037,7 @@ async def test_azure_openai_passthrough_chat_removes_model():
     with mock.patch(
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
-        payload = {"model": "test-model", "messages": [{"role": "user", "content": "Hello"}]}
+        payload = {"messages": [{"role": "user", "content": "Hello"}]}
         response = await provider.passthrough_openai_chat(payload)
 
         # Verify send_request was called

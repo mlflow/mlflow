@@ -607,11 +607,10 @@ class OpenAIProvider(BaseProvider):
     async def passthrough_openai_chat(
         self, payload: dict[str, Any]
     ) -> dict[str, Any] | AsyncIterable[bytes]:
-        payload_with_model = {**payload, "model": self.config.model.name}
-        if self.openai_config.openai_api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
-            payload_with_model.pop("model", None)
+        payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
+            payload, self.config
+        )
 
-        # Check if streaming is requested
         if payload_with_model.get("stream"):
             return send_stream_request(
                 headers=self.headers,
@@ -628,9 +627,9 @@ class OpenAIProvider(BaseProvider):
             )
 
     async def passthrough_openai_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
-        payload_with_model = {**payload, "model": self.config.model.name}
-        if self.openai_config.openai_api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
-            payload_with_model.pop("model", None)
+        payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
+            payload, self.config
+        )
 
         return await send_request(
             headers=self.headers,
@@ -642,11 +641,10 @@ class OpenAIProvider(BaseProvider):
     async def passthrough_openai_responses(
         self, payload: dict[str, Any]
     ) -> dict[str, Any] | AsyncIterable[bytes]:
-        payload_with_model = {**payload, "model": self.config.model.name}
-        if self.openai_config.openai_api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
-            payload_with_model.pop("model", None)
+        payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
+            payload, self.config
+        )
 
-        # Check if streaming is requested
         if payload_with_model.get("stream"):
             return send_stream_request(
                 headers=self.headers,

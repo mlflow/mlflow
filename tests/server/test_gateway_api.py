@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -30,6 +31,9 @@ from mlflow.server.gateway_api import (
     chat_completions,
     gateway_router,
     invocations,
+    openai_passthrough_chat,
+    openai_passthrough_embeddings,
+    openai_passthrough_responses,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -870,10 +874,6 @@ async def test_openai_passthrough_chat(store: SqlAlchemyStore):
         name="openai-passthrough-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_name(
-        store, "openai-passthrough-endpoint", EndpointType.LLM_V1_CHAT
-    )
-
     # Mock OpenAI API response
     mock_response = {
         "id": "chatcmpl-123",
@@ -890,12 +890,20 @@ async def test_openai_passthrough_chat(store: SqlAlchemyStore):
         "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
 
+    # Create mock request
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "openai-passthrough-endpoint",
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+    )
+
     # Mock send_request directly
     with mock.patch(
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
-        payload = {"model": "test-model", "messages": [{"role": "user", "content": "Hello"}]}
-        response = await provider.passthrough_openai_chat(payload)
+        response = await openai_passthrough_chat(mock_request)
 
         # Verify send_request was called
         assert mock_send.called
@@ -928,10 +936,6 @@ async def test_openai_passthrough_embeddings(store: SqlAlchemyStore):
         model_definition_ids=[model_def.model_definition_id],
     )
 
-    provider = _create_provider_from_endpoint_name(
-        store, "openai-embed-passthrough-endpoint", EndpointType.LLM_V1_EMBEDDINGS
-    )
-
     # Mock OpenAI API response
     mock_response = {
         "object": "list",
@@ -940,12 +944,20 @@ async def test_openai_passthrough_embeddings(store: SqlAlchemyStore):
         "usage": {"prompt_tokens": 5, "total_tokens": 5},
     }
 
+    # Create mock request
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "openai-embed-passthrough-endpoint",
+            "input": "Test input",
+        }
+    )
+
     # Mock send_request directly
     with mock.patch(
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
-        payload = {"model": "test-model", "input": "Test input"}
-        response = await provider.passthrough_openai_embeddings(payload)
+        response = await openai_passthrough_embeddings(mock_request)
 
         # Verify send_request was called
         assert mock_send.called
@@ -976,10 +988,6 @@ async def test_openai_passthrough_responses(store: SqlAlchemyStore):
         name="openai-responses-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
-    provider = _create_provider_from_endpoint_name(
-        store, "openai-responses-endpoint", EndpointType.LLM_V1_CHAT
-    )
-
     # Mock OpenAI Responses API response (using correct Responses API schema)
     mock_response = {
         "id": "resp-123",
@@ -996,18 +1004,22 @@ async def test_openai_passthrough_responses(store: SqlAlchemyStore):
         "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
 
-    # Mock send_request directly
-    with mock.patch(
-        "mlflow.gateway.providers.openai.send_request", return_value=mock_response
-    ) as mock_send:
-        # Responses API uses 'input' and 'instructions' instead of 'messages'
-        payload = {
-            "model": "test-model",
+    # Create mock request
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "openai-responses-endpoint",
             "input": [{"role": "user", "content": "Hello"}],
             "instructions": "You are a helpful assistant",
             "response_format": {"type": "text"},
         }
-        response = await provider.passthrough_openai_responses(payload)
+    )
+
+    # Mock send_request directly
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_request", return_value=mock_response
+    ) as mock_send:
+        response = await openai_passthrough_responses(mock_request)
 
         # Verify send_request was called
         assert mock_send.called
@@ -1043,8 +1055,14 @@ async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
         model_definition_ids=[model_def.model_definition_id],
     )
 
-    provider = _create_provider_from_endpoint_name(
-        store, "openai-stream-passthrough-endpoint", EndpointType.LLM_V1_CHAT
+    # Create mock request with streaming enabled
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "openai-stream-passthrough-endpoint",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "stream": True,
+        }
     )
 
     # Mock streaming response chunks
@@ -1058,22 +1076,22 @@ async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
         for chunk in mock_stream_chunks:
             yield chunk
 
-    # Mock send_stream_request to return an async generator
     with mock.patch(
-        "mlflow.gateway.providers.openai.send_stream_request", return_value=mock_stream_generator()
-    ):
-        payload = {
-            "model": "test-model",
-            "messages": [{"role": "user", "content": "Hello"}],
-            "stream": True,
-        }
-        response_stream = await provider.passthrough_openai_chat(payload)
+        "mlflow.gateway.providers.openai.send_stream_request",
+        return_value=mock_stream_generator(),
+    ) as mock_send_stream:
+        response = await openai_passthrough_chat(mock_request)
 
-        chunks = [chunk async for chunk in response_stream]
+        assert mock_send_stream.called
+        assert isinstance(response, StreamingResponse)
+        assert response.media_type == "text/event-stream"
+
+        chunks = [chunk async for chunk in response.body_iterator]
 
         assert len(chunks) == 3
-        assert chunks[0] == mock_stream_chunks[0]
-        assert chunks[-1] == mock_stream_chunks[-1]
+        assert b"Hello" in chunks[0]
+        assert b"world" in chunks[1]
+        assert b"stop" in chunks[2]
 
 
 @pytest.mark.asyncio
@@ -1094,8 +1112,15 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
         model_definition_ids=[model_def.model_definition_id],
     )
 
-    provider = _create_provider_from_endpoint_name(
-        store, "openai-responses-stream-endpoint", EndpointType.LLM_V1_CHAT
+    # Create mock request with streaming enabled
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "openai-responses-stream-endpoint",
+            "input": [{"type": "text", "text": "Hello"}],
+            "instructions": "You are a helpful assistant",
+            "stream": True,
+        }
     )
 
     # Mock streaming response chunks for Responses API
@@ -1114,20 +1139,24 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
         for chunk in mock_stream_chunks:
             yield chunk
 
-    # Mock send_stream_request to return an async generator
     with mock.patch(
-        "mlflow.gateway.providers.openai.send_stream_request", return_value=mock_stream_generator()
-    ):
-        payload = {
-            "model": "test-model",
-            "input": [{"role": "user", "content": "Hello"}],
-            "instructions": "You are a helpful assistant",
-            "stream": True,
-        }
-        response_stream = await provider.passthrough_openai_responses(payload)
+        "mlflow.gateway.providers.openai.send_stream_request",
+        return_value=mock_stream_generator(),
+    ) as mock_send_stream:
+        response = await openai_passthrough_responses(mock_request)
 
-        chunks = [chunk async for chunk in response_stream]
+        assert mock_send_stream.called
+        assert isinstance(response, StreamingResponse)
+        assert response.media_type == "text/event-stream"
+
+        chunks = [chunk async for chunk in response.body_iterator]
 
         assert len(chunks) == 8
-        assert chunks[0] == mock_stream_chunks[0]
-        assert chunks[-1] == mock_stream_chunks[-1]
+        assert b"response.created" in chunks[0]
+        assert b"response.output_item.added" in chunks[1]
+        assert b"response.content_part.added" in chunks[2]
+        assert b"response.output_text.delta" in chunks[3]
+        assert b"response.output_text.done" in chunks[4]
+        assert b"response.content_part.done" in chunks[5]
+        assert b"response.output_item.done" in chunks[6]
+        assert b"response.completed" in chunks[7]

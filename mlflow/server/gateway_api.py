@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
@@ -317,15 +318,15 @@ async def openai_passthrough_chat(request: Request):
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
     endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
     store = _get_store()
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough_openai_chat(body)
 
-    # If streaming, wrap the response with make_streaming_response
     if body.get("stream"):
-        return await make_streaming_response(response)
+        return StreamingResponse(response, media_type="text/event-stream")
     return response
 
 
@@ -352,6 +353,7 @@ async def openai_passthrough_embeddings(request: Request):
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
     endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
     store = _get_store()
     _validate_store(store)
 
@@ -388,13 +390,13 @@ async def openai_passthrough_responses(request: Request):
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
     endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
     store = _get_store()
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough_openai_responses(body)
 
-    # If streaming, wrap the response with make_streaming_response
     if body.get("stream"):
-        return await make_streaming_response(response)
+        return StreamingResponse(response, media_type="text/event-stream")
     return response
