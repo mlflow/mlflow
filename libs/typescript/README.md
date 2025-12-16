@@ -87,7 +87,7 @@ const getWeather = mlflow.trace(
   (city: string) => {
     return `The weather in ${city} is sunny`;
   },
-  // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk
+  // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/quickstart
   // for the full list of options.
   { name: 'get-weather' }
 );
@@ -182,7 +182,7 @@ Collecting and managing feedback is essential for improving your application. ML
 
 This feedback data helps you understand user satisfaction, identify areas for improvement, and build better evaluation datasets based on real user interactions.
 
-[Learn more →](https://mlflow.org/docs/latest/genai/tracing/collect-user-feedback)
+[Learn more →](https://mlflow.org/docs/latest/genai/assessments/feedback)
 
 </td>
 <td width="40%">
@@ -275,7 +275,7 @@ This comprehensive data capture enables you to create realistic test scenarios, 
 
 ## Documentation 📘
 
-Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk).
+Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/quickstart).
 
 ## License
 

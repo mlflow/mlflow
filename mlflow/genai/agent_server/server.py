@@ -3,11 +3,13 @@ import functools
 import inspect
 import json
 import logging
+import os
 from typing import Any, AsyncGenerator, Callable, Literal, ParamSpec, TypeVar
 
+import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 import mlflow
 from mlflow.genai.agent_server.utils import set_request_headers
@@ -89,10 +91,15 @@ class AgentServer:
         If ``None``, no input/output validation and streaming tracing aggregation will be done.
         Default to ``None``.
 
+        enable_chat_proxy: If ``True``, enables a proxy middleware that forwards unmatched requests
+        to a chat app running on the port specified by the CHAT_APP_PORT environment variable
+        (defaults to 3000) with a timeout specified by the CHAT_PROXY_TIMEOUT_SECONDS environment
+        variable, (defaults to 300 seconds). ``enable_chat_proxy`` defaults to ``False``.
+
     See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
 
-    def __init__(self, agent_type: AgentType | None = None):
+    def __init__(self, agent_type: AgentType | None = None, enable_chat_proxy: bool = False):
         self.agent_type = agent_type
         if agent_type == "ResponsesAgent":
             self.validator = ResponsesAgentValidator()
@@ -100,7 +107,51 @@ class AgentServer:
             self.validator = BaseAgentValidator()
 
         self.app = FastAPI(title="Agent Server")
+
+        if enable_chat_proxy:
+            self._setup_chat_proxy_middleware()
+
         self._setup_routes()
+
+    def _setup_chat_proxy_middleware(self) -> None:
+        """Set up middleware to proxy unmatched requests to the chat app."""
+        self.chat_app_port = os.getenv("CHAT_APP_PORT", "3000")
+        self.chat_proxy_timeout = float(os.getenv("CHAT_PROXY_TIMEOUT_SECONDS", "300.0"))
+        self.proxy_client = httpx.AsyncClient(timeout=self.chat_proxy_timeout)
+
+        @self.app.middleware("http")
+        async def chat_proxy_middleware(request: Request, call_next):
+            """
+            Forward unmatched requests to the chat app on the port specified by the CHAT_APP_PORT
+            environment variable (defaults to 3000).
+
+            The timeout for the proxy request is specified by the CHAT_PROXY_TIMEOUT_SECONDS
+            environment variable (defaults to 300.0 seconds).
+            """
+            for route in self.app.routes:
+                if hasattr(route, "path_regex") and route.path_regex.match(request.url.path):
+                    return await call_next(request)
+
+            path = request.url.path.lstrip("/")
+            try:
+                body = await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
+                target_url = f"http://localhost:{self.chat_app_port}/{path}"
+                proxy_response = await self.proxy_client.request(
+                    method=request.method,
+                    url=target_url,
+                    params=dict(request.query_params),
+                    headers={k: v for k, v in request.headers.items() if k.lower() != "host"},
+                    content=body,
+                )
+                return Response(
+                    proxy_response.content,
+                    proxy_response.status_code,
+                    headers=dict(proxy_response.headers),
+                )
+            except httpx.ConnectError:
+                return Response("Service unavailable", status_code=503, media_type="text/plain")
+            except Exception as e:
+                return Response(f"Proxy error: {e!s}", status_code=502, media_type="text/plain")
 
     def _setup_routes(self) -> None:
         @self.app.post("/invocations")

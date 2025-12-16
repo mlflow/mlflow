@@ -4,9 +4,11 @@ Trace destination classes are DEPRECATED. Use mlflow.entities.trace_location.Tra
 
 from __future__ import annotations
 
+import logging
 from contextvars import ContextVar
 from dataclasses import dataclass
 
+import mlflow
 from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocationBase,
@@ -15,6 +17,8 @@ from mlflow.entities.trace_location import (
 from mlflow.environment_variables import MLFLOW_TRACING_DESTINATION
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import deprecated
+
+_logger = logging.getLogger(__name__)
 
 
 class UserTraceDestinationRegistry:
@@ -45,6 +49,15 @@ class UserTraceDestinationRegistry:
         if location := MLFLOW_TRACING_DESTINATION.get():
             match location.split("."):
                 case [catalog_name, schema_name]:
+                    if (
+                        mlflow.get_tracking_uri() is None
+                        or not mlflow.get_tracking_uri().startswith("databricks")
+                    ):
+                        mlflow.set_tracking_uri("databricks")
+                        _logger.info(
+                            "Automatically setting the tracking URI to `databricks` "
+                            "because the tracing destination is set to Databricks."
+                        )
                     return UCSchemaLocation(catalog_name, schema_name)
                 case [experiment_id]:
                     return MlflowExperimentLocation(experiment_id)

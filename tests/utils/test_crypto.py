@@ -11,10 +11,10 @@ from mlflow.utils.crypto import (
     _create_aad,
     _decrypt_secret,
     _encrypt_secret,
+    _encrypt_with_aes_gcm,
     _generate_dek,
     _mask_secret_value,
     decrypt_with_aes_gcm,
-    encrypt_with_aes_gcm,
     rotate_secret_encryption,
     unwrap_dek,
     wrap_dek,
@@ -63,16 +63,23 @@ def test_kek_manager_different_passphrases(passphrase1, passphrase2):
     assert kek1 != kek2
 
 
-def test_kek_manager_no_passphrase_raises(monkeypatch):
+def test_kek_manager_no_passphrase_uses_default(monkeypatch):
     monkeypatch.delenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", raising=False)
-    with pytest.raises(MlflowException, match="MLFLOW_CRYPTO_KEK_PASSPHRASE"):
-        KEKManager()
+    kek_manager = KEKManager()
+    assert kek_manager.using_default_passphrase is True
+    assert kek_manager.get_kek() is not None
 
 
-def test_kek_manager_empty_passphrase_raises(monkeypatch):
+def test_kek_manager_empty_passphrase_uses_default(monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "")
-    with pytest.raises(MlflowException, match="MLFLOW_CRYPTO_KEK_PASSPHRASE"):
-        KEKManager()
+    kek_manager = KEKManager()
+    assert kek_manager.using_default_passphrase is True
+    assert kek_manager.get_kek() is not None
+
+
+def test_kek_manager_custom_passphrase_not_default():
+    kek_manager = KEKManager(passphrase=TEST_PASSPHRASE)
+    assert kek_manager.using_default_passphrase is False
 
 
 def test_kek_manager_version_defaults_to_1():
@@ -97,6 +104,13 @@ def test_kek_manager_version_parameter_overrides_env(monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_VERSION", "3")
     kek_manager = KEKManager(kek_version=5)
     assert kek_manager.kek_version == 5
+
+
+def test_kek_manager_same_passphrase_different_versions_produces_different_keks():
+    passphrase = "same-passphrase-for-both"
+    kek_v1 = KEKManager(passphrase=passphrase, kek_version=1).get_kek()
+    kek_v2 = KEKManager(passphrase=passphrase, kek_version=2).get_kek()
+    assert kek_v1 != kek_v2
 
 
 def test_encrypt_secret_includes_kek_version():
@@ -126,7 +140,7 @@ def test_encrypt_decrypt_roundtrip():
     dek = _generate_dek()
     plaintext = b"Hello, World!"
 
-    result = encrypt_with_aes_gcm(plaintext, dek)
+    result = _encrypt_with_aes_gcm(plaintext, dek)
 
     assert len(result.nonce) == GCM_NONCE_LENGTH
     assert len(result.ciphertext) > len(plaintext)
@@ -141,7 +155,7 @@ def test_encrypt_with_custom_nonce():
     plaintext = b"Test data"
     custom_nonce = os.urandom(GCM_NONCE_LENGTH)
 
-    result = encrypt_with_aes_gcm(plaintext, dek, nonce=custom_nonce)
+    result = _encrypt_with_aes_gcm(plaintext, dek, _nonce_for_testing=custom_nonce)
     assert result.nonce == custom_nonce
 
 
@@ -150,7 +164,7 @@ def test_encrypt_decrypt_with_aad():
     plaintext = b"Secret message"
     aad = b"metadata"
 
-    result = encrypt_with_aes_gcm(plaintext, dek, aad=aad)
+    result = _encrypt_with_aes_gcm(plaintext, dek, aad=aad)
     combined = result.nonce + result.ciphertext
 
     decrypted = decrypt_with_aes_gcm(combined, dek, aad=aad)
@@ -162,7 +176,7 @@ def test_decrypt_with_wrong_aad_fails():
     plaintext = b"Secret message"
     aad = b"correct-metadata"
 
-    result = encrypt_with_aes_gcm(plaintext, dek, aad=aad)
+    result = _encrypt_with_aes_gcm(plaintext, dek, aad=aad)
     combined = result.nonce + result.ciphertext
 
     with pytest.raises(MlflowException, match="AES-GCM decryption failed"):
@@ -174,7 +188,7 @@ def test_decrypt_with_missing_aad_fails():
     plaintext = b"Secret message"
     aad = b"metadata"
 
-    result = encrypt_with_aes_gcm(plaintext, dek, aad=aad)
+    result = _encrypt_with_aes_gcm(plaintext, dek, aad=aad)
     combined = result.nonce + result.ciphertext
 
     with pytest.raises(MlflowException, match="AES-GCM decryption failed"):
@@ -185,7 +199,7 @@ def test_decrypt_with_missing_aad_fails():
 def test_encrypt_with_wrong_key_length_raises(bad_key):
     plaintext = b"Test"
     with pytest.raises(ValueError, match="Key must be 32 bytes"):
-        encrypt_with_aes_gcm(plaintext, bad_key)
+        _encrypt_with_aes_gcm(plaintext, bad_key)
 
 
 @pytest.mark.parametrize("bad_key", [b"short", b"", b"a" * 16])
@@ -199,8 +213,8 @@ def test_decrypt_with_wrong_key_length_raises(bad_key):
 def test_encrypt_with_wrong_nonce_length_raises(bad_nonce):
     dek = _generate_dek()
     plaintext = b"Test"
-    with pytest.raises(ValueError, match="Nonce must be 12 bytes"):
-        encrypt_with_aes_gcm(plaintext, dek, nonce=bad_nonce)
+    with pytest.raises(ValueError, match="Nonce must be between"):
+        _encrypt_with_aes_gcm(plaintext, dek, _nonce_for_testing=bad_nonce)
 
 
 def test_decrypt_with_wrong_key_fails():
@@ -208,7 +222,7 @@ def test_decrypt_with_wrong_key_fails():
     key2 = _generate_dek()
     plaintext = b"Secret"
 
-    result = encrypt_with_aes_gcm(plaintext, key1)
+    result = _encrypt_with_aes_gcm(plaintext, key1)
     combined = result.nonce + result.ciphertext
 
     with pytest.raises(MlflowException, match="AES-GCM decryption failed"):
@@ -219,7 +233,7 @@ def test_decrypt_with_tampered_ciphertext_fails():
     dek = _generate_dek()
     plaintext = b"Secret"
 
-    result = encrypt_with_aes_gcm(plaintext, dek)
+    result = _encrypt_with_aes_gcm(plaintext, dek)
     combined = result.nonce + result.ciphertext
 
     tampered = combined[:-1] + bytes([combined[-1] ^ 0xFF])

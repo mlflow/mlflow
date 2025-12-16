@@ -17,6 +17,18 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 CRYPTO_KEK_PASSPHRASE_ENV_VAR = "MLFLOW_CRYPTO_KEK_PASSPHRASE"
 CRYPTO_KEK_VERSION_ENV_VAR = "MLFLOW_CRYPTO_KEK_VERSION"
 
+# Default passphrase used when MLFLOW_CRYPTO_KEK_PASSPHRASE is not set.
+# This enables the gateway to work out-of-the-box for development and testing.
+#
+# SECURITY WARNING: Using the default passphrase means all MLflow installations share
+# the same encryption key. This is acceptable for development/testing but NOT for production.
+# For production deployments, always set MLFLOW_CRYPTO_KEK_PASSPHRASE to a unique,
+# high-entropy value from your secrets manager.
+#
+# If secrets were encrypted with one passphrase and the server is restarted with a different
+# passphrase (or the default), decryption will fail. The error message will indicate this.
+DEFAULT_KEK_PASSPHRASE = "mlflow-default-kek-passphrase-for-development-only"
+
 _logger = logging.getLogger(__name__)
 
 
@@ -131,8 +143,13 @@ class KEKManager:
     and updating DEKs in the database) or via the MLFLOW_CRYPTO_KEK_PASSPHRASE environment
     variable (which is used during normal server operation).
 
+    If no passphrase is provided and MLFLOW_CRYPTO_KEK_PASSPHRASE is not set, a default
+    passphrase is used. This enables the gateway to work out-of-the-box for development,
+    but is NOT recommended for production use.
+
     Args:
         passphrase: Optional passphrase. If None, reads from MLFLOW_CRYPTO_KEK_PASSPHRASE env var.
+            If env var is also not set, uses DEFAULT_KEK_PASSPHRASE.
         kek_version: Optional version identifier for this KEK. If None, reads from
             MLFLOW_CRYPTO_KEK_VERSION env var (default 1). Used to track which KEK version
             was used to wrap each DEK, enabling KEK rotation.
@@ -145,47 +162,49 @@ class KEKManager:
         if kek_version is None:
             kek_version = int(os.getenv(CRYPTO_KEK_VERSION_ENV_VAR, "1"))
 
+        # Use default passphrase if none provided
+        self._using_default_passphrase = not passphrase
         if not passphrase:
-            raise MlflowException(
-                "MLFLOW_CRYPTO_KEK_PASSPHRASE environment variable is required for "
-                "secrets management.\n\n"
-                "This passphrase is used to encrypt secrets in the database and must be set "
-                "on the MLflow server.\n\n"
-                "SECURITY: Use a high-entropy passphrase (32+ characters) from your secrets "
-                "manager to ensure strong protection.\n\n"
-                "For local development:\n"
-                "  export MLFLOW_CRYPTO_KEK_PASSPHRASE='my-dev-secret-at-least-32-chars'\n\n"
-                "For production (use your secrets manager):\n"
-                "  export MLFLOW_CRYPTO_KEK_PASSPHRASE='$(vault kv get "
-                "-field=passphrase mlflow/kek)'\n\n"
-                "For Kubernetes:\n"
-                "  Store passphrase in a Secret and inject via secretKeyRef\n\n"
-                "IMPORTANT: Users do NOT need this passphrase - only server administrators.\n"
-                "Users connect to the MLflow server over HTTPS and create secrets normally.",
-                error_code=INVALID_PARAMETER_VALUE,
+            passphrase = DEFAULT_KEK_PASSPHRASE
+            _logger.warning(
+                "MLFLOW_CRYPTO_KEK_PASSPHRASE not set. Using default passphrase for "
+                "secrets encryption. This is acceptable for local development (localhost) "
+                "but is a SECURITY RISK for remote or shared tracking servers. Anyone with "
+                "database access can decrypt secrets when using the default passphrase. "
+                "Set MLFLOW_CRYPTO_KEK_PASSPHRASE to a unique, high-entropy value for any "
+                "server accessible by multiple users or over a network."
             )
 
-        self._kek = self._derive_kek(passphrase)
         self._kek_version = kek_version
+        self._kek = self._derive_kek(passphrase, kek_version)
         _logger.debug("KEK derived from passphrase (version %d)", kek_version)
 
-    def _derive_kek(self, passphrase: str) -> bytes:
+    def _derive_kek(self, passphrase: str, kek_version: int) -> bytes:
         """
         Derive a 256-bit KEK from passphrase using PBKDF2-HMAC-SHA256.
 
         Args:
             passphrase: Admin-provided passphrase
+            kek_version: KEK version number to fold into salt
 
         Returns:
             32-byte (256-bit) KEK
+
+        NB: We fold kek_version into the salt to ensure that different KEK versions
+        produce different KEKs even if the same passphrase is accidentally reused.
+        This provides defense-in-depth against passphrase reuse during KEK rotation.
+        The version is encoded as 4 big-endian bytes appended to the base salt.
         """
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+        # NB: Folding kek_version into salt ensures unique KEK per version even with same passphrase
+        versioned_salt = MLFLOW_KEK_SALT + kek_version.to_bytes(4, "big")
+
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=AES_256_KEY_LENGTH,
-            salt=MLFLOW_KEK_SALT,
+            salt=versioned_salt,
             iterations=PBKDF2_ITERATIONS,
         )
         return kdf.derive(passphrase.encode("utf-8"))
@@ -208,6 +227,16 @@ class KEKManager:
             KEK version number
         """
         return self._kek_version
+
+    @property
+    def using_default_passphrase(self) -> bool:
+        """
+        Check if using the default passphrase.
+
+        Returns:
+            True if using the default passphrase (MLFLOW_CRYPTO_KEK_PASSPHRASE not set)
+        """
+        return self._using_default_passphrase
 
 
 def _generate_dek() -> bytes:
@@ -232,24 +261,31 @@ def _generate_dek() -> bytes:
     return AESGCM.generate_key(bit_length=256)
 
 
-def encrypt_with_aes_gcm(
-    plaintext: bytes, key: bytes, nonce: bytes | None = None, aad: bytes | None = None
+def _encrypt_with_aes_gcm(
+    plaintext: bytes,
+    key: bytes,
+    *,
+    aad: bytes | None = None,
+    _nonce_for_testing: bytes | None = None,
 ) -> AESGCMResult:
     """
-    Encrypt plaintext using AES-256-GCM.
+    Encrypt plaintext using AES-256-GCM. INTERNAL FUNCTION.
 
     AES-GCM provides authenticated encryption with associated data (AEAD),
     which means tampering is detected automatically during decryption.
 
-    CRITICAL: Never reuse a nonce with the same key. Nonce reuse compromises security.
+    CRITICAL: Never reuse a nonce with the same key. Nonce reuse completely compromises
+    AES-GCM security, allowing attackers to recover plaintext and forge messages.
 
     Args:
         plaintext: Data to encrypt
         key: 32-byte AES-256 key
-        nonce: Optional 12-byte nonce. If None, generates random nonce.
         aad: Optional Additional Authenticated Data. If provided, this data is
              authenticated but not encrypted. Useful for binding encryption to
              metadata (e.g., secret_id + secret_name) to prevent substitution attacks.
+        _nonce_for_testing: FOR TESTING ONLY. 12-byte nonce for deterministic encryption
+            in tests. In production, leave as None to generate a cryptographically secure
+            random nonce. DO NOT use this parameter in production code.
 
     Returns:
         AESGCMResult with nonce and ciphertext
@@ -266,10 +302,7 @@ def encrypt_with_aes_gcm(
     if len(key) != AES_256_KEY_LENGTH:
         raise ValueError(f"Key must be {AES_256_KEY_LENGTH} bytes (256 bits), got {len(key)}")
 
-    if nonce is None:
-        nonce = os.urandom(GCM_NONCE_LENGTH)
-    elif len(nonce) != GCM_NONCE_LENGTH:
-        raise ValueError(f"Nonce must be {GCM_NONCE_LENGTH} bytes (96 bits), got {len(nonce)}")
+    nonce = os.urandom(GCM_NONCE_LENGTH) if _nonce_for_testing is None else _nonce_for_testing
 
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -336,7 +369,7 @@ def wrap_dek(dek: bytes, kek: bytes) -> bytes:
     Returns:
         Wrapped (encrypted) DEK with nonce prepended
     """
-    result = encrypt_with_aes_gcm(dek, kek)
+    result = _encrypt_with_aes_gcm(dek, kek)
     return result.nonce + result.ciphertext
 
 
@@ -478,7 +511,7 @@ def _encrypt_secret(
     dek = _generate_dek()
     aad = _create_aad(secret_id, secret_name)
 
-    result = encrypt_with_aes_gcm(secret_bytes, dek, aad=aad)
+    result = _encrypt_with_aes_gcm(secret_bytes, dek, aad=aad)
     encrypted_value = result.nonce + result.ciphertext
 
     kek = kek_manager.get_kek()
@@ -541,11 +574,27 @@ def _decrypt_secret(
             return plaintext
 
     except Exception as e:
-        raise MlflowException(
-            "Failed to decrypt secret. Check KEK passphrase, secret metadata, "
-            "or database integrity.",
-            error_code=INVALID_PARAMETER_VALUE,
-        ) from e
+        # Provide helpful error message if using default passphrase
+        if kek_manager.using_default_passphrase:
+            raise MlflowException(
+                "Failed to decrypt secret. The server is using the default KEK passphrase, "
+                "but the secret was likely encrypted with a custom passphrase.\n\n"
+                "This typically happens when:\n"
+                "1. Secrets were created with MLFLOW_CRYPTO_KEK_PASSPHRASE set\n"
+                "2. The server was restarted without MLFLOW_CRYPTO_KEK_PASSPHRASE\n\n"
+                "To fix this, set MLFLOW_CRYPTO_KEK_PASSPHRASE to the same value that was "
+                "used when the secrets were created:\n"
+                "  export MLFLOW_CRYPTO_KEK_PASSPHRASE='your-original-passphrase'\n\n"
+                "If you've lost the original passphrase, the encrypted secrets cannot be "
+                "recovered and must be recreated.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e
+        else:
+            raise MlflowException(
+                "Failed to decrypt secret. Check KEK passphrase, secret metadata, "
+                "or database integrity.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e
 
 
 def rotate_secret_encryption(

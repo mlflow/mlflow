@@ -1,7 +1,9 @@
+import json
 from unittest import mock
 from unittest.mock import call, patch
 
 import pytest
+from litellm.types.utils import ModelResponse
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -12,12 +14,14 @@ from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Completeness,
+    ConversationalRoleAdherence,
     ConversationalSafety,
     ConversationalToolCallEfficiency,
     ConversationCompleteness,
     Correctness,
     Equivalence,
     ExpectationsGuidelines,
+    Fluency,
     Guidelines,
     RelevanceToQuery,
     RetrievalGroundedness,
@@ -629,6 +633,67 @@ def test_safety_get_input_fields():
         safety = Safety(name="test")
         field_names = [field.name for field in safety.get_input_fields()]
         assert field_names == ["outputs"]
+
+
+def test_fluency_get_input_fields():
+    fluency = Fluency(name="test")
+    field_names = [field.name for field in fluency.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_default_name():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "The text is fluent.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        scorer = Fluency()
+        result = scorer(outputs="The cat sat on the mat.")
+
+        assert result.name == "fluency"
+        assert result.value == CategoricalRating.YES
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_with_custom_model():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "The text is fluent.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        custom_model = "anthropic:/claude-3-opus"
+        scorer = Fluency(model=custom_model)
+        result = scorer(outputs="This is a fluent response")
+
+        assert result.name == "fluency"
+        assert result.value == CategoricalRating.YES
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_with_custom_name():
+    mock_content = json.dumps(
+        {
+            "result": "no",
+            "rationale": "The text has issues.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        scorer = Fluency(name="my_fluency_check")
+        result = scorer(outputs="Bad text")
+
+        assert result.name == "my_fluency_check"
+        assert result.value == CategoricalRating.NO
 
 
 def test_correctness_get_input_fields():
@@ -1353,15 +1418,13 @@ def test_user_frustration_with_session():
 
     with patch(
         "mlflow.genai.judges.instructions_judge.invoke_judge_model",
-        return_value=Feedback(
-            name="user_frustration", value="no_frustration", rationale="User is satisfied"
-        ),
+        return_value=Feedback(name="user_frustration", value="none", rationale="User is satisfied"),
     ) as mock_invoke_judge:
         scorer = UserFrustration()
         result = scorer(session=traces)
 
         assert result.name == "user_frustration"
-        assert result.value == "no_frustration"
+        assert result.value == "none"
         assert result.rationale == "User is satisfied"
         mock_invoke_judge.assert_called_once()
 
@@ -1379,7 +1442,7 @@ def test_user_frustration_with_custom_name_and_model(monkeypatch: pytest.MonkeyP
         "mlflow.genai.judges.instructions_judge.invoke_judge_model",
         return_value=Feedback(
             name="custom_frustration_check",
-            value="frustration_resolved",
+            value="resolved",
             rationale="User was initially frustrated but satisfied by the end",
         ),
     ) as mock_invoke_judge:
@@ -1387,7 +1450,7 @@ def test_user_frustration_with_custom_name_and_model(monkeypatch: pytest.MonkeyP
         result = scorer(session=traces)
 
         assert result.name == "custom_frustration_check"
-        assert result.value == "frustration_resolved"
+        assert result.value == "resolved"
         mock_invoke_judge.assert_called_once()
 
 
@@ -1572,21 +1635,22 @@ def test_conversational_tool_call_efficiency_with_session():
 
         traces.append(mlflow.get_trace(span.trace_id))
 
-    with patch(
-        "mlflow.genai.judges.instructions_judge.InstructionsJudge.__call__"
-    ) as mock_judge_call:
-        mock_judge_call.return_value = Feedback(
-            name="conversational_tool_call_efficiency",
-            value=CategoricalRating.YES,
-            rationale="Efficient tool usage across session",
-        )
+    mock_feedback = Feedback(
+        name="conversational_tool_call_efficiency",
+        value=CategoricalRating.YES,
+        rationale="Efficient tool usage across session",
+    )
 
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=mock_feedback,
+    ) as mock_invoke:
         scorer = ConversationalToolCallEfficiency()
         result = scorer(session=traces)
 
         assert result.name == "conversational_tool_call_efficiency"
         assert result.value == CategoricalRating.YES
-        mock_judge_call.assert_called_once()
+        mock_invoke.assert_called_once()
 
 
 def test_conversational_tool_call_efficiency_get_input_fields():
@@ -1601,6 +1665,51 @@ def test_conversational_tool_call_efficiency_instructions():
     instructions = scorer.instructions
     assert "tool" in instructions.lower()
     assert "efficient" in instructions.lower() or "redundant" in instructions.lower()
+
+
+def test_conversational_role_adherence_with_session():
+    session_id = "test_session_role"
+    traces = []
+    for i, (question, answer) in enumerate(
+        [
+            ("What can you cook?", "I can help you make many dishes!"),
+            ("How do I make soup?", "Start by boiling vegetables..."),
+        ]
+    ):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="conversational_role_adherence",
+            value=CategoricalRating.YES,
+            rationale="Role maintained across session.",
+        ),
+    ) as mock_invoke_judge:
+        scorer = ConversationalRoleAdherence()
+        result = scorer(session=traces)
+
+        assert result.name == "conversational_role_adherence"
+        assert result.value == CategoricalRating.YES
+        mock_invoke_judge.assert_called_once()
+
+
+def test_conversational_role_adherence_get_input_fields():
+    scorer = ConversationalRoleAdherence()
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_conversational_role_adherence_instructions():
+    scorer = ConversationalRoleAdherence()
+    instructions = scorer.instructions
+    assert "role" in instructions.lower()
+    assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
 
 
 def test_session_level_scorer_with_invalid_kwargs():
