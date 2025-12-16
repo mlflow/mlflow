@@ -1474,14 +1474,7 @@ class Fluency(BuiltInScorer):
         return FLUENCY_PROMPT
 
     def get_input_fields(self) -> list[JudgeField]:
-        # ALKIS: Use self._judge judge to get the input fields.
-        # This will require refactoring the initializations of self._judge.
-        return [
-            JudgeField(
-                name="outputs",
-                description="The text to evaluate for fluency, e.g. 'The cat sat on the mat.'",
-            ),
-        ]
+        return self._get_judge().get_input_fields()
 
     def __call__(
         self,
