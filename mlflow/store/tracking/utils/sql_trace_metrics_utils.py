@@ -18,7 +18,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetrics,
     SqlTraceTag,
 )
-from mlflow.tracing.constant import TokenUsageKey, TraceTagKey
+from mlflow.tracing.constant import SpanMetricKey, TraceMetricKey, TraceTagKey
 from mlflow.utils.search_utils import SearchTraceUtils
 
 
@@ -38,37 +38,38 @@ class TraceMetricsConfig(TypedDict):
     filter_fields: set[str] | None
 
 
-# metric_name -> TraceMetricsConfig mapping for traces
-TRACES_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
-    "trace": {
+# TraceMetricKey -> TraceMetricsConfig mapping for traces
+TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
+    TraceMetricKey.TRACE_COUNT: {
         "aggregation_types": {AggregationType.COUNT},
         "dimensions": {"name", "status"},
         "filter_fields": None,
     },
-    "latency": {
+    TraceMetricKey.LATENCY: {
         "aggregation_types": {AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
         "filter_fields": None,
     },
-    TokenUsageKey.INPUT_TOKENS: {
+    TraceMetricKey.INPUT_TOKENS: {
         "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
         "filter_fields": None,
     },
-    TokenUsageKey.OUTPUT_TOKENS: {
+    TraceMetricKey.OUTPUT_TOKENS: {
         "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
         "filter_fields": None,
     },
-    TokenUsageKey.TOTAL_TOKENS: {
+    TraceMetricKey.TOTAL_TOKENS: {
         "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
         "filter_fields": None,
     },
 }
 
-SPANS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
-    "span": {
+# SpanMetricKey -> TraceMetricsConfig mapping for spans
+SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
+    SpanMetricKey.SPAN_COUNT: {
         "aggregation_types": {AggregationType.COUNT},
         "dimensions": {"span_type"},
         "filter_fields": None,
@@ -184,7 +185,7 @@ def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, co
             )
 
 
-def _get_aggregation_column(view_type: MetricViewType, metric_name: str) -> Column:
+def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Column:
     """
     Get the SQL column for the given metric name and view type.
 
@@ -198,15 +199,15 @@ def _get_aggregation_column(view_type: MetricViewType, metric_name: str) -> Colu
     match view_type:
         case MetricViewType.TRACES:
             match metric_name:
-                case "trace":
+                case TraceMetricKey.TRACE_COUNT:
                     return SqlTraceInfo.request_id
-                case "latency":
+                case TraceMetricKey.LATENCY:
                     return SqlTraceInfo.execution_time_ms
-                case metric_name if metric_name in TokenUsageKey.all_keys():
+                case metric_name if metric_name in TraceMetricKey.token_usage_keys():
                     return SqlTraceMetrics.value
         case MetricViewType.SPANS:
             match metric_name:
-                case "span":
+                case SpanMetricKey.SPAN_COUNT:
                     return SqlSpan.span_id
 
     raise MlflowException.invalid_parameter_value(
@@ -286,7 +287,7 @@ def _apply_metric_specific_joins(
     match view_type:
         case MetricViewType.TRACES:
             # Join with SqlTraceMetrics for token usage metrics
-            if metric_name in TokenUsageKey.all_keys():
+            if metric_name in TraceMetricKey.token_usage_keys():
                 query = query.join(
                     SqlTraceMetrics,
                     and_(
@@ -438,7 +439,7 @@ def query_metrics(
     query = _apply_metric_specific_joins(query, metric_name, view_type)
 
     # Build aggregation expressions
-    agg_column = _get_aggregation_column(view_type, metric_name)
+    agg_column = _get_column_to_aggregate(view_type, metric_name)
     aggregation_results = {
         str(aggregation): _get_aggregation_expression(aggregation, db_type, agg_column)
         for aggregation in aggregations
