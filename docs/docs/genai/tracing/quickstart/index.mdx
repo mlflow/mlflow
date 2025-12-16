@@ -3,6 +3,7 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TabsWrapper from '@site/src/components/TabsWrapper';
 import ServerSetup from "@site/src/content/setup_server.mdx";
+import { CardGroup, TitleCard } from "@site/src/components/Card";
 
 # Tracing Quickstart
 
@@ -130,12 +131,12 @@ After running the code above, go to the MLflow UI and select the "My Application
 
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-detail.png" alt="Single Trace" />
 
-## Next Steps
+## Next Step
 
-Congrats on sending your first trace with MLflow! Now that you've got the basics working, here are some recommended next steps to deepen your understanding of tracing and get the most out of MLflow Tracing:
+Congrats on sending your first trace with MLflow! Now that you've got the basics working, here is the recommended next step to deepen your understanding of tracing:
 
-- **Explore More Integrations:** MLflow supports a wide range of LLM providers and agent frameworks. See the full list in the [Integrations Overview](/genai/tracing/integrations).
-
-- **Manual Tracing & Custom Spans:** Discover how to instrument your GenAI code with manual tracing and custom spans to capture additional details in your traces. Check out [Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing/) for more details.
-
-- **Attach Feedback & Evaluate Quality:** Add human or automated feedback to your traces. See how in [Attaching Feedback](/genai/tracing/collect-user-feedback/) or try [automated evaluation](/genai/eval-monitor) for scoring conversation responses.
+<CardGroup cols={1}>
+    <TitleCard title="Automatic and Manual Tracing →" link="/genai/tracing/app-instrumentation/automatic/">
+    Explore how MLflow supports both automatic tracing and manual tracing for custom logic, plus how you can combine the two to get more insightful traces.
+    </TitleCard>
+</CardGroup>
