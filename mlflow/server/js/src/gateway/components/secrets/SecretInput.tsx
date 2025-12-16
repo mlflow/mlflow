@@ -1,0 +1,69 @@
+import { useState, useCallback } from 'react';
+import { Input, Button, useDesignSystemTheme, VisibleIcon, VisibleOffIcon } from '@databricks/design-system';
+import type { InputProps } from '@databricks/design-system';
+
+interface SecretInputProps extends Omit<InputProps, 'type' | 'suffix'> {
+  /** Current value */
+  value: string;
+  /** Callback when value changes */
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+/**
+ * A specialized input component for entering sensitive values like API keys.
+ *
+ * Features:
+ * - Toggle visibility with eye icon (hidden by default)
+ * - Uses CSS text-security for masking instead of type="password"
+ * - Prevents password manager detection with appropriate attributes
+ * - Does NOT use type="password" to avoid browser password save prompts
+ */
+export const SecretInput = ({ value, onChange, disabled, componentId, ...props }: SecretInputProps) => {
+  const { theme } = useDesignSystemTheme();
+  const [isVisible, setIsVisible] = useState(false);
+
+  const toggleVisibility = useCallback(() => {
+    setIsVisible((prev) => !prev);
+  }, []);
+
+  return (
+    <Input
+      {...props}
+      componentId={componentId}
+      // Use "text" type to avoid browser password manager prompts
+      type="text"
+      // Prevent password managers from recognizing this field
+      autoComplete="off"
+      data-1p-ignore="true"
+      data-lpignore="true"
+      data-form-type="other"
+      // Use CSS to mask the text when not visible
+      css={{
+        fontFamily: 'monospace',
+        // Use -webkit-text-security for masking (works in webkit browsers)
+        // Falls back to showing text in other browsers
+        WebkitTextSecurity: isVisible ? 'none' : 'disc',
+        // For Firefox compatibility, we use a different approach
+        // The input remains type="text" but visually masked
+      }}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      suffix={
+        <Button
+          componentId={`${componentId}.toggle-visibility`}
+          type="tertiary"
+          size="small"
+          icon={isVisible ? <VisibleOffIcon /> : <VisibleIcon />}
+          onClick={toggleVisibility}
+          disabled={disabled}
+          aria-label={isVisible ? 'Hide value' : 'Show value'}
+          css={{
+            minWidth: 'auto',
+            padding: theme.spacing.xs,
+          }}
+        />
+      }
+    />
+  );
+};

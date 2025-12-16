@@ -1,59 +1,49 @@
 import {
-  Accordion,
   Alert,
   Breadcrumb,
   Button,
   Card,
-  ChevronRightIcon,
-  importantify,
   PencilIcon,
   Spinner,
-  Tag,
+  TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
-import { useCallback, useMemo, useState } from 'react';
-import { useParams, Link, useNavigate } from '../../common/utils/RoutingUtils';
+import { FormattedMessage } from 'react-intl';
+import { useParams, Link } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import GatewayRoutes from '../routes';
-import { formatProviderName, formatAuthMethodName, formatCredentialFieldName } from '../utils/providerUtils';
-import { parseAuthConfig } from '../utils/secretUtils';
 import { timestampToDate } from '../utils/dateUtils';
-import { formatTokens, formatCost } from '../utils/formatters';
 import { TimeAgo } from '../../shared/web-shared/browse/TimeAgo';
-import { useEndpointQuery } from '../hooks/useEndpointQuery';
-import { useModelsQuery } from '../hooks/useModelsQuery';
-import { useSecretQuery } from '../hooks/useSecretQuery';
-import { useBindingsQuery } from '../hooks/useBindingsQuery';
-import type { EndpointModelMapping, ModelDefinition, Model, SecretInfo, EndpointBinding, ResourceType } from '../types';
-import { MaskedValueDisplay } from '../components/secrets/MaskedValueDisplay';
+import { useEndpointDetails } from '../hooks/useEndpointDetails';
+import { ModelCard, ConnectedResourcesSection } from '../components/endpoint-details';
+import { DeleteEndpointModal } from '../components/endpoints/DeleteEndpointModal';
+import type { EndpointModelMapping, Model } from '../types';
 
+/**
+ * Container component for the Endpoint Details page.
+ * Uses the container/renderer pattern:
+ * - useEndpointDetails: Contains all business logic (data fetching, derived state, handlers)
+ * - This component: Handles page layout and renders child components
+ */
 const EndpointDetailsPage = () => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-  const navigate = useNavigate();
   const { endpointId } = useParams<{ endpointId: string }>();
 
-  const { data, error, isLoading } = useEndpointQuery(endpointId ?? '');
-  const endpoint = data?.endpoint;
-
-  // Get the primary model mapping and its model definition (memoized)
-  const primaryMapping = useMemo(() => endpoint?.model_mappings?.[0], [endpoint?.model_mappings]);
-  const primaryModelDef = useMemo(() => primaryMapping?.model_definition, [primaryMapping?.model_definition]);
-  const { data: modelsData } = useModelsQuery({ provider: primaryModelDef?.provider });
-
-  // Get bindings for this endpoint (memoized)
-  const { data: allBindings } = useBindingsQuery();
-  const endpointBindings = useMemo(
-    () => allBindings?.filter((b) => b.endpoint_id === endpointId) ?? [],
-    [allBindings, endpointId],
-  );
-
-  const handleEdit = useCallback(() => {
-    navigate(GatewayRoutes.getEditEndpointRoute(endpointId ?? ''));
-  }, [navigate, endpointId]);
+  const {
+    endpoint,
+    modelsData,
+    endpointBindings,
+    hasModels,
+    isLoading,
+    error,
+    isDeleteModalOpen,
+    handleEdit,
+    handleDeleteClick,
+    handleDeleteModalClose,
+    handleDeleteSuccess,
+  } = useEndpointDetails(endpointId ?? '');
 
   if (isLoading) {
     return (
@@ -80,8 +70,6 @@ const EndpointDetailsPage = () => {
     );
   }
 
-  const hasModels = endpoint.model_mappings && endpoint.model_mappings.length > 0;
-
   return (
     <div css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div css={{ padding: theme.spacing.md }}>
@@ -106,12 +94,25 @@ const EndpointDetailsPage = () => {
           }}
         >
           <Typography.Title level={2}>{endpoint.name ?? endpoint.endpoint_id}</Typography.Title>
-          <Button componentId="mlflow.gateway.endpoint-details.edit" icon={<PencilIcon />} onClick={handleEdit}>
-            <FormattedMessage
-              defaultMessage="Edit"
-              description="Gateway > Endpoint details page > Edit endpoint button"
-            />
-          </Button>
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <Button componentId="mlflow.gateway.endpoint-details.edit" icon={<PencilIcon />} onClick={handleEdit}>
+              <FormattedMessage
+                defaultMessage="Edit"
+                description="Gateway > Endpoint details page > Edit endpoint button"
+              />
+            </Button>
+            <Button
+              componentId="mlflow.gateway.endpoint-details.delete"
+              danger
+              icon={<TrashIcon />}
+              onClick={handleDeleteClick}
+            >
+              <FormattedMessage
+                defaultMessage="Delete"
+                description="Gateway > Endpoint details page > Delete endpoint button"
+              />
+            </Button>
+          </div>
         </div>
         <div
           css={{
@@ -224,387 +225,15 @@ const EndpointDetailsPage = () => {
           </Card>
         </div>
       </div>
-    </div>
-  );
-};
 
-/** Helper component to display model card with metadata */
-const ModelCard = ({
-  modelDefinition,
-  modelMetadata,
-}: {
-  modelDefinition: ModelDefinition | undefined;
-  modelMetadata: Model | undefined;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-
-  // Check if this model definition has a secret configured
-  const hasSecretId = Boolean(modelDefinition?.secret_id);
-
-  // Fetch secret for this model definition (only if secret_id exists)
-  const { data: secretData, isLoading: isSecretLoading } = useSecretQuery(
-    hasSecretId ? modelDefinition?.secret_id : undefined,
-  );
-
-  // Memoize capabilities array
-  const capabilities = useMemo(() => {
-    const caps: string[] = [];
-    if (modelMetadata?.supports_function_calling) caps.push('Tools');
-    if (modelMetadata?.supports_reasoning) caps.push('Reasoning');
-    if (modelMetadata?.supports_prompt_caching) caps.push('Caching');
-    return caps;
-  }, [
-    modelMetadata?.supports_function_calling,
-    modelMetadata?.supports_reasoning,
-    modelMetadata?.supports_prompt_caching,
-  ]);
-
-  // Memoize formatted values
-  const contextWindow = useMemo(
-    () => formatTokens(modelMetadata?.max_input_tokens ?? null),
-    [modelMetadata?.max_input_tokens],
-  );
-  const inputCost = useMemo(
-    () => formatCost(modelMetadata?.input_cost_per_token ?? null),
-    [modelMetadata?.input_cost_per_token],
-  );
-  const outputCost = useMemo(
-    () => formatCost(modelMetadata?.output_cost_per_token ?? null),
-    [modelMetadata?.output_cost_per_token],
-  );
-
-  // Parse auth config using shared utils
-  const authConfig = useMemo(() => parseAuthConfig(secretData?.secret), [secretData?.secret]);
-
-  if (!modelDefinition) {
-    return null;
-  }
-
-  const secret = secretData?.secret;
-
-  return (
-    <div
-      css={{
-        padding: theme.spacing.md,
-        border: `1px solid ${theme.colors.borderDecorative}`,
-        borderRadius: theme.general.borderRadiusBase,
-        backgroundColor: theme.colors.backgroundSecondary,
-      }}
-    >
-      {/* Model definition name as title */}
-      <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
-        {modelDefinition.name}
-      </Typography.Title>
-
-      {/* Properties grid */}
-      <div
-        css={{
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr',
-          gap: `${theme.spacing.xs}px ${theme.spacing.md}px`,
-          alignItems: 'baseline',
-        }}
-      >
-        {/* Provider */}
-        {modelDefinition.provider && (
-          <>
-            <Typography.Text color="secondary">
-              <FormattedMessage defaultMessage="Provider:" description="Provider label" />
-            </Typography.Text>
-            <div>
-              <Tag componentId="mlflow.gateway.endpoint-details.model-provider">
-                {formatProviderName(modelDefinition.provider)}
-              </Tag>
-            </div>
-          </>
-        )}
-
-        {/* Model name */}
-        <Typography.Text color="secondary">
-          <FormattedMessage defaultMessage="Model:" description="Model name label" />
-        </Typography.Text>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
-          <Typography.Text css={{ fontFamily: 'monospace' }}>{modelDefinition.model_name}</Typography.Text>
-          {/* Capabilities */}
-          {capabilities.length > 0 && (
-            <div css={{ display: 'flex', gap: theme.spacing.xs, flexWrap: 'wrap' }}>
-              {capabilities.map((cap) => (
-                <Tag key={cap} color="turquoise" componentId={`mlflow.gateway.endpoint-details.capability.${cap}`}>
-                  {cap}
-                </Tag>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Model specs - context and cost */}
-        {modelMetadata && (contextWindow !== '-' || inputCost !== '-' || outputCost !== '-') && (
-          <>
-            <Typography.Text color="secondary">
-              <FormattedMessage defaultMessage="Specs:" description="Model specs label" />
-            </Typography.Text>
-            <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-              {[
-                contextWindow !== '-' &&
-                  intl.formatMessage(
-                    { defaultMessage: 'Context: {tokens}', description: 'Context window size' },
-                    { tokens: contextWindow },
-                  ),
-                inputCost !== '-' &&
-                  intl.formatMessage(
-                    { defaultMessage: 'Input: {cost}', description: 'Input cost' },
-                    { cost: inputCost },
-                  ),
-                outputCost !== '-' &&
-                  intl.formatMessage(
-                    { defaultMessage: 'Output: {cost}', description: 'Output cost' },
-                    { cost: outputCost },
-                  ),
-              ]
-                .filter(Boolean)
-                .join(' • ')}
-            </Typography.Text>
-          </>
-        )}
-
-        {/* API Key Name */}
-        <Typography.Text color="secondary">
-          <FormattedMessage defaultMessage="API Key:" description="API key name label" />
-        </Typography.Text>
-        {!hasSecretId ? (
-          <Tag color="coral" componentId="mlflow.gateway.endpoint-details.no-api-key">
-            <FormattedMessage defaultMessage="No API key configured" description="No API key configured message" />
-          </Tag>
-        ) : isSecretLoading ? (
-          <Typography.Text color="secondary">
-            <FormattedMessage defaultMessage="Loading..." description="Loading secret" />
-          </Typography.Text>
-        ) : secret ? (
-          <Typography.Text bold>{secret.secret_name}</Typography.Text>
-        ) : (
-          <Tag color="coral" componentId="mlflow.gateway.endpoint-details.api-key-not-found">
-            <FormattedMessage defaultMessage="API key not found" description="API key not found message" />
-          </Tag>
-        )}
-
-        {/* Auth Type - only show if auth_mode is set in auth_config (indicates multi-auth provider) */}
-        {authConfig?.['auth_mode'] && (
-          <>
-            <Typography.Text color="secondary">
-              <FormattedMessage defaultMessage="Auth Type:" description="Auth type label" />
-            </Typography.Text>
-            <Typography.Text>{formatAuthMethodName(String(authConfig['auth_mode']))}</Typography.Text>
-          </>
-        )}
-
-        {/* Masked Key - only show if secret exists */}
-        {secret && (
-          <>
-            <Typography.Text color="secondary">
-              <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label" />
-            </Typography.Text>
-            <MaskedValueDisplay maskedValue={secret.masked_value} compact />
-          </>
-        )}
-
-        {/* Config - display non-encrypted configuration */}
-        <AuthConfigDisplay secret={secret} />
-      </div>
-    </div>
-  );
-};
-
-/** Helper component to display auth config from secret */
-const AuthConfigDisplay = ({ secret }: { secret: SecretInfo | undefined }) => {
-  const { theme } = useDesignSystemTheme();
-
-  // Parse auth config using shared utils
-  const authConfig = useMemo(() => parseAuthConfig(secret), [secret]);
-
-  // Filter out auth_mode since it's already shown separately as "Auth Type"
-  if (!authConfig) return null;
-  const configEntries = Object.entries(authConfig).filter(([key]) => key !== 'auth_mode');
-  if (configEntries.length === 0) return null;
-
-  return (
-    <>
-      <Typography.Text color="secondary">
-        <FormattedMessage defaultMessage="Config:" description="Auth config label" />
-      </Typography.Text>
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-        {configEntries.map(([key, value]) => (
-          <div key={key}>
-            <Typography.Text color="secondary">{formatCredentialFieldName(key)}: </Typography.Text>
-            <Typography.Text css={{ fontFamily: 'monospace' }}>{String(value)}</Typography.Text>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-};
-
-/** Connected resources section with collapsible accordion */
-const ConnectedResourcesSection = ({ bindings }: { bindings: EndpointBinding[] }) => {
-  const { theme, getPrefixedClassName } = useDesignSystemTheme();
-  const intl = useIntl();
-
-  // Get unique resource types for accordion sections
-  const resourceTypes = useMemo(() => Array.from(new Set(bindings.map((b) => b.resource_type))), [bindings]);
-
-  // Track collapsed sections (inverted logic) - new resource types are expanded by default
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-
-  // Derive expanded sections: all resource types except those explicitly collapsed
-  const expandedSections = useMemo(
-    () => resourceTypes.filter((rt) => !collapsedSections.has(rt)),
-    [resourceTypes, collapsedSections],
-  );
-
-  const formatResourceTypePlural = (type: string) => {
-    switch (type) {
-      case 'scorer_job':
-        return intl.formatMessage({ defaultMessage: 'Scorer jobs', description: 'Scorer jobs resource type plural' });
-      default:
-        return type;
-    }
-  };
-
-  // Custom expand icon for accordion
-  const getExpandIcon = useCallback(
-    ({ isActive }: { isActive?: boolean }) => (
-      <div
-        css={importantify({
-          width: theme.general.heightBase / 2,
-          transform: isActive ? 'rotate(90deg)' : undefined,
-          transition: 'transform 0.2s',
-        })}
-      >
-        <ChevronRightIcon
-          css={{
-            svg: { width: theme.general.heightBase / 2, height: theme.general.heightBase / 2 },
-          }}
-        />
-      </div>
-    ),
-    [theme],
-  );
-
-  // Accordion styles
-  const accordionStyles = useMemo(() => {
-    const clsPrefix = getPrefixedClassName('collapse');
-    const classItem = `.${clsPrefix}-item`;
-    const classHeader = `.${clsPrefix}-header`;
-    const classContentBox = `.${clsPrefix}-content-box`;
-
-    return {
-      border: 'none',
-      backgroundColor: 'transparent',
-      [`& > ${classItem}`]: {
-        border: `1px solid ${theme.colors.borderDecorative}`,
-        borderRadius: theme.general.borderRadiusBase,
-        marginBottom: theme.spacing.xs,
-        overflow: 'hidden',
-      },
-      [`& > ${classItem} > ${classHeader}`]: {
-        paddingLeft: theme.spacing.sm,
-        paddingTop: theme.spacing.xs,
-        paddingBottom: theme.spacing.xs,
-        display: 'flex',
-        alignItems: 'center',
-        backgroundColor: theme.colors.backgroundSecondary,
-      },
-      [classContentBox]: {
-        padding: 0,
-      },
-    };
-  }, [theme, getPrefixedClassName]);
-
-  // Group bindings by resource type
-  const bindingsByType = useMemo(() => {
-    const groups = new Map<ResourceType, EndpointBinding[]>();
-    bindings.forEach((binding) => {
-      if (!groups.has(binding.resource_type)) {
-        groups.set(binding.resource_type, []);
-      }
-      groups.get(binding.resource_type)!.push(binding);
-    });
-    return groups;
-  }, [bindings]);
-
-  const handleAccordionChange = useCallback(
-    (keys: string | string[]) => {
-      const expandedKeys = new Set(Array.isArray(keys) ? keys : [keys]);
-      // Track which sections are now collapsed (not in the expanded keys)
-      setCollapsedSections(new Set(resourceTypes.filter((rt) => !expandedKeys.has(rt))));
-    },
-    [resourceTypes],
-  );
-
-  return (
-    <div>
-      <Typography.Text color="secondary">
-        <FormattedMessage defaultMessage="Connected resources" description="Connected resources label" />
-      </Typography.Text>
-      <div css={{ marginTop: theme.spacing.xs }}>
-        {bindings.length === 0 ? (
-          <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm, fontStyle: 'italic' }}>
-            <FormattedMessage
-              defaultMessage="No resources are using this endpoint"
-              description="Empty state for connected resources"
-            />
-          </Typography.Text>
-        ) : (
-          <Accordion
-            componentId="mlflow.gateway.endpoint-details.bindings-accordion"
-            activeKey={expandedSections}
-            onChange={handleAccordionChange}
-            dangerouslyAppendEmotionCSS={accordionStyles}
-            dangerouslySetAntdProps={{
-              expandIconPosition: 'left',
-              expandIcon: getExpandIcon,
-            }}
-          >
-            {Array.from(bindingsByType.entries()).map(([resourceType, typeBindings]) => (
-              <Accordion.Panel
-                key={resourceType}
-                header={
-                  <span
-                    css={{
-                      fontWeight: theme.typography.typographyBoldFontWeight,
-                      fontSize: theme.typography.fontSizeSm,
-                    }}
-                  >
-                    {formatResourceTypePlural(resourceType)} ({typeBindings.length})
-                  </span>
-                }
-              >
-                <div
-                  css={{
-                    maxHeight: 8 * 28, // ~8 items before scrolling
-                    overflowY: 'auto',
-                  }}
-                >
-                  {typeBindings.map((binding) => (
-                    <div
-                      key={binding.binding_id}
-                      css={{
-                        padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-                        borderBottom: `1px solid ${theme.colors.borderDecorative}`,
-                        '&:last-child': { borderBottom: 'none' },
-                      }}
-                    >
-                      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm, fontFamily: 'monospace' }}>
-                        {binding.resource_id}
-                      </Typography.Text>
-                    </div>
-                  ))}
-                </div>
-              </Accordion.Panel>
-            ))}
-          </Accordion>
-        )}
-      </div>
+      {/* Delete confirmation modal */}
+      <DeleteEndpointModal
+        open={isDeleteModalOpen}
+        endpoint={endpoint}
+        bindings={endpointBindings}
+        onClose={handleDeleteModalClose}
+        onSuccess={handleDeleteSuccess}
+      />
     </div>
   );
 };

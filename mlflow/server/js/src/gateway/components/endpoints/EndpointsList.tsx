@@ -25,12 +25,12 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
-import { useDeleteEndpointMutation } from '../../hooks/useDeleteEndpointMutation';
 import { useBindingsQuery } from '../../hooks/useBindingsQuery';
 import { formatProviderName } from '../../utils/providerUtils';
 import { timestampToDate } from '../../utils/dateUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { EndpointsFilterButton, type EndpointsFilter } from './EndpointsFilterButton';
+import { DeleteEndpointModal } from './DeleteEndpointModal';
 import GatewayRoutes from '../../routes';
 import type { Endpoint, EndpointBinding, ResourceType } from '../../types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -44,8 +44,6 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
   const { formatMessage } = useIntl();
   const { data: endpoints, isLoading, refetch } = useEndpointsQuery();
   const { data: bindings } = useBindingsQuery();
-  const { mutate: deleteEndpoint, isLoading: isDeleting } = useDeleteEndpointMutation();
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [filter, setFilter] = useState<EndpointsFilter>({ providers: [] });
   const [bindingsDrawerEndpoint, setBindingsDrawerEndpoint] = useState<{
@@ -53,6 +51,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     endpointName: string;
     bindings: EndpointBinding[];
   } | null>(null);
+  const [deleteModalEndpoint, setDeleteModalEndpoint] = useState<Endpoint | null>(null);
 
   // Group bindings by endpoint_id for quick lookup
   const bindingsByEndpoint = useMemo(() => {
@@ -103,18 +102,14 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     return filtered;
   }, [endpoints, searchFilter, filter]);
 
-  const handleDelete = (endpoint: Endpoint) => {
-    setDeletingId(endpoint.endpoint_id);
-    deleteEndpoint(endpoint.endpoint_id, {
-      onSuccess: () => {
-        setDeletingId(null);
-        refetch();
-        onEndpointDeleted?.();
-      },
-      onError: () => {
-        setDeletingId(null);
-      },
-    });
+  const handleDeleteClick = (endpoint: Endpoint) => {
+    setDeleteModalEndpoint(endpoint);
+  };
+
+  const handleDeleteSuccess = () => {
+    setDeleteModalEndpoint(null);
+    refetch();
+    onEndpointDeleted?.();
   };
 
   if (isLoading || !endpoints) {
@@ -256,7 +251,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
                   <Link to={GatewayRoutes.getEditEndpointRoute(endpoint.endpoint_id)}>
                     <Button
                       componentId="mlflow.gateway.endpoints-list.edit-button"
-                      type="tertiary"
+                      type="primary"
                       icon={<PencilIcon />}
                       aria-label={formatMessage({
                         defaultMessage: 'Edit endpoint',
@@ -266,15 +261,13 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
                   </Link>
                   <Button
                     componentId="mlflow.gateway.endpoints-list.delete-button"
-                    type="tertiary"
+                    type="primary"
                     icon={<TrashIcon />}
                     aria-label={formatMessage({
                       defaultMessage: 'Delete endpoint',
                       description: 'Gateway > Endpoints list > Delete endpoint button aria label',
                     })}
-                    onClick={() => handleDelete(endpoint)}
-                    loading={deletingId === endpoint.endpoint_id}
-                    disabled={isDeleting}
+                    onClick={() => handleDeleteClick(endpoint)}
                   />
                 </div>
               </TableCell>
@@ -289,6 +282,15 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
         endpointName={bindingsDrawerEndpoint?.endpointName ?? ''}
         bindings={bindingsDrawerEndpoint?.bindings ?? []}
         onClose={() => setBindingsDrawerEndpoint(null)}
+      />
+
+      {/* Delete confirmation modal */}
+      <DeleteEndpointModal
+        open={deleteModalEndpoint !== null}
+        endpoint={deleteModalEndpoint}
+        bindings={deleteModalEndpoint ? bindingsByEndpoint.get(deleteModalEndpoint.endpoint_id) ?? [] : []}
+        onClose={() => setDeleteModalEndpoint(null)}
+        onSuccess={handleDeleteSuccess}
       />
     </div>
   );
@@ -523,20 +525,12 @@ const ModelsCell = ({ modelMappings }: { modelMappings: Endpoint['model_mappings
   const additionalCount = additionalMappings.length;
 
   const tooltipContent =
-    additionalCount > 0
-      ? additionalMappings
-          .map((m) => `${m.model_definition?.name ?? '-'} (${m.model_definition?.model_name ?? '-'})`)
-          .join(', ')
-      : undefined;
+    additionalCount > 0 ? additionalMappings.map((m) => m.model_definition?.model_name ?? '-').join(', ') : undefined;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: theme.spacing.xs / 2 }}>
-      {/* Model definition name (user's nickname) */}
-      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }} bold>
-        {primaryModelDef?.name ?? '-'}
-      </Typography.Text>
       {/* Provider's model name */}
-      <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
         {primaryModelDef?.model_name ?? '-'}
       </Typography.Text>
       {additionalCount > 0 && (

@@ -28,7 +28,7 @@ export function LongFormSection({ title, titleWidth = 200, children, hideDivider
         paddingTop: theme.spacing.lg,
         paddingBottom: theme.spacing.lg,
         borderBottom: hideDivider ? 'none' : `1px solid ${theme.colors.borderDecorative}`,
-        '@media (max-width: 767px)': {
+        '@media (max-width: 1023px)': {
           flexDirection: 'column',
           gap: theme.spacing.md,
         },
@@ -38,7 +38,7 @@ export function LongFormSection({ title, titleWidth = 200, children, hideDivider
         css={{
           flexShrink: 0,
           width: titleWidth,
-          '@media (max-width: 767px)': {
+          '@media (max-width: 1023px)': {
             width: '100%',
           },
         }}

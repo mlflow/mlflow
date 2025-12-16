@@ -1,4 +1,4 @@
-import { useQuery } from '../../common/utils/reactQueryHooks';
+import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { GatewayApi } from '../api';
 import { GatewayQueryKeys } from './queryKeys';
 import type { SecretsConfigResponse } from '../types';

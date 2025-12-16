@@ -203,10 +203,6 @@
     "defaultMessage": "No existing model definitions. Create a new one below.",
     "description": "Message when no existing model definitions"
   },
-  "/dEpy8": {
-    "defaultMessage": "Provider:",
-    "description": "Provider label"
-  },
   "/fwKFW": {
     "defaultMessage": "No prompts created",
     "description": "A header for the empty state in the prompts table"
@@ -570,6 +566,10 @@
   "2plDKs": {
     "defaultMessage": "Input",
     "description": "Evaluation review > evaluations list > input sort option label prefix"
+  },
+  "2vjNq9": {
+    "defaultMessage": "Please complete all required fields",
+    "description": "Tooltip shown when submit button is disabled due to incomplete form"
   },
   "2zy+D5": {
     "defaultMessage": "Add new tag",
@@ -1061,6 +1061,10 @@
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
     "description": "Error message text when saving an editable note in MLflow"
+  },
+  "7AbOaV": {
+    "defaultMessage": "A unique name to identify this API key for reuse across endpoints",
+    "description": "Hint text explaining API key name field"
   },
   "7BkVQ9": {
     "defaultMessage": "Run the following code to start an evaluation.",
@@ -1890,6 +1894,10 @@
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
   },
+  "Drq15L": {
+    "defaultMessage": "Authentication credentials for accessing the model",
+    "description": "Description for API key configuration"
+  },
   "DwsF2a": {
     "defaultMessage": "Other Providers",
     "description": "Section header for other providers"
@@ -1921,6 +1929,10 @@
   "EAf6xM": {
     "defaultMessage": "Session",
     "description": "Label preceding a chat session ID"
+  },
+  "EBJq8A": {
+    "defaultMessage": "No existing API keys for this provider.",
+    "description": "Message when no existing API keys"
   },
   "EBwDIg": {
     "defaultMessage": "Delete",
@@ -1998,10 +2010,6 @@
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
   },
-  "EsiP/o": {
-    "defaultMessage": "Are you sure you want to delete the API key \"{keyName}\"?",
-    "description": "Delete confirmation message"
-  },
   "EwAZgg": {
     "defaultMessage": "Edit tags",
     "description": "Run page > Overview > Tags cell > 'Edit' button label"
@@ -2049,6 +2057,10 @@
   "FPMrvd": {
     "defaultMessage": "Search traces",
     "description": "Experiment page > traces view filters > filter string input placeholder"
+  },
+  "FQPROT": {
+    "defaultMessage": "API Key",
+    "description": "Header for API key configuration section"
   },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
@@ -2157,6 +2169,10 @@
   "GDzD7I": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
+  },
+  "GIBO90": {
+    "defaultMessage": "Delete",
+    "description": "Gateway > Endpoint details page > Delete endpoint button"
   },
   "GJWVBA": {
     "defaultMessage": "Inputs",
@@ -2502,6 +2518,10 @@
     "defaultMessage": "No details for assessment",
     "description": "Evaluation review > assessments > no history"
   },
+  "JkpQWF": {
+    "defaultMessage": "This endpoint is currently bound to {bindingCount, plural, one {# resource} other {# resources}}. After deletion, these bindings will be removed.",
+    "description": "Warning about resources bound to this endpoint"
+  },
   "JmNdE4": {
     "defaultMessage": "required",
     "description": "Text displayed next to a function parameter to indicate that it is required"
@@ -2566,10 +2586,6 @@
     "defaultMessage": "Track every version of your app's code and prompts to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the genai logged models list page"
   },
-  "KCWqJZ": {
-    "defaultMessage": "Secret ID",
-    "description": "Secret ID label"
-  },
   "KDxbQI": {
     "defaultMessage": "An error occurred while rendering the trace",
     "description": "Description for default error message in the Trace Explorer UI"
@@ -2593,6 +2609,10 @@
   "KObL+y": {
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
+  },
+  "KRzwkL": {
+    "defaultMessage": "Type {itemName} to confirm deletion:",
+    "description": "Type to confirm instruction"
   },
   "KSgUAW": {
     "defaultMessage": "Name",
@@ -2805,10 +2825,6 @@
   "MUUYWZ": {
     "defaultMessage": "Created at",
     "description": "Label for the creation timestamp of a logged model on the logged model details page"
-  },
-  "MXiHP1": {
-    "defaultMessage": "Please complete all required fields",
-    "description": "Tooltip shown when create button is disabled"
   },
   "MZNjYJ": {
     "defaultMessage": "Actions ({count})",
@@ -3121,6 +3137,10 @@
   "PRe/8y": {
     "defaultMessage": "None",
     "description": "Default text for no content in an editable note in MLflow"
+  },
+  "PRwILA": {
+    "defaultMessage": "Connections",
+    "description": "Subsection header for API key configuration"
   },
   "PRwcGm": {
     "defaultMessage": "Search",
@@ -3804,10 +3824,6 @@
     "defaultMessage": "Add description",
     "description": "experiment page > description modal > title"
   },
-  "VlfA1S": {
-    "defaultMessage": "Failed to delete API key. Please try again.",
-    "description": "Error message when API key deletion fails"
-  },
   "Vm9CvZ": {
     "defaultMessage": "Description",
     "description": "Column title text for description in model version table"
@@ -4086,10 +4102,6 @@
   "Y5Rr5k": {
     "defaultMessage": "See less",
     "description": "Button to collapse a long text field in the trace explorer summary field renderer"
-  },
-  "Y60dI2": {
-    "defaultMessage": "New API key",
-    "description": "Summary new secret"
   },
   "Y6gWro": {
     "defaultMessage": "The correctness LLM judge gives a binary evaluation and written rationale on whether the agent's generated response is factually accurate and semantically similar to the provided ground-truth response or grading notes.",
@@ -4511,10 +4523,6 @@
     "defaultMessage": "Edit judge",
     "description": "Title for edit judge modal"
   },
-  "bKDwMK": {
-    "defaultMessage": "API Key:",
-    "description": "Summary API key label"
-  },
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
@@ -4895,10 +4903,6 @@
     "defaultMessage": "Click to hide the run",
     "description": "A tooltip for the \"hide\" icon button in the runs chart tooltip"
   },
-  "eFe/Y3": {
-    "defaultMessage": "Delete API Key",
-    "description": "Title for delete API key modal"
-  },
   "eIWfRN": {
     "defaultMessage": "Discard",
     "description": "Evaluation review > assessments > discard pending assessments button label"
@@ -5058,10 +5062,6 @@
   "faLIN+": {
     "defaultMessage": "Timestamp",
     "description": "Run page > Charts tab > Chart tooltip > Timestamp label"
-  },
-  "fb7ooa": {
-    "defaultMessage": "Existing API key",
-    "description": "Summary existing secret"
   },
   "fcIHyN": {
     "defaultMessage": "Medium",
@@ -5770,6 +5770,10 @@
   "lHJWJh": {
     "defaultMessage": "We encountered an issue loading the judges interface. Please refresh the page or contact support if the problem persists.",
     "description": "Error description for experiment judges page loading failure"
+  },
+  "lI+Eu2": {
+    "defaultMessage": "Failed to delete {itemType}. Please try again.",
+    "description": "Error message when deletion fails"
   },
   "lISqyJ": {
     "defaultMessage": "Run details",
@@ -6667,10 +6671,6 @@
     "defaultMessage": "No evaluation tables logged",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > title"
   },
-  "smlUA/": {
-    "defaultMessage": "Connection",
-    "description": "Summary connection/API key label"
-  },
   "smtq2M": {
     "defaultMessage": "Automatically log traces for OpenAI API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the OpenAI package using MLflow autologging. This message is followed by a code example."
@@ -6742,6 +6742,10 @@
   "tUAhDM": {
     "defaultMessage": "Global guideline adherence",
     "description": "Evaluation results > known type of evaluation result assessment > global guideline adherence assessment. Used to indicate if the result adheres to the global guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Global guideline adherence: moderate\""
+  },
+  "tatySQ": {
+    "defaultMessage": "my-api-key",
+    "description": "Placeholder for API key name input"
   },
   "tbAlJg": {
     "defaultMessage": "Go to external location",
@@ -6862,10 +6866,6 @@
   "urvfNd": {
     "defaultMessage": "Cancel",
     "description": "Add new key-value tag modal > Cancel button text"
-  },
-  "uxB25Q": {
-    "defaultMessage": "Type {keyName} to confirm deletion:",
-    "description": "Type to confirm instruction"
   },
   "uyx2Bd": {
     "defaultMessage": "search_traces syntax",
@@ -7083,6 +7083,10 @@
     "defaultMessage": "Log traces",
     "description": "Home page quick action title for logging traces"
   },
+  "wx0s66": {
+    "defaultMessage": "Select a provider and model to configure API key",
+    "description": "Message when no provider selected for API key form"
+  },
   "wxq/qM": {
     "defaultMessage": "Set as baseline",
     "description": "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
@@ -7134,6 +7138,10 @@
   "xRw7H2": {
     "defaultMessage": "Created by",
     "description": "Column title text for creator username in model version table"
+  },
+  "xTsXb6": {
+    "defaultMessage": "Are you sure you want to delete the {itemType} \"{itemName}\"?",
+    "description": "Delete confirmation message"
   },
   "xUnYdk": {
     "defaultMessage": "Save",

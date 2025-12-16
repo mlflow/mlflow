@@ -142,22 +142,6 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
             )}
           </div>
         </div>
-
-        {/* Secret ID */}
-        <div css={rowStyle}>
-          <Typography.Text color="secondary" css={labelStyle}>
-            <FormattedMessage defaultMessage="Secret ID" description="Secret ID label" />
-          </Typography.Text>
-          <Typography.Text
-            css={{
-              fontFamily: 'monospace',
-              fontSize: theme.typography.fontSizeSm,
-              wordBreak: 'break-all',
-            }}
-          >
-            {secret.secret_id}
-          </Typography.Text>
-        </div>
       </div>
     </div>
   );

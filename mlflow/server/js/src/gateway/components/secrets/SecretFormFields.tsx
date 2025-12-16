@@ -3,6 +3,7 @@ import { useEffect, useMemo, useCallback, useRef } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
 import { formatCredentialFieldName } from '../../utils/providerUtils';
+import { SecretInput } from './SecretInput';
 import type { AuthMode, ConfigField, SecretField } from '../../types';
 import type { SecretFormData } from './types';
 
@@ -196,21 +197,15 @@ export const SecretFormFields = ({
             {formatCredentialFieldName(field.name)}
             {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
           </FormUI.Label>
-          <Input
+          <SecretInput
             id={`${componentIdPrefix}.secret.${field.name}`}
             componentId={`${componentIdPrefix}.secret.${field.name}`}
-            type="password"
-            autoComplete="off"
-            data-1p-ignore
-            data-lpignore="true"
-            data-form-type="other"
             value={value.secretFields[field.name] ?? ''}
             onChange={(e) => handleSecretFieldChange(field.name, e.target.value)}
             placeholder={field.description}
             validationState={errors?.secretFields?.[field.name] ? 'error' : undefined}
             disabled={disabled}
           />
-          {field.description && !errors?.secretFields?.[field.name] && <FormUI.Hint>{field.description}</FormUI.Hint>}
           {errors?.secretFields?.[field.name] && (
             <FormUI.Message type="error" message={errors.secretFields[field.name]} />
           )}

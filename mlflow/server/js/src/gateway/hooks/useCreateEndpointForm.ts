@@ -1,14 +1,17 @@
 import { useForm } from 'react-hook-form';
 import { useState, useCallback } from 'react';
 import { useNavigate } from '../../common/utils/RoutingUtils';
-import { useQueryClient } from '../../common/utils/reactQueryHooks';
+import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useCreateEndpointMutation } from './useCreateEndpointMutation';
 import { useCreateSecretMutation } from './useCreateSecretMutation';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
+import { getReadableErrorMessage } from '../utils/errorUtils';
 import GatewayRoutes from '../routes';
 import type { SecretMode } from '../components/secrets/SecretConfigSection';
+
+export { getReadableErrorMessage };
 
 export interface CreateEndpointFormData {
   name: string;
@@ -23,72 +26,6 @@ export interface CreateEndpointFormData {
     configFields: Record<string, string>;
   };
 }
-
-/**
- * Check if error message indicates a unique constraint violation across different DB backends
- */
-const isUniqueConstraintError = (message: string): boolean => {
-  const lowerMessage = message.toLowerCase();
-  return (
-    // SQLite
-    lowerMessage.includes('unique constraint failed') ||
-    // PostgreSQL
-    lowerMessage.includes('duplicate key value violates unique constraint') ||
-    // MySQL
-    lowerMessage.includes('duplicate entry') ||
-    // SQL Server
-    lowerMessage.includes('violation of unique key constraint') ||
-    // Generic patterns
-    lowerMessage.includes('uniqueviolation') ||
-    lowerMessage.includes('integrityerror') ||
-    // User-friendly message from backend
-    lowerMessage.includes('already exists')
-  );
-};
-
-/**
- * Check if the error is related to a specific field (endpoint name or secret name)
- */
-const isEndpointNameError = (message: string): boolean => {
-  const lowerMessage = message.toLowerCase();
-  return lowerMessage.includes('endpoints.name') || lowerMessage.includes('endpoint_name');
-};
-
-const isSecretNameError = (message: string): boolean => {
-  const lowerMessage = message.toLowerCase();
-  return (
-    lowerMessage.includes('secrets.secret_name') ||
-    lowerMessage.includes('secret_name') ||
-    lowerMessage.includes('secret with name')
-  );
-};
-
-/**
- * Parse backend error messages and return user-friendly versions
- */
-export const getReadableErrorMessage = (error: Error | null): string | null => {
-  if (!error?.message) return null;
-
-  const message = error.message;
-
-  if (isUniqueConstraintError(message)) {
-    if (isEndpointNameError(message)) {
-      return 'An endpoint with this name already exists. Please choose a different name.';
-    }
-    if (isSecretNameError(message)) {
-      return 'An API key with this name already exists. Please choose a different name or use an existing API key.';
-    }
-    // Generic unique constraint fallback
-    return 'A record with this value already exists. Please use a unique value.';
-  }
-
-  // Return original message if no pattern matched (but truncate if too long)
-  if (message.length > 200) {
-    return 'An error occurred while creating the endpoint. Please try again.';
-  }
-
-  return message;
-};
 
 export interface UseCreateEndpointFormResult {
   form: ReturnType<typeof useForm<CreateEndpointFormData>>;

@@ -3917,7 +3917,6 @@ def _update_secret():
         schema={
             "secret_id": [_assert_required, _assert_string],
             "secret_value": [_assert_optional_secret_value],
-            "credential_name": [_assert_string],
             "auth_config_json": [_assert_string],
             "updated_by": [_assert_string],
         },
@@ -3934,7 +3933,6 @@ def _update_secret():
     secret = _get_tracking_store().update_secret(
         secret_id=request_message.secret_id,
         secret_value=secret_value,
-        credential_name=request_message.credential_name or None,
         auth_config=auth_config,
         updated_by=request_message.updated_by or None,
     )

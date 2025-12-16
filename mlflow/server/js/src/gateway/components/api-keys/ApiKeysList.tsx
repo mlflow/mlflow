@@ -397,7 +397,7 @@ export const ApiKeysList = ({
                   <div css={{ display: 'flex', gap: theme.spacing.xs }}>
                     <Button
                       componentId="mlflow.gateway.api-keys-list.edit-button"
-                      type="tertiary"
+                      type="primary"
                       icon={<PencilIcon />}
                       aria-label={formatMessage({
                         defaultMessage: 'Edit API key',
@@ -407,7 +407,7 @@ export const ApiKeysList = ({
                     />
                     <Button
                       componentId="mlflow.gateway.api-keys-list.delete-button"
-                      type="tertiary"
+                      type="primary"
                       icon={<TrashIcon />}
                       aria-label={formatMessage({
                         defaultMessage: 'Delete API key',

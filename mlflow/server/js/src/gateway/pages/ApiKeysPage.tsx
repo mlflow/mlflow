@@ -1,4 +1,3 @@
-import { useState, useCallback } from 'react';
 import { Button, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
@@ -10,149 +9,66 @@ import { DeleteApiKeyModal } from '../components/api-keys/DeleteApiKeyModal';
 import { ApiKeyDetailsDrawer } from '../components/api-keys/ApiKeyDetailsDrawer';
 import { EndpointsUsingKeyDrawer } from '../components/api-keys/EndpointsUsingKeyDrawer';
 import { BindingsUsingKeyDrawer } from '../components/api-keys/BindingsUsingKeyDrawer';
-import { useSecretsQuery } from '../hooks/useSecretsQuery';
-import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
-import { useBindingsQuery } from '../hooks/useBindingsQuery';
-import { useModelDefinitionsQuery } from '../hooks/useModelDefinitionsQuery';
-import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../types';
+import { useApiKeysPage } from '../hooks/useApiKeysPage';
 
+/**
+ * Container component for the API Keys page.
+ * Uses the container/renderer pattern:
+ * - useApiKeysPage: Contains all business logic (state, data fetching, handlers)
+ * - This component: Handles page layout and renders child components
+ */
 const ApiKeysPage = () => {
   const { theme } = useDesignSystemTheme();
-  const { refetch: refetchSecrets } = useSecretsQuery();
-  const { data: allEndpoints, refetch: refetchEndpoints } = useEndpointsQuery();
-  const { data: allBindings } = useBindingsQuery();
-  const { data: allModelDefinitions, refetch: refetchModelDefinitions } = useModelDefinitionsQuery();
 
-  // Memoize helper to get model definitions using a secret
-  const getModelDefinitionsForSecret = useCallback(
-    (secretId: string): ModelDefinition[] => {
-      if (!allModelDefinitions) return [];
-      return allModelDefinitions.filter((modelDef) => modelDef.secret_id === secretId);
-    },
-    [allModelDefinitions],
-  );
+  const {
+    // Data
+    allEndpoints,
 
-  // Memoize helper to get binding count for a secret (via endpoints that use model definitions with this secret)
-  const getBindingCountForSecret = useCallback(
-    (secretId: string): number => {
-      if (!allBindings || !allEndpoints) return 0;
-      const endpointIds = new Set(
-        allEndpoints
-          .filter((endpoint) =>
-            endpoint.model_mappings?.some((mapping) => mapping.model_definition?.secret_id === secretId),
-          )
-          .map((endpoint) => endpoint.endpoint_id),
-      );
-      return allBindings.filter((binding) => endpointIds.has(binding.endpoint_id)).length;
-    },
-    [allBindings, allEndpoints],
-  );
+    // Modal/drawer state
+    isCreateModalOpen,
+    isDetailsDrawerOpen,
+    isEditModalOpen,
+    isDeleteModalOpen,
+    isEndpointsDrawerOpen,
+    isBindingsDrawerOpen,
 
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedSecret, setSelectedSecret] = useState<SecretInfo | null>(null);
-  const [editingSecret, setEditingSecret] = useState<SecretInfo | null>(null);
-  const [deleteModalData, setDeleteModalData] = useState<{
-    secret: SecretInfo;
-    modelDefinitions: ModelDefinition[];
-    bindingCount: number;
-  } | null>(null);
-  const [endpointsDrawerData, setEndpointsDrawerData] = useState<{
-    secret: SecretInfo;
-    endpoints: Endpoint[];
-  } | null>(null);
-  const [bindingsDrawerData, setBindingsDrawerData] = useState<{
-    secret: SecretInfo;
-    bindings: EndpointBinding[];
-  } | null>(null);
+    // Modal/drawer data
+    selectedSecret,
+    editingSecret,
+    deleteModalData,
+    endpointsDrawerData,
+    bindingsDrawerData,
 
-  const handleKeyClick = useCallback((secret: SecretInfo) => {
-    setSelectedSecret(secret);
-  }, []);
+    // Handlers for ApiKeysList
+    handleKeyClick,
+    handleEditClick,
+    handleDeleteClick,
+    handleEndpointsClick,
+    handleBindingsClick,
 
-  const handleDrawerClose = useCallback(() => {
-    setSelectedSecret(null);
-  }, []);
+    // Handlers for Create modal
+    handleCreateClick,
+    handleCreateModalClose,
+    handleCreateSuccess,
 
-  const handleEditClick = useCallback((secret: SecretInfo) => {
-    setEditingSecret(secret);
-  }, []);
+    // Handlers for Details drawer
+    handleDrawerClose,
+    handleDeleteFromDrawer,
 
-  const handleEditModalClose = useCallback(() => {
-    setEditingSecret(null);
-  }, []);
+    // Handlers for Edit modal
+    handleEditModalClose,
+    handleEditSuccess,
 
-  const handleEditSuccess = useCallback(() => {
-    refetchSecrets();
-    // Update selectedSecret if it was the one being edited
-    if (selectedSecret && editingSecret && selectedSecret.secret_id === editingSecret.secret_id) {
-      // Close and reopen will refresh the data
-      setSelectedSecret(null);
-    }
-  }, [refetchSecrets, selectedSecret, editingSecret]);
+    // Handlers for Delete modal
+    handleDeleteModalClose,
+    handleDeleteSuccess,
 
-  const handleDeleteClick = useCallback(
-    (secret: SecretInfo, modelDefinitions: ModelDefinition[], bindingCount: number) => {
-      setDeleteModalData({ secret, modelDefinitions, bindingCount });
-    },
-    [],
-  );
+    // Handlers for Endpoints drawer
+    handleEndpointsDrawerClose,
 
-  const handleDeleteFromDrawer = useCallback(
-    (secret: SecretInfo) => {
-      const modelDefinitions = getModelDefinitionsForSecret(secret.secret_id);
-      const bindingCount = getBindingCountForSecret(secret.secret_id);
-      setDeleteModalData({ secret, modelDefinitions, bindingCount });
-    },
-    [getModelDefinitionsForSecret, getBindingCountForSecret],
-  );
-
-  const handleDeleteModalClose = useCallback(() => {
-    setDeleteModalData(null);
-  }, []);
-
-  const handleDeleteSuccess = useCallback(async () => {
-    // Refetch data after deletion - wrap in try-catch since backend may have
-    // integrity issues if the deleted key was referenced by endpoints/model definitions
-    await refetchSecrets();
-    try {
-      await refetchEndpoints();
-    } catch {
-      // Ignore errors - backend may fail if orphaned references exist
-    }
-    try {
-      await refetchModelDefinitions();
-    } catch {
-      // Ignore errors - backend may fail if orphaned references exist
-    }
-  }, [refetchSecrets, refetchEndpoints, refetchModelDefinitions]);
-
-  const handleEndpointsClick = useCallback((secret: SecretInfo, endpoints: Endpoint[]) => {
-    setEndpointsDrawerData({ secret, endpoints });
-  }, []);
-
-  const handleEndpointsDrawerClose = useCallback(() => {
-    setEndpointsDrawerData(null);
-  }, []);
-
-  const handleBindingsClick = useCallback((secret: SecretInfo, bindings: EndpointBinding[]) => {
-    setBindingsDrawerData({ secret, bindings });
-  }, []);
-
-  const handleBindingsDrawerClose = useCallback(() => {
-    setBindingsDrawerData(null);
-  }, []);
-
-  const handleCreateClick = useCallback(() => {
-    setIsCreateModalOpen(true);
-  }, []);
-
-  const handleCreateModalClose = useCallback(() => {
-    setIsCreateModalOpen(false);
-  }, []);
-
-  const handleCreateSuccess = useCallback(() => {
-    refetchSecrets();
-  }, [refetchSecrets]);
+    // Handlers for Bindings drawer
+    handleBindingsDrawerClose,
+  } = useApiKeysPage();
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -198,7 +114,7 @@ const ApiKeysPage = () => {
 
       {/* Edit Modal */}
       <EditApiKeyModal
-        open={editingSecret !== null}
+        open={isEditModalOpen}
         secret={editingSecret}
         onClose={handleEditModalClose}
         onSuccess={handleEditSuccess}
@@ -206,7 +122,7 @@ const ApiKeysPage = () => {
 
       {/* Details Drawer */}
       <ApiKeyDetailsDrawer
-        open={selectedSecret !== null}
+        open={isDetailsDrawerOpen}
         secret={selectedSecret}
         onClose={handleDrawerClose}
         onEdit={handleEditClick}
@@ -215,7 +131,7 @@ const ApiKeysPage = () => {
 
       {/* Endpoints Using Key Drawer */}
       <EndpointsUsingKeyDrawer
-        open={endpointsDrawerData !== null}
+        open={isEndpointsDrawerOpen}
         keyName={endpointsDrawerData?.secret.secret_name ?? ''}
         endpoints={endpointsDrawerData?.endpoints ?? []}
         onClose={handleEndpointsDrawerClose}
@@ -223,7 +139,7 @@ const ApiKeysPage = () => {
 
       {/* Bindings Using Key Drawer */}
       <BindingsUsingKeyDrawer
-        open={bindingsDrawerData !== null}
+        open={isBindingsDrawerOpen}
         bindings={bindingsDrawerData?.bindings ?? []}
         endpoints={allEndpoints ?? []}
         onClose={handleBindingsDrawerClose}
@@ -231,7 +147,7 @@ const ApiKeysPage = () => {
 
       {/* Delete Confirmation Modal */}
       <DeleteApiKeyModal
-        open={deleteModalData !== null}
+        open={isDeleteModalOpen}
         secret={deleteModalData?.secret ?? null}
         modelDefinitions={deleteModalData?.modelDefinitions ?? []}
         onClose={handleDeleteModalClose}

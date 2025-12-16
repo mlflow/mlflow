@@ -213,7 +213,6 @@ class SqlAlchemyGatewayStoreMixin:
         self,
         secret_id: str,
         secret_value: str | dict[str, str] | None = None,
-        credential_name: str | None = None,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -226,8 +225,6 @@ class SqlAlchemyGatewayStoreMixin:
                 - A string (converted to {"api_key": value})
                 - A dict of secret fields (stored as JSON)
                 - None to leave secret value unchanged
-            credential_name: Optional new credential/auth mode name. If provided, updates the
-                credential_name field (e.g., when switching from "access_keys" to "iam_role").
             auth_config: Optional updated auth configuration. If provided, replaces existing
                 auth_config. If None, auth_config is unchanged. If empty dict, clears auth_config.
             updated_by: Username of the updater.
@@ -280,10 +277,6 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_secret.wrapped_dek = encrypted.wrapped_dek
                 sql_secret.kek_version = encrypted.kek_version
                 sql_secret.masked_value = masked_value
-
-            # Update credential_name if provided (allows switching auth modes)
-            if credential_name is not None:
-                sql_secret.credential_name = credential_name
 
             if auth_config is not None:
                 # Empty dict {} explicitly clears auth_config, non-empty dict replaces it
