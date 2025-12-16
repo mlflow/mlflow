@@ -1,6 +1,6 @@
 """Add workspace columns and catalog table
 
-Create Date: 2025-11-18 00:00:00.000000
+Create Date: 2026-01-16 00:00:00.000000
 
 """
 
@@ -10,7 +10,7 @@ from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = "1b5f0d9ad7c1"
-down_revision = "1b49d398cd23"
+down_revision = "2c33131f4dae"
 branch_labels = None
 depends_on = None
 
@@ -32,6 +32,7 @@ _WORKSPACE_TABLES = [
     "secrets",
     "endpoints",
     "model_definitions",
+    "jobs",
 ]
 
 # Older SQLite migrations emitted unnamed foreign keys. When batch-altering tables we need the
@@ -403,6 +404,14 @@ def upgrade():
                 ["workspace", "name"],
             )
 
+        with _with_batch("jobs") as batch_op:
+            batch_op.drop_index("index_jobs_name_status_creation_time")
+            batch_op.add_column(_workspace_column())
+            batch_op.create_index(
+                "index_jobs_name_status_creation_time",
+                ["job_name", "workspace", "status", "creation_time"],
+            )
+
         _create_workspace_indexes_and_catalog()
 
         return
@@ -554,6 +563,14 @@ def upgrade():
         "uq_model_definitions_workspace_name",
         "model_definitions",
         ["workspace", "name"],
+    )
+
+    op.drop_index("index_jobs_name_status_creation_time", "jobs")
+    op.add_column("jobs", _workspace_column())
+    op.create_index(
+        "index_jobs_name_status_creation_time",
+        "jobs",
+        ["job_name", "workspace", "status", "creation_time"],
     )
 
     _create_workspace_indexes_and_catalog()
@@ -737,6 +754,14 @@ def downgrade():
             batch_op.drop_column("workspace")
             batch_op.create_index("unique_secret_name", ["secret_name"], unique=True)
 
+        with _with_batch("jobs") as batch_op:
+            batch_op.drop_index("index_jobs_name_status_creation_time")
+            batch_op.drop_column("workspace")
+            batch_op.create_index(
+                "index_jobs_name_status_creation_time",
+                ["job_name", "status", "creation_time"],
+            )
+
         op.drop_table("workspaces")
         return
 
@@ -760,6 +785,7 @@ def downgrade():
     op.drop_constraint("registered_model_tag_pk", "registered_model_tags", type_="primary")
     op.drop_constraint("model_version_pk", "model_versions", type_="primary")
     op.drop_constraint("registered_model_pk", "registered_models", type_="primary")
+    op.drop_index("index_jobs_name_status_creation_time", "jobs")
 
     if dialect_name == "mssql":
         # SQL Server binds defaults via named constraints. If we try to drop the column while a
@@ -782,6 +808,7 @@ def downgrade():
     op.drop_column("experiments", "workspace")
     op.drop_column("evaluation_datasets", "workspace")
     op.drop_column("webhooks", "workspace")
+    op.drop_column("jobs", "workspace")
 
     op.create_primary_key("registered_model_pk", "registered_models", ["name"])
     op.create_primary_key("model_version_pk", "model_versions", ["name", "version"])
@@ -836,6 +863,11 @@ def downgrade():
     op.create_index("unique_model_definition_name", "model_definitions", ["name"], unique=True)
     op.create_index("unique_endpoint_name", "endpoints", ["name"], unique=True)
     op.create_index("unique_secret_name", "secrets", ["secret_name"], unique=True)
+    op.create_index(
+        "index_jobs_name_status_creation_time",
+        "jobs",
+        ["job_name", "status", "creation_time"],
+    )
 
     op.drop_table("workspaces")
 
