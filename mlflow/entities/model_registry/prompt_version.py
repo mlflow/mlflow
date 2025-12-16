@@ -11,6 +11,7 @@ from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
+    PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TEMPLATE_VARIABLE_PATTERN,
     PROMPT_TEXT_DISPLAY_LIMIT,
     PROMPT_TEXT_TAG_KEY,
@@ -19,7 +20,6 @@ from mlflow.prompt.constants import (
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 # Alias type
 PromptVersionTag = ModelVersionTag
@@ -34,6 +34,7 @@ class PromptModelConfig(BaseModel):
     particular prompt version.
 
     Args:
+        provider: The model provider (e.g., "openai", "anthropic", "google").
         model_name: The name or identifier of the model (e.g., "gpt-4", "claude-3-opus").
         temperature: Sampling temperature for controlling randomness (typically 0.0-2.0).
             Lower values make output more deterministic, higher values more random.
@@ -81,6 +82,7 @@ class PromptModelConfig(BaseModel):
         )
     """
 
+    provider: str | None = None
     model_name: str | None = None
     temperature: float | None = Field(None, ge=0)
     max_tokens: int | None = Field(None, gt=0)
@@ -137,7 +139,7 @@ def _is_reserved_tag(key: str) -> bool:
         PROMPT_TEXT_TAG_KEY,
         PROMPT_TYPE_TAG_KEY,
         RESPONSE_FORMAT_TAG_KEY,
-        MLFLOW_PROMPT_MODEL_CONFIG,
+        PROMPT_MODEL_CONFIG_TAG_KEY,
     }
 
 
@@ -231,7 +233,7 @@ class PromptVersion(_ModelRegistryEntity):
             else:
                 # Validate dict by converting through PromptModelConfig
                 config_dict = PromptModelConfig.from_dict(model_config).to_dict()
-            tags[MLFLOW_PROMPT_MODEL_CONFIG] = json.dumps(config_dict)
+            tags[PROMPT_MODEL_CONFIG_TAG_KEY] = json.dumps(config_dict)
 
         # Store the tags dict
         self._tags: dict[str, str] = tags
@@ -308,9 +310,9 @@ class PromptVersion(_ModelRegistryEntity):
             and settings like temperature, top_p, max_tokens, etc., or None if no
             model config is specified.
         """
-        if MLFLOW_PROMPT_MODEL_CONFIG not in self._tags:
+        if PROMPT_MODEL_CONFIG_TAG_KEY not in self._tags:
             return None
-        return json.loads(self._tags[MLFLOW_PROMPT_MODEL_CONFIG])
+        return json.loads(self._tags[PROMPT_MODEL_CONFIG_TAG_KEY])
 
     def to_single_brace_format(self) -> str | list[dict[str, Any]]:
         """
