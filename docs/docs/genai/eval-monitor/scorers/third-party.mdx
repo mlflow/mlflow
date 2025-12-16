@@ -21,11 +21,7 @@ pip install deepeval
 
 ### Quick Start
 
-You can use DeepEval scorers ad-hoc or in batch evaluations.
-
-**Ad-hoc Usage**
-
-Call scorers directly on individual inputs:
+You can call DeepEval scorers directly:
 
 ```python
 from mlflow.genai.scorers.deepeval import AnswerRelevancy
@@ -40,9 +36,7 @@ print(feedback.value)  # "yes" or "no"
 print(feedback.metadata["score"])  # 0.85
 ```
 
-**Batch Evaluation**
-
-Use DeepEval scorers with <APILink fn="mlflow.genai.evaluate">evaluate</APILink> for batch processing:
+Or use them in <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink>:
 
 ```python
 import mlflow
@@ -124,7 +118,7 @@ Detect harmful content, bias, and policy violations:
 | <APILink fn="mlflow.genai.scorers.deepeval.PIILeakage">PIILeakage</APILink> | Does the output leak personally identifiable information? | [Link](https://deepeval.com/docs/metrics-pii-leakage) |
 | <APILink fn="mlflow.genai.scorers.deepeval.RoleViolation">RoleViolation</APILink> | Does the assistant break out of its assigned role? | [Link](https://deepeval.com/docs/metrics-role-violation) |
 
-#### General Metrics
+#### Other
 
 Additional evaluation metrics for common use cases:
 
@@ -135,7 +129,7 @@ Additional evaluation metrics for common use cases:
 | <APILink fn="mlflow.genai.scorers.deepeval.JsonCorrectness">JsonCorrectness</APILink> | Does JSON output match the expected schema? | [Link](https://deepeval.com/docs/metrics-json-correctness) |
 | <APILink fn="mlflow.genai.scorers.deepeval.PromptAlignment">PromptAlignment</APILink> | Does the output align with prompt instructions? | [Link](https://deepeval.com/docs/metrics-prompt-alignment) |
 
-#### Deterministic Metrics
+#### Non-LLM
 
 Fast, rule-based metrics that don't require LLM calls:
 
@@ -144,30 +138,15 @@ Fast, rule-based metrics that don't require LLM calls:
 | <APILink fn="mlflow.genai.scorers.deepeval.ExactMatch">ExactMatch</APILink> | Does output exactly match expected output? | [Link](https://deepeval.com/docs/metrics-exact-match) |
 | <APILink fn="mlflow.genai.scorers.deepeval.PatternMatch">PatternMatch</APILink> | Does output match a regex pattern? | [Link](https://deepeval.com/docs/metrics-pattern-match) |
 
-### Configuration
+### Creating Scorers by Name
 
-DeepEval scorers support flexible configuration options:
-
-```python
-from mlflow.genai.scorers.deepeval import AnswerRelevancy
-
-scorer = AnswerRelevancy(
-    model="openai:/gpt-4",  # Model URI (also supports "databricks", "databricks:/endpoint", etc.)
-    threshold=0.7,  # Pass/fail threshold (0.0-1.0, scorer passes if score >= threshold)
-    include_reason=True,  # Include detailed rationale in feedback
-)
-```
-
-
-### Dynamic Scorer Creation with get_judge()
-
-The <APILink fn="mlflow.genai.scorers.deepeval.get_judge">get_judge</APILink> function allows you to create DeepEval scorers dynamically by name:
+If a particular DeepEval metric is not listed above, you can create it dynamically using <APILink fn="mlflow.genai.scorers.deepeval.get_scorer">get_scorer</APILink>:
 
 ```python
-from mlflow.genai.scorers.deepeval import get_judge
+from mlflow.genai.scorers.deepeval import get_scorer
 
 # Create scorer by name
-scorer = get_judge(
+scorer = get_scorer(
     metric_name="AnswerRelevancy",
     threshold=0.7,
     model="openai:/gpt-4",
@@ -178,6 +157,31 @@ feedback = scorer(
     outputs="MLflow is a platform for ML workflows.",
 )
 ```
+
+### Configuration
+
+DeepEval scorers accept all parameters supported by the underlying DeepEval metrics. Any additional keyword arguments are passed directly to the DeepEval metric constructor:
+
+```python
+from mlflow.genai.scorers.deepeval import AnswerRelevancy, TurnRelevancy
+
+# Common parameters
+scorer = AnswerRelevancy(
+    model="openai:/gpt-4",  # Model URI (also supports "databricks", "databricks:/endpoint", etc.)
+    threshold=0.7,  # Pass/fail threshold (0.0-1.0, scorer passes if score >= threshold)
+    include_reason=True,  # Include detailed rationale in feedback
+)
+
+# Metric-specific parameters are passed through to DeepEval
+conversational_scorer = TurnRelevancy(
+    model="openai:/gpt-4o",
+    threshold=0.8,
+    window_size=3,  # DeepEval-specific: number of conversation turns to consider
+    strict_mode=True,  # DeepEval-specific: enforce stricter evaluation criteria
+)
+```
+
+Refer to the [DeepEval documentation](https://docs.confident-ai.com/) for metric-specific parameters.
 
 ## Next Steps
 

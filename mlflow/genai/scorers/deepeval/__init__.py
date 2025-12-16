@@ -2,16 +2,16 @@
 DeepEval integration for MLflow.
 
 This module provides integration with DeepEval metrics, allowing them to be used
-with MLflow's judge interface.
+with MLflow's scorer interface.
 
 Example usage:
 
 .. code-block:: python
 
-    from mlflow.genai.scorers.deepeval import get_judge
+    from mlflow.genai.scorers.deepeval import get_scorer
 
-    judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
-    feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
+    scorer = get_scorer("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
+    feedback = scorer(inputs="What is MLflow?", outputs="MLflow is a platform...")
 """
 
 from __future__ import annotations
@@ -183,13 +183,13 @@ class DeepEvalScorer(Scorer):
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
-def get_judge(
+def get_scorer(
     metric_name: str,
     model: str | None = None,
     **metric_kwargs: Any,
 ) -> DeepEvalScorer:
     """
-    Get a DeepEval metric as an MLflow judge.
+    Get a DeepEval metric as an MLflow scorer.
 
     Args:
         metric_name: Name of the DeepEval metric (e.g., "AnswerRelevancy", "Faithfulness")
@@ -197,17 +197,17 @@ def get_judge(
         metric_kwargs: Additional metric-specific parameters (e.g., threshold, include_reason)
 
     Returns:
-        DeepEvalScorer instance that can be called with MLflow's judge interface
+        DeepEvalScorer instance that can be called with MLflow's scorer interface
 
     Examples:
 
     .. code-block:: python
 
-        judge = get_judge("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
-        feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...")
+        scorer = get_scorer("AnswerRelevancy", threshold=0.7, model="openai:/gpt-4")
+        feedback = scorer(inputs="What is MLflow?", outputs="MLflow is a platform...")
 
-        judge = get_judge("Faithfulness", model="openai:/gpt-4")
-        feedback = judge(trace=trace)
+        scorer = get_scorer("Faithfulness", model="openai:/gpt-4")
+        feedback = scorer(trace=trace)
     """
     return DeepEvalScorer(
         metric_name=metric_name,
@@ -253,7 +253,7 @@ from mlflow.genai.scorers.deepeval.scorers import (
 __all__ = [
     # Core classes
     "DeepEvalScorer",
-    "get_judge",
+    "get_scorer",
     # RAG metrics
     "AnswerRelevancy",
     "Faithfulness",
