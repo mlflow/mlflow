@@ -77,7 +77,7 @@ def _setup_job_runner(
         mlflow.server.handlers._job_store = None
 
 
-@job(max_workers=1)
+@job(name="basic_job_fun", max_workers=1)
 def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -92,7 +92,7 @@ def test_basic_job(monkeypatch, tmp_path):
         wait_job_finalize(submitted_job.job_id)
         job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
-        assert job.function_fullname == "tests.server.jobs.test_jobs.basic_job_fun"
+        assert job.job_name == "basic_job_fun"
         assert job.params == '{"x": 3, "y": 4}'
         assert job.timeout is None
         assert job.result == "7"
@@ -101,7 +101,7 @@ def test_basic_job(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job(max_workers=1)
+@job(name="json_in_out_fun", max_workers=1)
 def json_in_out_fun(data):
     x = data["x"]
     y = data["y"]
@@ -126,7 +126,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job(max_workers=1)
+@job(name="err_fun", max_workers=1)
 def err_fun(data):
     raise RuntimeError()
 
@@ -227,14 +227,14 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
         assert_job_result(job3_id, JobStatus.SUCCEEDED, 15)
 
 
-@job(max_workers=2)
+@job(name="job_fun_parallelism2", max_workers=2)
 def job_fun_parallelism2(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
 
 
-@job(max_workers=3)
+@job(name="job_fun_parallelism3", max_workers=3)
 def job_fun_parallelism3(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -297,12 +297,12 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         assert p3_peak_parallelism == 3
 
 
-@job(max_workers=1)
+@job(name="transient_err_fun_always_fail", max_workers=1)
 def transient_err_fun_always_fail():
     raise TransientError(RuntimeError("test transient error."))
 
 
-@job(max_workers=1)
+@job(name="transient_err_fun_fail_then_succeed", max_workers=1)
 def transient_err_fun_fail_then_succeed(counter_file: str):
     counter_path = Path(counter_file)
 
@@ -319,7 +319,11 @@ def transient_err_fun_fail_then_succeed(counter_file: str):
     raise TransientError(RuntimeError("test transient error."))
 
 
-@job(max_workers=1, transient_error_classes=[TimeoutError])
+@job(
+    name="transient_err_fun2_fail_then_succeed",
+    max_workers=1,
+    transient_error_classes=[TimeoutError],
+)
 def transient_err_fun2_fail_then_succeed(counter_file: str):
     counter_path = Path(counter_file)
 
@@ -426,7 +430,7 @@ def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
             assert_job_result(job_ids[x], JobStatus.SUCCEEDED, x + 1)
 
 
-@job(max_workers=1)
+@job(name="sleep_fun", max_workers=1)
 def sleep_fun(sleep_secs, tmp_dir):
     (Path(tmp_dir) / "pid").write_text(str(os.getpid()))
     time.sleep(sleep_secs)
@@ -501,7 +505,7 @@ def test_job_function_without_decorator(monkeypatch, tmp_path):
             submit_job(bad_job_function, params={})
 
 
-@job(max_workers=1)
+@job(name="job_use_process", max_workers=1)
 def job_use_process(tmp_dir):
     (Path(tmp_dir) / str(os.getpid())).write_text("")
 
@@ -536,6 +540,7 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
 
 
 @job(
+    name="check_python_env_fn",
     max_workers=1,
     python_version="3.11.9",
     pip_requirements=["openai==1.108.2", "pytest<9"],
