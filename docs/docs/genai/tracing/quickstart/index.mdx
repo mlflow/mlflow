@@ -120,6 +120,43 @@ client.chat.completions.create({
 ```
 
 </TabItem>
+
+<TabItem value="otel" label="OpenTelemetry">
+MLflow Server exposes an OTLP endpoint at `/v1/traces` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)). This endpoint accepts traces from any native OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc.
+
+The following example shows how to collect traces from a FastAPI application using OpenTelemetry FastAPI instrumentation.
+
+```python
+import os
+import uvicorn
+from fastapi import FastAPI
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+# Set the endpoint and header
+MLFLOW_TRACKING_URI = "http://localhost:5000"
+MLFLOW_EXPERIMENT_ID = "123"
+
+os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = f"{MLFLOW_TRACKING_URI}/v1/traces"
+os.environ[
+    "OTEL_EXPORTER_OTLP_TRACES_HEADERS"
+] = f"x-mlflow-experiment-id={MLFLOW_EXPERIMENT_ID}"
+
+app = FastAPI()
+FastAPIInstrumentor.instrument_app(app)
+
+
+@app.get("/")
+async def root():
+    return {"message": "Hello, World!"}
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+For a deeper dive into using MLflow together with OpenTelemetry, see the [OpenTelemetry guide](/genai/tracing/opentelemetry).
+
+</TabItem>
 </Tabs>
 </TabsWrapper>
 
