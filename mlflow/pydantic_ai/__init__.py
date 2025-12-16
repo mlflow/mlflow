@@ -90,7 +90,10 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
 
     class_map = {
         "pydantic_ai.Agent": agent_methods,
-        "pydantic_ai.models.instrumented.InstrumentedModel": ["request"],
+        "pydantic_ai.models.instrumented.InstrumentedModel": [
+            "request",
+            "request_stream",
+        ],
         "pydantic_ai._tool_manager.ToolManager": ["handle_call"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
     }
