@@ -903,6 +903,7 @@ mlflow.genai.scorers.builtin_scorers.ConversationalToolCallEfficiency
 mlflow.genai.scorers.builtin_scorers.Correctness
 mlflow.genai.scorers.builtin_scorers.Equivalence
 mlflow.genai.scorers.builtin_scorers.ExpectationsGuidelines
+mlflow.genai.scorers.builtin_scorers.Fluency
 mlflow.genai.scorers.builtin_scorers.Guidelines
 mlflow.genai.scorers.builtin_scorers.RelevanceToQuery
 mlflow.genai.scorers.builtin_scorers.RetrievalGroundedness
