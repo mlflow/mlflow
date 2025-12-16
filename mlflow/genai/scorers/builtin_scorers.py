@@ -1657,10 +1657,10 @@ class UserFrustration(BuiltInSessionLevelScorer):
     determine if the user shows explicit or implicit frustration directed at the AI.
     It evaluates the entire conversation and returns one of three values:
 
-    - "no_frustration": user not frustrated at any point in the conversation
-    - "frustration_resolved": user is frustrated at some point in the conversation,
+    - "none": user not frustrated at any point in the conversation
+    - "resolved": user is frustrated at some point in the conversation,
       but leaves the conversation satisfied
-    - "frustration_not_resolved": user is still frustrated at the end of the conversation
+    - "unresolved": user is still frustrated at the end of the conversation
 
     You can invoke the scorer directly with a session for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
@@ -1685,8 +1685,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
 
         assessment = UserFrustration(name="my_user_frustration_judge")(session=session)
         print(assessment)
-        # Feedback with value "no_frustration", "frustration_resolved", or
-        # "frustration_not_resolved"
+        # Feedback with value "none", "resolved", or "unresolved"
 
     Example (with evaluate):
 
@@ -1713,9 +1712,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal[
-                "no_frustration", "frustration_resolved", "frustration_not_resolved"
-            ],
+            feedback_value_type=Literal["none", "resolved", "unresolved"],
         )
 
     @property

@@ -1354,15 +1354,13 @@ def test_user_frustration_with_session():
 
     with patch(
         "mlflow.genai.judges.instructions_judge.invoke_judge_model",
-        return_value=Feedback(
-            name="user_frustration", value="no_frustration", rationale="User is satisfied"
-        ),
+        return_value=Feedback(name="user_frustration", value="none", rationale="User is satisfied"),
     ) as mock_invoke_judge:
         scorer = UserFrustration()
         result = scorer(session=traces)
 
         assert result.name == "user_frustration"
-        assert result.value == "no_frustration"
+        assert result.value == "none"
         assert result.rationale == "User is satisfied"
         mock_invoke_judge.assert_called_once()
 
@@ -1380,7 +1378,7 @@ def test_user_frustration_with_custom_name_and_model(monkeypatch: pytest.MonkeyP
         "mlflow.genai.judges.instructions_judge.invoke_judge_model",
         return_value=Feedback(
             name="custom_frustration_check",
-            value="frustration_resolved",
+            value="resolved",
             rationale="User was initially frustrated but satisfied by the end",
         ),
     ) as mock_invoke_judge:
@@ -1388,7 +1386,7 @@ def test_user_frustration_with_custom_name_and_model(monkeypatch: pytest.MonkeyP
         result = scorer(session=traces)
 
         assert result.name == "custom_frustration_check"
-        assert result.value == "frustration_resolved"
+        assert result.value == "resolved"
         mock_invoke_judge.assert_called_once()
 
 
@@ -1621,20 +1619,19 @@ def test_conversational_role_adherence_with_session():
         traces.append(mlflow.get_trace(span.trace_id))
 
     with patch(
-        "mlflow.genai.judges.instructions_judge.InstructionsJudge.__call__"
-    ) as mock_judge_call:
-        mock_judge_call.return_value = Feedback(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
             name="conversational_role_adherence",
             value=CategoricalRating.YES,
             rationale="Role maintained across session.",
-        )
-
+        ),
+    ) as mock_invoke_judge:
         scorer = ConversationalRoleAdherence()
         result = scorer(session=traces)
 
         assert result.name == "conversational_role_adherence"
         assert result.value == CategoricalRating.YES
-        mock_judge_call.assert_called_once()
+        mock_invoke_judge.assert_called_once()
 
 
 def test_conversational_role_adherence_get_input_fields():
