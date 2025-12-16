@@ -11,12 +11,12 @@ from mlflow.entities.model_registry.prompt_version import (
     PromptModelConfig,
     PromptVersion,
 )
+from mlflow.prompt.constants import PROMPT_MODEL_CONFIG_TAG_KEY
 from mlflow.prompt.registry_utils import PromptCache as PromptCache
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
-from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 
 @contextmanager
@@ -31,7 +31,6 @@ def suppress_genai_migration_warning():
         yield
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def register_prompt(
     name: str,
@@ -145,7 +144,6 @@ def register_prompt(
         )
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def search_prompts(
     filter_string: str | None = None,
@@ -155,7 +153,6 @@ def search_prompts(
         return registry_api.search_prompts(filter_string=filter_string, max_results=max_results)
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str,
@@ -222,7 +219,6 @@ def load_prompt(
         )
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def set_prompt_alias(name: str, alias: str, version: int) -> None:
     """
@@ -255,7 +251,6 @@ def set_prompt_alias(name: str, alias: str, version: int) -> None:
         return registry_api.set_prompt_alias(name=name, version=version, alias=alias)
 
 
-@experimental(version="3.0.0")
 @require_prompt_registry
 def delete_prompt_alias(name: str, alias: str) -> None:
     """
@@ -395,7 +390,7 @@ def set_prompt_model_config(
 
     with suppress_genai_migration_warning():
         MlflowClient().set_prompt_version_tag(
-            name=name, version=version, key=MLFLOW_PROMPT_MODEL_CONFIG, value=config_json
+            name=name, version=version, key=PROMPT_MODEL_CONFIG_TAG_KEY, value=config_json
         )
 
 
@@ -423,5 +418,5 @@ def delete_prompt_model_config(name: str, version: str | int) -> None:
     """
     with suppress_genai_migration_warning():
         MlflowClient().delete_prompt_version_tag(
-            name=name, version=version, key=MLFLOW_PROMPT_MODEL_CONFIG
+            name=name, version=version, key=PROMPT_MODEL_CONFIG_TAG_KEY
         )

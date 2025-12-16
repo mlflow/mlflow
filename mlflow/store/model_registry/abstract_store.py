@@ -22,6 +22,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
+    PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
@@ -40,7 +41,6 @@ from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 _logger = logging.getLogger(__name__)
 
@@ -806,7 +806,7 @@ class AbstractStore:
                 config_dict = PromptModelConfig.from_dict(model_config).to_dict()
 
             version_tags.append(
-                ModelVersionTag(key=MLFLOW_PROMPT_MODEL_CONFIG, value=json.dumps(config_dict))
+                ModelVersionTag(key=PROMPT_MODEL_CONFIG_TAG_KEY, value=json.dumps(config_dict))
             )
 
         if tags:
