@@ -1621,20 +1621,19 @@ def test_conversational_role_adherence_with_session():
         traces.append(mlflow.get_trace(span.trace_id))
 
     with patch(
-        "mlflow.genai.judges.instructions_judge.InstructionsJudge.__call__"
-    ) as mock_judge_call:
-        mock_judge_call.return_value = Feedback(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
             name="conversational_role_adherence",
             value=CategoricalRating.YES,
             rationale="Role maintained across session.",
-        )
-
+        ),
+    ) as mock_invoke_judge:
         scorer = ConversationalRoleAdherence()
         result = scorer(session=traces)
 
         assert result.name == "conversational_role_adherence"
         assert result.value == CategoricalRating.YES
-        mock_judge_call.assert_called_once()
+        mock_invoke_judge.assert_called_once()
 
 
 def test_conversational_role_adherence_get_input_fields():
