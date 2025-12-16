@@ -475,7 +475,7 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
 _job_name_to_fn_fullname_map = {}
 
 
-def get_job_fn_fullname(job_name):
+def get_job_fn_fullname(job_name: str):
     if job_name not in _job_name_to_fn_fullname_map:
         raise MlflowException.invalid_parameter_value(f"Invalid job name: {job_name}")
     return _job_name_to_fn_fullname_map[job_name]

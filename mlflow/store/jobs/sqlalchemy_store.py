@@ -66,7 +66,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Create a new job with the specified function and parameters.
 
         Args:
-            job_name: The fully-qualified job name (`<module>.<function>`) to execute
+            job_name: The static job name that identifies the decorated job function
             params: The job parameters that are serialized as a JSON string
             timeout: The job execution timeout in seconds
 

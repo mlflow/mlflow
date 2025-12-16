@@ -12,8 +12,6 @@ from mlflow.entities._job import Job as JobEntity
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 
-# _build_job_name_to_fn_fullname_map()
-
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
 
 

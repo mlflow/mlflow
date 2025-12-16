@@ -46,9 +46,7 @@ class Job(_MlflowObject):
     @property
     def job_name(self) -> str:
         """
-        String containing the fully-qualified job name
-        (formerly `function_fullname`), in the form of
-        `<module_name>.<function_name>`.
+        String containing the static job name that uniquely identifies the decorated job function.
         """
         return self._job_name
 
