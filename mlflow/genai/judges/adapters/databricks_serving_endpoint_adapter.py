@@ -106,7 +106,7 @@ def _parse_databricks_model_response(
 def _invoke_databricks_serving_endpoint(
     *,
     model_name: str,
-    prompt: str,
+    prompt: str | list["ChatMessage"],
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
@@ -122,14 +122,23 @@ def _invoke_databricks_serving_endpoint(
     for attempt in range(num_retries + 1):
         try:
             # Build request payload
-            payload = {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-            }
+            if isinstance(prompt, str):
+                messages = [{"role": "user", "content": prompt}]
+            else:
+                from mlflow.types.llm import ChatMessage
+
+                if not isinstance(prompt, list) or (
+                    prompt and not all(isinstance(msg, ChatMessage) for msg in prompt)
+                ):
+                    prompt_type = type(prompt).__name__
+                    raise MlflowException(
+                        f"Invalid prompt type: expected str or list[ChatMessage], "
+                        f"got {prompt_type}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                messages = [{"role": msg.role, "content": msg.content} for msg in prompt]
+
+            payload = {"messages": messages}
 
             # Add response_schema if provided
             if response_format is not None:
@@ -276,7 +285,7 @@ class InvokeJudgeModelHelperOutput:
 def _invoke_databricks_serving_endpoint_judge(
     *,
     model_name: str,
-    prompt: str,
+    prompt: str | list["ChatMessage"],
     assessment_name: str,
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
@@ -332,7 +341,7 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
             return False
 
         model_provider, _ = _parse_model_uri(model_uri)
-        return model_provider in {"databricks", "endpoints"} and isinstance(prompt, str)
+        return model_provider in {"databricks", "endpoints"}
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         # Show deprecation warning for legacy 'endpoints' provider
