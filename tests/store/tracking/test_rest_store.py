@@ -110,8 +110,33 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     get_logged_model_endpoint,
 )
+from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.tracing.helper import create_mock_otel_span
+
+
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request):
+    """
+    Run every test in this module with workspaces disabled and enabled to cover both code paths.
+    """
+
+    # Ensure server version cache doesn't leak between parameter variants
+    RestStore._get_server_version.cache_clear()
+
+    enabled = request.param
+    if enabled:
+        with (
+            WorkspaceContext(DEFAULT_WORKSPACE_NAME),
+            mock.patch(
+                "mlflow.store.workspace_rest_store_mixin.WorkspaceRestStoreMixin.supports_workspaces",
+                return_value=True,
+            ),
+        ):
+            yield enabled
+    else:
+        yield enabled
 
 
 class MyCoolException(Exception):
@@ -135,10 +160,13 @@ def test_successful_http_request():
         # Filter out None arguments
         assert args == ("POST", "https://hello/api/2.0/mlflow/experiments/search")
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        headers = DefaultRequestHeaderProvider().request_headers()
+        if workspace := get_request_workspace():
+            headers["X-MLFLOW-WORKSPACE"] = workspace
         assert kwargs == {
             "allow_redirects": True,
             "json": {"view_type": "ACTIVE_ONLY"},
-            "headers": DefaultRequestHeaderProvider().request_headers(),
+            "headers": headers,
             "verify": True,
             "timeout": 120,
         }
@@ -904,9 +932,10 @@ def test_delete_traces(delete_traces_kwargs):
     request = DeleteTraces(**delete_traces_kwargs)
     response.text = json.dumps({"traces_deleted": 1})
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        if "request_ids" in delete_traces_kwargs:
-            delete_traces_kwargs["trace_ids"] = delete_traces_kwargs.pop("request_ids")
-        res = store.delete_traces(**delete_traces_kwargs)
+        call_kwargs = delete_traces_kwargs.copy()
+        if "request_ids" in call_kwargs:
+            call_kwargs["trace_ids"] = call_kwargs.pop("request_ids")
+        res = store.delete_traces(**call_kwargs)
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
         assert res == 1
 
