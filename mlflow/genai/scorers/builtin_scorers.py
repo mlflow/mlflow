@@ -2435,6 +2435,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
                 ),
             )
 
+        from mlflow.genai.utils.trace_utils import validate_session
+
+        validate_session(session)
+
         sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
 
         per_turn_results = []
@@ -2453,17 +2457,6 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
                 }
             )
 
-        if not per_turn_results:
-            return Feedback(
-                name=self.name,
-                value=CategoricalRating.YES,
-                rationale="No turns evaluated (conversation too short or missing data)",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.LLM_JUDGE,
-                    source_id=self.model or get_default_model(),
-                ),
-            )
-
         return self._compute_aggregate(per_turn_results)
 
     def _evaluate_turn(
@@ -2475,40 +2468,36 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
 
         return self.last_turn_scorer(session=session_up_to_turn)
 
+    def _format_per_turn_rationale(self, per_turn_results: list[dict[str, Any]]) -> list[str]:
+        """Format per-turn results into rationale lines."""
+        rationale_lines = []
+        for result in per_turn_results:
+            status = "✗" if str(result["value"]) == CategoricalRating.NO else "✓"
+            turn_summary = result["rationale"]
+            rationale_lines.append(f"- Turn {result['turn'] + 1}: {status} {turn_summary}")
+        return rationale_lines
+
     def _compute_aggregate(self, per_turn_results: list[dict[str, Any]]) -> Feedback:
         """Compute aggregate knowledge retention feedback using worst-case logic."""
         failed_turns = [r for r in per_turn_results if str(r["value"]) == CategoricalRating.NO]
         total_turns = len(per_turn_results)
 
+        rationale_lines = [f"Knowledge retention evaluation across {total_turns} turn(s):"]
+        rationale_lines.extend(self._format_per_turn_rationale(per_turn_results))
+
         if failed_turns:
             aggregate_value = CategoricalRating.NO
-
-            rationale_lines = [f"Knowledge retention evaluation across {total_turns} turn(s):"]
-
-            for result in per_turn_results:
-                status = "✗" if str(result["value"]) == CategoricalRating.NO else "✓"
-                turn_summary = result["rationale"][:100]  # Truncate if too long
-                rationale_lines.append(f"- Turn {result['turn'] + 1}: {status} {turn_summary}")
-
             rationale_lines.append(
                 f"\nOverall: NO - Knowledge retention failed in {len(failed_turns)} "
                 f"out of {total_turns} turn(s)."
             )
-            rationale = "\n".join(rationale_lines)
         else:
             aggregate_value = CategoricalRating.YES
-
-            rationale_lines = [f"Knowledge retention evaluation across {total_turns} turn(s):"]
-
-            for result in per_turn_results:
-                status = "✓"
-                turn_summary = result["rationale"][:100]
-                rationale_lines.append(f"- Turn {result['turn'] + 1}: {status} {turn_summary}")
-
             rationale_lines.append(
                 f"\nOverall: YES - Knowledge retention successful across all {total_turns} turn(s)."
             )
-            rationale = "\n".join(rationale_lines)
+
+        rationale = "\n".join(rationale_lines)
 
         return Feedback(
             name=self.name,

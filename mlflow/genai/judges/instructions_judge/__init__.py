@@ -277,35 +277,9 @@ class InstructionsJudge(Judge):
 
     def _validate_session(self, session: list[Trace]) -> None:
         """Validate that all traces in session belong to the same session."""
-        session_id_to_trace_ids: dict[str, list[str]] = {}
-        for trace in session:
-            session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
-            if session_id is None:
-                raise MlflowException(
-                    f"All traces in 'session' must have a session_id. "
-                    f"Trace {trace.info.trace_id} is missing session_id. "
-                    f"See https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/ "
-                    f"for information on how to set session_id on traces.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            if session_id not in session_id_to_trace_ids:
-                session_id_to_trace_ids[session_id] = []
-            session_id_to_trace_ids[session_id].append(trace.info.trace_id)
+        from mlflow.genai.utils.trace_utils import validate_session
 
-        if len(session_id_to_trace_ids) != 1:
-            session_details = "\n".join(
-                f"session_id '{sid}': trace_ids {trace_ids[:3]}"
-                + (
-                    f" and {len(trace_ids) - 3} more trace{'s' if len(trace_ids) - 3 != 1 else ''}"
-                    if len(trace_ids) > 3
-                    else ""
-                )
-                for sid, trace_ids in session_id_to_trace_ids.items()
-            )
-            raise MlflowException.invalid_parameter_value(
-                f"All traces in 'session' must belong to the same session. "
-                f"Found {len(session_id_to_trace_ids)} different session(s):\n{session_details}"
-            )
+        validate_session(session)
 
     def _warn_unused_parameters(
         self,
@@ -800,4 +774,4 @@ class InstructionsJudge(Judge):
         return asdict(serialized_scorer)
 
 
-__all__ = ["InstructionsJudge"]
+__all__ = ["InstructionsJudge", "TraceMetadataKey"]
