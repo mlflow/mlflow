@@ -184,7 +184,7 @@ def _get_exception_from_span(span: Span) -> str | None:
 
     exception_type = attrs.get("exception.type", "Exception")
 
-    if exception_message := attrs.get("exception.message", ""):
+    if exception_message := attrs.get("exception.message"):
         return f"{exception_type}: {exception_message}"
     return exception_type
 
