@@ -18,7 +18,13 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey, TraceMetricKey, TraceTagKey
+from mlflow.tracing.constant import (
+    AssessmentMetricKey,
+    SpanMetricKey,
+    TraceMetadataKey,
+    TraceMetricKey,
+    TraceTagKey,
+)
 from mlflow.utils.time import get_current_time_millis
 
 from tests.store.tracking.test_sqlalchemy_store import create_test_span
@@ -1378,13 +1384,13 @@ def test_query_assessment_metrics_count_no_dimensions(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.ASSESSMENTS,
-        metric_name="assessment",
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {},
         "values": {"COUNT": 3},
     }
@@ -1428,24 +1434,24 @@ def test_query_assessment_metrics_count_by_name(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.ASSESSMENTS,
-        metric_name="assessment",
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["assessment_name"],
     )
 
     assert len(result) == 3
     assert asdict(result[0]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "correctness"},
         "values": {"COUNT": 2},
     }
     assert asdict(result[1]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "quality"},
         "values": {"COUNT": 1},
     }
     assert asdict(result[2]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "relevance"},
         "values": {"COUNT": 3},
     }
@@ -1489,7 +1495,7 @@ def test_query_assessment_metrics_count_by_value_and_name(store: SqlAlchemyStore
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.ASSESSMENTS,
-        metric_name="assessment",
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["assessment_name", "assessment_value"],
     )
@@ -1497,22 +1503,22 @@ def test_query_assessment_metrics_count_by_value_and_name(store: SqlAlchemyStore
     # Values are stored as JSON strings
     assert len(result) == 4
     assert asdict(result[0]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "correctness", "assessment_value": json.dumps(False)},
         "values": {"COUNT": 1},
     }
     assert asdict(result[1]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "correctness", "assessment_value": json.dumps(True)},
         "values": {"COUNT": 2},
     }
     assert asdict(result[2]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "quality", "assessment_value": json.dumps("high")},
         "values": {"COUNT": 2},
     }
     assert asdict(result[3]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "quality", "assessment_value": json.dumps("low")},
         "values": {"COUNT": 1},
     }
@@ -1560,7 +1566,7 @@ def test_query_assessment_metrics_with_time_interval(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.ASSESSMENTS,
-        metric_name="assessment",
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         time_interval_seconds=3600,  # 1 hour
         start_time_ms=base_time_ms,
@@ -1569,14 +1575,14 @@ def test_query_assessment_metrics_with_time_interval(store: SqlAlchemyStore):
 
     assert len(result) == 3
     assert asdict(result[0]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": datetime.fromtimestamp(base_time_ms / 1000, tz=timezone.utc).isoformat()
         },
         "values": {"COUNT": 2},
     }
     assert asdict(result[1]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": datetime.fromtimestamp(
                 (base_time_ms + hour_ms) / 1000, tz=timezone.utc
@@ -1585,7 +1591,7 @@ def test_query_assessment_metrics_with_time_interval(store: SqlAlchemyStore):
         "values": {"COUNT": 2},
     }
     assert asdict(result[2]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": datetime.fromtimestamp(
                 (base_time_ms + 2 * hour_ms) / 1000, tz=timezone.utc
@@ -1636,7 +1642,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.ASSESSMENTS,
-        metric_name="assessment",
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["assessment_name"],
         time_interval_seconds=3600,  # 1 hour
@@ -1651,7 +1657,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
 
     assert len(result) == 4
     assert asdict(result[0]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
             "assessment_name": "correctness",
@@ -1659,7 +1665,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
         "values": {"COUNT": 1},
     }
     assert asdict(result[1]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
             "assessment_name": "relevance",
@@ -1667,7 +1673,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
         "values": {"COUNT": 1},
     }
     assert asdict(result[2]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
             "assessment_name": "correctness",
@@ -1675,7 +1681,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
         "values": {"COUNT": 1},
     }
     assert asdict(result[3]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
             "assessment_name": "relevance",
@@ -1738,14 +1744,14 @@ def test_query_assessment_metrics_with_filters(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.ASSESSMENTS,
-        metric_name="assessment",
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=["trace.status = 'OK'"],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {},
         "values": {"COUNT": 3},
     }
@@ -1754,14 +1760,14 @@ def test_query_assessment_metrics_with_filters(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.ASSESSMENTS,
-        metric_name="assessment",
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=["trace.status = 'ERROR'"],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {},
         "values": {"COUNT": 2},
     }
@@ -1802,19 +1808,19 @@ def test_query_assessment_metrics_across_multiple_traces(store: SqlAlchemyStore)
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.ASSESSMENTS,
-        metric_name="assessment",
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["assessment_name"],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "correctness"},
         "values": {"COUNT": 3},
     }
     assert asdict(result[1]) == {
-        "metric_name": "assessment",
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "relevance"},
         "values": {"COUNT": 3},
     }
