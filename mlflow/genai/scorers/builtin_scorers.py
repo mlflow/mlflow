@@ -2347,7 +2347,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
             for result in per_turn_results:
                 status = "✗" if str(result["value"]).lower() == "no" else "✓"
                 turn_summary = result["rationale"][:100]  # Truncate if too long
-                rationale_lines.append(f"- Turn {result['turn']}: {status} {turn_summary}")
+                rationale_lines.append(f"- Turn {result['turn'] + 1}: {status} {turn_summary}")
 
             rationale_lines.append(
                 f"\nOverall: NO - Knowledge retention failed in {len(failed_turns)} "
