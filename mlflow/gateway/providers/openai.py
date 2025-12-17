@@ -7,7 +7,12 @@ from mlflow.environment_variables import MLFLOW_ENABLE_UC_FUNCTIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, OpenAIAPIType, OpenAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    PASSTHROUGH_ROUTES,
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+)
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.uc_function_utils import (
@@ -250,6 +255,12 @@ class OpenAIAdapter(ProviderAdapter):
 class OpenAIProvider(BaseProvider):
     NAME = "OpenAI"
     CONFIG_TYPE = OpenAIConfig
+
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.OPENAI_CHAT: "chat/completions",
+        PassthroughAction.OPENAI_EMBEDDINGS: "embeddings",
+        PassthroughAction.OPENAI_RESPONSES: "responses",
+    }
 
     def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
@@ -604,58 +615,41 @@ class OpenAIProvider(BaseProvider):
         )
         return OpenAIAdapter.model_to_embeddings(resp, self.config)
 
-    async def passthrough_openai_chat(
-        self, payload: dict[str, Any]
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
             payload, self.config
         )
 
-        if payload_with_model.get("stream"):
+        provider_path = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
+        if provider_path is None:
+            route = PASSTHROUGH_ROUTES.get(action, action.value)
+            supported_routes = ", ".join(
+                f"/gateway{route} (provider_path: {path})"
+                for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
+                if (route := PASSTHROUGH_ROUTES.get(act))
+                and (path := self.PASSTHROUGH_PROVIDER_PATHS.get(act))
+            )
+            raise AIGatewayException(
+                status_code=400,
+                detail=f"Unsupported passthrough endpoint '{route}' for {self.NAME} provider. "
+                f"Supported endpoints: {supported_routes}",
+            )
+
+        supports_streaming = action != PassthroughAction.OPENAI_EMBEDDINGS
+
+        if supports_streaming and payload_with_model.get("stream"):
             return send_stream_request(
                 headers=self.headers,
                 base_url=self.base_url,
-                path="chat/completions",
+                path=provider_path,
                 payload=payload_with_model,
             )
         else:
             return await send_request(
                 headers=self.headers,
                 base_url=self.base_url,
-                path="chat/completions",
-                payload=payload_with_model,
-            )
-
-    async def passthrough_openai_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
-        payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
-            payload, self.config
-        )
-
-        return await send_request(
-            headers=self.headers,
-            base_url=self.base_url,
-            path="embeddings",
-            payload=payload_with_model,
-        )
-
-    async def passthrough_openai_responses(
-        self, payload: dict[str, Any]
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
-        payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
-            payload, self.config
-        )
-
-        if payload_with_model.get("stream"):
-            return send_stream_request(
-                headers=self.headers,
-                base_url=self.base_url,
-                path="responses",
-                payload=payload_with_model,
-            )
-        else:
-            return await send_request(
-                headers=self.headers,
-                base_url=self.base_url,
-                path="responses",
+                path=provider_path,
                 payload=payload_with_model,
             )

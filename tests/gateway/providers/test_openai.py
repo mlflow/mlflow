@@ -9,6 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, OpenAIConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -906,7 +907,7 @@ async def test_openai_passthrough_chat():
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
         payload = {"messages": [{"role": "user", "content": "Hello"}]}
-        response = await provider.passthrough_openai_chat(payload)
+        response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, payload)
 
         # Verify send_request was called with correct parameters
         assert mock_send.called
@@ -947,7 +948,7 @@ async def test_openai_passthrough_embeddings():
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
         payload = {"input": "Test input"}
-        response = await provider.passthrough_openai_embeddings(payload)
+        response = await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, payload)
 
         # Verify send_request was called with correct parameters
         assert mock_send.called
@@ -985,7 +986,7 @@ async def test_openai_passthrough_responses():
             "instructions": "You are a helpful assistant",
             "response_format": {"type": "text"},
         }
-        response = await provider.passthrough_openai_responses(payload)
+        response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, payload)
 
         # Verify send_request was called with correct parameters
         assert mock_send.called
@@ -1038,7 +1039,7 @@ async def test_azure_openai_passthrough_chat_removes_model():
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
         payload = {"messages": [{"role": "user", "content": "Hello"}]}
-        response = await provider.passthrough_openai_chat(payload)
+        response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, payload)
 
         # Verify send_request was called
         assert mock_send.called

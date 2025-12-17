@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Any, AsyncIterable
 
 import numpy as np
@@ -9,6 +10,24 @@ from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.utils.annotations import developer_stable
+
+
+class PassthroughAction(str, Enum):
+    """
+    Enum for passthrough endpoint actions.
+    """
+
+    OPENAI_CHAT = "openai_chat"
+    OPENAI_EMBEDDINGS = "openai_embeddings"
+    OPENAI_RESPONSES = "openai_responses"
+
+
+# Mapping of passthrough actions to their gateway API routes
+PASSTHROUGH_ROUTES = {
+    PassthroughAction.OPENAI_CHAT: "/openai/v1/chat/completions",
+    PassthroughAction.OPENAI_EMBEDDINGS: "/openai/v1/embeddings",
+    PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
+}
 
 
 @developer_stable
@@ -70,40 +89,26 @@ class BaseProvider(ABC):
             detail=f"The embeddings route is not implemented for {self.NAME} models.",
         )
 
-    async def passthrough_openai_chat(
-        self, payload: dict[str, Any]
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         """
-        Passthrough endpoint for OpenAI-compatible chat completions.
-        Accepts raw OpenAI request format and returns raw OpenAI response format.
-        Supports streaming if the 'stream' parameter is set to True.
-        """
-        raise AIGatewayException(
-            status_code=501,
-            detail=f"The passthrough chat route is not implemented for {self.NAME} models.",
-        )
+        Unified passthrough endpoint for raw API requests.
 
-    async def passthrough_openai_embeddings(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """
-        Passthrough endpoint for OpenAI-compatible embeddings.
-        Accepts raw OpenAI request format and returns raw OpenAI response format.
-        """
-        raise AIGatewayException(
-            status_code=501,
-            detail=f"The passthrough embeddings route is not implemented for {self.NAME} models.",
-        )
+        Args:
+            action: The passthrough action to perform (e.g., OPENAI_CHAT, OPENAI_EMBEDDINGS)
+            payload: Raw request payload in the format expected by the target API
 
-    async def passthrough_openai_responses(
-        self, payload: dict[str, Any]
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        Returns:
+            Raw response from the target API, optionally as an async iterable for streaming
+
+        Raises:
+            AIGatewayException: If the passthrough action is not implemented for this provider
         """
-        Passthrough endpoint for OpenAI Responses API.
-        Accepts raw OpenAI request format and returns raw OpenAI response format.
-        Supports streaming if the 'stream' parameter is set to True.
-        """
+        route = PASSTHROUGH_ROUTES.get(action, action.value)
         raise AIGatewayException(
             status_code=501,
-            detail=f"The passthrough responses route is not implemented for {self.NAME} models.",
+            detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
         )
 
     @staticmethod
@@ -175,6 +180,12 @@ class TrafficRouteProvider(BaseProvider):
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         prov = self._get_provider()
         return await prov.embeddings(payload)
+
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        prov = self._get_provider()
+        return await prov.passthrough(action, payload)
 
 
 class ProviderAdapter(ABC):

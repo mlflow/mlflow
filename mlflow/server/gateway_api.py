@@ -28,7 +28,7 @@ from mlflow.gateway.config import (
     Provider,
 )
 from mlflow.gateway.providers import get_provider
-from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.base import PASSTHROUGH_ROUTES, BaseProvider, PassthroughAction
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import make_streaming_response, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -291,7 +291,7 @@ async def chat_completions(request: Request):
         return await provider.chat(payload)
 
 
-@gateway_router.post("/openai/v1/chat/completions")
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT])
 @translate_http_exception
 async def openai_passthrough_chat(request: Request):
     """
@@ -323,14 +323,14 @@ async def openai_passthrough_chat(request: Request):
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough_openai_chat(body)
+    response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body)
 
     if body.get("stream"):
         return StreamingResponse(response, media_type="text/event-stream")
     return response
 
 
-@gateway_router.post("/openai/v1/embeddings")
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS])
 @translate_http_exception
 async def openai_passthrough_embeddings(request: Request):
     """
@@ -360,10 +360,10 @@ async def openai_passthrough_embeddings(request: Request):
     provider = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
-    return await provider.passthrough_openai_embeddings(body)
+    return await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body)
 
 
-@gateway_router.post("/openai/v1/responses")
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES])
 @translate_http_exception
 async def openai_passthrough_responses(request: Request):
     """
@@ -395,7 +395,7 @@ async def openai_passthrough_responses(request: Request):
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough_openai_responses(body)
+    response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body)
 
     if body.get("stream"):
         return StreamingResponse(response, media_type="text/event-stream")
