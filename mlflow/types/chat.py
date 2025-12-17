@@ -148,10 +148,7 @@ class ResponseFormat(BaseModel):
     """
     Response format configuration for structured outputs.
 
-    Supported formats:
-    - OpenAI: {"type": "json_schema", "json_schema": {...}}
-    - Anthropic: {"type": "json_schema", "schema": {...}}
-    - Gemini: {"type": "json_schema", "schema": {...}}
+    Supported formats: {"type": "json_schema", "json_schema": {...}}.
 
     The schema should follow JSON Schema specification.
     """

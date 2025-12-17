@@ -307,13 +307,10 @@ async def test_chat_with_structured_output():
         "strict": True,
         "schema": {
             "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "email": {"type": "string"}
-            },
+            "properties": {"name": {"type": "string"}, "email": {"type": "string"}},
             "required": ["name", "email"],
-            "additionalProperties": False
-        }
+            "additionalProperties": False,
+        },
     }
 
     resp = {
@@ -341,18 +338,18 @@ async def test_chat_with_structured_output():
     with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
         payload = {
             "messages": [{"role": "user", "content": "Extract user info"}],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": json_schema
-            }
+            "response_format": {"type": "json_schema", "json_schema": json_schema},
         }
         response = await provider.chat(chat.RequestPayload(**payload))
 
-        assert response.choices[0].message.content == '{"name": "John Doe", "email": "john@example.com"}'
+        assert (
+            response.choices[0].message.content
+            == '{"name": "John Doe", "email": "john@example.com"}'
+        )
         assert response.choices[0].finish_reason == "stop"
 
         call_kwargs = mock_post.call_args[1]
         assert call_kwargs["json"]["response_format"] == {
             "type": "json_schema",
-            "json_schema": json_schema
+            "json_schema": json_schema,
         }
