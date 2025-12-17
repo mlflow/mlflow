@@ -12,6 +12,7 @@ from mlflow.gateway.config import (
     AWSRole,
     EndpointType,
     GeminiConfig,
+    LiteLLMConfig,
     MistralConfig,
     OpenAIAPIType,
     OpenAIConfig,
@@ -19,6 +20,7 @@ from mlflow.gateway.config import (
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
 from mlflow.gateway.providers.gemini import GeminiProvider
+from mlflow.gateway.providers.litellm import LiteLLMProvider
 from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, embeddings
@@ -303,6 +305,56 @@ def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):
     assert isinstance(provider, GeminiProvider)
     assert isinstance(provider.config.model.config, GeminiConfig)
     assert provider.config.model.config.gemini_api_key == "gemini-test-key"
+
+
+def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="litellm-key",
+        secret_value={"api_key": "litellm-test-key"},
+        provider="litellm",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="litellm-model",
+        secret_id=secret.secret_id,
+        provider="litellm",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-litellm-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, LiteLLMProvider)
+    assert isinstance(provider.config.model.config, LiteLLMConfig)
+    assert provider.config.model.config.litellm_api_key == "litellm-test-key"
+    assert provider.config.model.config.litellm_provider == "litellm"
+
+
+def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="litellm-custom-key",
+        secret_value={"api_key": "litellm-custom-key"},
+        provider="litellm",
+        auth_config={"api_base": "https://custom-api.example.com"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="litellm-custom-model",
+        secret_id=secret.secret_id,
+        provider="litellm",
+        model_name="custom-model",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-litellm-custom-endpoint", model_definition_ids=[model_def.model_definition_id]
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, LiteLLMProvider)
+    assert isinstance(provider.config.model.config, LiteLLMConfig)
+    assert provider.config.model.config.litellm_api_key == "litellm-custom-key"
+    assert provider.config.model.config.litellm_api_base == "https://custom-api.example.com"
+    assert provider.config.model.config.litellm_provider == "litellm"
 
 
 def test_create_provider_from_endpoint_name_nonexistent_endpoint(store: SqlAlchemyStore):
