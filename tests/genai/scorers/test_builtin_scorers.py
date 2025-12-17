@@ -1,7 +1,9 @@
+import json
 from unittest import mock
 from unittest.mock import Mock, call, patch
 
 import pytest
+from litellm.types.utils import ModelResponse
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -20,6 +22,7 @@ from mlflow.genai.scorers import (
     Correctness,
     Equivalence,
     ExpectationsGuidelines,
+    Fluency,
     Guidelines,
     KnowledgeRetention,
     RelevanceToQuery,
@@ -576,16 +579,33 @@ def test_equivalence():
     assert result.value == CategoricalRating.YES
 
 
-@pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
-def test_get_all_scorers_oss(tracking_uri):
-    mlflow.set_tracking_uri(tracking_uri)
-
+def test_get_all_scorers():
     scorers = get_all_scorers()
+    scorer_class_names = {type(s).__name__ for s in scorers}
 
-    # Safety and RetrievalRelevance are only available in Databricks
-    # Now we have 10 scorers for OSS and 12 for Databricks
-    assert len(scorers) == (12 if tracking_uri == "databricks" else 10)
+    expected_scorers = {
+        "RetrievalRelevance",
+        "RetrievalSufficiency",
+        "RetrievalGroundedness",
+        "ExpectationsGuidelines",
+        "RelevanceToQuery",
+        "Safety",
+        "Correctness",
+        "Fluency",
+        "Equivalence",
+        "Completeness",
+        "Summarization",
+        "UserFrustration",
+        "ConversationCompleteness",
+        "ConversationalSafety",
+        "ConversationalToolCallEfficiency",
+        "ConversationalRoleAdherence",
+        "KnowledgeRetention",
+    }
+
+    assert scorer_class_names == expected_scorers
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
+    assert len({s.name for s in scorers}) == len(scorers)
 
 
 def test_retrieval_relevance_get_input_fields():
@@ -632,6 +652,67 @@ def test_safety_get_input_fields():
         safety = Safety(name="test")
         field_names = [field.name for field in safety.get_input_fields()]
         assert field_names == ["outputs"]
+
+
+def test_fluency_get_input_fields():
+    fluency = Fluency(name="test")
+    field_names = [field.name for field in fluency.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_default_name():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "The text is fluent.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        scorer = Fluency()
+        result = scorer(outputs="The cat sat on the mat.")
+
+        assert result.name == "fluency"
+        assert result.value == CategoricalRating.YES
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_with_custom_model():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "The text is fluent.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        custom_model = "anthropic:/claude-3-opus"
+        scorer = Fluency(model=custom_model)
+        result = scorer(outputs="This is a fluent response")
+
+        assert result.name == "fluency"
+        assert result.value == CategoricalRating.YES
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_with_custom_name():
+    mock_content = json.dumps(
+        {
+            "result": "no",
+            "rationale": "The text has issues.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        scorer = Fluency(name="my_fluency_check")
+        result = scorer(outputs="Bad text")
+
+        assert result.name == "my_fluency_check"
+        assert result.value == CategoricalRating.NO
 
 
 def test_correctness_get_input_fields():

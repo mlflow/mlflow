@@ -1,3 +1,4 @@
+import inspect
 import logging
 import math
 from abc import abstractmethod
@@ -42,6 +43,7 @@ from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
 )
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.fluency import FLUENCY_ASSESSMENT_NAME, FLUENCY_PROMPT
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.knowledge_retention import (
@@ -83,7 +85,6 @@ from mlflow.genai.utils.trace_utils import (
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
-from mlflow.utils.uri import is_databricks_uri
 
 GENAI_CONFIG_NAME = "databricks-agent"
 
@@ -1412,6 +1413,85 @@ class Correctness(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
+class Fluency(BuiltInScorer):
+    """
+    Fluency evaluates the grammatical correctness, natural flow, and linguistic quality of text.
+
+    This scorer analyzes text to determine if it is grammatically correct, reads naturally,
+    flows smoothly, and uses varied sentence structure. It returns "yes" or "no".
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "fluency".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Fluency
+
+        assessment = Fluency()(outputs="The cat sat on the mat.")
+        print(assessment)  # Feedback with value "yes"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Fluency
+
+        data = [
+            {
+                "inputs": {"question": "What is the capital of France?"},
+                "outputs": "The capital of France is Paris.",
+            },
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[Fluency()])
+    """
+
+    name: str = FLUENCY_ASSESSMENT_NAME
+    model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate grammatical correctness, natural flow, and linguistic quality of text."
+    )
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    def _get_judge(self) -> InstructionsJudge:
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=Literal["yes", "no"],
+            )
+        return self._judge
+
+    @property
+    def instructions(self) -> str:
+        return FLUENCY_PROMPT
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return self._get_judge().get_input_fields()
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        return self._get_judge()._evaluate_impl(
+            outputs=outputs,
+            trace=trace,
+        )
+
+
+@format_docstring(_MODEL_API_DOC)
 class Equivalence(BuiltInScorer):
     """
     Equivalence compares outputs against expected outputs for semantic equivalence.
@@ -2499,9 +2579,37 @@ class Summarization(BuiltInScorer):
         )
 
 
+def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
+    """
+    Recursively discover all concrete (non-abstract) BuiltInScorer subclasses.
+
+    This automatically finds all scorer classes that inherit from BuiltInScorer,
+    excluding abstract base classes.
+
+    Returns:
+        List of concrete BuiltInScorer classes
+    """
+
+    def get_concrete_subclasses(base_class: type) -> list[type]:
+        """Recursively get all concrete subclasses of a base class."""
+        concrete = []
+        for subclass in base_class.__subclasses__():
+            # Only include non-abstract classes from the builtin_scorers module
+            if (
+                not inspect.isabstract(subclass)
+                and subclass.__module__ == "mlflow.genai.scorers.builtin_scorers"
+            ):
+                concrete.append(subclass)
+            # Recurse to find subclasses of subclasses
+            concrete.extend(get_concrete_subclasses(subclass))
+        return concrete
+
+    return get_concrete_subclasses(BuiltInScorer)
+
+
 def get_all_scorers() -> list[BuiltInScorer]:
     """
-    Returns a list of all built-in scorers.
+    Returns a list of all built-in scorers that can be instantiated with default parameters.
 
     Example:
 
@@ -2519,20 +2627,18 @@ def get_all_scorers() -> list[BuiltInScorer]:
         ]
         result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
     """
-    scorers = [
-        ExpectationsGuidelines(),
-        Correctness(),
-        RelevanceToQuery(),
-        RetrievalSufficiency(),
-        RetrievalGroundedness(),
-        Equivalence(),
-        UserFrustration(),
-        ConversationCompleteness(),
-        Completeness(),
-        KnowledgeRetention(),
-    ]
-    if is_databricks_uri(mlflow.get_tracking_uri()):
-        scorers.extend([Safety(), RetrievalRelevance()])
+    scorer_classes = _get_all_concrete_builtin_scorers()
+    scorers = []
+
+    for scorer_class in scorer_classes:
+        try:
+            scorer = scorer_class()
+            scorers.append(scorer)
+        except (TypeError, pydantic.ValidationError):
+            _logger.debug(
+                f"Skipping scorer {scorer_class.__name__} - requires constructor arguments"
+            )
+
     return scorers
 
 

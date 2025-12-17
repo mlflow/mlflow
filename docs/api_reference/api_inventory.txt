@@ -691,6 +691,8 @@ mlflow.gateway.config.GeminiConfig.validate_gemini_api_key
 mlflow.gateway.config.HuggingFaceTextGenerationInferenceConfig
 mlflow.gateway.config.Limit
 mlflow.gateway.config.LimitsConfig
+mlflow.gateway.config.LiteLLMConfig
+mlflow.gateway.config.LiteLLMConfig.validate_litellm_api_key
 mlflow.gateway.config.MistralConfig
 mlflow.gateway.config.MistralConfig.validate_mistral_api_key
 mlflow.gateway.config.MlflowModelServingConfig
@@ -865,6 +867,9 @@ mlflow.genai.scorers.ExpectationsGuidelines
 mlflow.genai.scorers.ExpectationsGuidelines.get_input_fields
 mlflow.genai.scorers.ExpectationsGuidelines.model_post_init
 mlflow.genai.scorers.ExpectationsGuidelines.validate_columns
+mlflow.genai.scorers.Fluency
+mlflow.genai.scorers.Fluency.get_input_fields
+mlflow.genai.scorers.Fluency.model_post_init
 mlflow.genai.scorers.Guidelines
 mlflow.genai.scorers.Guidelines.get_input_fields
 mlflow.genai.scorers.Guidelines.model_post_init
@@ -902,6 +907,7 @@ mlflow.genai.scorers.builtin_scorers.ConversationalToolCallEfficiency
 mlflow.genai.scorers.builtin_scorers.Correctness
 mlflow.genai.scorers.builtin_scorers.Equivalence
 mlflow.genai.scorers.builtin_scorers.ExpectationsGuidelines
+mlflow.genai.scorers.builtin_scorers.Fluency
 mlflow.genai.scorers.builtin_scorers.Guidelines
 mlflow.genai.scorers.builtin_scorers.KnowledgeRetention
 mlflow.genai.scorers.builtin_scorers.RelevanceToQuery
