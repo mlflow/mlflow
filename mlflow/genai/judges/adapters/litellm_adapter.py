@@ -210,13 +210,28 @@ def _invoke_litellm_and_handle_tools(
     # Construct model URI and gateway params
     if provider == "gateway":
         from mlflow.tracking import get_tracking_uri
+        from mlflow.utils.uri import append_to_uri_path, is_http_uri
 
         tracking_uri = get_tracking_uri()
+
+        # Validate that tracking URI is a valid HTTP(S) URL for gateway
+        if not is_http_uri(tracking_uri):
+            raise MlflowException(
+                f"Gateway provider requires an HTTP(S) tracking URI, but got: '{tracking_uri}'. "
+                "The gateway provider routes requests through the MLflow tracking server. "
+                "Please set MLFLOW_TRACKING_URI to a valid HTTP(S) URL "
+                "(e.g., 'http://localhost:5000' or 'https://your-mlflow-server.com')."
+            )
+
+        api_base = append_to_uri_path(tracking_uri, "gateway/mlflow/v1/")
+
         # Use openai/ prefix for LiteLLM to use OpenAI-compatible format.
         # LiteLLM strips the prefix, so gateway receives model_name as the endpoint.
         model = f"openai/{model_name}"
-        api_base = f"{tracking_uri}/gateway/mlflow/v1/"
-        api_key = "not-needed"  # Gateway handles authentication
+        # LiteLLM requires api_key to be set when using custom api_base, otherwise it
+        # raises AuthenticationError looking for OPENAI_API_KEY env var. Gateway handles
+        # auth via the tracking URI, so we pass a dummy value to satisfy LiteLLM.
+        api_key = "not-needed"
     else:
         model = f"{provider}/{model_name}"
         api_base = None

@@ -355,6 +355,21 @@ def test_gateway_provider_integration():
     assert call_kwargs["api_key"] == "not-needed"
 
 
+def test_gateway_provider_requires_http_tracking_uri():
+    from mlflow.exceptions import MlflowException
+    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+    with mock.patch("mlflow.tracking.get_tracking_uri", return_value="databricks"):
+        with pytest.raises(MlflowException, match="Gateway provider requires an HTTP"):
+            _invoke_litellm_and_handle_tools(
+                provider="gateway",
+                model_name="my-endpoint",
+                messages=[ChatMessage(role="user", content="Test")],
+                trace=None,
+                num_retries=3,
+            )
+
+
 def test_remove_oldest_tool_call_pair_removes_oldest():
     messages = [
         litellm.Message(role="user", content="Hello"),
