@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+from dataclasses import asdict
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -49,6 +50,11 @@ from mlflow.entities.span import SpanAttributeKey
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricViewType,
+)
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -2862,6 +2868,44 @@ def test_set_and_delete_trace_tag(mlflow_client):
     mlflow_client.delete_trace_tag(trace_info.request_id, "tag2")
     trace_info = mlflow_client._tracing_client.get_trace_info(trace_info.request_id)
     assert "tag2" not in trace_info.tags
+
+
+def test_query_trace_metrics(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support query trace metrics")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("query trace metrics")
+
+    # Create test traces
+    def _create_trace(name, status):
+        span = mlflow_client.start_trace(name=name, experiment_id=experiment_id)
+        mlflow_client.end_trace(request_id=span.request_id, status=status)
+        return span.request_id
+
+    _create_trace(name="trace1", status=TraceStatus.OK)
+    _create_trace(name="trace2", status=TraceStatus.OK)
+    _create_trace(name="trace3", status=TraceStatus.ERROR)
+
+    metrics = mlflow_client._tracing_client.store.query_trace_metrics(
+        experiment_ids=[experiment_id],
+        view_type=MetricViewType.TRACES,
+        metric_name="trace",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["status"],
+    )
+    assert len(metrics) == 2
+    assert asdict(metrics[0]) == {
+        "metric_name": "trace",
+        "dimensions": {"status": "ERROR"},
+        "values": {"COUNT": 1},
+    }
+
+    assert asdict(metrics[1]) == {
+        "metric_name": "trace",
+        "dimensions": {"status": "OK"},
+        "values": {"COUNT": 2},
+    }
 
 
 @pytest.mark.parametrize("allow_partial", [True, False])
