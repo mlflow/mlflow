@@ -119,7 +119,7 @@ def _invoke_litellm(
     Invoke litellm completion with retry support.
 
     Args:
-        model: The model identifier (e.g., "openai/gpt-4" or endpoint name for gateway).
+        model: The LiteLLM model identifier (e.g., "openai/gpt-4" or endpoint name for gateway).
         messages: List of litellm Message objects.
         tools: List of tool definitions (empty list if no tools).
         num_retries: Number of retries with exponential backoff.
