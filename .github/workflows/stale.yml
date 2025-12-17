@@ -23,6 +23,6 @@ jobs:
           days-before-close: 14
           stale-issue-label: stale
           stale-pr-label: stale
-          exempt-issue-labels: pinned,security,bug,enhancement
-          exempt-pr-labels: pinned,security
+          exempt-issue-labels: security,bug,enhancement
+          exempt-pr-labels: security
           operations-per-run: 100
