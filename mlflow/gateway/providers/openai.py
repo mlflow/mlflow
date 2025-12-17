@@ -1,5 +1,6 @@
 import json
 import os
+import warnings
 from typing import TYPE_CHECKING, Any, AsyncIterable
 from urllib.parse import urlparse, urlunparse
 
@@ -557,6 +558,12 @@ class OpenAIProvider(BaseProvider):
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         if MLFLOW_ENABLE_UC_FUNCTIONS.get():
+            warnings.warn(
+                "Unity Catalog function integration via the MLflow AI Gateway is deprecated "
+                "and will be removed in a future release.",
+                FutureWarning,
+                stacklevel=2,
+            )
             resp = await self._chat_uc_function(payload)
         else:
             resp = await self._chat(payload)
