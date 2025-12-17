@@ -240,6 +240,38 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     df.collect()
   }
 
+  test("ReplAwareDatasourceAttributeExtractor handles missing Databricks classes gracefully") {
+    MlflowAutologEventPublisher.stop()
+
+    class ReplAwareListenerWithDeltaDetection(
+        publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher)
+      extends ReplAwareSparkDataSourceListener(publisher) {
+      override protected def getDatasourceAttributeExtractor: DatasourceAttributeExtractorBase = {
+        ReplAwareDatasourceAttributeExtractor
+      }
+    }
+
+    object MockPublisher extends MlflowAutologEventPublisherImpl {
+      override def getSparkDataSourceListener: SparkDataSourceListener = {
+        new ReplAwareListenerWithDeltaDetection(this)
+      }
+    }
+
+    MockPublisher.init()
+    val (format, path) = formatToTablePath.head
+    val df = spark.read.format(format).load(path)
+    val subscriber = spy(new MockSubscriber())
+    MockPublisher.register(subscriber)
+
+    val sc = spark.sparkContext
+    sc.setLocalProperty("spark.databricks.replId", subscriber.replId)
+
+    df.collect()
+
+    Thread.sleep(1000)
+    verify(subscriber, times(1)).notify(any(), any(), any())
+  }
+
   test("MlflowAutologEventPublisher correctly unregisters broken subscribers") {
     MlflowAutologEventPublisher.register(new BrokenSubscriber())
     Thread.sleep(2000)
