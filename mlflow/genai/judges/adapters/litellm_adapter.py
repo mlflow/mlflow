@@ -273,17 +273,22 @@ def _invoke_litellm_and_handle_tools(
                     api_key=api_key,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
-                if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):
+                error_str = str(e).lower()
+                is_context_window_error = (
+                    isinstance(e, litellm.ContextWindowExceededError)
+                    or "context length" in error_str
+                    or "too many tokens" in error_str
+                )
+                if is_context_window_error:
                     if provider == "gateway":
                         # For gateway provider, we don't know the underlying model, so we use
                         # DSPy-style reactive truncation: remove oldest tool call and retry.
-                        truncated = _truncate_oldest_tool_call(messages)
-                        if truncated is None:
+                        messages = _remove_oldest_tool_call_pair(messages)
+                        if messages is None:
                             raise MlflowException(
                                 "Context window exceeded and there are no tool calls to truncate. "
                                 "The initial prompt may be too long for the model's context window."
                             ) from e
-                        messages = truncated
                     else:
                         # For direct providers, use token-counting based pruning
                         messages = _prune_messages_for_context_window()
@@ -332,37 +337,32 @@ def _extract_response_cost(response: "litellm.Completion") -> float | None:
         return hidden_params.get("response_cost")
 
 
-def _truncate_oldest_tool_call(
+def _remove_oldest_tool_call_pair(
     messages: list["litellm.Message"],
 ) -> list["litellm.Message"] | None:
     """
-    Remove the oldest tool call and its corresponding tool response messages.
-
-    This follows the DSPy pattern of reactively truncating context on
-    ContextWindowExceededError rather than proactively estimating token counts.
+    Remove the oldest assistant message with tool calls and its corresponding tool responses.
 
     Args:
         messages: List of LiteLLM message objects.
 
     Returns:
-        Truncated list of messages, or None if there are no tool calls to remove.
+        Modified messages with oldest tool call pair removed, or None if no tool calls to remove.
     """
-    # Find first assistant message with tool calls (oldest tool call)
     result = next(
         ((i, msg) for i, msg in enumerate(messages) if msg.role == "assistant" and msg.tool_calls),
         None,
     )
     if result is None:
-        return None  # No tool calls to truncate
+        return None
 
     assistant_idx, assistant_msg = result
-    truncated = messages[:]
-    truncated.pop(assistant_idx)
+    modified = messages[:]
+    modified.pop(assistant_idx)
 
-    # Remove corresponding tool response messages
     tool_call_ids = {tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls}
     return [
-        msg for msg in truncated if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
+        msg for msg in modified if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
     ]
 
 
@@ -410,28 +410,10 @@ def _prune_messages_exceeding_context_window_length(
     pruned_messages = messages[:]
     # Remove tool call pairs until we're under limit
     while litellm.token_counter(model=model, messages=pruned_messages) > max_tokens:
-        # Find first assistant message with tool calls
-        result = next(
-            (
-                (i, msg)
-                for i, msg in enumerate(pruned_messages)
-                if msg.role == "assistant" and msg.tool_calls
-            ),
-            None,
-        )
+        result = _remove_oldest_tool_call_pair(pruned_messages)
         if result is None:
-            break  # No more tool calls to remove
-        assistant_idx, assistant_msg = result
-        pruned_messages.pop(assistant_idx)
-        # Remove corresponding tool response messages
-        tool_call_ids = {
-            tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls
-        }
-        pruned_messages = [
-            msg
-            for msg in pruned_messages
-            if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
-        ]
+            break
+        pruned_messages = result
 
     final_tokens = litellm.token_counter(model=model, messages=pruned_messages)
     _logger.info(f"Pruned message history from {initial_tokens} to {final_tokens} tokens")

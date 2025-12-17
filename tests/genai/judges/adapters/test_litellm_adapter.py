@@ -13,7 +13,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     _invoke_litellm,
-    _truncate_oldest_tool_call,
+    _remove_oldest_tool_call_pair,
 )
 from mlflow.types.llm import ChatMessage
 
@@ -220,7 +220,7 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_pr
             side_effect=[context_error, success_response],
         ) as mock_litellm,
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._truncate_oldest_tool_call"
+            "mlflow.genai.judges.adapters.litellm_adapter._remove_oldest_tool_call_pair"
         ) as mock_truncate,
         mock.patch("mlflow.tracking.get_tracking_uri", return_value="http://localhost:5000"),
     ):
@@ -251,7 +251,7 @@ def test_invoke_litellm_and_handle_tools_gateway_context_window_no_tool_calls_to
     with (
         mock.patch("litellm.completion", side_effect=context_error),
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._truncate_oldest_tool_call",
+            "mlflow.genai.judges.adapters.litellm_adapter._remove_oldest_tool_call_pair",
             return_value=None,  # No tool calls to truncate
         ),
         mock.patch("mlflow.tracking.get_tracking_uri", return_value="http://localhost:5000"),
@@ -355,7 +355,7 @@ def test_gateway_provider_integration():
     assert call_kwargs["api_key"] == "not-needed"
 
 
-def test_truncate_removes_oldest_tool_call_and_response():
+def test_remove_oldest_tool_call_pair_removes_oldest():
     messages = [
         litellm.Message(role="user", content="Hello"),
         litellm.Message(
@@ -372,7 +372,7 @@ def test_truncate_removes_oldest_tool_call_and_response():
         litellm.Message(role="tool", content="Result 2", tool_call_id="call_2"),
     ]
 
-    result = _truncate_oldest_tool_call(messages)
+    result = _remove_oldest_tool_call_pair(messages)
 
     assert result is not None
     assert len(result) == 3
@@ -383,18 +383,18 @@ def test_truncate_removes_oldest_tool_call_and_response():
     assert result[2].tool_call_id == "call_2"
 
 
-def test_truncate_returns_none_when_no_tool_calls():
+def test_remove_oldest_tool_call_pair_returns_none_when_no_tool_calls():
     messages = [
         litellm.Message(role="user", content="Hello"),
         litellm.Message(role="assistant", content="Hi there!"),
     ]
 
-    result = _truncate_oldest_tool_call(messages)
+    result = _remove_oldest_tool_call_pair(messages)
 
     assert result is None
 
 
-def test_truncate_handles_multiple_tool_calls_in_single_message():
+def test_remove_oldest_tool_call_pair_handles_multiple_tool_calls_in_single_message():
     messages = [
         litellm.Message(role="user", content="Hello"),
         litellm.Message(
@@ -409,14 +409,14 @@ def test_truncate_handles_multiple_tool_calls_in_single_message():
         litellm.Message(role="tool", content="Result 2", tool_call_id="call_2"),
     ]
 
-    result = _truncate_oldest_tool_call(messages)
+    result = _remove_oldest_tool_call_pair(messages)
 
     assert result is not None
     assert len(result) == 1
     assert result[0].role == "user"
 
 
-def test_truncate_preserves_non_tool_messages():
+def test_remove_oldest_tool_call_pair_preserves_non_tool_messages():
     messages = [
         litellm.Message(role="system", content="You are helpful"),
         litellm.Message(role="user", content="Hello"),
@@ -429,7 +429,7 @@ def test_truncate_preserves_non_tool_messages():
         litellm.Message(role="user", content="Thanks"),
     ]
 
-    result = _truncate_oldest_tool_call(messages)
+    result = _remove_oldest_tool_call_pair(messages)
 
     assert result is not None
     assert len(result) == 3
