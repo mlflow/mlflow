@@ -52,6 +52,11 @@ def map_scorer_inputs_to_phoenix_record(
         output_str = parse_outputs_to_str(outputs)
         record["output"] = output_str
 
+    # Toxicity evaluator expects text in 'input' field, not 'output'
+    # If only outputs provided and no input, use output as input for Toxicity
+    if metric_name == "Toxicity" and "input" not in record and "output" in record:
+        record["input"] = record["output"]
+
     # Handle context/reference from expectations or trace
     reference = None
     if expectations:
