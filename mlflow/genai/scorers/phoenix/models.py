@@ -43,11 +43,14 @@ class DatabricksPhoenixModel:
         self._verbose = False
         self._rate_limiter = _NoOpRateLimiter()
 
-    def __call__(self, prompt: str, **kwargs) -> str:
+    def __call__(self, prompt, **kwargs) -> str:
+        # Phoenix may pass MultimodalPrompt objects instead of strings
+        # Convert to string if needed
+        prompt_str = str(prompt) if not isinstance(prompt, str) else prompt
         try:
             output = _invoke_databricks_serving_endpoint(
                 model_name=self._endpoint_name,
-                prompt=prompt,
+                prompt=prompt_str,
                 num_retries=3,
                 response_format=None,
             )
@@ -73,10 +76,13 @@ class DatabricksServingEndpointPhoenixModel:
         self._verbose = False
         self._rate_limiter = _NoOpRateLimiter()
 
-    def __call__(self, prompt: str, **kwargs) -> str:
+    def __call__(self, prompt, **kwargs) -> str:
+        # Phoenix may pass MultimodalPrompt objects instead of strings
+        # Convert to string if needed
+        prompt_str = str(prompt) if not isinstance(prompt, str) else prompt
         output = _invoke_databricks_serving_endpoint(
             model_name=self._endpoint_name,
-            prompt=prompt,
+            prompt=prompt_str,
             num_retries=3,
             response_format=None,
         )

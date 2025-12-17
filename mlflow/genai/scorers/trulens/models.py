@@ -37,12 +37,13 @@ def _create_databricks_trulens_provider(endpoint_name: str, model_name: str):
     class DatabricksTruLensProvider(LLMProvider):
         """TruLens provider adapter for Databricks endpoints."""
 
+        # Store endpoint info at class level since we create a new class per call
+        _databricks_endpoint_name: str = endpoint_name
+        _databricks_model_name: str = model_name
+
         def __init__(self):
-            # Initialize without calling parent __init__ to avoid pydantic issues
-            # We just need to provide the required methods
-            self._endpoint_name = endpoint_name
-            self._model_name = model_name
-            self.model_engine = endpoint_name
+            # Properly initialize the Pydantic base class
+            super().__init__(model_engine=endpoint_name)
 
         def _create_chat_completion(
             self,
@@ -61,7 +62,7 @@ def _create_databricks_trulens_provider(endpoint_name: str, model_name: str):
 
             try:
                 output = _invoke_databricks_serving_endpoint(
-                    model_name=self._endpoint_name,
+                    model_name=self._databricks_endpoint_name,
                     prompt=prompt,
                     num_retries=3,
                     response_format=None,
