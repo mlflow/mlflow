@@ -199,7 +199,7 @@ export interface DetachModelFromEndpointRequest {
   model_definition_id: string;
 }
 
-export type ResourceType = 'experiment' | 'registered_model' | 'endpoint_model';
+export type ResourceType = 'scorer_job';
 
 export interface EndpointBinding {
   endpoint_id: string;
@@ -224,4 +224,9 @@ export interface CreateEndpointBindingResponse {
 
 export interface ListEndpointBindingsResponse {
   bindings: EndpointBinding[];
+}
+
+export interface SecretsConfigResponse {
+  secrets_available: boolean;
+  using_default_passphrase: boolean;
 }

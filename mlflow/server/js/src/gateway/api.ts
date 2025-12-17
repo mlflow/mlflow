@@ -29,6 +29,7 @@ import type {
   CreateEndpointBindingResponse,
   ListEndpointBindingsResponse,
   SecretInfo,
+  SecretsConfigResponse,
 } from './types';
 
 // Raw API response type before transformation (has auth_config_json string instead of auth_config object)
@@ -313,5 +314,13 @@ export const GatewayApi = {
       relativeUrl,
       error: defaultErrorHandler,
     }) as Promise<ListEndpointBindingsResponse>;
+  },
+
+  // Configuration
+  getSecretsConfig: () => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/config',
+      error: defaultErrorHandler,
+    }) as Promise<SecretsConfigResponse>;
   },
 };
