@@ -157,6 +157,7 @@ class ExactMatch(DeepEvalScorer):
         threshold: float = 0.5,
         **kwargs,
     ):
+        self._validate_kwargs(**kwargs)
         super().__init__(
             metric_name=self.metric_name,
             model=None,
@@ -189,6 +190,7 @@ class PatternMatch(DeepEvalScorer):
         threshold: float = 0.5,
         **kwargs,
     ):
+        self._validate_kwargs(**kwargs)
         super().__init__(
             metric_name=self.metric_name,
             model=None,
