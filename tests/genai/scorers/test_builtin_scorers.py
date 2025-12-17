@@ -579,27 +579,8 @@ def test_equivalence():
 
 def test_get_all_scorers():
     scorers = get_all_scorers()
+    scorer_class_names = {type(s).__name__ for s in scorers}
 
-    # With automatic discovery, we expect all scorers that can be instantiated with defaults
-    # Total: 17 concrete scorer classes
-    # - 1 (Guidelines requires constructor args) = 16 scorers
-    expected_count = 16
-    assert len(scorers) == expected_count, (
-        f"Expected {expected_count} scorers but got {len(scorers)}. "
-        f"Scorers: {[type(s).__name__ for s in scorers]}"
-    )
-    assert all(isinstance(scorer, Scorer) for scorer in scorers)
-
-    # Verify no duplicates
-    scorer_names = [s.name for s in scorers]
-    assert len(scorer_names) == len(set(scorer_names)), "Duplicate scorer names found"
-
-    # Verify that base classes are not included
-    scorer_class_names = [type(s).__name__ for s in scorers]
-    assert "BuiltInScorer" not in scorer_class_names
-    assert "BuiltInSessionLevelScorer" not in scorer_class_names
-
-    # Verify all expected scorers are present (excluding Guidelines)
     expected_scorers = {
         "RetrievalRelevance",
         "RetrievalSufficiency",
@@ -618,13 +599,12 @@ def test_get_all_scorers():
         "ConversationalToolCallEfficiency",
         "ConversationalRoleAdherence",
     }
-    assert set(scorer_class_names) == expected_scorers, (
-        f"Scorer mismatch. "
-        f"Missing: {expected_scorers - set(scorer_class_names)}, "
-        f"Extra: {set(scorer_class_names) - expected_scorers}"
-    )
 
-    # Verify Guidelines is correctly excluded
+    assert scorer_class_names == expected_scorers
+    assert all(isinstance(scorer, Scorer) for scorer in scorers)
+    assert len({s.name for s in scorers}) == len(scorers)
+    assert "BuiltInScorer" not in scorer_class_names
+    assert "BuiltInSessionLevelScorer" not in scorer_class_names
     assert "Guidelines" not in scorer_class_names
 
 
