@@ -19,12 +19,27 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 
 <ImageBox src="/images/llms/tracing/openai-function-calling.png" alt="Ollama Tracing via autolog" />
 
-Since the local LLM endpoint served by Ollama is compatible with the OpenAI API, you can query it via OpenAI SDK and enable tracing for Ollama with `mlflow.openai.autolog()`. Any LLM interactions via Ollama will be recorded to the active MLflow Experiment.
+MLflow trace automatically captures the following information about Ollama calls:
 
-```python
-import mlflow
+- Prompts and completion responses
+- Latencies
+- Token usage
+- Model name
+- Additional metadata such as `temperature`, `max_tokens`, if specified.
+- Function calling if returned in the response
+- Any exception if raised
+- and more...
 
-mlflow.openai.autolog()
+## Getting Started
+
+<StepHeader number={1} title="Install dependencies" />
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+
+```bash
+pip install mlflow openai
 ```
 
   </TabItem>
