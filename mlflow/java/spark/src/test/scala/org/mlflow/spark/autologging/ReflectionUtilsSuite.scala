@@ -79,5 +79,4 @@ class ReflectionUtilsSuite extends AnyFunSuite {
     ).map(_.toString)
     assert(versionOpt2 == None)
   }
-
 }
