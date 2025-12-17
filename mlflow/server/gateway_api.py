@@ -20,6 +20,7 @@ from mlflow.gateway.config import (
     EndpointConfig,
     EndpointType,
     GeminiConfig,
+    LiteLLMConfig,
     MistralConfig,
     OpenAIConfig,
     Provider,
@@ -130,8 +131,18 @@ def _create_provider_from_endpoint_name(
             gemini_api_key=model_config.secret_value.get("api_key"),
         )
     else:
-        # TODO: Support long-tail providers with LiteLLM
-        raise NotImplementedError(f"Provider {model_config.provider} is not supported")
+        # Use LiteLLM as fallback for unsupported providers
+        # Store the original provider name for LiteLLM's provider/model format
+        original_provider = model_config.provider
+        litellm_config = {
+            "litellm_provider": original_provider,
+            "litellm_api_key": model_config.secret_value.get("api_key"),
+        }
+        auth_config = model_config.auth_config or {}
+        if "api_base" in auth_config:
+            litellm_config["litellm_api_base"] = auth_config["api_base"]
+        provider_config = LiteLLMConfig(**litellm_config)
+        model_config.provider = Provider.LITELLM
 
     # Create an EndpointConfig for the provider
     gateway_endpoint_config = EndpointConfig(
