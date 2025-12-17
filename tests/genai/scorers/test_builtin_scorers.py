@@ -31,6 +31,8 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
     Summarization,
+    ToolCallCorrectness,
+    ToolCallEfficiency,
     UserFrustration,
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
@@ -601,6 +603,8 @@ def test_get_all_scorers():
         "ConversationalToolCallEfficiency",
         "ConversationalRoleAdherence",
         "KnowledgeRetention",
+        "ToolCallEfficiency",
+        "ToolCallCorrectness",
     }
 
     assert scorer_class_names == expected_scorers
@@ -1684,6 +1688,94 @@ def test_conversational_tool_call_efficiency_instructions():
     instructions = scorer.instructions
     assert "tool" in instructions.lower()
     assert "efficient" in instructions.lower() or "redundant" in instructions.lower()
+
+
+def test_tool_call_efficiency():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "What is the weather in Paris?"})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"city": "Paris"})
+            tool_span.set_outputs("Sunny, 22°C")
+        span.set_outputs("The weather in Paris is sunny and 22°C")
+
+    efficient_trace = mlflow.get_trace(span.trace_id)
+
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "Get weather for InvalidCity"})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"city": "InvalidCity123"})
+            tool_span.record_exception(ValueError("City not found"))
+        span.set_outputs("Sorry, I couldn't find that city")
+
+    exception_trace = mlflow.get_trace(span.trace_id)
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_efficiency",
+            value=CategoricalRating.YES,
+            rationale="Tool usage is efficient",
+        )
+
+        scorer = ToolCallEfficiency()
+        result = scorer(trace=efficient_trace)
+
+        assert result.name == "tool_call_efficiency"
+        assert result.value == CategoricalRating.YES
+        mock_invoke.assert_called()
+
+        result = scorer(trace=exception_trace)
+        assert result.name == "tool_call_efficiency"
+        mock_invoke.assert_called()
+
+
+def test_tool_call_correctness_with_correct_tool_call():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "What is the weather in San Francisco?"})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"location": "San Francisco", "unit": "celsius"})
+            tool_span.set_outputs("15°C, partly cloudy")
+        span.set_outputs("The weather in San Francisco is 15°C and partly cloudy")
+
+    correct_trace = mlflow.get_trace(span.trace_id)
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value=CategoricalRating.YES,
+            rationale="Tool calls are correct and appropriate",
+        )
+
+        scorer = ToolCallCorrectness()
+        result = scorer(trace=correct_trace)
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == CategoricalRating.YES
+        mock_invoke.assert_called()
+
+
+def test_tool_call_correctness_with_incorrect_tool_call():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "What is the weather in San Francisco?"})
+        with mlflow.start_span(name="calculator", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"expression": "San Francisco"})
+            tool_span.set_outputs("Error: invalid expression")
+        span.set_outputs("I'm sorry, I couldn't get the weather")
+
+    incorrect_trace = mlflow.get_trace(span.trace_id)
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value=CategoricalRating.NO,
+            rationale="Wrong tool used for weather query",
+        )
+
+        scorer = ToolCallCorrectness()
+        result = scorer(trace=incorrect_trace)
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == CategoricalRating.NO
+        mock_invoke.assert_called()
 
 
 def test_conversational_role_adherence_with_session():

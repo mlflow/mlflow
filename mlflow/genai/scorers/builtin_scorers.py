@@ -57,6 +57,12 @@ from mlflow.genai.judges.prompts.summarization import (
     SUMMARIZATION_ASSESSMENT_NAME,
     SUMMARIZATION_PROMPT,
 )
+from mlflow.genai.judges.prompts.tool_call_correctness import (
+    TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS,
+)
+from mlflow.genai.judges.prompts.tool_call_efficiency import (
+    TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS,
+)
 from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
@@ -74,9 +80,11 @@ from mlflow.genai.scorers.base import (
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
+    extract_available_tools_from_trace,
     extract_request_from_trace,
     extract_response_from_trace,
     extract_retrieval_context_from_trace,
+    extract_tools_called_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
     resolve_expectations_from_trace,
@@ -711,6 +719,161 @@ class RetrievalGroundedness(BuiltInScorer):
             feedback.span_id = span_id
             feedbacks.append(feedback)
         return feedbacks
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ToolCallEfficiency(BuiltInScorer):
+    """
+    ToolCallEfficiency evaluates the agent's trajectory for redundancy in tool usage,
+    such as tool calls with the same or similar arguments.
+
+    This scorer analyzes whether the agent makes redundant tool calls during execution.
+    It checks for duplicate or near-duplicate tool invocations that could be avoided
+    for more efficient task completion.
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "tool_call_efficiency".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ToolCallEfficiency
+
+        trace = mlflow.get_trace("<your-trace-id>")
+        feedback = ToolCallEfficiency(name="my_tool_call_efficiency")(trace=trace)
+        print(feedback)
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+
+        data = mlflow.search_traces(...)
+        result = mlflow.genai.evaluate(data=data, scorers=[ToolCallEfficiency()])
+    """
+
+    name: str = "tool_call_efficiency"
+    model: str | None = None
+    required_columns: set[str] = {"trace"}
+    description: str = (
+        "Evaluate the agent's trajectory for redundancy in tool usage, "
+        "such as tool calls with the same or similar arguments."
+    )
+
+    @property
+    def instructions(self) -> str:
+        return TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="trace",
+                description=(
+                    "The trace of the model's execution. The trace should contain tool call "
+                    "information across the agent's trajectory. MLflow will analyze the tool calls "
+                    "to identify any redundancy, such as duplicate or similar tool invocations."
+                ),
+            ),
+        ]
+
+    def __call__(self, *, trace: Trace) -> Feedback:
+        request = extract_request_from_trace(trace)
+        available_tools = extract_available_tools_from_trace(trace)
+        tools_called = extract_tools_called_from_trace(trace)
+
+        return judges.is_tool_call_efficient(
+            request=request,
+            tools_called=tools_called,
+            available_tools=available_tools,
+            name=self.name,
+            model=self.model,
+        )
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ToolCallCorrectness(BuiltInScorer):
+    """
+    ToolCallCorrectness evaluates whether the tools called and the arguments they are called with
+    are reasonable given the user request.
+
+    This scorer analyzes whether the agent selects appropriate tools and provides correct arguments
+    to fulfill the user's request. It checks if the tool choices align with the user's intent and
+    if the arguments passed to each tool are reasonable.
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "tool_call_correctness".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ToolCallCorrectness
+
+        trace = mlflow.get_trace("<your-trace-id>")
+        feedback = ToolCallCorrectness(name="my_tool_call_correctness")(trace=trace)
+        print(feedback)
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+
+        data = mlflow.search_traces(...)
+        result = mlflow.genai.evaluate(data=data, scorers=[ToolCallCorrectness()])
+    """
+
+    name: str = "tool_call_correctness"
+    model: str | None = None
+    required_columns: set[str] = {"trace"}
+    description: str = (
+        "Evaluate whether the tools called and the arguments they are called with "
+        "are reasonable given the user request."
+    )
+
+    @property
+    def instructions(self) -> str:
+        return TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="trace",
+                description=(
+                    "The trace of the model's execution. The trace should contain tool call "
+                    "information across the agent's trajectory. MLflow will analyze the tool calls "
+                    "to verify that the selected tools and their arguments are appropriate for "
+                    "the user's request."
+                ),
+            ),
+        ]
+
+    def __call__(self, *, trace: Trace) -> Feedback:
+        request = extract_request_from_trace(trace)
+        available_tools = extract_available_tools_from_trace(trace)
+        tools_called = extract_tools_called_from_trace(trace)
+
+        return judges.is_tool_call_correct(
+            request=request,
+            tools_called=tools_called,
+            available_tools=available_tools,
+            name=self.name,
+            model=self.model,
+        )
 
 
 @format_docstring(_MODEL_API_DOC)
