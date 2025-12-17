@@ -263,6 +263,10 @@
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
   },
+  "07uplU": {
+    "defaultMessage": "Variant",
+    "description": "Label for provider variant selector"
+  },
   "08WP3h": {
     "defaultMessage": "Staging",
     "description": "Column title for staging phase version in the registered model page"
@@ -571,6 +575,10 @@
     "defaultMessage": "Key name cannot be changed.",
     "description": "Tooltip explaining why key name field is disabled"
   },
+  "2vjNq9": {
+    "defaultMessage": "Please complete all required fields",
+    "description": "Tooltip shown when submit button is disabled due to incomplete form"
+  },
   "2zy+D5": {
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
@@ -841,6 +849,10 @@
   "5e1r3Y": {
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
+  },
+  "5iZda9": {
+    "defaultMessage": "Name",
+    "description": "Endpoint name label"
   },
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
@@ -1481,6 +1493,10 @@
   "AX7L9r": {
     "defaultMessage": "Error",
     "description": "Error assessment status in the evaluations table."
+  },
+  "AanBxl": {
+    "defaultMessage": "my-endpoint",
+    "description": "Placeholder for endpoint name input"
   },
   "AdlJNW": {
     "defaultMessage": "Assessment Name",
@@ -2157,6 +2173,10 @@
   "H2UIIZ": {
     "defaultMessage": "null",
     "description": "Null value in the evaluations table."
+  },
+  "H5/OUa": {
+    "defaultMessage": "Platform",
+    "description": "Label for OpenAI/Azure platform selector"
   },
   "H7JwOl": {
     "defaultMessage": "Delete version",
@@ -2849,6 +2869,10 @@
   "NV7Fz+": {
     "defaultMessage": "Created {date}",
     "description": "Gateway > Endpoints using key drawer > Endpoint created date"
+  },
+  "NVDxng": {
+    "defaultMessage": "Save changes",
+    "description": "Save changes button"
   },
   "NVsatz": {
     "defaultMessage": "Provider{count}",
@@ -3608,6 +3632,10 @@
     "defaultMessage": "Transition to",
     "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
   },
+  "UkVgwL": {
+    "defaultMessage": "Create endpoint",
+    "description": "Page title for create endpoint"
+  },
   "UmwZQv": {
     "defaultMessage": "using Prompt Engineering",
     "description": "String for creating a new run with prompt engineering modal"
@@ -4235,6 +4263,10 @@
     "defaultMessage": "Export",
     "description": "Export traces to dataset modal action button"
   },
+  "a3G5A7": {
+    "defaultMessage": "Provider",
+    "description": "Summary provider label"
+  },
   "a6adM5": {
     "defaultMessage": "Use a large language model to automatically evaluate traces.",
     "description": "Hint text for LLM scorer type option"
@@ -4478,6 +4510,10 @@
   "c4KA32": {
     "defaultMessage": "An error occurred while attempting to fetch the trace data. Please wait a moment and try again.",
     "description": "Experiment page > traces data drawer > error state description"
+  },
+  "c4METn": {
+    "defaultMessage": "Create",
+    "description": "Create button"
   },
   "c4OuCI": {
     "defaultMessage": "Compare traces",
@@ -4739,6 +4775,10 @@
     "defaultMessage": "Runs",
     "description": "Label for the evaluation runs sub-tab in the MLflow experiment navbar"
   },
+  "eANdPU": {
+    "defaultMessage": "No changes to save",
+    "description": "Tooltip shown when save button is disabled due to no changes"
+  },
   "eBGO2d": {
     "defaultMessage": "No metrics to display.",
     "description": "Text shown when there are no metrics to display"
@@ -4802,6 +4842,10 @@
   "eVpwlz": {
     "defaultMessage": "Step 3: Register the judge",
     "description": "Step 3 title for custom judge creation"
+  },
+  "eYZ/ZL": {
+    "defaultMessage": "Endpoints",
+    "description": "Breadcrumb link to endpoints list"
   },
   "eYt1wE": {
     "defaultMessage": "Add a judge to your experiment to measure your GenAI app quality",
@@ -5759,6 +5803,10 @@
     "defaultMessage": "Artifact Location",
     "description": "Label for create experiment modal to enter a artifact location"
   },
+  "mi7FdJ": {
+    "defaultMessage": "Summary",
+    "description": "Summary sidebar title"
+  },
   "mjNFJt": {
     "defaultMessage": "Logged models",
     "description": "Run page > Overview > Run models section label"
@@ -6235,6 +6283,10 @@
     "defaultMessage": "MLflow collects usage data to improve the product. To confirm your preferences, please visit the settings page in the navigation sidebar. To learn more about what data is collected, please visit the <documentation>documentation</documentation>.",
     "description": "Telemetry alert description"
   },
+  "qz9XeG": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button"
+  },
   "qzahRD": {
     "defaultMessage": "Name",
     "description": "Section header for optional judge name"
@@ -6582,6 +6634,10 @@
   "tzA/LZ": {
     "defaultMessage": "Name",
     "description": "Header for the name column in the registered prompts table"
+  },
+  "uABFy0": {
+    "defaultMessage": "AI Gateway",
+    "description": "Breadcrumb link to gateway page"
   },
   "uAv9Zs": {
     "defaultMessage": "Home",
@@ -7206,6 +7262,10 @@
   "zjXq2X": {
     "defaultMessage": "The model will be registered as a new version of {selectedModel}.",
     "description": "Explantory text for registering a model"
+  },
+  "zjstUH": {
+    "defaultMessage": "Not selected",
+    "description": "Summary not selected"
   },
   "zmMR5p": {
     "defaultMessage": "An error occurred while rendering this component.",

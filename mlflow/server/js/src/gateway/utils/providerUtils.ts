@@ -1,13 +1,88 @@
-export const COMMON_PROVIDERS = [
-  'openai',
-  'anthropic',
-  'databricks',
-  'bedrock',
-  'gemini',
-  'vertex_ai',
-  'azure',
-  'xai',
-] as const;
+export const COMMON_PROVIDERS = ['openai', 'anthropic', 'databricks', 'bedrock', 'gemini', 'vertex_ai', 'xai'] as const;
+
+export interface ProviderGroup {
+  groupId: string;
+  displayName: string;
+  defaultProvider: string;
+  providers: string[];
+}
+
+export const PROVIDER_GROUPS: Record<string, Omit<ProviderGroup, 'providers'>> = {
+  openai_azure: {
+    groupId: 'openai_azure',
+    displayName: 'OpenAI / Azure OpenAI',
+    defaultProvider: 'openai',
+  },
+  vertex_ai: {
+    groupId: 'vertex_ai',
+    displayName: 'Google Vertex AI',
+    defaultProvider: 'vertex_ai',
+  },
+};
+
+export function getProviderGroupId(provider: string): string | null {
+  if (provider === 'openai' || provider === 'azure') {
+    return 'openai_azure';
+  }
+  if (provider === 'vertex_ai' || provider.startsWith('vertex_ai-')) {
+    return 'vertex_ai';
+  }
+  return null;
+}
+
+export function isGroupedProvider(provider: string): boolean {
+  return getProviderGroupId(provider) !== null;
+}
+
+export function buildProviderGroups(providers: string[]): {
+  groups: ProviderGroup[];
+  ungroupedProviders: string[];
+} {
+  const openaiAzureProviders: string[] = [];
+  const vertexProviders: string[] = [];
+  const ungroupedProviders: string[] = [];
+
+  for (const provider of providers) {
+    const groupId = getProviderGroupId(provider);
+    if (groupId === 'openai_azure') {
+      openaiAzureProviders.push(provider);
+    } else if (groupId === 'vertex_ai') {
+      vertexProviders.push(provider);
+    } else {
+      ungroupedProviders.push(provider);
+    }
+  }
+
+  const groups: ProviderGroup[] = [];
+
+  if (openaiAzureProviders.length > 0) {
+    openaiAzureProviders.sort((a, b) => {
+      if (a === 'openai') return -1;
+      if (b === 'openai') return 1;
+      if (a === 'azure') return -1;
+      if (b === 'azure') return 1;
+      return a.localeCompare(b);
+    });
+    groups.push({
+      ...PROVIDER_GROUPS['openai_azure'],
+      providers: openaiAzureProviders,
+    });
+  }
+
+  if (vertexProviders.length > 0) {
+    vertexProviders.sort((a, b) => {
+      if (a === 'vertex_ai') return -1;
+      if (b === 'vertex_ai') return 1;
+      return a.localeCompare(b);
+    });
+    groups.push({
+      ...PROVIDER_GROUPS['vertex_ai'],
+      providers: vertexProviders,
+    });
+  }
+
+  return { groups, ungroupedProviders };
+}
 
 export function groupProviders(providers: string[]): {
   common: string[];
@@ -31,30 +106,63 @@ export function groupProviders(providers: string[]): {
   return { common, other };
 }
 
+const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  bedrock: 'Amazon Bedrock',
+  gemini: 'Google Gemini',
+  vertex_ai: 'Google Vertex AI',
+  azure: 'Azure OpenAI',
+  groq: 'Groq',
+  databricks: 'Databricks',
+  xai: 'xAI',
+  cohere: 'Cohere',
+  mistral: 'Mistral AI',
+  together_ai: 'Together AI',
+  fireworks_ai: 'Fireworks AI',
+  replicate: 'Replicate',
+  huggingface: 'Hugging Face',
+  ai21: 'AI21',
+  perplexity: 'Perplexity',
+  deepinfra: 'DeepInfra',
+  nvidia_nim: 'NVIDIA NIM',
+  cerebras: 'Cerebras',
+};
+
+const VERTEX_AI_VARIANT_NAMES: Record<string, string> = {
+  'vertex_ai-anthropic': 'Vertex AI (Anthropic)',
+  'vertex_ai-llama3': 'Vertex AI (Llama 3)',
+  'vertex_ai-mistral': 'Vertex AI (Mistral)',
+  'vertex_ai-ai21': 'Vertex AI (AI21)',
+  'vertex_ai-codey': 'Vertex AI (Codey)',
+  'vertex_ai-image-models': 'Vertex AI (Image)',
+  'vertex_ai-code-text-models': 'Vertex AI (Code)',
+  'vertex_ai-text-models': 'Vertex AI (Text)',
+  'vertex_ai-chat-models': 'Vertex AI (Chat)',
+  'vertex_ai-embedding-models': 'Vertex AI (Embedding)',
+  'vertex_ai-vision-models': 'Vertex AI (Vision)',
+};
+
+export function isVertexAiVariant(provider: string): boolean {
+  return provider.startsWith('vertex_ai-');
+}
+
 export function formatProviderName(provider: string): string {
-  const formatMap: Record<string, string> = {
-    openai: 'OpenAI',
-    anthropic: 'Anthropic',
-    bedrock: 'Amazon Bedrock',
-    gemini: 'Google Gemini',
-    vertex_ai: 'Google Vertex AI',
-    azure: 'Azure OpenAI',
-    groq: 'Groq',
-    databricks: 'Databricks',
-    xai: 'xAI',
-    cohere: 'Cohere',
-    mistral: 'Mistral AI',
-    together_ai: 'Together AI',
-    fireworks_ai: 'Fireworks AI',
-    replicate: 'Replicate',
-    huggingface: 'Hugging Face',
-    ai21: 'AI21',
-    perplexity: 'Perplexity',
-    deepinfra: 'DeepInfra',
-    nvidia_nim: 'NVIDIA NIM',
-    cerebras: 'Cerebras',
-  };
-  return formatMap[provider] ?? provider.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  if (PROVIDER_DISPLAY_NAMES[provider]) {
+    return PROVIDER_DISPLAY_NAMES[provider];
+  }
+
+  if (VERTEX_AI_VARIANT_NAMES[provider]) {
+    return VERTEX_AI_VARIANT_NAMES[provider];
+  }
+
+  if (provider.startsWith('vertex_ai-')) {
+    const variant = provider.replace('vertex_ai-', '');
+    const formattedVariant = variant.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return `Vertex AI (${formattedVariant})`;
+  }
+
+  return provider.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function formatAuthMethodName(authMethod: string): string {
