@@ -163,12 +163,32 @@ class TraceMetricKey:
         return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
 
 
+class TraceMetricDimensionKey:
+    """
+    Dimensions for metrics on traces view type.
+    """
+
+    TRACE_NAME = "trace_name"
+    TRACE_STATUS = "trace_status"
+
+
 class SpanMetricKey:
     """
     Keys for metrics on spans view type.
     """
 
     SPAN_COUNT = "span_count"
+    LATENCY = "latency"
+
+
+class SpanMetricDimensionKey:
+    """
+    Dimensions for metrics on spans view type.
+    """
+
+    SPAN_NAME = "span_name"
+    SPAN_TYPE = "span_type"
+    SPAN_STATUS = "span_status"
 
 
 class AssessmentMetricKey:
@@ -177,6 +197,15 @@ class AssessmentMetricKey:
     """
 
     ASSESSMENT_COUNT = "assessment_count"
+    ASSESSMENT_VALUE = "assessment_value"
+
+
+class AssessmentMetricDimensionKey:
+    """
+    Dimensions for metrics on assessments view type.
+    """
+
+    ASSESSMENT_NAME = "assessment_name"
     ASSESSMENT_VALUE = "assessment_value"
 
 

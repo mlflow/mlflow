@@ -22,9 +22,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import (
+    AssessmentMetricDimensionKey,
     AssessmentMetricKey,
+    SpanMetricDimensionKey,
     SpanMetricKey,
     TraceMetadataKey,
+    TraceMetricDimensionKey,
     TraceMetricKey,
     TraceTagKey,
 )
@@ -125,18 +128,18 @@ def test_query_trace_metrics_count_by_status(store: SqlAlchemyStore):
         view_type=MetricViewType.TRACES,
         metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["status"],
+        dimensions=[TraceMetricDimensionKey.TRACE_STATUS],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.TRACE_COUNT,
-        "dimensions": {"status": "ERROR"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_STATUS: "ERROR"},
         "values": {"COUNT": 2},
     }
     assert asdict(result[1]) == {
         "metric_name": TraceMetricKey.TRACE_COUNT,
-        "dimensions": {"status": "OK"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_STATUS: "OK"},
         "values": {"COUNT": 3},
     }
 
@@ -168,18 +171,18 @@ def test_query_trace_metrics_count_by_name(store: SqlAlchemyStore):
         view_type=MetricViewType.TRACES,
         metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["name"],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.TRACE_COUNT,
-        "dimensions": {"name": "workflow_a"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
         "values": {"COUNT": 3},
     }
     assert asdict(result[1]) == {
         "metric_name": TraceMetricKey.TRACE_COUNT,
-        "dimensions": {"name": "workflow_b"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
         "values": {"COUNT": 2},
     }
 
@@ -211,28 +214,40 @@ def test_query_trace_metrics_count_by_multiple_dimensions(store: SqlAlchemyStore
         view_type=MetricViewType.TRACES,
         metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["status", "name"],
+        dimensions=[TraceMetricDimensionKey.TRACE_STATUS, TraceMetricDimensionKey.TRACE_NAME],
     )
 
     assert len(result) == 4
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.TRACE_COUNT,
-        "dimensions": {"status": "ERROR", "name": "workflow_a"},
+        "dimensions": {
+            TraceMetricDimensionKey.TRACE_STATUS: "ERROR",
+            TraceMetricDimensionKey.TRACE_NAME: "workflow_a",
+        },
         "values": {"COUNT": 1},
     }
     assert asdict(result[1]) == {
         "metric_name": TraceMetricKey.TRACE_COUNT,
-        "dimensions": {"status": "ERROR", "name": "workflow_b"},
+        "dimensions": {
+            TraceMetricDimensionKey.TRACE_STATUS: "ERROR",
+            TraceMetricDimensionKey.TRACE_NAME: "workflow_b",
+        },
         "values": {"COUNT": 1},
     }
     assert asdict(result[2]) == {
         "metric_name": TraceMetricKey.TRACE_COUNT,
-        "dimensions": {"status": "OK", "name": "workflow_a"},
+        "dimensions": {
+            TraceMetricDimensionKey.TRACE_STATUS: "OK",
+            TraceMetricDimensionKey.TRACE_NAME: "workflow_a",
+        },
         "values": {"COUNT": 2},
     }
     assert asdict(result[3]) == {
         "metric_name": TraceMetricKey.TRACE_COUNT,
-        "dimensions": {"status": "OK", "name": "workflow_b"},
+        "dimensions": {
+            TraceMetricDimensionKey.TRACE_STATUS: "OK",
+            TraceMetricDimensionKey.TRACE_NAME: "workflow_b",
+        },
         "values": {"COUNT": 1},
     }
 
@@ -264,18 +279,18 @@ def test_query_trace_metrics_latency_avg(store: SqlAlchemyStore):
         view_type=MetricViewType.TRACES,
         metric_name=TraceMetricKey.LATENCY,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
-        dimensions=["name"],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.LATENCY,
-        "dimensions": {"name": "workflow_a"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
         "values": {"AVG": 200.0},
     }
     assert asdict(result[1]) == {
         "metric_name": TraceMetricKey.LATENCY,
-        "dimensions": {"name": "workflow_b"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
         "values": {"AVG": 200.0},
     }
 
@@ -318,7 +333,7 @@ def test_query_trace_metrics_latency_percentiles(
                 aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
             )
         ],
-        dimensions=["name"],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
     )
 
     # Calculate expected values based on database type
@@ -332,12 +347,12 @@ def test_query_trace_metrics_latency_percentiles(
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.LATENCY,
-        "dimensions": {"name": "workflow_a"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
         "values": {f"P{percentile_value}": expected_workflow_a},
     }
     assert asdict(result[1]) == {
         "metric_name": TraceMetricKey.LATENCY,
-        "dimensions": {"name": "workflow_b"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
         "values": {f"P{percentile_value}": expected_workflow_b},
     }
 
@@ -373,7 +388,7 @@ def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStor
             MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
             MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=99),
         ],
-        dimensions=["name"],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
     )
 
     # Calculate expected percentile value based on database type
@@ -383,7 +398,7 @@ def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStor
 
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.LATENCY,
-        "dimensions": {"name": "workflow_a"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
         "values": {"AVG": 300.0, "P95": expected_p95, "P99": expected_p99},
     }
 
@@ -480,7 +495,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
         view_type=MetricViewType.TRACES,
         metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["status"],
+        dimensions=[TraceMetricDimensionKey.TRACE_STATUS],
         time_interval_seconds=3600,  # 1 hour
         start_time_ms=base_time,
         end_time_ms=base_time + 2 * hour_ms,
@@ -495,7 +510,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
         "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
-            "status": "ERROR",
+            TraceMetricDimensionKey.TRACE_STATUS: "ERROR",
         },
         "values": {"COUNT": 1},
     }
@@ -503,7 +518,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
         "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
-            "status": "OK",
+            TraceMetricDimensionKey.TRACE_STATUS: "OK",
         },
         "values": {"COUNT": 1},
     }
@@ -511,7 +526,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
         "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
-            "status": "ERROR",
+            TraceMetricDimensionKey.TRACE_STATUS: "ERROR",
         },
         "values": {"COUNT": 1},
     }
@@ -519,7 +534,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
         "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
-            "status": "OK",
+            TraceMetricDimensionKey.TRACE_STATUS: "OK",
         },
         "values": {"COUNT": 1},
     }
@@ -818,18 +833,18 @@ def test_query_trace_metrics_total_tokens_sum(traces_with_token_usage_setup):
         view_type=MetricViewType.TRACES,
         metric_name=TraceMetricKey.TOTAL_TOKENS,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
-        dimensions=["name"],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.TOTAL_TOKENS,
-        "dimensions": {"name": "workflow_a"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
         "values": {"SUM": 675},
     }
     assert asdict(result[1]) == {
         "metric_name": TraceMetricKey.TOTAL_TOKENS,
-        "dimensions": {"name": "workflow_b"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
         "values": {"SUM": 825},
     }
 
@@ -842,18 +857,18 @@ def test_query_trace_metrics_total_tokens_avg(traces_with_token_usage_setup):
         view_type=MetricViewType.TRACES,
         metric_name=TraceMetricKey.TOTAL_TOKENS,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
-        dimensions=["name"],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.TOTAL_TOKENS,
-        "dimensions": {"name": "workflow_a"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
         "values": {"AVG": 225.0},
     }
     assert asdict(result[1]) == {
         "metric_name": TraceMetricKey.TOTAL_TOKENS,
-        "dimensions": {"name": "workflow_b"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
         "values": {"AVG": 412.5},
     }
 
@@ -870,7 +885,7 @@ def test_query_trace_metrics_total_tokens_percentiles(traces_with_token_usage_se
             MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=p)
             for p in percentiles
         ],
-        dimensions=["name"],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
     )
 
     # Calculate expected values based on database type
@@ -893,12 +908,12 @@ def test_query_trace_metrics_total_tokens_percentiles(traces_with_token_usage_se
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.TOTAL_TOKENS,
-        "dimensions": {"name": "workflow_a"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
         "values": expected_workflow_a_values,
     }
     assert asdict(result[1]) == {
         "metric_name": TraceMetricKey.TOTAL_TOKENS,
-        "dimensions": {"name": "workflow_b"},
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
         "values": expected_workflow_b_values,
     }
 
@@ -1020,23 +1035,23 @@ def test_query_span_metrics_count_by_span_type(store: SqlAlchemyStore):
         view_type=MetricViewType.SPANS,
         metric_name=SpanMetricKey.SPAN_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["span_type"],
+        dimensions=[SpanMetricDimensionKey.SPAN_TYPE],
     )
 
     assert len(result) == 3
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {"span_type": "CHAIN"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_TYPE: "CHAIN"},
         "values": {"COUNT": 2},
     }
     assert asdict(result[1]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {"span_type": "LLM"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_TYPE: "LLM"},
         "values": {"COUNT": 3},
     }
     assert asdict(result[2]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {"span_type": "TOOL"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_TYPE: "TOOL"},
         "values": {"COUNT": 1},
     }
 
@@ -1168,7 +1183,7 @@ def test_query_span_metrics_with_time_interval_and_dimensions(store: SqlAlchemyS
         view_type=MetricViewType.SPANS,
         metric_name=SpanMetricKey.SPAN_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["span_type"],
+        dimensions=[SpanMetricDimensionKey.SPAN_TYPE],
         time_interval_seconds=3600,  # 1 hour
         start_time_ms=base_time_ns // 1_000_000,
         end_time_ms=(base_time_ns + 2 * hour_ns) // 1_000_000,
@@ -1186,7 +1201,7 @@ def test_query_span_metrics_with_time_interval_and_dimensions(store: SqlAlchemyS
         "metric_name": SpanMetricKey.SPAN_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
-            "span_type": "CHAIN",
+            SpanMetricDimensionKey.SPAN_TYPE: "CHAIN",
         },
         "values": {"COUNT": 1},
     }
@@ -1194,7 +1209,7 @@ def test_query_span_metrics_with_time_interval_and_dimensions(store: SqlAlchemyS
         "metric_name": SpanMetricKey.SPAN_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
-            "span_type": "LLM",
+            SpanMetricDimensionKey.SPAN_TYPE: "LLM",
         },
         "values": {"COUNT": 1},
     }
@@ -1202,7 +1217,7 @@ def test_query_span_metrics_with_time_interval_and_dimensions(store: SqlAlchemyS
         "metric_name": SpanMetricKey.SPAN_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
-            "span_type": "CHAIN",
+            SpanMetricDimensionKey.SPAN_TYPE: "CHAIN",
         },
         "values": {"COUNT": 1},
     }
@@ -1210,7 +1225,7 @@ def test_query_span_metrics_with_time_interval_and_dimensions(store: SqlAlchemyS
         "metric_name": SpanMetricKey.SPAN_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
-            "span_type": "LLM",
+            SpanMetricDimensionKey.SPAN_TYPE: "LLM",
         },
         "values": {"COUNT": 1},
     }
@@ -1277,19 +1292,19 @@ def test_query_span_metrics_with_filters(store: SqlAlchemyStore):
         view_type=MetricViewType.SPANS,
         metric_name=SpanMetricKey.SPAN_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["span_type"],
+        dimensions=[SpanMetricDimensionKey.SPAN_TYPE],
         filters=["trace.status = 'ERROR'"],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {"span_type": "CHAIN"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_TYPE: "CHAIN"},
         "values": {"COUNT": 1},
     }
     assert asdict(result[1]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {"span_type": "LLM"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_TYPE: "LLM"},
         "values": {"COUNT": 1},
     }
 
@@ -1333,18 +1348,18 @@ def test_query_span_metrics_across_multiple_traces(store: SqlAlchemyStore):
         view_type=MetricViewType.SPANS,
         metric_name=SpanMetricKey.SPAN_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["span_type"],
+        dimensions=[SpanMetricDimensionKey.SPAN_TYPE],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {"span_type": "CHAIN"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_TYPE: "CHAIN"},
         "values": {"COUNT": 3},
     }
     assert asdict(result[1]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {"span_type": "LLM"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_TYPE: "LLM"},
         "values": {"COUNT": 3},
     }
 
@@ -1433,7 +1448,7 @@ def test_query_span_metrics_with_span_status_filter(store: SqlAlchemyStore):
         view_type=MetricViewType.SPANS,
         metric_name=SpanMetricKey.SPAN_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["span_type"],
+        dimensions=[SpanMetricDimensionKey.SPAN_TYPE],
         filters=["span.status = 'OK'"],
     )
 
@@ -1441,12 +1456,12 @@ def test_query_span_metrics_with_span_status_filter(store: SqlAlchemyStore):
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {"span_type": "CHAIN"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_TYPE: "CHAIN"},
         "values": {"COUNT": 1},
     }
     assert asdict(result[1]) == {
         "metric_name": SpanMetricKey.SPAN_COUNT,
-        "dimensions": {"span_type": "LLM"},
+        "dimensions": {SpanMetricDimensionKey.SPAN_TYPE: "LLM"},
         "values": {"COUNT": 2},
     }
 
@@ -1575,6 +1590,720 @@ def test_query_span_metrics_invalid_filters(
         )
 
 
+def test_query_span_metrics_count_by_span_name(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_count_by_span_name")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different names
+    spans = [
+        create_test_span(
+            "trace1", "generate_response", span_id=1, span_type="LLM", start_ns=1000000000
+        ),
+        create_test_span(
+            "trace1", "generate_response", span_id=2, span_type="LLM", start_ns=1100000000
+        ),
+        create_test_span(
+            "trace1", "generate_response", span_id=3, span_type="LLM", start_ns=1200000000
+        ),
+        create_test_span(
+            "trace1", "process_input", span_id=4, span_type="CHAIN", start_ns=1300000000
+        ),
+        create_test_span(
+            "trace1", "process_input", span_id=5, span_type="CHAIN", start_ns=1400000000
+        ),
+        create_test_span(
+            "trace1", "validate_output", span_id=6, span_type="TOOL", start_ns=1500000000
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[SpanMetricDimensionKey.SPAN_NAME],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {SpanMetricDimensionKey.SPAN_NAME: "generate_response"},
+        "values": {"COUNT": 3},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {SpanMetricDimensionKey.SPAN_NAME: "process_input"},
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {SpanMetricDimensionKey.SPAN_NAME: "validate_output"},
+        "values": {"COUNT": 1},
+    }
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[SpanMetricDimensionKey.SPAN_NAME],
+        filters=["span.type = 'TOOL'"],
+    )
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {SpanMetricDimensionKey.SPAN_NAME: "validate_output"},
+        "values": {"COUNT": 1},
+    }
+
+
+def test_query_span_metrics_count_by_span_name_and_type(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_count_by_span_name_and_type")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different names and types
+    spans = [
+        create_test_span("trace1", "llm_call", span_id=1, span_type="LLM", start_ns=1000000000),
+        create_test_span("trace1", "llm_call", span_id=2, span_type="LLM", start_ns=1100000000),
+        create_test_span("trace1", "tool_call", span_id=3, span_type="TOOL", start_ns=1200000000),
+        create_test_span("trace1", "tool_call", span_id=4, span_type="TOOL", start_ns=1300000000),
+        create_test_span("trace1", "chain_call", span_id=5, span_type="CHAIN", start_ns=1400000000),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_TYPE],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_NAME: "chain_call",
+            SpanMetricDimensionKey.SPAN_TYPE: "CHAIN",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_NAME: "llm_call",
+            SpanMetricDimensionKey.SPAN_TYPE: "LLM",
+        },
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_NAME: "tool_call",
+            SpanMetricDimensionKey.SPAN_TYPE: "TOOL",
+        },
+        "values": {"COUNT": 2},
+    }
+
+
+def test_query_span_metrics_latency_avg(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_latency_avg")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different latencies (end_ns - start_ns in nanoseconds)
+    # Latency in ms = (end_ns - start_ns) / 1_000_000
+    spans = [
+        # 100ms latency
+        create_test_span(
+            "trace1",
+            "span1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            end_ns=1100000000,
+        ),
+        # 200ms latency
+        create_test_span(
+            "trace1",
+            "span2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=2000000000,
+            end_ns=2200000000,
+        ),
+        # 300ms latency
+        create_test_span(
+            "trace1",
+            "span3",
+            span_id=3,
+            span_type="LLM",
+            start_ns=3000000000,
+            end_ns=3300000000,
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.LATENCY,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {},
+        "values": {"AVG": 200.0},  # (100 + 200 + 300) / 3 = 200
+    }
+
+
+def test_query_span_metrics_latency_avg_by_span_name(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_latency_avg_by_span_name")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different names and latencies
+    spans = [
+        # generate_response: 100ms, 200ms, 300ms -> avg = 200ms
+        create_test_span(
+            "trace1",
+            "generate_response",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            end_ns=1100000000,
+        ),
+        create_test_span(
+            "trace1",
+            "generate_response",
+            span_id=2,
+            span_type="LLM",
+            start_ns=2000000000,
+            end_ns=2200000000,
+        ),
+        create_test_span(
+            "trace1",
+            "generate_response",
+            span_id=3,
+            span_type="LLM",
+            start_ns=3000000000,
+            end_ns=3300000000,
+        ),
+        # process_input: 50ms, 150ms -> avg = 100ms
+        create_test_span(
+            "trace1",
+            "process_input",
+            span_id=4,
+            span_type="CHAIN",
+            start_ns=4000000000,
+            end_ns=4050000000,
+        ),
+        create_test_span(
+            "trace1",
+            "process_input",
+            span_id=5,
+            span_type="CHAIN",
+            start_ns=5000000000,
+            end_ns=5150000000,
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.LATENCY,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=[SpanMetricDimensionKey.SPAN_NAME],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {SpanMetricDimensionKey.SPAN_NAME: "generate_response"},
+        "values": {"AVG": 200.0},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {SpanMetricDimensionKey.SPAN_NAME: "process_input"},
+        "values": {"AVG": 100.0},
+    }
+
+
+def test_query_span_metrics_latency_by_span_status(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_latency_by_span_status")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different statuses and latencies
+    spans = [
+        # OK status: 100ms, 200ms -> avg = 150ms
+        create_test_span(
+            "trace1",
+            "span1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            end_ns=1100000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "span2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=2000000000,
+            end_ns=2200000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        # ERROR status: 50ms, 150ms -> avg = 100ms
+        create_test_span(
+            "trace1",
+            "span3",
+            span_id=3,
+            span_type="LLM",
+            start_ns=3000000000,
+            end_ns=3050000000,
+            status=trace_api.StatusCode.ERROR,
+        ),
+        create_test_span(
+            "trace1",
+            "span4",
+            span_id=4,
+            span_type="LLM",
+            start_ns=4000000000,
+            end_ns=4150000000,
+            status=trace_api.StatusCode.ERROR,
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.LATENCY,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=[SpanMetricDimensionKey.SPAN_STATUS],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {SpanMetricDimensionKey.SPAN_STATUS: "ERROR"},
+        "values": {"AVG": 100.0},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {SpanMetricDimensionKey.SPAN_STATUS: "OK"},
+        "values": {"AVG": 150.0},
+    }
+
+
+@pytest.mark.parametrize(
+    "percentile_value",
+    [50.0, 75.0, 90.0, 95.0, 99.0],
+)
+def test_query_span_metrics_latency_percentiles(
+    store: SqlAlchemyStore,
+    percentile_value: float,
+):
+    exp_id = store.create_experiment(f"test_span_latency_percentile_{percentile_value}")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different latencies: 100ms, 200ms, 300ms, 400ms, 500ms
+    spans = [
+        create_test_span(
+            "trace1",
+            "span1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            end_ns=1100000000,  # 100ms
+        ),
+        create_test_span(
+            "trace1",
+            "span2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=2000000000,
+            end_ns=2200000000,  # 200ms
+        ),
+        create_test_span(
+            "trace1",
+            "span3",
+            span_id=3,
+            span_type="LLM",
+            start_ns=3000000000,
+            end_ns=3300000000,  # 300ms
+        ),
+        create_test_span(
+            "trace1",
+            "span4",
+            span_id=4,
+            span_type="LLM",
+            start_ns=4000000000,
+            end_ns=4400000000,  # 400ms
+        ),
+        create_test_span(
+            "trace1",
+            "span5",
+            span_id=5,
+            span_type="LLM",
+            start_ns=5000000000,
+            end_ns=5500000000,  # 500ms
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.LATENCY,
+        aggregations=[
+            MetricAggregation(
+                aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
+            )
+        ],
+    )
+
+    # Calculate expected percentile value
+    latency_values = [100.0, 200.0, 300.0, 400.0, 500.0]
+    expected_percentile = _get_expected_percentile_value(
+        store, percentile_value, 100.0, 500.0, latency_values
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {},
+        "values": {f"P{percentile_value}": expected_percentile},
+    }
+
+
+def test_query_span_metrics_latency_percentiles_by_span_name(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_latency_percentiles_by_span_name")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different names and latencies
+    spans = [
+        # generate_response: 100ms, 200ms, 300ms
+        create_test_span(
+            "trace1",
+            "generate_response",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            end_ns=1100000000,
+        ),
+        create_test_span(
+            "trace1",
+            "generate_response",
+            span_id=2,
+            span_type="LLM",
+            start_ns=2000000000,
+            end_ns=2200000000,
+        ),
+        create_test_span(
+            "trace1",
+            "generate_response",
+            span_id=3,
+            span_type="LLM",
+            start_ns=3000000000,
+            end_ns=3300000000,
+        ),
+        # process_input: 50ms, 150ms
+        create_test_span(
+            "trace1",
+            "process_input",
+            span_id=4,
+            span_type="CHAIN",
+            start_ns=4000000000,
+            end_ns=4050000000,
+        ),
+        create_test_span(
+            "trace1",
+            "process_input",
+            span_id=5,
+            span_type="CHAIN",
+            start_ns=5000000000,
+            end_ns=5150000000,
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    percentile_value = 50.0
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.LATENCY,
+        aggregations=[
+            MetricAggregation(
+                aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
+            )
+        ],
+        dimensions=[SpanMetricDimensionKey.SPAN_NAME],
+    )
+
+    # Calculate expected percentile values
+    gen_resp_values = [100.0, 200.0, 300.0]
+    proc_input_values = [50.0, 150.0]
+
+    expected_gen_resp = _get_expected_percentile_value(
+        store, percentile_value, 100.0, 300.0, gen_resp_values
+    )
+    expected_proc_input = _get_expected_percentile_value(
+        store, percentile_value, 50.0, 150.0, proc_input_values
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {SpanMetricDimensionKey.SPAN_NAME: "generate_response"},
+        "values": {f"P{percentile_value}": expected_gen_resp},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {SpanMetricDimensionKey.SPAN_NAME: "process_input"},
+        "values": {f"P{percentile_value}": expected_proc_input},
+    }
+
+
+def test_query_span_metrics_latency_multiple_aggregations(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_latency_multiple_aggregations")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with latencies: 100ms, 200ms, 300ms, 400ms, 500ms
+    spans = [
+        create_test_span(
+            "trace1",
+            "span1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            end_ns=1100000000,
+        ),
+        create_test_span(
+            "trace1",
+            "span2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=2000000000,
+            end_ns=2200000000,
+        ),
+        create_test_span(
+            "trace1",
+            "span3",
+            span_id=3,
+            span_type="LLM",
+            start_ns=3000000000,
+            end_ns=3300000000,
+        ),
+        create_test_span(
+            "trace1",
+            "span4",
+            span_id=4,
+            span_type="LLM",
+            start_ns=4000000000,
+            end_ns=4400000000,
+        ),
+        create_test_span(
+            "trace1",
+            "span5",
+            span_id=5,
+            span_type="LLM",
+            start_ns=5000000000,
+            end_ns=5500000000,
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.LATENCY,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=50),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
+        ],
+    )
+
+    latency_values = [100.0, 200.0, 300.0, 400.0, 500.0]
+    expected_p50 = _get_expected_percentile_value(store, 50.0, 100.0, 500.0, latency_values)
+    expected_p95 = _get_expected_percentile_value(store, 95.0, 100.0, 500.0, latency_values)
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {},
+        "values": {"AVG": 300.0, "P50": expected_p50, "P95": expected_p95},
+    }
+
+
+def test_query_span_metrics_latency_by_span_name_and_status(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_latency_by_span_name_and_status")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different names, statuses, and latencies
+    spans = [
+        # generate_response + OK: 100ms, 200ms -> avg = 150ms
+        create_test_span(
+            "trace1",
+            "generate_response",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            end_ns=1100000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "generate_response",
+            span_id=2,
+            span_type="LLM",
+            start_ns=2000000000,
+            end_ns=2200000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        # generate_response + ERROR: 300ms
+        create_test_span(
+            "trace1",
+            "generate_response",
+            span_id=3,
+            span_type="LLM",
+            start_ns=3000000000,
+            end_ns=3300000000,
+            status=trace_api.StatusCode.ERROR,
+        ),
+        # process_input + OK: 50ms
+        create_test_span(
+            "trace1",
+            "process_input",
+            span_id=4,
+            span_type="CHAIN",
+            start_ns=4000000000,
+            end_ns=4050000000,
+            status=trace_api.StatusCode.OK,
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.LATENCY,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=[SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_STATUS],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_NAME: "generate_response",
+            SpanMetricDimensionKey.SPAN_STATUS: "ERROR",
+        },
+        "values": {"AVG": 300.0},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_NAME: "generate_response",
+            SpanMetricDimensionKey.SPAN_STATUS: "OK",
+        },
+        "values": {"AVG": 150.0},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.LATENCY,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_NAME: "process_input",
+            SpanMetricDimensionKey.SPAN_STATUS: "OK",
+        },
+        "values": {"AVG": 50.0},
+    }
+
+
 def test_query_assessment_metrics_count_no_dimensions(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_assessment_count_no_dimensions")
 
@@ -1670,23 +2399,23 @@ def test_query_assessment_metrics_count_by_name(store: SqlAlchemyStore):
         view_type=MetricViewType.ASSESSMENTS,
         metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
     )
 
     assert len(result) == 3
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
-        "dimensions": {"assessment_name": "correctness"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "correctness"},
         "values": {"COUNT": 2},
     }
     assert asdict(result[1]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
-        "dimensions": {"assessment_name": "quality"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "quality"},
         "values": {"COUNT": 1},
     }
     assert asdict(result[2]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
-        "dimensions": {"assessment_name": "relevance"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "relevance"},
         "values": {"COUNT": 3},
     }
 
@@ -1731,29 +2460,44 @@ def test_query_assessment_metrics_count_by_value_and_name(store: SqlAlchemyStore
         view_type=MetricViewType.ASSESSMENTS,
         metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["assessment_name", "assessment_value"],
+        dimensions=[
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME,
+            AssessmentMetricDimensionKey.ASSESSMENT_VALUE,
+        ],
     )
 
     # Values are stored as JSON strings
     assert len(result) == 4
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
-        "dimensions": {"assessment_name": "correctness", "assessment_value": json.dumps(False)},
+        "dimensions": {
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME: "correctness",
+            AssessmentMetricDimensionKey.ASSESSMENT_VALUE: json.dumps(False),
+        },
         "values": {"COUNT": 1},
     }
     assert asdict(result[1]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
-        "dimensions": {"assessment_name": "correctness", "assessment_value": json.dumps(True)},
+        "dimensions": {
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME: "correctness",
+            AssessmentMetricDimensionKey.ASSESSMENT_VALUE: json.dumps(True),
+        },
         "values": {"COUNT": 2},
     }
     assert asdict(result[2]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
-        "dimensions": {"assessment_name": "quality", "assessment_value": json.dumps("high")},
+        "dimensions": {
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME: "quality",
+            AssessmentMetricDimensionKey.ASSESSMENT_VALUE: json.dumps("high"),
+        },
         "values": {"COUNT": 2},
     }
     assert asdict(result[3]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
-        "dimensions": {"assessment_name": "quality", "assessment_value": json.dumps("low")},
+        "dimensions": {
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME: "quality",
+            AssessmentMetricDimensionKey.ASSESSMENT_VALUE: json.dumps("low"),
+        },
         "values": {"COUNT": 1},
     }
 
@@ -1878,7 +2622,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
         view_type=MetricViewType.ASSESSMENTS,
         metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
         time_interval_seconds=3600,  # 1 hour
         start_time_ms=base_time_ms,
         end_time_ms=base_time_ms + 2 * hour_ms,
@@ -1894,7 +2638,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
-            "assessment_name": "correctness",
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME: "correctness",
         },
         "values": {"COUNT": 1},
     }
@@ -1902,7 +2646,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
-            "assessment_name": "relevance",
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME: "relevance",
         },
         "values": {"COUNT": 1},
     }
@@ -1910,7 +2654,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
-            "assessment_name": "correctness",
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME: "correctness",
         },
         "values": {"COUNT": 1},
     }
@@ -1918,7 +2662,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
-            "assessment_name": "relevance",
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME: "relevance",
         },
         "values": {"COUNT": 1},
     }
@@ -2044,18 +2788,18 @@ def test_query_assessment_metrics_across_multiple_traces(store: SqlAlchemyStore)
         view_type=MetricViewType.ASSESSMENTS,
         metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
-        "dimensions": {"assessment_name": "correctness"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "correctness"},
         "values": {"COUNT": 3},
     }
     assert asdict(result[1]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
-        "dimensions": {"assessment_name": "relevance"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "relevance"},
         "values": {"COUNT": 3},
     }
 
@@ -2099,24 +2843,24 @@ def test_query_assessment_value_avg_by_name(store: SqlAlchemyStore):
         view_type=MetricViewType.ASSESSMENTS,
         metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
     )
 
     assert len(result) == 3
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "accuracy"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "accuracy"},
         "values": {"AVG": pytest.approx(0.85, abs=0.01)},
     }
     assert asdict(result[1]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "precision"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "precision"},
         "values": {"AVG": pytest.approx(0.725, abs=0.01)},
     }
     # non-numeric value result should be None
     assert asdict(result[2]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "quality"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "quality"},
         "values": {"AVG": None},
     }
 
@@ -2158,13 +2902,13 @@ def test_query_assessment_value_with_boolean_values(store: SqlAlchemyStore):
         view_type=MetricViewType.ASSESSMENTS,
         metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "correctness"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "correctness"},
         "values": {"AVG": pytest.approx(3 / 4, abs=0.01)},
     }
 
@@ -2223,7 +2967,7 @@ def test_query_assessment_value_percentiles(
                 aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
             )
         ],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
     )
 
     accuracy_values = [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -2245,12 +2989,12 @@ def test_query_assessment_value_percentiles(
     assert len(result) == 2
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "accuracy"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "accuracy"},
         "values": {f"P{percentile_value}": expected_accuracy},
     }
     assert asdict(result[1]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "score"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "score"},
         "values": {f"P{percentile_value}": expected_score},
     }
 
@@ -2296,23 +3040,23 @@ def test_query_assessment_value_mixed_types(store: SqlAlchemyStore):
         view_type=MetricViewType.ASSESSMENTS,
         metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
     )
 
     assert len(result) == 3
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "passed"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "passed"},
         "values": {"AVG": pytest.approx(2.0 / 3.0, abs=0.01)},
     }
     assert asdict(result[1]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "rating"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "rating"},
         "values": {"AVG": pytest.approx(12.5 / 3.0, abs=0.01)},
     }
     assert asdict(result[2]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "status"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "status"},
         "values": {"AVG": None},
     }
 
@@ -2359,7 +3103,7 @@ def test_query_assessment_value_multiple_aggregations(store: SqlAlchemyStore):
             MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=50),
             MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
         ],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
     )
 
     values = [10.0, 20.0, 30.0, 40.0, 50.0]
@@ -2373,7 +3117,7 @@ def test_query_assessment_value_multiple_aggregations(store: SqlAlchemyStore):
     assert len(result) == 1
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "score"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "score"},
         "values": {"AVG": 30.0, "P50": expected_p50, "P95": expected_p95},
     }
 
@@ -2551,23 +3295,23 @@ def test_query_assessment_invalid_values(store: SqlAlchemyStore, assessment_type
         view_type=MetricViewType.ASSESSMENTS,
         metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
     )
 
     assert len(result) == 3
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "dict_score"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "dict_score"},
         "values": {"AVG": None},
     }
     assert asdict(result[1]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "list_score"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "list_score"},
         "values": {"AVG": None},
     }
     assert asdict(result[2]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "string_score"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "string_score"},
         "values": {"AVG": None},
     }
 
@@ -2660,7 +3404,7 @@ def test_query_assessment_value_with_assessment_name_filter(store: SqlAlchemySto
         view_type=MetricViewType.ASSESSMENTS,
         metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
-        dimensions=["assessment_name"],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
         filters=["assessment.name = 'accuracy'"],
     )
 
@@ -2668,7 +3412,7 @@ def test_query_assessment_value_with_assessment_name_filter(store: SqlAlchemySto
     assert len(result) == 1
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
-        "dimensions": {"assessment_name": "accuracy"},
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "accuracy"},
         "values": {"AVG": pytest.approx(0.85, abs=0.01)},
     }
 
