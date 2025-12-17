@@ -2033,6 +2033,7 @@ class SearchTraceMetricsUtils(SearchTraceUtils):
     _VALID_SPAN_ENTITIES = {
         "name": False,
         "status": False,
+        "type": False,
     }
     _VALID_ASSESSMENT_ENTITIES = {
         "name": False,

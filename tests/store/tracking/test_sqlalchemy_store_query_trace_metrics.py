@@ -1498,6 +1498,43 @@ def test_query_span_metrics_with_span_name_filter(store: SqlAlchemyStore):
     }
 
 
+def test_query_span_metrics_with_span_type_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_with_type_filter")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span("trace1", "span1", span_id=1, span_type="LLM", start_ns=1000000000),
+        create_test_span("trace1", "span2", span_id=2, span_type="TOOL", start_ns=1100000000),
+        create_test_span("trace1", "span3", span_id=3, span_type="CHAIN", start_ns=1200000000),
+        create_test_span("trace1", "span4", span_id=4, span_type="TOOL", start_ns=1300000000),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=["span.type = 'TOOL'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 2},
+    }
+
+
 @pytest.mark.parametrize(
     ("filter_string", "error_match"),
     [

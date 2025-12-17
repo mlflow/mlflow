@@ -397,6 +397,8 @@ def apply_filters(query: Query, filters: list[str], view_type: MetricViewType) -
                         query = query.filter(SqlSpan.name == parsed_filter.value)
                     case "status":
                         query = query.filter(SqlSpan.status == parsed_filter.value)
+                    case "type":
+                        query = query.filter(SqlSpan.type == parsed_filter.value)
             case "assessment":
                 if view_type != MetricViewType.ASSESSMENTS:
                     raise MlflowException.invalid_parameter_value(
