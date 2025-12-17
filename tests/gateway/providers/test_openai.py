@@ -87,7 +87,13 @@ async def _run_test_chat(provider):
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "temperature": 0.5}
+        payload = {
+            "messages": [{"role": "user", "content": "Tell me a joke"}],
+            "temperature": 0.5,
+            "top_p": 0.9,
+            "presence_penalty": 0.1,
+            "frequency_penalty": 0.2,
+        }
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
             "id": "chatcmpl-abc123",
@@ -122,6 +128,9 @@ async def _run_test_chat(provider):
             json={
                 "model": "gpt-4o-mini",
                 "temperature": 0.5,
+                "top_p": 0.9,
+                "presence_penalty": 0.1,
+                "frequency_penalty": 0.2,
                 "n": 1,
                 **payload,
             },

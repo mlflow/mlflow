@@ -29,6 +29,8 @@ GENERATION_CONFIG_KEY_MAPPING = {
     "max_tokens": "maxOutputTokens",
     "top_k": "topK",
     "top_p": "topP",
+    "frequency_penalty": "frequencyPenalty",
+    "presence_penalty": "presencePenalty",
 }
 
 GENERATION_CONFIGS = [
@@ -38,6 +40,8 @@ GENERATION_CONFIGS = [
     "maxOutputTokens",
     "topK",
     "topP",
+    "frequencyPenalty",
+    "presencePenalty",
 ]
 
 

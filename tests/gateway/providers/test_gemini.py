@@ -1194,3 +1194,58 @@ async def test_chat_with_structured_output():
         call_kwargs = mock_post.call_args[1]
         assert call_kwargs["json"]["generationConfig"]["responseSchema"] == json_schema
         assert call_kwargs["json"]["generationConfig"]["responseMimeType"] == "application/json"
+
+
+@pytest.mark.asyncio
+async def test_chat_with_top_k_and_penalties():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "gemini",
+            "name": "gemini-2.0-flash",
+            "config": {
+                "gemini_api_key": "test-key",
+            },
+        },
+    }
+
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "Hello! How can I help you today?"}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 15,
+            "totalTokenCount": 25,
+        },
+    }
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = GeminiProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "top_k": 40,
+            "top_p": 0.95,
+            "frequency_penalty": 0.5,
+            "presence_penalty": 0.3,
+        }
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert response.choices[0].message.content == "Hello! How can I help you today?"
+        assert response.choices[0].finish_reason == "stop"
+
+        call_kwargs = mock_post.call_args[1]
+        generation_config = call_kwargs["json"]["generationConfig"]
+        assert generation_config["topK"] == 40
+        assert generation_config["topP"] == 0.95
+        assert generation_config["frequencyPenalty"] == 0.5
+        assert generation_config["presencePenalty"] == 0.3
