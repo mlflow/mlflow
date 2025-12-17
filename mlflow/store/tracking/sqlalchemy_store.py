@@ -270,6 +270,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         self._initialize_store_state()
 
+    @property
     def supports_workspaces(self) -> bool:
         return False
 

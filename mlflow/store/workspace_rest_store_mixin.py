@@ -23,6 +23,7 @@ class WorkspaceRestStoreMixin:
         super().__init__(*args, **kwargs)
         self._workspace_support: bool | None = None
 
+    @property
     def supports_workspaces(self) -> bool:
         if self._workspace_support is not None:
             return self._workspace_support
@@ -44,7 +45,7 @@ class WorkspaceRestStoreMixin:
         workspace = get_request_workspace()
         if workspace is None:
             return
-        if not self.supports_workspaces():
+        if not self.supports_workspaces:
             raise MlflowException(
                 self._WORKSPACE_UNSUPPORTED_ERROR.format(workspace=workspace),
                 error_code=databricks_pb2.FEATURE_DISABLED,

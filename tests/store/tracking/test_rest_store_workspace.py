@@ -19,9 +19,9 @@ def test_supports_workspaces_queries_endpoint():
     with mock.patch(
         "mlflow.store.workspace_rest_store_mixin.http_request", return_value=response
     ) as mock_http:
-        assert store.supports_workspaces() is True
+        assert store.supports_workspaces is True
         # Cached result prevents additional requests
-        assert store.supports_workspaces() is True
+        assert store.supports_workspaces is True
 
     mock_http.assert_called_once()
     _, kwargs = mock_http.call_args
@@ -41,7 +41,7 @@ def test_supports_workspaces_returns_false_on_failure():
     response.text = "not found"
 
     with mock.patch("mlflow.store.workspace_rest_store_mixin.http_request", return_value=response):
-        assert store.supports_workspaces() is False
+        assert store.supports_workspaces is False
 
 
 def test_supports_workspaces_handles_missing_json_keys():
@@ -52,7 +52,7 @@ def test_supports_workspaces_handles_missing_json_keys():
     response.json.return_value = {}
 
     with mock.patch("mlflow.store.workspace_rest_store_mixin.http_request", return_value=response):
-        assert store.supports_workspaces() is False
+        assert store.supports_workspaces is False
 
 
 def test_supports_workspaces_returns_false_for_databricks_uri():
@@ -60,7 +60,7 @@ def test_supports_workspaces_returns_false_for_databricks_uri():
     store = RestStore(lambda: creds)
 
     with mock.patch("mlflow.store.workspace_rest_store_mixin.http_request") as mock_http:
-        assert store.supports_workspaces() is False
+        assert store.supports_workspaces is False
         # Should not probe the server for Databricks URIs
         mock_http.assert_not_called()
 
@@ -74,7 +74,7 @@ def test_supports_workspaces_raises_on_server_error():
 
     with mock.patch("mlflow.store.workspace_rest_store_mixin.http_request", return_value=response):
         with pytest.raises(MlflowException, match="Failed to query.*500"):
-            store.supports_workspaces()
+            store.supports_workspaces
 
 
 def test_rest_store_workspace_guard():
@@ -87,7 +87,7 @@ def test_rest_store_workspace_guard():
             "mlflow.store.workspace_rest_store_mixin.get_request_workspace",
             return_value=ACTIVE_WORKSPACE,
         ),
-        mock.patch.object(RestStore, "supports_workspaces", lambda self: False),
+        mock.patch.object(RestStore, "supports_workspaces", property(lambda self: False)),
     ):
         with pytest.raises(
             MlflowException,
@@ -104,7 +104,7 @@ def test_workspace_guard_blocks_log_spans(monkeypatch):
         "mlflow.store.workspace_rest_store_mixin.get_request_workspace",
         lambda: ACTIVE_WORKSPACE,
     )
-    monkeypatch.setattr(RestStore, "supports_workspaces", lambda self: False)
+    monkeypatch.setattr(RestStore, "supports_workspaces", property(lambda self: False))
 
     with pytest.raises(MlflowException, match="does not support workspaces"):
         store.log_spans("exp-1", spans)
