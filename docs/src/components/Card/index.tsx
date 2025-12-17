@@ -71,7 +71,10 @@ export const LogoCard = ({ description, children, link }): JSX.Element => (
 
 export const SmallLogoCard = ({ children, link, title = '' }) => {
   return (
-    <Link className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded, styles.SmallLogoCardLink)} to={link}>
+    <Link
+      className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded, styles.SmallLogoCardLink)}
+      to={link}
+    >
       <div className={styles.SmallLogoCardContent}>
         {title ? (
           <div className={styles.SmallLogoCardRow}>
@@ -89,7 +92,9 @@ export const SmallLogoCard = ({ children, link, title = '' }) => {
             </div>
           </div>
         ) : (
-          <div className={clsx('max-height-img-container', styles.SmallLogoCardImage, styles.SmallLogoCardImageDefault)}>
+          <div
+            className={clsx('max-height-img-container', styles.SmallLogoCardImage, styles.SmallLogoCardImageDefault)}
+          >
             {children}
           </div>
         )}

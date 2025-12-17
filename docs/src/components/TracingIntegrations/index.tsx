@@ -20,14 +20,14 @@ interface TracingIntegrationsProps {
 }
 
 type Category =
-  | 'Native'
+  | 'OpenTelemetry'
   | 'Agent Frameworks (Python)'
   | 'Agent Frameworks (TypeScript)'
   | 'Model Providers'
   | 'Tools';
 
 const CATEGORY_ORDER: Category[] = [
-  'Native',
+  'OpenTelemetry',
   'Agent Frameworks (Python)',
   'Agent Frameworks (TypeScript)',
   'Model Providers',
@@ -36,27 +36,13 @@ const CATEGORY_ORDER: Category[] = [
 
 // Centralized integration definitions with categories
 const TRACING_INTEGRATIONS: TracingIntegration[] = [
-  // Native
-  {
-    id: 'python-sdk',
-    name: 'Python SDK',
-    logoPath: '/images/logos/python-logo.png',
-    link: '/genai/tracing/app-instrumentation/manual-tracing',
-    category: 'Native',
-  },
-  {
-    id: 'typescript-sdk',
-    name: 'TypeScript SDK',
-    logoPath: '/images/logos/typescript-logo.png',
-    link: '/genai/tracing/app-instrumentation/typescript-sdk',
-    category: 'Native',
-  },
+  // OpenTelemetry
   {
     id: 'opentelemetry',
     name: 'OpenTelemetry',
     logoPath: '/images/logos/opentelemetry-logo-only.png',
     link: '/genai/tracing/app-instrumentation/opentelemetry',
-    category: 'Native',
+    category: 'OpenTelemetry',
   },
   // Agent Frameworks (Python)
   {
@@ -258,7 +244,6 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/ollama-logo.png',
     link: '/genai/tracing/integrations/listing/ollama',
     category: 'Model Providers',
-    languages: ['python'],
   },
   {
     id: 'groq',
@@ -330,10 +315,7 @@ const IntegrationSection: React.FC<{
 const getIntegrations = (predicate: (integration: TracingIntegration) => boolean) =>
   TRACING_INTEGRATIONS.filter(predicate);
 
-export const TracingIntegrationsSection: React.FC<TracingIntegrationsProps> = ({
-  category,
-  cardGroupProps = {},
-}) => {
+export const TracingIntegrationsSection: React.FC<TracingIntegrationsProps> = ({ category, cardGroupProps = {} }) => {
   const targetCategories = category ? [category] : CATEGORY_ORDER;
   const sections = targetCategories
     .map((cat) => ({
@@ -345,20 +327,14 @@ export const TracingIntegrationsSection: React.FC<TracingIntegrationsProps> = ({
   return (
     <>
       {sections.map(({ title, integrations }) => (
-        <IntegrationSection
-          key={title}
-          title={title}
-          integrations={integrations}
-          cardGroupProps={cardGroupProps}
-        />
+        <IntegrationSection key={title} title={title} integrations={integrations} cardGroupProps={cardGroupProps} />
       ))}
     </>
   );
 };
 
-export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({
-  cardGroupProps = {},
-  category,
-}) => <TracingIntegrationsSection category={category} cardGroupProps={cardGroupProps} />;
+export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({ cardGroupProps = {}, category }) => (
+  <TracingIntegrationsSection category={category} cardGroupProps={cardGroupProps} />
+);
 
 export default TracingIntegrations;
