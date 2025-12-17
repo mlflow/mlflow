@@ -105,19 +105,21 @@ _suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 
 def _invoke_litellm(
-    litellm_model_uri: str,
+    model: str,
     messages: list["litellm.Message"],
     tools: list[dict[str, Any]],
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None,
     include_response_format: bool,
     inference_params: dict[str, Any] | None = None,
+    api_base: str | None = None,
+    api_key: str | None = None,
 ) -> "litellm.ModelResponse":
     """
     Invoke litellm completion with retry support.
 
     Args:
-        litellm_model_uri: Full model URI for litellm (e.g., "openai/gpt-4").
+        model: The model identifier (e.g., "openai/gpt-4" or endpoint name for gateway).
         messages: List of litellm Message objects.
         tools: List of tool definitions (empty list if no tools).
         num_retries: Number of retries with exponential backoff.
@@ -125,6 +127,8 @@ def _invoke_litellm(
         include_response_format: Whether to include response_format in the request.
         inference_params: Optional dictionary of additional inference parameters to pass
             to the model (e.g., temperature, top_p, max_tokens).
+        api_base: Optional API base URL (used for gateway routing).
+        api_key: Optional API key (used for gateway routing).
 
     Returns:
         The litellm ModelResponse object.
@@ -135,7 +139,7 @@ def _invoke_litellm(
     import litellm
 
     kwargs = {
-        "model": litellm_model_uri,
+        "model": model,
         "messages": messages,
         "tools": tools or None,
         "tool_choice": "auto" if tools else None,
@@ -149,6 +153,12 @@ def _invoke_litellm(
         # certain call parameters (e.g. GPT-4 doesn't support 'response_format')
         "drop_params": True,
     }
+
+    if api_base is not None:
+        kwargs["api_base"] = api_base
+    if api_key is not None:
+        kwargs["api_key"] = api_key
+
     if include_response_format:
         # LiteLLM supports passing Pydantic models directly for response_format
         kwargs["response_format"] = response_format or _get_default_judge_response_schema()
@@ -174,8 +184,8 @@ def _invoke_litellm_and_handle_tools(
     Invoke litellm with retry support and handle tool calling loop.
 
     Args:
-        provider: The provider name (e.g., 'openai', 'anthropic').
-        model_name: The model name.
+        provider: The provider name (e.g., 'openai', 'anthropic', 'gateway').
+        model_name: The model name (or endpoint name for gateway provider).
         messages: List of ChatMessage objects.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
@@ -197,26 +207,41 @@ def _invoke_litellm_and_handle_tools(
 
     messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
-    litellm_model_uri = f"{provider}/{model_name}"
-    tools = []
+    # Construct model URI and gateway params
+    if provider == "gateway":
+        from mlflow.tracking import get_tracking_uri
 
+        tracking_uri = get_tracking_uri()
+        # Use openai/ prefix for LiteLLM to use OpenAI-compatible format.
+        # LiteLLM strips the prefix, so gateway receives model_name as the endpoint.
+        model = f"openai/{model_name}"
+        api_base = f"{tracking_uri}/gateway/mlflow/v1/"
+        api_key = "not-needed"  # Gateway handles authentication
+    else:
+        model = f"{provider}/{model_name}"
+        api_base = None
+        api_key = None
+
+    tools = []
     if trace is not None:
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
+    # For non-gateway providers, we can use token counting to proactively prune messages.
+    # For gateway provider, we don't know the underlying model, so we use reactive truncation.
     def _prune_messages_for_context_window():
         try:
-            max_context_length = litellm.get_max_tokens(litellm_model_uri)
+            max_context_length = litellm.get_max_tokens(model)
         except Exception:
             max_context_length = None
 
         return _prune_messages_exceeding_context_window_length(
             messages=messages,
-            model=litellm_model_uri,
+            model=model,
             max_tokens=max_context_length or 100000,
         )
 
-    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
+    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(model, True)
 
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
@@ -237,17 +262,31 @@ def _invoke_litellm_and_handle_tools(
         try:
             try:
                 response = _invoke_litellm(
-                    litellm_model_uri=litellm_model_uri,
+                    model=model,
                     messages=messages,
                     tools=tools,
                     num_retries=num_retries,
                     response_format=response_format,
                     include_response_format=include_response_format,
                     inference_params=inference_params,
+                    api_base=api_base,
+                    api_key=api_key,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):
-                    messages = _prune_messages_for_context_window()
+                    if provider == "gateway":
+                        # For gateway provider, we don't know the underlying model, so we use
+                        # DSPy-style reactive truncation: remove oldest tool call and retry.
+                        truncated = _truncate_oldest_tool_call(messages)
+                        if truncated is None:
+                            raise MlflowException(
+                                "Context window exceeded and there are no tool calls to truncate. "
+                                "The initial prompt may be too long for the model's context window."
+                            ) from e
+                        messages = truncated
+                    else:
+                        # For direct providers, use token-counting based pruning
+                        messages = _prune_messages_for_context_window()
                     continue
                 # Check whether the request attempted to use structured outputs, rather than
                 # checking whether the model supports structured outputs in the capabilities cache,
@@ -258,12 +297,12 @@ def _invoke_litellm_and_handle_tools(
                     # Some models don't support structured outputs (response_format) at all,
                     # and some models don't support both tool calling and structured outputs.
                     _logger.debug(
-                        f"Model {litellm_model_uri} may not support structured outputs or combined "
-                        f"tool calling + structured outputs. Error: {e}. "
+                        f"Model {model} may not support structured outputs "
+                        f"or combined tool calling + structured outputs. Error: {e}. "
                         f"Falling back to unstructured response.",
                         exc_info=True,
                     )
-                    _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
+                    _MODEL_RESPONSE_FORMAT_CAPABILITIES[model] = False
                     include_response_format = False
                     continue
                 else:
@@ -291,6 +330,40 @@ def _invoke_litellm_and_handle_tools(
 def _extract_response_cost(response: "litellm.Completion") -> float | None:
     if hidden_params := getattr(response, "_hidden_params", None):
         return hidden_params.get("response_cost")
+
+
+def _truncate_oldest_tool_call(
+    messages: list["litellm.Message"],
+) -> list["litellm.Message"] | None:
+    """
+    Remove the oldest tool call and its corresponding tool response messages.
+
+    This follows the DSPy pattern of reactively truncating context on
+    ContextWindowExceededError rather than proactively estimating token counts.
+
+    Args:
+        messages: List of LiteLLM message objects.
+
+    Returns:
+        Truncated list of messages, or None if there are no tool calls to remove.
+    """
+    # Find first assistant message with tool calls (oldest tool call)
+    result = next(
+        ((i, msg) for i, msg in enumerate(messages) if msg.role == "assistant" and msg.tool_calls),
+        None,
+    )
+    if result is None:
+        return None  # No tool calls to truncate
+
+    assistant_idx, assistant_msg = result
+    truncated = messages[:]
+    truncated.pop(assistant_idx)
+
+    # Remove corresponding tool response messages
+    tool_call_ids = {tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls}
+    return [
+        msg for msg in truncated if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
+    ]
 
 
 def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
