@@ -577,16 +577,32 @@ def test_equivalence():
     assert result.value == CategoricalRating.YES
 
 
-@pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
-def test_get_all_scorers_oss(tracking_uri):
-    mlflow.set_tracking_uri(tracking_uri)
-
+def test_get_all_scorers():
     scorers = get_all_scorers()
+    scorer_class_names = {type(s).__name__ for s in scorers}
 
-    # Safety and RetrievalRelevance are only available in Databricks
-    # Now we have 9 scorers for OSS and 11 for Databricks
-    assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
+    expected_scorers = {
+        "RetrievalRelevance",
+        "RetrievalSufficiency",
+        "RetrievalGroundedness",
+        "ExpectationsGuidelines",
+        "RelevanceToQuery",
+        "Safety",
+        "Correctness",
+        "Fluency",
+        "Equivalence",
+        "Completeness",
+        "Summarization",
+        "UserFrustration",
+        "ConversationCompleteness",
+        "ConversationalSafety",
+        "ConversationalToolCallEfficiency",
+        "ConversationalRoleAdherence",
+    }
+
+    assert scorer_class_names == expected_scorers
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
+    assert len({s.name for s in scorers}) == len(scorers)
 
 
 def test_retrieval_relevance_get_input_fields():
