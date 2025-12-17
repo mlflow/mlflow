@@ -342,7 +342,7 @@ def test_adapter_model_to_chat():
 def test_adapter_model_to_embeddings():
     config = EndpointConfig(**embeddings_config())
     resp = {
-        "data": [{"embedding": [0.1, 0.2, 0.3]}],
+        "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}],
         "model": "test-model",
         "usage": {"prompt_tokens": 5, "total_tokens": 5},
     }
@@ -352,4 +352,5 @@ def test_adapter_model_to_embeddings():
     assert result.model == "test-model"
     assert len(result.data) == 1
     assert result.data[0].embedding == [0.1, 0.2, 0.3]
+    assert result.data[0].index == 0
     assert result.usage.prompt_tokens == 5

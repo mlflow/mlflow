@@ -25,73 +25,15 @@ class LiteLLMAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat(cls, resp, config):
-        return chat.ResponsePayload(
-            id=resp["id"],
-            object=resp["object"],
-            created=resp["created"],
-            model=resp["model"],
-            choices=[
-                chat.Choice(
-                    index=idx,
-                    message=chat.ResponseMessage(
-                        role=c["message"]["role"],
-                        content=c["message"].get("content"),
-                        tool_calls=(
-                            (calls := c["message"].get("tool_calls"))
-                            and [chat.ToolCall(**tc) for tc in calls]
-                        ),
-                    ),
-                    finish_reason=c.get("finish_reason"),
-                )
-                for idx, c in enumerate(resp["choices"])
-            ],
-            usage=chat.ChatUsage(
-                prompt_tokens=resp["usage"]["prompt_tokens"],
-                completion_tokens=resp["usage"]["completion_tokens"],
-                total_tokens=resp["usage"]["total_tokens"],
-            ),
-        )
+        return chat.ResponsePayload.model_validate(resp)
 
     @classmethod
     def model_to_chat_streaming(cls, resp, config):
-        return chat.StreamResponsePayload(
-            id=resp["id"],
-            object=resp["object"],
-            created=resp["created"],
-            model=resp["model"],
-            choices=[
-                chat.StreamChoice(
-                    index=c["index"],
-                    finish_reason=c.get("finish_reason"),
-                    delta=chat.StreamDelta(
-                        role=c["delta"].get("role"),
-                        content=c["delta"].get("content"),
-                        tool_calls=(
-                            (calls := c["delta"].get("tool_calls"))
-                            and [chat.ToolCallDelta(**tc) for tc in calls]
-                        ),
-                    ),
-                )
-                for c in resp["choices"]
-            ],
-        )
+        return chat.StreamResponsePayload.model_validate(resp)
 
     @classmethod
     def model_to_embeddings(cls, resp, config):
-        return embeddings.ResponsePayload(
-            data=[
-                embeddings.EmbeddingObject(
-                    embedding=d["embedding"],
-                    index=idx,
-                )
-                for idx, d in enumerate(resp["data"])
-            ],
-            model=resp["model"],
-            usage=embeddings.EmbeddingsUsage(
-                prompt_tokens=resp["usage"]["prompt_tokens"],
-                total_tokens=resp["usage"]["total_tokens"],
-            ),
-        )
+        return embeddings.ResponsePayload.model_validate(resp)
 
     @classmethod
     def completions_to_model(cls, payload, config):
@@ -256,7 +198,10 @@ class LiteLLMProvider(BaseProvider):
 
         # Convert to dict for adapter processing
         resp_dict = {
-            "data": [{"embedding": data["embedding"]} for data in response.data],
+            "data": [
+                {"embedding": data["embedding"], "index": idx}
+                for idx, data in enumerate(response.data)
+            ],
             "model": response.model,
             "usage": {
                 "prompt_tokens": response.usage.prompt_tokens,
