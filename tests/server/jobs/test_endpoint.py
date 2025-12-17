@@ -110,6 +110,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             "_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST": (
                 "test_endpoint.simple_job_fun,test_endpoint.job_assert_tracking_uri"
             ),
+            "_MLFLOW_ALLOWED_JOB_NAME_LIST": ("simple_job_fun,job_assert_tracking_uri"),
         },
         start_new_session=True,  # new session & process group
     ) as server_proc:
