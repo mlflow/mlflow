@@ -6,16 +6,13 @@ import { DesignSystemProvider } from '@databricks/design-system';
 
 describe('ExperimentViewDatasetSchemaTable', () => {
   const renderTestComponent = ({ schema, filter }: { schema: any[]; filter: string }) => {
-    return render(
-      <ExperimentViewDatasetSchemaTable schema={schema} filter={filter} />,
-      {
-        wrapper: ({ children }) => (
-          <IntlProvider locale="en">
-            <DesignSystemProvider>{children}</DesignSystemProvider>
-          </IntlProvider>
-        ),
-      },
-    );
+    return render(<ExperimentViewDatasetSchemaTable schema={schema} filter={filter} />, {
+      wrapper: ({ children }) => (
+        <IntlProvider locale="en">
+          <DesignSystemProvider>{children}</DesignSystemProvider>
+        </IntlProvider>
+      ),
+    });
   };
 
   test('it renders regular column names', () => {
@@ -25,7 +22,7 @@ describe('ExperimentViewDatasetSchemaTable', () => {
       { name: 'target', type: 'double' },
     ];
     renderTestComponent({ schema, filter: '' });
-    
+
     expect(screen.getByText('feature_a')).toBeInTheDocument();
     expect(screen.getByText('feature_b')).toBeInTheDocument();
     expect(screen.getByText('target')).toBeInTheDocument();
@@ -39,7 +36,7 @@ describe('ExperimentViewDatasetSchemaTable', () => {
       { name: ['bar', 'd'], type: 'long' },
     ];
     renderTestComponent({ schema, filter: '' });
-    
+
     expect(screen.getByText('foo.a')).toBeInTheDocument();
     expect(screen.getByText('foo.b')).toBeInTheDocument();
     expect(screen.getByText('bar.c')).toBeInTheDocument();
@@ -53,7 +50,7 @@ describe('ExperimentViewDatasetSchemaTable', () => {
       { name: 'target', type: 'double' },
     ];
     renderTestComponent({ schema, filter: 'feature' });
-    
+
     expect(screen.getByText('feature_a')).toBeInTheDocument();
     expect(screen.getByText('feature_b')).toBeInTheDocument();
     expect(screen.queryByText('target')).not.toBeInTheDocument();
@@ -67,7 +64,7 @@ describe('ExperimentViewDatasetSchemaTable', () => {
       { name: ['bar', 'd'], type: 'long' },
     ];
     renderTestComponent({ schema, filter: 'foo' });
-    
+
     expect(screen.getByText('foo.a')).toBeInTheDocument();
     expect(screen.getByText('foo.b')).toBeInTheDocument();
     expect(screen.queryByText('bar.c')).not.toBeInTheDocument();
@@ -82,7 +79,7 @@ describe('ExperimentViewDatasetSchemaTable', () => {
       { name: ['bar', 'd'], type: 'long' },
     ];
     renderTestComponent({ schema, filter: '.d' });
-    
+
     expect(screen.queryByText('foo.a')).not.toBeInTheDocument();
     expect(screen.queryByText('foo.b')).not.toBeInTheDocument();
     expect(screen.queryByText('bar.c')).not.toBeInTheDocument();
@@ -96,7 +93,7 @@ describe('ExperimentViewDatasetSchemaTable', () => {
       { name: 'target', type: 'double' },
     ];
     renderTestComponent({ schema, filter: 'string' });
-    
+
     expect(screen.queryByText('feature_a')).not.toBeInTheDocument();
     expect(screen.getByText('feature_b')).toBeInTheDocument();
     expect(screen.queryByText('target')).not.toBeInTheDocument();
@@ -108,7 +105,7 @@ describe('ExperimentViewDatasetSchemaTable', () => {
       { name: 'feature_b', type: 'string' },
     ];
     renderTestComponent({ schema, filter: 'nonexistent' });
-    
+
     expect(screen.getByText('No results match this search.')).toBeInTheDocument();
     expect(screen.queryByText('feature_a')).not.toBeInTheDocument();
     expect(screen.queryByText('feature_b')).not.toBeInTheDocument();
@@ -120,7 +117,7 @@ describe('ExperimentViewDatasetSchemaTable', () => {
       { name: 'feature_b', type: 'string' },
     ];
     renderTestComponent({ schema, filter: 'FEATURE' });
-    
+
     expect(screen.getByText('Feature_A')).toBeInTheDocument();
     expect(screen.getByText('feature_b')).toBeInTheDocument();
   });
