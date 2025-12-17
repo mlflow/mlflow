@@ -81,12 +81,11 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    return {
-        t
-        for t in sqlalchemy.inspect(engine).get_table_names()
-        # Filter out alembic tables
-        if not t.startswith("alembic_")
-    } == {
+    # Check if the core initial tables exist in the database.
+    # Using issubset() instead of equality so that additional tables added by migrations
+    # don't cause this check to fail. This prevents unnecessary calls to _initialize_tables
+    # which can cause migration errors like "Can't locate revision identified by 'xxx'".
+    expected_tables = {
         SqlExperiment.__tablename__,
         SqlRun.__tablename__,
         SqlMetric.__tablename__,
@@ -109,6 +108,10 @@ def _all_tables_exist(engine):
         SqlScorerVersion.__tablename__,
         SqlJob.__tablename__,
     }
+    actual_tables = {
+        t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
+    }
+    return expected_tables.issubset(actual_tables)
 
 
 def _initialize_tables(engine):
