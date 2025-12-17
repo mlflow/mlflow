@@ -29,6 +29,7 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
     Summarization,
+    ToolCallEfficiency,
     UserFrustration,
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
@@ -577,16 +578,32 @@ def test_equivalence():
     assert result.value == CategoricalRating.YES
 
 
-@pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
-def test_get_all_scorers_oss(tracking_uri):
-    mlflow.set_tracking_uri(tracking_uri)
-
+def test_get_all_scorers():
     scorers = get_all_scorers()
+    scorer_class_names = {type(s).__name__ for s in scorers}
 
-    # Safety and RetrievalRelevance are only available in Databricks
-    # Now we have 9 scorers for OSS and 11 for Databricks
-    assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
+    expected_scorers = {
+        "RetrievalRelevance",
+        "RetrievalSufficiency",
+        "RetrievalGroundedness",
+        "ExpectationsGuidelines",
+        "RelevanceToQuery",
+        "Safety",
+        "Correctness",
+        "Fluency",
+        "Equivalence",
+        "Completeness",
+        "Summarization",
+        "UserFrustration",
+        "ConversationCompleteness",
+        "ConversationalSafety",
+        "ConversationalToolCallEfficiency",
+        "ConversationalRoleAdherence",
+    }
+
+    assert scorer_class_names == expected_scorers
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
+    assert len({s.name for s in scorers}) == len(scorers)
 
 
 def test_retrieval_relevance_get_input_fields():
@@ -1665,6 +1682,44 @@ def test_conversational_tool_call_efficiency_instructions():
     instructions = scorer.instructions
     assert "tool" in instructions.lower()
     assert "efficient" in instructions.lower() or "redundant" in instructions.lower()
+
+
+def test_tool_call_efficiency():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "What is the weather in Paris?"})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"city": "Paris"})
+            tool_span.set_outputs("Sunny, 22°C")
+        span.set_outputs("The weather in Paris is sunny and 22°C")
+
+    efficient_trace = mlflow.get_trace(span.trace_id)
+
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "Get weather for InvalidCity"})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"city": "InvalidCity123"})
+            tool_span.record_exception(ValueError("City not found"))
+        span.set_outputs("Sorry, I couldn't find that city")
+
+    exception_trace = mlflow.get_trace(span.trace_id)
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_efficiency",
+            value=CategoricalRating.YES,
+            rationale="Tool usage is efficient",
+        )
+
+        scorer = ToolCallEfficiency()
+        result = scorer(trace=efficient_trace)
+
+        assert result.name == "tool_call_efficiency"
+        assert result.value == CategoricalRating.YES
+        mock_invoke.assert_called()
+
+        result = scorer(trace=exception_trace)
+        assert result.name == "tool_call_efficiency"
+        mock_invoke.assert_called()
 
 
 def test_conversational_role_adherence_with_session():

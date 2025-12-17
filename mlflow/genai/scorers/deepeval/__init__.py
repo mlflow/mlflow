@@ -174,6 +174,13 @@ class DeepEvalScorer(Scorer):
                 source=assessment_source,
             )
 
+    def _validate_kwargs(self, **metric_kwargs):
+        if is_deterministic_metric(self.metric_name):
+            if "model" in metric_kwargs:
+                raise MlflowException.invalid_parameter_value(
+                    f"{self.metric_name} got an unexpected keyword argument 'model'"
+                )
+
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
