@@ -231,7 +231,7 @@ def _invoke_litellm_and_handle_tools(
         # LiteLLM requires api_key to be set when using custom api_base, otherwise it
         # raises AuthenticationError looking for OPENAI_API_KEY env var. Gateway handles
         # auth in the server layer, so we pass a dummy value to satisfy LiteLLM.
-        api_key = "not-needed"
+        api_key = "mlflow-gateway-auth"
     else:
         model = f"{provider}/{model_name}"
         api_base = None
