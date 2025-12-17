@@ -6,7 +6,6 @@ from typing import Any, AsyncIterable
 from mlflow.gateway.config import EndpointConfig, GeminiConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import (
-    PASSTHROUGH_ROUTES,
     BaseProvider,
     PassthroughAction,
     ProviderAdapter,
@@ -739,22 +738,8 @@ class GeminiProvider(BaseProvider):
     async def passthrough(
         self, action: PassthroughAction, payload: dict[str, Any]
     ) -> dict[str, Any] | AsyncIterable[bytes]:
-        provider_path_template = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
-        if provider_path_template is None:
-            route = PASSTHROUGH_ROUTES.get(action)
-            supported_routes = ", ".join(
-                f"/gateway{route} (provider_path: {path})"
-                for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
-                if (route := PASSTHROUGH_ROUTES.get(act))
-                and (path := self.PASSTHROUGH_PROVIDER_PATHS.get(act))
-            )
-            raise AIGatewayException(
-                status_code=400,
-                detail=f"Unsupported passthrough endpoint '{route}' for {self.NAME} provider. "
-                f"Supported endpoints: {supported_routes}",
-            )
-
-        provider_path = provider_path_template.replace("{model}", self.config.model.name)
+        provider_path = self._validate_passthrough_action(action)
+        provider_path = provider_path.format(model=self.config.model.name)
 
         is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
 
