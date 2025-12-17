@@ -79,7 +79,6 @@ from mlflow.genai.utils.trace_utils import (
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
-from mlflow.utils.uri import is_databricks_uri
 
 GENAI_CONFIG_NAME = "databricks-agent"
 
@@ -2304,9 +2303,42 @@ class Summarization(BuiltInScorer):
         )
 
 
+def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
+    """
+    Recursively discover all concrete (non-abstract) BuiltInScorer subclasses.
+
+    This automatically finds all scorer classes that inherit from BuiltInScorer,
+    excluding abstract base classes.
+
+    Returns:
+        List of concrete BuiltInScorer classes
+    """
+    import inspect
+
+    def get_concrete_subclasses(base_class: type) -> list[type]:
+        """Recursively get all concrete subclasses of a base class."""
+        concrete = []
+        for subclass in base_class.__subclasses__():
+            # Only include non-abstract classes from the builtin_scorers module
+            if (
+                not inspect.isabstract(subclass)
+                and subclass.__module__ == "mlflow.genai.scorers.builtin_scorers"
+            ):
+                concrete.append(subclass)
+            # Recurse to find subclasses of subclasses (e.g., BuiltInSessionLevelScorer)
+            concrete.extend(get_concrete_subclasses(subclass))
+        return concrete
+
+    return get_concrete_subclasses(BuiltInScorer)
+
+
 def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.
+
+    This function automatically discovers all concrete (non-abstract) BuiltInScorer
+    subclasses and instantiates them with default parameters. Scorers that require
+    constructor arguments are skipped with a debug log message.
 
     Example:
 
@@ -2324,19 +2356,21 @@ def get_all_scorers() -> list[BuiltInScorer]:
         ]
         result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
     """
-    scorers = [
-        ExpectationsGuidelines(),
-        Correctness(),
-        RelevanceToQuery(),
-        RetrievalSufficiency(),
-        RetrievalGroundedness(),
-        Equivalence(),
-        UserFrustration(),
-        ConversationCompleteness(),
-        Completeness(),
-    ]
-    if is_databricks_uri(mlflow.get_tracking_uri()):
-        scorers.extend([Safety(), RetrievalRelevance()])
+    scorer_classes = _get_all_concrete_builtin_scorers()
+    scorers = []
+
+    for scorer_class in scorer_classes:
+        try:
+            # Try to instantiate with default parameters
+            scorer = scorer_class()
+            scorers.append(scorer)
+        except (TypeError, pydantic.ValidationError):
+            # Skip scorers that require constructor arguments (e.g., Guidelines)
+            # These scorers can still be used by instantiating them manually
+            _logger.debug(
+                f"Skipping scorer {scorer_class.__name__} - requires constructor arguments"
+            )
+
     return scorers
 
 

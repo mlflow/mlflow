@@ -583,10 +583,65 @@ def test_get_all_scorers_oss(tracking_uri):
 
     scorers = get_all_scorers()
 
-    # Safety and RetrievalRelevance are only available in Databricks
-    # Now we have 9 scorers for OSS and 11 for Databricks
-    assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
+    # With automatic discovery, we expect all scorers that can be instantiated with defaults
+    # Total: 17 concrete scorer classes
+    # - 1 (Guidelines requires constructor args) = 16 scorers
+    expected_min_count = 16
+    assert len(scorers) >= expected_min_count, (
+        f"Expected at least {expected_min_count} scorers but got {len(scorers)}. "
+        f"Scorers: {[type(s).__name__ for s in scorers]}"
+    )
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
+
+    # Verify no duplicates
+    scorer_names = [s.name for s in scorers]
+    assert len(scorer_names) == len(set(scorer_names)), "Duplicate scorer names found"
+
+    # Verify that base classes are not included
+    scorer_class_names = [type(s).__name__ for s in scorers]
+    assert "BuiltInScorer" not in scorer_class_names
+    assert "BuiltInSessionLevelScorer" not in scorer_class_names
+
+
+def test_builtin_scorer_discovery():
+    from mlflow.genai.scorers.builtin_scorers import _get_all_concrete_builtin_scorers
+
+    discovered = _get_all_concrete_builtin_scorers()
+    discovered_names = {cls.__name__ for cls in discovered}
+
+    # Verify we discover all expected concrete scorer classes
+    # This list should match all concrete classes in builtin_scorers.py
+    expected_min_scorers = {
+        "RetrievalRelevance",
+        "RetrievalSufficiency",
+        "RetrievalGroundedness",
+        "Guidelines",
+        "ExpectationsGuidelines",
+        "RelevanceToQuery",
+        "Safety",
+        "Correctness",
+        "Fluency",
+        "Equivalence",
+        "Completeness",
+        "Summarization",
+        "UserFrustration",
+        "ConversationCompleteness",
+        "ConversationalSafety",
+        "ConversationalToolCallEfficiency",
+        "ConversationalRoleAdherence",
+    }
+
+    assert expected_min_scorers.issubset(discovered_names), (
+        f"Missing expected scorers: {expected_min_scorers - discovered_names}"
+    )
+
+    # Verify base classes are not included
+    assert "BuiltInScorer" not in discovered_names
+    assert "BuiltInSessionLevelScorer" not in discovered_names
+
+    # Verify all discovered classes are from the correct module
+    for cls in discovered:
+        assert cls.__module__ == "mlflow.genai.scorers.builtin_scorers"
 
 
 def test_retrieval_relevance_get_input_fields():
