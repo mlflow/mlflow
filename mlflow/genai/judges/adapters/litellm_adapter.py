@@ -242,18 +242,20 @@ def _invoke_litellm_and_handle_tools(
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
-    # For non-gateway providers, we can use token counting to proactively prune messages.
-    # For gateway provider, we don't know the underlying model, so we use reactive truncation.
-    def _prune_messages_for_context_window():
+    def _prune_messages_for_context_window() -> list[litellm.Message] | None:
+        if provider == "gateway":
+            # For gateway provider, we don't know the underlying model,
+            # so simply remove the oldest tool call pair.
+            return _prune_messages_exceeding_context_window_length(messages)
+
+        # For direct providers, use token-counting based pruning.
         try:
             max_context_length = litellm.get_max_tokens(model)
         except Exception:
             max_context_length = None
 
         return _prune_messages_exceeding_context_window_length(
-            messages=messages,
-            model=model,
-            max_tokens=max_context_length or 100000,
+            messages, model=model, max_tokens=max_context_length or 100000
         )
 
     include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(model, True)
@@ -295,18 +297,13 @@ def _invoke_litellm_and_handle_tools(
                     or "too many tokens" in error_str
                 )
                 if is_context_window_error:
-                    if provider == "gateway":
-                        # For gateway provider, we don't know the underlying model, so we use
-                        # DSPy-style reactive truncation: remove oldest tool call and retry.
-                        messages = _remove_oldest_tool_call_pair(messages)
-                        if messages is None:
-                            raise MlflowException(
-                                "Context window exceeded and there are no tool calls to truncate. "
-                                "The initial prompt may be too long for the model's context window."
-                            ) from e
-                    else:
-                        # For direct providers, use token-counting based pruning
-                        messages = _prune_messages_for_context_window()
+                    pruned = _prune_messages_for_context_window()
+                    if pruned is None:
+                        raise MlflowException(
+                            "Context window exceeded and there are no tool calls to truncate. "
+                            "The initial prompt may be too long for the model's context window."
+                        ) from e
+                    messages = pruned
                     continue
                 # Check whether the request attempted to use structured outputs, rather than
                 # checking whether the model supports structured outputs in the capabilities cache,
@@ -402,21 +399,28 @@ def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
 
 def _prune_messages_exceeding_context_window_length(
     messages: list["litellm.Message"],
-    model: str,
-    max_tokens: int,
-) -> list["litellm.Message"]:
+    model: str | None = None,
+    max_tokens: int | None = None,
+) -> list["litellm.Message"] | None:
     """
     Prune messages from history to stay under token limit.
 
+    When max_tokens is provided and model supports token counting, uses proactive
+    token-counting based pruning. Otherwise, uses reactive truncation by removing
+    a single tool call pair (useful when the underlying model is unknown).
+
     Args:
         messages: List of LiteLLM message objects.
-        model: Model name for token counting.
-        max_tokens: Maximum token limit.
+        model: Model name for token counting. Required for token-based pruning.
+        max_tokens: Maximum token limit. If None, removes the oldest tool call pair.
 
     Returns:
-        Pruned list of LiteLLM message objects under the token limit
+        Pruned list of LiteLLM message objects, or None if no tool calls to remove.
     """
     import litellm
+
+    if max_tokens is None or model is None:
+        return _remove_oldest_tool_call_pair(messages)
 
     initial_tokens = litellm.token_counter(model=model, messages=messages)
     if initial_tokens <= max_tokens:

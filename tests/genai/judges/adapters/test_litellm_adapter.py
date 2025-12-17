@@ -157,13 +157,13 @@ def test_invoke_litellm_with_gateway_params():
             response_format=None,
             include_response_format=False,
             api_base="http://localhost:5000/gateway/mlflow/v1/",
-            api_key="not-needed",
+            api_key="mlflow-gateway-auth",
         )
 
     call_kwargs = mock_litellm.call_args.kwargs
     assert call_kwargs["model"] == "my-endpoint"
     assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
-    assert call_kwargs["api_key"] == "not-needed"
+    assert call_kwargs["api_key"] == "mlflow-gateway-auth"
 
 
 def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_provider(mock_trace):
@@ -352,7 +352,7 @@ def test_gateway_provider_integration():
     call_kwargs = mock_litellm.call_args.kwargs
     assert call_kwargs["model"] == "openai/my-endpoint"
     assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
-    assert call_kwargs["api_key"] == "not-needed"
+    assert call_kwargs["api_key"] == "mlflow-gateway-auth"
 
 
 def test_gateway_provider_requires_http_tracking_uri():
