@@ -225,6 +225,7 @@ docs = [
   "ragas",
   "instructor",
   "litellm",
+  "langchain-community>=0.3.0",
 ]
 
 [tool.uv]
