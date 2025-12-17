@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-    call_chat_completions,
-)
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+
+_logger = logging.getLogger(__name__)
 
 
 def _check_phoenix_installed():
@@ -24,15 +25,26 @@ class DatabricksPhoenixModel:
     """
     Phoenix model adapter for Databricks managed judge.
 
-    Uses the default Databricks endpoint via call_chat_completions.
+    Uses the Databricks Foundation Model API via model serving.
     """
 
     def __init__(self):
         self._model_name = _DATABRICKS_DEFAULT_JUDGE_MODEL
+        # Use the default foundation model endpoint for evaluation
+        self._endpoint_name = "databricks-meta-llama-3-3-70b-instruct"
 
     def __call__(self, prompt: str, **kwargs) -> str:
-        result = call_chat_completions(user_prompt=prompt, system_prompt="")
-        return result.output
+        try:
+            output = _invoke_databricks_serving_endpoint(
+                model_name=self._endpoint_name,
+                prompt=prompt,
+                num_retries=3,
+                response_format=None,
+            )
+            return output.response
+        except Exception as e:
+            _logger.error(f"Error invoking Databricks Foundation Model: {e}")
+            raise
 
     def get_model_name(self) -> str:
         return self._model_name
