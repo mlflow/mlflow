@@ -10,15 +10,17 @@ export const ExperimentViewDatasetSchemaTable = ({
   schema,
   filter,
 }: ExperimentViewDatasetSchemaTableProps): JSX.Element => {
-  const hasFilter = (name?: string, type?: string) => {
+  const hasFilter = (name?: string | string[], type?: string) => {
+    // Handle both string names (regular columns) and array names (MultiIndex columns)
+    const nameStr = Array.isArray(name) ? name.join('.') : name;
     return (
       filter === '' ||
-      name?.toLowerCase().includes(filter.toLowerCase()) ||
+      nameStr?.toLowerCase().includes(filter.toLowerCase()) ||
       type?.toLowerCase().includes(filter.toLowerCase())
     );
   };
 
-  const filteredSchema = schema.filter((row: { name: string; type: string }, _: number) =>
+  const filteredSchema = schema.filter((row: { name: string | string[]; type: string }, _: number) =>
     hasFilter(row.name, row.type),
   );
 
@@ -56,9 +58,9 @@ export const ExperimentViewDatasetSchemaTable = ({
             </TableCell>
           </TableRow>
         ) : (
-          filteredSchema.map((row: { name: string; type: string }, idx: number) => (
+          filteredSchema.map((row: { name: string | string[]; type: string }, idx: number) => (
             <TableRow key={`table-body-row-${idx}`}>
-              <TableCell>{row.name}</TableCell>
+              <TableCell>{Array.isArray(row.name) ? row.name.join('.') : row.name}</TableCell>
               <TableCell>{row.type}</TableCell>
             </TableRow>
           ))
