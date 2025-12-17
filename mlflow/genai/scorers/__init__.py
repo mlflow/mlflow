@@ -42,6 +42,7 @@ _LAZY_IMPORTS = {
     "RetrievalSufficiency",
     "Safety",
     "Summarization",
+    "ToolCallEfficiency",
     "UserFrustration",
     "get_all_scorers",
 }
@@ -90,6 +91,7 @@ if TYPE_CHECKING:
         RetrievalSufficiency,
         Safety,
         Summarization,
+        ToolCallEfficiency,
         UserFrustration,
         get_all_scorers,
     )
@@ -110,6 +112,7 @@ __all__ = [
     "RetrievalSufficiency",
     "Safety",
     "Summarization",
+    "ToolCallEfficiency",
     "UserFrustration",
     "Scorer",
     "scorer",
