@@ -741,7 +741,7 @@ class GeminiProvider(BaseProvider):
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         provider_path_template = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
         if provider_path_template is None:
-            route = PASSTHROUGH_ROUTES.get(action, action.value)
+            route = PASSTHROUGH_ROUTES.get(action)
             supported_routes = ", ".join(
                 f"/gateway{route} (provider_path: {path})"
                 for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
