@@ -1051,3 +1051,61 @@ async def test_azure_openai_passthrough_chat_removes_model():
 
         # Verify response is raw OpenAI format
         assert response == mock_response
+
+
+@pytest.mark.asyncio
+async def test_chat_with_structured_output():
+    config = EndpointConfig(**chat_config())
+    provider = OpenAIProvider(config)
+
+    json_schema = {
+        "name": "math_response",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "steps": {"type": "array", "items": {"type": "string"}},
+                "final_answer": {"type": "string"},
+            },
+            "required": ["steps", "final_answer"],
+            "additionalProperties": False,
+        },
+    }
+
+    resp = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-4o-mini",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 50,
+            "total_tokens": 63,
+        },
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": '{"steps": ["1 + 1 = 2"], "final_answer": "2"}',
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+    }
+
+    mock_client = mock_http_client(MockAsyncResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = {
+            "messages": [{"role": "user", "content": "What is 1+1?"}],
+            "temperature": 0.0,
+            "response_format": {"type": "json_schema", "json_schema": json_schema},
+        }
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        # Verify the response_format was passed correctly
+        assert (
+            response.choices[0].message.content == '{"steps": ["1 + 1 = 2"], "final_answer": "2"}'
+        )
+        assert response.choices[0].finish_reason == "stop"

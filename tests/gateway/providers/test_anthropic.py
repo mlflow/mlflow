@@ -830,3 +830,61 @@ async def test_passthrough_anthropic_messages_streaming():
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+
+@pytest.mark.asyncio
+async def test_chat_with_structured_output():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "anthropic",
+            "name": "claude-sonnet-4-5",
+            "config": {
+                "anthropic_api_key": "key",
+            },
+        },
+    }
+
+    json_schema = {
+        "name": "user_info",
+        "schema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "email": {"type": "string"}},
+            "required": ["name", "email"],
+            "additionalProperties": False,
+        },
+    }
+
+    resp = {
+        "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": '{"name": "John Doe", "email": "john@example.com"}'}],
+        "model": "claude-sonnet-4-5",
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 25},
+    }
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Extract user info"}],
+            "response_format": {"type": "json_schema", "json_schema": json_schema},
+        }
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert len(response.choices[0].message.content) == 1
+        assert (
+            response.choices[0].message.content[0].text
+            == '{"name": "John Doe", "email": "john@example.com"}'
+        )
+        assert response.choices[0].finish_reason == "stop"
+
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["output_format"] == {
+            "type": "json_schema",
+            "schema": json_schema,
+        }

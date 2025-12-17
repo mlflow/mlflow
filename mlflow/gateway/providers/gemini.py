@@ -43,6 +43,15 @@ GENERATION_CONFIGS = [
 
 class GeminiAdapter(ProviderAdapter):
     @classmethod
+    def _normalize_finish_reason(cls, finish_reason):
+        """Normalize Gemini finish reasons to OpenAI format (lowercase)."""
+        if not finish_reason:
+            return finish_reason
+        if finish_reason == "MAX_TOKENS":
+            return "length"
+        return finish_reason.lower()
+
+    @classmethod
     def chat_to_model(cls, payload, config):
         # Documentation: https://ai.google.dev/api/generate-content
         # Example payload for the chat API.
@@ -150,6 +159,17 @@ class GeminiAdapter(ProviderAdapter):
 
         if generation_config := {k: v for k, v in payload.items() if k in GENERATION_CONFIGS}:
             gemini_payload["generationConfig"] = generation_config
+
+        # Transform response_format for Gemini structured outputs
+        # Gemini uses responseSchema in generationConfig
+        if response_format := payload.pop("response_format", None):
+            if response_format.get("type") == "json_schema" and "json_schema" in response_format:
+                if "generationConfig" not in gemini_payload:
+                    gemini_payload["generationConfig"] = {}
+                gemini_payload["generationConfig"]["responseSchema"] = response_format[
+                    "json_schema"
+                ]
+                gemini_payload["generationConfig"]["responseMimeType"] = "application/json"
 
         # convert tool definition to Gemini format
         if tools := payload.pop("tools", None):
@@ -273,9 +293,7 @@ class GeminiAdapter(ProviderAdapter):
         # }
         choices = []
         for idx, candidate in enumerate(resp.get("candidates", [])):
-            finish_reason = candidate.get("finishReason", "stop")
-            if finish_reason == "MAX_TOKENS":
-                finish_reason = "length"
+            finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
 
             if parts := candidate.get("content", {}).get("parts", None):
                 if parts[0].get("functionCall", None):
@@ -340,7 +358,7 @@ class GeminiAdapter(ProviderAdapter):
         choices = []
         for idx, cand in enumerate(resp.get("candidates", [])):
             parts = cand.get("content", {}).get("parts", [])
-            finish_reason = cand.get("finishReason")
+            finish_reason = cls._normalize_finish_reason(cand.get("finishReason"))
 
             if parts:
                 if parts[0].get("functionCall"):
@@ -428,9 +446,7 @@ class GeminiAdapter(ProviderAdapter):
             if not text:
                 continue
 
-            finish_reason = candidate.get("finishReason", "stop")
-            if finish_reason == "MAX_TOKENS":
-                finish_reason = "length"
+            finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
 
             choices.append(
                 completions_schema.Choice(
@@ -484,7 +500,7 @@ class GeminiAdapter(ProviderAdapter):
             choices.append(
                 completions_schema.StreamChoice(
                     index=idx,
-                    finish_reason=cand.get("finishReason"),
+                    finish_reason=cls._normalize_finish_reason(cand.get("finishReason")),
                     text=delta_text,
                 )
             )

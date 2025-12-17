@@ -121,6 +121,15 @@ class AnthropicAdapter(ProviderAdapter):
 
             payload["tools"] = converted_tools
 
+        # Transform response_format for Anthropic structured outputs
+        # Anthropic uses output_format with {"type": "json_schema", "schema": {...}}
+        if response_format := payload.pop("response_format", None):
+            if response_format.get("type") == "json_schema" and "json_schema" in response_format:
+                payload["output_format"] = {
+                    "type": "json_schema",
+                    "schema": response_format["json_schema"],
+                }
+
         return payload
 
     @classmethod
@@ -365,8 +374,17 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+
+        # Add beta header for structured outputs if response_format is present
+        headers = self.headers.copy()
+        if (
+            payload.get("response_format")
+            and payload["response_format"].get("type") == "json_schema"
+        ):
+            headers["anthropic-beta"] = "structured-outputs-2025-11-13"
+
         stream = send_stream_request(
-            headers=self.headers,
+            headers=headers,
             base_url=self.base_url,
             path="messages",
             payload=AnthropicAdapter.chat_streaming_to_model(payload, self.config),
@@ -419,8 +437,17 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+
+        # Add beta header for structured outputs if response_format is present
+        headers = self.headers.copy()
+        if (
+            payload.get("response_format")
+            and payload["response_format"].get("type") == "json_schema"
+        ):
+            headers["anthropic-beta"] = "structured-outputs-2025-11-13"
+
         resp = await send_request(
-            headers=self.headers,
+            headers=headers,
             base_url=self.base_url,
             path="messages",
             payload=AnthropicAdapter.chat_to_model(payload, self.config),
