@@ -1,7 +1,7 @@
 import { trace, Tracer } from '@opentelemetry/api';
 import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getConfig } from './config';
+import { getConfig, getAuthProvider } from './config';
 import { MlflowClient } from '../clients';
 
 let sdk: NodeSDK | null = null;
@@ -16,18 +16,12 @@ export function initializeSDK(): void {
   }
 
   try {
-    const hostConfig = getConfig();
-    if (!hostConfig.host) {
-      console.warn('MLflow tracking server not configured. Call init() before using tracing APIs.');
-      return;
-    }
+    const config = getConfig();
+    const authProvider = getAuthProvider();
 
     const client = new MlflowClient({
-      trackingUri: hostConfig.trackingUri,
-      host: hostConfig.host,
-      databricksToken: hostConfig.databricksToken,
-      trackingServerUsername: hostConfig.trackingServerUsername,
-      trackingServerPassword: hostConfig.trackingServerPassword
+      trackingUri: config.trackingUri,
+      authProvider
     });
     const exporter = new MlflowSpanExporter(client);
     processor = new MlflowSpanProcessor(exporter);

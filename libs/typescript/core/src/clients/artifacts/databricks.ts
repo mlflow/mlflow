@@ -2,7 +2,7 @@ import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
 import { TraceInfo } from '../../core/entities/trace_info';
 import { JSONBig } from '../../core/utils/json';
 import { GetCredentialsForTraceDataDownload, GetCredentialsForTraceDataUpload } from '../spec';
-import { getRequestHeaders, makeRequest } from '../utils';
+import { makeRequest } from '../utils';
 import { ArtifactsClient } from './base';
 import { AuthProvider, HeadersProvider } from '../../auth';
 
@@ -16,15 +16,9 @@ export interface DatabricksArtifactsClientOptions {
   host: string;
 
   /**
-   * Authentication provider (new mode)
+   * Authentication provider
    */
-  authProvider?: AuthProvider;
-
-  /**
-   * Databricks personal access token (legacy mode)
-   * @deprecated Use authProvider instead
-   */
-  databricksToken?: string;
+  authProvider: AuthProvider;
 }
 
 export class DatabricksArtifactsClient implements ArtifactsClient {
@@ -33,23 +27,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
 
   constructor(options: DatabricksArtifactsClientOptions) {
     this.host = options.host;
-
-    if (options.authProvider) {
-      // New mode: Use AuthProvider
-      this.headersProvider = options.authProvider.getHeadersProvider();
-    } else {
-      // Legacy mode: Use databricksToken directly (backwards compatibility)
-      this.headersProvider = this.createLegacyHeadersProvider(options.databricksToken);
-    }
-  }
-
-  /**
-   * Create a legacy headers provider for backwards compatibility.
-   */
-  private createLegacyHeadersProvider(databricksToken?: string): HeadersProvider {
-    return async () => {
-      return getRequestHeaders(databricksToken);
-    };
+    this.headersProvider = options.authProvider.getHeadersProvider();
   }
 
   /**

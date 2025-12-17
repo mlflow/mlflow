@@ -18,15 +18,9 @@ export interface ArtifactsClientOptions {
   host: string;
 
   /**
-   * Authentication provider (new mode)
+   * Authentication provider
    */
-  authProvider?: AuthProvider;
-
-  /**
-   * Databricks personal access token (legacy mode)
-   * @deprecated Use authProvider instead
-   */
-  databricksToken?: string;
+  authProvider: AuthProvider;
 }
 
 /**
@@ -36,10 +30,10 @@ export interface ArtifactsClientOptions {
  * @returns The appropriate artifacts client.
  */
 export function getArtifactsClient(options: ArtifactsClientOptions): ArtifactsClient {
-  const { trackingUri, host, authProvider, databricksToken } = options;
+  const { trackingUri, host, authProvider } = options;
 
   if (trackingUri.startsWith('databricks')) {
-    return new DatabricksArtifactsClient({ host, authProvider, databricksToken });
+    return new DatabricksArtifactsClient({ host, authProvider });
   } else {
     return new MlflowArtifactsClient({ host, authProvider });
   }

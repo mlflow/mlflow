@@ -1,17 +1,13 @@
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
 import { CreateExperiment, DeleteExperiment, GetTraceInfoV3, StartTraceV3 } from './spec';
-import { getRequestHeaders, makeRequest } from './utils';
+import { makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
 
 /**
  * Options for creating an MlflowClient.
- *
- * Supports two modes:
- * 1. New mode: Use an AuthProvider for authentication (recommended)
- * 2. Legacy mode: Use individual host/token/username/password options (backwards compatible)
  */
 export interface MlflowClientOptions {
   /**
@@ -21,33 +17,8 @@ export interface MlflowClientOptions {
 
   /**
    * Authentication provider for the client.
-   * When provided, this takes precedence over legacy auth options.
    */
-  authProvider?: AuthProvider;
-
-  /**
-   * MLflow tracking server host or Databricks workspace URL.
-   * @deprecated Use authProvider instead
-   */
-  host?: string;
-
-  /**
-   * Databricks personal access token.
-   * @deprecated Use authProvider instead
-   */
-  databricksToken?: string;
-
-  /**
-   * The tracking server username for basic auth.
-   * @deprecated Use authProvider instead
-   */
-  trackingServerUsername?: string;
-
-  /**
-   * The tracking server password for basic auth.
-   * @deprecated Use authProvider instead
-   */
-  trackingServerPassword?: string;
+  authProvider: AuthProvider;
 }
 
 /**
@@ -73,43 +44,14 @@ export class MlflowClient {
    * @param options - Client configuration options
    */
   constructor(options: MlflowClientOptions) {
-    if (options.authProvider) {
-      // New mode: Use AuthProvider
-      this.headersProvider = options.authProvider.getHeadersProvider();
-      this.hostUrl = options.authProvider.getHost();
-    } else if (options.host) {
-      // Legacy mode: Use individual options (backwards compatibility)
-      this.hostUrl = options.host;
-      this.headersProvider = this.createLegacyHeadersProvider(
-        options.databricksToken,
-        options.trackingServerUsername,
-        options.trackingServerPassword
-      );
-    } else {
-      throw new Error('MlflowClient requires either an authProvider or a host option');
-    }
+    this.headersProvider = options.authProvider.getHeadersProvider();
+    this.hostUrl = options.authProvider.getHost();
 
     this.artifactsClient = getArtifactsClient({
       trackingUri: options.trackingUri,
       host: this.hostUrl,
-      authProvider: options.authProvider,
-      // Legacy options for backwards compatibility
-      databricksToken: options.databricksToken
+      authProvider: options.authProvider
     });
-  }
-
-  /**
-   * Create a legacy headers provider from individual auth options.
-   * This maintains backwards compatibility with existing code.
-   */
-  private createLegacyHeadersProvider(
-    databricksToken?: string,
-    username?: string,
-    password?: string
-  ): HeadersProvider {
-    return async () => {
-      return getRequestHeaders(databricksToken, username, password);
-    };
   }
 
   /**

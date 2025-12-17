@@ -1,7 +1,7 @@
 import { TraceTagKey } from '../../core/constants';
 import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
 import { TraceInfo } from '../../core/entities/trace_info';
-import { getRequestHeaders, makeRequest } from '../utils';
+import { makeRequest } from '../utils';
 import { ArtifactsClient } from './base';
 import { AuthProvider, HeadersProvider } from '../../auth';
 
@@ -20,9 +20,9 @@ export interface MlflowArtifactsClientOptions {
   host: string;
 
   /**
-   * Authentication provider (optional, for authenticated artifact endpoints)
+   * Authentication provider
    */
-  authProvider?: AuthProvider;
+  authProvider: AuthProvider;
 }
 
 /**
@@ -37,14 +37,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
 
   constructor(options: MlflowArtifactsClientOptions) {
     this.host = options.host;
-
-    if (options.authProvider) {
-      // Use AuthProvider for authenticated requests
-      this.headersProvider = options.authProvider.getHeadersProvider();
-    } else {
-      // Default: no auth (OSS MLflow artifact endpoints often don't require auth)
-      this.headersProvider = async () => getRequestHeaders();
-    }
+    this.headersProvider = options.authProvider.getHeadersProvider();
   }
 
   /**

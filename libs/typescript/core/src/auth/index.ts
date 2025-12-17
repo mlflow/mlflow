@@ -123,12 +123,6 @@ export function createAuthProvider(options: AuthOptions): AuthProvider {
 }
 
 /**
- * Resolve authentication provider (alias for createAuthProvider).
- * @deprecated Use createAuthProvider instead
- */
-export const resolveAuthProvider = createAuthProvider;
-
-/**
  * Read the host value from a Databricks config file for a specific profile.
  *
  * The config file uses INI format:
@@ -266,18 +260,21 @@ function createOssAuth(options: AuthOptions): AuthProvider {
   const password = options.trackingServerPassword || process.env.MLFLOW_TRACKING_PASSWORD;
   const token = options.trackingServerToken || process.env.MLFLOW_TRACKING_TOKEN;
 
+  // Pre-compute auth header since credentials don't change
+  let authHeader: string | undefined;
+  if (username && password) {
+    const encoded = Buffer.from(`${username}:${password}`).toString('base64');
+    authHeader = `Basic ${encoded}`;
+  } else if (token) {
+    authHeader = `Bearer ${token}`;
+  }
+
   // Headers provider for OSS MLflow
   const headersProvider: HeadersProvider = async () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-    // Basic auth takes precedence over token (matching Python SDK)
-    if (username && password) {
-      const encoded = Buffer.from(`${username}:${password}`).toString('base64');
-      headers['Authorization'] = `Basic ${encoded}`;
-    } else if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
     }
-
     return headers;
   };
 
