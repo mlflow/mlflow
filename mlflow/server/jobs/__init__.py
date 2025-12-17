@@ -16,12 +16,20 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-_ALLOWED_JOB_FUNCTION_LIST = [
-    # Putting all allowed job function in the list
+_SUPPORTED_JOB_FUNCTION_LIST = [
+    # Putting all supported job function fullname in the list
 ]
 
-if allowed_job_function_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_FUNCTION_LIST"):
-    _ALLOWED_JOB_FUNCTION_LIST += allowed_job_function_list_env.split(",")
+if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST"):
+    _SUPPORTED_JOB_FUNCTION_LIST += supported_job_function_list_env.split(",")
+
+
+_ALLOWED_JOB_NAME_LIST = [
+    # Putting all allowed job function static name in the list
+]
+
+if allowed_job_name_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_NAME_LIST"):
+    _ALLOWED_JOB_NAME_LIST += allowed_job_name_list_env.split(",")
 
 
 class TransientError(RuntimeError):
@@ -163,15 +171,17 @@ def submit_job(
 
     func_fullname = f"{function.__module__}.{function.__name__}"
 
-    if func_fullname not in _ALLOWED_JOB_FUNCTION_LIST:
-        raise MlflowException.invalid_parameter_value(
-            f"The function {func_fullname} is not in the allowed job function list"
-        )
-
     if not hasattr(function, "_job_fn_metadata"):
         raise MlflowException(
             f"The job function {func_fullname} is not decorated by "
             "'mlflow.server.jobs.job_function'."
+        )
+
+    fn_meta = function._job_fn_metadata
+
+    if fn_meta.name not in _ALLOWED_JOB_NAME_LIST:
+        raise MlflowException.invalid_parameter_value(
+            f"The function {func_fullname} is not in the allowed job function list"
         )
 
     if not isinstance(params, dict):
@@ -180,8 +190,6 @@ def submit_job(
         )
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
-
-    fn_meta = function._job_fn_metadata
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)

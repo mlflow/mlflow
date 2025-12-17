@@ -482,9 +482,9 @@ def get_job_fn_fullname(job_name: str):
 
 
 def _build_job_name_to_fn_fullname_map():
-    from mlflow.server.jobs import _ALLOWED_JOB_FUNCTION_LIST
+    from mlflow.server.jobs import _SUPPORTED_JOB_FUNCTION_LIST
 
-    for fn_fullname in set(_ALLOWED_JOB_FUNCTION_LIST):
+    for fn_fullname in set(_SUPPORTED_JOB_FUNCTION_LIST):
         try:
             fn_meta = _load_function(fn_fullname)._job_fn_metadata
             if exist_fullname := _job_name_to_fn_fullname_map.get(fn_meta.name):

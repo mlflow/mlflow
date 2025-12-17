@@ -107,7 +107,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             **os.environ,
             "PYTHONPATH": os.path.dirname(__file__),
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
-            "_MLFLOW_ALLOWED_JOB_FUNCTION_LIST": (
+            "_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST": (
                 "test_endpoint.simple_job_fun,test_endpoint.job_assert_tracking_uri"
             ),
         },
