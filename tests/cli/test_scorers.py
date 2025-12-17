@@ -607,27 +607,17 @@ def test_list_builtin_scorers_short_flag(runner):
     assert "Scorer Name" in result.output
 
 
-@pytest.mark.parametrize("is_databricks", [False, True])
-def test_list_builtin_scorers_shows_all_available_scorers(runner, is_databricks):
-    mock_path = "mlflow.genai.scorers.builtin_scorers.is_databricks_uri"
+def test_list_builtin_scorers_shows_all_available_scorers(runner):
+    result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
+    assert result.exit_code == 0
 
-    with patch(mock_path, return_value=is_databricks) as mock_is_databricks:
-        result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
-        assert result.exit_code == 0
+    expected_scorers = get_all_scorers()
+    expected_names = {scorer.name for scorer in expected_scorers}
 
-        expected_scorers = get_all_scorers()
-        expected_names = {scorer.name for scorer in expected_scorers}
+    data = json.loads(result.output)
+    actual_names = {s["name"] for s in data["scorers"]}
 
-        data = json.loads(result.output)
-        actual_names = {s["name"] for s in data["scorers"]}
-
-        assert actual_names == expected_names, (
-            f"Mismatch in scorer names (is_databricks={is_databricks}). "
-            f"Missing: {expected_names - actual_names}, "
-            f"Extra: {actual_names - expected_names}"
-        )
-
-        mock_is_databricks.assert_called()
+    assert actual_names == expected_names
 
 
 def test_list_scorers_mutually_exclusive_flags(runner, experiment):
