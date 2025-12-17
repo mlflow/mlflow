@@ -32,6 +32,7 @@ def _create_databricks_trulens_provider(endpoint_name: str, model_name: str):
     This dynamically creates a class that inherits from TruLens LLMProvider
     and implements _create_chat_completion using Databricks APIs.
     """
+    from trulens.core.feedback.endpoint import Endpoint
     from trulens.feedback.llm_provider import LLMProvider
 
     class DatabricksTruLensProvider(LLMProvider):
@@ -42,8 +43,10 @@ def _create_databricks_trulens_provider(endpoint_name: str, model_name: str):
         _databricks_model_name: str = model_name
 
         def __init__(self):
-            # Properly initialize the Pydantic base class
-            super().__init__(model_engine=endpoint_name)
+            # Create an endpoint for TruLens tracking
+            endpoint = Endpoint(name=f"databricks-{endpoint_name}")
+            # Properly initialize the Pydantic base class with endpoint
+            super().__init__(model_engine=endpoint_name, endpoint=endpoint)
 
         def _create_chat_completion(
             self,
