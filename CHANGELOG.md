@@ -12,7 +12,6 @@ pip install mlflow==3.8.0rc0
 
 ### Major Features
 
-- 🔑 **API Key Management**: New API key management system for the MLflow Tracking Server, enabling secure storage and management of LLM provider credentials with encrypted secret storage, credential caching, and multi-provider support. (#19002, #19004, #19005, #19006, #19007, #19008, #19009, #19014, #19253, #19308, #19346, @BenWilson2)
 - ⚙️ **Prompt Model Configuration**: Prompts can now include model configuration, allowing you to associate specific model settings with prompt templates for more reproducible LLM workflows. (#18963, #19174, #19279, @chenmoneygithub)
 - ⏳ **In-Progress Trace Display**: The Traces UI now supports displaying spans from in-progress traces with auto-polling, enabling real-time debugging and monitoring of long-running LLM applications. (#19265, @B-Step62)
 - ⚖️ **DeepEval Judges Integration**: New `get_judge` API enables using DeepEval's evaluation metrics as MLflow scorers, providing access to 20+ evaluation metrics including answer relevancy, faithfulness, and hallucination detection. (#18988, @smoorjani)
