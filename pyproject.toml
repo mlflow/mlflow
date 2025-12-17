@@ -190,7 +190,7 @@ test = [
   "pytest-cov",
   "pytest-timeout",
   "psutil",
-  "pyspark",
+  "pyspark<4.1.0",
   "opentelemetry-exporter-otlp-proto-grpc",
   "opentelemetry-exporter-otlp-proto-http",
 ]
@@ -210,7 +210,7 @@ docs = [
   "nbformat",
   "tensorflow",
   "keras",
-  "pyspark",
+  "pyspark<4.1.0",
   "datasets",
   "plotly",
   "torch>=1.11.0",
