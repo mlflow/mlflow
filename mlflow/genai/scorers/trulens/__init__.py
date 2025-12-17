@@ -1,50 +1,49 @@
 """
 TruLens evaluation framework integration for MLflow GenAI scorers.
 
-This module wraps TruLens feedback functions as MLflow scorers, enabling use of
-TruLens' groundedness, context relevance, answer relevance, and coherence metrics
-within the MLflow evaluation framework.
+This module wraps TruLens feedback functions as MLflow scorers.
 
-**Available Scorers:**
+Available scorers:
+    - Groundedness: Evaluates if outputs are grounded in context
+    - ContextRelevance: Evaluates context relevance to query
+    - AnswerRelevance: Evaluates answer relevance to query
+    - Coherence: Evaluates logical flow of outputs
 
-- ``TruLensGroundednessScorer``: Evaluates if outputs are grounded in context
-- ``TruLensContextRelevanceScorer``: Evaluates context relevance to query
-- ``TruLensAnswerRelevanceScorer``: Evaluates answer relevance to query
-- ``TruLensCoherenceScorer``: Evaluates logical flow of outputs
-
-**Installation:**
+Installation:
     pip install trulens trulens-providers-openai
 
 For LiteLLM provider support:
     pip install trulens trulens-providers-litellm
 
-**Example:**
-
-.. code-block:: python
-
-    from mlflow.genai.scorers import TruLensGroundednessScorer
-
-    scorer = TruLensGroundednessScorer()
-    result = scorer(
-        outputs="Paris is the capital.",
-        context="France's capital is Paris.",
-    )
-    print(result.value)  # Score between 0.0 and 1.0
-
-For more information on TruLens, see:
-https://www.trulens.org/
+Example:
+    >>> from mlflow.genai.scorers.trulens import Groundedness, get_scorer
+    >>>
+    >>> scorer = Groundedness(model="openai:/gpt-4")
+    >>> feedback = scorer(
+    ...     outputs="Paris is the capital.",
+    ...     expectations={"context": "France's capital is Paris."},
+    ... )
+    >>>
+    >>> # Or use get_scorer for dynamic metric selection
+    >>> scorer = get_scorer("ContextRelevance", model="databricks")
 """
 
 from mlflow.genai.scorers.trulens.trulens import (
-    TruLensAnswerRelevanceScorer,
-    TruLensCoherenceScorer,
-    TruLensContextRelevanceScorer,
-    TruLensGroundednessScorer,
+    AnswerRelevance,
+    Coherence,
+    ContextRelevance,
+    Groundedness,
+    TruLensScorer,
+    get_scorer,
 )
 
 __all__ = [
-    "TruLensGroundednessScorer",
-    "TruLensContextRelevanceScorer",
-    "TruLensAnswerRelevanceScorer",
-    "TruLensCoherenceScorer",
+    # Core classes
+    "TruLensScorer",
+    "get_scorer",
+    # Metric scorers
+    "Groundedness",
+    "ContextRelevance",
+    "AnswerRelevance",
+    "Coherence",
 ]

@@ -4,452 +4,285 @@ Phoenix (Arize) evaluation framework integration for MLflow GenAI scorers.
 This module wraps Phoenix evaluators as MLflow scorers, enabling use of Phoenix's
 hallucination detection, relevance, toxicity, QA, and summarization metrics
 within the MLflow evaluation framework.
-
-**Score Semantics:**
-All Phoenix scorers follow MLflow's convention where higher scores indicate better quality:
-- 1.0 = best quality (factual, relevant, non-toxic, correct, good summary)
-- 0.0 = worst quality (hallucinated, irrelevant, toxic, incorrect, poor summary)
-
-Phoenix evaluators natively return scores aligned with this convention (1.0 = good).
-
-**Available Scorers:**
-- ``PhoenixHallucinationScorer``: Detects hallucinations (1.0=factual, 0.0=hallucinated)
-- ``PhoenixRelevanceScorer``: Evaluates context relevance (1.0=relevant, 0.0=irrelevant)
-- ``PhoenixToxicityScorer``: Detects toxic content (1.0=safe, 0.0=toxic)
-- ``PhoenixQAScorer``: Evaluates QA correctness (1.0=correct, 0.0=incorrect)
-- ``PhoenixSummarizationScorer``: Evaluates summary quality (1.0=good, 0.0=poor)
-
-**Installation:**
-These scorers require the ``arize-phoenix-evals`` package::
-
-    pip install arize-phoenix-evals
-
-**Example Usage:**
-
-.. code-block:: python
-
-    import mlflow
-    from mlflow.genai.scorers import PhoenixHallucinationScorer, PhoenixRelevanceScorer
-
-    # Create scorers
-    hallucination_scorer = PhoenixHallucinationScorer()
-    relevance_scorer = PhoenixRelevanceScorer()
-
-    # Use with mlflow.genai.evaluate
-    eval_data = [
-        {
-            "inputs": {"query": "What is the capital of France?"},
-            "outputs": "Paris is the capital of France.",
-            "context": "France is a country in Europe. Its capital is Paris.",
-        }
-    ]
-    results = mlflow.genai.evaluate(data=eval_data, scorers=[hallucination_scorer])
-
-For more information on Phoenix evaluators, see:
-https://docs.arize.com/phoenix/evaluation/evals
 """
 
-from typing import Any
+from __future__ import annotations
+
+import logging
+from typing import Any, ClassVar
+
+from pydantic import PrivateAttr
 
 from mlflow.entities.assessment import Feedback
-from mlflow.exceptions import MlflowException
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.trace import Trace
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
+from mlflow.genai.judges.utils import CategoricalRating, get_default_model
+from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.genai.scorers.phoenix.models import create_phoenix_model
+from mlflow.genai.scorers.phoenix.registry import get_evaluator_class, get_metric_config
+from mlflow.genai.scorers.phoenix.utils import map_scorer_inputs_to_phoenix_record
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
-
-def _check_phoenix_installed():
-    """Check if phoenix.evals is installed and raise a helpful error if not."""
-    try:
-        import phoenix.evals  # noqa: F401
-
-        return True
-    except ImportError:
-        raise MlflowException(
-            "Phoenix evaluators require the 'arize-phoenix-evals' package. "
-            "Install it with: pip install arize-phoenix-evals",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-
-class _PhoenixScorerBase(Scorer):
-    """Base class for Phoenix scorer wrappers."""
-
-    name: str
-    model_name: str | None = None
-
-    def _get_phoenix_model(self):
-        """Get the Phoenix OpenAI model instance."""
-        _check_phoenix_installed()
-
-        from phoenix.evals import OpenAIModel
-
-        return OpenAIModel(model=self.model_name or "gpt-4o-mini")
-
-    def _parse_result(
-        self,
-        result: tuple[str, float | None, str | None],
-        positive_label: str,
-    ) -> tuple[float, str]:
-        """
-        Parse Phoenix evaluator result tuple.
-
-        Phoenix returns: Tuple[str, Optional[float], Optional[str]]
-                        (label, score, explanation)
-
-        Phoenix scores are already aligned with MLflow convention:
-        - 1.0 = positive/good outcome (factual, relevant, non-toxic, correct)
-        - 0.0 = negative/bad outcome (hallucinated, irrelevant, toxic, incorrect)
-
-        Args:
-            result: The tuple returned by Phoenix evaluator
-            positive_label: The label that indicates a positive/good result
-
-        Returns:
-            Tuple of (score, rationale)
-        """
-        label, score, explanation = result
-
-        # If Phoenix provides a score, use it; otherwise derive from label
-        if score is not None:
-            normalized_score = float(score)
-            # Validate score is in expected range
-            if normalized_score < 0.0 or normalized_score > 1.0:
-                import logging
-
-                logging.getLogger(__name__).warning(
-                    f"Phoenix returned score {normalized_score} outside expected 0-1 range. "
-                    "This may indicate a version incompatibility. Clamping to valid range."
-                )
-                normalized_score = min(1.0, max(0.0, normalized_score))
-        else:
-            normalized_score = 1.0 if label == positive_label else 0.0
-
-        rationale = explanation or f"Label: {label}"
-
-        return normalized_score, rationale
+_logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.8.0")
-class PhoenixHallucinationScorer(_PhoenixScorerBase):
+@format_docstring(_MODEL_API_DOC)
+class PhoenixScorer(Scorer):
     """
-    Phoenix hallucination detection scorer.
-
-    Evaluates whether the output contains hallucinations (information not supported
-    by the provided context/reference).
+    Base class for Phoenix metric scorers.
 
     Args:
-        name: The name of the scorer. Defaults to "phoenix_hallucination".
-        model_name: The model to use for evaluation. Defaults to "gpt-4o-mini".
-
-    Example:
-
-    .. code-block:: python
-
-        from mlflow.genai.scorers import PhoenixHallucinationScorer
-
-        scorer = PhoenixHallucinationScorer()
-        feedback = scorer(
-            inputs={"query": "What is the capital of France?"},
-            outputs="Paris is the capital of France.",
-            context="France is a country in Europe. Its capital is Paris.",
-        )
-        print(feedback)
+        metric_name: Name of the Phoenix metric (e.g., "Hallucination")
+        model: {{ model }}
     """
 
-    name: str = "phoenix_hallucination"
+    _evaluator: Any = PrivateAttr()
+    _model: str = PrivateAttr()
+    _positive_label: str = PrivateAttr()
+
+    def __init__(
+        self,
+        metric_name: str | None = None,
+        model: str | None = None,
+    ):
+        if metric_name is None:
+            metric_name = self.metric_name
+
+        super().__init__(name=metric_name)
+        model = model or get_default_model()
+        self._model = model
+
+        phoenix_model = create_phoenix_model(model)
+        evaluator_class = get_evaluator_class(metric_name)
+        self._evaluator = evaluator_class(model=phoenix_model)
+
+        config = get_metric_config(metric_name)
+        self._positive_label = config["positive_label"]
 
     def __call__(
         self,
         *,
-        inputs: dict[str, Any] | None = None,
-        outputs: Any | None = None,
-        context: str | None = None,
-        **kwargs,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
     ) -> Feedback:
         """
-        Evaluate for hallucinations.
+        Evaluate using the wrapped Phoenix evaluator.
 
         Args:
-            inputs: Input data containing the query/request.
-            outputs: The model's response to evaluate.
-            context: Reference context to check hallucinations against.
+            inputs: The input to evaluate
+            outputs: The output to evaluate
+            expectations: Expected values and context for evaluation
+            trace: MLflow trace for evaluation
 
         Returns:
-            Feedback with hallucination assessment (1.0 = factual, 0.0 = hallucinated).
+            Feedback object with score, rationale, and metadata
         """
-        _check_phoenix_installed()
+        assessment_source = AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id=self._model,
+        )
 
-        from phoenix.evals import HallucinationEvaluator
+        try:
+            record = map_scorer_inputs_to_phoenix_record(
+                metric_name=self.name,
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=trace,
+            )
 
-        model = self._get_phoenix_model()
-        evaluator = HallucinationEvaluator(model=model)
+            result = self._evaluator.evaluate(record=record)
+            label, score, explanation = result
 
-        # Build record dict as expected by Phoenix
-        query = inputs.get("query", str(inputs)) if inputs else ""
-        record = {
-            "input": query,
-            "output": str(outputs) if outputs else "",
-            "reference": context or "",
-        }
+            # Parse score from Phoenix result
+            if score is not None:
+                normalized_score = float(score)
+                # Clamp to 0-1 range if needed
+                if normalized_score < 0.0 or normalized_score > 1.0:
+                    _logger.warning(
+                        f"Phoenix returned score {normalized_score} outside expected 0-1 range. "
+                        "Clamping to valid range."
+                    )
+                    normalized_score = min(1.0, max(0.0, normalized_score))
+            else:
+                normalized_score = 1.0 if label == self._positive_label else 0.0
 
-        result = evaluator.evaluate(record=record)
-        # Phoenix hallucination: 1.0 = factual (good), 0.0 = hallucinated (bad)
-        # Already aligned with MLflow convention (higher = better)
-        score, rationale = self._parse_result(result, positive_label="factual")
+            rationale = explanation or f"Label: {label}"
 
-        return Feedback(name=self.name, value=score, rationale=rationale)
+            # Use categorical rating based on label
+            value = CategoricalRating.YES if label == self._positive_label else CategoricalRating.NO
+
+            return Feedback(
+                name=self.name,
+                value=value,
+                rationale=rationale,
+                source=assessment_source,
+                metadata={
+                    FRAMEWORK_METADATA_KEY: "phoenix",
+                    "score": normalized_score,
+                    "label": label,
+                },
+            )
+        except Exception as e:
+            _logger.error(f"Error evaluating Phoenix metric {self.name}: {e}")
+            return Feedback(
+                name=self.name,
+                error=e,
+                source=assessment_source,
+            )
 
 
 @experimental(version="3.8.0")
-class PhoenixRelevanceScorer(_PhoenixScorerBase):
+@format_docstring(_MODEL_API_DOC)
+def get_scorer(
+    metric_name: str,
+    model: str | None = None,
+) -> PhoenixScorer:
     """
-    Phoenix relevance scorer.
+    Get a Phoenix metric as an MLflow scorer.
 
+    Args:
+        metric_name: Name of the Phoenix metric (e.g., "Hallucination", "Relevance")
+        model: {{ model }}
+
+    Returns:
+        PhoenixScorer instance that can be called with MLflow's scorer interface
+
+    Examples:
+        >>> scorer = get_scorer("Hallucination", model="openai:/gpt-4")
+        >>> feedback = scorer(
+        ...     inputs="What is MLflow?",
+        ...     outputs="MLflow is a platform...",
+        ...     expectations={"context": "MLflow is an ML platform."},
+        ... )
+
+        >>> scorer = get_scorer("Relevance", model="databricks")
+        >>> feedback = scorer(trace=trace)
+    """
+    return PhoenixScorer(
+        metric_name=metric_name,
+        model=model,
+    )
+
+
+# Lightweight wrapper classes for specific metrics
+
+
+@experimental(version="3.8.0")
+class Hallucination(PhoenixScorer):
+    """
+    Detects hallucinations where the LLM fabricates information not present in the context.
+
+    Args:
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.phoenix import Hallucination
+
+            scorer = Hallucination(model="openai:/gpt-4")
+            feedback = scorer(
+                inputs="What is the capital of France?",
+                outputs="Paris is the capital of France.",
+                expectations={"context": "France is in Europe. Its capital is Paris."},
+            )
+    """
+
+    metric_name: ClassVar[str] = "Hallucination"
+
+
+@experimental(version="3.8.0")
+class Relevance(PhoenixScorer):
+    """
     Evaluates whether the retrieved context is relevant to the input query.
 
     Args:
-        name: The name of the scorer. Defaults to "phoenix_relevance".
-        model_name: The model to use for evaluation. Defaults to "gpt-4o-mini".
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
 
-    Example:
+    Examples:
+        .. code-block:: python
 
-    .. code-block:: python
+            from mlflow.genai.scorers.phoenix import Relevance
 
-        from mlflow.genai.scorers import PhoenixRelevanceScorer
-
-        scorer = PhoenixRelevanceScorer()
-        feedback = scorer(
-            inputs={"query": "What is machine learning?"},
-            context="Machine learning is a subset of AI that enables systems to learn.",
-        )
-        print(feedback)
+            scorer = Relevance(model="databricks")
+            feedback = scorer(
+                inputs="What is machine learning?",
+                expectations={"context": "ML is a subset of AI..."},
+            )
     """
 
-    name: str = "phoenix_relevance"
-
-    def __call__(
-        self,
-        *,
-        inputs: dict[str, Any] | None = None,
-        context: str | None = None,
-        **kwargs,
-    ) -> Feedback:
-        """
-        Evaluate relevance of context to input query.
-
-        Args:
-            inputs: Input data containing the query/request.
-            context: Retrieved context to evaluate for relevance.
-
-        Returns:
-            Feedback with relevance assessment (1.0 = relevant, 0.0 = irrelevant).
-        """
-        _check_phoenix_installed()
-
-        from phoenix.evals import RelevanceEvaluator
-
-        model = self._get_phoenix_model()
-        evaluator = RelevanceEvaluator(model=model)
-
-        # Build record dict - RelevanceEvaluator expects 'input' and 'reference'
-        query = inputs.get("query", str(inputs)) if inputs else ""
-        record = {
-            "input": query,
-            "reference": context or "",
-        }
-
-        result = evaluator.evaluate(record=record)
-        score, rationale = self._parse_result(result, positive_label="relevant")
-
-        return Feedback(name=self.name, value=score, rationale=rationale)
+    metric_name: ClassVar[str] = "Relevance"
 
 
 @experimental(version="3.8.0")
-class PhoenixToxicityScorer(_PhoenixScorerBase):
+class Toxicity(PhoenixScorer):
     """
-    Phoenix toxicity scorer.
-
-    Evaluates whether the output contains toxic content.
+    Detects toxic content in the model's response.
 
     Args:
-        name: The name of the scorer. Defaults to "phoenix_toxicity".
-        model_name: The model to use for evaluation. Defaults to "gpt-4o-mini".
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
 
-    Example:
+    Examples:
+        .. code-block:: python
 
-    .. code-block:: python
+            from mlflow.genai.scorers.phoenix import Toxicity
 
-        from mlflow.genai.scorers import PhoenixToxicityScorer
-
-        scorer = PhoenixToxicityScorer()
-        feedback = scorer(outputs="This is a friendly response.")
-        print(feedback)
+            scorer = Toxicity()
+            feedback = scorer(outputs="This is a friendly response.")
     """
 
-    name: str = "phoenix_toxicity"
-
-    def __call__(
-        self,
-        *,
-        outputs: Any | None = None,
-        **kwargs,
-    ) -> Feedback:
-        """
-        Evaluate toxicity of output.
-
-        Args:
-            outputs: The model's response to evaluate.
-
-        Returns:
-            Feedback with toxicity assessment (1.0 = non-toxic/safe, 0.0 = toxic).
-        """
-        _check_phoenix_installed()
-
-        from phoenix.evals import ToxicityEvaluator
-
-        model = self._get_phoenix_model()
-        evaluator = ToxicityEvaluator(model=model)
-
-        # ToxicityEvaluator only needs 'input' field (the text to evaluate)
-        record = {
-            "input": str(outputs) if outputs else "",
-        }
-
-        result = evaluator.evaluate(record=record)
-        # Phoenix toxicity: 1.0 = non-toxic (good), 0.0 = toxic (bad)
-        # Already aligned with MLflow convention (higher = better)
-        score, rationale = self._parse_result(result, positive_label="non-toxic")
-
-        return Feedback(name=self.name, value=score, rationale=rationale)
+    metric_name: ClassVar[str] = "Toxicity"
 
 
 @experimental(version="3.8.0")
-class PhoenixQAScorer(_PhoenixScorerBase):
+class QA(PhoenixScorer):
     """
-    Phoenix QA (Question-Answer) correctness scorer.
-
     Evaluates whether the answer correctly addresses the question based on reference.
 
     Args:
-        name: The name of the scorer. Defaults to "phoenix_qa".
-        model_name: The model to use for evaluation. Defaults to "gpt-4o-mini".
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
 
-    Example:
+    Examples:
+        .. code-block:: python
 
-    .. code-block:: python
+            from mlflow.genai.scorers.phoenix import QA
 
-        from mlflow.genai.scorers import PhoenixQAScorer
-
-        scorer = PhoenixQAScorer()
-        feedback = scorer(
-            inputs={"query": "What is 2+2?"},
-            outputs="4",
-            context="Basic arithmetic: 2+2=4",
-        )
-        print(feedback)
+            scorer = QA(model="openai:/gpt-4o")
+            feedback = scorer(
+                inputs="What is 2+2?",
+                outputs="4",
+                expectations={"context": "Basic arithmetic: 2+2=4"},
+            )
     """
 
-    name: str = "phoenix_qa"
-
-    def __call__(
-        self,
-        *,
-        inputs: dict[str, Any] | None = None,
-        outputs: Any | None = None,
-        context: str | None = None,
-        **kwargs,
-    ) -> Feedback:
-        """
-        Evaluate QA correctness.
-
-        Args:
-            inputs: Input data containing the question.
-            outputs: The model's answer.
-            context: Reference context for correctness check.
-
-        Returns:
-            Feedback with QA correctness assessment (1.0 = correct, 0.0 = incorrect).
-        """
-        _check_phoenix_installed()
-
-        from phoenix.evals import QAEvaluator
-
-        model = self._get_phoenix_model()
-        evaluator = QAEvaluator(model=model)
-
-        query = inputs.get("query", str(inputs)) if inputs else ""
-        record = {
-            "input": query,
-            "output": str(outputs) if outputs else "",
-            "reference": context or "",
-        }
-
-        result = evaluator.evaluate(record=record)
-        score, rationale = self._parse_result(result, positive_label="correct")
-
-        return Feedback(name=self.name, value=score, rationale=rationale)
+    metric_name: ClassVar[str] = "QA"
 
 
 @experimental(version="3.8.0")
-class PhoenixSummarizationScorer(_PhoenixScorerBase):
+class Summarization(PhoenixScorer):
     """
-    Phoenix summarization quality scorer.
-
     Evaluates the quality of a summarization against the original document.
 
     Args:
-        name: The name of the scorer. Defaults to "phoenix_summarization".
-        model_name: The model to use for evaluation. Defaults to "gpt-4o-mini".
+        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
 
-    Example:
+    Examples:
+        .. code-block:: python
 
-    .. code-block:: python
+            from mlflow.genai.scorers.phoenix import Summarization
 
-        from mlflow.genai.scorers import PhoenixSummarizationScorer
-
-        scorer = PhoenixSummarizationScorer()
-        feedback = scorer(
-            inputs={"document": "Long document text..."},
-            outputs="Brief summary of the document.",
-        )
-        print(feedback)
+            scorer = Summarization()
+            feedback = scorer(
+                inputs="Long document text...",
+                outputs="Brief summary of the document.",
+            )
     """
 
-    name: str = "phoenix_summarization"
-
-    def __call__(
-        self,
-        *,
-        inputs: dict[str, Any] | None = None,
-        outputs: Any | None = None,
-        **kwargs,
-    ) -> Feedback:
-        """
-        Evaluate summarization quality.
-
-        Args:
-            inputs: Input data containing the original document.
-            outputs: The generated summary.
-
-        Returns:
-            Feedback with summarization quality assessment (1.0 = good, 0.0 = poor).
-        """
-        _check_phoenix_installed()
-
-        from phoenix.evals import SummarizationEvaluator
-
-        model = self._get_phoenix_model()
-        evaluator = SummarizationEvaluator(model=model)
-
-        # SummarizationEvaluator expects 'input' (document) and 'output' (summary)
-        document = inputs.get("document", str(inputs)) if inputs else ""
-        record = {
-            "input": document,
-            "output": str(outputs) if outputs else "",
-        }
-
-        result = evaluator.evaluate(record=record)
-        score, rationale = self._parse_result(result, positive_label="good")
-
-        return Feedback(name=self.name, value=score, rationale=rationale)
+    metric_name: ClassVar[str] = "Summarization"
