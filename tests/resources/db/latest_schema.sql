@@ -5,6 +5,17 @@ CREATE TABLE alembic_version (
 )
 
 
+CREATE TABLE endpoints (
+	endpoint_id VARCHAR(36) NOT NULL,
+	name VARCHAR(255),
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
+)
+
+
 CREATE TABLE entity_associations (
 	association_id VARCHAR(36) NOT NULL,
 	source_type VARCHAR(36) NOT NULL,
@@ -86,6 +97,24 @@ CREATE TABLE registered_models (
 )
 
 
+CREATE TABLE secrets (
+	secret_id VARCHAR(36) NOT NULL,
+	secret_name VARCHAR(255) NOT NULL,
+	encrypted_value BLOB NOT NULL,
+	wrapped_dek BLOB NOT NULL,
+	kek_version INTEGER NOT NULL,
+	masked_value VARCHAR(100) NOT NULL,
+	provider VARCHAR(64),
+	auth_config TEXT,
+	description TEXT,
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT secrets_pk PRIMARY KEY (secret_id)
+)
+
+
 CREATE TABLE webhooks (
 	webhook_id VARCHAR(256) NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -111,6 +140,28 @@ CREATE TABLE datasets (
 	dataset_profile TEXT,
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
 	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE endpoint_bindings (
+	endpoint_id VARCHAR(36) NOT NULL,
+	resource_type VARCHAR(50) NOT NULL,
+	resource_id VARCHAR(255) NOT NULL,
+	created_at BIGINT NOT NULL,
+	created_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	CONSTRAINT endpoint_bindings_pk PRIMARY KEY (endpoint_id, resource_type, resource_id),
+	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE endpoint_tags (
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	endpoint_id VARCHAR(36) NOT NULL,
+	CONSTRAINT endpoint_tag_pk PRIMARY KEY (key, endpoint_id),
+	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
@@ -168,6 +219,21 @@ CREATE TABLE logged_models (
 	CONSTRAINT logged_models_pk PRIMARY KEY (model_id),
 	CONSTRAINT fk_logged_models_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
 	CONSTRAINT logged_models_lifecycle_stage_check CHECK (lifecycle_stage IN ('active', 'deleted'))
+)
+
+
+CREATE TABLE model_definitions (
+	model_definition_id VARCHAR(36) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	secret_id VARCHAR(36),
+	provider VARCHAR(64) NOT NULL,
+	model_name VARCHAR(256) NOT NULL,
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT model_definitions_pk PRIMARY KEY (model_definition_id),
+	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE SET NULL
 )
 
 
@@ -282,6 +348,19 @@ CREATE TABLE assessments (
 	assessment_metadata TEXT,
 	CONSTRAINT assessments_pk PRIMARY KEY (assessment_id),
 	CONSTRAINT fk_assessments_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE endpoint_model_mappings (
+	mapping_id VARCHAR(36) NOT NULL,
+	endpoint_id VARCHAR(36) NOT NULL,
+	model_definition_id VARCHAR(36) NOT NULL,
+	weight FLOAT NOT NULL,
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),
+	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
+	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)
 )
 
 
@@ -404,6 +483,15 @@ CREATE TABLE tags (
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE trace_metrics (
+	request_id VARCHAR(50) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value FLOAT,
+	CONSTRAINT trace_metrics_pk PRIMARY KEY (request_id, key),
+	CONSTRAINT fk_trace_metrics_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 

@@ -39,7 +39,6 @@ GENAI_MODULES = {
     "mistralai",
     "openai",
     "pinecone",
-    "promptflow",
     "pydantic_ai",
     "qdrant",
     "ragas",
@@ -52,7 +51,6 @@ GENAI_MODULES = {
 NON_GENAI_MODULES = {
     # Classic ML
     "catboost",
-    "diviner",
     "h2o",
     "lightgbm",
     "optuna",

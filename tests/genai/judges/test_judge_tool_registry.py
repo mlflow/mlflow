@@ -3,6 +3,8 @@ import json
 
 import pytest
 
+import mlflow
+from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
@@ -60,7 +62,11 @@ def test_registry_register_and_list_tools():
     assert tools[0].name == "mock_tool"
 
 
-def test_registry_invoke_tool_success():
+@pytest.mark.parametrize("tracing_enabled", [True, False])
+def test_registry_invoke_tool_success(tracing_enabled, monkeypatch):
+    if tracing_enabled:
+        monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", "true")
+
     registry = JudgeToolRegistry()
     mock_tool = MockTool()
     registry.register(mock_tool)
@@ -82,6 +88,14 @@ def test_registry_invoke_tool_success():
 
     result = registry.invoke(tool_call, trace)
     assert result == "mock_result_with_1_args"
+
+    if tracing_enabled:
+        traces = mlflow.search_traces(return_type="list")
+        assert len(traces) == 1
+        # Tool itself only creates one span. In real case, it will be under the parent scorer trace.
+        assert len(traces[0].data.spans) == 1
+        assert traces[0].data.spans[0].name == "mock_tool"
+        assert traces[0].data.spans[0].span_type == SpanType.TOOL
 
 
 def test_registry_invoke_tool_not_found():
@@ -189,8 +203,11 @@ def test_builtin_tools_are_properly_registered():
     tools = list_judge_tools()
     registered_tool_names = {t.name for t in tools if not isinstance(t, MockTool)}
 
+    # Only include tool constants that don't start with underscore (public tools)
     all_tool_constants = {
-        value for name, value in inspect.getmembers(ToolNames) if not name.startswith("_")
+        value
+        for name, value in inspect.getmembers(ToolNames)
+        if not name.startswith("_") and isinstance(value, str)
     }
 
     assert all_tool_constants == registered_tool_names

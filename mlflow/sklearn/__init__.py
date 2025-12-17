@@ -1499,8 +1499,7 @@ def _autolog(
                 context_tags = context_registry.resolve_tags()
                 source = CodeDatasetSource(context_tags)
 
-                dataset = _create_dataset(X, source, y)
-                if dataset:
+                if dataset := _create_dataset(X, source, y):
                     tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
                     dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
@@ -1757,10 +1756,8 @@ def _autolog(
                     context_tags = context_registry.resolve_tags()
                     source = CodeDatasetSource(context_tags)
 
-                    dataset = _create_dataset(eval_dataset, source)
-
                     # log the dataset
-                    if dataset:
+                    if dataset := _create_dataset(eval_dataset, source):
                         tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
                         dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 

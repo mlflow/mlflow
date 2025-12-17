@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { mount } from 'enzyme';
 import { useEvaluationArtifactColumns } from './useEvaluationArtifactColumns';
 import type { EvaluationArtifactTable } from '../../../types';

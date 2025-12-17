@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Empty,
   Table,
@@ -17,17 +17,19 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import type { ColumnDef, Row, SortDirection, SortingState } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
-import { EvaluationDataset } from '../types';
-import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
+import type { EvaluationDataset } from '../types';
 import { NameCell } from './ExperimentEvaluationDatasetsNameCell';
 import { LastUpdatedCell } from './ExperimentEvaluationDatasetsLastUpdatedCell';
 import { ActionsCell } from './ExperimentEvaluationDatasetsActionsCell';
+import { DatasetIdCell } from './ExperimentEvaluationDatasetsIdCell';
 import { isEqual } from 'lodash';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 
 const COLUMN_IDS = {
+  DATASET_ID: 'dataset_id',
   NAME: 'name',
   LAST_UPDATE_TIME: 'last_update_time',
   CREATED_TIME: 'created_time',
@@ -36,10 +38,22 @@ const COLUMN_IDS = {
   ACTIONS: 'actions',
 };
 
-const DEFAULT_ENABLED_COLUMN_IDS = [COLUMN_IDS.NAME, COLUMN_IDS.LAST_UPDATE_TIME, COLUMN_IDS.ACTIONS];
+const DEFAULT_ENABLED_COLUMN_IDS = [
+  COLUMN_IDS.DATASET_ID,
+  COLUMN_IDS.NAME,
+  COLUMN_IDS.LAST_UPDATE_TIME,
+  COLUMN_IDS.ACTIONS,
+];
 const UNSELECTABLE_COLUMN_IDS = [COLUMN_IDS.ACTIONS];
 
 const columns: ColumnDef<EvaluationDataset, any>[] = [
+  {
+    id: COLUMN_IDS.DATASET_ID,
+    accessorKey: 'dataset_id',
+    header: 'Dataset ID',
+    enableSorting: false,
+    cell: DatasetIdCell,
+  },
   {
     id: COLUMN_IDS.NAME,
     accessorKey: 'name',
@@ -53,8 +67,8 @@ const columns: ColumnDef<EvaluationDataset, any>[] = [
     accessorFn: (row: EvaluationDataset) => (row.last_update_time ? new Date(row.last_update_time).getTime() : 0),
     header: 'Updated At',
     enableSorting: true,
-    size: 100,
-    maxSize: 100,
+    size: 150,
+    maxSize: 150,
     cell: LastUpdatedCell,
   },
   {
@@ -91,23 +105,17 @@ interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<EvaluationDataset>;
   columnVisibility: { [key: string]: boolean };
   isActive: boolean;
-  setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
+  onSelectDataset: (dataset: EvaluationDataset) => void;
 }
 
 const ExperimentEvaluationDatasetsTableRow: React.FC<
   React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>
 > = React.memo(
-  ({ row, isActive, setSelectedDataset }) => {
+  ({ row, isActive, onSelectDataset }) => {
     const { theme } = useDesignSystemTheme();
 
     return (
-      <TableRow
-        key={row.id}
-        className="eval-datasets-table-row"
-        onClick={() => {
-          setSelectedDataset(row.original);
-        }}
-      >
+      <TableRow key={row.id} className="eval-datasets-table-row" onClick={() => onSelectDataset(row.original)}>
         {row.getVisibleCells().map((cell) => (
           <TableCell
             key={cell.id}
@@ -132,14 +140,30 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
 
 export const ExperimentEvaluationDatasetsListTable = ({
   experimentId,
-  selectedDataset,
-  setSelectedDataset,
-  setIsLoading,
+  datasets,
+  isLoading,
+  isFetching,
+  error,
+  refetch,
+  fetchNextPage,
+  hasNextPage,
+  selectedDatasetId,
+  setSelectedDatasetId,
+  searchFilter,
+  setSearchFilter,
 }: {
   experimentId: string;
-  selectedDataset?: EvaluationDataset;
-  setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
-  setIsLoading: (isLoading: boolean) => void;
+  datasets: EvaluationDataset[];
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => void;
+  fetchNextPage: () => void;
+  hasNextPage: boolean | undefined;
+  selectedDatasetId?: string;
+  setSelectedDatasetId: (datasetId: string | undefined) => void;
+  searchFilter: string;
+  setSearchFilter: (filter: string) => void;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -156,60 +180,32 @@ export const ExperimentEvaluationDatasetsListTable = ({
       return acc;
     }, {} as { [key: string]: boolean }),
   );
-  // searchFilter only gets updated after the user presses enter
-  const [searchFilter, setSearchFilter] = useState('');
-  // control field that gets updated immediately
+  // Control field that gets updated immediately
   const [internalSearchFilter, setInternalSearchFilter] = useState(searchFilter);
 
-  const {
-    data: datasets,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-    fetchNextPage,
-    hasNextPage,
-  } = useSearchEvaluationDatasets({ experimentId, nameFilter: searchFilter });
-
-  const table = useReactTable({
-    columns,
-    data: datasets ?? [],
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => row.dataset_id,
-    enableSorting: true,
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
-    enableColumnResizing: false,
-    state: {
-      sorting,
-      columnVisibility,
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExperimentEvaluationDatasetsListTable.tsx',
+    {
+      columns,
+      data: datasets ?? [],
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: (row) => row.dataset_id,
+      enableSorting: true,
+      onSortingChange: setSorting,
+      getSortedRowModel: getSortedRowModel(),
+      enableColumnResizing: false,
+      state: {
+        sorting,
+        columnVisibility,
+      },
     },
-  });
+  );
 
   const fetchMoreOnBottomReached = useInfiniteScrollFetch({
     isFetching,
     hasNextPage: hasNextPage ?? false,
     fetchNextPage,
   });
-
-  // update loading state in parent
-  useEffect(() => {
-    setIsLoading(isLoading);
-  }, [isLoading, setIsLoading]);
-
-  if (!datasets?.length) {
-    setSelectedDataset(undefined);
-  }
-
-  // set the selected dataset to the first one if the is no selected dataset,
-  // or if the selected dataset went out of scope (e.g. was deleted / not in search)
-  if (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id)) {
-    // Use the sorted data from the table to respect the current sort order
-    const sortedRows = table.getRowModel().rows;
-    if (sortedRows.length > 0) {
-      setSelectedDataset(sortedRows[0].original);
-    }
-  }
 
   if (error) {
     return <div>Error loading datasets</div>;
@@ -296,7 +292,7 @@ export const ExperimentEvaluationDatasetsListTable = ({
                 sortable={header.column.getCanSort()}
                 sortDirection={header.column.getIsSorted() as SortDirection}
                 onToggleSort={header.column.getToggleSortingHandler()}
-                componentId={`mlflow.eval-datasets.${header.column.id}-header`}
+                componentId="mlflow.eval-datasets.column-header"
                 header={header}
                 column={header.column}
                 css={{
@@ -319,8 +315,8 @@ export const ExperimentEvaluationDatasetsListTable = ({
                   key={row.id}
                   row={row}
                   columnVisibility={columnVisibility}
-                  isActive={row.original.dataset_id === selectedDataset?.dataset_id}
-                  setSelectedDataset={setSelectedDataset}
+                  isActive={row.original.dataset_id === selectedDatasetId}
+                  onSelectDataset={(dataset) => setSelectedDatasetId(dataset.dataset_id)}
                 />
               ))}
 

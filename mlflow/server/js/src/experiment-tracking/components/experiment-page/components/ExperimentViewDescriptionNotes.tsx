@@ -6,7 +6,7 @@ import {
   ChevronUpIcon,
   Modal,
   PencilIcon,
-  LegacyTooltip,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useCallback, useState } from 'react';
@@ -24,6 +24,7 @@ import {
 } from '../../../../common/utils/MarkdownUtils';
 import { FormattedMessage } from 'react-intl';
 import { setExperimentTagApi } from '../../../actions';
+import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
@@ -91,7 +92,16 @@ export const ExperimentViewDescriptionNotes = ({
   );
 
   return (
-    <div>
+    <div
+      css={
+        shouldEnableExperimentPageSideTabs()
+          ? {
+              paddingBottom: theme.spacing.sm,
+              borderBottom: `1px solid ${theme.colors.border}`,
+            }
+          : undefined
+      }
+    >
       {effectiveNote && (
         <div
           style={{
@@ -178,11 +188,11 @@ export const ExperimentViewDescriptionNotes = ({
             onTabChange={(newTab) => setSelectedTab(newTab)}
             generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
             getIcon={(name) => (
-              <LegacyTooltip title={name}>
+              <Tooltip componentId="mlflow.experiment-tracking.experiment-description.edit" content={name}>
                 <span css={{ color: theme.colors.textPrimary }}>
                   <SvgIcon icon={name} />
                 </span>
-              </LegacyTooltip>
+              </Tooltip>
             )}
           />
         </React.Fragment>

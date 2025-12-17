@@ -320,7 +320,6 @@ def model_fields(
     model: pydantic.BaseModel,
 ) -> dict[str, type[FIELD_TYPE]]:
     return model.model_fields
-    return model.__fields__
 
 
 def model_validate(model: pydantic.BaseModel, values: Any) -> None:
@@ -331,7 +330,6 @@ def model_validate(model: pydantic.BaseModel, values: Any) -> None:
 
 def field_required(field: type[FIELD_TYPE]) -> bool:
     return field.is_required()
-    return field.required
 
 
 def _get_element_type_of_list_type_hint(type_hint: type[list[Any]]) -> Any:

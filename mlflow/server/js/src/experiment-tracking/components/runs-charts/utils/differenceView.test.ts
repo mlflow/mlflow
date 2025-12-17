@@ -1,3 +1,4 @@
+import { describe, test, expect } from '@jest/globals';
 import type { KeyValueEntity } from '../../../../common/types';
 import type { RunsChartsDifferenceCardConfig } from '../runs-charts.types';
 import { DifferenceCardConfigCompareGroup, RunsChartType } from '../runs-charts.types';

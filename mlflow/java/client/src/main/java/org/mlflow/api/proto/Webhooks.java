@@ -16087,8 +16087,8 @@ public final class Webhooks {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\016webhooks.proto\022\006mlflow\032\025scalapb/scalap" +
-      "b.proto\032\020databricks.proto\"h\n\014WebhookEven" +
+      "\n\016webhooks.proto\022\006mlflow\032\020databricks.pro" +
+      "to\032\025scalapb/scalapb.proto\"h\n\014WebhookEven" +
       "t\022+\n\006entity\030\001 \001(\0162\025.mlflow.WebhookEntity" +
       "B\004\370\206\031\001\022+\n\006action\030\002 \001(\0162\025.mlflow.WebhookA" +
       "ctionB\004\370\206\031\001\"\326\001\n\007Webhook\022\022\n\nwebhook_id\030\001 " +
@@ -16163,8 +16163,8 @@ public final class Webhooks {
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
-          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
+          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
         });
     internal_static_mlflow_WebhookEvent_descriptor =
       getDescriptor().getMessageTypes().get(0);
@@ -16264,8 +16264,8 @@ public final class Webhooks {
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
-    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
     com.databricks.api.proto.databricks.Databricks.getDescriptor();
+    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

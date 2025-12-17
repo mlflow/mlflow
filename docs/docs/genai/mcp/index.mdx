@@ -49,7 +49,7 @@ Add to your VS Code configuration file (`.vscode/mcp.json`):
   "servers": {
     "mlflow-mcp": {
       "command": "uv",
-      "args": ["run", "--with", "mlflow>=3.5.1", "--extra", "mcp", "mlflow", "mcp", "run"],
+      "args": ["run", "--with", "mlflow[mcp]>=3.5.1", "mlflow", "mcp", "run"],
       "env": {
         "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>"
       }
@@ -68,7 +68,7 @@ Add to your Cursor configuration file (`.cursor/mcp.json`):
   "mcpServers": {
     "mlflow-mcp": {
       "command": "uv",
-      "args": ["run", "--with", "mlflow>=3.5.1", "--extra", "mcp", "mlflow", "mcp", "run"],
+      "args": ["run", "--with", "mlflow[mcp]>=3.5.1", "mlflow", "mcp", "run"],
       "env": {
         "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>"
       }
@@ -87,7 +87,7 @@ Add to your Claude `.claude/settings.json`:
   "mcpServers": {
     "mlflow-mcp": {
       "command": "uv",
-      "args": ["run", "--with", "mlflow>=3.5.1", "--extra", "mcp", "mlflow", "mcp", "run"],
+      "args": ["run", "--with", "mlflow[mcp]>=3.5.1", "mlflow", "mcp", "run"],
       "env": {
         "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>"
       }
@@ -245,5 +245,5 @@ For Databricks environments, ensure you have appropriate authentication configur
 ## Related Documentation
 
 - [MLflow Tracing Overview](/genai/tracing/quickstart)
-- [Collecting User Feedback](/genai/tracing/collect-user-feedback)
+- [Collecting User Feedback](/genai/assessments/feedback)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)

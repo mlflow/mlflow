@@ -144,14 +144,11 @@ class GeminiAdapter(ProviderAdapter):
         if system_message:
             gemini_payload["system_instruction"] = system_message
 
-        generation_config = {k: v for k, v in payload.items() if k in GENERATION_CONFIGS}
-
-        if generation_config:
+        if generation_config := {k: v for k, v in payload.items() if k in GENERATION_CONFIGS}:
             gemini_payload["generationConfig"] = generation_config
 
-        tools = payload.pop("tools", None)
         # convert tool definition to Gemini format
-        if tools:
+        if tools := payload.pop("tools", None):
             function_declarations = []
             for tool in tools:
                 if tool["type"] != "function":

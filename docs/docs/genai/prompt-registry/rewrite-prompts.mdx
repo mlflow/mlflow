@@ -4,6 +4,7 @@ sidebar_label: Auto-rewrite Prompts for New Models 🆕
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import { CardGroup, Card } from "@site/src/components/Card";
 
 # Auto-rewrite Prompts for New Models (Experimental)
 
@@ -27,9 +28,8 @@ The `optimize_prompts` API requires **MLflow >= 3.5.0**.
 
 ### Example: Simple Prompt → Optimized Prompt
 
-<table>
-<tr>
-<td width="50%" valign="top">
+<CardGroup cols={2}>
+<Card style={{ justifyContent: 'flex-start' }}>
 
 **Before Optimization:**
 
@@ -40,8 +40,8 @@ or 'negative' or 'neutral'.
 Text: {{text}}
 ```
 
-</td>
-<td width="50%" valign="top">
+</Card>
+<Card style={{ justifyContent: 'flex-start' }}>
 
 **After Optimization:**
 
@@ -69,9 +69,8 @@ Your response must match this exact format with
 no additional explanation.
 ```
 
-</td>
-</tr>
-</table>
+</Card>
+</CardGroup>
 
 ## When to Use Prompt Rewriting
 

@@ -52,8 +52,7 @@ class FunctionBodyExtractor(ast.NodeVisitor):
 
         self.function_body = dedent("".join(function_body_lines)).rstrip("\n")
 
-        indents = [stmt.col_offset for stmt in body if stmt.col_offset is not None]
-        if indents:
+        if indents := [stmt.col_offset for stmt in body if stmt.col_offset is not None]:
             self.indent_unit = min(indents)
 
 

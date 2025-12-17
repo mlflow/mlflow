@@ -75,7 +75,10 @@ export const ExperimentViewHeaderKindSelector = ({
     </Tag>
   );
 
-  const tagElementWithTooltip = <ExperimentTypeTooltip>{tagElement}</ExperimentTypeTooltip>;
+  const tagElementWithTooltip = (
+    // If we're using read-only tag, we need to wrap it in a span so <Tooltip> won't facilitate clickable style
+    <ExperimentTypeTooltip>{usingDropdown ? tagElement : <span>{tagElement}</span>}</ExperimentTypeTooltip>
+  );
 
   if (readOnly) {
     return tagElementWithTooltip;

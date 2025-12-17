@@ -1,5 +1,5 @@
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 export const OPERATORS = ['IS', 'IS NOT', 'CONTAINS'] as const;
 type Operator = typeof OPERATORS[number];
@@ -30,7 +30,10 @@ export function useTagsFilter() {
   const name = 'experimentTagsFilter';
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const tagsFilter = (searchParams.getAll(name) ?? []).map(deserialize).filter((tagFilter) => tagFilter !== null);
+  const tagsFilter = useMemo(
+    () => (searchParams.getAll(name) ?? []).map(deserialize).filter((tagFilter) => tagFilter !== null),
+    [searchParams],
+  );
 
   function setTagsFilter(tagsFilter: TagFilter[]) {
     searchParams.delete(name);

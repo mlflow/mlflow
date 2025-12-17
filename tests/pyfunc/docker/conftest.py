@@ -3,11 +3,11 @@ import os
 import subprocess
 from functools import lru_cache
 
+import docker
 import pytest
 import requests
 from packaging.version import Version
 
-import docker
 import mlflow
 
 TEST_IMAGE_NAME = "test_image"
@@ -36,7 +36,7 @@ def clean_up_docker():
 
     # Clean up the build cache and volumes
     try:
-        subprocess.run(["docker", "builder", "prune", "-a", "-f"], check=True)
+        subprocess.check_call(["docker", "builder", "prune", "-a", "-f"])
     except subprocess.CalledProcessError as e:
         _logger.warning("Failed to clean up docker system: %s", e)
 
@@ -50,7 +50,7 @@ def get_released_mlflow_version():
     versions = [
         v for v in map(Version, data["releases"]) if not (v.is_devrelease or v.is_prerelease)
     ]
-    return str(sorted(versions, reverse=True)[0])
+    return str(max(versions))
 
 
 def save_model_with_latest_mlflow_version(flavor, extra_pip_requirements=None, **kwargs):
@@ -65,7 +65,7 @@ def save_model_with_latest_mlflow_version(flavor, extra_pip_requirements=None, *
     if flavor == "langchain":
         kwargs["pip_requirements"] = [
             f"mlflow[gateway]=={latest_mlflow_version}",
-            "langchain<1.0.0",  # TODO: Remove after supporting langchain 1.x
+            "langchain<1.1.0",
         ]
     else:
         extra_pip_requirements = extra_pip_requirements or []

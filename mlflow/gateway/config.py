@@ -51,6 +51,7 @@ class Provider(str, Enum):
     DATABRICKS = "databricks"
     MISTRAL = "mistral"
     TOGETHERAI = "togetherai"
+    LITELLM = "litellm"
 
     @classmethod
     def values(cls):
@@ -229,6 +230,18 @@ class MistralConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class LiteLLMConfig(ConfigModel):
+    litellm_provider: str | None = None
+    litellm_api_key: str | None = None
+    litellm_api_base: str | None = None
+
+    @field_validator("litellm_api_key", mode="before")
+    def validate_litellm_api_key(cls, value):
+        if value is None:
+            return None
+        return _resolve_api_key_from_input(value)
+
+
 class ModelInfo(ResponseModel):
     name: str | None = None
     provider: Provider
@@ -299,8 +312,7 @@ class Model(ConfigModel):
 
         # For Pydantic v2: 'context' is a ValidationInfo object with a 'data' attribute.
         # For Pydantic v1: 'context' is dict-like 'values'.
-        provider = context.data.get("provider")
-        if provider:
+        if provider := context.data.get("provider"):
             config_type = provider_registry.get(provider).CONFIG_TYPE
             return config_type(**val) if isinstance(val, dict) else val
         raise MlflowException.invalid_parameter_value(

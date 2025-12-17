@@ -11,8 +11,6 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_validate_function_parameters():
-    """Test the parameter validation function directly."""
-
     def test_func(a, b, c=None):
         return a + b + (c or 0)
 
@@ -24,16 +22,12 @@ def test_validate_function_parameters():
     with pytest.raises(MlflowException, match=r"Missing required parameters.*\['b'\]"):
         _validate_function_parameters(test_func, {"a": 1})
 
-    assert True  # If we get here, the exception was properly raised
-
     # Test with multiple missing required parameters
     with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a', 'b'\]"):
         _validate_function_parameters(test_func, {})
 
 
 def test_validate_function_parameters_with_varargs():
-    """Test parameter validation with functions that have **kwargs."""
-
     def test_func_with_kwargs(a, **kwargs):
         return a
 
@@ -46,8 +40,6 @@ def test_validate_function_parameters_with_varargs():
 
 
 def test_validate_function_parameters_with_positional_args():
-    """Test parameter validation with functions that have *args."""
-
     def test_func_with_args(a, *args):
         return a
 

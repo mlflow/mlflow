@@ -15,7 +15,11 @@ from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
-from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
+from mlflow.metrics.genai.utils import (
+    _MIGRATION_GUIDE,
+    _get_default_model,
+    _get_latest_metric_version,
+)
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.models.evaluation.base import _make_metric
 from mlflow.protos.databricks_pb2 import (
@@ -25,6 +29,7 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.version import VERSION
 
@@ -194,6 +199,7 @@ def _get_aggregate_results(scores, aggregations):
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def make_genai_metric_from_prompt(
     name: str,
     judge_prompt: str | None = None,
@@ -353,6 +359,7 @@ def make_genai_metric_from_prompt(
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def make_genai_metric(
     name: str,
     definition: str,
@@ -651,8 +658,9 @@ def make_genai_metric(
     ]
 
     # Add grading_context_columns to signature list
-    for var in grading_context_columns:
-        signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
+    signature_parameters.extend(
+        Parameter(var, Parameter.POSITIONAL_OR_KEYWORD) for var in grading_context_columns
+    )
 
     # Note: this doesn't change how python allows calling the function
     # extra params in grading_context_columns can only be passed as positional args

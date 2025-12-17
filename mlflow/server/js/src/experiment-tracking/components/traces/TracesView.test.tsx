@@ -1,9 +1,11 @@
+import { jest, describe, it, expect } from '@jest/globals';
 import { waitFor, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '../../../common/utils/TestUtils.react18';
 import { TracesView, TRACE_AUTO_REFRESH_INTERVAL } from './TracesView';
 import { MlflowService } from '../../sdk/MlflowService';
 import type { KeyValueEntity } from '../../../common/types';
+import { DesignSystemProvider } from '@databricks/design-system';
 import type { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
@@ -43,7 +45,9 @@ describe('TracesView', () => {
 
     renderWithIntl(
       <MemoryRouter>
-        <TracesView experimentIds={testExperimentIds} />
+        <DesignSystemProvider>
+          <TracesView experimentIds={testExperimentIds} />
+        </DesignSystemProvider>
       </MemoryRouter>,
     );
     expect(MlflowService.getExperimentTraces).toHaveBeenCalledTimes(1);
@@ -78,7 +82,9 @@ describe('TracesView', () => {
 
     renderWithIntl(
       <MemoryRouter>
-        <TracesView experimentIds={testExperimentIds} />
+        <DesignSystemProvider>
+          <TracesView experimentIds={testExperimentIds} />
+        </DesignSystemProvider>
       </MemoryRouter>,
     );
 

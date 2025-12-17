@@ -1,8 +1,16 @@
-import JSONBigInt from 'json-bigint';
 import fastStringify from 'fast-safe-stringify';
 
 // Configure json-bigint to handle large integers
-const JSONBig = JSONBigInt({
+
+type JSON = {
+  parse: (text: string) => any;
+  stringify: (value: any) => string;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const JSONBigInt = require('./json-bigint/index.js');
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call
+const JSONBig: JSON = JSONBigInt({
   useNativeBigInt: true,
   alwaysParseAsBig: false,
   storeAsString: false

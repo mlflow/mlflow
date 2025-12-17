@@ -25,7 +25,6 @@ from mlflow.tracing.utils import (
     aggregate_usage_from_spans,
     capture_function_input_args,
     construct_full_inputs,
-    deduplicate_span_names_in_place,
     encode_span_id,
     encode_trace_id,
     generate_trace_id_v4,
@@ -48,23 +47,15 @@ def test_capture_function_input_args_does_not_raise():
     assert mock_input_args.call_count > 0
 
 
-def test_deduplicate_span_names():
+def test_duplicate_span_names():
     span_names = ["red", "red", "blue", "red", "green", "blue"]
 
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), trace_id="tr-123")
         for i, span_name in enumerate(span_names)
     ]
-    deduplicate_span_names_in_place(spans)
 
-    assert [span.name for span in spans] == [
-        "red_1",
-        "red_2",
-        "blue_1",
-        "red_3",
-        "green",
-        "blue_2",
-    ]
+    assert [span.name for span in spans] == span_names
     # Check if the span order is preserved
     assert [span.span_id for span in spans] == [encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]]
 
@@ -201,7 +192,6 @@ def test_set_chat_tools_validation():
     ],
 )
 def test_openai_parse_tools_enum_validation(enum_values, param_type):
-    """Test that OpenAI _parse_tools accepts various enum value types."""
     from mlflow.openai.utils.chat_schema import _parse_tools
 
     # Simulate the exact OpenAI autologging input that was failing

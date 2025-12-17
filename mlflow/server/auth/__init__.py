@@ -70,6 +70,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
+    DeleteScorer,
     DeleteTag,
     FinalizeLoggedModel,
     GetExperiment,
@@ -77,12 +78,16 @@ from mlflow.protos.service_pb2 import (
     GetLoggedModel,
     GetMetricHistory,
     GetRun,
+    GetScorer,
     ListArtifacts,
+    ListScorers,
+    ListScorerVersions,
     LogBatch,
     LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogParam,
+    RegisterScorer,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
@@ -99,21 +104,34 @@ from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
+    CREATE_PROMPTLAB_RUN,
     CREATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_SCORER_PERMISSION,
     CREATE_USER,
     CREATE_USER_UI,
     DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_SCORER_PERMISSION,
     DELETE_USER,
+    GATEWAY_PROXY,
+    GET_ARTIFACT,
     GET_EXPERIMENT_PERMISSION,
+    GET_METRIC_HISTORY_BULK,
+    GET_METRIC_HISTORY_BULK_INTERVAL,
+    GET_MODEL_VERSION_ARTIFACT,
     GET_REGISTERED_MODEL_PERMISSION,
+    GET_SCORER_PERMISSION,
+    GET_TRACE_ARTIFACT,
     GET_USER,
     HOME,
+    SEARCH_DATASETS,
     SIGNUP,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
+    UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
@@ -277,6 +295,24 @@ def _get_permission_from_registered_model_name() -> Permission:
     )
 
 
+def _get_permission_from_scorer_name() -> Permission:
+    experiment_id = _get_request_param("experiment_id")
+    name = _get_request_param("name")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_scorer_permission(experiment_id, name, username).permission
+    )
+
+
+def _get_permission_from_scorer_permission_request() -> Permission:
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_scorer_permission(experiment_id, scorer_name, username).permission
+    )
+
+
 def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
 
@@ -360,10 +396,59 @@ def validate_can_manage_registered_model():
     return _get_permission_from_registered_model_name().can_manage
 
 
+# Scorers
+def validate_can_read_scorer():
+    return _get_permission_from_scorer_name().can_read
+
+
+def validate_can_update_scorer():
+    return _get_permission_from_scorer_name().can_update
+
+
+def validate_can_delete_scorer():
+    return _get_permission_from_scorer_name().can_delete
+
+
+def validate_can_manage_scorer():
+    return _get_permission_from_scorer_name().can_manage
+
+
+def validate_can_manage_scorer_permission():
+    return _get_permission_from_scorer_permission_request().can_manage
+
+
 def sender_is_admin():
     """Validate if the sender is admin"""
     username = authenticate_request().username
     return store.get_user(username).is_admin
+
+
+def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
+    """
+    Filter experiment IDs to only include those the user has read access to.
+
+    Args:
+        experiment_ids: List of experiment IDs to filter
+
+    Returns:
+        Filtered list of experiment IDs the user can read
+    """
+    if not auth_config:
+        return experiment_ids
+
+    try:
+        if sender_is_admin():
+            return experiment_ids
+
+        username = authenticate_request().username
+        perms = store.list_experiment_permissions(username)
+        can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
+        default_can_read = get_permission(auth_config.default_permission).can_read
+
+        return [exp_id for exp_id in experiment_ids if can_read.get(exp_id, default_can_read)]
+    except (RuntimeError, AttributeError):
+        # Auth system not fully initialized, skip filtering
+        return experiment_ids
 
 
 def username_is_sender():
@@ -394,6 +479,174 @@ def validate_can_update_user_admin():
 def validate_can_delete_user():
     # only admins can delete, but admins won't reach this validator
     return False
+
+
+def _get_permission_from_run_id_or_uuid() -> Permission:
+    """
+    Get permission for Flask routes that use either run_id or run_uuid parameter.
+    """
+    run_id = request.args.get("run_id") or request.args.get("run_uuid")
+    if not run_id:
+        raise MlflowException(
+            "Request must specify run_id or run_uuid parameter",
+            INVALID_PARAMETER_VALUE,
+        )
+    run = _get_tracking_store().get_run(run_id)
+    experiment_id = run.info.experiment_id
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
+def validate_can_read_run_artifact():
+    """Checks READ permission on run artifacts."""
+    return _get_permission_from_run_id_or_uuid().can_read
+
+
+def validate_can_update_run_artifact():
+    """Checks UPDATE permission on run artifacts."""
+    return _get_permission_from_run_id_or_uuid().can_update
+
+
+def _get_permission_from_model_version() -> Permission:
+    """
+    Get permission for model version artifacts.
+    Model versions inherit permissions from their registered model.
+    """
+    name = request.args.get("name")
+    if not name:
+        raise MlflowException(
+            "Request must specify name parameter",
+            INVALID_PARAMETER_VALUE,
+        )
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_registered_model_permission(name, username).permission
+    )
+
+
+def validate_can_read_model_version_artifact():
+    """Checks READ permission on model version artifacts."""
+    return _get_permission_from_model_version().can_read
+
+
+def _get_permission_from_trace_request_id() -> Permission:
+    """
+    Get permission for trace artifacts.
+    Traces inherit permissions from their parent run/experiment.
+    """
+    request_id = request.args.get("request_id")
+    if not request_id:
+        raise MlflowException(
+            "Request must specify request_id parameter",
+            INVALID_PARAMETER_VALUE,
+        )
+    # Get the trace to find its experiment
+    trace = _get_tracking_store().get_trace_info(request_id)
+    experiment_id = trace.experiment_id
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
+def validate_can_read_trace_artifact():
+    """Checks READ permission on trace artifacts."""
+    return _get_permission_from_trace_request_id().can_read
+
+
+def validate_can_read_metric_history_bulk(run_ids=None):
+    """Checks READ permission on all requested runs.
+
+    Args:
+        run_ids: Optional list of run IDs to validate. If not provided,
+            extracts 'run_id' from request args (for GetMetricHistoryBulk endpoint).
+    """
+    if run_ids is None:
+        run_ids = request.args.to_dict(flat=False).get("run_id", [])
+    if not run_ids:
+        raise MlflowException(
+            "GetMetricHistoryBulk request must specify at least one run_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+    tracking_store = _get_tracking_store()
+
+    for run_id in run_ids:
+        run = tracking_store.get_run(run_id)
+        experiment_id = run.info.experiment_id
+        permission = _get_permission_from_store_or_default(
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
+        )
+        if not permission.can_read:
+            return False
+
+    return True
+
+
+def validate_can_read_metric_history_bulk_interval():
+    """Checks READ permission on all requested runs for the bulk interval endpoint."""
+    run_ids = request.args.to_dict(flat=False).get("run_ids", [])
+    if not run_ids:
+        raise MlflowException(
+            "GetMetricHistoryBulkInterval request must specify at least one run_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+    return validate_can_read_metric_history_bulk(run_ids)
+
+
+def validate_can_search_datasets():
+    """Checks READ permission on all requested experiments."""
+    if request.method == "POST":
+        data = request.json
+        experiment_ids = data.get("experiment_ids", [])
+    else:
+        experiment_ids = request.args.getlist("experiment_ids")
+
+    if not experiment_ids:
+        raise MlflowException(
+            "SearchDatasets request must specify at least one experiment_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+
+    # Check permission for each experiment
+    for experiment_id in experiment_ids:
+        permission = _get_permission_from_store_or_default(
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
+        )
+        if not permission.can_read:
+            return False
+
+    return True
+
+
+def validate_can_create_promptlab_run():
+    """Checks UPDATE permission on the experiment."""
+    data = request.json
+    experiment_id = data.get("experiment_id")
+    if not experiment_id:
+        raise MlflowException(
+            "CreatePromptlabRun request must specify experiment_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+    permission = _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+    return permission.can_update
+
+
+def validate_gateway_proxy():
+    """
+    Allows gateway proxy requests without permission checks.
+    This endpoint proxies to external services that handle their own authorization.
+    """
+    return True
 
 
 BEFORE_REQUEST_HANDLERS = {
@@ -438,6 +691,12 @@ BEFORE_REQUEST_HANDLERS = {
     SetRegisteredModelAlias: validate_can_update_registered_model,
     DeleteRegisteredModelAlias: validate_can_delete_registered_model,
     GetModelVersionByAlias: validate_can_read_registered_model,
+    # Routes for scorers
+    RegisterScorer: validate_can_update_experiment,
+    ListScorers: validate_can_read_experiment,
+    GetScorer: validate_can_read_scorer,
+    DeleteScorer: validate_can_delete_scorer,
+    ListScorerVersions: validate_can_read_scorer,
 }
 
 
@@ -459,6 +718,7 @@ BEFORE_REQUEST_VALIDATORS = {
     for method in methods
 }
 
+# Auth-related routes
 BEFORE_REQUEST_VALIDATORS.update(
     {
         (SIGNUP, "GET"): validate_can_create_user,
@@ -475,6 +735,26 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
         (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
         (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
+        (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer_permission,
+        (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
+        (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
+        (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
+    }
+)
+
+# Flask routes (no proto mapping)
+BEFORE_REQUEST_VALIDATORS.update(
+    {
+        (GET_ARTIFACT, "GET"): validate_can_read_run_artifact,
+        (UPLOAD_ARTIFACT, "POST"): validate_can_update_run_artifact,
+        (GET_MODEL_VERSION_ARTIFACT, "GET"): validate_can_read_model_version_artifact,
+        (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
+        (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
+        (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
+        (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
+        (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
+        (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
+        (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     }
 )
 
@@ -821,6 +1101,23 @@ def rename_registered_model_permission(resp: Response):
     store.rename_registered_model_permissions(data.get("name"), data.get("new_name"))
 
 
+def set_can_manage_scorer_permission(resp: Response):
+    response_message = RegisterScorer.Response()
+    parse_dict(resp.json, response_message)
+    experiment_id = response_message.experiment_id
+    name = response_message.name
+    username = authenticate_request().username
+    store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+
+
+def delete_scorer_permissions_cascade(resp: Response):
+    data = request.get_json(force=True, silent=True)
+    experiment_id = data.get("experiment_id")
+    name = data.get("name")
+    if experiment_id and name:
+        store.delete_scorer_permissions_for_scorer(experiment_id, name)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
@@ -829,6 +1126,8 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchLoggedModels: filter_search_logged_models,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
+    RegisterScorer: set_can_manage_scorer_permission,
+    DeleteScorer: delete_scorer_permissions_cascade,
 }
 
 
@@ -1106,6 +1405,44 @@ def delete_registered_model_permission():
     return make_response({})
 
 
+@catch_mlflow_exception
+def create_scorer_permission():
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    sp = store.create_scorer_permission(experiment_id, scorer_name, username, permission)
+    return jsonify({"scorer_permission": sp.to_json()})
+
+
+@catch_mlflow_exception
+def get_scorer_permission():
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = _get_request_param("username")
+    sp = store.get_scorer_permission(experiment_id, scorer_name, username)
+    return make_response({"scorer_permission": sp.to_json()})
+
+
+@catch_mlflow_exception
+def update_scorer_permission():
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    store.update_scorer_permission(experiment_id, scorer_name, username, permission)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def delete_scorer_permission():
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = _get_request_param("username")
+    store.delete_scorer_permission(experiment_id, scorer_name, username)
+    return make_response({})
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -1218,6 +1555,26 @@ def create_app(app: Flask = app):
     app.add_url_rule(
         rule=DELETE_REGISTERED_MODEL_PERMISSION,
         view_func=delete_registered_model_permission,
+        methods=["DELETE"],
+    )
+    app.add_url_rule(
+        rule=CREATE_SCORER_PERMISSION,
+        view_func=create_scorer_permission,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=GET_SCORER_PERMISSION,
+        view_func=get_scorer_permission,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=UPDATE_SCORER_PERMISSION,
+        view_func=update_scorer_permission,
+        methods=["PATCH"],
+    )
+    app.add_url_rule(
+        rule=DELETE_SCORER_PERMISSION,
+        view_func=delete_scorer_permission,
         methods=["DELETE"],
     )
 

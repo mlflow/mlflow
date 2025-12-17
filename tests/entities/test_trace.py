@@ -273,13 +273,13 @@ def test_trace_pandas_dataframe_columns():
 @pytest.mark.parametrize(
     ("span_type", "name", "expected"),
     [
-        (None, None, ["run", "add_one_1", "add_one_2", "add_two", "multiply_by_two"]),
+        (None, None, ["run", "add_one", "add_one", "add_two", "multiply_by_two"]),
         (SpanType.CHAIN, None, ["run"]),
         (None, "add_two", ["add_two"]),
-        (None, re.compile(r"add.*"), ["add_one_1", "add_one_2", "add_two"]),
-        (None, re.compile(r"^add"), ["add_one_1", "add_one_2", "add_two"]),
+        (None, re.compile(r"add.*"), ["add_one", "add_one", "add_two"]),
+        (None, re.compile(r"^add"), ["add_one", "add_one", "add_two"]),
         (None, re.compile(r"_two$"), ["add_two", "multiply_by_two"]),
-        (None, re.compile(r".*ONE", re.IGNORECASE), ["add_one_1", "add_one_2"]),
+        (None, re.compile(r".*ONE", re.IGNORECASE), ["add_one", "add_one"]),
         (SpanType.TOOL, "multiply_by_two", ["multiply_by_two"]),
         (SpanType.AGENT, None, []),
         (None, "non_existent", []),
@@ -351,11 +351,11 @@ def test_request_response_smart_truncation():
     # NB: Since MLflow OSS backend still uses v2 tracing schema, the most accurate way to
     # check if the preview is truncated properly is to mock the upload_trace_data call.
     with mock.patch(
-        "mlflow.tracing.export.mlflow_v3.TracingClient._upload_trace_data"
-    ) as mock_upload_trace_data:
+        "mlflow.tracing.export.mlflow_v3.TracingClient.start_trace"
+    ) as mock_start_trace:
         f([{"role": "user", "content": "Hello!" * 1000}])
 
-    trace_info = mock_upload_trace_data.call_args[0][0]
+    trace_info = mock_start_trace.call_args[0][0]
     assert len(trace_info.request_preview) == 1000
     assert trace_info.request_preview.startswith("Hello!")
     assert len(trace_info.response_preview) == 1000
@@ -369,11 +369,11 @@ def test_request_response_smart_truncation_non_chat_format():
         return ["a" * 5000, "b" * 5000, "c" * 5000]
 
     with mock.patch(
-        "mlflow.tracing.export.mlflow_v3.TracingClient._upload_trace_data"
-    ) as mock_upload_trace_data:
+        "mlflow.tracing.export.mlflow_v3.TracingClient.start_trace"
+    ) as mock_start_trace:
         f("start" + "a" * 1000)
 
-    trace_info = mock_upload_trace_data.call_args[0][0]
+    trace_info = mock_start_trace.call_args[0][0]
     assert len(trace_info.request_preview) == 1000
     assert trace_info.request_preview.startswith('{"question": "startaaa')
     assert len(trace_info.response_preview) == 1000
@@ -390,11 +390,11 @@ def test_request_response_custom_truncation():
         return {"choices": [{"message": {"role": "assistant", "content": "Hi!" * 10000}}]}
 
     with mock.patch(
-        "mlflow.tracing.export.mlflow_v3.TracingClient._upload_trace_data"
-    ) as mock_upload_trace_data:
+        "mlflow.tracing.export.mlflow_v3.TracingClient.start_trace"
+    ) as mock_start_trace:
         f([{"role": "user", "content": "Hello!" * 10000}])
 
-    trace_info = mock_upload_trace_data.call_args[0][0]
+    trace_info = mock_start_trace.call_args[0][0]
     assert trace_info.request_preview == "custom request preview"
     assert trace_info.response_preview == "custom response preview"
 

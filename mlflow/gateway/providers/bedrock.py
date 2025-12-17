@@ -22,6 +22,7 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
         payload = super().chat_to_model(payload, config)
         # "model" keys are not supported in Bedrock"
         payload.pop("model", None)
+        payload["anthropic_version"] = "bedrock-2023-05-31"
         return payload
 
     @classmethod
@@ -35,6 +36,7 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
             payload.get("max_tokens_to_sample", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS),
             AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS,
         )
+        payload["anthropic_version"] = "bedrock-2023-05-31"
 
         # "model" keys are not supported in Bedrock"
         payload.pop("model", None)
@@ -240,6 +242,7 @@ class AmazonBedrockProvider(BaseProvider):
                 "aws_session_token": aws_config.aws_session_token,
             }
         else:
+            # TODO: handle session token authentication
             return {}
 
     @property

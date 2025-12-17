@@ -27,7 +27,6 @@ def main():
         "torch",
         "xgboost",
         "pmdarima",
-        "diviner",
         "transformers",
         "sentence_transformers",
     }

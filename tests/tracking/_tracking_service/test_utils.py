@@ -45,12 +45,53 @@ from tests.tracing.helper import get_tracer_tracking_uri
 pytestmark = pytest.mark.notrackingurimock
 
 
-def test_get_store_file_store(tmp_path, monkeypatch):
+def test_tracking_scheme_with_existing_mlruns(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    exp_dir = mlruns_dir / "0"
+    exp_dir.mkdir()
+    (exp_dir / "meta.yaml").touch()
+    store = _get_store()
+    assert isinstance(store, FileStore)
+
+
+def test_tracking_scheme_without_existing_mlruns(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    store = _get_store()
+    assert isinstance(store, SqlAlchemyStore)
+
+
+def test_get_store_with_existing_mlruns_data(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    exp_dir = mlruns_dir / "0"
+    exp_dir.mkdir()
+    (exp_dir / "meta.yaml").touch()
+
     store = _get_store()
     assert isinstance(store, FileStore)
     assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
-    assert _get_tracking_scheme() == "file"
+
+
+def test_get_store_with_empty_mlruns(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+
+    store = _get_store()
+    assert isinstance(store, SqlAlchemyStore)
+
+
+def test_get_store_with_mlruns_dir_but_no_meta_yaml(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    (mlruns_dir / "0").mkdir()
+
+    store = _get_store()
+    assert isinstance(store, SqlAlchemyStore)
 
 
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
@@ -58,7 +99,6 @@ def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
     store = _get_store("other/path")
     assert isinstance(store, FileStore)
     assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
-    assert _get_tracking_scheme() == "file"
 
 
 @pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
@@ -144,6 +184,7 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     with (
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
+        mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
@@ -178,6 +219,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     with (
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
+        mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
@@ -271,7 +313,6 @@ def test_standard_store_registry_with_mocked_entrypoint():
 
 
 def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     monkeypatch.chdir(tmp_path)
     reload(mlflow.tracking._tracking_service.utils)
     assert (

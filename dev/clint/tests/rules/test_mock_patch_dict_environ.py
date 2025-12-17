@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.mock_patch_dict_environ import MockPatchDictEnviron
 
 
@@ -19,7 +19,7 @@ def test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MockPatchDictEnviron) for v in violations)
-    assert violations[0].loc == Location(6, 9)
+    assert violations[0].range == Range(Position(6, 9))
 
 
 def test_mock_patch_dict_environ_with_expression(index_path: Path) -> None:
@@ -36,7 +36,7 @@ def test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MockPatchDictEnviron) for v in violations)
-    assert violations[0].loc == Location(6, 9)
+    assert violations[0].range == Range(Position(6, 9))
 
 
 def test_mock_patch_dict_environ_as_decorator(index_path: Path) -> None:
@@ -53,7 +53,7 @@ def test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MockPatchDictEnviron) for v in violations)
-    assert violations[0].loc == Location(5, 1)
+    assert violations[0].range == Range(Position(5, 1))
 
 
 def test_mock_patch_dict_environ_with_clear(index_path: Path) -> None:
@@ -70,7 +70,7 @@ def test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MockPatchDictEnviron) for v in violations)
-    assert violations[0].loc == Location(6, 9)
+    assert violations[0].range == Range(Position(6, 9))
 
 
 def test_mock_patch_dict_non_environ(index_path: Path) -> None:
@@ -116,7 +116,7 @@ def test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MockPatchDictEnviron) for v in violations)
-    assert violations[0].loc == Location(6, 9)
+    assert violations[0].range == Range(Position(6, 9))
 
 
 def test_mock_patch_dict_environ_nested_function_not_caught(index_path: Path) -> None:

@@ -28,7 +28,7 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
-from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION
+from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION, GET_SCORER_PERMISSION
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
@@ -567,3 +567,277 @@ def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPa
         models = client.search_logged_models(experiment_ids=experiment_ids, page_token=models.token)
         assert len(models) == 2
         assert models.token is None
+
+
+def test_search_runs(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    readable = [0, 2]
+
+    with User(username1, password1, monkeypatch):
+        experiment_ids: list[str] = []
+        run_counts = [8, 10, 7]
+        all_runs = {}
+
+        for i in range(3):
+            experiment_id = client.create_experiment(f"exp-{i}")
+            experiment_ids.append(experiment_id)
+            _send_rest_tracking_post_request(
+                client.tracking_uri,
+                "/api/2.0/mlflow/experiments/permissions/create",
+                json_payload={
+                    "experiment_id": experiment_id,
+                    "username": username2,
+                    "permission": "READ" if i in readable else "NO_PERMISSIONS",
+                },
+                auth=(username1, password1),
+            )
+
+            all_runs[experiment_id] = []
+            for _ in range(run_counts[i]):
+                run = client.create_run(experiment_id)
+                all_runs[experiment_id].append(run.info.run_id)
+
+    expected_readable_runs = set(all_runs[experiment_ids[0]] + all_runs[experiment_ids[2]])
+
+    with User(username1, password1, monkeypatch):
+        runs = client.search_runs(experiment_ids=experiment_ids)
+        assert len(runs) == sum(run_counts)
+
+    with User(username2, password2, monkeypatch):
+        runs = client.search_runs(experiment_ids=experiment_ids)
+        returned_run_ids = {run.info.run_id for run in runs}
+        assert returned_run_ids == expected_readable_runs
+        assert len(runs) == len(expected_readable_runs)
+
+        page_token = None
+        all_paginated_runs = []
+        while True:
+            runs = client.search_runs(
+                experiment_ids=experiment_ids,
+                max_results=3,
+                page_token=page_token,
+            )
+            all_paginated_runs.extend([run.info.run_id for run in runs])
+            page_token = runs.token
+            if not page_token:
+                break
+
+        assert len(all_paginated_runs) == len(set(all_paginated_runs))
+        assert set(all_paginated_runs) == expected_readable_runs
+
+        inaccessible_runs = set(all_runs[experiment_ids[1]])
+        returned_inaccessible = set(all_paginated_runs) & inaccessible_runs
+        assert len(returned_inaccessible) == 0
+
+
+def test_register_and_delete_scorer(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("test_experiment")
+
+    scorer_json = '{"name": "test_scorer", "type": "pyfunc"}'
+
+    with User(username1, password1, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "test_scorer",
+                "serialized_scorer": scorer_json,
+            },
+            auth=(username1, password1),
+        )
+
+    scorer_name = response.json()["name"]
+    assert scorer_name == "test_scorer"
+
+    with User(username1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + GET_SCORER_PERMISSION,
+            params={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username1,
+            },
+            auth=(username1, password1),
+        )
+
+    permission = response.json()["scorer_permission"]
+    assert permission["experiment_id"] == experiment_id
+    assert permission["scorer_name"] == scorer_name
+    assert permission["permission"] == "MANAGE"
+
+    with User(username1, password1, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/delete",
+            json={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+            },
+            auth=(username1, password1),
+        )
+
+    with User(username1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + GET_SCORER_PERMISSION,
+            params={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username1,
+            },
+            auth=("admin", "password1234"),
+        )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_scorer_permission_denial(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("test_experiment")
+
+    scorer_json = '{"name": "test_scorer", "type": "pyfunc"}'
+
+    with User(username1, password1, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "test_scorer",
+                "serialized_scorer": scorer_json,
+            },
+            auth=(username1, password1),
+        )
+
+    scorer_name = response.json()["name"]
+
+    with User(username2, password2, monkeypatch):
+        # user2 has default READ permission, so they CAN read the scorer
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/get",
+            params={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+            },
+            auth=(username2, password2),
+        )
+        response.raise_for_status()
+        assert response.json()["scorer"]["scorer_name"] == scorer_name
+
+        # But they CANNOT delete it (READ permission doesn't allow delete)
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/delete",
+            json={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+            },
+            auth=(username2, password2),
+        )
+        with pytest.raises(requests.HTTPError, match="403"):
+            response.raise_for_status()
+
+
+def test_scorer_read_permission(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("test_experiment")
+
+    scorer_json = '{"name": "test_scorer", "type": "pyfunc"}'
+
+    with User(username1, password1, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "test_scorer",
+                "serialized_scorer": scorer_json,
+            },
+            auth=(username1, password1),
+        )
+
+    scorer_name = response.json()["name"]
+
+    _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/3.0/mlflow/scorers/permissions/create",
+        json_payload={
+            "experiment_id": experiment_id,
+            "scorer_name": scorer_name,
+            "username": username2,
+            "permission": "READ",
+        },
+        auth=(username1, password1),
+    )
+
+    with User(username2, password2, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/get",
+            params={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+            },
+            auth=(username2, password2),
+        )
+        response.raise_for_status()
+        assert response.json()["scorer"]["scorer_name"] == scorer_name
+
+    with User(username2, password2, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/delete",
+            json={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+            },
+            auth=(username2, password2),
+        )
+        with pytest.raises(requests.HTTPError, match="403"):
+            response.raise_for_status()
+
+
+def test_get_metric_history_bulk_interval_auth(client: MlflowClient, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("test_metric_history_experiment")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        client.log_metric(run_id, "test_metric", 1.0, step=0)
+        client.log_metric(run_id, "test_metric", 2.0, step=1)
+
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": experiment_id,
+                "username": username2,
+                "permission": "READ",
+            },
+            auth=(username1, password1),
+        )
+
+    with User(username2, password2, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval",
+            params={
+                "run_ids": run_id,
+                "metric_key": "test_metric",
+                "max_results": 100,
+            },
+            auth=(username2, password2),
+        )
+        response.raise_for_status()
+        data = response.json()
+        assert "metrics" in data
+        assert len(data["metrics"]) == 2

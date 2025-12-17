@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import React, { useEffect, useRef } from 'react';
 import { act, fireEvent, renderWithIntl, screen } from '../../../../common/utils/TestUtils.react18';
 import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
@@ -23,6 +24,7 @@ const onUnhoverTestCallback = jest.fn();
 
 describe('useCompareRunsAllTracesTooltipData', () => {
   const getLastHoverCallbackData = (): RunsCompareMultipleTracesTooltipData =>
+    // @ts-expect-error Type 'unknown' is not assignable to type 'RunsCompareMultipleTracesTooltipData'
     jest.mocked(onHoverTestCallback).mock?.lastCall?.[2];
 
   const hoverPointerOnClientX = (clientX: number) => {
@@ -84,11 +86,13 @@ describe('useCompareRunsAllTracesTooltipData', () => {
         invariant(SVG, 'SVG should exist');
         const draglayer = SVG.querySelector('.nsewdrag');
         invariant(draglayer, 'draglayer should exist');
-        SVG.getBoundingClientRect = jest.fn<any, any>(() => ({
+        // @ts-expect-error Argument is not assignable to parameter of type '() => DOMRect'
+        SVG.getBoundingClientRect = jest.fn<typeof SVG.getBoundingClientRect>(() => ({
           width: 200,
           x: 0,
         }));
-        draglayer.getBoundingClientRect = jest.fn<any, any>(() => ({
+        // @ts-expect-error Argument is not assignable to parameter of type '() => DOMRect'
+        draglayer.getBoundingClientRect = jest.fn<typeof draglayer.getBoundingClientRect>(() => ({
           width: 200,
           x: 0,
         }));

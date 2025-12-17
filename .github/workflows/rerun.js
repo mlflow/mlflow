@@ -45,12 +45,12 @@ async function rerun({ github, context }) {
     ref: pr.head.sha,
   });
   const runIdsToRerun = checkRuns
-    // Select failed/cancelled github action runs
+    // Select failed github action runs
     .filter(
       ({ name, status, conclusion, started_at, completed_at, app: { slug } }) =>
         slug === "github-actions" &&
         status === "completed" &&
-        (conclusion === "failure" || conclusion === "cancelled") &&
+        conclusion === "failure" &&
         name.toLowerCase() !== "rerun" && // Prevent recursive rerun
         (name.toLowerCase() === "protect" || // Always rerun protect job
           computeExecutionTimeInSeconds(started_at, completed_at) <= 60) // Rerun jobs that took less than 60 seconds (e.g. Maintainer approval check)

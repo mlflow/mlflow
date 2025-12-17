@@ -3,9 +3,6 @@ sidebar_position: 9
 sidebar_label: Claude Code
 ---
 
-import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
@@ -91,7 +88,7 @@ cd ~/my-project
 claude "help me refactor this Python function to be more efficient"
 
 # View traces in MLflow UI
-mlflow ui
+mlflow server
 ```
 
 </TabItem>
@@ -155,6 +152,7 @@ You can also use SDK tracing with MLflow's GenAI evaluation framework:
 import asyncio
 import pandas as pd
 from claude_agent_sdk import ClaudeSDKClient
+from typing import Literal
 
 import mlflow.anthropic
 from mlflow.genai import evaluate, scorer
@@ -186,6 +184,7 @@ relevance = make_judge(
         "Evaluate if the response in {{ outputs }} is relevant to "
         "the question in {{ inputs }}. Return either 'pass' or 'fail'."
     ),
+    feedback_value_type=Literal["pass", "fail"],
     model="openai:/gpt-4o",
 )
 

@@ -112,7 +112,7 @@ def update_and_persist_config(profile, databricks_config):
         profile: str
         databricks_config: DatabricksConfig
     """
-    profile = profile if profile else DEFAULT_SECTION
+    profile = profile or DEFAULT_SECTION
     raw_config = _fetch_from_fs()
     _create_section_if_absent(raw_config, profile)
     _set_option(raw_config, profile, HOST, databricks_config.host)
@@ -134,15 +134,13 @@ def get_config():
     If no DatabricksConfig can be found, an InvalidConfigurationError will be raised.
     """
     if _config_provider:
-        config = _config_provider.get_config()
-        if config:
+        if config := _config_provider.get_config():
             return config
         raise InvalidConfigurationError(
             f"Custom provider returned no DatabricksConfig: {_config_provider}"
         )
 
-    config = DefaultConfigProvider().get_config()
-    if config:
+    if config := DefaultConfigProvider().get_config():
         return config
     raise InvalidConfigurationError.for_profile(None)
 
@@ -164,13 +162,12 @@ def get_config_for_profile(profile):
     Returns:
         DatabricksConfig
     """
-    profile = profile if profile else DEFAULT_SECTION
+    profile = profile or DEFAULT_SECTION
     config = EnvironmentVariableConfigProvider().get_config()
     if config and config.is_valid:
         return config
 
-    config = ProfileConfigProvider(profile).get_config()
-    if config:
+    if config := ProfileConfigProvider(profile).get_config():
         return config
     return DatabricksConfig.empty()
 

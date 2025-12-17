@@ -93,6 +93,9 @@ class DefaultEvaluator(BuiltInEvaluator):
         """
         Get a list of builtin metrics for the model type.
         """
+        if self.model_type is None:
+            return []
+
         text_metrics = [
             token_count(),
             toxicity(),

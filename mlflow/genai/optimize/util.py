@@ -4,8 +4,11 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from pydantic import BaseModel, create_model
 
+from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers
 from mlflow.tracking.client import MlflowClient
 
 if TYPE_CHECKING:
@@ -64,30 +67,28 @@ def prompt_optimization_autolog(
                 mlflow.log_metric("final_eval_score", output.final_eval_score)
 
 
-def validate_train_data(train_data: list[dict[str, Any]]) -> None:
+def validate_train_data(
+    train_data: "pd.DataFrame", scorers: list[Scorer], predict_fn: Callable[..., Any] | None = None
+) -> None:
     """
     Validate that training data has required fields for prompt optimization.
 
     Args:
-        train_data: List of training data records converted to dict format.
+        train_data: Training data as a pandas DataFrame.
+        scorers: Scorers to validate the training data for.
+        predict_fn: The predict function to validate the training data for.
 
     Raises:
-        ValueError: If any record is missing required fields or has empty required fields.
+        MlflowException: If any record is missing required 'inputs' field or it is empty.
     """
-    for i, record in enumerate(train_data):
+    for i, record in enumerate(train_data.to_dict("records")):
         if "inputs" not in record or not record["inputs"]:
-            raise ValueError(f"Record {i} is missing required 'inputs' field or it is empty")
-
-        # Check that at least one of outputs or expectations is present and not None
-        # We explicitly check for None to allow falsy values like False, 0, or empty strings
-        has_outputs = record.get("outputs") is not None
-        has_expectations = record.get("expectations") is not None
-
-        if not has_outputs and not has_expectations:
-            raise ValueError(
-                f"Record {i} must have at least one non-empty field: 'outputs' or 'expectations'. "
-                f"Found outputs={record.get('outputs')}, expectations={record.get('expectations')}"
+            raise MlflowException.invalid_parameter_value(
+                f"Record {i} is missing required 'inputs' field or it is empty"
             )
+
+    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+    valid_data_for_builtin_scorers(train_data, builtin_scorers, predict_fn)
 
 
 def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
@@ -102,9 +103,7 @@ def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
     elif isinstance(value, list):
         if not value:
             return list[Any]
-        element_types = set()
-        for item in value:
-            element_types.add(infer_type_from_value(item))
+        element_types = {infer_type_from_value(item) for item in value}
         return list[functools.reduce(lambda x, y: x | y, element_types)]
     elif isinstance(value, dict):
         fields = {k: (infer_type_from_value(v, model_name=k), ...) for k, v in value.items()}
@@ -129,7 +128,8 @@ def create_metric_from_scorers(
                   uses default aggregation (sum for numerical, conversion for categorical).
 
     Returns:
-        A callable that takes (inputs, outputs, expectations) and returns a float score.
+        A callable that takes (inputs, outputs, expectations) and
+        returns a tuple of (float score, dict of rationales).
 
     Raises:
         MlflowException: If scorers return non-numerical values and no objective is provided.
@@ -138,28 +138,37 @@ def create_metric_from_scorers(
     from mlflow.genai.judges import CategoricalRating
 
     def _convert_to_numeric(score: Any) -> float | None:
-        """Convert a value to numeric, handling CategoricalRating and common types."""
-        if isinstance(score, (int, float, bool)):
+        """Convert a value to numeric, handling Feedback and primitive types."""
+        if isinstance(score, Feedback):
+            score = score.value
+        if score == CategoricalRating.YES:
+            return 1.0
+        elif score == CategoricalRating.NO:
+            return 0.0
+        elif isinstance(score, (int, float, bool)):
             return float(score)
-        elif isinstance(score, Feedback) and isinstance(score.value, CategoricalRating):
-            # Convert CategoricalRating to numeric: YES=1.0, NO=0.0
-            return 1.0 if score.value == CategoricalRating.YES else 0.0
         return None
 
     def metric(
         inputs: Any,
         outputs: Any,
         expectations: dict[str, Any],
+        trace: Trace | None,
     ) -> float:
         scores = {}
+        rationales = {}
 
         for scorer in scorers:
             scores[scorer.name] = scorer.run(
-                inputs=inputs, outputs=outputs, expectations=expectations
+                inputs=inputs, outputs=outputs, expectations=expectations, trace=trace
             )
 
+        for key, score in scores.items():
+            if isinstance(score, Feedback):
+                rationales[key] = score.rationale
+
         if objective is not None:
-            return objective(scores)
+            return objective(scores), rationales
 
         # Try to convert all scores to numeric
         numeric_scores = {}
@@ -170,7 +179,8 @@ def create_metric_from_scorers(
 
         # If all scores were convertible, use sum as default aggregation
         if len(numeric_scores) == len(scores):
-            return sum(numeric_scores.values())
+            # We average the scores to get the score between 0 and 1.
+            return sum(numeric_scores.values()) / len(numeric_scores), rationales
 
         # Otherwise, report error with actual types
         non_convertible = {

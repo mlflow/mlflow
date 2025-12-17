@@ -75,40 +75,35 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras
-          # Ensure `databricks-connect` and `databricks-agents` are not installed
-          pip uninstall -y databricks-connect databricks-agents
-          pip install --no-deps --force-reinstall pyspark
+          uv sync --extra extras --extra gateway --extra mcp --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
-          source .venv/bin/activate
           # `-I` is used to avoid importing modules from user-specific site-packages
           # that might conflict with the built-in modules (e.g. `types`).
-          python -I tests/check_mlflow_lazily_imports_ml_packages.py
+          uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
-          source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-            --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore tests/genai tests
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --quiet --requires-ssh --ignore-flavors \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/genai \
+            tests
 
       - name: Run databricks-connect related tests
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other
           # tests that uses normal SparkSession instead of remote SparkSession
-          source .venv/bin/activate
-          pip install databricks-agents
-          pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
+          uv run --no-sync --with databricks-agents \
+            pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -122,7 +117,7 @@ jobs:
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
-          docker images
+          docker images --digests
           ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
       - name: Run tests
         run: |
@@ -136,6 +131,7 @@ jobs:
             # https://github.com/actions/virtual-environments/issues/5022
             ./tests/db/compose.sh run --rm --no-TTY $service pytest \
               tests/store/tracking/test_sqlalchemy_store.py \
+              tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/db
               RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
@@ -197,20 +193,17 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras uvicorn
+          uv sync --extra extras
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          source .venv/bin/activate
-          pytest \
+          uv run --no-sync pytest \
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging
 
@@ -265,7 +258,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra extras --extra jobs --extra genai
+          uv sync --extra extras --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
             torch transformers pyspark langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
@@ -293,7 +286,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install openai dspy
+          pip install openai dspy deepeval litellm ragas
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
@@ -335,7 +328,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra extras --extra gateway --extra jobs
+          uv sync --extra extras --extra gateway
           uv pip install \
             -r requirements/test-requirements.txt \
             tensorflow 'pyspark[connect]'
@@ -390,16 +383,31 @@ jobs:
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
+
+          # Define function to run pytest with common arguments
+          run_pytest() {
+            uv run --no-sync pytest "$@" \
+              --ignore-flavors \
+              --ignore=tests/projects \
+              --ignore=tests/examples \
+              --ignore=tests/evaluate \
+              --ignore=tests/optuna \
+              --ignore=tests/pyspark/optuna \
+              --ignore=tests/genai \
+              --ignore=tests/sagemaker \
+              --ignore=tests/gateway \
+              --ignore=tests/server/auth \
+              --ignore=tests/data/test_spark_dataset.py \
+              tests
+          }
+
           # Run Windows tests
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors \
-            --ignore=tests/projects \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna \
-            --ignore=tests/genai \
-            --ignore=tests/sagemaker \
-            --ignore=tests/gateway \
-            --ignore=tests/server/auth \
-            tests
+          # Retry failed tests once to handle flaky tests on Windows
+          set +e
+          run_pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }}
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            echo "Retrying failed tests..."
+            run_pytest --last-failed
+          fi

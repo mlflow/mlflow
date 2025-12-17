@@ -209,11 +209,6 @@ def _patched_compile(original, self, *args, **kwargs):
         log_dspy_dataset(valset, "valset.json")
     return program
 
-    if get_autologging_config(FLAVOR_NAME, "log_traces_from_compile"):
-        return original(self, *args, **kwargs)
-    else:
-        return _trace_disabled_fn(self, *args, **kwargs)
-
 
 def _patched_evaluate(original, self, *args, **kwargs):
     # NB: Since calling mlflow.dspy.autolog() again does not unpatch a function, we need to
@@ -232,9 +227,7 @@ def _patched_evaluate(original, self, *args, **kwargs):
     new_kwargs["metric"] = _patch_metric(metric)
 
     args_passed_positional = list(new_kwargs.keys())[: len(args)]
-    new_args = []
-    for arg in args_passed_positional:
-        new_args.append(new_kwargs.pop(arg))
+    new_args = [new_kwargs.pop(arg) for arg in args_passed_positional]
 
     return original(self, *new_args, **new_kwargs)
 

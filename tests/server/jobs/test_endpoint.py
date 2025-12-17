@@ -157,7 +157,6 @@ def test_job_endpoint(client: Client):
 
 
 def test_job_endpoint_invalid_function_format(client: Client):
-    """Test that invalid function fullname format returns proper error"""
     payload = {
         "function_fullname": "invalid_format_no_module",
         "params": {"x": 3, "y": 4},
@@ -169,7 +168,6 @@ def test_job_endpoint_invalid_function_format(client: Client):
 
 
 def test_job_endpoint_module_not_found(client: Client):
-    """Test that non-existent module returns proper error"""
     payload = {
         "function_fullname": "non_existent_module.some_function",
         "params": {"x": 3, "y": 4},
@@ -181,7 +179,6 @@ def test_job_endpoint_module_not_found(client: Client):
 
 
 def test_job_endpoint_function_not_found(client: Client):
-    """Test that non-existent function in existing module returns proper error"""
     payload = {
         "function_fullname": "os.non_existent_function",
         "params": {"x": 3, "y": 4},
@@ -193,7 +190,6 @@ def test_job_endpoint_function_not_found(client: Client):
 
 
 def test_job_endpoint_missing_parameters(client: Client):
-    """Test that proper error is returned when required function parameters are missing."""
     payload = {
         "function_fullname": "test_endpoint.simple_job_fun",
         "params": {"x": 3},  # Missing required parameter 'y'

@@ -4,6 +4,7 @@ import pytest
 from pydantic import BaseModel
 
 from mlflow.entities.assessment import Feedback
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
 from mlflow.genai.optimize.util import (
     create_metric_from_scorers,
@@ -131,61 +132,71 @@ def test_model_name_parameter(input_dict, model_name):
 
 
 @pytest.mark.parametrize(
-    ("categorical_value", "expected_score"),
+    ("score", "expected_score"),
     [
         (CategoricalRating.YES, 1.0),
         (CategoricalRating.NO, 0.0),
+        ("yes", 1.0),
+        ("no", 0.0),
+        (True, 1.0),
+        (False, 0.0),
+        (1, 1.0),
+        (0, 0.0),
+        (1.0, 1.0),
+        (0.0, 0.0),
     ],
 )
-def test_create_metric_from_scorers_with_categorical_rating(categorical_value, expected_score):
+def test_create_metric_from_scorers_with_single_score(score, expected_score):
     @scorer(name="test_scorer")
     def test_scorer(inputs, outputs):
-        return Feedback(name="test_scorer", value=categorical_value)
+        return Feedback(name="test_scorer", value=score, rationale="test rationale")
 
     metric = create_metric_from_scorers([test_scorer])
 
-    result = metric({"input": "test"}, {"output": "result"}, {})
-    assert result == expected_score
+    result = metric({"input": "test"}, {"output": "result"}, {}, None)
+    assert result[0] == expected_score
+    assert result[1] == {"test_scorer": "test rationale"}
 
 
 def test_create_metric_from_scorers_with_multiple_categorical_ratings():
     @scorer(name="scorer1")
     def scorer1(inputs, outputs):
-        return Feedback(name="scorer1", value=CategoricalRating.YES)
+        return Feedback(name="scorer1", value=CategoricalRating.YES, rationale="rationale1")
 
     @scorer(name="scorer2")
     def scorer2(inputs, outputs):
-        return Feedback(name="scorer2", value=CategoricalRating.YES)
+        return Feedback(name="scorer2", value=CategoricalRating.YES, rationale="rationale2")
 
     metric = create_metric_from_scorers([scorer1, scorer2])
 
-    # Should sum: 1.0 + 1.0 = 2.0
-    result = metric({"input": "test"}, {"output": "result"}, {})
-    assert result == 2.0
+    # Should average: (1.0 + 1.0) / 2 = 1.0
+    result = metric({"input": "test"}, {"output": "result"}, {}, None)
+    assert result[0] == 1.0
+    assert result[1] == {"scorer1": "rationale1", "scorer2": "rationale2"}
 
 
 @pytest.mark.parametrize(
-    ("train_data", "expected_error"),
+    ("train_data", "scorers", "expected_error"),
     [
         # Empty inputs
         (
             [{"inputs": {}, "outputs": "result"}],
+            [],
             "Record 0 is missing required 'inputs' field or it is empty",
         ),
         # Missing inputs
-        ([{"outputs": "result"}], "Record 0 is missing required 'inputs' field"),
-        # Missing both outputs and expectations
-        ([{"inputs": {"text": "hello"}}], "Record 0 must have at least one non-empty field"),
-        # Both outputs and expectations are None
         (
-            [{"inputs": {"text": "hello"}, "outputs": None, "expectations": None}],
-            "Record 0 must have at least one non-empty field",
+            [{"outputs": "result"}],
+            [],
+            "Record 0 is missing required 'inputs' field or it is empty",
         ),
     ],
 )
-def test_validate_train_data_errors(train_data, expected_error):
-    with pytest.raises(ValueError, match=expected_error):
-        validate_train_data(train_data)
+def test_validate_train_data_errors(train_data, scorers, expected_error):
+    import pandas as pd
+
+    with pytest.raises(MlflowException, match=expected_error):
+        validate_train_data(pd.DataFrame(train_data), scorers, lambda **kwargs: None)
 
 
 @pytest.mark.parametrize(
@@ -205,4 +216,6 @@ def test_validate_train_data_errors(train_data, expected_error):
     ],
 )
 def test_validate_train_data_success(train_data):
-    validate_train_data(train_data)
+    import pandas as pd
+
+    validate_train_data(pd.DataFrame(train_data), [], lambda **kwargs: None)

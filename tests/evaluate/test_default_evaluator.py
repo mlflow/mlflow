@@ -1622,7 +1622,7 @@ class _ExampleToBePickledObject:
         self.b = "hello"
 
     def __eq__(self, o: object) -> bool:
-        return self.a == o.a and self.b == self.b
+        return self.a == o.a and self.b == o.b
 
 
 def test_custom_metric_logs_artifacts_from_objects(
@@ -1961,7 +1961,8 @@ def test_custom_artifacts():
             evaluator_config={"log_model_explainability": False},  # For faster evaluation
         )
         custom_artifact = result.artifacts["custom_artifact"]
-        assert json.loads(Path(custom_artifact.uri).read_text()) == {"k": "v"}
+        path = custom_artifact.uri.removeprefix("file://")
+        assert json.loads(Path(path).read_text()) == {"k": "v"}
 
 
 def test_make_metric_name_inference():
@@ -2747,9 +2748,7 @@ def test_evaluate_no_model_type_with_custom_metric():
         from mlflow.metrics.base import standard_aggregations
 
         def word_count_eval(predictions, targets=None, metrics=None):
-            scores = []
-            for prediction in predictions:
-                scores.append(len(prediction.split(" ")))
+            scores = [len(prediction.split(" ")) for prediction in predictions]
             return MetricValue(
                 scores=scores,
                 aggregate_results=standard_aggregations(scores),
@@ -4374,7 +4373,6 @@ def test_regressor_returning_pandas_object(model_output, predictions):
 def test_classifier_evaluation_scenarios(
     data, evaluator_config, expected_metrics, expected_artifacts, description
 ):
-    """Test various classifier evaluation scenarios with different data types and configurations."""
     result = mlflow.evaluate(
         data=data,
         targets="target",
@@ -4525,7 +4523,6 @@ def test_classifier_evaluation_error_conditions(
 def test_label_validation_and_classification_type(
     data, evaluator_config, expected_binary_metrics, expected_classes, description
 ):
-    """Test label validation and binary vs multiclass classification detection."""
     result = mlflow.evaluate(
         data=data,
         targets="target",

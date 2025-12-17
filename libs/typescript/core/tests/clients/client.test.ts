@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { MlflowClient } from '../../src/clients/client';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceLocationType } from '../../src/core/entities/trace_location';
@@ -27,7 +28,7 @@ describe('MlflowClient', () => {
 
   describe('createTrace', () => {
     it('should create a trace', async () => {
-      const traceId = 'test-trace-id';
+      const traceId = randomUUID();
       const traceInfo = new TraceInfo({
         traceId: traceId,
         traceLocation: {
@@ -68,7 +69,7 @@ describe('MlflowClient', () => {
     });
 
     it('should create a trace with error state', async () => {
-      const traceId = 'test-trace-id';
+      const traceId = randomUUID();
       const traceInfo = new TraceInfo({
         traceId: traceId,
         traceLocation: {
@@ -94,7 +95,7 @@ describe('MlflowClient', () => {
 
   describe('getTraceInfo', () => {
     it('should retrieve trace info for an existing trace', async () => {
-      const traceId = 'test-trace-id';
+      const traceId = randomUUID();
       const traceInfo = new TraceInfo({
         traceId: traceId,
         traceLocation: {

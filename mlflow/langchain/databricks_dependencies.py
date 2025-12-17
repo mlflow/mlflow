@@ -16,15 +16,14 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_embedding_model_endpoint_names(index):
-    embedding_model_endpoint_names = []
     desc = index.describe()
     delta_sync_index_spec = desc.get("delta_sync_index_spec", {})
     embedding_source_columns = delta_sync_index_spec.get("embedding_source_columns", [])
-    for column in embedding_source_columns:
-        embedding_model_endpoint_name = column.get("embedding_model_endpoint_name", None)
-        if embedding_model_endpoint_name:
-            embedding_model_endpoint_names.append(embedding_model_endpoint_name)
-    return embedding_model_endpoint_names
+    return [
+        name
+        for column in embedding_source_columns
+        if (name := column.get("embedding_model_endpoint_name", None))
+    ]
 
 
 def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None]:

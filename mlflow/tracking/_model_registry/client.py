@@ -90,7 +90,7 @@ class ModelRegistryClient:
         """
         # TODO: Do we want to validate the name is legit here - non-empty without "/" and ":" ?
         #       Those are constraints applicable to any backend, given the model URI format.
-        tags = tags if tags else {}
+        tags = tags or {}
         tags = [RegisteredModelTag(key, str(value)) for key, value in tags.items()]
         return self.store.create_registered_model(name, tags, description, deployment_job_id)
 
@@ -260,7 +260,7 @@ class ModelRegistryClient:
             backend.
 
         """
-        tags = tags if tags else {}
+        tags = tags or {}
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
         arg_names = _get_arg_names(self.store.create_model_version)
         if "local_model_path" in arg_names:
@@ -563,7 +563,7 @@ class ModelRegistryClient:
         template: str | list[dict[str, Any]],
         description: str | None = None,
         tags: dict[str, str] | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.

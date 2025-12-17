@@ -37,10 +37,9 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-node": "^0.201.1",
-    "@types/json-bigint": "^1.0.4",
     "fast-safe-stringify": "^2.1.1",
-    "ini": "^5.0.0",
-    "json-bigint": "^1.0.0"
+    "bignumber.js": "^9.0.0",
+    "ini": "^5.0.0"
   },
   "devDependencies": {
     "@types/ini": "^4.1.1",

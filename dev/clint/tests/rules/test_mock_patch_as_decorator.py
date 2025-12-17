@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.mock_patch_as_decorator import MockPatchAsDecorator
 
 
@@ -17,7 +17,7 @@ def test_foo(mock_bar):
     violations = lint_file(Path("test_mock_patch.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MockPatchAsDecorator) for v in violations)
-    assert violations[0].loc == Location(3, 1)
+    assert violations[0].range == Range(Position(3, 1))
 
 
 def test_mock_patch_as_decorator_from_unittest_import_mock(index_path: Path) -> None:
@@ -32,7 +32,7 @@ def test_foo(mock_bar):
     violations = lint_file(Path("test_mock_patch.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MockPatchAsDecorator) for v in violations)
-    assert violations[0].loc == Location(3, 1)
+    assert violations[0].range == Range(Position(3, 1))
 
 
 def test_mock_patch_object_as_decorator(index_path: Path) -> None:
@@ -47,7 +47,7 @@ def test_foo(mock_method):
     violations = lint_file(Path("test_mock_patch.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MockPatchAsDecorator) for v in violations)
-    assert violations[0].loc == Location(3, 1)
+    assert violations[0].range == Range(Position(3, 1))
 
 
 def test_mock_patch_dict_as_decorator(index_path: Path) -> None:
@@ -62,7 +62,7 @@ def test_foo():
     violations = lint_file(Path("test_mock_patch.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MockPatchAsDecorator) for v in violations)
-    assert violations[0].loc == Location(3, 1)
+    assert violations[0].range == Range(Position(3, 1))
 
 
 def test_mock_patch_as_context_manager_is_ok(index_path: Path) -> None:
@@ -104,5 +104,5 @@ def test_foo(mock_baz, mock_bar):
     violations = lint_file(Path("test_mock_patch.py"), code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, MockPatchAsDecorator) for v in violations)
-    assert violations[0].loc == Location(3, 1)
-    assert violations[1].loc == Location(4, 1)
+    assert violations[0].range == Range(Position(3, 1))
+    assert violations[1].range == Range(Position(4, 1))

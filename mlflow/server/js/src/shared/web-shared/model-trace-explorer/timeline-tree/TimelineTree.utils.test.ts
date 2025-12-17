@@ -1,3 +1,5 @@
+import { describe, test, expect } from '@jest/globals';
+
 import { getSpanNodeParentIds, getTimelineTreeNodesMap } from './TimelineTree.utils';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { MOCK_TRACE } from '../ModelTraceExplorer.test-utils';

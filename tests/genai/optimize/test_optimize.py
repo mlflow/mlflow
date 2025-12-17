@@ -11,6 +11,7 @@ from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerO
 from mlflow.genai.prompts import register_prompt
 from mlflow.genai.scorers import scorer
 from mlflow.models.model import PromptVersion
+from mlflow.utils.import_hooks import _post_import_hooks
 
 
 class MockPromptOptimizer(BasePromptOptimizer):
@@ -96,6 +97,9 @@ def sample_predict_fn(input_text: str, language: str) -> str:
         ("World", "French"): "Monde",
         ("Goodbye", "Spanish"): "Adiós",
     }
+
+    # Verify that auto logging is enabled during the evaluation.
+    assert len(_post_import_hooks) > 0
     return translations.get((input_text, language), f"translated_{input_text}")
 
 
@@ -365,41 +369,25 @@ def test_optimize_prompts_with_custom_scorers(
 
 
 @pytest.mark.parametrize(
-    ("train_data", "error_type", "error_match"),
+    ("train_data", "error_match"),
     [
         # Empty dataset validation (handled by _convert_eval_set_to_df)
-        ([], "MlflowException", "The dataset is empty"),
+        ([], "The dataset is empty"),
         # Missing inputs validation (handled by _convert_eval_set_to_df)
-        ([{"outputs": "Hola"}], "MlflowException", "Either `inputs` or `trace` column is required"),
+        ([{"outputs": "Hola"}], "Either `inputs` or `trace` column is required"),
         # Empty inputs validation
         (
             [{"inputs": {}, "outputs": "Hola"}],
-            "ValueError",
             "Record 0 is missing required 'inputs' field or it is empty",
-        ),
-        # Missing both outputs and expectations
-        (
-            [{"inputs": {"text": "Hello"}}],
-            "ValueError",
-            r"Record 0 must have at least one non-empty field: 'outputs' or 'expectations'",
-        ),
-        # Both outputs and expectations are None
-        (
-            [{"inputs": {"text": "Hello"}, "outputs": None, "expectations": None}],
-            "ValueError",
-            r"Record 0 must have at least one non-empty field: 'outputs' or 'expectations'",
         ),
     ],
 )
 def test_optimize_prompts_validation_errors(
     sample_translation_prompt: PromptVersion,
     train_data: list[dict[str, Any]],
-    error_type: str,
     error_match: str,
 ):
-    error_class = MlflowException if error_type == "MlflowException" else ValueError
-
-    with pytest.raises(error_class, match=error_match):
+    with pytest.raises(MlflowException, match=error_match):
         optimize_prompts(
             predict_fn=sample_predict_fn,
             train_data=train_data,

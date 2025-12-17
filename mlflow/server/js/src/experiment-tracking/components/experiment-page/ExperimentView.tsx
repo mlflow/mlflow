@@ -1,4 +1,4 @@
-import { Alert, LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import { getExperimentApi } from '../../actions';
@@ -12,10 +12,7 @@ import { searchDatasetsApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageUIStateContext';
 import { first } from 'lodash';
-import {
-  shouldEnableExperimentKindInference,
-  shouldUsePredefinedErrorsInExperimentTracking,
-} from '../../../common/utils/FeatureUtils';
+import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
 import { useDispatch } from 'react-redux';
@@ -126,7 +123,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
   } = useInferExperimentKind({
     experimentId: firstExperimentId,
     isLoadingExperiment,
-    enabled: showHeader && !isComparingExperiments && shouldEnableExperimentKindInference() && !experimentKind,
+    enabled: showHeader && !isComparingExperiments && !experimentKind,
     experimentTags: first(experiments)?.tags,
     updateExperimentKind,
   });
@@ -164,11 +161,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
 
   const canUpdateExperimentKind = true;
 
-  if (
-    inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE &&
-    canUpdateExperimentKind &&
-    shouldEnableExperimentKindInference()
-  ) {
+  if (inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE && canUpdateExperimentKind) {
     return (
       <ExperimentViewInferredKindModal
         onConfirm={(kind) => {
@@ -184,10 +177,6 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
       />
     );
   }
-
-  const renderMlflow3PromoBanner = () => {
-    return null;
-  };
 
   const renderTaskSection = () => {
     return null;
@@ -278,7 +267,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
         ) : (
           // When the header is not shown, we still want to render the promo banner and task section
           <>
-            {renderMlflow3PromoBanner()}
+            {/* prettier-ignore */}
             {renderTaskSection()}
           </>
         )}

@@ -1,11 +1,11 @@
+import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import {
   getModelTraceId,
   getModelTraceSpanParentId,
-  ModelTrace,
   isV3ModelTraceInfo,
   isV3ModelTraceSpan,
   tryDeserializeAttribute,
-} from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer';
+} from '@databricks/web-shared/model-trace-explorer';
 import { compact, isNil } from 'lodash';
 
 // keep this in sync with EvaluationData._process_trace_records

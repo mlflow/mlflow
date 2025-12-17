@@ -5,7 +5,7 @@ import inspect
 import json
 import logging
 import uuid
-from collections import Counter, defaultdict
+from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
@@ -176,31 +176,6 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
     )
 
 
-def deduplicate_span_names_in_place(spans: list[LiveSpan]):
-    """
-    Deduplicate span names in the trace data by appending an index number to the span name.
-
-    This is only applied when there are multiple spans with the same name. The span names
-    are modified in place to avoid unnecessary copying.
-
-    E.g.
-        ["red", "red"] -> ["red_1", "red_2"]
-        ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
-
-    Args:
-        spans: A list of spans to deduplicate.
-    """
-    # Use _original_name to handle incremental deduplication correctly
-    span_name_counter = Counter(span._original_name for span in spans)
-    # Apply renaming only for duplicated spans
-    span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
-    # Add index to the duplicated span names
-    for span in spans:
-        if count := span_name_counter.get(span._original_name):
-            span_name_counter[span._original_name] += 1
-            span._span._name = f"{span._original_name}_{count}"
-
-
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     """Aggregate token usage information from all spans in the trace."""
     input_tokens = 0
@@ -299,8 +274,7 @@ def maybe_get_request_id(is_evaluate=False) -> str | None:
 
 
 def maybe_get_dependencies_schemas() -> dict[str, Any] | None:
-    context = _try_get_prediction_context()
-    if context:
+    if context := _try_get_prediction_context():
         return context.dependencies_schemas
 
 
@@ -575,7 +549,12 @@ def update_trace_state_from_span_conditionally(trace, root_span):
     # If the trace state is anything else, it means the user explicitly set it
     # and we should preserve it
     if trace.info.state == TraceState.IN_PROGRESS:
-        trace.info.state = TraceState.from_otel_status(root_span.status)
+        state = TraceState.from_otel_status(root_span.status)
+        # If the root span is created by the native OpenTelemetry SDK, the status code can be UNSET
+        # (default value when an otel span is ended). Override it to OK here to avoid backend error.
+        if state == TraceState.STATE_UNSPECIFIED:
+            state = TraceState.OK
+        trace.info.state = state
 
 
 def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:

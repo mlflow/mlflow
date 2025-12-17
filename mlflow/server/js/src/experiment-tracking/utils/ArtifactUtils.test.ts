@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { test, expect } from '@jest/globals';
 import { ArtifactNode } from './ArtifactUtils';
 
 const getTestArtifactNode = () => {

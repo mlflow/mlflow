@@ -3,6 +3,8 @@ sidebar_position: 3
 sidebar_label: Logging plots with MLflow
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import { NotebookDownloadButton } from "@site/src/components/NotebookDownloadButton";
 
 # Leveraging Visualizations and MLflow for In-depth Model Analysis
@@ -281,7 +283,7 @@ fetched from the local file system and logged via `log_artifacts()`, we're able 
 associated with our data and our trained model, capturing the state at which the run was conducted.
 
 <figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
-  ![Viewing plots in the UI](/images/guides/introductory/hyperparameter-tuning-with-child-runs/plots-in-ui.gif)
+  <video src={useBaseUrl("/images/guides/introductory/hyperparameter-tuning-with-child-runs/plots-in-ui.mp4")} controls loop autoPlay muted aria-label="Viewing plots in the UI" />
   <figcaption>Viewing logged plots and figures in the MLflow UI</figcaption>
 </figure>
 

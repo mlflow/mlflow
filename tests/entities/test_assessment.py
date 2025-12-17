@@ -295,7 +295,7 @@ def test_expectation_proto_dict_conversion(value):
 
     expectation_dict = expectation.to_dictionary()
     result = ExpectationValue.from_dictionary(expectation_dict)
-    assert result.value == result.value
+    assert result.value == expectation.value
 
 
 @pytest.mark.parametrize(
@@ -320,7 +320,7 @@ def test_expectation_value_serialization(value):
 
     expectation_dict = expectation.to_dictionary()
     result = ExpectationValue.from_dictionary(expectation_dict)
-    assert result.value == result.value
+    assert result.value == expectation.value
 
 
 def test_expectation_invalid_values():
@@ -356,13 +356,13 @@ def test_feedback_value_proto_dict_conversion(value, error):
     assert isinstance(proto, ProtoFeedback)
 
     result = FeedbackValue.from_proto(proto)
-    assert result.value == result.value
-    assert result.error == result.error
+    assert result.value == feedback.value
+    assert result.error == feedback.error
 
     feedback_dict = feedback.to_dictionary()
     result = FeedbackValue.from_dictionary(feedback_dict)
-    assert result.value == result.value
-    assert result.error == result.error
+    assert result.value == feedback.value
+    assert result.error == feedback.error
 
 
 @pytest.mark.parametrize("stack_trace_length", [500, 2000])
@@ -546,3 +546,74 @@ def test_expectation_from_proto_v4():
     assert expectation.create_time_ms == 1700000002000
     assert expectation.last_update_time_ms == 1700000003000
     assert expectation.metadata == {"dataset": "test_set_v1", "version": "1.0"}
+
+
+def test_feedback_converts_string_error_to_assessment_error():
+    feedback = Feedback(
+        name="test_feedback",
+        error="This is a string error message",
+    )
+
+    # Verify error was converted to AssessmentError
+    assert isinstance(feedback.error, AssessmentError)
+    assert feedback.error.error_message == "This is a string error message"
+    assert feedback.error.error_code == "ASSESSMENT_ERROR"
+
+    # Verify it can be serialized to proto
+    proto = feedback.to_proto()
+    assert proto.feedback.HasField("error")
+    assert proto.feedback.error.error_message == "This is a string error message"
+    assert proto.feedback.error.error_code == "ASSESSMENT_ERROR"
+
+
+def test_feedback_converts_exception_error_to_assessment_error():
+    feedback = Feedback(name="test_feedback", error=ValueError("Test exception message"))
+
+    # Verify error was converted to AssessmentError
+    assert isinstance(feedback.error, AssessmentError)
+    assert "Test exception message" in feedback.error.error_message
+    assert feedback.error.error_code == "ValueError"
+    assert feedback.error.stack_trace is not None
+    assert len(feedback.error.stack_trace) > 0
+
+    # Verify it can be serialized
+    proto = feedback.to_proto()
+    assert proto.feedback.HasField("error")
+    assert proto.feedback.error.error_code == "ValueError"
+
+
+def test_feedback_passes_through_assessment_error():
+    error = AssessmentError(
+        error_message="Custom error message",
+        error_code="CUSTOM_ERROR_CODE",
+        stack_trace="Custom stack trace",
+    )
+
+    feedback = Feedback(
+        name="test_feedback",
+        error=error,
+    )
+
+    # Verify error was not modified
+    assert feedback.error is error
+    assert feedback.error.error_message == "Custom error message"
+    assert feedback.error.error_code == "CUSTOM_ERROR_CODE"
+    assert feedback.error.stack_trace == "Custom stack trace"
+
+    # Verify it can be serialized
+    proto = feedback.to_proto()
+    assert proto.feedback.HasField("error")
+    assert proto.feedback.error.error_message == "Custom error message"
+    assert proto.feedback.error.error_code == "CUSTOM_ERROR_CODE"
+
+
+@pytest.mark.parametrize(
+    "invalid_error",
+    [123, ["error"], {"error": "message"}],
+    ids=["int", "list", "dict"],
+)
+def test_feedback_rejects_invalid_error_types(invalid_error):
+    with pytest.raises(
+        MlflowException, match="'error' must be an Exception, AssessmentError, or string"
+    ):
+        Feedback(name="test", error=invalid_error)

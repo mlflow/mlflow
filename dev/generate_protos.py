@@ -1,5 +1,4 @@
 import platform
-import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -13,6 +12,7 @@ MACHINE = platform.machine()
 CACHE_DIR = Path(".cache/protobuf_cache")
 MLFLOW_PROTOS_DIR = Path("mlflow/protos")
 TEST_PROTOS_DIR = Path("tests/protos")
+OTEL_PROTOS_DIR = Path("mlflow/protos/opentelemetry")
 
 
 def gen_protos(
@@ -25,15 +25,11 @@ def gen_protos(
 ) -> None:
     assert lang in ["python", "java"]
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    include_args = []
-    for include_path in protoc_include_paths:
-        include_args.append(f"-I={include_path}")
-
     subprocess.check_call(
         [
             protoc_bin,
-            *include_args,
+            "--fatal_warnings",
+            *(f"-I={p}" for p in protoc_include_paths),
             f"-I={proto_dir}",
             f"--{lang}_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
@@ -48,14 +44,11 @@ def gen_stub_files(
     protoc_include_paths: list[Path],
     out_dir: Path,
 ) -> None:
-    include_args = []
-    for include_path in protoc_include_paths:
-        include_args.append(f"-I={include_path}")
-
     subprocess.check_call(
         [
             protoc_bin,
-            *include_args,
+            "--fatal_warnings",
+            *(f"-I={p}" for p in protoc_include_paths),
             f"-I={proto_dir}",
             f"--pyi_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
@@ -182,31 +175,6 @@ def download_file(url: str, output_path: Path) -> None:
     urllib.request.urlretrieve(url, output_path)
 
 
-def download_opentelemetry_protos(version: str = "v1.7.0") -> Path:
-    """
-    Download OpenTelemetry proto files from GitHub.
-    Returns the path to the opentelemetry-proto directory.
-    """
-    otel_proto_dir = CACHE_DIR / f"opentelemetry-proto-{version}"
-
-    if not otel_proto_dir.exists():
-        print(f"Downloading OpenTelemetry proto files {version}...")
-        with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = Path(tmpdir) / "otel-proto.zip"
-            download_file(
-                f"https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/{version}.zip",
-                zip_path,
-            )
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(tmpdir)
-
-            # Move the extracted directory to cache
-            extracted_dir = Path(tmpdir) / f"opentelemetry-proto-{version[1:]}"  # Remove 'v' prefix
-            shutil.move(str(extracted_dir), str(otel_proto_dir))
-
-    return otel_proto_dir
-
-
 def download_and_extract_protoc(version: Literal["3.19.4", "26.0"]) -> tuple[Path, Path]:
     """
     Download and extract specific version protoc tool for Linux systems,
@@ -266,12 +234,9 @@ def main() -> None:
         protoc3194, protoc3194_include = download_and_extract_protoc("3.19.4")
         protoc5260, protoc5260_include = download_and_extract_protoc("26.0")
 
-        # Download OpenTelemetry proto files
-        otel_proto_dir = download_opentelemetry_protos()
-
         # Build include paths list
-        protoc3194_includes = [protoc3194_include, otel_proto_dir]
-        protoc5260_includes = [protoc5260_include, otel_proto_dir]
+        protoc3194_includes = [protoc3194_include, OTEL_PROTOS_DIR]
+        protoc5260_includes = [protoc5260_include, OTEL_PROTOS_DIR]
 
         gen_python_protos(protoc3194, protoc3194_includes, proto3194_out)
         gen_python_protos(protoc5260, protoc5260_includes, proto5260_out)

@@ -1,5 +1,6 @@
 import json
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
@@ -7,8 +8,17 @@ from click.testing import CliRunner
 import mlflow
 from mlflow.cli.scorers import commands
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import list_scorers, scorer
+from mlflow.genai.scorers import get_all_scorers, list_scorers, scorer
 from mlflow.utils.string_utils import _create_table
+
+
+@pytest.fixture
+def mock_databricks_environment():
+    with (
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
+    ):
+        yield
 
 
 @pytest.fixture
@@ -79,7 +89,7 @@ def test_list_command_params():
     list_cmd = next((cmd for cmd in commands.commands.values() if cmd.name == "list"), None)
     assert list_cmd is not None
     param_names = {p.name for p in list_cmd.params}
-    assert param_names == {"experiment_id", "output"}
+    assert param_names == {"experiment_id", "builtin", "output"}
 
 
 def test_list_scorers_table_output(
@@ -88,6 +98,7 @@ def test_list_scorers_table_output(
     correctness_scorer: Any,
     safety_scorer: Any,
     relevance_scorer: Any,
+    mock_databricks_environment: Any,
 ):
     correctness_scorer.register(experiment_id=experiment, name="Correctness")
     safety_scorer.register(experiment_id=experiment, name="Safety")
@@ -115,6 +126,7 @@ def test_list_scorers_json_output(
     correctness_scorer: Any,
     safety_scorer: Any,
     relevance_scorer: Any,
+    mock_databricks_environment: Any,
 ):
     correctness_scorer.register(experiment_id=experiment, name="Correctness")
     safety_scorer.register(experiment_id=experiment, name="Safety")
@@ -158,7 +170,7 @@ def test_list_scorers_empty_experiment(
 
 
 def test_list_scorers_with_experiment_id_env_var(
-    runner: CliRunner, experiment: str, correctness_scorer: Any
+    runner: CliRunner, experiment: str, correctness_scorer: Any, mock_databricks_environment: Any
 ):
     correctness_scorer.register(experiment_id=experiment, name="Correctness")
 
@@ -183,7 +195,7 @@ def test_list_scorers_invalid_output_format(runner: CliRunner, experiment: str):
 
 
 def test_list_scorers_special_characters_in_names(
-    runner: CliRunner, experiment: str, generic_scorer: Any
+    runner: CliRunner, experiment: str, generic_scorer: Any, mock_databricks_environment: Any
 ):
     generic_scorer.register(experiment_id=experiment, name="Scorer With Spaces")
     generic_scorer.register(experiment_id=experiment, name="Scorer.With.Dots")
@@ -204,7 +216,11 @@ def test_list_scorers_special_characters_in_names(
     ["table", "json"],
 )
 def test_list_scorers_single_scorer(
-    runner: CliRunner, experiment: str, generic_scorer: Any, output_format: str
+    runner: CliRunner,
+    experiment: str,
+    generic_scorer: Any,
+    output_format: str,
+    mock_databricks_environment: Any,
 ):
     generic_scorer.register(experiment_id=experiment, name="OnlyScorer")
 
@@ -227,7 +243,11 @@ def test_list_scorers_single_scorer(
     ["table", "json"],
 )
 def test_list_scorers_long_names(
-    runner: CliRunner, experiment: str, generic_scorer: Any, output_format: str
+    runner: CliRunner,
+    experiment: str,
+    generic_scorer: Any,
+    output_format: str,
+    mock_databricks_environment: Any,
 ):
     long_name = "VeryLongScorerNameThatShouldNotBeTruncatedEvenIfItIsReallyReallyLong"
     generic_scorer.register(experiment_id=experiment, name=long_name)
@@ -254,6 +274,7 @@ def test_list_scorers_with_descriptions(runner: CliRunner, experiment: str):
         name="quality_judge",
         instructions="Evaluate {{ outputs }}",
         description="Evaluates response quality",
+        feedback_value_type=str,
     )
     judge1.register(experiment_id=experiment)
 
@@ -261,12 +282,14 @@ def test_list_scorers_with_descriptions(runner: CliRunner, experiment: str):
         name="safety_judge",
         instructions="Check {{ outputs }}",
         description="Checks for safety issues",
+        feedback_value_type=str,
     )
     judge2.register(experiment_id=experiment)
 
     judge3 = make_judge(
         name="no_desc_judge",
         instructions="Evaluate {{ outputs }}",
+        feedback_value_type=str,
     )
     judge3.register(experiment_id=experiment)
 
@@ -540,3 +563,86 @@ def test_create_judge_with_description_short_flag(runner: CliRunner, experiment:
     scorers = list_scorers(experiment_id=experiment)
     judge = next(s for s in scorers if s.name == "pii_judge")
     assert judge.description == description
+
+
+@pytest.mark.parametrize("output_format", ["table", "json"])
+def test_list_builtin_scorers_output_formats(runner, output_format):
+    args = ["list", "--builtin"]
+    if output_format == "json":
+        args.extend(["--output", "json"])
+
+    result = runner.invoke(commands, args)
+    assert result.exit_code == 0
+
+    if output_format == "json":
+        data = json.loads(result.output)
+        assert "scorers" in data
+        assert isinstance(data["scorers"], list)
+        assert len(data["scorers"]) > 0
+
+        # Verify each scorer has required fields
+        for scorer_item in data["scorers"]:
+            assert "name" in scorer_item
+            assert "description" in scorer_item
+
+        # Verify some builtin scorer names appear
+        scorer_names = [s["name"] for s in data["scorers"]]
+        assert "correctness" in scorer_names
+        assert "relevance_to_query" in scorer_names
+        assert "completeness" in scorer_names
+    else:
+        # Verify table headers
+        assert "Scorer Name" in result.output
+        assert "Description" in result.output
+
+        # Verify some builtin scorer names appear
+        assert "correctness" in result.output
+        assert "relevance_to_query" in result.output
+        assert "completeness" in result.output
+
+
+def test_list_builtin_scorers_short_flag(runner):
+    result = runner.invoke(commands, ["list", "-b"])
+    assert result.exit_code == 0
+    assert "Scorer Name" in result.output
+
+
+@pytest.mark.parametrize("is_databricks", [False, True])
+def test_list_builtin_scorers_shows_all_available_scorers(runner, is_databricks):
+    mock_path = "mlflow.genai.scorers.builtin_scorers.is_databricks_uri"
+
+    with patch(mock_path, return_value=is_databricks) as mock_is_databricks:
+        result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
+        assert result.exit_code == 0
+
+        expected_scorers = get_all_scorers()
+        expected_names = {scorer.name for scorer in expected_scorers}
+
+        data = json.loads(result.output)
+        actual_names = {s["name"] for s in data["scorers"]}
+
+        assert actual_names == expected_names, (
+            f"Mismatch in scorer names (is_databricks={is_databricks}). "
+            f"Missing: {expected_names - actual_names}, "
+            f"Extra: {actual_names - expected_names}"
+        )
+
+        mock_is_databricks.assert_called()
+
+
+def test_list_scorers_mutually_exclusive_flags(runner, experiment):
+    result = runner.invoke(commands, ["list", "--builtin", "--experiment-id", experiment])
+    assert result.exit_code != 0
+    assert "Cannot specify both --builtin and --experiment-id" in result.output
+
+
+def test_list_scorers_requires_one_flag(runner):
+    result = runner.invoke(commands, ["list"])
+    assert result.exit_code != 0
+    assert "Must specify either --builtin or --experiment-id" in result.output
+
+
+def test_list_scorers_env_var_still_works(runner, experiment, monkeypatch):
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment)
+    result = runner.invoke(commands, ["list"])
+    assert result.exit_code == 0

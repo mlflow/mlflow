@@ -1,19 +1,28 @@
 import { isNil, uniq } from 'lodash';
 
-import { ModelTraceSpanType } from '@databricks/web-shared/model-trace-explorer';
-import type { ModelTrace, ModelTraceInfo, RetrieverDocument } from '@databricks/web-shared/model-trace-explorer';
+import { getAssessmentValue, ModelTraceSpanType } from '@databricks/web-shared/model-trace-explorer';
+import type {
+  Assessment,
+  ExpectationAssessment,
+  FeedbackAssessment,
+  ModelTrace,
+  ModelTraceInfoV3,
+  RetrieverDocument,
+} from '@databricks/web-shared/model-trace-explorer';
 
+import {
+  MLFLOW_ASSESSMENT_SOURCE_RUN_ID,
+  MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG,
+} from '../../model-trace-explorer/constants';
 import { stringifyValue } from '../components/GenAiEvaluationTracesReview.utils';
 import { KnownEvaluationResultAssessmentName } from '../enum';
 import { CUSTOM_METADATA_COLUMN_ID, TAGS_COLUMN_ID } from '../hooks/useTableColumns';
 import type {
   AssessmentType,
-  AssessmentV3,
   RunEvaluationResultAssessment,
   RunEvaluationResultAssessmentSource,
   RunEvaluationTracesDataEntry,
   RunEvaluationTracesRetrievalChunk,
-  TraceInfoV3,
 } from '../types';
 
 // This is the key used by the eval harness to record
@@ -27,11 +36,16 @@ export const MLFLOW_SOURCE_RUN_KEY = 'mlflow.sourceRun';
 
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 
+export const DEFAULT_RUN_PLACEHOLDER_NAME = 'monitor';
+
+const SPANS_LOCATION_TAG_KEY = 'mlflow.trace.spansLocation';
+export const TRACKING_STORE_SPANS_LOCATION = 'TRACKING_STORE';
+
 export const getRowIdFromEvaluation = (evaluation?: RunEvaluationTracesDataEntry) => {
   return evaluation?.evaluationId || '';
 };
 
-export const getRowIdFromTrace = (trace?: TraceInfoV3) => {
+export const getRowIdFromTrace = (trace?: ModelTraceInfoV3) => {
   return trace?.trace_id || '';
 };
 
@@ -51,7 +65,7 @@ export const createCustomMetadataColumnId = (metadataKey: string) => {
   return `${CUSTOM_METADATA_COLUMN_ID}:${metadataKey}`;
 };
 
-export const getTracesTagKeys = (traces: TraceInfoV3[]): string[] => {
+export const getTracesTagKeys = (traces: ModelTraceInfoV3[]): string[] => {
   return uniq(
     traces
       .map((result) => {
@@ -62,18 +76,51 @@ export const getTracesTagKeys = (traces: TraceInfoV3[]): string[] => {
 };
 
 /**
- * This is currently only used to support the edit tags flow which only requires request id + tags
+ * Filter out the traces that are not created by the given evaluation run.
+ *
+ * NB: This utility is also used for the general trace view in a Run Detail page.
+ *
+ * @param traces - The traces to filter.
+ * @param runUuid - The run UUID to filter by.
+ * @returns The filtered traces.
  */
-export const convertTraceInfoV3ToModelTraceInfo = (trace: TraceInfoV3) => {
-  const kvArray = (obj?: Record<string, string>): { key: string; value: string }[] | undefined =>
-    obj ? Object.entries(obj).map(([key, value]) => ({ key, value })) : undefined;
+export const filterTracesByAssessmentSourceRunId = (
+  traces: ModelTraceInfoV3[] | undefined,
+  runUuid?: string | null,
+): ModelTraceInfoV3[] | undefined => {
+  if (!traces || !runUuid) {
+    return traces;
+  }
 
-  const model: ModelTraceInfo = {
-    request_id: trace.client_request_id ?? trace.trace_id,
-    tags: kvArray(trace.tags),
-  };
+  return traces.reduce<ModelTraceInfoV3[]>((acc, trace) => {
+    const assessments = trace.assessments || [];
 
-  return model;
+    // Filter assessments to those that are created by this evaluation run.
+    const filteredAssessments = assessments.filter((assessment) => {
+      const sourceRunId = assessment.metadata?.[MLFLOW_ASSESSMENT_SOURCE_RUN_ID];
+      return !sourceRunId || sourceRunId === runUuid;
+    });
+
+    // Filter out the scorer traces.
+    const sourceScorerName = trace.tags?.[MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG];
+    if (sourceScorerName) {
+      return acc;
+    }
+
+    // Early return to avoid the overhead of copying the trace and assessments below.
+    if (filteredAssessments.length === assessments.length) {
+      acc.push(trace);
+      return acc;
+    }
+
+    // Render only the assessments that are created by this evaluation run. This is to avoid showing
+    // feedbacks logged from other runs in the evaluation results.
+    acc.push({
+      ...trace,
+      assessments: filteredAssessments,
+    });
+    return acc;
+  }, []);
 };
 
 // This function checks if the traceInfo field is present in the first entry of the evalResults array.
@@ -90,37 +137,45 @@ const safelyParseValue = <T>(val: string): string | T => {
   }
 };
 
-export const getTraceInfoInputs = (traceInfo: TraceInfoV3) => {
+export const getTraceInfoInputs = (traceInfo: ModelTraceInfoV3) => {
   return traceInfo.request_preview || traceInfo.request || traceInfo.trace_metadata?.['mlflow.traceInputs'] || '';
 };
 
-export const getTraceInfoOutputs = (traceInfo: TraceInfoV3) => {
+export const getTraceInfoOutputs = (traceInfo: ModelTraceInfoV3) => {
   return traceInfo.response_preview || traceInfo.response || traceInfo.trace_metadata?.['mlflow.traceOutputs'] || '';
 };
 
-const isExpectationAssessment = (assessment: AssessmentV3): boolean => {
-  return Boolean(assessment.expectation);
+/**
+ * Returns the "spans location" tag value if present.
+ */
+export function getSpansLocation(traceInfo?: ModelTraceInfoV3): string | undefined {
+  return traceInfo?.tags[SPANS_LOCATION_TAG_KEY] || undefined;
+}
+
+const isExpectationAssessment = (assessment: Assessment): assessment is ExpectationAssessment => {
+  return Boolean('expectation' in assessment && assessment.expectation);
 };
 
 const LIST_TRACES_IGNORE_ASSESSMENTS = ['agent/latency_seconds'];
 
-function processExpectationAssessment(assessment: AssessmentV3, targets: Record<string, any>): void {
+function processExpectationAssessment(assessment: ExpectationAssessment, targets: Record<string, any>): void {
   const assessmentName = assessment.assessment_name;
-  const assessmentValue = assessment.expectation?.value || assessment.expectation?.serialized_value?.value;
+  const assessmentValue = getAssessmentValue(assessment);
 
-  if (Array.isArray(assessmentValue) && assessmentValue.length > 0) {
-    targets[assessmentName] = assessmentValue.map((val) => {
-      return safelyParseValue(val);
-    });
+  if (Array.isArray(assessmentValue)) {
+    // Parse string elements if possible, otherwise keep original values (booleans, numbers, objects, etc.)
+    targets[assessmentName] = assessmentValue.map((val) => (typeof val === 'string' ? safelyParseValue(val) : val));
   } else if (typeof assessmentValue === 'string') {
+    // Parse JSON-encoded strings like "true", "42", "{...}", etc.
     targets[assessmentName] = safelyParseValue(assessmentValue);
   } else {
+    // Preserve non-string primitives and objects (boolean, number, null, plain objects)
     targets[assessmentName] = assessmentValue;
   }
 }
 
 function processFeedbackAssessment(
-  assessment: AssessmentV3,
+  assessment: FeedbackAssessment,
   overallAssessments: RunEvaluationResultAssessment[],
   responseAssessmentsByName: Record<string, RunEvaluationResultAssessment[]>,
 ): void {
@@ -137,7 +192,7 @@ function processFeedbackAssessment(
   responseAssessmentsByName[assessmentName].push(evalResultAssessment);
 }
 
-const convertAssessmentV3Source = (assessment: AssessmentV3): RunEvaluationResultAssessmentSource | undefined => {
+const convertAssessmentV3Source = (assessment: Assessment): RunEvaluationResultAssessmentSource | undefined => {
   if (!assessment.source?.source_type) {
     return undefined;
   }
@@ -147,7 +202,7 @@ const convertAssessmentV3Source = (assessment: AssessmentV3): RunEvaluationResul
   if (sourceType === 'LLM_JUDGE') {
     runEvalSourceType = 'AI_JUDGE';
   } else {
-    runEvalSourceType = sourceType;
+    runEvalSourceType = sourceType as AssessmentType;
   }
 
   return {
@@ -157,7 +212,9 @@ const convertAssessmentV3Source = (assessment: AssessmentV3): RunEvaluationResul
   };
 };
 
-const convertFeedbackAssessmentToRunEvalAssessment = (assessment: AssessmentV3): RunEvaluationResultAssessment => {
+const convertFeedbackAssessmentToRunEvalAssessment = (
+  assessment: FeedbackAssessment,
+): RunEvaluationResultAssessment => {
   const assessmentValue = assessment.feedback?.value;
   const isOverallAssessment = assessment.assessment_name === KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT;
   const source = convertAssessmentV3Source(assessment);
@@ -181,7 +238,7 @@ const convertFeedbackAssessmentToRunEvalAssessment = (assessment: AssessmentV3):
   };
 };
 
-export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: TraceInfoV3): RunEvaluationTracesDataEntry => {
+export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): RunEvaluationTracesDataEntry => {
   const evaluationId = getRowIdFromTrace(traceInfo);
 
   // Prepare containers for our assessments.
@@ -191,9 +248,15 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: TraceInfoV3): RunEva
 
   traceInfo.assessments?.forEach((assessment) => {
     const assessmentName = assessment.assessment_name;
+
     if (LIST_TRACES_IGNORE_ASSESSMENTS.includes(assessmentName)) {
       return;
     }
+
+    if (assessment.valid === false) {
+      return;
+    }
+
     if (isExpectationAssessment(assessment)) {
       processExpectationAssessment(assessment, targets);
     } else {

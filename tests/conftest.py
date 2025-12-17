@@ -13,6 +13,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -27,7 +28,6 @@ from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
@@ -308,7 +308,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/bedrock",
             "tests/catboost",
             "tests/crewai",
-            "tests/diviner",
             "tests/dspy",
             "tests/gemini",
             "tests/groq",
@@ -327,7 +326,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
-            "tests/promptflow",
             "tests/prophet",
             "tests/pydantic_ai",
             "tests/pyfunc",
@@ -409,8 +407,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         )
 
     # If there are failed tests, display a command to run them
-    failed_test_reports = terminalreporter.stats.get("failed", [])
-    if failed_test_reports:
+    if failed_test_reports := terminalreporter.stats.get("failed", []):
         if len(failed_test_reports) <= 30:
             ids = [repr(report.nodeid) for report in failed_test_reports]
         else:
@@ -539,11 +536,10 @@ def tmp_experiment_for_tracing_sdk_test(monkeypatch):
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
-def tracking_uri_mock(tmp_path, request):
+def tracking_uri_mock(db_uri: str, request: pytest.FixtureRequest) -> Iterator[str | None]:
     if "notrackingurimock" not in request.keywords:
-        tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
-        with _use_tracking_uri(tracking_uri):
-            yield tracking_uri
+        with _use_tracking_uri(db_uri):
+            yield db_uri
     else:
         yield None
 
@@ -591,6 +587,10 @@ def reset_tracing():
     _TRACE_BUFFER.clear()
     InMemoryTraceManager.reset()
     IPythonTraceDisplayHandler._instance = None
+
+    # Reset opentelemetry tracer provider as well
+    trace_api._TRACER_PROVIDER_SET_ONCE._done = False
+    trace_api._TRACER_PROVIDER = None
 
 
 def _is_span_active():
@@ -697,7 +697,7 @@ def clean_up_mlruns_directory(request):
             if is_windows():
                 raise
             # `shutil.rmtree` can't remove files owned by root in a docker container.
-            subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
+            subprocess.check_call(["sudo", "rm", "-rf", mlruns_dir])
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
@@ -779,7 +779,7 @@ def serve_wheel(request, tmp_path_factory):
         # In this case, assume we're in the root of the repo.
         repo_root = "."
 
-    subprocess.run(
+    subprocess.check_call(
         [
             sys.executable,
             "-m",
@@ -790,7 +790,6 @@ def serve_wheel(request, tmp_path_factory):
             "--no-deps",
             repo_root,
         ],
-        check=True,
     )
     with subprocess.Popen(
         [
@@ -861,6 +860,67 @@ def reset_active_model_context():
 @pytest.fixture(autouse=True)
 def clean_up_telemetry_threads():
     yield
-    client = get_telemetry_client()
-    if client:
+    if client := get_telemetry_client():
         client._clean_up()
+
+
+@pytest.fixture(scope="session")
+def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """
+    Creates and caches a SQLite database to avoid repeated migrations for each test run.
+
+    This is a session-scoped fixture that creates the database once per test session.
+    Individual tests should copy this database to their own tmp_path to avoid conflicts.
+    """
+    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_dir / "mlflow.db"
+
+    if IS_TRACING_SDK_ONLY:
+        return db_path
+
+    try:
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    except ImportError:
+        return db_path
+
+    db_uri = f"sqlite:///{db_path}"
+    artifact_uri = (tmp_dir / "artifacts").as_uri()
+    store = SqlAlchemyStore(db_uri, artifact_uri)
+    store.engine.dispose()
+
+    return db_path
+
+
+@pytest.fixture
+def db_uri(cached_db: Path) -> Iterator[str]:
+    """Returns a fresh SQLite URI for each test by copying the cached database."""
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        db_path = Path(tmp_dir) / "mlflow.db"
+
+        if not IS_TRACING_SDK_ONLY and cached_db.exists():
+            shutil.copy2(cached_db, db_path)
+
+        yield f"sqlite:///{db_path}"
+
+
+@pytest.fixture(autouse=True)
+def clear_engine_map():
+    """
+    Clear the SQLAlchemy engine cache in all stores between tests.
+
+    Each SQLAlchemy store caches engines by database URI to prevent connection pool leaks.
+    This fixture clears the cache between tests to ensure test isolation and prevent
+    engines from one test affecting another.
+    """
+    try:
+        from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+        from mlflow.store.model_registry.sqlalchemy_store import (
+            SqlAlchemyStore as ModelRegistrySqlAlchemyStore,
+        )
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+        SqlAlchemyStore._engine_map.clear()
+        ModelRegistrySqlAlchemyStore._engine_map.clear()
+        SqlAlchemyJobStore._engine_map.clear()
+    except ImportError:
+        pass

@@ -1,4 +1,5 @@
-import type { ModelTrace, ModelTraceInfo, ModelTraceSpan } from '../model-trace-explorer';
+import type { GetTraceFunction } from './hooks/useGetTrace';
+import type { ModelTraceInfoV3, ModelTraceSpan } from '../model-trace-explorer';
 
 export type AssessmentDType = 'string' | 'numeric' | 'boolean' | 'pass-fail' | 'unknown';
 export type AssessmentType = 'AI_JUDGE' | 'HUMAN' | 'CODE';
@@ -135,19 +136,21 @@ export interface EvaluationsOverviewTableSort {
 
 export interface TraceActions {
   exportToEvals?: {
-    showExportTracesToDatasetsModal: boolean;
-    setShowExportTracesToDatasetsModal: (visible: boolean) => void;
-    renderExportTracesToDatasetsModal: ({
+    showExportTracesToDatasetsModal?: boolean;
+    setShowExportTracesToDatasetsModal?: (visible: boolean) => void;
+    renderExportTracesToDatasetsModal?: ({
       selectedTraceInfos,
     }: {
-      selectedTraceInfos: ModelTrace['info'][];
+      selectedTraceInfos: ModelTraceInfoV3[];
     }) => React.ReactNode;
   };
   deleteTracesAction?: {
-    deleteTraces: (experimentId: string, traceIds: string[]) => Promise<any>;
+    deleteTraces?: (experimentId: string, traceIds: string[]) => Promise<any>;
+    isDisabled?: boolean;
+    disabledReason?: string;
   };
   editTags?: {
-    showEditTagsModalForTrace: (trace: ModelTraceInfo) => void;
+    showEditTagsModalForTrace: (trace: ModelTraceInfoV3) => void;
     EditTagsModal: React.ReactNode;
   };
 }
@@ -178,14 +181,17 @@ export interface TableFilterOption {
 
 export interface TableFilterOptions {
   source: TableFilterOption[];
+  prompt?: TableFilterOption[];
 }
 
 export enum FilterOperator {
   EQUALS = '=',
+  NOT_EQUALS = '!=',
   GREATER_THAN = '>',
   LESS_THAN = '<',
   GREATER_THAN_OR_EQUALS = '>=',
   LESS_THAN_OR_EQUALS = '<=',
+  CONTAINS = 'CONTAINS',
 }
 
 export interface AssessmentDropdownSuggestionItem {
@@ -212,70 +218,8 @@ export type RunEvaluationTracesRetrievalChunk = {
   target?: string;
 };
 
-// TODO(nsthorat): Move these to the shared types location:
-// https://src.dev.databricks.com/databricks-eng/universe/-/blob/webapp/web/js/genai/shared/types.ts
-// The shared type does not yet support TraceInfoV3.
-// I had to add these here because the types in genai/shared/types are TraceV2.
-// The types in trace-explorer are also TraceV2.
-export type AssessmentV3 = {
-  assessment_id: string;
-  assessment_name: string;
-  trace_id: string;
-  span_id?: string;
-  create_time: string;
-  last_update_time: string;
-  feedback?: {
-    value: string | number | boolean;
-    error?: {
-      error_code?: string;
-      error_message?: string;
-    };
-  };
-  expectation?: {
-    value: string | string[];
-    serialized_value?: {
-      serialization_format?: string;
-      value: string | string[];
-    };
-    error?: {
-      error_code?: string;
-      error_message?: string;
-    };
-  };
-  metadata?: Record<string, string>;
-  rationale?: string;
-  error?: {
-    error_code?: string;
-    error_message?: string;
-  };
-  source?: {
-    source_type?: 'HUMAN' | 'LLM_JUDGE' | 'CODE';
-    source_id?: string;
-  };
-};
-
-export type TraceInfoV3 = {
-  trace_id: string;
-  client_request_id?: string;
-  trace_location: {
-    type: 'MLFLOW_EXPERIMENT' | 'INFERENCE_TABLE';
-    mlflow_experiment?: { experiment_id: string };
-    inference_table?: { full_table_name: string };
-  };
-  request?: string;
-  request_preview?: string;
-  response?: string;
-  response_preview?: string;
-  request_time: string;
-  execution_duration?: string;
-  state: 'STATE_UNSPECIFIED' | 'OK' | 'ERROR' | 'IN_PROGRESS';
-  trace_metadata?: Record<string, string>;
-  tags?: Record<string, string>;
-  assessments?: AssessmentV3[];
-};
-
 export type TraceV3 = {
-  info: TraceInfoV3;
+  info: ModelTraceInfoV3;
   data: {
     spans: ModelTraceSpan[];
   };
@@ -305,7 +249,7 @@ export type RunEvaluationTracesDataEntry = {
   retrievalChunks?: RunEvaluationTracesRetrievalChunk[];
 
   // NOTE(nsthorat): We will slowly migrate to this type.
-  traceInfo?: TraceInfoV3;
+  traceInfo?: ModelTraceInfoV3;
 };
 
 export interface EvalTraceComparisonEntry {
@@ -351,9 +295,12 @@ export const TracesTableColumnGroupToLabelMap = {
 };
 
 export interface TracesTableColumn {
-  // This is the assessment name for assessments, and a static string for trace info and input columns
+  /** This is the assessment name for assessments, and a static string for trace info and input columns */
   id: string;
+  /** The label for the column, displayed in the table header. */
   label: string;
+  /** The label for the column used in filter dropdowns. If not provided, defaults to `label`. */
+  filterLabel?: string;
   type: TracesTableColumnType;
   group?: TracesTableColumnGroup;
 

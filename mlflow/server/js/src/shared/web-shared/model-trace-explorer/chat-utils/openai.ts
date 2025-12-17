@@ -8,6 +8,8 @@ import type {
   OpenAIResponsesInputMessageRole,
   OpenAIResponsesInputText,
   OpenAIResponsesOutputItem,
+  OpenAIResponsesStreamingOutputDelta,
+  OpenAIResponsesStreamingOutputDone,
 } from './openai.types';
 import type { ModelTraceChatMessage } from '../ModelTrace.types';
 import {
@@ -24,7 +26,7 @@ export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | nu
     return null;
   }
 
-  const messages = obj.messages ?? obj.input;
+  const messages = obj.messages ?? obj.input ?? obj.request?.input;
   if (!Array.isArray(messages) || messages.length === 0 || !messages.every(isRawModelTraceChatMessage)) {
     return null;
   }
@@ -138,7 +140,9 @@ const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage):
 };
 
 export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  const input: unknown = get(obj, 'input');
+  // if the object does not have the 'input' key, then try using the object directly
+  // (user may have passed in the response input directly to the span)
+  const input: unknown = get(obj, 'input') ?? get(obj, 'request.input') ?? obj;
 
   if (isString(input)) {
     const message = prettyPrintChatMessage({ type: 'message', content: input, role: 'user' });
@@ -201,7 +205,9 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
     return null;
   }
 
-  const output: unknown = get(obj, 'output');
+  // if the object does not have the 'output' key, then try using the object directly
+  // (user may have passed in the response output directly to the span)
+  const output: unknown = get(obj, 'output') ?? obj;
 
   // list of output items
   if (isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
@@ -243,6 +249,22 @@ const isOpenAIAgentMessage = (obj: unknown): boolean => {
   }
 
   return false;
+};
+
+const isOpenAIAgentStreamingOutputDelta = (obj: unknown): obj is OpenAIResponsesStreamingOutputDelta => {
+  if (!isObject(obj)) {
+    return false;
+  }
+
+  return get(obj, 'type') === 'response.output_text.delta' && isString(get(obj, 'delta'));
+};
+
+const isOpenAIAgentStreamingOutputDone = (obj: unknown): obj is OpenAIResponsesStreamingOutputDone => {
+  if (!isObject(obj)) {
+    return false;
+  }
+
+  return get(obj, 'type') === 'response.output_item.done' && isOpenAIResponsesOutputItem(get(obj, 'item'));
 };
 
 const normalizeOpenAIAgentMessage = (obj: any): ModelTraceChatMessage | null => {
@@ -327,6 +349,30 @@ export const normalizeOpenAIAgentOutput = (obj: unknown): ModelTraceChatMessage[
   // Handle array of messages directly
   if (isArray(obj) && obj.length > 0 && obj.every(isOpenAIAgentMessage)) {
     return compact(obj.map(normalizeOpenAIAgentMessage));
+  }
+
+  return null;
+};
+
+export const normalizeOpenAIResponsesStreamingOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
+  if (isNil(obj)) {
+    return null;
+  }
+
+  if (
+    isArray(obj) &&
+    obj.length > 0 &&
+    obj.every((message) => isOpenAIAgentStreamingOutputDelta(message) || isOpenAIAgentStreamingOutputDone(message)) &&
+    // ensure there's at least one "done" event
+    obj.some((message) => isOpenAIAgentStreamingOutputDone(message))
+  ) {
+    // for streaming outputs, the full text will be contained in the `response.output_item.done` event.
+    // in order to conveniently display the text, we just ignore the deltas and return the full messages.
+    return compact(
+      obj
+        .filter(isOpenAIAgentStreamingOutputDone)
+        .map((done_events) => normalizeOpenAIResponsesOutputItem(done_events.item)),
+    );
   }
 
   return null;

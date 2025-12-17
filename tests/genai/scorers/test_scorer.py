@@ -8,10 +8,11 @@ import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.genai import Scorer, scorer
+from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
-
-from tests.tracing.helper import get_traces, purge_traces
+from mlflow.genai.scorers.base import SerializedScorer
+from mlflow.genai.scorers.registry import get_scorer, list_scorers
 
 
 @pytest.fixture(autouse=True)
@@ -81,6 +82,11 @@ def test_trace_passed_to_builtin_scorers_correctly(
     # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
     monkeypatch.setenv("AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED", "false")
 
+    # Remove expected_facts from trace to avoid validation error (can only have one)
+    sample_rag_trace.info.assessments = [
+        a for a in sample_rag_trace.info.assessments if a.name != "expected_facts"
+    ]
+
     with (
         patch(
             "databricks.agents.evals.judges.correctness",
@@ -111,7 +117,7 @@ def test_trace_passed_to_builtin_scorers_correctly(
     mock_correctness.assert_called_once_with(
         request="{'question': 'query'}",
         response="answer",
-        expected_facts=["fact1", "fact2"],
+        expected_facts=None,
         expected_response="expected answer",
         assessment_name="correctness",
     )
@@ -329,74 +335,125 @@ def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
     assert feedbacks[1].name == "small_question"
 
 
-def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks):
-    @scorer
-    def my_scorer_1(inputs, outputs):
-        with mlflow.start_span(name="scorer_trace_1") as span:
-            # Tracing is disabled during evaluation but this should not NPE
-            span.set_inputs(inputs)
-            span.set_outputs(outputs)
-
-        with mlflow.start_span(name="scorer_trace_2"):
-            pass
-        return 1
+def test_custom_scorer_registration_blocked_for_non_databricks_uri():
+    experiment_id = mlflow.create_experiment("test_security_experiment")
 
     @scorer
-    @mlflow.trace
-    def my_scorer_2():
-        return 0.5
+    def test_custom_scorer(outputs) -> bool:
+        return len(outputs) > 0
 
-    def predict(question: str) -> str:
-        return "output: " + str(question)
+    with pytest.raises(
+        mlflow.exceptions.MlflowException,
+        match="Custom scorer registration.*not supported outside of Databricks tracking",
+    ):
+        test_custom_scorer.register(experiment_id=experiment_id, name="test_scorer")
 
-    result = mlflow.genai.evaluate(
-        data=[{"inputs": {"question": "Hello"}} for _ in range(100)],
-        scorers=[my_scorer_1, my_scorer_2],
-        predict_fn=predict,
+    mlflow.delete_experiment(experiment_id)
+
+
+def test_custom_scorer_loading_blocked_for_non_databricks_uri():
+    serialized = SerializedScorer(
+        name="malicious_scorer",
+        is_session_level_scorer=False,
+        call_source="import os\nos.system('echo hacked')\nreturn True",
+        call_signature="(outputs)",
+        original_func_name="malicious_scorer",
     )
-    # Scorers should be computed correctly
-    assert result.metrics["my_scorer_1/mean"] == 1
-    assert result.metrics["my_scorer_2/mean"] == 0.5
 
-    # Traces should only be generated for predict_fn
-    traces = get_traces()
-    assert len(traces) == 100
-    trace_names = [trace.data.spans[0].name for trace in traces]
-    assert all("scorer" not in trace_name for trace_name in trace_names), (
-        f"Traces include unexpected names: {[n for n in trace_names if n != 'predict']}"
+    with pytest.raises(
+        mlflow.exceptions.MlflowException, match="Loading custom scorer.*not supported"
+    ):
+        Scorer._reconstruct_decorator_scorer(serialized)
+
+
+def test_custom_scorer_loading_blocked_for_databricks_remote_access():
+    serialized = SerializedScorer(
+        name="malicious_scorer",
+        is_session_level_scorer=False,
+        call_source="import os\nos.system('echo hacked')\nreturn True",
+        call_signature="(outputs)",
+        original_func_name="malicious_scorer",
     )
-    purge_traces()
 
-    # When invoked directly, the scorer should generate traces
-    score = my_scorer_2()
-    assert score == 0.5
-    assert len(get_traces()) == 1
+    with (
+        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=False),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+    ):
+        with pytest.raises(
+            mlflow.exceptions.MlflowException, match="via remote access is not supported"
+        ):
+            Scorer._reconstruct_decorator_scorer(serialized)
 
 
-def test_extra_traces_before_evaluation_execution_should_not_be_cleaned_up(is_in_databricks):
-    def predict(question: str) -> str:
-        return "output: " + str(question)
+def test_custom_scorer_error_message_renders_code_snippet_legibly():
+    serialized = SerializedScorer(
+        name="complex_scorer",
+        is_session_level_scorer=False,
+        call_source=(
+            "if not outputs:\n"
+            "    return 0\n"
+            "score = 0\n"
+            "for word in outputs.split():\n"
+            "    if word.isupper():\n"
+            "        score += 2\n"
+            "    else:\n"
+            "        score += 1\n"
+            "return score"
+        ),
+        call_signature="(outputs)",
+        original_func_name="complex_scorer",
+    )
 
-    @scorer
-    @mlflow.trace
-    def my_scorer(inputs, outputs):
-        return 0.5
+    with pytest.raises(
+        mlflow.exceptions.MlflowException, match="is not supported outside of"
+    ) as exc_info:
+        Scorer._reconstruct_decorator_scorer(serialized)
 
-    with mlflow.start_run():
-        # Generate another trace in the run before running the evaluation
-        with mlflow.start_span(name="should_be_kept"):
-            pass
+    error_msg = str(exc_info.value)
 
-        result = mlflow.genai.evaluate(
-            data=[{"inputs": {"question": "Hello"}}],
-            scorers=[my_scorer],
-            predict_fn=predict,
-        )
-    # Scorers should be computed correctly
-    assert result.metrics["my_scorer/mean"] == 0.5
+    assert "Registered scorer code:" in error_msg
+    assert "from mlflow.genai import scorer" in error_msg
+    assert "@scorer" in error_msg
+    assert "def complex_scorer(outputs):" in error_msg
 
-    # Traces should only be generated for predict_fn
-    traces = get_traces()
-    assert len(traces) == 2  # 1 for predict_fn, 1 for a trace generated before evaluation
-    assert traces[0].data.spans[0].name == "predict"
-    assert traces[1].data.spans[0].name == "should_be_kept"
+    expected_code = """
+from mlflow.genai import scorer
+
+@scorer
+def complex_scorer(outputs):
+    if not outputs:
+        return 0
+    score = 0
+    for word in outputs.split():
+        if word.isupper():
+            score += 2
+        else:
+            score += 1
+    return score"""
+
+    assert expected_code.strip() in error_msg
+
+
+def test_make_judge_scorer_works_without_databricks_uri():
+    experiment_id = mlflow.create_experiment("test_make_judge_experiment")
+
+    judge_scorer = make_judge(
+        instructions="Evaluate if the {{outputs}} is helpful and relevant",
+        name="helpfulness_judge",
+        feedback_value_type=str,
+    )
+
+    registered_scorer = judge_scorer.register(experiment_id=experiment_id, name="helpfulness_judge")
+
+    assert registered_scorer is not None
+    assert registered_scorer.name == "helpfulness_judge"
+
+    retrieved_scorer = get_scorer(name="helpfulness_judge", experiment_id=experiment_id)
+    assert retrieved_scorer is not None
+    assert retrieved_scorer.name == "helpfulness_judge"
+
+    scorers = list_scorers(experiment_id=experiment_id)
+    assert len(scorers) == 1
+    assert scorers[0].name == "helpfulness_judge"
+
+    mlflow.delete_experiment(experiment_id)

@@ -18,7 +18,7 @@ import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Descriptions } from '../../common/components/Descriptions';
 import { modelStagesMigrationGuideLink } from '../../common/constants';
-import { Alert, Modal, Button, InfoSmallIcon, LegacyTooltip, Typography } from '@databricks/design-system';
+import { Alert, Modal, Button, InfoSmallIcon, Tooltip, Typography } from '@databricks/design-system';
 import {
   ModelVersionStatus,
   StageLabels,
@@ -320,9 +320,13 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       >
         <div css={{ display: 'flex', alignItems: 'center' }}>
           {StageLabels[modelVersion.current_stage]}
-          <LegacyTooltip title={tooltipContent} placement="bottom">
+          <Tooltip
+            componentId="codegen_mlflow_app_src_model-registry_components_modelversionview_tsx_394"
+            content={tooltipContent}
+            side="bottom"
+          >
             <InfoSmallIcon css={{ paddingLeft: '4px' }} />
-          </LegacyTooltip>
+          </Tooltip>
         </div>
       </Descriptions.Item>
     );

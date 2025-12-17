@@ -25,6 +25,7 @@ import {
 } from '../core/utils';
 import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
+import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
 
 /**
  * Generate a MLflow-compatible trace ID for the given span.
@@ -82,6 +83,7 @@ export class MlflowSpanProcessor implements SpanProcessor {
     span.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify(traceId));
 
     createAndRegisterMlflowSpan(span);
+    executeOnSpanStartHooks(span);
   }
 
   /**
@@ -90,14 +92,17 @@ export class MlflowSpanProcessor implements SpanProcessor {
    * @param span the Span that just ended.
    */
   onEnd(span: OTelReadableSpan): void {
+    const traceManager = InMemoryTraceManager.getInstance();
+
+    executeOnSpanEndHooks(span);
+
     // Only trigger trace export for root span completion
     if (span.parentSpanContext?.spanId) {
       return;
     }
 
     // Update trace info
-    const otelTraceId = span.spanContext().traceId;
-    const traceId = InMemoryTraceManager.getInstance().getMlflowTraceIdFromOtelId(otelTraceId);
+    const traceId = traceManager.getMlflowTraceIdFromOtelId(span.spanContext().traceId);
     if (!traceId) {
       console.warn(`No trace ID found for span ${span.name}. Skipping.`);
       return;

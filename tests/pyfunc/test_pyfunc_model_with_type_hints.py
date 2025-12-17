@@ -43,13 +43,26 @@ from mlflow.types.schema import (
 )
 from mlflow.types.type_hints import TypeFromExample
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.pyfunc.utils import score_model_in_process
 
 
 @pytest.fixture(scope="module")
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
+
+
+@pytest.fixture(autouse=True, scope="module")
+def mock_log_model_with_pip_requirements():
+    """Inject pip_requirements=[] to skip dependency inference in all log_model calls."""
+    original_log_model = mlflow.pyfunc.log_model
+
+    def patched_log_model(*args, **kwargs):
+        kwargs.setdefault("pip_requirements", [])
+        return original_log_model(*args, **kwargs)
+
+    with mock.patch("mlflow.pyfunc.log_model", patched_log_model):
+        yield
 
 
 class CustomExample(pydantic.BaseModel):
@@ -289,11 +302,10 @@ def test_pyfunc_model_infer_signature_from_type_hints(
 
     # test serving
     payload = convert_input_example_to_serving_input(input_example)
-    scoring_response = pyfunc_serve_and_score_model(
+    scoring_response = score_model_in_process(
         model_uri=model_info.model_uri,
         data=payload,
         content_type=CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
@@ -1081,11 +1093,10 @@ def test_type_hint_from_example(input_example, type_from_example_model):
 
     # test serving
     payload = convert_input_example_to_serving_input(input_example)
-    scoring_response = pyfunc_serve_and_score_model(
+    scoring_response = score_model_in_process(
         model_uri=model_info.model_uri,
         data=payload,
         content_type=CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
     if isinstance(input_example, pd.DataFrame):

@@ -19,6 +19,7 @@ from mlflow.telemetry.constant import (
     RETRYABLE_ERRORS,
     UNRECOVERABLE_ERRORS,
 )
+from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
@@ -27,7 +28,10 @@ from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_
 class TelemetryClient:
     def __init__(self):
         self.info = asdict(
-            TelemetryInfo(session_id=_MLFLOW_TELEMETRY_SESSION_ID.get() or uuid.uuid4().hex)
+            TelemetryInfo(
+                session_id=_MLFLOW_TELEMETRY_SESSION_ID.get() or uuid.uuid4().hex,
+                installation_id=get_or_create_installation_id(),
+            )
         )
         self._queue: Queue[list[Record]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()

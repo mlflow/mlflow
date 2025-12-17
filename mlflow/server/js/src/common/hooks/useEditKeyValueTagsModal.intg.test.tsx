@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 
 import { useEffect, useState } from 'react';
@@ -9,6 +10,7 @@ import type { ModelVersionInfoEntity } from '../../experiment-tracking/types';
 import { updateModelVersionTagsApi } from '../../model-registry/actions';
 import { Services as ModelRegistryServices } from '../../model-registry/services';
 import type { ThunkDispatch } from '../../redux-types';
+import { DesignSystemProvider } from '@databricks/design-system';
 import { act, screen, within, fastFillInput, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { useEditKeyValueTagsModal } from './useEditKeyValueTagsModal';
 
@@ -121,7 +123,9 @@ describe('useEditKeyValueTagsModal integration', () => {
     }
     renderWithIntl(
       <Provider store={mockStore}>
-        <TestComponent />
+        <DesignSystemProvider>
+          <TestComponent />
+        </DesignSystemProvider>
       </Provider>,
     );
   }

@@ -31,6 +31,7 @@ export function initializeSDK(): void {
     });
     const exporter = new MlflowSpanExporter(client);
     processor = new MlflowSpanProcessor(exporter);
+
     sdk = new NodeSDK({ spanProcessors: [processor] });
     sdk.start();
   } catch (error) {

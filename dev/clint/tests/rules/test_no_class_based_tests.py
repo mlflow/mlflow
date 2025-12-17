@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.no_class_based_tests import NoClassBasedTests
 
 
@@ -47,12 +47,11 @@ def helper_function():
     violations = lint_file(Path("test_something.py"), code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, NoClassBasedTests) for v in violations)
-    assert violations[0].loc == Location(3, 0)  # TestSomething class
-    assert violations[1].loc == Location(14, 0)  # TestAnotherThing class
+    assert violations[0].range == Range(Position(3, 0))  # TestSomething class
+    assert violations[1].range == Range(Position(14, 0))  # TestAnotherThing class
 
 
 def test_no_class_based_tests_non_test_file(index_path: Path) -> None:
-    """Test that the rule doesn't apply to non-test files"""
     code = """import pytest
 
 # This should not be flagged because it's not in a test file

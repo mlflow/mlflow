@@ -28,7 +28,6 @@ import {
   EXPERIMENT_PARENT_ID_TAG,
 } from './experimentPage.common-utils';
 import { getStableColorForRun } from '../../../utils/RunNameUtils';
-import { shouldEnableToggleIndividualRunsInGroups } from '../../../../common/utils/FeatureUtils';
 import { getGroupedRowRenderMetadata, type RunsGroupByConfig } from './experimentPage.group-row-utils';
 import { type ExperimentPageUIState, RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
@@ -402,12 +401,7 @@ export const prepareRunsGridData = ({
 
     const groupedRuns = chunksWithSortedRuns.flat();
 
-    // If toggling individual runs in groups is enabled, hidden flags
-    // should be already contained in the array so we can return it right away
-    if (shouldEnableToggleIndividualRunsInGroups()) {
-      return groupedRuns;
-    }
-    return determineVisibleRuns(groupedRuns, runsHidden, runsHiddenMode, runsVisibilityMap);
+    return groupedRuns;
   }
 
   // If the flat structure is displayed, we can hoist pinned rows to the top

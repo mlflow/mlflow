@@ -1,4 +1,11 @@
 _DATABRICKS_DEFAULT_JUDGE_MODEL = "databricks"
+_DATABRICKS_AGENTIC_JUDGE_MODEL = "gpt-oss-120b"
+
+# Use case constants for chat completions
+USE_CASE_BUILTIN_JUDGE = "builtin_judge"
+USE_CASE_AGENTIC_JUDGE = "agentic_judge"
+USE_CASE_CUSTOM_PROMPT_JUDGE = "custom_prompt_judge"
+USE_CASE_JUDGE_ALIGNMENT = "judge_alignment"
 
 # Common affirmative values that should map to YES
 _AFFIRMATIVE_VALUES = frozenset(
@@ -93,3 +100,6 @@ _NEGATIVE_VALUES = frozenset(
         "neg",
     ]
 )
+
+_RESULT_FIELD_DESCRIPTION = "The evaluation rating/result"
+_RATIONALE_FIELD_DESCRIPTION = "Detailed explanation for the evaluation"

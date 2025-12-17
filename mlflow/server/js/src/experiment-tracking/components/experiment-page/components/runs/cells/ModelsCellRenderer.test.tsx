@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import type { ComponentProps } from 'react';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
@@ -8,6 +9,7 @@ import { QueryClientProvider, QueryClient } from '@mlflow/mlflow/src/common/util
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { shouldUseGetLoggedModelsBatchAPI } from '../../../../../../common/utils/FeatureUtils';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 jest.mock('../../../../../../common/utils/FeatureUtils', () => ({
   shouldUnifyLoggedModelsAndRegisteredModels: jest.fn(),
@@ -28,11 +30,13 @@ describe('ModelsCellRenderer', () => {
     // Create a mock provider that supplies the registered versions without mocking the hook
     return render(
       <BrowserRouter>
-        <QueryClientProvider client={queryClient}>
-          <IntlProvider locale="en">
-            <ModelsCellRenderer {...props} />
-          </IntlProvider>
-        </QueryClientProvider>
+        <DesignSystemProvider>
+          <QueryClientProvider client={queryClient}>
+            <IntlProvider locale="en">
+              <ModelsCellRenderer {...props} />
+            </IntlProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
       </BrowserRouter>,
     );
   };

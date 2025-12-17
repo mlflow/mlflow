@@ -9,6 +9,7 @@ export enum ErrorName {
   PermissionError = 'PermissionError',
   RateLimitedError = 'RateLimitedError',
   RouteNotFoundError = 'RouteNotFoundError',
+  ScorerTransformationError = 'ScorerTransformationError',
   ServiceUnavailableError = 'ServiceUnavailableError',
   UnauthorizedError = 'UnauthorizedError',
   UnknownError = 'UnknownError',

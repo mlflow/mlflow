@@ -56,19 +56,17 @@ def client(request, monkeypatch, mock_openai):
 
 @pytest.fixture
 def completion_models():
-    model_infos = []
-    for temp in [0.1, 0.2, 0.3]:
-        model_infos.append(
-            mlflow.openai.log_model(
-                "gpt-4o-mini",
-                "completions",
-                name="model",
-                temperature=temp,
-                prompt="Say {text}",
-                pip_requirements=["mlflow"],  # Hard code for speed up
-            )
+    return [
+        mlflow.openai.log_model(
+            "gpt-4o-mini",
+            "completions",
+            name="model",
+            temperature=temp,
+            prompt="Say {text}",
+            pip_requirements=["mlflow"],  # Hard code for speed up
         )
-    return model_infos
+        for temp in [0.1, 0.2, 0.3]
+    ]
 
 
 @pytest.fixture
@@ -157,7 +155,7 @@ async def test_chat_completions_autolog_under_current_active_span(client):
     parent_span = trace.data.spans[0]
     assert parent_span.name == "parent"
     child_span = trace.data.spans[1]
-    assert child_span.name == "AsyncCompletions_1" if client._is_async else "Completions_1"
+    assert child_span.name == "AsyncCompletions" if client._is_async else "Completions"
     assert child_span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
     assert child_span.outputs["id"] == "chatcmpl-123"
     assert child_span.parent_id == parent_span.span_id
@@ -339,12 +337,7 @@ async def test_chat_completions_streaming_empty_choices(client):
         stream=True,
     )
 
-    if client._is_async:
-        chunks = []
-        async for chunk in await stream:
-            chunks.append(chunk)
-    else:
-        chunks = list(stream)
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
 
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
@@ -363,12 +356,7 @@ async def test_chat_completions_streaming_with_list_content(client):
         stream=True,
     )
 
-    if client._is_async:
-        chunks = []
-        async for chunk in await stream:
-            chunks.append(chunk)
-    else:
-        chunks = list(stream)
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
 
     assert len(chunks) == 2
     assert chunks[0].choices[0].delta.content == [{"type": "text", "text": "Hello"}]
@@ -420,12 +408,7 @@ async def test_completions_autolog_streaming_empty_choices(client):
         stream=True,
     )
 
-    if client._is_async:
-        chunks = []
-        async for chunk in await stream:
-            chunks.append(chunk)
-    else:
-        chunks = list(stream)
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
 
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []

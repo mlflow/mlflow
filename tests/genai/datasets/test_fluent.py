@@ -367,9 +367,29 @@ def test_search_datasets_single_page(mock_client):
     assert mock_client.search_datasets.call_count == 1
 
 
-def test_search_datasets_databricks(mock_databricks_environment):
-    with pytest.raises(NotImplementedError, match="Dataset search is not available in Databricks"):
-        search_datasets()
+def test_search_datasets_databricks(mock_databricks_environment, mock_client):
+    datasets = [
+        EntityEvaluationDataset(
+            dataset_id="id1",
+            name="dataset1",
+            digest="digest1",
+            created_time=123456789,
+            last_update_time=123456789,
+        ),
+    ]
+    mock_client.search_datasets.return_value = PagedList(datasets, None)
+
+    result = search_datasets(experiment_ids=["exp1"])
+
+    assert len(result) == 1
+    assert isinstance(result, list)
+
+    # Verify that default filter_string and order_by are NOT set for Databricks
+    # (since these parameters may not be supported by all Databricks backends)
+    mock_client.search_datasets.assert_called_once()
+    call_kwargs = mock_client.search_datasets.call_args.kwargs
+    assert call_kwargs.get("filter_string") is None
+    assert call_kwargs.get("order_by") is None
 
 
 def test_databricks_import_error():
@@ -708,14 +728,12 @@ def test_dataset_with_dataframe_records(tracking_uri, experiments):
 
 
 def test_search_datasets(tracking_uri, experiments):
-    datasets = []
     for i in range(5):
-        dataset = create_dataset(
+        create_dataset(
             name=f"search_test_{i}",
             experiment_id=[experiments[i % len(experiments)]],
             tags={"type": "human" if i % 2 == 0 else "trace", "index": str(i)},
         )
-        datasets.append(dataset)
 
     all_results = search_datasets()
     assert len(all_results) == 5
@@ -1318,18 +1336,17 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
         tags={"test": "large_dataset"},
     )
 
-    large_records = []
-    for i in range(150):
-        large_records.append(
-            {
-                "inputs": {"question": f"Question {i}", "index": i},
-                "expectations": {"answer": f"Answer {i}", "score": i * 0.01},
-            }
-        )
+    large_records = [
+        {
+            "inputs": {"question": f"Question {i}", "index": i},
+            "expectations": {"answer": f"Answer {i}", "score": i * 0.01},
+        }
+        for i in range(150)
+    ]
 
     dataset.merge_records(large_records)
 
-    all_records = dataset.records
+    all_records = dataset._mlflow_dataset.records
     assert len(all_records) == 150
 
     record_indices = {record.inputs["index"] for record in all_records}
@@ -1350,11 +1367,11 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
     assert not hasattr(dataset, "next_page_token")
     assert not hasattr(dataset, "max_results")
 
-    second_access = dataset.records
+    second_access = dataset._mlflow_dataset.records
     assert second_access is all_records
 
-    dataset._records = None
-    refreshed_records = dataset.records
+    dataset._mlflow_dataset._records = None
+    refreshed_records = dataset._mlflow_dataset.records
     assert len(refreshed_records) == 150
 
 
@@ -1367,26 +1384,25 @@ def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
         tags={"test": "pagination_mock"},
     )
 
-    records = []
-    for i in range(75):
-        records.append(
-            {"inputs": {"question": f"Q{i}", "id": i}, "expectations": {"answer": f"A{i}"}}
-        )
+    records = [
+        {"inputs": {"question": f"Q{i}", "id": i}, "expectations": {"answer": f"A{i}"}}
+        for i in range(75)
+    ]
 
     dataset.merge_records(records)
 
-    dataset._records = None
+    dataset._mlflow_dataset._records = None
 
     store = _get_store()
     with mock.patch.object(
         store, "_load_dataset_records", wraps=store._load_dataset_records
     ) as mock_load:
-        accessed_records = dataset.records
+        accessed_records = dataset._mlflow_dataset.records
 
         mock_load.assert_called_once_with(dataset.dataset_id, max_results=None)
         assert len(accessed_records) == 75
 
-    dataset._records = None
+    dataset._mlflow_dataset._records = None
 
     with mock.patch.object(
         store, "_load_dataset_records", wraps=store._load_dataset_records
@@ -1888,7 +1904,7 @@ def test_trace_source_type_detection():
     trace_sources = df[df["source_type"] == DatasetRecordSourceType.TRACE.value]
     assert len(trace_sources) == 3
 
-    for idx, trace_id in enumerate(trace_ids):
+    for trace_id in trace_ids:
         matching_records = df[df["source_id"] == trace_id]
         assert len(matching_records) == 1
 

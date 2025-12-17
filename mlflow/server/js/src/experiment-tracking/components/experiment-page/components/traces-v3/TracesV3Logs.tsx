@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
-import type { TracesTableColumn, TraceActions } from '@databricks/web-shared/genai-traces-table';
+import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
+import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -19,51 +21,88 @@ import {
   useTableSort,
   useMlflowTracesTableMetadata,
   TOKENS_COLUMN_ID,
-  invalidateMlflowSearchTracesCache,
   TRACE_ID_COLUMN_ID,
+  invalidateMlflowSearchTracesCache,
+  createTraceLocationForExperiment,
+  doesTraceSupportV4API,
 } from '@databricks/web-shared/genai-traces-table';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
 import { useIntl } from '@databricks/i18n';
-import { getTrace } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
+import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
-import { useExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
+// eslint-disable-next-line no-useless-rename -- renaming due to copybara transformation
+import { useExportTracesToDatasetModal as useExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
+import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
+const ContextProviders = ({
+  children,
+  makeHtmlFromMarkdown,
+  experimentId,
+}: {
+  makeHtmlFromMarkdown: (markdown?: string) => string;
+  experimentId?: string;
+  children: React.ReactNode;
+}) => {
+  return (
+    <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
+      {children}
+    </GenAiTracesMarkdownConverterProvider>
+  );
+};
 
 const TracesV3LogsImpl = React.memo(
   ({
     experimentId,
     endpointName,
     timeRange,
+    isLoadingExperiment,
     loggedModelId,
   }: {
     experimentId: string;
     endpointName: string;
     timeRange?: { startTime: string | undefined; endTime: string | undefined };
+    isLoadingExperiment?: boolean;
     loggedModelId?: string;
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
 
+    const traceSearchLocations = useMemo(
+      () => {
+        return [createTraceLocationForExperiment(experimentId)];
+      },
+      // prettier-ignore
+      [
+        experimentId,
+      ],
+    );
+
+    const isQueryDisabled = false;
+    const usesV4APIs = true;
+
+    const getTrace = getTraceV3;
+
     // Get metadata
     const {
       assessmentInfos,
       allColumns,
       totalCount,
-      isLoading: isMetadataLoading,
       evaluatedTraces,
+      isLoading: isMetadataLoading,
       error: metadataError,
       isEmpty,
       tableFilterOptions,
     } = useMlflowTracesTableMetadata({
-      experimentId,
+      locations: traceSearchLocations,
       timeRange,
       filterByLoggedModelId: loggedModelId,
+      disabled: isQueryDisabled,
     });
 
     // Setup table states
@@ -106,36 +145,47 @@ const TracesV3LogsImpl = React.memo(
 
     // Set the initial time filter when there are no traces
     const { isInitialTimeFilterLoading } = useSetInitialTimeFilter({
-      experimentId,
+      locations: traceSearchLocations,
       isTracesEmpty: isEmpty,
       isTraceMetadataLoading: isMetadataLoading,
+      disabled: isQueryDisabled,
     });
 
     // Get traces data
     const {
       data: traceInfos,
       isLoading: traceInfosLoading,
+      isFetching: traceInfosFetching,
       error: traceInfosError,
     } = useSearchMlflowTraces({
-      experimentId,
+      locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
       searchQuery,
       filters,
       timeRange,
       filterByLoggedModelId: loggedModelId,
       tableSort,
+      disabled: isQueryDisabled,
     });
 
     const deleteTracesMutation = useDeleteTracesMutation();
 
-    // TODO: We should update this to use web-shared/unified-tagging components for the
-    // tag editor and react-query mutations for the apis.
+    // Local, legacy version of trace tag editing modal
     const { showEditTagsModalForTrace, EditTagsModal } = useEditExperimentTraceTags({
       onSuccess: () => invalidateMlflowSearchTracesCache({ queryClient }),
       existingTagKeys: getTracesTagKeys(traceInfos || []),
-      useV3Apis: true,
     });
 
+    // Unified version of trace tag editing modal using shared components
+    const { showTagAssignmentModal: showEditTagsModalForTraceUnified, TagAssignmentModal: EditTagsModalUnified } =
+      useUnifiedTraceTagsModal({
+        componentIdPrefix: 'mlflow.experiment-traces',
+        onSuccess: () => invalidateMlflowSearchTracesCache({ queryClient }),
+      });
+
+    const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations });
+
+    // TODO: Unify export action between managed and OSS
     const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
       useExportTracesToDatasetModal({
         experimentId,
@@ -143,27 +193,32 @@ const TracesV3LogsImpl = React.memo(
 
     const traceActions: TraceActions = useMemo(() => {
       return {
-        deleteTracesAction: {
-          deleteTraces: (experimentId: string, traceIds: string[]) =>
-            deleteTracesMutation.mutateAsync({ experimentId, traceRequestIds: traceIds }),
-        },
+        deleteTracesAction,
         exportToEvals: {
-          showExportTracesToDatasetsModal,
-          setShowExportTracesToDatasetsModal,
-          renderExportTracesToDatasetsModal,
+          showExportTracesToDatasetsModal: showExportTracesToDatasetsModal,
+          setShowExportTracesToDatasetsModal: setShowExportTracesToDatasetsModal,
+          renderExportTracesToDatasetsModal: renderExportTracesToDatasetsModal,
         },
-        editTags: {
-          showEditTagsModalForTrace,
-          EditTagsModal,
-        },
+        // Enable unified tags modal if V4 APIs is enabled
+        editTags: shouldUseTracesV4API()
+          ? {
+              showEditTagsModalForTrace: showEditTagsModalForTraceUnified,
+              EditTagsModal: EditTagsModalUnified,
+            }
+          : {
+              showEditTagsModalForTrace,
+              EditTagsModal,
+            },
       };
     }, [
+      deleteTracesAction,
       showExportTracesToDatasetsModal,
       setShowExportTracesToDatasetsModal,
       renderExportTracesToDatasetsModal,
+      showEditTagsModalForTraceUnified,
+      EditTagsModalUnified,
       showEditTagsModalForTrace,
       EditTagsModal,
-      deleteTracesMutation,
     ]);
 
     const countInfo = useMemo(() => {
@@ -176,6 +231,8 @@ const TracesV3LogsImpl = React.memo(
     }, [traceInfos, totalCount, traceInfosLoading]);
 
     const isTableLoading = traceInfosLoading || isInitialTimeFilterLoading || isMetadataLoading;
+    const displayLoadingOverlay = false;
+
     const tableError = traceInfosError || metadataError;
     const isTableEmpty = isEmpty && !isTableLoading && !tableError;
 
@@ -183,7 +240,14 @@ const TracesV3LogsImpl = React.memo(
     const renderMainContent = () => {
       // If isEmpty and not enableTraceInsights, show empty state without navigation
       if (!enableTraceInsights && isTableEmpty) {
-        return <TracesV3EmptyState experimentIds={[experimentId]} loggedModelId={loggedModelId} />;
+        return (
+          <TracesV3EmptyState
+            experimentIds={[experimentId]}
+            loggedModelId={loggedModelId}
+            traceSearchLocations={traceSearchLocations}
+            isCallDisabled={isQueryDisabled}
+          />
+        );
       }
       // Default traces view with optional navigation
       return (
@@ -235,7 +299,7 @@ const TracesV3LogsImpl = React.memo(
                 />
               </div>
             ) : (
-              <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
+              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
                 <GenAITracesTableBodyContainer
                   experimentId={experimentId}
                   allColumns={allColumns}
@@ -247,18 +311,15 @@ const TracesV3LogsImpl = React.memo(
                   filters={filters}
                   selectedColumns={selectedColumns}
                   tableSort={tableSort}
+                  onTraceTagsEdit={showEditTagsModalForTrace}
+                  displayLoadingOverlay={displayLoadingOverlay}
                 />
-              </GenAiTracesMarkdownConverterProvider>
+              </ContextProviders>
             )}
           </div>
         </div>
       );
     };
-
-    // Early return for empty state without insights
-    if (!enableTraceInsights && isTableEmpty) {
-      return <TracesV3EmptyState experimentIds={[experimentId]} loggedModelId={loggedModelId} />;
-    }
 
     // Single unified layout with toolbar and content
     return (
@@ -290,6 +351,7 @@ const TracesV3LogsImpl = React.memo(
             setSelectedColumns={setSelectedColumns}
             isMetadataLoading={isMetadataLoading}
             metadataError={metadataError}
+            usesV4APIs={usesV4APIs}
           />
           {renderMainContent()}
         </div>

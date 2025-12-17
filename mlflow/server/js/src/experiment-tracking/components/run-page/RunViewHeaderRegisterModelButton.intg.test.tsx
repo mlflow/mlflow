@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
@@ -119,7 +120,7 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
     expect(createRegisteredModelApi).toHaveBeenCalledWith('a-new-model', expect.anything());
     expect(createModelVersionApi).toHaveBeenCalledWith(
       'a-new-model',
-      'file://some/artifact/path/another_artifact_path',
+      'runs:/testRunUuid/another_artifact_path',
       'testRunUuid',
       [],
       expect.anything(),

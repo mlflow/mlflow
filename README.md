@@ -58,7 +58,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
         <a href="https://mlflow.org/docs/latest/llms/tracing/index.html"><strong>🔍 Tracing / Observability</strong></a>
         <br><br>
         <div>Trace the internal states of your LLM/agentic applications for debugging quality issues and monitoring performance with ease.</div><br>
-        <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/python-openai/">Getting Started →</a>
+        <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/">Getting Started →</a>
         <br><br>
     </div>
     </td>
@@ -174,9 +174,80 @@ MLflow is natively integrated with many popular machine learning frameworks and 
 
 ## Usage Examples
 
-### Experiment Tracking ([Doc](https://mlflow.org/docs/latest/ml/tracking/))
+### Tracing (Observability) ([Doc](https://mlflow.org/docs/latest/llms/tracing/index.html))
 
-The following examples trains a simple regression model with scikit-learn, while enabling MLflow's [autologging](https://mlflow.org/docs/latest/tracking/autolog.html) feature for experiment tracking.
+MLflow Tracing provides LLM observability for various GenAI libraries such as OpenAI, LangChain, LlamaIndex, DSPy, AutoGen, and more. To enable auto-tracing, call `mlflow.xyz.autolog()` before running your models. Refer to the documentation for customization and manual instrumentation.
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Enable tracing for OpenAI
+mlflow.openai.autolog()
+
+# Query OpenAI LLM normally
+response = OpenAI().chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hi!"}],
+    temperature=0.1,
+)
+```
+
+Then navigate to the "Traces" tab in the MLflow UI to find the trace records for the OpenAI query.
+
+### Evaluating LLMs, Prompts, and Agents ([Doc](https://mlflow.org/docs/latest/genai/eval-monitor/index.html))
+
+The following example runs automatic evaluation for question-answering tasks with several built-in metrics.
+
+```python
+import os
+import openai
+import mlflow
+from mlflow.genai.scorers import Correctness, Guidelines
+
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# 1. Define a simple QA dataset
+dataset = [
+    {
+        "inputs": {"question": "Can MLflow manage prompts?"},
+        "expectations": {"expected_response": "Yes!"},
+    },
+    {
+        "inputs": {"question": "Can MLflow create a taco for my lunch?"},
+        "expectations": {
+            "expected_response": "No, unfortunately, MLflow is not a taco maker."
+        },
+    },
+]
+
+
+# 2. Define a prediction function to generate responses
+def predict_fn(question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini", messages=[{"role": "user", "content": question}]
+    )
+    return response.choices[0].message.content
+
+
+# 3. Run the evaluation
+results = mlflow.genai.evaluate(
+    data=dataset,
+    predict_fn=predict_fn,
+    scorers=[
+        # Built-in LLM judge
+        Correctness(),
+        # Custom criteria using LLM judge
+        Guidelines(name="is_english", guidelines="The answer must be in English"),
+    ],
+)
+```
+
+Navigate to the "Evaluations" tab in the MLflow UI to find the evaluation results.
+
+### Tracking Model Training ([Doc](https://mlflow.org/docs/latest/ml/tracking/))
+
+The following example trains a simple regression model with scikit-learn, while enabling MLflow's [autologging](https://mlflow.org/docs/latest/tracking/autolog.html) feature for experiment tracking.
 
 ```python
 import mlflow
@@ -197,69 +268,11 @@ rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
 rf.fit(X_train, y_train)
 ```
 
-Once the above code finishes, run the following command in a separate terminal and access the MLflow UI via the printed URL. An MLflow **Run** should be automatically created, which tracks the training dataset, hyper parameters, performance metrics, the trained model, dependencies, and even more.
+Once the above code finishes, run the following command in a separate terminal and access the MLflow UI via the printed URL. An MLflow **Run** should be automatically created, which tracks the training dataset, hyperparameters, performance metrics, the trained model, dependencies, and even more.
 
 ```
-mlflow ui
+mlflow server
 ```
-
-### Evaluating Models ([Doc](https://mlflow.org/docs/latest/model-evaluation/index.html))
-
-The following example runs automatic evaluation for question-answering tasks with several built-in metrics.
-
-```python
-import mlflow
-import pandas as pd
-
-# Evaluation set contains (1) input question (2) model outputs (3) ground truth
-df = pd.DataFrame(
-    {
-        "inputs": ["What is MLflow?", "What is Spark?"],
-        "outputs": [
-            "MLflow is an innovative fully self-driving airship powered by AI.",
-            "Sparks is an American pop and rock duo formed in Los Angeles.",
-        ],
-        "ground_truth": [
-            "MLflow is an open-source platform for productionizing AI.",
-            "Apache Spark is an open-source, distributed computing system.",
-        ],
-    }
-)
-eval_dataset = mlflow.data.from_pandas(
-    df, predictions="outputs", targets="ground_truth"
-)
-
-# Start an MLflow Run to record the evaluation results to
-with mlflow.start_run(run_name="evaluate_qa"):
-    # Run automatic evaluation with a set of built-in metrics for question-answering models
-    results = mlflow.evaluate(
-        data=eval_dataset,
-        model_type="question-answering",
-    )
-
-print(results.tables["eval_results_table"])
-```
-
-### Observability ([Doc](https://mlflow.org/docs/latest/llms/tracing/index.html))
-
-MLflow Tracing provides LLM observability for various GenAI libraries such as OpenAI, LangChain, LlamaIndex, DSPy, AutoGen, and more. To enable auto-tracing, call `mlflow.xyz.autolog()` before running your models. Refer to the documentation for customization and manual instrumentation.
-
-```python
-import mlflow
-from openai import OpenAI
-
-# Enable tracing for OpenAI
-mlflow.openai.autolog()
-
-# Query OpenAI LLM normally
-response = OpenAI().chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Hi!"}],
-    temperature=0.1,
-)
-```
-
-Then navigate to the "Traces" tab in the MLflow UI to find the trace records OpenAI query.
 
 ## 💭 Support
 
@@ -303,6 +316,7 @@ MLflow is currently maintained by the following core members with significant co
 - [Daniel Lok](https://github.com/daniellok-db)
 - [Gabriel Fu](https://github.com/gabrielfu)
 - [Harutaka Kawamura](https://github.com/harupy)
+- [Joel Robin P](https://github.com/joelrobin18)
 - [Serena Ruan](https://github.com/serena-ruan)
 - [Tomu Hirata](https://github.com/TomeHirata)
 - [Weichen Xu](https://github.com/WeichenXu123)

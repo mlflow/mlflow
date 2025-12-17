@@ -1,5 +1,5 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { EvaluationDataset } from '../types';
+import { useInfiniteQuery } from '@databricks/web-shared/query-client';
+import type { EvaluationDataset } from '../types';
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMemo } from 'react';
 import { SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';

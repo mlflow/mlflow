@@ -222,6 +222,12 @@ describe('tracedOpenAI', () => {
       expect(trace.info.state).toBe('OK');
       expect(trace.data.spans.length).toBe(1);
 
+      const tokenUsage = trace.info.tokenUsage;
+      expect(tokenUsage).toBeDefined();
+      expect(tokenUsage?.input_tokens).toBe(response.usage.prompt_tokens);
+      expect(tokenUsage?.output_tokens).toBe(0);
+      expect(tokenUsage?.total_tokens).toBe(response.usage.total_tokens);
+
       const span = trace.data.spans[0];
       expect(span.name).toBe('Embeddings');
       expect(span.spanType).toBe(mlflow.SpanType.EMBEDDING);
@@ -233,6 +239,12 @@ describe('tracedOpenAI', () => {
       expect(span.outputs).toEqual(response);
       expect(span.startTime).toBeDefined();
       expect(span.endTime).toBeDefined();
+
+      const spanTokenUsage = span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE];
+      expect(spanTokenUsage).toBeDefined();
+      expect(spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe(response.usage.prompt_tokens);
+      expect(spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe(0);
+      expect(spanTokenUsage[mlflow.TokenUsageKey.TOTAL_TOKENS]).toBe(response.usage.total_tokens);
     });
   });
 });

@@ -47,14 +47,14 @@ def test_record_usage_event(mock_requests, mock_telemetry_client: TelemetryClien
     ]
     assert len(records) == 2
     succeed_record = records[0]
-    assert succeed_record["schema_version"] == 1
+    assert succeed_record["schema_version"] == 2
     assert succeed_record["event_name"] == TestEvent.name
     assert succeed_record["status"] == Status.SUCCESS.value
     assert succeed_record["params"] is None
     assert succeed_record["duration_ms"] > 0
 
     fail_record = records[1]
-    assert fail_record["schema_version"] == 1
+    assert fail_record["schema_version"] == 2
     assert fail_record["event_name"] == TestEvent.name
     assert fail_record["status"] == Status.FAILURE.value
     assert fail_record["params"] is None

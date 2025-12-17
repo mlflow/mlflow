@@ -12,10 +12,9 @@ import tempfile
 import threading
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
-
-import cloudpickle
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
@@ -23,7 +22,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
+from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.utils.environment import _PythonEnv
 
 if TYPE_CHECKING:
@@ -105,7 +104,7 @@ def _start_huey_consumer_proc(
     huey_instance_key: str,
     max_job_parallelism: int,
 ):
-    from mlflow.server import MLFLOW_HUEY_INSTANCE_KEY
+    from mlflow.server.constants import MLFLOW_HUEY_INSTANCE_KEY
     from mlflow.utils.process import _exec_cmd
 
     return _exec_cmd(
@@ -180,9 +179,11 @@ def _exec_job_in_subproc(
         job_cmd = [sys.executable, "-m", _JOB_ENTRY_MODULE]
 
     result_file = str(Path(tmpdir) / "result.json")
-    transient_error_classes_file = str(Path(tmpdir) / "transient_error_classes.pkl")
-    with open(transient_error_classes_file, "wb") as f:
-        cloudpickle.dump(transient_error_classes, f)
+    transient_error_classes_file = str(Path(tmpdir) / "transient_error_classes")
+    transient_error_classes = transient_error_classes or []
+    with open(transient_error_classes_file, "w") as f:
+        for cls in transient_error_classes:
+            f.write(f"{cls.__module__}.{cls.__name__}\n")
 
     with subprocess.Popen(
         job_cmd,
@@ -213,7 +214,7 @@ def _exec_job_in_subproc(
 
 def _exec_job(
     job_id: str,
-    function: Callable[..., Any],
+    fn_fullname: str,
     params: dict[str, Any],
     timeout: float | None,
 ) -> None:
@@ -222,6 +223,7 @@ def _exec_job(
     job_store = _get_job_store()
     job_store.start_job(job_id)
 
+    function = _load_function(fn_fullname)
     fn_metadata = function._job_fn_metadata
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -270,12 +272,28 @@ def _get_or_init_huey_instance(instance_key: str):
     from huey import SqliteHuey
     from huey.serializer import Serializer
 
-    class CloudPickleSerializer(Serializer):
+    class CustomJSONEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, datetime):
+                return {
+                    "__type__": "datetime",
+                    "value": obj.isoformat(),
+                }
+            return super().default(obj)
+
+    def json_loader_object_hook(d):
+        if d.get("__type__") == "datetime":
+            return datetime.fromisoformat(d["value"])
+        return d
+
+    class JsonSerializer(Serializer):
         def serialize(self, data):
-            return cloudpickle.dumps(data)
+            return json.dumps(data._asdict(), cls=CustomJSONEncoder).encode("utf-8")
 
         def deserialize(self, data):
-            return cloudpickle.loads(data)
+            from huey.registry import Message
+
+            return Message(**json.loads(data.decode("utf-8"), object_hook=json_loader_object_hook))
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
@@ -286,7 +304,7 @@ def _get_or_init_huey_instance(instance_key: str):
             huey_instance = SqliteHuey(
                 filename=huey_store_file,
                 results=False,
-                serializer=CloudPickleSerializer(),
+                serializer=JsonSerializer(),
             )
             huey_submit_task_fn = huey_instance.task(retries=0)(_exec_job)
             _huey_instance_map[instance_key] = HueyInstance(
@@ -390,11 +408,10 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
             job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
         params = json.loads(job.params)
-        function = _load_function(job.function_fullname)
         timeout = job.timeout
         # enqueue job
         _get_or_init_huey_instance(job.function_fullname).submit_task(
-            job.job_id, function, params, timeout
+            job.job_id, job.function_fullname, params, timeout
         )
 
 
@@ -420,9 +437,7 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
     ]
 
     # Check for missing required parameters
-    missing_params = [param for param in required_params if param not in params]
-
-    if missing_params:
+    if missing_params := [param for param in required_params if param not in params]:
         raise MlflowException.invalid_parameter_value(
             f"Missing required parameters for function '{function.__name__}': {missing_params}. "
             f"Expected parameters: {list(sig.parameters.keys())}"
@@ -430,18 +445,11 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
 
 
 def _check_requirements(backend_store_uri: str | None = None) -> None:
-    from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+    from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
     from mlflow.utils.uri import extract_db_type_from_uri
 
     if os.name == "nt":
         raise MlflowException("MLflow job backend does not support Windows system.")
-
-    try:
-        import huey  # noqa: F401
-    except ImportError:
-        raise MlflowException(
-            "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed"
-        )
 
     if shutil.which("uv") is None:
         raise MlflowException("MLflow job backend requires 'uv' but it is not installed.")

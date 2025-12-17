@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useGetDatasetRecords } from '../hooks/useGetDatasetRecords';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import { Empty, TableCell, TableHeader, TableRow, TableSkeletonRows } from '@databricks/design-system';
 import { Table } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { JsonCell } from './ExperimentEvaluationDatasetJsonCell';
 import { ExperimentEvaluationDatasetRecordsToolbar } from './ExperimentEvaluationDatasetRecordsToolbar';
-import { EvaluationDataset, EvaluationDatasetRecord } from '../types';
+import type { EvaluationDataset, EvaluationDatasetRecord } from '../types';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 
 const INPUTS_COLUMN_ID = 'inputs';
@@ -41,7 +43,8 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
   const intl = useIntl();
   const datasetId = dataset.dataset_id;
 
-  const [rowSize, setRowSize] = useState<'sm' | 'md' | 'lg'>('sm');
+  const [rowSize, setRowSize] = useState<'sm' | 'md' | 'lg'>('md');
+  const [searchFilter, setSearchFilter] = useState('');
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
     [INPUTS_COLUMN_ID]: true,
     [OUTPUTS_COLUMN_ID]: false,
@@ -66,17 +69,55 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
     fetchNextPage,
   });
 
-  const table = useReactTable({
-    columns,
-    data: datasetRecords ?? [],
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => row.dataset_record_id,
-    enableColumnResizing: false,
-    meta: { rowSize },
-    state: {
-      columnVisibility,
+  // Filter records based on search term
+  const filteredRecords = useMemo(() => {
+    if (!searchFilter.trim()) {
+      return datasetRecords ?? [];
+    }
+
+    const searchTerm = searchFilter.toLowerCase();
+    return (datasetRecords ?? []).filter((record) => {
+      // Search in inputs
+      const inputsString = JSON.stringify(record.inputs || {}).toLowerCase();
+      if (inputsString.includes(searchTerm)) return true;
+
+      // Search in expectations
+      const expectationsString = JSON.stringify(record.expectations || {}).toLowerCase();
+      if (expectationsString.includes(searchTerm)) return true;
+
+      return false;
+    });
+  }, [datasetRecords, searchFilter]);
+
+  // Auto-fetch more records when filtering reduces visible results but more pages exist.
+  // This ensures we keep loading until we find matching records or exhaust all pages.
+  // TODO: Implement table virtualization to improve performance with large datasets.
+  useEffect(() => {
+    if (!searchFilter.trim() || isFetching || !hasNextPage) {
+      return;
+    }
+
+    // Threshold based on row size - smaller rows show more records, so need higher threshold
+    const minResultsThreshold = rowSize === 'sm' ? 20 : rowSize === 'md' ? 10 : 5;
+    if (filteredRecords.length < minResultsThreshold) {
+      fetchNextPage();
+    }
+  }, [filteredRecords.length, searchFilter, isFetching, hasNextPage, fetchNextPage, rowSize]);
+
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExperimentEvaluationDatasetRecordsTable.tsx',
+    {
+      columns,
+      data: filteredRecords,
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: (row) => row.dataset_record_id,
+      enableColumnResizing: false,
+      meta: { rowSize, searchFilter },
+      state: {
+        columnVisibility,
+      },
     },
-  });
+  );
 
   return (
     <div
@@ -97,6 +138,8 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
         setColumnVisibility={setColumnVisibility}
         rowSize={rowSize}
         setRowSize={setRowSize}
+        searchFilter={searchFilter}
+        setSearchFilter={setSearchFilter}
       />
       <Table
         css={{ flex: 1 }}
@@ -119,7 +162,7 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
               header.column.getIsVisible() && (
                 <TableHeader
                   key={header.id}
-                  componentId={`mlflow.eval-dataset-records.${header.column.id}-header`}
+                  componentId="mlflow.eval-dataset-records.column-header"
                   header={header}
                   column={header.column}
                   css={{ position: 'sticky', top: 0, zIndex: 1 }}

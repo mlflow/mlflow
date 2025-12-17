@@ -1,0 +1,139 @@
+---
+sidebar_position: 6
+sidebar_label: OpenAI Agent Optimization
+---
+
+import { APILink } from "@site/src/components/APILink";
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
+# Optimizing Prompts for OpenAI Agents
+
+<p style={{display: 'flex', justifyContent: 'center', margin: '1em 0'}}>
+  <img src={useBaseUrl("/images/logos/openai-agent-logo.png")} alt="OpenAI Agent Logo" style={{width: 300, objectFit: 'contain'}} />
+</p>
+
+This guide demonstrates how to leverage <APILink fn="mlflow.genai.optimize_prompts" /> alongside the [OpenAI Agent framework](https://github.com/openai/openai-agents-python) to enhance your agent's prompts automatically. The <APILink fn="mlflow.genai.optimize_prompts" /> API is framework-agnostic, enabling you to perform end-to-end prompt optimization of your agents from any framework using state-of-the-art techniques. For more information about the API, please visit [Optimize Prompts](/genai/prompt-registry/optimize-prompts).
+
+## Prerequisites
+
+```bash
+pip install openai-agents mlflow gepa nest_asyncio
+```
+
+Set your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY="your-api-key"
+```
+
+Set tracking server and MLflow experiment:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("OpenAI Agents")
+```
+
+## Basic Example
+
+Here's a complete example of optimizing a question-answering agent:
+
+```python
+import mlflow
+from typing import Any
+from agents import Agent, Runner
+from mlflow.genai.optimize import GepaPromptOptimizer
+from mlflow.genai.scorers import scorer
+
+# If you're inside notebooks, please uncomment the following lines.
+# import nest_asyncio
+# nest_asyncio.apply()
+
+# Step 1: Register your initial prompt
+system_prompt = mlflow.genai.register_prompt(
+    name="qa-agent-system-prompt",
+    template="You're a helpful agent. Follow the user instruction precisely.",
+)
+
+user_prompt = mlflow.genai.register_prompt(
+    name="qa-agent-user-prompt",
+    template="""Answer the question based on the context provided.
+
+Context: {{context}}
+Question: {{question}}
+
+Answer:""",
+)
+
+
+# Step 2: Create a prediction function
+@mlflow.trace
+def predict_fn(context: str, question: str) -> str:
+    # Load prompt from registry
+    system_prompt = mlflow.genai.load_prompt("prompts:/qa-agent-system-prompt@latest")
+    user_prompt = mlflow.genai.load_prompt("prompts:/qa-agent-user-prompt@latest")
+
+    # This is your agent
+    agent = Agent(
+        name="Question Answerer",
+        instructions=system_prompt.template,
+        model="gpt-4o-mini",
+    )
+
+    # Format the user message
+    user_message = user_prompt.format(context=context, question=question)
+
+    # Run the agent
+    result = Runner.run_sync(agent, user_message)
+    return result.final_output
+
+
+# Step 3: Prepare training data
+train_data = [
+    {
+        "inputs": {
+            "context": "Paris is the capital of France.",
+            "question": "What is the capital of France?",
+        },
+        "expectations": {"expected_response": "Paris"},
+    },
+    {
+        "inputs": {
+            "context": "The Eiffel Tower was completed in 1889.",
+            "question": "When was the Eiffel Tower completed?",
+        },
+        "expectations": {"expected_response": "1889"},
+    },
+    # Add more examples...
+]
+
+
+# Step 4: Prepare scorer
+@scorer
+def exact_match(outputs: str, expectations: dict[str, Any]) -> bool:
+    return outputs == expectations["expected_response"]
+
+
+# Step 5: Optimize the prompt
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=train_data,
+    prompt_uris=[system_prompt.uri, user_prompt.uri],
+    optimizer=GepaPromptOptimizer(
+        reflection_model="openai:/gpt-5",
+        max_metric_calls=100,
+    ),
+    scorers=[exact_match],
+)
+
+# Step 6: Use the optimized prompt
+optimized_system_prompt = result.optimized_prompts[0]
+print(f"Optimized system prompt URI: {optimized_system_prompt.uri}")
+
+# Since your agent already use @latest, it will automatically use the optimized prompts.
+predict_fn(
+    context="MLflow is an open-source platform for managing the machine learning lifecycle, providing tools to streamline the development, training, and deployment of models",
+    question="What is MLflow",
+)
+```

@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import NamedTuple, Sequence
+from typing import Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
@@ -21,6 +21,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataException,
     MlflowTraceDataNotFound,
@@ -36,7 +37,12 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import GET_TRACE_V4_RETRY_TIMEOUT_SECONDS, TraceMetadataKey
+from mlflow.tracing.constant import (
+    GET_TRACE_V4_RETRY_TIMEOUT_SECONDS,
+    SpansLocation,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
@@ -46,11 +52,6 @@ from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
-
-
-class TraceInfoGroups(NamedTuple):
-    tracking_store_trace_infos: list[TraceInfo]
-    artifact_repo_trace_infos: list[TraceInfo]
 
 
 class TracingClient:
@@ -168,10 +169,24 @@ class TracingClient:
                 error_code=NOT_FOUND,
             )
         else:
-            # V3 trace, load spans from artifact repository.
             try:
                 trace_info = self.get_trace_info(trace_id)
-                trace_data = self._download_trace_data(trace_info)
+                # if the trace is stored in the tracking store, load spans from the tracking store
+                # otherwise, load spans from the artifact repository
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                    try:
+                        return self.store.get_trace(trace_id)
+                    except MlflowNotImplementedException:
+                        pass
+                    if traces := self.store.batch_get_traces([trace_info.trace_id]):
+                        return traces[0]
+                    else:
+                        raise MlflowException(
+                            f"Trace with ID {trace_id} is not found.",
+                            error_code=NOT_FOUND,
+                        )
+                else:
+                    trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataNotFound:
                 raise MlflowException(
                     message=(
@@ -274,11 +289,11 @@ class TracingClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            filter_string = (
-                f"request_metadata.`mlflow.modelId` = '{model_id}'"
-                if MLFLOW_TRACING_SQL_WAREHOUSE_ID.get() is None
-                else None
-            )
+            # if sql_warehouse_id is not set then we convert model_id to filter_string,
+            # because `_search_unified_traces` requires sql warehouse id existing.
+            if MLFLOW_TRACING_SQL_WAREHOUSE_ID.get() is None:
+                filter_string = f"request_metadata.`mlflow.modelId` = '{model_id}'"
+                model_id = None
 
         if run_id:
             run = self.store.get_run(run_id)
@@ -327,19 +342,14 @@ class TracingClient:
                 )
 
                 if include_spans:
-                    location_to_trace_infos = self._group_trace_infos_by_location(trace_infos)
-                    for location, location_trace_infos in location_to_trace_infos.items():
-                        if "." in location:
-                            # UC schema location. Get full traces from v4 BatchGetTraces.
-                            # All traces in a single call must be located in the same table.
-                            trace_ids = [t.trace_id for t in location_trace_infos]
-                            traces.extend(
-                                self._download_spans_from_batch_get_traces(
-                                    trace_ids, location, executor
-                                )
-                            )
-                        else:
-                            # MLflow experiment location. Load spans from artifact repository.
+                    trace_infos_by_location = self._group_trace_infos_by_location(trace_infos)
+                    for (
+                        location,
+                        location_trace_infos,
+                    ) in trace_infos_by_location.items():
+                        if location == SpansLocation.ARTIFACT_REPO:
+                            # download traces from artifact repository if spans are
+                            # stored in the artifact repository
                             traces.extend(
                                 trace
                                 for trace in executor.map(
@@ -348,6 +358,16 @@ class TracingClient:
                                 )
                                 if trace
                             )
+                        else:
+                            # Get full traces with BatchGetTraces, all traces in a single call
+                            # must be located in the same table.
+                            trace_ids = [t.trace_id for t in location_trace_infos]
+                            traces.extend(
+                                self._download_spans_from_batch_get_traces(
+                                    trace_ids, location, executor
+                                )
+                            )
+
                 else:
                     traces.extend(Trace(t, TraceData(spans=[])) for t in trace_infos)
 
@@ -422,16 +442,23 @@ class TracingClient:
         Returns:
             A dictionary mapping location to a list of trace infos.
         """
-        location_to_trace_infos = defaultdict(list)
+        trace_infos_by_location = defaultdict(list)
         for trace_info in trace_infos:
             if uc_schema := trace_info.trace_location.uc_schema:
                 location = f"{uc_schema.catalog_name}.{uc_schema.schema_name}"
-                location_to_trace_infos[location].append(trace_info)
-            elif mlflow_experiment := trace_info.trace_location.mlflow_experiment:
-                location_to_trace_infos[mlflow_experiment.experiment_id].append(trace_info)
+                trace_infos_by_location[location].append(trace_info)
+            elif trace_info.trace_location.mlflow_experiment:
+                # New traces in SQL store store spans in the tracking store, while for old traces or
+                # traces with File store, spans are stored in artifact repository.
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                    # location is not used for traces with mlflow experiment location in tracking
+                    # store, so we use None as the location
+                    trace_infos_by_location[None].append(trace_info)
+                else:
+                    trace_infos_by_location[SpansLocation.ARTIFACT_REPO].append(trace_info)
             else:
                 _logger.warning(f"Unsupported location: {trace_info.trace_location}. Skipping.")
-        return location_to_trace_infos
+        return trace_infos_by_location
 
     def calculate_trace_filter_correlation(
         self,
@@ -656,7 +683,6 @@ class TracingClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
-    # TODO: Migrate this to the new association table
     def link_prompt_versions_to_trace(
         self, trace_id: str, prompts: Sequence[PromptVersion]
     ) -> None:

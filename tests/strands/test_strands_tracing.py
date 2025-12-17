@@ -174,11 +174,9 @@ def test_strands_autolog_single_trace():
     agent_span = next(span for span in spans if span.span_type == SpanType.AGENT)
     assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
     assert agent_span.outputs.strip() == "hi"
-    assert SpanAttributeKey.CHAT_USAGE not in agent_span.attributes
 
     usage_spans = [span for span in spans if span.attributes.get(SpanAttributeKey.CHAT_USAGE)]
     assert usage_spans, "expected at least one child span recording token usage"
-    assert all(span.span_type != SpanType.AGENT for span in usage_spans)
     assert usage_spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == {
         "input_tokens": 1,
         "output_tokens": 2,
@@ -264,6 +262,19 @@ def test_multiple_agents_single_trace():
     assert tool_span.outputs == [{"json": 3}]
     assert agent2_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
     assert agent2_span.outputs.strip() == "hi"
+    # top-level span should contain the sum of both the chat spans. this is set
+    # when we translate the genai semantic conventions into mlflow attributes.
+    assert agent1_span.attributes[SpanAttributeKey.CHAT_USAGE] == {
+        "input_tokens": 2,
+        "output_tokens": 2,
+        "total_tokens": 4,
+    }
+    # agent2 span should contain the token usage for its single chat span
+    assert agent2_span.attributes[SpanAttributeKey.CHAT_USAGE] == {
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "total_tokens": 2,
+    }
 
 
 def test_autolog_disable_prevents_new_traces():

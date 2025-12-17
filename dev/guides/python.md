@@ -18,57 +18,7 @@ def calculate_sum(a: int, b: int) -> int:
     return a + b
 ```
 
-## Use Type Hints for All Functions
-
-Add type hints to all function parameters and return values. This enables better IDE support, catches bugs early, and serves as inline documentation.
-
-```python
-# Bad
-def foo(s):
-    return len(s)
-
-
-# Good
-def foo(s: str) -> int:
-    return len(s)
-```
-
-### Exceptions
-
-**Test functions:** The `-> None` return type can be omitted for test functions since they implicitly return `None` and the return value is not used. However, **parameter type hints are still required** for all test function parameters.
-
-```python
-# Good - has parameter type hints but no return type hint
-def test_foo(s: str):
-    ...
-
-
-# Good - has both parameter and return type hints
-def test_foo(s: str) -> None:
-    ...
-
-
-# Bad - missing parameter type hints
-def test_foo(s):
-    ...
-```
-
-**`__init__` methods:** The `-> None` return type can be omitted for `__init__` methods since they always return `None` by definition.
-
-```python
-# Acceptable
-class Foo:
-    def __init__(self, s: str):
-        ...
-
-
-# Also acceptable (but not required)
-class Foo:
-    def __init__(self, s: str) -> None:
-        ...
-```
-
-### Prefer `typing.Literal` for Fixed-String Parameters
+## Prefer `typing.Literal` for Fixed-String Parameters
 
 When a parameter only accepts a fixed set of string values, use `typing.Literal` instead of a plain `str` type hint. This improves type-checking, enables IDE autocompletion, and documents allowed values at the type level.
 
@@ -293,4 +243,59 @@ def test_foo():
 )
 def test_foo(input: str, expected: int):
     assert foo(input) == expected
+```
+
+## Avoid Custom Messages in Test Asserts
+
+Pytest's assertion introspection provides detailed failure information automatically. Avoid adding custom messages to `assert` statements in tests unless absolutely necessary.
+
+```python
+# Bad
+def test_list_items():
+    items = list_items()
+    assert len(items) == 3, f"Expected 3 items, got {len(items)}"
+
+
+# Good
+def test_list_items():
+    items = list_items()
+    assert len(items) == 3
+```
+
+## Preserve function metadata and type information in decorators
+
+When writing decorators, always use `@functools.wraps` to preserve function metadata (like `__name__` and `__doc__`), and use `typing.ParamSpec` and `typing.TypeVar` to preserve the function's type information for accurate type checking and autocompletion in IDEs.
+
+```python
+# Bad
+from typing import Any, Callable
+
+
+def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        ...  # Pre-execution logic (e.g., logging, validation, setup)
+        res = f(*args, **kwargs)
+        ...  # Post-execution logic (e.g., cleanup, result transformation)
+        return res
+
+    return wrapper
+
+
+# Good
+import functools
+from typing import Callable, ParamSpec, TypeVar
+
+_P = ParamSpec("P")
+_R = TypeVar("R")
+
+
+def decorator(f: Callable[_P, _R]) -> Callable[_P, _R]:
+    @functools.wraps(f)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        ...  # Pre-execution logic (e.g., logging, validation, setup)
+        res = f(*args, **kwargs)
+        ...  # Post-execution logic (e.g., cleanup, result transformation)
+        return res
+
+    return wrapper
 ```

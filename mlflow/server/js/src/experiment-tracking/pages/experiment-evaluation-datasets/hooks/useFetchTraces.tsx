@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@databricks/web-shared/query-client';
 import { getTrace } from '../../../utils/TraceUtils';
 import { FETCH_TRACES_QUERY_KEY } from '../constants';
 import { chunk } from 'lodash';
@@ -14,7 +14,7 @@ export const useFetchTraces = ({ traceIds }: { traceIds: string[] }) => {
 
       const results = [];
       for (const chunk of chunks) {
-        const traces = await Promise.all(chunk.map(getTrace));
+        const traces = await Promise.all(chunk.map((traceId) => getTrace(traceId)));
         results.push(...traces);
       }
 

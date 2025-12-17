@@ -95,32 +95,34 @@ export const GenAiTracesTableBodyRow = React.memo(
     return (
       <>
         <TableRow>
-          {enableRowSelection && (
-            <Tooltip
-              componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell-tooltip"
-              content={
-                isComparing
-                  ? intl.formatMessage({
-                      defaultMessage: 'You cannot select rows when comparing runs',
-                      description: 'Tooltip message for the select button when comparing runs',
-                    })
-                  : !exportableTrace
-                  ? intl.formatMessage({
-                      defaultMessage:
-                        'This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.',
-                      description: 'Tooltip message for the export button when the trace is not exportable',
-                    })
-                  : null
-              }
-            >
-              <TableRowSelectCell
-                componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell"
-                checked={isSelected && exportableTrace}
-                onChange={row.getToggleSelectedHandler()}
-                isDisabled={isComparing || !exportableTrace}
-              />
-            </Tooltip>
-          )}
+          <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
+            {enableRowSelection && (
+              <Tooltip
+                componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell-tooltip"
+                content={
+                  isComparing
+                    ? intl.formatMessage({
+                        defaultMessage: 'You cannot select rows when comparing runs',
+                        description: 'Tooltip message for the select button when comparing runs',
+                      })
+                    : !exportableTrace
+                    ? intl.formatMessage({
+                        defaultMessage:
+                          'This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.',
+                        description: 'Tooltip message for the export button when the trace is not exportable',
+                      })
+                    : null
+                }
+              >
+                <TableRowSelectCell
+                  componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell"
+                  checked={isSelected && exportableTrace}
+                  onChange={row.getToggleSelectedHandler()}
+                  isDisabled={isComparing || !exportableTrace}
+                />
+              </Tooltip>
+            )}
+          </div>
           {cells.map((cell) => (
             <GenAiTracesTableBodyRowCell cell={cell} key={cell.id} />
           ))}
