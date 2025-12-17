@@ -560,7 +560,8 @@ class OpenAIProvider(BaseProvider):
         if MLFLOW_ENABLE_UC_FUNCTIONS.get():
             warnings.warn(
                 "Unity Catalog function integration via the MLflow AI Gateway is deprecated "
-                "and will be removed in a future release.",
+                "and will be removed in a future release. "
+                "For an alternative, see: https://docs.databricks.com/aws/en/generative-ai/mcp/managed-mcp",
                 FutureWarning,
                 stacklevel=2,
             )
