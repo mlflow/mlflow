@@ -41,6 +41,7 @@ class BaseProvider(ABC):
     NAME: str = ""
     SUPPORTED_ROUTE_TYPES: tuple[str, ...]
     CONFIG_TYPE: type[ConfigModel]
+    PASSTHROUGH_PROVIDER_PATHS: dict[PassthroughAction, str] = {}
 
     def __init__(self, config: EndpointConfig):
         if self.NAME == "":
@@ -90,6 +91,33 @@ class BaseProvider(ABC):
             status_code=501,
             detail=f"The embeddings route is not implemented for {self.NAME} models.",
         )
+
+    def _validate_passthrough_action(self, action: PassthroughAction) -> str:
+        """
+        Validates that the passthrough action is supported by this provider
+        and returns the provider path.
+
+        Args:
+            action: The passthrough action to validate
+
+        Returns:
+            The provider path for the action
+        """
+        provider_path = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
+        if provider_path is None:
+            route = PASSTHROUGH_ROUTES.get(action, action.value)
+            supported_routes = ", ".join(
+                f"/gateway{route} (provider_path: {path})"
+                for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
+                if (route := PASSTHROUGH_ROUTES.get(act))
+                and (path := self.PASSTHROUGH_PROVIDER_PATHS.get(act))
+            )
+            raise AIGatewayException(
+                status_code=400,
+                detail=f"Unsupported passthrough endpoint '{route}' for {self.NAME} provider. "
+                f"Supported endpoints: {supported_routes}",
+            )
+        return provider_path
 
     async def passthrough(
         self, action: PassthroughAction, payload: dict[str, Any]

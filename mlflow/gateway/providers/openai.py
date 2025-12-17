@@ -9,7 +9,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, OpenAIAPIType, OpenAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import (
-    PASSTHROUGH_ROUTES,
     BaseProvider,
     PassthroughAction,
     ProviderAdapter,
@@ -630,20 +629,7 @@ class OpenAIProvider(BaseProvider):
             payload, self.config
         )
 
-        provider_path = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
-        if provider_path is None:
-            route = PASSTHROUGH_ROUTES.get(action)
-            supported_routes = ", ".join(
-                f"/gateway{route} (provider_path: {path})"
-                for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
-                if (route := PASSTHROUGH_ROUTES.get(act))
-                and (path := self.PASSTHROUGH_PROVIDER_PATHS.get(act))
-            )
-            raise AIGatewayException(
-                status_code=400,
-                detail=f"Unsupported passthrough endpoint '{route}' for {self.NAME} provider. "
-                f"Supported endpoints: {supported_routes}",
-            )
+        provider_path = self._validate_passthrough_action(action)
 
         supports_streaming = action != PassthroughAction.OPENAI_EMBEDDINGS
 
