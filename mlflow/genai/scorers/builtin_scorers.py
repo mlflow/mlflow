@@ -1884,6 +1884,25 @@ class SessionLevelScorer(Judge):
             ),
         ]
 
+    def _validate_kwargs(self, kwargs: dict[str, Any]) -> None:
+        """
+        Validate that no unexpected keyword arguments were passed.
+
+        Session level scorers only accept 'session' and 'expectations' parameters.
+
+        Args:
+            kwargs: Dictionary of unexpected keyword arguments.
+
+        Raises:
+            TypeError: If any unexpected keyword arguments are present.
+        """
+        if kwargs:
+            invalid_args = ", ".join(f"'{k}'" for k in kwargs.keys())
+            raise TypeError(
+                f"Session level scorers can only accept the `session` and `expectations` "
+                f"parameters. Got unexpected keyword argument(s): {invalid_args}"
+            )
+
     def __call__(
         self,
         *,
@@ -1891,12 +1910,7 @@ class SessionLevelScorer(Judge):
         expectations: dict[str, Any] | None = None,
         **kwargs,
     ) -> Feedback:
-        if kwargs:
-            invalid_args = ", ".join(f"'{k}'" for k in kwargs.keys())
-            raise TypeError(
-                f"Session level scorers can only accept the `session` and `expectations` "
-                f"parameters. Got unexpected keyword argument(s): {invalid_args}"
-            )
+        self._validate_kwargs(kwargs)
         return self._get_judge()._evaluate_impl(session=session, expectations=expectations)
 
 
@@ -2424,6 +2438,8 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
             A single Feedback object with value "yes" or "no", plus detailed rationale
             describing which turns (if any) had retention issues.
         """
+        self._validate_kwargs(kwargs)
+
         if not session:
             return Feedback(
                 name=self.name,
