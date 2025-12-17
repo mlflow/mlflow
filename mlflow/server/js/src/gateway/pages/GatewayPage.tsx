@@ -1,52 +1,45 @@
-import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
-import { useProvidersQuery } from '../hooks/useProvidersQuery';
-import { Alert, Header, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
+import { Alert, Button, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
+import { EndpointsList } from '../components/endpoints/EndpointsList';
+import { Link } from '../../common/utils/RoutingUtils';
+import GatewayRoutes from '../routes';
 
 const GatewayPage = () => {
   const { theme } = useDesignSystemTheme();
-  const { data, error, isLoading } = useProvidersQuery();
+  const { error, refetch } = useEndpointsQuery();
 
   return (
-    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Spacer shrinks={false} />
-      <Header
-        title={
-          <FormattedMessage defaultMessage="Gateway" description="Header title for the gateway configuration page" />
-        }
-      />
-      <Spacer shrinks={false} />
-      <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {error && (
-          <>
-            <Alert type="error" message={error.message} componentId="mlflow.gateway.error" closable={false} />
-            <Spacer />
-          </>
-        )}
-        {isLoading && (
-          <div css={{ padding: theme.spacing.md }}>
-            <FormattedMessage defaultMessage="Loading providers..." description="Loading message for providers list" />
-          </div>
-        )}
-        {data && !isLoading && (
-          <div css={{ padding: theme.spacing.md }}>
-            <h3>
-              <FormattedMessage defaultMessage="Available Providers" description="Title for providers list" />
-            </h3>
-            <Spacer size="sm" />
-            <ul css={{ listStyle: 'none', padding: 0 }}>
-              {data.map((provider) => (
-                <li key={provider} css={{ padding: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
-                  {provider}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+    <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: theme.spacing.md,
+          borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+        }}
+      >
+        <Typography.Title level={3} css={{ margin: 0 }}>
+          <FormattedMessage defaultMessage="Endpoints" description="Endpoints page title" />
+        </Typography.Title>
+        <Link to={GatewayRoutes.createEndpointPageRoute}>
+          <Button componentId="mlflow.gateway.create-endpoint-button" type="primary" icon={<PlusIcon />}>
+            <FormattedMessage defaultMessage="Create endpoint" description="Button to create endpoint" />
+          </Button>
+        </Link>
       </div>
-    </ScrollablePageWrapper>
+      {error && (
+        <div css={{ padding: theme.spacing.md }}>
+          <Alert type="error" message={error.message} componentId="mlflow.gateway.error" closable={false} />
+        </div>
+      )}
+      <div css={{ padding: theme.spacing.md, flex: 1, overflow: 'auto' }}>
+        <EndpointsList onEndpointDeleted={() => refetch()} />
+      </div>
+    </div>
   );
 };
 

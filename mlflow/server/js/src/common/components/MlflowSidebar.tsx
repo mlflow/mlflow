@@ -1,7 +1,7 @@
 import {
   BeakerIcon,
   Button,
-  DatabaseIcon,
+  CloudModelIcon,
   DropdownMenu,
   HomeIcon,
   ModelsIcon,
@@ -115,11 +115,11 @@ export function MlflowSidebar() {
     },
     {
       key: 'gateway',
-      icon: <DatabaseIcon />,
+      icon: <CloudModelIcon />,
       linkProps: {
         to: GatewayRoutes.gatewayPageRoute,
         isActive: isGatewayActive,
-        children: <FormattedMessage defaultMessage="Gateway" description="Sidebar link for gateway configuration" />,
+        children: <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />,
       },
     },
   ];

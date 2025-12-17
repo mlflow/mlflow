@@ -4034,6 +4034,8 @@ message GatewaySecretInfo {
   optional string last_updated_by = 8;
   // Provider-specific auth configuration as JSON (e.g., region, project_id)
   optional string auth_config_json = 9;
+  // Credential identifier for display (e.g., "api_key", "access_keys")
+  optional string credential_name = 10;
 }
 
 // Reusable model definition that can be shared across endpoints
@@ -4428,5 +4430,7 @@ message GetSecretsConfig {
   message Response {
     // Whether the server is configured to handle secrets (encryption available)
     optional bool secrets_available = 1;
+    // Whether the gateway backend is available (required dependencies installed)
+    optional bool gateway_available = 2;
   }
 }

@@ -104,6 +104,7 @@ def test_secret_proto_round_trip():
         created_at=1234567890000,
         last_updated_at=1234567891000,
         provider="openai",
+        credential_name="api_key",
         created_by="proto_user",
         last_updated_by="proto_user_2",
     )
@@ -117,8 +118,42 @@ def test_secret_proto_round_trip():
     assert restored.created_at == secret.created_at
     assert restored.last_updated_at == secret.last_updated_at
     assert restored.provider == secret.provider
+    assert restored.credential_name == secret.credential_name
     assert restored.created_by == secret.created_by
     assert restored.last_updated_by == secret.last_updated_by
+
+
+def test_secret_with_credential_name():
+    secret = GatewaySecretInfo(
+        secret_id="cred-name-secret",
+        secret_name="bedrock_key",
+        masked_value="key-...bedrock",
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+        provider="bedrock",
+        credential_name="access_keys",
+    )
+
+    assert secret.credential_name == "access_keys"
+    assert secret.provider == "bedrock"
+
+
+def test_secret_credential_name_proto_round_trip():
+    secret = GatewaySecretInfo(
+        secret_id="cred-proto",
+        secret_name="multi_auth_key",
+        masked_value="key-...multi",
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        provider="bedrock",
+        credential_name="iam_role",
+    )
+
+    proto = secret.to_proto()
+    restored = GatewaySecretInfo.from_proto(proto)
+
+    assert restored.credential_name == secret.credential_name
+    assert restored.credential_name == "iam_role"
 
 
 def test_secret_with_auth_config():
