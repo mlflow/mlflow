@@ -2339,7 +2339,6 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
 
     Args:
         name: The name of the scorer. Defaults to "knowledge_retention".
-        last_turn_scorer: Scorer to use for evaluating each turn.
         model: {{ model }}
 
     Example (direct usage):
@@ -2383,19 +2382,6 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         "in earlier conversation turns without forgetting, contradicting, or distorting it."
     )
 
-    def __init__(self, /, last_turn_scorer: Scorer | None = None, **kwargs):
-        """
-        Initialize KnowledgeRetention scorer.
-
-        Args:
-            last_turn_scorer: Optional custom scorer to use for evaluating knowledge
-                retention of each turn.
-            **kwargs: Additional arguments passed to parent (name, model, etc.)
-        """
-        if last_turn_scorer is not None:
-            kwargs["last_turn_scorer"] = last_turn_scorer
-        super().__init__(**kwargs)
-
     def _create_judge(self) -> InstructionsJudge:
         """
         This method is required by BuiltInSessionLevelScorer but is not used.
@@ -2438,17 +2424,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
             A single Feedback object with value "yes" or "no", plus detailed rationale
             describing which turns (if any) had retention issues.
         """
-        if kwargs:
-            invalid_args = ", ".join(f"'{k}'" for k in kwargs.keys())
-            raise TypeError(
-                f"Session level scorers can only accept the `session` and `expectations` "
-                f"parameters. Got unexpected keyword argument(s): {invalid_args}"
-            )
-
         if not session:
             return Feedback(
                 name=self.name,
-                value="yes",
+                value=CategoricalRating.YES,
                 rationale="No conversation to evaluate (empty session)",
                 source=AssessmentSource(
                     source_type=AssessmentSourceType.LLM_JUDGE,
@@ -2474,24 +2453,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
                 }
             )
 
-        return self._compute_aggregate(per_turn_results)
-
-    def _evaluate_turn(
-        self,
-        turn_idx: int,
-        sorted_traces: list[Trace],
-    ) -> Feedback:
-        """Evaluate a single turn for knowledge retention using the last_turn_scorer."""
-        session_up_to_turn = sorted_traces[: turn_idx + 1]
-
-        return self.last_turn_scorer(session=session_up_to_turn)
-
-    def _compute_aggregate(self, per_turn_results: list[dict[str, Any]]) -> Feedback:
-        """Compute aggregate knowledge retention feedback using worst-case logic."""
         if not per_turn_results:
             return Feedback(
                 name=self.name,
-                value="yes",
+                value=CategoricalRating.YES,
                 rationale="No turns evaluated (conversation too short or missing data)",
                 source=AssessmentSource(
                     source_type=AssessmentSourceType.LLM_JUDGE,
@@ -2499,16 +2464,29 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
                 ),
             )
 
-        failed_turns = [r for r in per_turn_results if str(r["value"]).lower() == "no"]
+        return self._compute_aggregate(per_turn_results)
+
+    def _evaluate_turn(
+        self,
+        turn_idx: int,
+        sorted_traces: list[Trace],
+    ) -> Feedback:
+        session_up_to_turn = sorted_traces[: turn_idx + 1]
+
+        return self.last_turn_scorer(session=session_up_to_turn)
+
+    def _compute_aggregate(self, per_turn_results: list[dict[str, Any]]) -> Feedback:
+        """Compute aggregate knowledge retention feedback using worst-case logic."""
+        failed_turns = [r for r in per_turn_results if str(r["value"]) == CategoricalRating.NO]
         total_turns = len(per_turn_results)
 
         if failed_turns:
-            aggregate_value = "no"
+            aggregate_value = CategoricalRating.NO
 
             rationale_lines = [f"Knowledge retention evaluation across {total_turns} turn(s):"]
 
             for result in per_turn_results:
-                status = "✗" if str(result["value"]).lower() == "no" else "✓"
+                status = "✗" if str(result["value"]) == CategoricalRating.NO else "✓"
                 turn_summary = result["rationale"][:100]  # Truncate if too long
                 rationale_lines.append(f"- Turn {result['turn'] + 1}: {status} {turn_summary}")
 
@@ -2518,11 +2496,19 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
             )
             rationale = "\n".join(rationale_lines)
         else:
-            aggregate_value = "yes"
-            rationale = (
-                f"Knowledge retention successful across all {total_turns} evaluated turn(s). "
-                f"AI correctly retained and used information from prior user inputs."
+            aggregate_value = CategoricalRating.YES
+
+            rationale_lines = [f"Knowledge retention evaluation across {total_turns} turn(s):"]
+
+            for result in per_turn_results:
+                status = "✓"
+                turn_summary = result["rationale"][:100]
+                rationale_lines.append(f"- Turn {result['turn'] + 1}: {status} {turn_summary}")
+
+            rationale_lines.append(
+                f"\nOverall: YES - Knowledge retention successful across all {total_turns} turn(s)."
             )
+            rationale = "\n".join(rationale_lines)
 
         return Feedback(
             name=self.name,
