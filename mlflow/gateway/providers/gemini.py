@@ -5,7 +5,12 @@ from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import EndpointConfig, GeminiConfig
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    PASSTHROUGH_ROUTES,
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+)
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import (
     chat as chat_schema,
@@ -589,6 +594,11 @@ class GeminiProvider(BaseProvider):
     NAME = "Gemini"
     CONFIG_TYPE = GeminiConfig
 
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.GEMINI_GENERATE_CONTENT: "{model}:generateContent",
+        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "{model}:streamGenerateContent?alt=sse",
+    }
+
     def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, GeminiConfig):
@@ -726,28 +736,39 @@ class GeminiProvider(BaseProvider):
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
 
-    async def passthrough_gemini_generate_content(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """
-        Passthrough endpoint for Gemini generateContent API.
-        Accepts raw Gemini request format and returns raw Gemini response format.
-        """
-        return await send_request(
-            headers=self.headers,
-            base_url=self.base_url,
-            path=f"{self.config.model.name}:generateContent",
-            payload=payload,
-        )
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        provider_path_template = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
+        if provider_path_template is None:
+            route = PASSTHROUGH_ROUTES.get(action, action.value)
+            supported_routes = ", ".join(
+                f"/gateway{route} (provider_path: {path})"
+                for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
+                if (route := PASSTHROUGH_ROUTES.get(act))
+                and (path := self.PASSTHROUGH_PROVIDER_PATHS.get(act))
+            )
+            raise AIGatewayException(
+                status_code=400,
+                detail=f"Unsupported passthrough endpoint '{route}' for {self.NAME} provider. "
+                f"Supported endpoints: {supported_routes}",
+            )
 
-    async def passthrough_gemini_stream_generate_content(
-        self, payload: dict[str, Any]
-    ) -> AsyncIterable[bytes]:
-        """
-        Passthrough endpoint for Gemini streamGenerateContent API.
-        Accepts raw Gemini request format and returns raw Gemini streaming response format.
-        """
-        return send_stream_request(
-            headers=self.headers,
-            base_url=self.base_url,
-            path=f"{self.config.model.name}:streamGenerateContent?alt=sse",
-            payload=payload,
-        )
+        provider_path = provider_path_template.replace("{model}", self.config.model.name)
+
+        is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
+
+        if is_streaming:
+            return send_stream_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )
+        else:
+            return await send_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )

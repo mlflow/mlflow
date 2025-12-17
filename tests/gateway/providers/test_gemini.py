@@ -5,6 +5,7 @@ from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -1064,7 +1065,7 @@ async def test_passthrough_gemini_generate_content():
                 }
             ]
         }
-        response = await provider.passthrough_gemini_generate_content(payload)
+        response = await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, payload)
 
         assert response == resp
 
@@ -1090,7 +1091,9 @@ async def test_passthrough_gemini_stream_generate_content():
                 }
             ]
         }
-        response = await provider.passthrough_gemini_stream_generate_content(payload)
+        response = await provider.passthrough(
+            PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload
+        )
 
         chunks = [chunk async for chunk in response]
 

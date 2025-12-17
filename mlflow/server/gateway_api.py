@@ -441,7 +441,7 @@ async def anthropic_passthrough_messages(request: Request):
     return response
 
 
-@gateway_router.post("/gemini/v1beta/models/{endpoint_name}:generateContent")
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_GENERATE_CONTENT])
 @translate_http_exception
 async def gemini_passthrough_generate_content(endpoint_name: str, request: Request):
     """
@@ -471,10 +471,10 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    return await provider.passthrough_gemini_generate_content(body)
+    return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body)
 
 
-@gateway_router.post("/gemini/v1beta/models/{endpoint_name}:streamGenerateContent")
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT])
 @translate_http_exception
 async def gemini_passthrough_stream_generate_content(endpoint_name: str, request: Request):
     """
@@ -504,5 +504,5 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough_gemini_stream_generate_content(body)
+    response = await provider.passthrough(PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body)
     return StreamingResponse(response, media_type="text/event-stream")

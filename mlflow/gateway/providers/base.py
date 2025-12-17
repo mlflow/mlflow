@@ -21,6 +21,8 @@ class PassthroughAction(str, Enum):
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_RESPONSES = "openai_responses"
     ANTHROPIC_MESSAGES = "anthropic_messages"
+    GEMINI_GENERATE_CONTENT = "gemini_generate_content"
+    GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
 
 
 # Mapping of passthrough actions to their gateway API routes
@@ -29,6 +31,8 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.OPENAI_EMBEDDINGS: "/openai/v1/embeddings",
     PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
     PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
+    PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
+    PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
 }
 
 
@@ -139,30 +143,6 @@ class BaseProvider(ABC):
         raise AIGatewayException(
             status_code=501,
             detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
-        )
-
-    async def passthrough_gemini_generate_content(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """
-        Passthrough endpoint for Gemini generateContent API.
-        Accepts raw Gemini request format and returns raw Gemini response format.
-        """
-        raise AIGatewayException(
-            status_code=501,
-            detail="The passthrough Gemini generateContent route is not implemented for "
-            f"{self.NAME} models.",
-        )
-
-    async def passthrough_gemini_stream_generate_content(
-        self, payload: dict[str, Any]
-    ) -> AsyncIterable[bytes]:
-        """
-        Passthrough endpoint for Gemini streamGenerateContent API.
-        Accepts raw Gemini request format and returns raw Gemini streaming response format.
-        """
-        raise AIGatewayException(
-            status_code=501,
-            detail=f"The passthrough Gemini streamGenerateContent route is not implemented for "
-            f"{self.NAME} models.",
         )
 
     @staticmethod
