@@ -433,15 +433,7 @@ example-rules = [
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]
 # Databricks SDK/Agents should not be imported at the top level
-# "mlflow.server.job" should not be imported at the top level,
-# to avoid importing all job functions (except under mlflow/server/job itself)
-"mlflow/**" = ["databricks", "mlflow.server.job"]
-
-[[tool.clint.overrides]]
-paths = ["mlflow/server/jobs/**"]
-
-[tool.clint.overrides.forbidden-top-level-imports]
-"mlflow/**" = ["databricks"]
+"mlflow/*" = ["databricks"]
 
 # typos
 [tool.typos.default.extend-words]
