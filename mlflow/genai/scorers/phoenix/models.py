@@ -21,6 +21,13 @@ def _check_phoenix_installed():
         )
 
 
+class _NoOpRateLimiter:
+    """Minimal rate limiter stub for Phoenix compatibility."""
+
+    def __init__(self):
+        self._verbose = False
+
+
 class DatabricksPhoenixModel:
     """
     Phoenix model adapter for Databricks managed judge.
@@ -32,6 +39,9 @@ class DatabricksPhoenixModel:
         self._model_name = _DATABRICKS_DEFAULT_JUDGE_MODEL
         # Use the default foundation model endpoint for evaluation
         self._endpoint_name = "databricks-meta-llama-3-3-70b-instruct"
+        # Required by Phoenix's set_verbosity context manager
+        self._verbose = False
+        self._rate_limiter = _NoOpRateLimiter()
 
     def __call__(self, prompt: str, **kwargs) -> str:
         try:
@@ -59,6 +69,9 @@ class DatabricksServingEndpointPhoenixModel:
 
     def __init__(self, endpoint_name: str):
         self._endpoint_name = endpoint_name
+        # Required by Phoenix's set_verbosity context manager
+        self._verbose = False
+        self._rate_limiter = _NoOpRateLimiter()
 
     def __call__(self, prompt: str, **kwargs) -> str:
         output = _invoke_databricks_serving_endpoint(
