@@ -147,6 +147,9 @@ module.exports = async ({ github, context }) => {
       await saveStats(github, owner, repo, updatedStats);
 
       console.log(`Review counts after: ${JSON.stringify(updatedStats.reviewCounts)}`);
+      console.log(
+        `Saved stats to https://github.com/${owner}/${repo}/issues/${STATS_ISSUE_NUMBER}`
+      );
     } catch (error) {
       console.error("Failed to assign reviewers:", error);
     }

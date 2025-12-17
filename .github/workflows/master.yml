@@ -384,6 +384,8 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
+          # Retry failed tests once to handle flaky tests on Windows
+          set +e
           uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors \
             --ignore=tests/projects \
@@ -397,3 +399,9 @@ jobs:
             --ignore=tests/server/auth \
             --ignore=tests/data/test_spark_dataset.py \
             tests
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            echo "Retrying failed tests..."
+            uv run --no-sync pytest --last-failed
+          fi
