@@ -400,3 +400,42 @@ async def openai_passthrough_responses(request: Request):
     if body.get("stream"):
         return StreamingResponse(response, media_type="text/event-stream")
     return response
+
+
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES])
+@translate_http_exception
+async def anthropic_passthrough_messages(request: Request):
+    """
+    Anthropic passthrough endpoint for the Messages API.
+
+    This endpoint accepts raw Anthropic API format and passes it through to the
+    Anthropic provider with the configured API key and model. The 'model' parameter
+    in the request specifies which MLflow endpoint to use.
+
+    Supports streaming responses when the 'stream' parameter is set to true.
+
+    Example:
+        POST /gateway/anthropic/v1/messages
+        {
+            "model": "my-anthropic-endpoint",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "stream": true
+        }
+    """
+    try:
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    store = _get_store()
+    _validate_store(store)
+
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body)
+
+    if body.get("stream"):
+        return StreamingResponse(response, media_type="text/event-stream")
+    return response

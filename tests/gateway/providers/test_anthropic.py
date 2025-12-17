@@ -13,6 +13,7 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
@@ -732,3 +733,100 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
     payload = {"prompt": prompt}
     with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
+
+
+def passthrough_messages_response():
+    return {
+        "id": "msg_01XFDUDYJgAACzvnptvVoYEL",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": "Hello! How can I assist you today?"}],
+        "model": "claude-3-5-sonnet-20241022",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 10, "output_tokens": 20},
+    }
+
+
+def passthrough_messages_stream_response():
+    return [
+        b'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01XFDUDYJgAACzvnptvVoYEL","type":"message","role":"assistant","content":[],"model":"claude-3-5-sonnet-20241022","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":10,"output_tokens":0}}}\n\n',  # noqa: E501
+        b'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',  # noqa: E501
+        b'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}\n\n',  # noqa: E501
+        b'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"!"}}\n\n',  # noqa: E501
+        b'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+        b'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":20}}\n\n',  # noqa: E501
+        b'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_passthrough_anthropic_messages():
+    resp = passthrough_messages_response()
+    config = chat_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "temperature": 0.7,
+        }
+        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+
+        assert payload["model"] == "claude-2.1"
+
+        assert response == resp
+
+        mock_post.assert_called_once_with(
+            "https://api.anthropic.com/v1/messages",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "max_tokens": 1024,
+                "temperature": 0.7,
+                "model": "claude-2.1",
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
+@pytest.mark.asyncio
+async def test_passthrough_anthropic_messages_streaming():
+    resp = passthrough_messages_stream_response()
+    config = chat_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+    ) as mock_post:
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "stream": True,
+        }
+        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+
+        assert payload["model"] == "claude-2.1"
+
+        chunks = [chunk async for chunk in response]
+        assert len(chunks) == 7
+        assert b"message_start" in chunks[0]
+        assert b"content_block_start" in chunks[1]
+        assert b"content_block_delta" in chunks[2]
+        assert b"Hello" in chunks[2]
+        assert b"content_block_delta" in chunks[3]
+        assert b"!" in chunks[3]
+        assert b"content_block_stop" in chunks[4]
+        assert b"message_delta" in chunks[5]
+        assert b"message_stop" in chunks[6]
+
+        mock_post.assert_called_once_with(
+            "https://api.anthropic.com/v1/messages",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "max_tokens": 1024,
+                "stream": True,
+                "model": "claude-2.1",
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
