@@ -230,7 +230,7 @@ def _invoke_litellm_and_handle_tools(
         model = f"openai/{model_name}"
         # LiteLLM requires api_key to be set when using custom api_base, otherwise it
         # raises AuthenticationError looking for OPENAI_API_KEY env var. Gateway handles
-        # auth via the tracking URI, so we pass a dummy value to satisfy LiteLLM.
+        # auth in the server layer, so we pass a dummy value to satisfy LiteLLM.
         api_key = "not-needed"
     else:
         model = f"{provider}/{model_name}"
