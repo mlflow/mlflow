@@ -28,3 +28,5 @@ openai
 haystack-ai
 # required for deepeval scorer documentation
 deepeval
+# required for ragas scorer documentation
+ragas
