@@ -1,11 +1,15 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
+// BEGIN-EDGE
+import { AssessmentsPaneV2, shouldEnableTracesTabLabelingSchemas } from '@databricks/web-shared/model-trace-explorer';
+// END-EDGE
 import {
   isSessionLevelAssessment,
   isV3ModelTraceInfo,
   type ModelTrace,
   AssessmentsPane,
+  ASSESSMENT_SESSION_METADATA_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
-import { first } from 'lodash';
+import { first, last } from 'lodash';
 import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ResizableBox } from 'react-resizable';
@@ -13,7 +17,16 @@ import { ResizableBox } from 'react-resizable';
 const initialWidth = 300;
 const maxWidth = 600;
 
-export const ExperimentSingleChatSessionScoreResults = ({ traces }: { traces: ModelTrace[] }) => {
+const getAssessmentsPaneComponent = () => {
+  // BEGIN-EDGE
+  if (shouldEnableTracesTabLabelingSchemas()) {
+    return AssessmentsPaneV2;
+  }
+  // END-EDGE
+  return AssessmentsPane;
+};
+
+export const ExperimentSingleChatSessionScoreResults = ({ traces, sessionId }: { traces: ModelTrace[]; sessionId: string }) => {
   const { theme } = useDesignSystemTheme();
 
   const firstTraceInfoInSession = useMemo(() => {
@@ -28,6 +41,13 @@ export const ExperimentSingleChatSessionScoreResults = ({ traces }: { traces: Mo
     () => firstTraceInfoInSession?.assessments?.filter(isSessionLevelAssessment) ?? [],
     [firstTraceInfoInSession],
   );
+
+  const defaultMetadata = useMemo(
+    () => ({ [ASSESSMENT_SESSION_METADATA_KEY]: sessionId }),
+    [sessionId],
+  );
+
+  const AssessmentsPaneComponent = getAssessmentsPaneComponent();
 
   if (!firstTraceInfoInSession) {
     return null;
@@ -75,17 +95,25 @@ export const ExperimentSingleChatSessionScoreResults = ({ traces }: { traces: Mo
           flex: 1,
         }}
       >
-        <div
+        <AssessmentsPaneComponent
+          assessments={sessionAssessments}
+          traceId={firstTraceInfoInSession.trace_id}
+          defaultMetadata={defaultMetadata}
           css={{
-            '& > div': {
-              paddingLeft: 0,
-              border: 0,
-            },
+            paddingLeft: 0,
+            border: 0,
           }}
-        >
-          <AssessmentsPane assessments={sessionAssessments} traceId={firstTraceInfoInSession.trace_id} />
-        </div>
+          assessmentsTitleOverride={AssessmentsTitleOverride}
+        />
       </ResizableBox>
     </div>
   );
 };
+
+const AssessmentsTitleOverride = (count?: number) => (
+  <FormattedMessage
+    defaultMessage="Session scorers{count, plural, =0 {} other { (#)}}"
+    values={{ count: count ?? 0 }}
+    description="Section title in a side panel that displays session-level scorers"
+  />
+);

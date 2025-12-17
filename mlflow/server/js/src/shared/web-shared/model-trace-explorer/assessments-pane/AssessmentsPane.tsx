@@ -58,10 +58,12 @@ export const AssessmentsPane = ({
   assessments,
   traceId,
   activeSpanId,
+  defaultMetadata,
 }: {
   assessments: Assessment[];
   traceId: string;
   activeSpanId?: string;
+  defaultMetadata?: Record<string, string>;
 }) => {
   const reconstructAssessments = useTraceCachedActions((state) => state.reconstructAssessments);
   const cachedActions = useTraceCachedActions((state) => state.assessmentActions[traceId]);
@@ -158,6 +160,7 @@ export const AssessmentsPane = ({
         }
         spanId={activeSpanId}
         traceId={traceId}
+        defaultMetadata={defaultMetadata}
       />
     </div>
   );

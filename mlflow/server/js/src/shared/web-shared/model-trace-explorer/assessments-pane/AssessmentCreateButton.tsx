@@ -9,11 +9,13 @@ export const AssessmentCreateButton = ({
   assessmentName,
   spanId,
   traceId,
+  defaultMetadata,
 }: {
   title: React.ReactNode;
   assessmentName?: string;
   spanId?: string;
   traceId: string;
+  defaultMetadata?: Record<string, string>;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -42,6 +44,7 @@ export const AssessmentCreateButton = ({
           spanId={spanId}
           traceId={traceId}
           setExpanded={setExpanded}
+          defaultMetadata={defaultMetadata}
         />
       )}
     </div>

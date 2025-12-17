@@ -1,13 +1,8 @@
-import { TOKEN_USAGE_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { getTraceTokenUsage, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { last } from 'lodash';
 import { useMemo } from 'react';
 
-interface TraceTokenUsage {
-  input_tokens: number;
-  output_tokens: number;
-  total_tokens: number;
-}
-
+type TraceTokenUsage = ReturnType<typeof getTraceTokenUsage>;
 export interface ExperimentSingleChatMetrics {
   sessionTokens: TraceTokenUsage;
   sessionLatency: number | undefined;
@@ -18,23 +13,9 @@ export interface ExperimentSingleChatMetrics {
 }
 
 const emptyMetrics: ExperimentSingleChatMetrics = {
-  sessionTokens: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+  sessionTokens: { input_tokens: 0, output_tokens: 0 },
   sessionLatency: 0,
   perTurnMetrics: [],
-};
-
-const getTraceTokenUsage = (traceInfo: ModelTraceInfoV3): TraceTokenUsage => {
-  const tokenUsage = traceInfo?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
-  try {
-    const parsed = tokenUsage ? JSON.parse(tokenUsage) : {};
-    return {
-      input_tokens: parsed.input_tokens ?? 0,
-      output_tokens: parsed.output_tokens ?? 0,
-      total_tokens: parsed.total_tokens ?? 0,
-    };
-  } catch {
-    return { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
-  }
 };
 
 export const useExperimentSingleChatMetrics = ({

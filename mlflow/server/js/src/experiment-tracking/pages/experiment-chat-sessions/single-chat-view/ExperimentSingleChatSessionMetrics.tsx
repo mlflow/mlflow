@@ -1,6 +1,7 @@
-import { Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { ClockIcon, Tag, TokenIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { ExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
-import { FormattedMessage } from 'react-intl';
+
+import { FormattedMessage } from '@databricks/i18n';
 
 export const ExperimentSingleChatSessionMetrics = ({
   chatSessionMetrics,
@@ -14,27 +15,24 @@ export const ExperimentSingleChatSessionMetrics = ({
       css={{
         borderBottom: `1px solid ${theme.colors.grey100}`,
         paddingBottom: theme.spacing.sm,
-        paddingLeft: theme.spacing.md,
-        paddingRight: theme.spacing.md,
         display: 'flex',
         gap: theme.spacing.sm,
       }}
     >
-      {chatSessionMetrics.sessionTokens.total_tokens > 0 && (
+      {chatSessionMetrics.sessionTokens.total_tokens && (
         <div
           css={{
             display: 'flex',
             gap: theme.spacing.xs,
-            alignItems: 'center',
           }}
         >
           <Typography.Text color="secondary">
             <FormattedMessage
-              defaultMessage="Tokens:"
+              defaultMessage="Tokens"
               description="Label for the total token count metric in chat session metrics"
             />
           </Typography.Text>
-          <Tag componentId="mlflow.experiment.chat-session.metrics.tokens-tag">
+          <Tag componentId="mlflow.experiment.chat-session.metrics.tokens-tag" icon={<TokenIcon />}>
             {chatSessionMetrics.sessionTokens.total_tokens}
           </Tag>
         </div>
@@ -44,16 +42,15 @@ export const ExperimentSingleChatSessionMetrics = ({
           css={{
             display: 'flex',
             gap: theme.spacing.xs,
-            alignItems: 'center',
           }}
         >
           <Typography.Text color="secondary">
             <FormattedMessage
-              defaultMessage="Latency:"
+              defaultMessage="Latency"
               description="Label for the total latency metric in chat session metrics"
             />
           </Typography.Text>
-          <Tag componentId="mlflow.experiment.chat-session.metrics.latency-tag">
+          <Tag componentId="mlflow.experiment.chat-session.metrics.latency-tag" icon={<ClockIcon />}>
             <FormattedMessage
               defaultMessage="{latency} sec"
               description="Display format for latency value in seconds in chat session metrics"

@@ -37,6 +37,7 @@ type AssessmentCreateFormProps = {
   spanId?: string;
   traceId: string;
   setExpanded: (expanded: boolean) => void;
+  defaultMetadata?: Record<string, string>;
 };
 
 export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateFormProps>(
@@ -48,6 +49,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
       // used to close the form
       // after the assessment is created
       setExpanded,
+      defaultMetadata,
     },
     ref,
   ) => {
@@ -116,6 +118,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
           span_id: spanId,
           rationale,
           ...valueObj,
+          ...(defaultMetadata && { metadata: defaultMetadata }),
         },
       };
 
@@ -131,6 +134,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
       spanId,
       rationale,
       createAssessmentMutation,
+      defaultMetadata,
     ]);
 
     const handleChangeSchema = useCallback(

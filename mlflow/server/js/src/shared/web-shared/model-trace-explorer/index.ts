@@ -18,6 +18,7 @@ export {
   tryDeserializeAttribute,
   parseTraceUri,
   getTotalTokens,
+  getTraceTokenUsage,
   isSessionLevelAssessment,
   displayErrorNotification,
   displaySuccessNotification,
@@ -28,6 +29,7 @@ export {
   SOURCE_TYPE_METADATA_KEY,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
+  ASSESSMENT_SESSION_METADATA_KEY,
 } from './constants';
 export { shouldEnableTracesTabLabelingSchemas, shouldEnableAssessmentsInSessions } from './FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from './contexts/AssessmentSchemaContext';

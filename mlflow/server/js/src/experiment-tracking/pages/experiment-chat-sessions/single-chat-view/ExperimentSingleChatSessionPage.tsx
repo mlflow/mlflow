@@ -40,8 +40,23 @@ import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatS
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
 
-const ContextProviders = ({ children }: { children: React.ReactNode }) => {
-  return <>{children}</>;
+const ContextProviders = ({
+  children,
+  modelTraceInfo,
+  invalidateTraceQuery,
+}: {
+  children: React.ReactNode;
+  modelTraceInfo?: ModelTrace['info'];
+  invalidateTraceQuery?: (traceId?: string) => void;
+}) => {
+  return (
+    <ModelTraceExplorerUpdateTraceContextProvider
+      modelTraceInfo={modelTraceInfo}
+      invalidateTraceQuery={invalidateTraceQuery}
+    >
+      {children}
+    </ModelTraceExplorerUpdateTraceContextProvider>
+  );
 };
 
 const ExperimentSingleChatSessionPageImpl = () => {
@@ -112,9 +127,15 @@ const ExperimentSingleChatSessionPageImpl = () => {
     }
   }, [selectedTraceIdFromUrl, traces, isLoadingTraceDatas]);
 
+  const firstTraceInfo = traces?.[0]?.info;
+
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <div
+    <ContextProviders
+      modelTraceInfo={firstTraceInfo}
+      invalidateTraceQuery={invalidateSingleTraceQuery}
+    >
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <div
         css={
           shouldEnableAssessmentsInSessions()
             ? {
@@ -157,7 +178,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
             chatRefs={chatRefs}
             getAssessmentTitle={getAssessmentTitle}
           />
-          {shouldEnableAssessmentsInSessions() && <ExperimentSingleChatSessionScoreResults traces={traces ?? []} />}
+          {shouldEnableAssessmentsInSessions() && <ExperimentSingleChatSessionScoreResults traces={traces ?? []} sessionId={sessionId} />}
         </div>
       )}
       <Drawer.Root
@@ -182,7 +203,9 @@ const ExperimentSingleChatSessionPageImpl = () => {
               marginBottom: -theme.spacing.lg,
             }}
           >
-            <ContextProviders // prettier-ignore
+            <ContextProviders
+              modelTraceInfo={selectedTrace?.info}
+              invalidateTraceQuery={invalidateSingleTraceQuery}
             >
               {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
             </ContextProviders>
@@ -190,6 +213,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
         </Drawer.Content>
       </Drawer.Root>
     </div>
+    </ContextProviders>
   );
 };
 
