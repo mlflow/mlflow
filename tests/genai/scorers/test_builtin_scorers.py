@@ -577,18 +577,15 @@ def test_equivalence():
     assert result.value == CategoricalRating.YES
 
 
-@pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
-def test_get_all_scorers_oss(tracking_uri):
-    mlflow.set_tracking_uri(tracking_uri)
-
+def test_get_all_scorers():
     scorers = get_all_scorers()
 
     # With automatic discovery, we expect all scorers that can be instantiated with defaults
     # Total: 17 concrete scorer classes
     # - 1 (Guidelines requires constructor args) = 16 scorers
-    expected_min_count = 16
-    assert len(scorers) >= expected_min_count, (
-        f"Expected at least {expected_min_count} scorers but got {len(scorers)}. "
+    expected_count = 16
+    assert len(scorers) == expected_count, (
+        f"Expected {expected_count} scorers but got {len(scorers)}. "
         f"Scorers: {[type(s).__name__ for s in scorers]}"
     )
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
@@ -602,20 +599,11 @@ def test_get_all_scorers_oss(tracking_uri):
     assert "BuiltInScorer" not in scorer_class_names
     assert "BuiltInSessionLevelScorer" not in scorer_class_names
 
-
-def test_builtin_scorer_discovery():
-    from mlflow.genai.scorers.builtin_scorers import _get_all_concrete_builtin_scorers
-
-    discovered = _get_all_concrete_builtin_scorers()
-    discovered_names = {cls.__name__ for cls in discovered}
-
-    # Verify we discover all expected concrete scorer classes
-    # This list should match all concrete classes in builtin_scorers.py
-    expected_min_scorers = {
+    # Verify all expected scorers are present (excluding Guidelines)
+    expected_scorers = {
         "RetrievalRelevance",
         "RetrievalSufficiency",
         "RetrievalGroundedness",
-        "Guidelines",
         "ExpectationsGuidelines",
         "RelevanceToQuery",
         "Safety",
@@ -630,18 +618,14 @@ def test_builtin_scorer_discovery():
         "ConversationalToolCallEfficiency",
         "ConversationalRoleAdherence",
     }
-
-    assert expected_min_scorers.issubset(discovered_names), (
-        f"Missing expected scorers: {expected_min_scorers - discovered_names}"
+    assert set(scorer_class_names) == expected_scorers, (
+        f"Scorer mismatch. "
+        f"Missing: {expected_scorers - set(scorer_class_names)}, "
+        f"Extra: {set(scorer_class_names) - expected_scorers}"
     )
 
-    # Verify base classes are not included
-    assert "BuiltInScorer" not in discovered_names
-    assert "BuiltInSessionLevelScorer" not in discovered_names
-
-    # Verify all discovered classes are from the correct module
-    for cls in discovered:
-        assert cls.__module__ == "mlflow.genai.scorers.builtin_scorers"
+    # Verify Guidelines is correctly excluded
+    assert "Guidelines" not in scorer_class_names
 
 
 def test_retrieval_relevance_get_input_fields():

@@ -1,3 +1,4 @@
+import inspect
 import logging
 import math
 from abc import abstractmethod
@@ -2313,7 +2314,6 @@ def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
     Returns:
         List of concrete BuiltInScorer classes
     """
-    import inspect
 
     def get_concrete_subclasses(base_class: type) -> list[type]:
         """Recursively get all concrete subclasses of a base class."""
@@ -2325,7 +2325,7 @@ def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
                 and subclass.__module__ == "mlflow.genai.scorers.builtin_scorers"
             ):
                 concrete.append(subclass)
-            # Recurse to find subclasses of subclasses (e.g., BuiltInSessionLevelScorer)
+            # Recurse to find subclasses of subclasses
             concrete.extend(get_concrete_subclasses(subclass))
         return concrete
 
@@ -2334,11 +2334,7 @@ def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
 
 def get_all_scorers() -> list[BuiltInScorer]:
     """
-    Returns a list of all built-in scorers.
-
-    This function automatically discovers all concrete (non-abstract) BuiltInScorer
-    subclasses and instantiates them with default parameters. Scorers that require
-    constructor arguments are skipped with a debug log message.
+    Returns a list of all built-in scorers that can be instantiated with default parameters.
 
     Example:
 
@@ -2361,12 +2357,9 @@ def get_all_scorers() -> list[BuiltInScorer]:
 
     for scorer_class in scorer_classes:
         try:
-            # Try to instantiate with default parameters
             scorer = scorer_class()
             scorers.append(scorer)
         except (TypeError, pydantic.ValidationError):
-            # Skip scorers that require constructor arguments (e.g., Guidelines)
-            # These scorers can still be used by instantiating them manually
             _logger.debug(
                 f"Skipping scorer {scorer_class.__name__} - requires constructor arguments"
             )
