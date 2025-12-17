@@ -169,3 +169,11 @@ class SpanMetricKey:
     """
 
     SPAN_COUNT = "span_count"
+
+
+class AssessmentMetricKey:
+    """
+    Keys for metrics on assessments view type.
+    """
+
+    ASSESSMENT_COUNT = "assessment_count"

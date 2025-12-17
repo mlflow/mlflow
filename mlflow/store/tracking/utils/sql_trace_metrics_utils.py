@@ -1,5 +1,6 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, TypedDict
+from typing import Any
 
 from sqlalchemy import Column, and_, exists, func, literal_column
 from sqlalchemy.orm.query import Query
@@ -12,74 +13,72 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessments,
     SqlSpan,
     SqlTraceInfo,
     SqlTraceMetadata,
     SqlTraceMetrics,
     SqlTraceTag,
 )
-from mlflow.tracing.constant import SpanMetricKey, TraceMetricKey, TraceTagKey
+from mlflow.tracing.constant import AssessmentMetricKey, SpanMetricKey, TraceMetricKey, TraceTagKey
 from mlflow.utils.search_utils import SearchTraceUtils
 
 
-class TraceMetricsConfig(TypedDict):
+@dataclass
+class TraceMetricsConfig:
     """
     Configuration for traces metrics.
 
     Args:
         aggregation_types: Supported aggregation types to apply to the metrics.
         dimensions: Supported dimensions to group metrics by.
-        filter_fields: Supported fields to filter on.
     """
 
     aggregation_types: set[AggregationType]
     dimensions: set[str]
-    # TODO: support this
-    filter_fields: set[str] | None
 
 
 # TraceMetricKey -> TraceMetricsConfig mapping for traces
 TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
-    TraceMetricKey.TRACE_COUNT: {
-        "aggregation_types": {AggregationType.COUNT},
-        "dimensions": {"name", "status"},
-        "filter_fields": None,
-    },
-    TraceMetricKey.LATENCY: {
-        "aggregation_types": {AggregationType.AVG, AggregationType.PERCENTILE},
-        "dimensions": {"name"},
-        "filter_fields": None,
-    },
-    TraceMetricKey.INPUT_TOKENS: {
-        "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        "dimensions": {"name"},
-        "filter_fields": None,
-    },
-    TraceMetricKey.OUTPUT_TOKENS: {
-        "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        "dimensions": {"name"},
-        "filter_fields": None,
-    },
-    TraceMetricKey.TOTAL_TOKENS: {
-        "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        "dimensions": {"name"},
-        "filter_fields": None,
-    },
+    TraceMetricKey.TRACE_COUNT: TraceMetricsConfig(
+        aggregation_types={AggregationType.COUNT}, dimensions={"name", "status"}
+    ),
+    TraceMetricKey.LATENCY: TraceMetricsConfig(
+        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE}, dimensions={"name"}
+    ),
+    TraceMetricKey.INPUT_TOKENS: TraceMetricsConfig(
+        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={"name"},
+    ),
+    TraceMetricKey.OUTPUT_TOKENS: TraceMetricsConfig(
+        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={"name"},
+    ),
+    TraceMetricKey.TOTAL_TOKENS: TraceMetricsConfig(
+        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={"name"},
+    ),
 }
 
 # SpanMetricKey -> TraceMetricsConfig mapping for spans
 SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
-    SpanMetricKey.SPAN_COUNT: {
-        "aggregation_types": {AggregationType.COUNT},
-        "dimensions": {"span_type"},
-        "filter_fields": None,
-    },
+    SpanMetricKey.SPAN_COUNT: TraceMetricsConfig(
+        aggregation_types={AggregationType.COUNT},
+        dimensions={"span_type"},
+    ),
 }
 
-# TODO: add spans and assessments metrics configs
+ASSESSMENTS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
+    AssessmentMetricKey.ASSESSMENT_COUNT: TraceMetricsConfig(
+        aggregation_types={AggregationType.COUNT},
+        dimensions={"assessment_name", "assessment_value"},
+    ),
+}
+
 VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
     MetricViewType.TRACES: TRACES_METRICS_CONFIGS,
     MetricViewType.SPANS: SPANS_METRICS_CONFIGS,
+    MetricViewType.ASSESSMENTS: ASSESSMENTS_METRICS_CONFIGS,
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
@@ -140,8 +139,8 @@ def get_time_bucket_expression(
                 # For spans, timestamp is an expression (start_time_unix_nano / 1000000)
                 # rather than a simple column. Build the complete expression inline.
                 column_name = "start_time_unix_nano / 1000000"
-            case _:
-                raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
+            case MetricViewType.ASSESSMENTS:
+                column_name = "created_timestamp"
         expr_str = f"floor({column_name} / {bucket_size_ms}) * {bucket_size_ms}"
         return literal_column(expr_str)
     else:
@@ -152,8 +151,8 @@ def get_time_bucket_expression(
             case MetricViewType.SPANS:
                 # Convert nanoseconds to milliseconds
                 timestamp_column = SqlSpan.start_time_unix_nano / 1000000
-            case _:
-                raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
+            case MetricViewType.ASSESSMENTS:
+                timestamp_column = SqlAssessments.created_timestamp
         # This floors the timestamp to the nearest bucket boundary
         return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
@@ -191,7 +190,7 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
 
     Args:
         metric_name: Name of the metric to query
-        view_type: Type of metrics view (e.g., TRACES, SPANS)
+        view_type: Type of metrics view (e.g., TRACES, SPANS, ASSESSMENTS)
 
     Returns:
         SQLAlchemy column to aggregate
@@ -209,6 +208,10 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
             match metric_name:
                 case SpanMetricKey.SPAN_COUNT:
                     return SqlSpan.span_id
+        case MetricViewType.ASSESSMENTS:
+            match metric_name:
+                case AssessmentMetricKey.ASSESSMENT_COUNT:
+                    return SqlAssessments.assessment_id
 
     raise MlflowException.invalid_parameter_value(
         f"Unsupported metric name: {metric_name} for view type {view_type}",
@@ -224,7 +227,7 @@ def _apply_dimension_to_query(
     Args:
         query: SQLAlchemy query to modify
         dimension: Dimension name to apply
-        view_type: Type of metrics view (e.g., TRACES, SPANS)
+        view_type: Type of metrics view (e.g., TRACES, SPANS, ASSESSMENTS)
 
     Returns:
         Tuple of (modified query, labeled dimension column)
@@ -248,6 +251,12 @@ def _apply_dimension_to_query(
             match dimension:
                 case "span_type":
                     return query, SqlSpan.type.label("span_type")
+        case MetricViewType.ASSESSMENTS:
+            match dimension:
+                case "assessment_name":
+                    return query, SqlAssessments.name.label("assessment_name")
+                case "assessment_value":
+                    return query, SqlAssessments.value.label("assessment_value")
     raise MlflowException.invalid_parameter_value(
         f"Unsupported dimension `{dimension}` with view type {view_type}"
     )
@@ -259,7 +268,7 @@ def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
 
     Args:
         query: SQLAlchemy query (starting from SqlTraceInfo)
-        view_type: Type of metrics view (e.g., TRACES, SPANS)
+        view_type: Type of metrics view (e.g., TRACES, SPANS, ASSESSMENTS)
 
     Returns:
         Modified query with view-specific joins
@@ -267,6 +276,8 @@ def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
     match view_type:
         case MetricViewType.SPANS:
             query = query.join(SqlSpan, SqlSpan.trace_id == SqlTraceInfo.request_id)
+        case MetricViewType.ASSESSMENTS:
+            query = query.join(SqlAssessments, SqlAssessments.trace_id == SqlTraceInfo.request_id)
     return query
 
 
@@ -496,8 +507,8 @@ def validate_query_trace_metrics_params(
 
     metrics_config = view_type_config[metric_name]
     aggregation_types = [agg.aggregation_type for agg in aggregations]
-    if invalid_agg_types := (set(aggregation_types) - metrics_config["aggregation_types"]):
-        supported_aggs = sorted([a.value for a in metrics_config["aggregation_types"]])
+    if invalid_agg_types := (set(aggregation_types) - metrics_config.aggregation_types):
+        supported_aggs = sorted([a.value for a in metrics_config.aggregation_types])
         invalid_aggs = sorted([a.value for a in invalid_agg_types])
         raise MlflowException.invalid_parameter_value(
             f"Found invalid aggregation_type(s): {invalid_aggs}. "
@@ -505,8 +516,8 @@ def validate_query_trace_metrics_params(
         )
 
     dimensions_list = dimensions or []
-    if invalid_dimensions := (set(dimensions_list) - metrics_config["dimensions"]):
-        supported_dims = sorted([d for d in metrics_config["dimensions"] if d is not None])
+    if invalid_dimensions := (set(dimensions_list) - metrics_config.dimensions):
+        supported_dims = sorted([d for d in metrics_config.dimensions if d is not None])
         raise MlflowException.invalid_parameter_value(
             f"Found invalid dimension(s): {sorted(invalid_dimensions)}. "
             f"Supported dimensions: {supported_dims}",
