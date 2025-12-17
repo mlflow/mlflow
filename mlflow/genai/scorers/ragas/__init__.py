@@ -61,10 +61,13 @@ class RagasScorer(Scorer):
 
     def __init__(
         self,
-        metric_name: str,
+        metric_name: str | None = None,
         model: str | None = None,
         **metric_kwargs,
     ):
+        if metric_name is None:
+            metric_name = self.metric_name
+
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
@@ -170,6 +173,13 @@ class RagasScorer(Scorer):
                 source=assessment_source,
             )
 
+    def _validate_kwargs(self, **metric_kwargs):
+        if is_deterministic_metric(self.metric_name):
+            if "model" in metric_kwargs:
+                raise MlflowException.invalid_parameter_value(
+                    f"{self.metric_name} got an unexpected keyword argument 'model'"
+                )
+
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
@@ -213,7 +223,51 @@ def get_scorer(
     )
 
 
+from mlflow.genai.scorers.ragas.scorers import (
+    AspectCritic,
+    BleuScore,
+    ChrfScore,
+    ContextEntityRecall,
+    ContextPrecision,
+    ContextRecall,
+    ExactMatch,
+    FactualCorrectness,
+    Faithfulness,
+    InstanceRubrics,
+    NoiseSensitivity,
+    NonLLMContextPrecisionWithReference,
+    NonLLMContextRecall,
+    NonLLMStringSimilarity,
+    RougeScore,
+    RubricsScore,
+    StringPresence,
+    SummarizationScore,
+)
+
 __all__ = [
+    # Core classes
     "RagasScorer",
     "get_scorer",
+    # RAG metrics
+    "ContextPrecision",
+    "NonLLMContextPrecisionWithReference",
+    "ContextRecall",
+    "NonLLMContextRecall",
+    "ContextEntityRecall",
+    "NoiseSensitivity",
+    "Faithfulness",
+    # Comparison metrics
+    "FactualCorrectness",
+    "NonLLMStringSimilarity",
+    "BleuScore",
+    "ChrfScore",
+    "RougeScore",
+    "StringPresence",
+    "ExactMatch",
+    # General purpose metrics
+    "AspectCritic",
+    "RubricsScore",
+    "InstanceRubrics",
+    # Other tasks
+    "SummarizationScore",
 ]
