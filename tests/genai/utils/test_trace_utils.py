@@ -35,8 +35,10 @@ from mlflow.genai.utils.trace_utils import (
     parse_outputs_to_str,
     parse_tool_call_messages_from_trace,
     resolve_conversation_from_session,
+    resolve_expectations_from_session,
 )
 from mlflow.tracing import set_span_chat_tools
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
@@ -583,27 +585,27 @@ def test_extract_expectations_from_trace_with_source_filter():
 
     trace = mlflow.get_trace(trace_id)
 
-    result = extract_expectations_from_trace(trace, source=None)
+    result = extract_expectations_from_trace(trace, source_type=None)
     assert result == {
         "human_expectation": {"expected": "Answer from human"},
         "llm_expectation": "LLM generated expectation",
         "code_expectation": 42,
     }
 
-    result = extract_expectations_from_trace(trace, source="HUMAN")
+    result = extract_expectations_from_trace(trace, source_type="HUMAN")
     assert result == {"human_expectation": {"expected": "Answer from human"}}
 
-    result = extract_expectations_from_trace(trace, source="LLM_JUDGE")
+    result = extract_expectations_from_trace(trace, source_type="LLM_JUDGE")
     assert result == {"llm_expectation": "LLM generated expectation"}
 
-    result = extract_expectations_from_trace(trace, source="CODE")
+    result = extract_expectations_from_trace(trace, source_type="CODE")
     assert result == {"code_expectation": 42}
 
-    result = extract_expectations_from_trace(trace, source="human")
+    result = extract_expectations_from_trace(trace, source_type="human")
     assert result == {"human_expectation": {"expected": "Answer from human"}}
 
     with pytest.raises(mlflow.exceptions.MlflowException, match="Invalid assessment source type"):
-        extract_expectations_from_trace(trace, source="INVALID_SOURCE")
+        extract_expectations_from_trace(trace, source_type="INVALID_SOURCE")
 
 
 def test_extract_expectations_from_trace_returns_none_when_no_expectations():
@@ -616,7 +618,7 @@ def test_extract_expectations_from_trace_returns_none_when_no_expectations():
     result = extract_expectations_from_trace(trace)
     assert result is None
 
-    result = extract_expectations_from_trace(trace, source="HUMAN")
+    result = extract_expectations_from_trace(trace, source_type="HUMAN")
     assert result is None
 
 
@@ -904,6 +906,80 @@ def test_resolve_conversation_from_session_with_tool_calls():
 
 def test_resolve_conversation_from_session_empty():
     assert resolve_conversation_from_session([]) == []
+
+
+def test_session_level_expectations_filtering():
+    session_id = "test-session"
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "Test"})
+        span.set_outputs({"answer": "Test answer"})
+
+    trace_id = span.trace_id
+
+    session_exp = Expectation(
+        name="session_exp",
+        value="session_value",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=session_exp)
+
+    trace_exp = Expectation(
+        name="trace_exp",
+        value="trace_value",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        metadata={},
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=trace_exp)
+
+    trace = mlflow.get_trace(trace_id)
+
+    session_result = resolve_expectations_from_session(None, [trace])
+    assert session_result == {"session_exp": "session_value"}
+    assert "trace_exp" not in session_result
+
+
+def test_resolve_expectations_from_session_with_provided_expectations():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "Test"})
+        span.set_outputs({"answer": "Test answer"})
+
+    trace = mlflow.get_trace(span.trace_id)
+    provided_expectations = {"provided": "value"}
+
+    result = resolve_expectations_from_session(provided_expectations, [trace])
+    assert result == provided_expectations
+
+
+@pytest.mark.parametrize(
+    ("expectations", "has_session_exp", "expected"),
+    [
+        (None, False, None),
+        (None, True, {"session_exp": "session_value"}),
+        ({"provided": "value"}, True, {"provided": "value"}),
+    ],
+)
+def test_resolve_expectations_from_session_edge_cases(expectations, has_session_exp, expected):
+    session_id = "test-session"
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "Test"})
+        span.set_outputs({"answer": "Test answer"})
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+
+    if has_session_exp:
+        exp = Expectation(
+            name="session_exp",
+            value="session_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+            metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+        )
+        mlflow.log_assessment(trace_id=span.trace_id, assessment=exp)
+
+    trace = mlflow.get_trace(span.trace_id)
+    result = resolve_expectations_from_session(expectations, [trace])
+    assert result == expected
 
 
 def test_convert_predict_fn_async_function():
