@@ -145,3 +145,27 @@ class SpansLocation(str, Enum):
 
 # Path to the notebook trace renderer directory
 TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer"
+
+
+class TraceMetricKey:
+    """
+    Keys for metrics on traces view type.
+    """
+
+    TRACE_COUNT = "trace_count"
+    LATENCY = "latency"
+    INPUT_TOKENS = "input_tokens"
+    OUTPUT_TOKENS = "output_tokens"
+    TOTAL_TOKENS = "total_tokens"
+
+    @classmethod
+    def token_usage_keys(cls) -> list[str]:
+        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
+
+
+class SpanMetricKey:
+    """
+    Keys for metrics on spans view type.
+    """
+
+    SPAN_COUNT = "span_count"

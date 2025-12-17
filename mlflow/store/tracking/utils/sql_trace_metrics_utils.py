@@ -12,12 +12,13 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
+    SqlSpan,
     SqlTraceInfo,
     SqlTraceMetadata,
     SqlTraceMetrics,
     SqlTraceTag,
 )
-from mlflow.tracing.constant import TokenUsageKey, TraceTagKey
+from mlflow.tracing.constant import SpanMetricKey, TraceMetricKey, TraceTagKey
 from mlflow.utils.search_utils import SearchTraceUtils
 
 
@@ -37,31 +38,40 @@ class TraceMetricsConfig(TypedDict):
     filter_fields: set[str] | None
 
 
-# metric_name -> TraceMetricsConfig mapping for traces
-TRACES_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
-    "trace": {
+# TraceMetricKey -> TraceMetricsConfig mapping for traces
+TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
+    TraceMetricKey.TRACE_COUNT: {
         "aggregation_types": {AggregationType.COUNT},
         "dimensions": {"name", "status"},
         "filter_fields": None,
     },
-    "latency": {
+    TraceMetricKey.LATENCY: {
         "aggregation_types": {AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
         "filter_fields": None,
     },
-    TokenUsageKey.INPUT_TOKENS: {
+    TraceMetricKey.INPUT_TOKENS: {
         "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
         "filter_fields": None,
     },
-    TokenUsageKey.OUTPUT_TOKENS: {
+    TraceMetricKey.OUTPUT_TOKENS: {
         "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
         "filter_fields": None,
     },
-    TokenUsageKey.TOTAL_TOKENS: {
+    TraceMetricKey.TOTAL_TOKENS: {
         "aggregation_types": {AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         "dimensions": {"name"},
+        "filter_fields": None,
+    },
+}
+
+# SpanMetricKey -> TraceMetricsConfig mapping for spans
+SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
+    SpanMetricKey.SPAN_COUNT: {
+        "aggregation_types": {AggregationType.COUNT},
+        "dimensions": {"span_type"},
         "filter_fields": None,
     },
 }
@@ -69,6 +79,7 @@ TRACES_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
 # TODO: add spans and assessments metrics configs
 VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
     MetricViewType.TRACES: TRACES_METRICS_CONFIGS,
+    MetricViewType.SPANS: SPANS_METRICS_CONFIGS,
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
@@ -104,12 +115,12 @@ def get_percentile_aggregation(db_type: str, percentile_value: float, column):
 
 
 def get_time_bucket_expression(
-    timestamp_column: Column, time_interval_seconds: int, db_type: str
+    view_type: MetricViewType, time_interval_seconds: int, db_type: str
 ) -> Column:
     """Get time bucket expression for grouping timestamps.
 
     Args:
-        timestamp_column: SQLAlchemy column containing timestamps in milliseconds
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
         time_interval_seconds: Time interval in seconds for bucketing
         db_type: Database type (e.g., "postgresql", "mssql", "mysql", "sqlite")
 
@@ -120,12 +131,29 @@ def get_time_bucket_expression(
     bucket_size_ms = time_interval_seconds * 1000
 
     if db_type == "mssql":
-        # MSSQL is very strict about GROUP BY expressions. We use literal_column
-        # to generate the exact same SQL text in SELECT, GROUP BY, and ORDER BY
-        column_name = timestamp_column.key
+        # MSSQL requires the exact same SQL text in SELECT, GROUP BY, and ORDER BY clauses.
+        # We use literal_column to generate identical SQL text across all clauses.
+        match view_type:
+            case MetricViewType.TRACES:
+                column_name = "timestamp_ms"
+            case MetricViewType.SPANS:
+                # For spans, timestamp is an expression (start_time_unix_nano / 1000000)
+                # rather than a simple column. Build the complete expression inline.
+                column_name = "start_time_unix_nano / 1000000"
+            case _:
+                raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
         expr_str = f"floor({column_name} / {bucket_size_ms}) * {bucket_size_ms}"
         return literal_column(expr_str)
     else:
+        # For non-MSSQL databases, use SQLAlchemy expressions
+        match view_type:
+            case MetricViewType.TRACES:
+                timestamp_column = SqlTraceInfo.timestamp_ms
+            case MetricViewType.SPANS:
+                # Convert nanoseconds to milliseconds
+                timestamp_column = SqlSpan.start_time_unix_nano / 1000000
+            case _:
+                raise MlflowException.invalid_parameter_value(f"Unsupported view type: {view_type}")
         # This floors the timestamp to the nearest bucket boundary
         return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
@@ -157,21 +185,117 @@ def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, co
             )
 
 
-def _get_aggregation_column_for_traces(metric_name: str) -> Column:
+def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Column:
     """
-    Get the SQL column for the given metric name.
+    Get the SQL column for the given metric name and view type.
+
+    Args:
+        metric_name: Name of the metric to query
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
+
+    Returns:
+        SQLAlchemy column to aggregate
     """
-    match metric_name:
-        case "trace":
-            return SqlTraceInfo.request_id
-        case "latency":
-            return SqlTraceInfo.execution_time_ms
-        case metric_name if metric_name in TokenUsageKey.all_keys():
-            return SqlTraceMetrics.value
-        case _:
-            raise MlflowException.invalid_parameter_value(
-                f"Unsupported metric name: {metric_name}",
-            )
+    match view_type:
+        case MetricViewType.TRACES:
+            match metric_name:
+                case TraceMetricKey.TRACE_COUNT:
+                    return SqlTraceInfo.request_id
+                case TraceMetricKey.LATENCY:
+                    return SqlTraceInfo.execution_time_ms
+                case metric_name if metric_name in TraceMetricKey.token_usage_keys():
+                    return SqlTraceMetrics.value
+        case MetricViewType.SPANS:
+            match metric_name:
+                case SpanMetricKey.SPAN_COUNT:
+                    return SqlSpan.span_id
+
+    raise MlflowException.invalid_parameter_value(
+        f"Unsupported metric name: {metric_name} for view type {view_type}",
+    )
+
+
+def _apply_dimension_to_query(
+    query: Query, dimension: str, view_type: MetricViewType
+) -> tuple[Query, Column]:
+    """
+    Apply dimension-specific logic to query and return the dimension column.
+
+    Args:
+        query: SQLAlchemy query to modify
+        dimension: Dimension name to apply
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
+
+    Returns:
+        Tuple of (modified query, labeled dimension column)
+    """
+    match view_type:
+        case MetricViewType.TRACES:
+            match dimension:
+                case "name":
+                    # Join with SqlTraceTag to get trace name
+                    query = query.join(
+                        SqlTraceTag,
+                        and_(
+                            SqlTraceInfo.request_id == SqlTraceTag.request_id,
+                            SqlTraceTag.key == TraceTagKey.TRACE_NAME,
+                        ),
+                    )
+                    return query, SqlTraceTag.value.label("name")
+                case "status":
+                    return query, SqlTraceInfo.status.label("status")
+        case MetricViewType.SPANS:
+            match dimension:
+                case "span_type":
+                    return query, SqlSpan.type.label("span_type")
+    raise MlflowException.invalid_parameter_value(
+        f"Unsupported dimension `{dimension}` with view type {view_type}"
+    )
+
+
+def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
+    """
+    Apply initial join required for the view type.
+
+    Args:
+        query: SQLAlchemy query (starting from SqlTraceInfo)
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
+
+    Returns:
+        Modified query with view-specific joins
+    """
+    match view_type:
+        case MetricViewType.SPANS:
+            query = query.join(SqlSpan, SqlSpan.trace_id == SqlTraceInfo.request_id)
+    return query
+
+
+def _apply_metric_specific_joins(
+    query: Query, metric_name: str, view_type: MetricViewType
+) -> Query:
+    """
+    Apply metric-specific joins to the query.
+
+    Args:
+        query: SQLAlchemy query to modify
+        metric_name: Name of the metric being queried
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
+
+    Returns:
+        Modified query with necessary joins
+    """
+    match view_type:
+        case MetricViewType.TRACES:
+            # Join with SqlTraceMetrics for token usage metrics
+            if metric_name in TraceMetricKey.token_usage_keys():
+                query = query.join(
+                    SqlTraceMetrics,
+                    and_(
+                        SqlTraceInfo.request_id == SqlTraceMetrics.request_id,
+                        SqlTraceMetrics.key == metric_name,
+                    ),
+                )
+    return query
 
 
 def _parse_trace_metrics_filter(filter_string: str) -> list[dict[str, Any]]:
@@ -267,7 +391,8 @@ def apply_global_filters(query: Query, filters: list[str] | None) -> Query:
     return query
 
 
-def query_metrics_for_traces_view(
+def query_metrics(
+    view_type: MetricViewType,
     db_type: str,
     query: Query,
     metric_name: str,
@@ -277,9 +402,10 @@ def query_metrics_for_traces_view(
     time_interval_seconds: int | None,
     max_results: int,
 ) -> list[MetricDataPoint]:
-    """Query metrics for traces view.
+    """Unified query metrics function for all view types.
 
     Args:
+        view_type: Type of metrics view (e.g., TRACES, SPANS)
         db_type: Database type (e.g., "postgresql", "mssql", "mysql")
         query: Base SQLAlchemy query
         metric_name: Name of the metric to query
@@ -292,6 +418,9 @@ def query_metrics_for_traces_view(
     Returns:
         List of MetricDataPoint objects
     """
+    # Apply view-specific initial join
+    query = _apply_view_initial_join(query, view_type)
+
     # Apply global filters (status, metadata, tags) - all AND-ed together
     query = apply_global_filters(query, filters)
 
@@ -299,42 +428,18 @@ def query_metrics_for_traces_view(
     dimension_columns = []
 
     if time_interval_seconds:
-        time_bucket_expr = get_time_bucket_expression(
-            SqlTraceInfo.timestamp_ms, time_interval_seconds, db_type
-        )
+        time_bucket_expr = get_time_bucket_expression(view_type, time_interval_seconds, db_type)
         dimension_columns.append(time_bucket_expr.label(TIME_BUCKET_LABEL))
 
     for dimension in dimensions or []:
-        match dimension:
-            case "name":
-                # Join with SqlTraceTag to get trace name
-                query = query.join(
-                    SqlTraceTag,
-                    and_(
-                        SqlTraceInfo.request_id == SqlTraceTag.request_id,
-                        SqlTraceTag.key == TraceTagKey.TRACE_NAME,
-                    ),
-                )
-                dimension_columns.append(SqlTraceTag.value.label("name"))
-            case "status":
-                dimension_columns.append(SqlTraceInfo.status.label("status"))
-            case _:
-                raise NotImplementedError(
-                    f"dimension {dimension} is not supported for view type {MetricViewType.TRACES}"
-                )
+        query, dimension_column = _apply_dimension_to_query(query, dimension, view_type)
+        dimension_columns.append(dimension_column)
 
-    # Join with SqlTraceMetrics for token usage metrics
-    if metric_name in TokenUsageKey.all_keys():
-        query = query.join(
-            SqlTraceMetrics,
-            and_(
-                SqlTraceInfo.request_id == SqlTraceMetrics.request_id,
-                SqlTraceMetrics.key == metric_name,
-            ),
-        )
+    # Apply metric-specific joins
+    query = _apply_metric_specific_joins(query, metric_name, view_type)
 
     # Build aggregation expressions
-    agg_column = _get_aggregation_column_for_traces(metric_name)
+    agg_column = _get_column_to_aggregate(view_type, metric_name)
     aggregation_results = {
         str(aggregation): _get_aggregation_expression(aggregation, db_type, agg_column)
         for aggregation in aggregations

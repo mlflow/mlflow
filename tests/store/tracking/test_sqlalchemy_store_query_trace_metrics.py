@@ -11,8 +11,10 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracing.constant import TokenUsageKey, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey, TraceMetricKey, TraceTagKey
 from mlflow.utils.time import get_current_time_millis
+
+from tests.store.tracking.test_sqlalchemy_store import create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -68,13 +70,13 @@ def test_query_trace_metrics_count_no_dimensions(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 5},
     }
@@ -105,19 +107,19 @@ def test_query_trace_metrics_count_by_status(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["status"],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"status": "ERROR"},
         "values": {"COUNT": 2},
     }
     assert asdict(result[1]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"status": "OK"},
         "values": {"COUNT": 3},
     }
@@ -148,19 +150,19 @@ def test_query_trace_metrics_count_by_name(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["name"],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"name": "workflow_a"},
         "values": {"COUNT": 3},
     }
     assert asdict(result[1]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"name": "workflow_b"},
         "values": {"COUNT": 2},
     }
@@ -191,29 +193,29 @@ def test_query_trace_metrics_count_by_multiple_dimensions(store: SqlAlchemyStore
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["status", "name"],
     )
 
     assert len(result) == 4
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"status": "ERROR", "name": "workflow_a"},
         "values": {"COUNT": 1},
     }
     assert asdict(result[1]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"status": "ERROR", "name": "workflow_b"},
         "values": {"COUNT": 1},
     }
     assert asdict(result[2]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"status": "OK", "name": "workflow_a"},
         "values": {"COUNT": 2},
     }
     assert asdict(result[3]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"status": "OK", "name": "workflow_b"},
         "values": {"COUNT": 1},
     }
@@ -398,7 +400,7 @@ def test_query_trace_metrics_with_time_interval(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         time_interval_seconds=3600,  # 1 hour
         start_time_ms=base_time,
@@ -407,14 +409,14 @@ def test_query_trace_metrics_with_time_interval(store: SqlAlchemyStore):
 
     assert len(result) == 3
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": datetime.fromtimestamp(base_time / 1000, tz=timezone.utc).isoformat()
         },
         "values": {"COUNT": 2},
     }
     assert asdict(result[1]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": datetime.fromtimestamp(
                 (base_time + hour_ms) / 1000, tz=timezone.utc
@@ -423,7 +425,7 @@ def test_query_trace_metrics_with_time_interval(store: SqlAlchemyStore):
         "values": {"COUNT": 2},
     }
     assert asdict(result[2]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": datetime.fromtimestamp(
                 (base_time + 2 * hour_ms) / 1000, tz=timezone.utc
@@ -460,7 +462,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["status"],
         time_interval_seconds=3600,  # 1 hour
@@ -474,7 +476,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
         (base_time + hour_ms) / 1000, tz=timezone.utc
     ).isoformat()
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
             "status": "ERROR",
@@ -482,7 +484,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
         "values": {"COUNT": 1},
     }
     assert asdict(result[1]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_1,
             "status": "OK",
@@ -490,7 +492,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
         "values": {"COUNT": 1},
     }
     assert asdict(result[2]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
             "status": "ERROR",
@@ -498,7 +500,7 @@ def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemy
         "values": {"COUNT": 1},
     }
     assert asdict(result[3]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {
             "time_bucket": time_bucket_2,
             "status": "OK",
@@ -532,14 +534,14 @@ def test_query_trace_metrics_with_status_filter(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=["trace.status = 'OK'"],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 3},
     }
@@ -547,14 +549,14 @@ def test_query_trace_metrics_with_status_filter(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=["trace.status = 'ERROR'"],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 2},
     }
@@ -587,14 +589,14 @@ def test_query_trace_metrics_with_source_run_filter(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = 'run_123'"],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 2},
     }
@@ -602,14 +604,14 @@ def test_query_trace_metrics_with_source_run_filter(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = 'run_456'"],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 2},
     }
@@ -641,7 +643,7 @@ def test_query_trace_metrics_with_multiple_filters(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=[
             "trace.status = 'OK'",
@@ -651,7 +653,7 @@ def test_query_trace_metrics_with_multiple_filters(store: SqlAlchemyStore):
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 2},
     }
@@ -686,7 +688,7 @@ def test_query_trace_metrics_with_tag_filter(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=["trace.tag.tag1 = 'value1'"],
     )
@@ -696,14 +698,14 @@ def test_query_trace_metrics_with_tag_filter(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=["trace.tag.`model.version` = 'model_v1'"],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 2},
     }
@@ -711,14 +713,14 @@ def test_query_trace_metrics_with_tag_filter(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         filters=["trace.tag.`model.version` = 'model_v2'"],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 2},
     }
@@ -751,7 +753,7 @@ def test_query_trace_metrics_with_invalid_filter(
         store.query_trace_metrics(
             experiment_ids=[exp_id],
             view_type=MetricViewType.TRACES,
-            metric_name="trace",
+            metric_name=TraceMetricKey.TRACE_COUNT,
             aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
             filters=[filter_string],
         )
@@ -770,9 +772,9 @@ def traces_with_token_usage_setup(store: SqlAlchemyStore):
 
     for trace_id, name, input_tokens, output_tokens, total_tokens in traces_data:
         token_usage = {
-            TokenUsageKey.INPUT_TOKENS: input_tokens,
-            TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-            TokenUsageKey.TOTAL_TOKENS: total_tokens,
+            TraceMetricKey.INPUT_TOKENS: input_tokens,
+            TraceMetricKey.OUTPUT_TOKENS: output_tokens,
+            TraceMetricKey.TOTAL_TOKENS: total_tokens,
         }
         trace_info = TraceInfo(
             trace_id=trace_id,
@@ -927,4 +929,400 @@ def test_query_trace_metrics_total_tokens_without_token_usage(store: SqlAlchemyS
         "metric_name": "total_tokens",
         "dimensions": {},
         "values": {"SUM": None},
+    }
+
+
+def test_query_span_metrics_count_no_dimensions(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_count_no_dimensions")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span("trace1", "span1", span_id=1, span_type="LLM", start_ns=1000000000),
+        create_test_span("trace1", "span2", span_id=2, span_type="CHAIN", start_ns=1100000000),
+        create_test_span("trace1", "span3", span_id=3, span_type="LLM", start_ns=1200000000),
+        create_test_span("trace1", "span4", span_id=4, span_type="TOOL", start_ns=1300000000),
+        create_test_span("trace1", "span5", span_id=5, span_type="LLM", start_ns=1400000000),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 5},
+    }
+
+
+def test_query_span_metrics_count_by_span_type(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_count_by_span_type")
+
+    # Create a trace first
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different types
+    spans = [
+        create_test_span("trace1", "span1", span_id=1, span_type="LLM", start_ns=1000000000),
+        create_test_span("trace1", "span2", span_id=2, span_type="LLM", start_ns=1100000000),
+        create_test_span("trace1", "span3", span_id=3, span_type="LLM", start_ns=1200000000),
+        create_test_span("trace1", "span4", span_id=4, span_type="CHAIN", start_ns=1300000000),
+        create_test_span("trace1", "span5", span_id=5, span_type="CHAIN", start_ns=1400000000),
+        create_test_span("trace1", "span6", span_id=6, span_type="TOOL", start_ns=1500000000),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["span_type"],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {"span_type": "CHAIN"},
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {"span_type": "LLM"},
+        "values": {"COUNT": 3},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {"span_type": "TOOL"},
+        "values": {"COUNT": 1},
+    }
+
+
+def test_query_span_metrics_with_time_interval(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_with_time_interval")
+
+    # Base time in nanoseconds (2020-01-01 00:00:00 UTC)
+    base_time_ns = 1577836800000000000
+    hour_ns = 60 * 60 * 1_000_000_000
+
+    # Create a trace
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=base_time_ns // 1_000_000,  # Convert to milliseconds
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans at different times
+    spans = [
+        create_test_span("trace1", "span1", span_id=1, span_type="LLM", start_ns=base_time_ns),
+        create_test_span(
+            "trace1",
+            "span2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=base_time_ns + 10 * 60 * 1_000_000_000,
+        ),
+        create_test_span(
+            "trace1", "span3", span_id=3, span_type="LLM", start_ns=base_time_ns + hour_ns
+        ),
+        create_test_span(
+            "trace1",
+            "span4",
+            span_id=4,
+            span_type="LLM",
+            start_ns=base_time_ns + hour_ns + 30 * 60 * 1_000_000_000,
+        ),
+        create_test_span(
+            "trace1", "span5", span_id=5, span_type="LLM", start_ns=base_time_ns + 2 * hour_ns
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        time_interval_seconds=3600,  # 1 hour
+        start_time_ms=base_time_ns // 1_000_000,
+        end_time_ms=(base_time_ns + 3 * hour_ns) // 1_000_000,
+    )
+
+    base_time_ms = base_time_ns // 1_000_000
+    hour_ms = 60 * 60 * 1000
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(base_time_ms / 1000, tz=timezone.utc).isoformat()
+        },
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(
+                (base_time_ms + hour_ms) / 1000, tz=timezone.utc
+            ).isoformat()
+        },
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(
+                (base_time_ms + 2 * hour_ms) / 1000, tz=timezone.utc
+            ).isoformat()
+        },
+        "values": {"COUNT": 1},
+    }
+
+
+def test_query_span_metrics_with_time_interval_and_dimensions(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_with_time_interval_and_dimensions")
+
+    # Base time in nanoseconds (2020-01-01 00:00:00 UTC)
+    base_time_ns = 1577836800000000000
+    hour_ns = 60 * 60 * 1_000_000_000
+
+    # Create a trace
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=base_time_ns // 1_000_000,
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans at different times with different types
+    spans = [
+        create_test_span("trace1", "span1", span_id=1, span_type="LLM", start_ns=base_time_ns),
+        create_test_span(
+            "trace1",
+            "span2",
+            span_id=2,
+            span_type="CHAIN",
+            start_ns=base_time_ns + 10 * 60 * 1_000_000_000,
+        ),
+        create_test_span(
+            "trace1", "span3", span_id=3, span_type="LLM", start_ns=base_time_ns + hour_ns
+        ),
+        create_test_span(
+            "trace1", "span4", span_id=4, span_type="CHAIN", start_ns=base_time_ns + hour_ns
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["span_type"],
+        time_interval_seconds=3600,  # 1 hour
+        start_time_ms=base_time_ns // 1_000_000,
+        end_time_ms=(base_time_ns + 2 * hour_ns) // 1_000_000,
+    )
+
+    base_time_ms = base_time_ns // 1_000_000
+    hour_ms = 60 * 60 * 1000
+    time_bucket_1 = datetime.fromtimestamp(base_time_ms / 1000, tz=timezone.utc).isoformat()
+    time_bucket_2 = datetime.fromtimestamp(
+        (base_time_ms + hour_ms) / 1000, tz=timezone.utc
+    ).isoformat()
+
+    assert len(result) == 4
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            "time_bucket": time_bucket_1,
+            "span_type": "CHAIN",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            "time_bucket": time_bucket_1,
+            "span_type": "LLM",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            "time_bucket": time_bucket_2,
+            "span_type": "CHAIN",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[3]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            "time_bucket": time_bucket_2,
+            "span_type": "LLM",
+        },
+        "values": {"COUNT": 1},
+    }
+
+
+def test_query_span_metrics_with_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_with_filters")
+
+    # Create traces with different statuses
+    trace1 = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace1)
+
+    trace2 = TraceInfo(
+        trace_id="trace2",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.ERROR,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace2)
+
+    # Create spans for trace1 (OK status)
+    spans_trace1 = [
+        create_test_span("trace1", "span1", span_id=1, span_type="LLM", start_ns=1000000000),
+        create_test_span("trace1", "span2", span_id=2, span_type="LLM", start_ns=1100000000),
+        create_test_span("trace1", "span3", span_id=3, span_type="CHAIN", start_ns=1200000000),
+    ]
+    store.log_spans(exp_id, spans_trace1)
+
+    # Create spans for trace2 (ERROR status)
+    spans_trace2 = [
+        create_test_span("trace2", "span4", span_id=4, span_type="LLM", start_ns=1300000000),
+        create_test_span("trace2", "span5", span_id=5, span_type="CHAIN", start_ns=1400000000),
+    ]
+    store.log_spans(exp_id, spans_trace2)
+
+    # Query spans only for traces with OK status
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=["trace.status = 'OK'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 3},
+    }
+
+    # Query spans grouped by type for traces with ERROR status
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["span_type"],
+        filters=["trace.status = 'ERROR'"],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {"span_type": "CHAIN"},
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {"span_type": "LLM"},
+        "values": {"COUNT": 1},
+    }
+
+
+def test_query_span_metrics_across_multiple_traces(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_across_multiple_traces")
+
+    # Create multiple traces
+    for i in range(3):
+        trace_info = TraceInfo(
+            trace_id=f"trace{i}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: f"workflow_{i}"},
+        )
+        store.start_trace(trace_info)
+
+        # Create spans for each trace
+        spans = [
+            create_test_span(
+                f"trace{i}",
+                f"span{i}_1",
+                span_id=i * 10 + 1,
+                span_type="LLM",
+                start_ns=1000000000 + i * 100000000,
+            ),
+            create_test_span(
+                f"trace{i}",
+                f"span{i}_2",
+                span_id=i * 10 + 2,
+                span_type="CHAIN",
+                start_ns=1100000000 + i * 100000000,
+            ),
+        ]
+        store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=["span_type"],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {"span_type": "CHAIN"},
+        "values": {"COUNT": 3},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {"span_type": "LLM"},
+        "values": {"COUNT": 3},
     }
