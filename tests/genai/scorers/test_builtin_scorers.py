@@ -603,9 +603,6 @@ def test_get_all_scorers():
     assert scorer_class_names == expected_scorers
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
     assert len({s.name for s in scorers}) == len(scorers)
-    assert "BuiltInScorer" not in scorer_class_names
-    assert "BuiltInSessionLevelScorer" not in scorer_class_names
-    assert "Guidelines" not in scorer_class_names
 
 
 def test_retrieval_relevance_get_input_fields():
