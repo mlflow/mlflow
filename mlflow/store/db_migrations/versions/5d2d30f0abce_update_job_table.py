@@ -37,7 +37,9 @@ def downgrade():
     # Revert column rename `job_name` -> `function_fullname` and restore the original index
     with op.batch_alter_table("jobs", schema=None) as batch_op:
         batch_op.drop_index("index_jobs_name_status_creation_time")
-        batch_op.alter_column("job_name", new_column_name="function_fullname")
+        batch_op.alter_column(
+            "job_name", new_column_name="function_fullname", existing_type=String(500)
+        )
 
     with op.batch_alter_table("jobs", schema=None) as batch_op:
         batch_op.create_index(
