@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+
+if TYPE_CHECKING:
+    from typing import Sequence
 
 _logger = logging.getLogger(__name__)
 
@@ -21,56 +25,53 @@ def _check_trulens_installed():
         )
 
 
-class DatabricksTruLensProvider:
+def _create_databricks_trulens_provider(endpoint_name: str, model_name: str):
     """
-    TruLens provider adapter for Databricks managed judge.
+    Create a TruLens provider that uses Databricks serving endpoints.
 
-    Uses the Databricks Foundation Model API via model serving.
+    This dynamically creates a class that inherits from TruLens LLMProvider
+    and implements _create_chat_completion using Databricks APIs.
     """
+    from trulens.feedback.llm_provider import LLMProvider
 
-    def __init__(self):
-        self._model_name = _DATABRICKS_DEFAULT_JUDGE_MODEL
-        # Use the default foundation model endpoint for evaluation
-        self._endpoint_name = "databricks-meta-llama-3-3-70b-instruct"
+    class DatabricksTruLensProvider(LLMProvider):
+        """TruLens provider adapter for Databricks endpoints."""
 
-    def _generate(self, prompt: str) -> str:
-        try:
-            output = _invoke_databricks_serving_endpoint(
-                model_name=self._endpoint_name,
-                prompt=prompt,
-                num_retries=3,
-                response_format=None,
-            )
-            return output.response
-        except Exception as e:
-            _logger.error(f"Error invoking Databricks Foundation Model: {e}")
-            raise
+        def __init__(self):
+            # Initialize without calling parent __init__ to avoid pydantic issues
+            # We just need to provide the required methods
+            self._endpoint_name = endpoint_name
+            self._model_name = model_name
+            self.model_engine = endpoint_name
 
-    def get_model_name(self) -> str:
-        return self._model_name
+        def _create_chat_completion(
+            self,
+            prompt: str | None = None,
+            messages: "Sequence[dict] | None" = None,
+            **kwargs,
+        ) -> str:
+            # Convert messages to prompt if needed
+            if prompt is None and messages:
+                prompt = "\n".join(
+                    f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages
+                )
 
+            if prompt is None:
+                prompt = ""
 
-class DatabricksServingEndpointTruLensProvider:
-    """
-    TruLens provider adapter for Databricks serving endpoints.
+            try:
+                output = _invoke_databricks_serving_endpoint(
+                    model_name=self._endpoint_name,
+                    prompt=prompt,
+                    num_retries=3,
+                    response_format=None,
+                )
+                return output.response
+            except Exception as e:
+                _logger.error(f"Error invoking Databricks endpoint: {e}")
+                raise
 
-    Uses the model serving API via _invoke_databricks_serving_endpoint.
-    """
-
-    def __init__(self, endpoint_name: str):
-        self._endpoint_name = endpoint_name
-
-    def _generate(self, prompt: str) -> str:
-        output = _invoke_databricks_serving_endpoint(
-            model_name=self._endpoint_name,
-            prompt=prompt,
-            num_retries=3,
-            response_format=None,
-        )
-        return output.response
-
-    def get_model_name(self) -> str:
-        return f"databricks:/{self._endpoint_name}"
+    return DatabricksTruLensProvider()
 
 
 def create_trulens_provider(model_uri: str):
@@ -92,10 +93,16 @@ def create_trulens_provider(model_uri: str):
     _check_trulens_installed()
 
     if model_uri == "databricks":
-        return DatabricksTruLensProvider()
+        return _create_databricks_trulens_provider(
+            endpoint_name="databricks-meta-llama-3-3-70b-instruct",
+            model_name=_DATABRICKS_DEFAULT_JUDGE_MODEL,
+        )
     elif model_uri.startswith("databricks:/"):
         endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
-        return DatabricksServingEndpointTruLensProvider(endpoint_name)
+        return _create_databricks_trulens_provider(
+            endpoint_name=endpoint_name,
+            model_name=model_uri,
+        )
     elif ":" in model_uri:
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
