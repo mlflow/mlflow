@@ -9,39 +9,35 @@ from mlflow.gateway.schemas import chat, embeddings
 
 class LiteLLMAdapter(ProviderAdapter):
     @classmethod
-    def _get_model_name(cls, config):
+    def _get_litellm_model_name(cls, config: EndpointConfig) -> str:
         litellm_config = config.model.config
         if litellm_config.litellm_provider:
             return f"{litellm_config.litellm_provider}/{config.model.name}"
         return config.model.name
 
     @classmethod
-    def chat_to_model(cls, payload, config):
-        return {"model": cls._get_model_name(config), **payload}
+    def chat_to_model(cls, payload: dict[str, Any], config: EndpointConfig) -> dict[str, Any]:
+        return {"model": cls._get_litellm_model_name(config), **payload}
 
     @classmethod
-    def embeddings_to_model(cls, payload, config):
-        return {"model": cls._get_model_name(config), **payload}
+    def embeddings_to_model(cls, payload: dict[str, Any], config: EndpointConfig) -> dict[str, Any]:
+        return {"model": cls._get_litellm_model_name(config), **payload}
 
     @classmethod
-    def model_to_chat(cls, resp, config):
+    def model_to_chat(cls, resp: dict[str, Any], config: EndpointConfig) -> chat.ResponsePayload:
         return chat.ResponsePayload.model_validate(resp)
 
     @classmethod
-    def model_to_chat_streaming(cls, resp, config):
+    def model_to_chat_streaming(
+        cls, resp: dict[str, Any], config: EndpointConfig
+    ) -> chat.StreamResponsePayload:
         return chat.StreamResponsePayload.model_validate(resp)
 
     @classmethod
-    def model_to_embeddings(cls, resp, config):
+    def model_to_embeddings(
+        cls, resp: dict[str, Any], config: EndpointConfig
+    ) -> embeddings.ResponsePayload:
         return embeddings.ResponsePayload.model_validate(resp)
-
-    @classmethod
-    def completions_to_model(cls, payload, config):
-        raise NotImplementedError
-
-    @classmethod
-    def model_to_completions(cls, resp, config):
-        raise NotImplementedError
 
 
 class LiteLLMProvider(BaseProvider):
