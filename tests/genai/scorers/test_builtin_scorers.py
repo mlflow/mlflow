@@ -29,6 +29,7 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
     Summarization,
+    ToolCallCorrectness,
     ToolCallEfficiency,
     UserFrustration,
 )
@@ -599,6 +600,8 @@ def test_get_all_scorers():
         "ConversationalSafety",
         "ConversationalToolCallEfficiency",
         "ConversationalRoleAdherence",
+        "ToolCallEfficiency",
+        "ToolCallCorrectness",
     }
 
     assert scorer_class_names == expected_scorers
@@ -1719,6 +1722,56 @@ def test_tool_call_efficiency():
 
         result = scorer(trace=exception_trace)
         assert result.name == "tool_call_efficiency"
+        mock_invoke.assert_called()
+
+
+def test_tool_call_correctness_with_correct_tool_call():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "What is the weather in San Francisco?"})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"location": "San Francisco", "unit": "celsius"})
+            tool_span.set_outputs("15°C, partly cloudy")
+        span.set_outputs("The weather in San Francisco is 15°C and partly cloudy")
+
+    correct_trace = mlflow.get_trace(span.trace_id)
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value=CategoricalRating.YES,
+            rationale="Tool calls are correct and appropriate",
+        )
+
+        scorer = ToolCallCorrectness()
+        result = scorer(trace=correct_trace)
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == CategoricalRating.YES
+        mock_invoke.assert_called()
+
+
+def test_tool_call_correctness_with_incorrect_tool_call():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "What is the weather in San Francisco?"})
+        with mlflow.start_span(name="calculator", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"expression": "San Francisco"})
+            tool_span.set_outputs("Error: invalid expression")
+        span.set_outputs("I'm sorry, I couldn't get the weather")
+
+    incorrect_trace = mlflow.get_trace(span.trace_id)
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value=CategoricalRating.NO,
+            rationale="Wrong tool used for weather query",
+        )
+
+        scorer = ToolCallCorrectness()
+        result = scorer(trace=incorrect_trace)
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == CategoricalRating.NO
         mock_invoke.assert_called()
 
 
