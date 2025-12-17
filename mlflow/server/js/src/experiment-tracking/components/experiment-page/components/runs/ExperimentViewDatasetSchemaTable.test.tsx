@@ -3,7 +3,6 @@ import { IntlProvider } from 'react-intl';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
 import { ExperimentViewDatasetSchemaTable } from './ExperimentViewDatasetSchemaTable';
 import { DesignSystemProvider } from '@databricks/design-system';
-import userEvent from '@testing-library/user-event';
 
 describe('ExperimentViewDatasetSchemaTable', () => {
   const renderTestComponent = ({ schema, filter }: { schema: any[]; filter: string }) => {
