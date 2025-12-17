@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from cachetools.func import cached
 from opentelemetry.trace import NoOpTracer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -20,9 +20,18 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
 from mlflow.genai.utils.data_validation import check_model_prediction
+from mlflow.genai.utils.prompts.available_tools_extraction import (
+    get_available_tools_extraction_prompts,
+)
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    AssessmentMetadataKey,
+    SpanAttributeKey,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracing.utils.search import traces_to_df
@@ -33,6 +42,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from mlflow.genai.evaluation.entities import EvalItem, EvalResult
+    from mlflow.types.chat import ChatTool
 
 _logger = logging.getLogger(__name__)
 
@@ -763,3 +773,205 @@ def batch_link_traces_to_run(
                 return
 
             _logger.warning(f"Failed to link batch of traces to run: {e}")
+
+
+class ExtractedToolsFromTrace(BaseModel):
+    tools: list["ChatTool"] = Field(
+        default_factory=list,
+        description="List of all available tools found in the trace",
+    )
+
+    model_config = {"extra": "forbid"}
+
+
+def extract_available_tools_from_trace(trace: Trace, model: str | None = None) -> list["ChatTool"]:
+    """
+    Extract available tools from a trace by checking all LLM spans.
+
+    This function uses a two-stage approach:
+    1. Programmatic extraction: Checks all LLM and CHAT_MODEL spans for tools in
+       attributes (mlflow.chat.tools) and inputs (inputs.tools field).
+    2. LLM fallback: If no tools are found programmatically, uses an LLM to analyze
+       the trace and identify tool definitions.
+
+    The programmatic approach mirrors the frontend's getChatToolsFromSpan logic in
+    ModelTraceExplorer.utils.tsx, which extracts tools per-span and returns a
+    deduplicated list of all unique tools found across the trace.
+
+    Args:
+        trace: MLflow trace object
+        model: Optional model URI to use for LLM-based fallback extraction
+               (e.g., "openai:/gpt-4"). If None, uses a default model.
+
+    Returns:
+        List of unique ChatTool objects, or an empty list if no valid tools are found.
+    """
+    # Stage 1: Programmatic extraction from span attributes and inputs
+    all_tools = []
+    seen_tool_signatures = set()
+
+    relevant_span_types = [SpanType.LLM, SpanType.CHAT_MODEL]
+
+    for span in trace.data.spans:
+        span_type = span.get_attribute(SpanAttributeKey.SPAN_TYPE)
+        if span_type not in relevant_span_types:
+            continue
+
+        span_tools = _extract_tools_from_span(span)
+
+        for tool in span_tools:
+            if tool.function:
+                tool_signature = _get_tool_signature(tool)
+                if tool_signature not in seen_tool_signatures:
+                    seen_tool_signatures.add(tool_signature)
+                    all_tools.append(tool)
+
+    if all_tools:
+        return all_tools
+
+    # Stage 2: LLM fallback when programmatic extraction yields no results
+    return _try_extract_available_tools_with_llm(trace, model)
+
+
+def _get_tool_signature(tool: "ChatTool") -> str:
+    if not tool.function:
+        return ""
+
+    try:
+        tool_dict = tool.function.model_dump()
+    except AttributeError:
+        tool_dict = tool.function.dict()
+
+    return json.dumps(tool_dict, sort_keys=True)
+
+
+def _extract_tools_from_span(span: Span) -> list["ChatTool"]:
+    """
+    Extract tools from a single LLM or CHAT_MODEL span, checking attribute first, then inputs.
+
+    This mirrors the frontend's getChatToolsFromSpan logic exactly, but returns
+    validated ChatTool objects using Pydantic validation.
+
+    Args:
+        span: MLflow span object
+
+    Returns:
+        List of ChatTool objects for this span
+    """
+    tools_attribute = span.get_attribute(SpanAttributeKey.CHAT_TOOLS)
+    if tools_attribute is not None:
+        try:
+            if isinstance(tools_attribute, str):
+                tools_attribute = json.loads(tools_attribute)
+            return _parse_tools_to_chat_tool(tools_attribute)
+        except Exception as e:
+            _logger.debug(f"Failed to parse tools from attribute in span {span.span_id}: {e}")
+
+    if span.inputs is not None:
+        try:
+            inputs = _to_dict(span.inputs)
+            if "tools" in inputs:
+                return _parse_tools_to_chat_tool(inputs["tools"])
+        except Exception as e:
+            _logger.debug(f"Failed to parse tools from inputs in span {span.span_id}: {e}")
+
+    return []
+
+
+def _parse_tools_to_chat_tool(tools_data: list[dict[str, Any]]) -> list["ChatTool"]:
+    """
+    Parse a list of tool dictionaries into ChatTool objects using Pydantic validation.
+
+    Args:
+        tools_data: List of tool dictionaries
+
+    Returns:
+        List of validated ChatTool objects. Invalid tools are skipped with debug logging.
+    """
+    from mlflow.types.chat import ChatTool
+
+    validated_tools = []
+    for data in tools_data:
+        try:
+            tool = ChatTool(**data)
+            validated_tools.append(tool)
+        except Exception as e:
+            _logger.debug(f"Skipping invalid tool {data}: {e}")
+
+    return validated_tools
+
+
+def _try_extract_available_tools_with_llm(
+    trace: Trace, model: str | None = None
+) -> list["ChatTool"]:
+    """
+    Attempt to extract available tools from trace using LLM with structured output.
+
+    This is a fallback method when programmatic extraction fails. It uses an LLM to
+    analyze the trace and identify tool definitions that were available to the agent.
+
+    Args:
+        trace: MLflow trace object to analyze
+        model: Optional model URI to use for extraction (e.g., "openai:/gpt-4").
+               If None, uses a default model.
+
+    Returns:
+        List of ChatTool objects extracted by the LLM, or empty list if extraction fails.
+    """
+    if model is None:
+        if is_databricks_uri(mlflow.get_tracking_uri()):
+            # TODO: Add support for Databricks tool extraction with LLM fallback.
+            _logger.warning("Databricks is not supported for tool extraction with LLM fallback.")
+            return []
+        else:
+            model = "openai:/gpt-4.1-mini"
+
+    try:
+        from mlflow.types.chat import (
+            ChatTool,
+            FunctionParams,
+            FunctionToolDefinition,
+            ParamProperty,
+        )
+
+        output_example = json.dumps(
+            ExtractedToolsFromTrace(
+                tools=[
+                    ChatTool(
+                        type="function",
+                        function=FunctionToolDefinition(
+                            name="example_tool",
+                            description="Description of what the tool does",
+                            parameters=FunctionParams(
+                                type="object",
+                                properties={
+                                    "param1": ParamProperty(
+                                        type="string",
+                                        description="A parameter",
+                                    )
+                                },
+                                required=["param1"],
+                            ),
+                        ),
+                    )
+                ]
+            ).model_dump(),
+            indent=2,
+        )
+
+        messages = get_available_tools_extraction_prompts(output_example)
+
+        result = get_chat_completions_with_structured_output(
+            model_uri=model,
+            messages=messages,
+            output_schema=ExtractedToolsFromTrace,
+            trace=trace,
+        )
+
+        return result.tools
+
+    except Exception as e:
+        _logger.warning(
+            f"Failed to extract tools from trace using LLM. Returning empty list. Error: {e!r}"
+        )
+        return []
