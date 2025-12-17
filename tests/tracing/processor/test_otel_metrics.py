@@ -18,6 +18,7 @@ def metric_reader() -> InMemoryMetricReader:
     provider.shutdown()
 
 
+@pytest.mark.repeat(50)
 def test_metrics_export(
     monkeypatch: pytest.MonkeyPatch, metric_reader: InMemoryMetricReader
 ) -> None:
@@ -58,6 +59,8 @@ def test_metrics_export(
                     data_points.extend(metric.data.data_points)
 
     assert len(data_points) == 3
+    print(data_points)  # noqa: T201
+    _sum = [dp.sum for dp in data_points]
     data_points.sort(key=lambda dp: dp.sum)
     llm_metric, chain_metric, tool_metric = data_points
 
