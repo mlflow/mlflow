@@ -9,7 +9,12 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
 )
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    PASSTHROUGH_ROUTES,
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+)
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
 from mlflow.types.chat import Function, ToolCallDelta
@@ -321,6 +326,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     NAME = "Anthropic"
     CONFIG_TYPE = AnthropicConfig
 
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.ANTHROPIC_MESSAGES: "messages",
+    }
+
     def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
@@ -448,14 +457,24 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
 
-    async def passthrough_anthropic_messages(
-        self, payload: dict[str, Any]
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
     ) -> dict[str, Any] | AsyncIterable[bytes]:
-        """
-        Passthrough endpoint for Anthropic Messages API.
-        Accepts raw Anthropic request format and returns raw Anthropic response format.
-        Supports streaming if the 'stream' parameter is set to True.
-        """
+        provider_path = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
+        if provider_path is None:
+            route = PASSTHROUGH_ROUTES.get(action, action.value)
+            supported_routes = ", ".join(
+                f"/gateway{route} (provider_path: {path})"
+                for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
+                if (route := PASSTHROUGH_ROUTES.get(act))
+                and (path := self.PASSTHROUGH_PROVIDER_PATHS.get(act))
+            )
+            raise AIGatewayException(
+                status_code=400,
+                detail=f"Unsupported passthrough endpoint '{route}' for {self.NAME} provider. "
+                f"Supported endpoints: {supported_routes}",
+            )
+
         # Add model name from config
         payload["model"] = self.config.model.name
 
@@ -463,13 +482,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             return send_stream_request(
                 headers=self.headers,
                 base_url=self.base_url,
-                path="messages",
+                path=provider_path,
                 payload=payload,
             )
         else:
             return await send_request(
                 headers=self.headers,
                 base_url=self.base_url,
-                path="messages",
+                path=provider_path,
                 payload=payload,
             )

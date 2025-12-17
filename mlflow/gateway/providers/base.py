@@ -20,6 +20,7 @@ class PassthroughAction(str, Enum):
     OPENAI_CHAT = "openai_chat"
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_RESPONSES = "openai_responses"
+    ANTHROPIC_MESSAGES = "anthropic_messages"
 
 
 # Mapping of passthrough actions to their gateway API routes
@@ -27,6 +28,7 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.OPENAI_CHAT: "/openai/v1/chat/completions",
     PassthroughAction.OPENAI_EMBEDDINGS: "/openai/v1/embeddings",
     PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
+    PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
 }
 
 
@@ -109,20 +111,6 @@ class BaseProvider(ABC):
         raise AIGatewayException(
             status_code=501,
             detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
-        )
-
-    async def passthrough_anthropic_messages(
-        self, payload: dict[str, Any]
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
-        """
-        Passthrough endpoint for Anthropic Messages API.
-        Accepts raw Anthropic request format and returns raw Anthropic response format.
-        Supports streaming if the 'stream' parameter is set to True.
-        """
-        raise AIGatewayException(
-            status_code=501,
-            detail=f"The passthrough Anthropic messages route is not implemented for {self.NAME}"
-            "models.",
         )
 
     @staticmethod

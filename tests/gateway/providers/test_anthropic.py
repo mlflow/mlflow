@@ -13,6 +13,7 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
@@ -772,7 +773,7 @@ async def test_passthrough_anthropic_messages():
             "max_tokens": 1024,
             "temperature": 0.7,
         }
-        response = await provider.passthrough_anthropic_messages(payload)
+        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
 
         assert payload["model"] == "claude-2.1"
 
@@ -803,7 +804,7 @@ async def test_passthrough_anthropic_messages_streaming():
             "max_tokens": 1024,
             "stream": True,
         }
-        response = await provider.passthrough_anthropic_messages(payload)
+        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
 
         assert payload["model"] == "claude-2.1"
 

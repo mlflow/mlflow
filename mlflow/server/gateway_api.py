@@ -402,7 +402,7 @@ async def openai_passthrough_responses(request: Request):
     return response
 
 
-@gateway_router.post("/anthropic/v1/messages")
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES])
 @translate_http_exception
 async def anthropic_passthrough_messages(request: Request):
     """
@@ -434,7 +434,7 @@ async def anthropic_passthrough_messages(request: Request):
     _validate_store(store)
 
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough_anthropic_messages(body)
+    response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body)
 
     if body.get("stream"):
         return StreamingResponse(response, media_type="text/event-stream")
