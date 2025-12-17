@@ -105,7 +105,7 @@ class BaseProvider(ABC):
         Raises:
             AIGatewayException: If the passthrough action is not implemented for this provider
         """
-        route = PASSTHROUGH_ROUTES.get(action, action.value)
+        route = PASSTHROUGH_ROUTES.get(action)
         raise AIGatewayException(
             status_code=501,
             detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
