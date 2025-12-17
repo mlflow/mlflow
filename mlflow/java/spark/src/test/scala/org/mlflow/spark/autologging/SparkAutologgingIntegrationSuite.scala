@@ -241,19 +241,42 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
   }
 
   test("ReplAwareDatasourceAttributeExtractor handles missing Databricks classes gracefully") {
+    import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+    import org.mockito.ArgumentCaptor
+    import scala.util.control.NonFatal
+
     MlflowAutologEventPublisher.stop()
 
-    class ReplAwareListenerWithDeltaDetection(
+    var deltaDetectionAttempted = false
+    var exceptionCaught = false
+
+    object TrackingDatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
+      override protected def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
+        deltaDetectionAttempted = true
+        try {
+          ReflectionUtils.getScalaObjectByName(
+            "com.databricks.sql.transaction.tahoe.DeltaTable")
+          throw new AssertionError(
+            "Databricks Delta class unexpectedly found - this test should run without it")
+        } catch {
+          case NonFatal(_) =>
+            exceptionCaught = true
+            None
+        }
+      }
+    }
+
+    class ReplAwareListenerWithTrackingExtractor(
         publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher)
       extends ReplAwareSparkDataSourceListener(publisher) {
       override protected def getDatasourceAttributeExtractor: DatasourceAttributeExtractorBase = {
-        ReplAwareDatasourceAttributeExtractor
+        TrackingDatasourceAttributeExtractor
       }
     }
 
     object MockPublisher extends MlflowAutologEventPublisherImpl {
       override def getSparkDataSourceListener: SparkDataSourceListener = {
-        new ReplAwareListenerWithDeltaDetection(this)
+        new ReplAwareListenerWithTrackingExtractor(this)
       }
     }
 
@@ -269,7 +292,14 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     df.collect()
 
     Thread.sleep(1000)
-    verify(subscriber, times(1)).notify(any(), any(), any())
+    assert(deltaDetectionAttempted, "Delta detection should have been attempted")
+    assert(exceptionCaught,
+      "Exception should have been caught when loading missing Databricks class")
+
+    val formatCaptor = ArgumentCaptor.forClass(classOf[String])
+    verify(subscriber, times(1)).notify(any(), any(), formatCaptor.capture())
+    assert(formatCaptor.getValue != "delta",
+      "Format should not be 'delta' since Databricks classes are unavailable")
   }
 
   test("MlflowAutologEventPublisher correctly unregisters broken subscribers") {
