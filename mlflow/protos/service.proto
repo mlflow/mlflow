@@ -1508,6 +1508,24 @@ service MlflowService {
     };
   }
 
+  // Invoke a scorer on traces asynchronously.
+  rpc invokeScorer(InvokeScorer) returns (InvokeScorer.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/scorer/invoke"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Invoke Scorer"
+    };
+  }
+
   // Get records for an evaluation dataset
   rpc getDatasetRecords(GetDatasetRecords) returns (GetDatasetRecords.Response) {
     option (rpc) = {
@@ -4010,6 +4028,31 @@ message Scorer {
   optional int64 creation_time = 5;
   // The unique identifier for the scorer.
   optional string scorer_id = 6;
+}
+
+message InvokeScorer {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The serialized scorer JSON (contains model, e.g., "gateway:/my-openai-gpt4o").
+  optional string serialized_scorer = 2;
+  // The trace IDs to run the scorer on.
+  repeated string trace_ids = 3;
+  // Whether to log assessments to the traces. Default: false.
+  optional bool log_assessments = 4 [default = false];
+
+  message Job {
+    // The job ID.
+    optional string job_id = 1;
+    // The trace IDs assigned to this job.
+    repeated string trace_ids = 2;
+  }
+
+  message Response {
+    // The jobs created for scorer invocation.
+    repeated Job jobs = 1;
+  }
 }
 
 // ========== Gateway Secrets and Endpoints Entities ==========
