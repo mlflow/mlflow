@@ -1,7 +1,9 @@
+import json
 from unittest import mock
 from unittest.mock import call, patch
 
 import pytest
+from litellm.types.utils import ModelResponse
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -19,6 +21,7 @@ from mlflow.genai.scorers import (
     Correctness,
     Equivalence,
     ExpectationsGuidelines,
+    Fluency,
     Guidelines,
     RelevanceToQuery,
     RetrievalGroundedness,
@@ -630,6 +633,67 @@ def test_safety_get_input_fields():
         safety = Safety(name="test")
         field_names = [field.name for field in safety.get_input_fields()]
         assert field_names == ["outputs"]
+
+
+def test_fluency_get_input_fields():
+    fluency = Fluency(name="test")
+    field_names = [field.name for field in fluency.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_default_name():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "The text is fluent.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        scorer = Fluency()
+        result = scorer(outputs="The cat sat on the mat.")
+
+        assert result.name == "fluency"
+        assert result.value == CategoricalRating.YES
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_with_custom_model():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "The text is fluent.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        custom_model = "anthropic:/claude-3-opus"
+        scorer = Fluency(model=custom_model)
+        result = scorer(outputs="This is a fluent response")
+
+        assert result.name == "fluency"
+        assert result.value == CategoricalRating.YES
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_fluency_with_custom_name():
+    mock_content = json.dumps(
+        {
+            "result": "no",
+            "rationale": "The text has issues.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with patch("litellm.completion", return_value=mock_response):
+        scorer = Fluency(name="my_fluency_check")
+        result = scorer(outputs="Bad text")
+
+        assert result.name == "my_fluency_check"
+        assert result.value == CategoricalRating.NO
 
 
 def test_correctness_get_input_fields():

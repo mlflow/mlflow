@@ -58,6 +58,45 @@ def test_map_scorer_inputs_to_ragas_sample_with_trace():
     assert "Document 2" in str(sample.retrieved_contexts)
 
 
+def test_map_scorer_inputs_with_rubrics():
+    rubrics_dict = {
+        "0": "Poor response",
+        "1": "Good response",
+    }
+    expectations = {
+        "rubrics": rubrics_dict,
+        "expected_output": "MLflow is a platform",
+    }
+
+    sample = map_scorer_inputs_to_ragas_sample(
+        inputs="What is MLflow?",
+        outputs="MLflow is a platform",
+        expectations=expectations,
+    )
+
+    assert sample.rubrics == rubrics_dict
+    assert sample.reference == "MLflow is a platform"
+    assert sample.user_input == "What is MLflow?"
+    assert sample.response == "MLflow is a platform"
+
+
+def test_map_scorer_inputs_with_only_rubrics():
+    rubrics_dict = {
+        "0": "Incorrect answer",
+        "1": "Correct answer",
+    }
+    expectations = {"rubrics": rubrics_dict}
+
+    sample = map_scorer_inputs_to_ragas_sample(
+        inputs="What is MLflow?",
+        outputs="MLflow is a platform",
+        expectations=expectations,
+    )
+
+    assert sample.rubrics == rubrics_dict
+    assert sample.reference is None
+
+
 @pytest.mark.parametrize(
     ("ragas_param", "expected_mlflow_param", "expected_guidance"),
     [
@@ -81,6 +120,11 @@ def test_map_scorer_inputs_to_ragas_sample_with_trace():
             "reference_contexts",
             "trace with retrieval spans",
             "retrieval spans",
+        ),
+        (
+            "rubrics",
+            "expectations['rubrics']",
+            "expectations={'rubrics':",
         ),
     ],
 )

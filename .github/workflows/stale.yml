@@ -1,0 +1,28 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Run daily at midnight UTC
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  stale:
+    runs-on: ubuntu-slim
+    permissions:
+      issues: write
+      pull-requests: write
+    timeout-minutes: 10
+    steps:
+      - uses: actions/stale@997185467fa4f803885201cee163a9f38240193d # v10.1.1
+        with:
+          days-before-stale: 365
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: security,bug,enhancement
+          exempt-pr-labels: security
+          operations-per-run: 100
