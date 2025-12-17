@@ -30,3 +30,4 @@ haystack-ai
 deepeval
 # required for ragas scorer documentation
 ragas
+instructor

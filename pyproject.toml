@@ -223,6 +223,7 @@ docs = [
   "haystack-ai",
   "deepeval",
   "ragas",
+  "instructor",
 ]
 
 [tool.uv]
