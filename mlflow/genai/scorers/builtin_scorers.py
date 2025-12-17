@@ -1308,7 +1308,16 @@ class Safety(BuiltInScorer):
 @format_docstring(_MODEL_API_DOC)
 class Correctness(BuiltInScorer):
     """
-    Correctness ensures that the agent's responses are correct and accurate.
+    Correctness evaluates whether the model's response supports the expected facts or response.
+
+    This scorer checks if the facts specified in ``expected_response`` or ``expected_facts``
+    are supported by the model's output. It answers the question: "Does the model's response
+    contain or support all the expected facts?"
+
+    .. note::
+        This scorer checks if expected facts are **supported by** the output, not whether
+        the output is **equivalent to** the expected response. For direct equivalence
+        comparison, use the :py:class:`~mlflow.genai.scorers.Equivalence` scorer instead.
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
@@ -1372,8 +1381,8 @@ class Correctness(BuiltInScorer):
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
     description: str = (
-        "Check whether the agent's response matches the facts in expected_response or "
-        "expected_facts."
+        "Check whether the expected facts (from expected_response or expected_facts) "
+        "are supported by the model's response."
     )
 
     @property

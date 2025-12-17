@@ -143,10 +143,6 @@
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
   },
-  "/GImw4": {
-    "defaultMessage": "Is app's response correct compared to ground-truth?",
-    "description": "Hint for Correctness template"
-  },
   "/IyEFR": {
     "defaultMessage": "Trace",
     "description": "Label for trace variable option"
@@ -174,6 +170,10 @@
   "/TX1Az": {
     "defaultMessage": "Inputs",
     "description": "Model trace explorer > selected span > inputs header"
+  },
+  "/UktTY": {
+    "defaultMessage": "Are the expected facts supported by the response?",
+    "description": "Hint for Correctness template"
   },
   "/WK1x1": {
     "defaultMessage": "Enum Values",
