@@ -723,17 +723,7 @@ def test_similarity_metric(parameters, extra_headers, proxy_url):
         )
 
 
-@pytest.mark.repeat(10)
-def test_faithfulness_metric(request):
-    import cProfile
-    import pstats
-    import time
-    from io import StringIO
-
-    start_time = time.time()
-    profiler = cProfile.Profile()
-    profiler.enable()
-
+def test_faithfulness_metric():
     faithfulness_metric = faithfulness(model="gateway:/gpt-4o-mini", examples=[])
     input = "What is MLflow?"
 
@@ -809,19 +799,6 @@ def test_faithfulness_metric(request):
             {},
             pd.Series([input], index=[1]),
             pd.Series([mlflow_ground_truth], index=[2]),
-        )
-
-    profiler.disable()
-    elapsed_time = time.time() - start_time
-
-    if elapsed_time > 60:
-        stream = StringIO()
-        stats = pstats.Stats(profiler, stream=stream).sort_stats("cumulative")
-        stats.print_stats(30)
-        profile_output = stream.getvalue()
-        assert False, (
-            f"\n=== Profile for {request.node.name} (took {elapsed_time:.2f}s) ===\n"
-            f"{profile_output}"
         )
 
 
