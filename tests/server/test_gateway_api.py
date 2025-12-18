@@ -31,6 +31,8 @@ from mlflow.server.gateway_api import (
     anthropic_passthrough_messages,
     chat_completions,
     gateway_router,
+    gemini_passthrough_generate_content,
+    gemini_passthrough_stream_generate_content,
     invocations,
     openai_passthrough_chat,
     openai_passthrough_embeddings,
@@ -1287,3 +1289,137 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
         assert b"content_block_stop" in chunks[4]
         assert b"message_delta" in chunks[5]
         assert b"message_stop" in chunks[6]
+
+
+# =============================================================================
+# Gemini generateContent/streamGenerateContent passthrough endpoint tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_gemini_passthrough_generate_content(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="gemini-passthrough-key",
+        secret_value={"api_key": "test-key"},
+        provider="gemini",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="gemini-passthrough-model",
+        secret_id=secret.secret_id,
+        provider="gemini",
+        model_name="gemini-2.0-flash",
+    )
+    store.create_gateway_endpoint(
+        name="gemini-passthrough-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": "Hello"}],
+                }
+            ]
+        }
+    )
+
+    mock_response = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "Hello! How can I assist you today?"}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 5,
+            "candidatesTokenCount": 10,
+            "totalTokenCount": 15,
+        },
+    }
+
+    with mock.patch(
+        "mlflow.gateway.providers.gemini.send_request", return_value=mock_response
+    ) as mock_send:
+        response = await gemini_passthrough_generate_content(
+            "gemini-passthrough-endpoint", mock_request
+        )
+
+        assert mock_send.called
+        call_args = mock_send.call_args
+        assert call_args[1]["path"] == "gemini-2.0-flash:generateContent"
+        assert call_args[1]["payload"]["contents"] == [
+            {"role": "user", "parts": [{"text": "Hello"}]}
+        ]
+
+        assert (
+            response["candidates"][0]["content"]["parts"][0]["text"]
+            == "Hello! How can I assist you today?"
+        )
+        assert response["usageMetadata"]["totalTokenCount"] == 15
+
+
+@pytest.mark.asyncio
+async def test_gemini_passthrough_stream_generate_content(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="gemini-stream-passthrough-key",
+        secret_value={"api_key": "test-stream-key"},
+        provider="gemini",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="gemini-stream-passthrough-model",
+        secret_id=secret.secret_id,
+        provider="gemini",
+        model_name="gemini-2.0-flash",
+    )
+    store.create_gateway_endpoint(
+        name="gemini-stream-passthrough-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    mock_request = MagicMock()
+    mock_request.json = AsyncMock(
+        return_value={
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": "Hello"}],
+                }
+            ]
+        }
+    )
+
+    mock_stream_chunks = [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}],"role":"model"}}]}\n\n',
+        b'data: {"candidates":[{"content":{"parts":[{"text":"!"}],"role":"model"}}]}\n\n',
+        b'data: {"candidates":[{"content":{"parts":[{"text":" How can I help you?"}],"role":"model"},"finishReason":"STOP"}]}\n\n',  # noqa: E501
+    ]
+
+    async def mock_stream_generator():
+        for chunk in mock_stream_chunks:
+            yield chunk
+
+    with mock.patch(
+        "mlflow.gateway.providers.gemini.send_stream_request",
+        return_value=mock_stream_generator(),
+    ) as mock_send_stream:
+        response = await gemini_passthrough_stream_generate_content(
+            "gemini-stream-passthrough-endpoint", mock_request
+        )
+
+        assert mock_send_stream.called
+        assert isinstance(response, StreamingResponse)
+        assert response.media_type == "text/event-stream"
+
+        chunks = [chunk async for chunk in response.body_iterator]
+
+        assert len(chunks) == 3
+        assert b"Hello" in chunks[0]
+        assert b"!" in chunks[1]
+        assert b"How can I help you?" in chunks[2]
+        assert b"STOP" in chunks[2]

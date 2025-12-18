@@ -5,7 +5,11 @@ from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import EndpointConfig, GeminiConfig
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+)
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import (
     chat as chat_schema,
@@ -589,6 +593,11 @@ class GeminiProvider(BaseProvider):
     NAME = "Gemini"
     CONFIG_TYPE = GeminiConfig
 
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.GEMINI_GENERATE_CONTENT: "{model}:generateContent",
+        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "{model}:streamGenerateContent?alt=sse",
+    }
+
     def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, GeminiConfig):
@@ -725,3 +734,26 @@ class GeminiProvider(BaseProvider):
                 break
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
+
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        provider_path = self._validate_passthrough_action(action)
+        provider_path = provider_path.format(model=self.config.model.name)
+
+        is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
+
+        if is_streaming:
+            return send_stream_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )
+        else:
+            return await send_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )
