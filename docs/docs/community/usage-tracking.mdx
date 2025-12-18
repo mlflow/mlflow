@@ -125,18 +125,6 @@ The below section outlines the data currently collected in this version of MLflo
       <td>create_logged_model event: `{"flavor": "langchain"}`</td>
       <td>To better understand the usage pattern for each event</td>
     </tr>
-    <tr>
-      <td>Component ID of interactive UI elements</td>
-      <td>An ID string of an interactive element (e.g. button, switch, link, input field) in the UI. A log is generated upon clicking, typing, or otherwise interacting with such elements. A comprehensive list of component ID values can be found by [this search query](https://github.com/search?q=repo%3Amlflow%2Fmlflow%20componentId%3D&type=code).</td>
-      <td>`mlflow.prompts.list.create` (identifier for the "Create prompt" button on the prompts page)</td>
-      <td>To understand the usage patterns of different UI pages and features</td>
-    </tr>
-    <tr>
-      <td>Metadata associated with UI interactions</td>
-      <td>See [below table](#ui-interaction-metadata) for metadata associated with UI interaction logs.</td>
-      <td>`{ "isRemote": true, "browserFamily": "Chrome", "isMobile": false, "eventType": "onClick", "componentViewId": "88fc9edd-5e9e-4a17-abd2-c543f505b8eb", "componentId": "mlflow.prompts.list.create", "componentType": "button", timestamp_ns: 1765784028467000000 }`</td>
-      <td>To understand UI usage patterns in greater depth, and to inform prioritization of different platforms, browsers, and user flows.</td>
-    </tr>
   </tbody>
 </Table>
 
@@ -274,6 +262,11 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>Command key and invocation context (cli or mcp)</td>
       <td>`{"command_key": "genai/analyze_experiment", "context": "cli"}`</td>
     </tr>
+    <tr>
+      <td>ui_event</td>
+      <td>A UI interaction event. See the [below table](#ui-interaction-metadata) for a description on the various metadata elements</td>
+      <td>`{ "browserFamily": "Chrome", "isMobile": false, "eventType": "onClick", "componentViewId": "88fc9edd-5e9e-4a17-abd2-c543f505b8eb", "componentId": "mlflow.prompts.list.create", "componentType": "button", timestamp_ns: 1765784028467000000 }`</td>
+    </tr>
   </tbody>
 </Table>
 
@@ -290,6 +283,11 @@ This table describes a list of metadata that may be collected together with a gi
     </tr>
   </thead>
   <tbody>
+    <tr>
+      <td>Component ID of interactive UI elements</td>
+      <td>An ID string of an interactive element (e.g. button, switch, link, input field) in the UI. A log is generated upon clicking, typing, or otherwise interacting with such elements. A comprehensive list of component ID values can be found by [this search query](https://github.com/search?q=repo%3Amlflow%2Fmlflow%20componentId%3D&type=code).</td>
+      <td>`mlflow.prompts.list.create` (identifier for the "Create prompt" button on the prompts page)</td>
+    </tr>
     <tr>
       <td>Browser family</td>
       <td>An enumerated string describing the browser family</td>
@@ -385,9 +383,7 @@ assert get_telemetry_client() is None, "Telemetry is enabled"
 
 ### How to opt-out for your organization?
 
-Organizations can disable telemetry by blocking network access to `https://config.mlflow-telemetry.io`. When this endpoint is unreachable, MLflow automatically disables telemetry for the SDK.
-
-To opt out of UI telemetry, you can block network access to `https://d139nb52glx00z.cloudfront.net` from the MLflow server. Similar to above, if this endpoint is unreachable, UI telemetry will be disabled.
+Aside from setting the environment variables described above, organizations can additionally opt out of telemetry by blocking network access to the `mlflow-telemetry.io` domain. When this domain is unreachable, telemetry will be disabled.
 
 ### Opting out of UI telemetry
 
