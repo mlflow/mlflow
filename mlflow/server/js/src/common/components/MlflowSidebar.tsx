@@ -2,6 +2,7 @@ import {
   BeakerIcon,
   Button,
   DropdownMenu,
+  GearIcon,
   HomeIcon,
   ModelsIcon,
   PlusIcon,
@@ -24,11 +25,12 @@ import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 
 const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
-
 const isExperimentsActive = (location: Location) =>
   matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
 const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
+const isGatewayActive = (location: Location) => matchPath('/gateway/*', location.pathname);
+const isSettingsActive = (location: Location) => matchPath('/settings/*', location.pathname);
 
 export function MlflowSidebar() {
   const location = useLocation();
@@ -145,7 +147,7 @@ export function MlflowSidebar() {
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
-      <nav>
+      <nav css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
         <ul
           css={{
             listStyleType: 'none',
@@ -168,6 +170,7 @@ export function MlflowSidebar() {
                   borderRadius: theme.borders.borderRadiusSm,
                   '&:hover': {
                     color: theme.colors.actionLinkHover,
+                    backgroundColor: theme.colors.actionDefaultBackgroundHover,
                   },
                   '&[aria-current="page"]': {
                     backgroundColor: theme.colors.actionDefaultBackgroundPress,
@@ -182,6 +185,31 @@ export function MlflowSidebar() {
             </li>
           ))}
         </ul>
+        <Link
+          to={ExperimentTrackingRoutes.settingsPageRoute}
+          aria-current={isSettingsActive(location) ? 'page' : undefined}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            color: theme.colors.textPrimary,
+            paddingInline: theme.spacing.md,
+            paddingBlock: theme.spacing.sm,
+            borderRadius: theme.borders.borderRadiusSm,
+            '&:hover': {
+              color: theme.colors.actionLinkHover,
+              backgroundColor: theme.colors.actionDefaultBackgroundHover,
+            },
+            '&[aria-current="page"]': {
+              backgroundColor: theme.colors.actionDefaultBackgroundPress,
+              color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+              fontWeight: theme.typography.typographyBoldFontWeight,
+            },
+          }}
+        >
+          <GearIcon />
+          <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
+        </Link>
       </nav>
 
       <CreateExperimentModal

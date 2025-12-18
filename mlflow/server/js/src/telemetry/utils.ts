@@ -7,6 +7,8 @@ export const TELEMETRY_ENABLED_STORAGE_KEY = 'mlflow.settings.telemetry.enabled'
 
 export const TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_KEY = 'mlflow.telemetry.info.alert.dismissed';
 
+export const TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_VERSION = 1;
+
 export const isDesignSystemEvent = (event: any): event is DesignSystemObservabilityEvent => {
   if (!event || !isObject(event) || Array.isArray(event)) {
     return false;
