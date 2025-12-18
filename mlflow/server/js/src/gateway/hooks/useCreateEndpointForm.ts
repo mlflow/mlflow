@@ -2,14 +2,17 @@ import { useForm } from 'react-hook-form';
 import { useCallback } from 'react';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import { useEndpointsQuery } from './useEndpointsQuery';
+import { useModelsQuery } from './useModelsQuery';
 import { getReadableErrorMessage } from '../utils/errorUtils';
 import GatewayRoutes from '../routes';
+import type { Model } from '../types';
 
 export { getReadableErrorMessage };
 
 export interface CreateEndpointFormData {
   name: string;
   provider: string;
+  modelName: string;
 }
 
 export interface UseCreateEndpointFormResult {
@@ -18,6 +21,7 @@ export interface UseCreateEndpointFormResult {
   error: Error | null;
   resetErrors: () => void;
   existingEndpoints: ReturnType<typeof useEndpointsQuery>['data'];
+  selectedModel: Model | undefined;
   isFormComplete: boolean;
   handleSubmit: (values: CreateEndpointFormData) => Promise<void>;
   handleCancel: () => void;
@@ -31,6 +35,7 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     defaultValues: {
       name: '',
       provider: '',
+      modelName: '',
     },
   });
 
@@ -49,8 +54,12 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
 
   const provider = form.watch('provider');
   const name = form.watch('name');
+  const modelName = form.watch('modelName');
 
   const { data: existingEndpoints } = useEndpointsQuery();
+
+  const { data: models } = useModelsQuery({ provider: provider || undefined });
+  const selectedModel = models?.find((m) => m.model === modelName);
 
   const handleNameBlur = () => {
     const currentName = form.getValues('name');
@@ -62,7 +71,7 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     }
   };
 
-  const isFormComplete = Boolean(provider) && Boolean(name);
+  const isFormComplete = Boolean(provider) && Boolean(modelName);
 
   return {
     form,
@@ -70,6 +79,7 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     error: null,
     resetErrors,
     existingEndpoints,
+    selectedModel,
     isFormComplete,
     handleSubmit,
     handleCancel,

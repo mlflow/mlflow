@@ -11,8 +11,17 @@ import GatewayRoutes from '../routes';
 
 const CreateEndpointPage = () => {
   const { theme } = useDesignSystemTheme();
-  const { form, isLoading, error, resetErrors, isFormComplete, handleSubmit, handleCancel, handleNameBlur } =
-    useCreateEndpointForm();
+  const {
+    form,
+    isLoading,
+    error,
+    resetErrors,
+    selectedModel,
+    isFormComplete,
+    handleSubmit,
+    handleCancel,
+    handleNameBlur,
+  } = useCreateEndpointForm();
 
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -46,6 +55,7 @@ const CreateEndpointPage = () => {
           error={error}
           errorMessage={getReadableErrorMessage(error)}
           resetErrors={resetErrors}
+          selectedModel={selectedModel}
           isFormComplete={isFormComplete}
           onSubmit={handleSubmit}
           onCancel={handleCancel}

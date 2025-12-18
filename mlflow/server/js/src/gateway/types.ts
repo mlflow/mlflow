@@ -6,6 +6,15 @@ export interface Model {
   model: string;
   provider: string;
   supports_function_calling: boolean;
+  supports_vision?: boolean;
+  supports_reasoning?: boolean;
+  supports_prompt_caching?: boolean;
+  supports_response_schema?: boolean;
+  max_input_tokens?: number;
+  max_output_tokens?: number;
+  input_cost_per_token?: number;
+  output_cost_per_token?: number;
+  deprecation_date?: string;
 }
 
 export interface SecretField {
