@@ -14,6 +14,7 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.cli import start
+from mlflow.utils.os import is_windows
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer
@@ -860,6 +861,7 @@ def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
     validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
 
 
+@pytest.mark.skipif(is_windows(), reason="Windows does not support gateway start")
 def test_gateway_start(tmp_path, mock_requests, mock_telemetry_client: TelemetryClient):
     config = tmp_path.joinpath("config.yml")
     config.write_text(
