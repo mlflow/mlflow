@@ -345,19 +345,22 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         self.anthropic_config: AnthropicConfig = config.model.config
 
     @property
-    def headers(self) -> dict[str, str]:
-        return {
-            "x-api-key": self.anthropic_config.anthropic_api_key,
-            "anthropic-version": self.anthropic_config.anthropic_version,
-        }
-
-    @property
     def base_url(self) -> str:
         return "https://api.anthropic.com/v1"
 
     @property
     def adapter_class(self) -> type[ProviderAdapter]:
         return AnthropicAdapter
+
+    def _get_headers(self, payload: dict[str, Any]) -> dict[str, str]:
+        headers = {
+            "x-api-key": self.anthropic_config.anthropic_api_key,
+            "anthropic-version": self.anthropic_config.anthropic_version,
+        }
+        # Add beta header for structured outputs if output_format is present
+        if payload.get("output_format") and payload["output_format"].get("type") == "json_schema":
+            headers["anthropic-beta"] = "structured-outputs-2025-11-13"
+        return headers
 
     def get_endpoint_url(self, route_type: str) -> str:
         if route_type == "llm/v1/chat":
@@ -374,20 +377,15 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+        payload = AnthropicAdapter.chat_streaming_to_model(payload, self.config)
 
-        # Add beta header for structured outputs if response_format is present
-        headers = self.headers.copy()
-        if (
-            payload.get("response_format")
-            and payload["response_format"].get("type") == "json_schema"
-        ):
-            headers["anthropic-beta"] = "structured-outputs-2025-11-13"
+        headers = self._get_headers(payload)
 
         stream = send_stream_request(
             headers=headers,
             base_url=self.base_url,
             path="messages",
-            payload=AnthropicAdapter.chat_streaming_to_model(payload, self.config),
+            payload=payload,
         )
 
         indices = []
@@ -437,20 +435,15 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+        payload = AnthropicAdapter.chat_to_model(payload, self.config)
 
-        # Add beta header for structured outputs if response_format is present
-        headers = self.headers.copy()
-        if (
-            payload.get("response_format")
-            and payload["response_format"].get("type") == "json_schema"
-        ):
-            headers["anthropic-beta"] = "structured-outputs-2025-11-13"
+        headers = self._get_headers(payload)
 
         resp = await send_request(
             headers=headers,
             base_url=self.base_url,
             path="messages",
-            payload=AnthropicAdapter.chat_to_model(payload, self.config),
+            payload=payload,
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)
 
@@ -461,7 +454,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         self.check_for_model_field(payload)
 
         resp = await send_request(
-            headers=self.headers,
+            headers=self._get_headers(payload),
             base_url=self.base_url,
             path="complete",
             payload=AnthropicAdapter.completions_to_model(payload, self.config),
@@ -491,16 +484,18 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         # Add model name from config
         payload["model"] = self.config.model.name
 
+        headers = self._get_headers(payload)
+
         if payload.get("stream"):
             return send_stream_request(
-                headers=self.headers,
+                headers=headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
         else:
             return await send_request(
-                headers=self.headers,
+                headers=headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,

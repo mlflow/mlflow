@@ -16,7 +16,7 @@ from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
 
 
 def completions_response():
@@ -866,9 +866,14 @@ async def test_chat_with_structured_output():
         "usage": {"input_tokens": 10, "output_tokens": 25},
     }
 
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
         provider = AnthropicProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "Extract user info"}],
@@ -883,8 +888,12 @@ async def test_chat_with_structured_output():
         )
         assert response.choices[0].finish_reason == "stop"
 
-        call_kwargs = mock_post.call_args[1]
+        call_kwargs = mock_session_client.post.call_args[1]
         assert call_kwargs["json"]["output_format"] == {
             "type": "json_schema",
             "schema": json_schema,
         }
+
+        assert captured_session_headers["x-api-key"] == "key"
+        assert captured_session_headers["anthropic-version"] == "2023-06-01"
+        assert captured_session_headers["anthropic-beta"] == "structured-outputs-2025-11-13"
