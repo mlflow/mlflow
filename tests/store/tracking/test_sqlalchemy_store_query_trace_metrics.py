@@ -13,6 +13,7 @@ from mlflow.entities import (
     Feedback,
     trace_location,
 )
+from mlflow.entities.assessment import AssessmentError
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
@@ -2336,4 +2337,53 @@ def test_query_assessment_invalid_values(store: SqlAlchemyStore, assessment_type
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
         "dimensions": {"assessment_name": "string_score"},
         "values": {"AVG": None},
+    }
+
+
+def test_query_assessment_value_with_null_value(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_value_null_value")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessment = Feedback(
+        trace_id=trace_id,
+        name="score",
+        value=None,
+        error=AssessmentError(
+            error_message="Null value",
+            error_code="NULL_VALUE",
+        ),
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"),
+    )
+    store.create_assessment(assessment)
+    assessment = Feedback(
+        trace_id=trace_id,
+        name="score",
+        value=12.34,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"),
+    )
+    store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=["assessment_name"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "score"},
+        "values": {"AVG": 12.34},
     }

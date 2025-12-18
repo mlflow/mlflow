@@ -207,7 +207,8 @@ def _get_assessment_numeric_value_column(json_column: Column) -> Column:
     return case(
         (json_column == "true", 1.0),
         (json_column == "false", 0.0),
-        # Skip strings, lists, and dicts (JSON objects/arrays)
+        # Skip null, strings, lists, and dicts (JSON null/objects/arrays)
+        (json_column == "null", None),
         (func.substring(json_column, 1, 1).in_(['"', "[", "{"]), None),
         # For numbers, cast to float
         else_=func.cast(json_column, sqlalchemy.Float),
