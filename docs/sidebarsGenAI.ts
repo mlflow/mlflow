@@ -47,29 +47,98 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'How to Trace Your App/Agents',
+          label: 'Guides',
           items: [
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/automatic',
+              type: 'category',
+              label: 'Trace Your App & Agents',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/automatic',
+                  label: 'Automatic Tracing',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/manual-tracing',
+                  label: 'Manual Tracing',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/opentelemetry',
+                  label: 'Tracing with OpenTelemetry',
+                },
+              ],
             },
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/manual-tracing',
+              type: 'category',
+              label: 'Enhance Your Traces',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/track-users-sessions/index',
+                  label: 'Track Users and Sessions',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/attach-tags/index',
+                  label: 'Tag Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/collect-user-feedback/index',
+                  label: 'Collect User Feedback',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/masking',
+                  label: 'Redact Sensitive Data',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/track-environments-context/index',
+                  label: 'Track Application Versions',
+                },
+              ],
             },
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/typescript-sdk',
+              type: 'category',
+              label: 'View & Manage Traces',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/ui',
+                  label: 'View Traces in the UI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/search-traces',
+                  label: 'Search Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/delete-traces',
+                  label: 'Delete Traces',
+                },
+              ],
             },
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/opentelemetry',
+              type: 'category',
+              label: 'Deploy to Production',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/lightweight-sdk',
+                  label: 'Use Lightweight SDK',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/prod-tracing',
+                  label: 'Production Monitoring',
+                },
+              ],
             },
           ],
-          link: {
-            type: 'doc',
-            id: 'tracing/app-instrumentation/index',
-          },
         },
         {
           type: 'category',
@@ -266,62 +335,6 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Guides',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/track-users-sessions/index',
-              label: 'Track Users and Sessions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/collect-user-feedback/index',
-              label: 'User Feedback Collection',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/attach-tags/index',
-              label: 'Tagging Traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/delete-traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/track-environments-context/index',
-              label: 'Track Application Versions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/masking',
-              label: 'Redacting Sensitive Data',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/lightweight-sdk',
-              label: 'Lightweight Tracing SDK',
-            },
-          ],
-        },
-
-        {
-          type: 'category',
-          label: 'Viewing & Searching Traces',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/ui',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/search-traces',
-              label: 'Searching for Traces',
-            },
-          ],
-        },
-        {
-          type: 'category',
           label: 'OpenTelemetry',
           items: [
             {
@@ -341,13 +354,8 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'tracing/prod-tracing',
-          label: 'Production Tracing',
-        },
-        {
-          type: 'doc',
           id: 'tracing/faq',
-          label: 'Tracing FAQ',
+          label: 'FAQ',
         },
       ],
       link: {
@@ -435,6 +443,22 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/agentic-overview',
                   label: 'Agent-as-a-Judge',
+                },
+                {
+                  type: 'category',
+                  label: 'Third-party Scorers',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/deepeval',
+                      label: 'DeepEval',
+                    },
+                  ],
+                  collapsed: false,
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/third-party/index',
+                  },
                 },
                 {
                   type: 'doc',
@@ -658,56 +682,6 @@ const sidebarsGenAI: SidebarsConfig = {
       label: 'Packaging & Deployment',
       className: 'sidebar-top-level-category',
       items: [
-        {
-          type: 'category',
-          label: 'OpenAI',
-          items: [
-            {
-              type: 'doc',
-              id: 'flavors/openai/guide/index',
-              label: 'Guide',
-            },
-            {
-              type: 'doc',
-              id: 'flavors/openai/autologging/index',
-              label: 'Autologging Support',
-            },
-            {
-              type: 'category',
-              label: 'Tutorials',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
-                  label: 'OpenAI Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
-                  label: 'Chat Completions with OpenAI',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
-                  label: 'Building a Code Assistant with OpenAI & MLflow',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
-                  label: 'Embeddings Support with OpenAI in MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/openai/notebooks/index',
-              },
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/openai/index',
-          },
-        },
         {
           type: 'category',
           label: 'DSPy',

@@ -57,10 +57,16 @@ export const SingleChatTurnAssessments = ({
                 css={{ maxWidth: 150 }}
                 skipIcons
                 overrideColor="default"
+                assessmentName={assessment.assessment_name}
               />
             ) : (
               <>
-                {title}: <AssessmentDisplayValue jsonValue={value} css={{ maxWidth: 150 }} />
+                {title}:{' '}
+                <AssessmentDisplayValue
+                  jsonValue={value}
+                  css={{ maxWidth: 150 }}
+                  assessmentName={assessment.assessment_name}
+                />
               </>
             )}
           </div>

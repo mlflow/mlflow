@@ -1,7 +1,9 @@
+import inspect
 import sys
 from enum import Enum
 from typing import Any
 
+from mlflow.entities import Feedback
 from mlflow.telemetry.constant import GENAI_MODULES, MODULES_TO_CHECK_IMPORT
 
 
@@ -84,6 +86,13 @@ class GenAIEvaluateEvent(Event):
         # Track if predict_fn is provided
         record_params["predict_fn_provided"] = arguments.get("predict_fn") is not None
 
+        # Track eval data type
+        eval_data = arguments.get("data")
+        if eval_data is not None:
+            from mlflow.genai.evaluation.utils import _get_eval_data_type
+
+            record_params.update(_get_eval_data_type(eval_data))
+
         # Track scorer information
         scorers = arguments.get("scorers") or []
         scorer_info = [
@@ -102,6 +111,15 @@ class GenAIEvaluateEvent(Event):
         record_params["scorer_info"] = scorer_info
 
         return record_params
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        _, telemetry_data = result
+
+        if not isinstance(telemetry_data, dict):
+            return None
+
+        return telemetry_data
 
 
 class CreateLoggedModelEvent(Event):
@@ -353,3 +371,47 @@ class TraceSource(str, Enum):
 
 class TracesReceivedByServerEvent(Event):
     name: str = "traces_received_by_server"
+
+
+class ScorerCallEvent(Event):
+    name: str = "scorer_call"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.genai.scorers.base import Scorer
+        from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+
+        scorer_instance = arguments.get("self")
+        if not isinstance(scorer_instance, Scorer):
+            return None
+
+        callsite = "direct_scorer_call"
+        for frame_info in inspect.stack()[:10]:
+            frame_filename = frame_info.filename
+            frame_function = frame_info.function
+
+            if "mlflow/genai/scorers/base" in frame_filename.replace("\\", "/"):
+                if frame_function == "run":
+                    callsite = "genai.evaluate"
+                    break
+
+        return {
+            "scorer_class": (
+                type(scorer_instance).__name__
+                if isinstance(scorer_instance, BuiltInScorer)
+                else "UserDefinedScorer"
+            ),
+            "scorer_kind": scorer_instance.kind.value,
+            "is_session_level_scorer": scorer_instance.is_session_level_scorer,
+            "callsite": callsite,
+        }
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        if isinstance(result, Feedback):
+            return {"has_feedback_error": result.error is not None}
+
+        if isinstance(result, list) and result and all(isinstance(f, Feedback) for f in result):
+            return {"has_feedback_error": any(f.error is not None for f in result)}
+
+        return {"has_feedback_error": False}

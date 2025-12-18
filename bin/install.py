@@ -5,14 +5,17 @@ Install binary tools for MLflow development.
 # ruff: noqa: T201
 import argparse
 import gzip
+import http.client
 import json
 import platform
 import subprocess
 import tarfile
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from urllib.error import HTTPError
 
 INSTALLED_VERSIONS_FILE = ".installed_versions.json"
 
@@ -161,11 +164,27 @@ def get_platform_key() -> PlatformKey | None:
     return None
 
 
+def urlopen_with_retry(
+    url: str, max_retries: int = 5, base_delay: float = 1.0
+) -> http.client.HTTPResponse:
+    """Open a URL with retry logic for transient HTTP errors (e.g., 503)."""
+    for attempt in range(max_retries):
+        try:
+            return urllib.request.urlopen(url)
+        except HTTPError as e:
+            if e.code in (502, 503, 504) and attempt < max_retries - 1:
+                delay = base_delay * (2**attempt)
+                print(f"  HTTP {e.code}, retrying in {delay}s... ({attempt + 1}/{max_retries})")
+                time.sleep(delay)
+            else:
+                raise
+
+
 def extract_gzip_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
     print(f"Downloading from {url}")
     output_path = dest_dir / binary_name
 
-    with urllib.request.urlopen(url) as response:
+    with urlopen_with_retry(url) as response:
         with gzip.open(response, "rb") as gz:
             output_path.write_bytes(gz.read())
 
@@ -176,7 +195,7 @@ def extract_tar_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
     print(f"Downloading from {url}...")
     output_path = dest_dir / binary_name
     with (
-        urllib.request.urlopen(url) as response,
+        urlopen_with_retry(url) as response,
         tarfile.open(fileobj=response, mode="r|*") as tar,
     ):
         # Find and extract only the binary file we need
@@ -195,7 +214,7 @@ def download_binary_from_url(url: str, dest_dir: Path, binary_name: str) -> Path
     print(f"Downloading from {url}...")
     output_path = dest_dir / binary_name
 
-    with urllib.request.urlopen(url) as response:
+    with urlopen_with_retry(url) as response:
         output_path.write_bytes(response.read())
 
     return output_path

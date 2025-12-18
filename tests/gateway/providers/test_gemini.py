@@ -5,6 +5,7 @@ from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -1019,3 +1020,90 @@ async def test_gemini_completions_stream(resp):
         json=mock.ANY,
         timeout=mock.ANY,
     )
+
+
+def passthrough_generate_content_response():
+    return {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "Hello! How can I assist you today?"}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 5,
+            "candidatesTokenCount": 10,
+            "totalTokenCount": 15,
+        },
+    }
+
+
+def passthrough_stream_generate_content_response():
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}],"role":"model"}}]}\n\n',
+        b'data: {"candidates":[{"content":{"parts":[{"text":"!"}],"role":"model"}}]}\n\n',
+        b'data: {"candidates":[{"content":{"parts":[{"text":" How can I help you?"}],"role":"model"},"finishReason":"STOP"}]}\n\n',  # noqa: E501
+    ]
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_generate_content():
+    resp = passthrough_generate_content_response()
+    config = chat_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = GeminiProvider(EndpointConfig(**config))
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": "Hello"}],
+                }
+            ]
+        }
+        response = await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, payload)
+
+        assert response == resp
+
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        assert "gemini-2.0-flash:generateContent" in call_args[0][0]
+        assert call_args[1]["json"]["contents"] == [{"role": "user", "parts": [{"text": "Hello"}]}]
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_stream_generate_content():
+    resp = passthrough_stream_generate_content_response()
+    config = chat_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+    ) as mock_post:
+        provider = GeminiProvider(EndpointConfig(**config))
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": "Hello"}],
+                }
+            ]
+        }
+        response = await provider.passthrough(
+            PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload
+        )
+
+        chunks = [chunk async for chunk in response]
+
+        assert len(chunks) == 3
+        assert b"Hello" in chunks[0]
+        assert b"!" in chunks[1]
+        assert b"How can I help you?" in chunks[2]
+        assert b"STOP" in chunks[2]
+
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        assert "gemini-2.0-flash:streamGenerateContent?alt=sse" in call_args[0][0]
+        assert call_args[1]["json"]["contents"] == [{"role": "user", "parts": [{"text": "Hello"}]}]

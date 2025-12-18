@@ -25,6 +25,7 @@ from mlflow.entities.gateway_endpoint import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewayResourceType,
 )
@@ -132,6 +133,7 @@ __all__ = [
     "GatewayEndpoint",
     "GatewayEndpointBinding",
     "GatewayEndpointModelMapping",
+    "GatewayEndpointTag",
     "GatewayModelDefinition",
     "GatewayResourceType",
     "GatewaySecretInfo",

@@ -1,13 +1,14 @@
 import json
 import logging
 import math
-from concurrent.futures import Future, as_completed
 from typing import TYPE_CHECKING, Any, Collection
 
 from mlflow.entities import Assessment, Trace, TraceData
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
 from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
 )
@@ -24,7 +25,6 @@ except ImportError:
 if TYPE_CHECKING:
     from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
-    from mlflow.genai.evaluation.entities import EvalResult
 
     try:
         import pyspark.sql.dataframe
@@ -55,14 +55,45 @@ PGBAR_FORMAT = (
 )
 
 
+def _get_eval_data_type(data: "EvaluationDatasetTypes") -> dict[str, Any]:
+    data_type = type(data)
+
+    if data_type is list:
+        if len(data) > 0 and all(isinstance(item, Trace) for item in data):
+            return {"eval_data_type": "list[Trace]"}
+        return {"eval_data_type": "list[dict]"}
+
+    if data_type is EntityEvaluationDataset:
+        return {"eval_data_type": "EntityEvaluationDataset"}
+    if data_type is ManagedEvaluationDataset:
+        return {"eval_data_type": "EvaluationDataset"}
+
+    module = data_type.__module__
+    qualname = data_type.__qualname__
+
+    if qualname == "DataFrame":
+        if module.startswith("pandas"):
+            return {"eval_data_type": "pd.DataFrame"}
+        if module.startswith("pyspark"):
+            return {"eval_data_type": "pyspark.sql.DataFrame"}
+
+    return "unknown"
+
+
+def _get_eval_data_size_and_fields(df: "pd.DataFrame") -> dict[str, Any]:
+    input_columns = set(df.columns.tolist())
+    relevant_fields = {"inputs", "outputs", "trace", "expectations"}
+    return {
+        "eval_data_size": len(df),
+        "eval_data_provided_fields": sorted(input_columns & relevant_fields),
+    }
+
+
 def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
     Takes in a dataset in the format that `mlflow.genai.evaluate()` expects and
     converts it into a pandas DataFrame.
     """
-    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
-    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
-
     if isinstance(data, list):
         if all(isinstance(item, Trace) for item in data):
             data = traces_to_df(data)
@@ -410,25 +441,3 @@ def validate_tags(tags: Any) -> None:
 
     if errors:
         raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
-
-
-def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:
-    """Wraps the as_completed function with a progress bar."""
-    futures_as_completed = as_completed(futures)
-
-    try:
-        from tqdm.auto import tqdm
-
-        futures_as_completed = tqdm(
-            futures_as_completed,
-            total=len(futures),
-            disable=False,
-            desc="Evaluating",
-            smoothing=0,  # 0 means using average speed for remaining time estimates
-            bar_format=PGBAR_FORMAT,
-        )
-    except ImportError:
-        # If tqdm is not installed, we don't show a progress bar
-        pass
-
-    return [future.result() for future in futures_as_completed]

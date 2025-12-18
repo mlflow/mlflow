@@ -17,6 +17,7 @@ import {
   USER_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   TOKENS_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
 } from './hooks/useTableColumns';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
@@ -155,6 +156,8 @@ export const getTraceInfoValueWithColId = (traceInfo: ModelTraceInfoV3, colId: s
       return traceInfo.trace_id;
     case SESSION_COLUMN_ID:
       return traceInfo.tags?.['mlflow.trace.session'];
+    case LINKED_PROMPTS_COLUMN_ID:
+      return traceInfo.tags?.['mlflow.linkedPrompts'];
     default:
       throw new Error(`Unknown column id: ${colId}`);
   }

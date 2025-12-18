@@ -13,6 +13,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     _invoke_litellm,
+    _remove_oldest_tool_call_pair,
 )
 from mlflow.types.llm import ChatMessage
 
@@ -40,7 +41,7 @@ def test_invoke_litellm_basic():
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         result = _invoke_litellm(
-            litellm_model_uri="openai/gpt-4",
+            litellm_model="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
             num_retries=5,
@@ -57,6 +58,8 @@ def test_invoke_litellm_basic():
     assert call_kwargs["max_retries"] == 0
     assert call_kwargs["drop_params"] is True
     assert "response_format" not in call_kwargs
+    assert "api_base" not in call_kwargs
+    assert "api_key" not in call_kwargs
 
 
 def test_invoke_litellm_with_tools():
@@ -65,7 +68,7 @@ def test_invoke_litellm_with_tools():
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         result = _invoke_litellm(
-            litellm_model_uri="openai/gpt-4",
+            litellm_model="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=tools,
             num_retries=3,
@@ -87,7 +90,7 @@ def test_invoke_litellm_with_response_format():
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         result = _invoke_litellm(
-            litellm_model_uri="openai/gpt-4",
+            litellm_model="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
             num_retries=3,
@@ -110,7 +113,7 @@ def test_invoke_litellm_exception_propagation():
     ):
         with pytest.raises(litellm.RateLimitError, match="Rate limit exceeded"):
             _invoke_litellm(
-                litellm_model_uri="openai/gpt-4",
+                litellm_model="openai/gpt-4",
                 messages=[litellm.Message(role="user", content="Test")],
                 tools=[],
                 num_retries=3,
@@ -124,7 +127,7 @@ def test_invoke_litellm_retry_policy_configured():
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         _invoke_litellm(
-            litellm_model_uri="openai/gpt-4",
+            litellm_model="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
             num_retries=7,
@@ -142,19 +145,41 @@ def test_invoke_litellm_retry_policy_configured():
     assert retry_policy.AuthenticationErrorRetries == 0
 
 
-def test_invoke_litellm_and_handle_tools_with_context_window_exceeded(mock_trace):
+def test_invoke_litellm_with_gateway_params():
+    mock_response = ModelResponse(choices=[{"message": {"content": '{"result": "yes"}'}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        _invoke_litellm(
+            litellm_model="my-endpoint",
+            messages=[litellm.Message(role="user", content="Test")],
+            tools=[],
+            num_retries=3,
+            response_format=None,
+            include_response_format=False,
+            api_base="http://localhost:5000/gateway/mlflow/v1/",
+            api_key="mlflow-gateway-auth",
+        )
+
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["model"] == "my-endpoint"
+    assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
+    assert call_kwargs["api_key"] == "mlflow-gateway-auth"
+
+
+def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_provider(mock_trace):
+    # For direct providers (non-gateway), use token-counting based pruning
     context_error = litellm.ContextWindowExceededError(
         message="Context window exceeded", model="openai/gpt-4", llm_provider="openai"
     )
 
-    pruned_response = ModelResponse(
+    success_response = ModelResponse(
         choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
     )
 
     with (
         mock.patch(
             "litellm.completion",
-            side_effect=[context_error, pruned_response],
+            side_effect=[context_error, success_response],
         ) as mock_litellm,
         mock.patch(
             "mlflow.genai.judges.adapters.litellm_adapter._prune_messages_exceeding_context_window_length"
@@ -177,6 +202,77 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded(mock_trace
     mock_prune.assert_called_once()
     assert result == '{"result": "yes", "rationale": "OK"}'
     assert cost is None
+
+
+def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_provider():
+    # For gateway provider, use DSPy-style reactive truncation
+    context_error = litellm.ContextWindowExceededError(
+        message="Context window exceeded", model="my-endpoint", llm_provider="openai"
+    )
+
+    success_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    with (
+        mock.patch(
+            "litellm.completion",
+            side_effect=[context_error, success_response],
+        ) as mock_litellm,
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._remove_oldest_tool_call_pair"
+        ) as mock_truncate,
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
+    ):
+        mock_truncate.return_value = [litellm.Message(role="user", content="Truncated")]
+
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        result, cost = _invoke_litellm_and_handle_tools(
+            provider="gateway",
+            model_name="my-endpoint",
+            messages=[ChatMessage(role="user", content="Very long message" * 100)],
+            trace=None,
+            num_retries=3,
+        )
+
+    assert mock_litellm.call_count == 2
+    mock_truncate.assert_called_once()
+    assert result == '{"result": "yes", "rationale": "OK"}'
+    assert cost is None
+
+
+def test_invoke_litellm_and_handle_tools_gateway_context_window_no_tool_calls_to_truncate():
+    # For gateway provider, when there are no tool calls to truncate, raise an error
+    context_error = litellm.ContextWindowExceededError(
+        message="Context window exceeded", model="my-endpoint", llm_provider="openai"
+    )
+
+    with (
+        mock.patch("litellm.completion", side_effect=context_error),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._remove_oldest_tool_call_pair",
+            return_value=None,  # No tool calls to truncate
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
+    ):
+        from mlflow.exceptions import MlflowException
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        with pytest.raises(MlflowException, match="no tool calls to truncate"):
+            _invoke_litellm_and_handle_tools(
+                provider="gateway",
+                model_name="my-endpoint",
+                messages=[ChatMessage(role="user", content="Very long message")],
+                trace=None,
+                num_retries=3,
+            )
 
 
 def test_invoke_litellm_and_handle_tools_integration(mock_trace):
@@ -232,3 +328,136 @@ def test_invoke_litellm_and_handle_tools_integration(mock_trace):
     assert second_call_messages[1].role == "assistant"
     assert second_call_messages[2].role == "tool"
     assert "trace_data" in second_call_messages[2].content
+
+
+def test_gateway_provider_integration():
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "Good"}'}}]
+    )
+
+    with (
+        mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
+        mock.patch("mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri") as mock_get_uri,
+    ):
+        mock_get_uri.return_value = "http://localhost:5000"
+
+        from mlflow.genai.judges.adapters.litellm_adapter import (
+            _invoke_litellm_and_handle_tools,
+        )
+
+        result, cost = _invoke_litellm_and_handle_tools(
+            provider="gateway",
+            model_name="my-endpoint",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+        )
+
+    assert result == '{"result": "yes", "rationale": "Good"}'
+
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["model"] == "openai/my-endpoint"
+    assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
+    assert call_kwargs["api_key"] == "mlflow-gateway-auth"
+
+
+def test_gateway_provider_requires_http_tracking_uri():
+    from mlflow.exceptions import MlflowException
+    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri", return_value="databricks"
+    ):
+        with pytest.raises(MlflowException, match="Gateway provider requires an HTTP"):
+            _invoke_litellm_and_handle_tools(
+                provider="gateway",
+                model_name="my-endpoint",
+                messages=[ChatMessage(role="user", content="Test")],
+                trace=None,
+                num_retries=3,
+            )
+
+
+def test_remove_oldest_tool_call_pair_removes_oldest():
+    messages = [
+        litellm.Message(role="user", content="Hello"),
+        litellm.Message(
+            role="assistant",
+            content=None,
+            tool_calls=[{"id": "call_1", "function": {"name": "tool1", "arguments": "{}"}}],
+        ),
+        litellm.Message(role="tool", content="Result 1", tool_call_id="call_1"),
+        litellm.Message(
+            role="assistant",
+            content=None,
+            tool_calls=[{"id": "call_2", "function": {"name": "tool2", "arguments": "{}"}}],
+        ),
+        litellm.Message(role="tool", content="Result 2", tool_call_id="call_2"),
+    ]
+
+    result = _remove_oldest_tool_call_pair(messages)
+
+    assert result is not None
+    assert len(result) == 3
+    assert result[0].role == "user"
+    assert result[1].role == "assistant"
+    assert result[1].tool_calls[0]["id"] == "call_2"
+    assert result[2].role == "tool"
+    assert result[2].tool_call_id == "call_2"
+
+
+def test_remove_oldest_tool_call_pair_returns_none_when_no_tool_calls():
+    messages = [
+        litellm.Message(role="user", content="Hello"),
+        litellm.Message(role="assistant", content="Hi there!"),
+    ]
+
+    result = _remove_oldest_tool_call_pair(messages)
+
+    assert result is None
+
+
+def test_remove_oldest_tool_call_pair_handles_multiple_tool_calls_in_single_message():
+    messages = [
+        litellm.Message(role="user", content="Hello"),
+        litellm.Message(
+            role="assistant",
+            content=None,
+            tool_calls=[
+                {"id": "call_1", "function": {"name": "tool1", "arguments": "{}"}},
+                {"id": "call_2", "function": {"name": "tool2", "arguments": "{}"}},
+            ],
+        ),
+        litellm.Message(role="tool", content="Result 1", tool_call_id="call_1"),
+        litellm.Message(role="tool", content="Result 2", tool_call_id="call_2"),
+    ]
+
+    result = _remove_oldest_tool_call_pair(messages)
+
+    assert result is not None
+    assert len(result) == 1
+    assert result[0].role == "user"
+
+
+def test_remove_oldest_tool_call_pair_preserves_non_tool_messages():
+    messages = [
+        litellm.Message(role="system", content="You are helpful"),
+        litellm.Message(role="user", content="Hello"),
+        litellm.Message(
+            role="assistant",
+            content=None,
+            tool_calls=[{"id": "call_1", "function": {"name": "tool1", "arguments": "{}"}}],
+        ),
+        litellm.Message(role="tool", content="Result", tool_call_id="call_1"),
+        litellm.Message(role="user", content="Thanks"),
+    ]
+
+    result = _remove_oldest_tool_call_pair(messages)
+
+    assert result is not None
+    assert len(result) == 3
+    assert result[0].role == "system"
+    assert result[1].role == "user"
+    assert result[1].content == "Hello"
+    assert result[2].role == "user"
+    assert result[2].content == "Thanks"

@@ -23,6 +23,7 @@ from mlflow.entities.assessment import (
     Expectation,
     Feedback,
 )
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -123,6 +124,7 @@ def mock_invoke_judge_model(monkeypatch):
         num_retries=10,
         response_format=None,
         use_case=None,
+        inference_params=None,
     ):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
@@ -137,6 +139,7 @@ def mock_invoke_judge_model(monkeypatch):
                 "num_retries": num_retries,
                 "response_format": response_format,
                 "use_case": use_case,
+                "inference_params": inference_params,
             }
         )
 
@@ -387,9 +390,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    # For JSON decode errors, parser handles it directly
-    assert isinstance(result.error, str)
-    assert "Invalid JSON response" in result.error
+    # String errors are converted to AssessmentError objects
+    assert isinstance(result.error, AssessmentError)
+    assert "Invalid JSON response" in result.error.error_message
 
     class MockLLMResultMissingField:
         def __init__(self):
@@ -412,9 +415,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    # For missing field errors, error is a plain string
-    assert isinstance(result.error, str)
-    assert "Response missing 'result' field" in result.error
+    # String errors are converted to AssessmentError objects
+    assert isinstance(result.error, AssessmentError)
+    assert "Response missing 'result' field" in result.error.error_message
 
     class MockLLMResultNone:
         def __init__(self):
@@ -434,9 +437,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    # For empty response errors, error is a plain string
-    assert isinstance(result.error, str)
-    assert "Empty response from Databricks judge" in result.error
+    # String errors are converted to AssessmentError objects
+    assert isinstance(result.error, AssessmentError)
+    assert "Empty response from Databricks judge" in result.error.error_message
 
 
 def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
@@ -636,6 +639,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
         num_retries=10,
         response_format=None,
         use_case=None,
+        inference_params=None,
     ):
         captured_args.update(
             {
@@ -646,6 +650,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
                 "num_retries": num_retries,
                 "response_format": response_format,
                 "use_case": use_case,
+                "inference_params": inference_params,
             }
         )
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
@@ -1499,6 +1504,7 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
         num_retries=10,
         response_format=None,
         use_case=None,
+        inference_params=None,
     ):
         nonlocal captured_prompt
         captured_prompt = prompt
@@ -3509,3 +3515,68 @@ def test_response_format_uses_generic_field_description(description):
     output_fields = judge.get_output_fields()
     result_field = next(f for f in output_fields if f.name == "result")
     assert result_field.description == _RESULT_FIELD_DESCRIPTION
+
+
+@pytest.mark.parametrize(
+    "inference_params",
+    [
+        {"temperature": 0.0},
+        {"temperature": 1.0},
+        {"max_tokens": 100},
+        {"top_p": 0.95},
+        {"temperature": 0.5, "max_tokens": 200, "top_p": 0.9},
+    ],
+)
+def test_make_judge_with_inference_params(inference_params):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is formal",
+        model="openai:/gpt-4",
+        inference_params=inference_params,
+    )
+
+    assert judge.inference_params == inference_params
+    assert judge._inference_params == inference_params
+
+    # Verify repr includes inference_params
+    repr_str = repr(judge)
+    assert "inference_params=" in repr_str
+
+    # Verify serialization includes inference_params
+    dumped = judge.model_dump()
+    pydantic_data = dumped["instructions_judge_pydantic_data"]
+    assert pydantic_data["inference_params"] == inference_params
+
+
+def test_make_judge_without_inference_params():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is formal",
+        model="openai:/gpt-4",
+    )
+
+    assert judge.inference_params is None
+    assert judge._inference_params is None
+
+    # Verify repr does not include inference_params
+    repr_str = repr(judge)
+    assert "inference_params" not in repr_str
+
+    # Verify serialization does not include inference_params
+    dumped = judge.model_dump()
+    pydantic_data = dumped["instructions_judge_pydantic_data"]
+    assert "inference_params" not in pydantic_data
+
+
+def test_inference_params_passed_to_invoke_judge_model(mock_invoke_judge_model):
+    inference_params = {"temperature": 0.1}
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        inference_params=inference_params,
+    )
+
+    judge(outputs="test output")
+
+    assert mock_invoke_judge_model.captured_args.get("inference_params") == inference_params

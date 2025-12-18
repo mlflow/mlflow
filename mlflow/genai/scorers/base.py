@@ -12,6 +12,8 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.telemetry.events import ScorerCallEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_databricks_uri
@@ -124,6 +126,23 @@ class Scorer(BaseModel):
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        # Only wrap __call__ if it's defined directly in this class (cls.__dict__),
+        # not inherited from a parent. This prevents wrapping the same method multiple
+        # times in the inheritance chain.
+        if "__call__" in cls.__dict__:
+            original_call = cls.__dict__["__call__"]
+
+            # Check if it's already wrapped to avoid double-wrapping
+            if not hasattr(original_call, "_telemetry_wrapped"):
+                # Wrap the __call__ method with telemetry
+                wrapped_call = record_usage_event(ScorerCallEvent)(original_call)
+                # Mark it as wrapped to prevent double-wrapping
+                wrapped_call._telemetry_wrapped = True
+                setattr(cls, "__call__", wrapped_call)
 
     @property
     def is_session_level_scorer(self) -> bool:

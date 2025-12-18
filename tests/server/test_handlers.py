@@ -137,6 +137,8 @@ from mlflow.server.handlers import (
     catch_mlflow_exception,
     get_endpoints,
     get_trace_artifact_handler,
+    get_ui_telemetry_handler,
+    post_ui_telemetry_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -149,10 +151,12 @@ from mlflow.store.model_registry import (
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.providers import _PROVIDER_BACKEND_AVAILABLE
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
@@ -224,6 +228,19 @@ def mock_evaluation_dataset():
     dataset.to_proto = mock.MagicMock(return_value=proto_dataset)
 
     return dataset
+
+
+@pytest.fixture
+def mock_telemetry_config_cache():
+    with mock.patch("mlflow.server.handlers._telemetry_config_cache", {}) as m:
+        yield m
+
+
+@pytest.fixture
+def bypass_telemetry_env_check(monkeypatch):
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING_TELEMETRY", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
 
 
 def test_health():
@@ -2443,3 +2460,306 @@ def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_s
     # Verify response was created (200 status)
     assert response is not None
     assert response.status_code == 200
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_providers():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "providers" in data
+        assert isinstance(data["providers"], list)
+        assert len(data["providers"]) > 0
+        assert "openai" in data["providers"]
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_models():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models?provider=openai")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "models" in data
+        assert isinstance(data["models"], list)
+        assert len(data["models"]) > 0
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_list_models_all_providers():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/supported-models")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "models" in data
+        assert isinstance(data["models"], list)
+        assert len(data["models"]) > 0
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=openai")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "auth_modes" in data
+        assert "default_mode" in data
+        assert data["default_mode"] == "api_key"
+        assert len(data["auth_modes"]) >= 1
+        api_key_mode = data["auth_modes"][0]
+        assert api_key_mode["mode"] == "api_key"
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config_with_multiple_auth_modes():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config?provider=bedrock")
+        assert response.status_code == 200
+        data = response.get_json()
+
+        assert "auth_modes" in data
+        assert data["default_mode"] == "access_keys"
+        assert len(data["auth_modes"]) >= 2
+
+        access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
+        assert len(access_keys_mode["secret_fields"]) == 2
+        assert any(f["name"] == "aws_secret_access_key" for f in access_keys_mode["secret_fields"])
+        assert any(f["name"] == "aws_region_name" for f in access_keys_mode["config_fields"])
+
+        iam_role_mode = next(m for m in data["auth_modes"] if m["mode"] == "iam_role")
+        assert any(f["name"] == "aws_role_name" for f in iam_role_mode["config_fields"])
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_get_provider_config_missing_provider():
+    with app.test_client() as c:
+        response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config")
+        assert response.status_code == 400
+
+
+@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
+def test_litellm_not_available():
+    with mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False):
+        with app.test_client() as c:
+            response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
+            assert response.status_code == 400
+            data = response.get_json()
+            assert "LiteLLM is not installed" in data["message"]
+
+
+def test_get_ui_telemetry_handler(
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    config = {
+        "disable_telemetry": False,
+        "disable_ui_telemetry": False,
+        "disable_ui_events": ["event1", "event2"],
+        "ui_rollout_percentage": 50,
+    }
+
+    with mock.patch(
+        "mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config
+    ) as mock_fetch:
+        response = get_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["disable_ui_telemetry"] is False
+        assert response_data["disable_ui_events"] == ["event1", "event2"]
+        # rollout percent gets converted to a float as that is the proto definition
+        assert response_data["ui_rollout_percentage"] == 50.0
+        assert "config" in mock_telemetry_config_cache
+        assert mock_fetch.call_count == 1
+        mock_fetch.reset_mock()
+
+        # subsequent call should hit cache
+        response = get_ui_telemetry_handler()
+        mock_fetch.assert_not_called()
+        assert response_data["disable_ui_telemetry"] is False
+        assert response_data["disable_ui_events"] == ["event1", "event2"]
+        assert response_data["ui_rollout_percentage"] == 50.0
+
+
+def test_get_ui_telemetry_handler_disabled_by_config(
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    config = {
+        "disable_telemetry": True,
+        "disable_ui_telemetry": False,
+        "disable_ui_events": [],
+        "ui_rollout_percentage": 0,
+    }
+
+    with mock.patch(
+        "mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config
+    ) as mock_fetch:
+        response = get_ui_telemetry_handler()
+        assert response is not None
+        assert response.status_code == 200
+        response_data = json.loads(response.get_data())
+
+        # if disable_telemetry is True, the server should always report
+        # that UI telemetry is disabled regardless of disable_ui_telemetry
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0.0
+        assert response_data["disable_ui_events"] == []
+        assert mock_fetch.call_count == 1
+
+
+def test_get_ui_telemetry_handler_disabled_by_env(
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check, monkeypatch
+):
+    monkeypatch.setenv("DO_NOT_TRACK", "true")
+    with mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config") as mock_fetch:
+        response = get_ui_telemetry_handler()
+        assert response is not None
+        assert response.status_code == 200
+        response_data = json.loads(response.get_data())
+
+        # if telemetry is disabled by env var, the server should always report
+        # that UI telemetry is disabled, and no config fetch should happen
+        mock_fetch.assert_not_called()
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0.0
+        assert response_data["disable_ui_events"] == []
+
+
+def test_get_ui_telemetry_handler_fallback_values(
+    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    config_without_ui_fields = {
+        "disable_telemetry": False,
+        "rollout_percentage": 100,
+    }
+
+    # test fallback values if we forget to define UI config fields
+    with mock.patch("requests.get", return_value=config_without_ui_fields):
+        response = get_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0
+        assert response_data["disable_ui_events"] == []
+
+    # test fallback values if we fail to fetch the config
+    with mock.patch("requests.get", return_value=mock.Mock(status_code=404)):
+        response = get_ui_telemetry_handler()
+
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+        assert response_data["disable_ui_telemetry"] is True
+        assert response_data["ui_rollout_percentage"] == 0
+        assert response_data["disable_ui_events"] == []
+
+
+def test_post_ui_telemetry_handler_success(
+    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    event1 = {
+        "event_name": "test_event_1",
+        "timestamp_ns": 1234567890000000,
+        "params": {"key1": "value1"},
+        "installation_id": "install-123",
+        "session_id": "session-456",
+    }
+
+    event2 = {
+        "event_name": "test_event_2",
+        "timestamp_ns": 1234567890000001,
+        "params": {"key2": "value2"},
+        "installation_id": "install-123",
+        "session_id": "session-456",
+    }
+    request = json.dumps({"records": [event1, event2]})
+    config = {"disable_ui_telemetry": False, "disable_telemetry": False}
+    mock_client = mock.MagicMock()
+
+    with (
+        test_app.test_request_context(
+            "/ui-telemetry", method="POST", data=request, content_type="application/json"
+        ),
+        mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
+        mock.patch("mlflow.server.handlers.get_telemetry_client", return_value=mock_client),
+    ):
+        response = post_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["status"] == "success"
+        assert mock_client.add_records.call_count == 1
+        assert mock_client.add_records.call_args[0][0] == [
+            Record(**event1, duration_ms=0, status=Status.SUCCESS),
+            Record(**event2, duration_ms=0, status=Status.SUCCESS),
+        ]
+
+
+def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
+    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check
+):
+    event = {
+        "event_name": "test_event_1",
+        "timestamp_ns": 1234567890000000,
+        "params": {"key1": "value1"},
+        "installation_id": "install-123",
+        "session_id": "session-456",
+    }
+
+    request = json.dumps({"records": [event]})
+
+    config = {"disable_ui_telemetry": True}
+
+    mock_client = mock.MagicMock()
+
+    with (
+        test_app.test_request_context(
+            "/ui-telemetry", method="POST", data=request, content_type="application/json"
+        ),
+        mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
+        mock.patch("mlflow.server.handlers.get_telemetry_client", return_value=mock_client),
+    ):
+        response = post_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["status"] == "disabled"
+        mock_client.add_record.assert_not_called()
+
+
+def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
+    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check, monkeypatch
+):
+    monkeypatch.setenv("DO_NOT_TRACK", "true")
+    request = json.dumps({"records": []})
+    with (
+        test_app.test_request_context(
+            "/ui-telemetry", method="POST", data=request, content_type="application/json"
+        ),
+        mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config") as mock_fetch,
+        mock.patch("mlflow.server.handlers.get_telemetry_client") as mock_get_client,
+    ):
+        response = post_ui_telemetry_handler()
+
+        assert response is not None
+        assert response.status_code == 200
+
+        response_data = json.loads(response.get_data())
+
+        assert response_data["status"] == "disabled"
+
+        # assert that no fetch happens and no client is retrieved
+        mock_fetch.assert_not_called()
+        mock_get_client.assert_not_called()

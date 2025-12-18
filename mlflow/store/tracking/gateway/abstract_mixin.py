@@ -4,6 +4,7 @@ from mlflow.entities import (
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
+    GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
 )
@@ -17,12 +18,11 @@ class GatewayStoreMixin:
     for the MLflow AI Gateway.
     """
 
-    def create_secret(
+    def create_gateway_secret(
         self,
         secret_name: str,
-        secret_value: str,
+        secret_value: dict[str, str],
         provider: str | None = None,
-        credential_name: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -31,11 +31,14 @@ class GatewayStoreMixin:
 
         Args:
             secret_name: Unique user-friendly name for the secret.
-            secret_value: The secret value to encrypt (e.g., API key).
+            secret_value: The secret value(s) to encrypt as a dict of key-value pairs.
+                For simple API keys: {"api_key": "sk-xxx"}
+                For compound credentials: {"aws_access_key_id": "...",
+                  "aws_secret_access_key": "..."}
             provider: LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
-            credential_name: Optional credential identifier (e.g., "ANTHROPIC_API_KEY").
-            auth_config: Optional provider-specific auth configuration (e.g.,
-              {"project_id": "...", "region": "..."}).
+            auth_config: Optional provider-specific auth configuration. For providers
+                with multiple auth modes, include "auth_mode" key (e.g.,
+                {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}).
             created_by: Username of the creator.
 
         Returns:
@@ -58,10 +61,10 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def update_secret(
+    def update_gateway_secret(
         self,
         secret_id: str,
-        secret_value: str | None = None,
+        secret_value: dict[str, str] | None = None,
         auth_config: dict[str, Any] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -70,8 +73,11 @@ class GatewayStoreMixin:
 
         Args:
             secret_id: ID of the secret to update.
-            secret_value: Optional new secret value to encrypt (key rotation).
-                          If None, secret value is unchanged.
+            secret_value: Optional new secret value(s) to encrypt (key rotation).
+                As a dict of key-value pairs, or None to leave unchanged.
+                For simple API keys: {"api_key": "sk-xxx"}
+                For compound credentials: {"aws_access_key_id": "...",
+                  "aws_secret_access_key": "..."}
             auth_config: Optional updated provider-specific auth configuration.
                          If provided, replaces existing auth_config. If None,
                          auth_config is unchanged.
@@ -82,7 +88,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_secret(self, secret_id: str) -> None:
+    def delete_gateway_secret(self, secret_id: str) -> None:
         """
         Permanently delete a secret.
 
@@ -106,7 +112,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def create_model_definition(
+    def create_gateway_model_definition(
         self,
         name: str,
         secret_id: str,
@@ -132,7 +138,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_model_definition(
+    def get_gateway_model_definition(
         self, model_definition_id: str | None = None, name: str | None = None
     ) -> GatewayModelDefinition:
         """
@@ -147,7 +153,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_model_definitions(
+    def list_gateway_model_definitions(
         self,
         provider: str | None = None,
         secret_id: str | None = None,
@@ -164,13 +170,14 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def update_model_definition(
+    def update_gateway_model_definition(
         self,
         model_definition_id: str,
         name: str | None = None,
         secret_id: str | None = None,
         model_name: str | None = None,
         updated_by: str | None = None,
+        provider: str | None = None,
     ) -> GatewayModelDefinition:
         """
         Update a model definition.
@@ -181,13 +188,14 @@ class GatewayStoreMixin:
             secret_id: Optional new secret ID.
             model_name: Optional new model name.
             updated_by: Username of the updater.
+            provider: Optional new provider.
 
         Returns:
             Updated ModelDefinition entity.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_model_definition(self, model_definition_id: str) -> None:
+    def delete_gateway_model_definition(self, model_definition_id: str) -> None:
         """
         Delete a model definition.
 
@@ -199,7 +207,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def create_endpoint(
+    def create_gateway_endpoint(
         self,
         name: str,
         model_definition_ids: list[str],
@@ -219,7 +227,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_endpoint(
+    def get_gateway_endpoint(
         self, endpoint_id: str | None = None, name: str | None = None
     ) -> GatewayEndpoint:
         """
@@ -234,7 +242,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def update_endpoint(
+    def update_gateway_endpoint(
         self,
         endpoint_id: str,
         name: str,
@@ -253,7 +261,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_endpoint(self, endpoint_id: str) -> None:
+    def delete_gateway_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint (CASCADE deletes bindings and model mappings).
 
@@ -262,7 +270,7 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_endpoints(
+    def list_gateway_endpoints(
         self,
         provider: str | None = None,
         secret_id: str | None = None,
@@ -368,5 +376,27 @@ class GatewayStoreMixin:
 
         Returns:
             List of EndpointBinding entities (with optional endpoint_name and model_mappings).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_gateway_endpoint_tag(self, endpoint_id: str, tag: GatewayEndpointTag) -> None:
+        """
+        Set a tag on an endpoint.
+
+        If a tag with the same key already exists, its value will be updated.
+
+        Args:
+            endpoint_id: ID of the endpoint to tag.
+            tag: GatewayEndpointTag with key and value to set.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_gateway_endpoint_tag(self, endpoint_id: str, key: str) -> None:
+        """
+        Delete a tag from an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+            key: Tag key to delete.
         """
         raise NotImplementedError(self.__class__.__name__)

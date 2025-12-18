@@ -76,7 +76,7 @@ CREATE TABLE inputs (
 CREATE TABLE jobs (
 	id VARCHAR(36) NOT NULL,
 	creation_time BIGINT NOT NULL,
-	function_fullname VARCHAR(500) NOT NULL,
+	job_name VARCHAR(500) NOT NULL,
 	params TEXT NOT NULL,
 	timeout FLOAT,
 	status INTEGER NOT NULL,
@@ -103,9 +103,8 @@ CREATE TABLE secrets (
 	encrypted_value BLOB NOT NULL,
 	wrapped_dek BLOB NOT NULL,
 	kek_version INTEGER NOT NULL,
-	masked_value VARCHAR(100) NOT NULL,
+	masked_value VARCHAR(500) NOT NULL,
 	provider VARCHAR(64),
-	credential_name VARCHAR(255),
 	auth_config TEXT,
 	description TEXT,
 	created_by VARCHAR(255),
@@ -154,6 +153,15 @@ CREATE TABLE endpoint_bindings (
 	last_updated_by VARCHAR(255),
 	CONSTRAINT endpoint_bindings_pk PRIMARY KEY (endpoint_id, resource_type, resource_id),
 	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE endpoint_tags (
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	endpoint_id VARCHAR(36) NOT NULL,
+	CONSTRAINT endpoint_tag_pk PRIMARY KEY (key, endpoint_id),
+	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
@@ -475,6 +483,15 @@ CREATE TABLE tags (
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE trace_metrics (
+	request_id VARCHAR(50) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value FLOAT,
+	CONSTRAINT trace_metrics_pk PRIMARY KEY (request_id, key),
+	CONSTRAINT fk_trace_metrics_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 

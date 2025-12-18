@@ -48,13 +48,13 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of a machine lea
       <div class="flex-row">
         <div class="flex-item">
 
-        #### Track Annotation and Human Feedbacks
+        #### Track Annotation and Human Feedback
 
         Human feedback is essential for building high-quality GenAI applications that meet user expectations. MLflow supports collecting, managing, and utilizing feedback from end-users and domain experts.
 
-        Feedbacks are attached to traces and recorded with metadata, including user, timestamp, revisions, etc.
+        Feedback are attached to traces and recorded with metadata, including user, timestamp, revisions, etc.
 
-        [Learn more →](/genai/tracing/collect-user-feedback)
+        [Learn more →](/genai/assessments/feedback)
 
         </div>
 
@@ -203,7 +203,7 @@ mlflow.openai.autolog()  # or replace 'openai' with other library names, e.g., "
 
 Click on the logos below to learn more about the individual integration:
 
-<TracingIntegrations cardGroupProps={{ cols: 6, noGap: true }} />
+<TracingIntegrations cardGroupProps={{ cols: 5, noGap: false }} />
 <br />
 
 ## Flexible and Customizable
@@ -211,7 +211,7 @@ Click on the logos below to learn more about the individual integration:
 In addition to the one-line auto tracing experience, MLflow offers Python SDK for manually instrumenting your code and manipulating traces:
 
 - [Trace a function with `@mlflow.trace` decorator](/genai/tracing/app-instrumentation/manual-tracing#decorator)
-- [Trace any block of code using context manager](/genai/tracing/app-instrumentation/manual-tracing#context-manager)
+- [Trace any block of code](/genai/tracing/app-instrumentation/manual-tracing#code-block)
 - [Combine multiple auto-tracing integrations](/genai/tracing/app-instrumentation/automatic/#multi-framework-example)
 - [Instrument multi-threaded applications](/genai/tracing/app-instrumentation/manual-tracing#multi-threading)
 - [Native async support](/genai/tracing/app-instrumentation/manual-tracing#async-support)

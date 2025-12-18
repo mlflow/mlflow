@@ -132,6 +132,29 @@ class TelemetryClient:
             if len(self._pending_records) >= self._batch_size:
                 self._send_batch()
 
+    def add_records(self, records: list[Record]):
+        if not self.is_active:
+            self.activate()
+
+        if self._is_stopped:
+            return
+
+        with self._batch_lock:
+            # Add records in chunks to ensure we never exceed batch_size
+            offset = 0
+            while offset < len(records):
+                # Calculate how many records we can add to reach batch_size
+                space_left = self._batch_size - len(self._pending_records)
+                chunk_size = min(space_left, len(records) - offset)
+
+                # Add only enough records to reach batch_size
+                self._pending_records.extend(records[offset : offset + chunk_size])
+                offset += chunk_size
+
+                # Send batch if we've reached the limit
+                if len(self._pending_records) >= self._batch_size:
+                    self._send_batch()
+
     def _send_batch(self):
         """Send the current batch of records."""
         if not self._pending_records:

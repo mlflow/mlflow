@@ -30,6 +30,7 @@ import { RunColorCircle } from '../components/RunColorCircle';
 import {
   CUSTOM_METADATA_COLUMN_ID,
   EXECUTION_DURATION_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RESPONSE_COLUMN_ID,
@@ -859,7 +860,53 @@ export const traceInfoCellRenderer = (
         }
       />
     );
+  } else if (colId === LINKED_PROMPTS_COLUMN_ID) {
+    const formatPrompts = (promptsJson: string | undefined) => {
+      if (!promptsJson) return null;
+      try {
+        const prompts = JSON.parse(promptsJson);
+        if (Array.isArray(prompts) && prompts.length > 0) {
+          return prompts
+            .map((prompt: { name: string; version: string }) => `${prompt.name}/${prompt.version}`)
+            .join(', ');
+        }
+      } catch (e) {
+        // Invalid JSON, return as-is
+        return promptsJson;
+      }
+      return null;
+    };
+
+    const currentPrompts = currentTraceInfo?.tags?.['mlflow.linkedPrompts'];
+    const otherPrompts = otherTraceInfo?.tags?.['mlflow.linkedPrompts'];
+    const formattedCurrent = formatPrompts(currentPrompts);
+    const formattedOther = formatPrompts(otherPrompts);
+
+    return (
+      <StackedComponents
+        first={
+          formattedCurrent ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedCurrent}>
+              {formattedCurrent}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          )
+        }
+        second={
+          isComparing &&
+          (formattedOther ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedOther}>
+              {formattedOther}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          ))
+        }
+      />
+    );
   }
+
   const value = currentTraceInfo ? stringifyValue(getTraceInfoValueWithColId(currentTraceInfo, colId)) : '';
   const otherValue = otherTraceInfo ? stringifyValue(getTraceInfoValueWithColId(otherTraceInfo, colId)) : '';
 

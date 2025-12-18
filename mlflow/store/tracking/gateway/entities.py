@@ -8,23 +8,25 @@ class GatewayModelConfig:
     Model configuration with decrypted credentials for runtime use.
 
     This entity contains everything needed to make LLM API calls, including
-    the decrypted secret value and optional auth configuration. This is only
-    used server-side and should never be exposed to clients.
+    the decrypted secrets and auth configuration. This is only used
+    server-side and should never be exposed to clients.
 
     Args:
         model_definition_id: Unique identifier for the model definition.
         provider: LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
         model_name: Provider-specific model identifier (e.g., "gpt-4o").
-        secret_value: Decrypted API key or authentication credential.
-        credential_name: Credential identifier (e.g., "OPENAI_API_KEY").
-        auth_config: Decrypted provider-specific auth configuration (e.g., project_id, region).
+        secret_value: Decrypted secrets as a dict. For providers with multiple
+            auth modes, contains all secret fields (e.g., {"aws_access_key_id": "...",
+            "aws_secret_access_key": "..."}). For simple providers, contains
+            {"api_key": "..."}.
+        auth_config: Non-secret configuration including auth_mode (e.g.,
+            {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}).
     """
 
     model_definition_id: str
     provider: str
     model_name: str
-    secret_value: str
-    credential_name: str | None = None
+    secret_value: dict[str, Any]
     auth_config: dict[str, Any] | None = None
 
 

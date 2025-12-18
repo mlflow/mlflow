@@ -1,14 +1,19 @@
 import json
+import threading
 import uuid
 from typing import Any, Iterator
 
 import sqlalchemy
 
-import mlflow.store.db.utils
 from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.store.db.utils import (
+    _get_managed_session_maker,
+    _safe_initialize_tables,
+    create_sqlalchemy_engine_with_retry,
+)
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
@@ -26,6 +31,20 @@ class SqlAlchemyJobStore(AbstractJobStore):
     for MLflow Job entities.
     """
 
+    # Class-level cache for SQLAlchemy engines to prevent connection pool leaks
+    # when multiple store instances are created with the same database URI.
+    _engine_map: dict[str, sqlalchemy.engine.Engine] = {}
+    _engine_map_lock = threading.Lock()
+
+    @classmethod
+    def _get_or_create_engine(cls, db_uri: str) -> sqlalchemy.engine.Engine:
+        """Get a cached engine or create a new one for the given database URI."""
+        if db_uri not in cls._engine_map:
+            with cls._engine_map_lock:
+                if db_uri not in cls._engine_map:
+                    cls._engine_map[db_uri] = create_sqlalchemy_engine_with_retry(db_uri)
+        return cls._engine_map[db_uri]
+
     def __init__(self, db_uri):
         """
         Create a database backed store.
@@ -36,20 +55,18 @@ class SqlAlchemyJobStore(AbstractJobStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
-        mlflow.store.db.utils._safe_initialize_tables(self.engine)
+        self.engine = self._get_or_create_engine(db_uri)
+        _safe_initialize_tables(self.engine)
 
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
-            SessionMaker, self.db_type
-        )
+        self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
 
-    def create_job(self, function_fullname: str, params: str, timeout: float | None = None) -> Job:
+    def create_job(self, job_name: str, params: str, timeout: float | None = None) -> Job:
         """
         Create a new job with the specified function and parameters.
 
         Args:
-            function_fullname: The full name of the function to execute
+            job_name: The static job name that identifies the decorated job function
             params: The job parameters that are serialized as a JSON string
             timeout: The job execution timeout in seconds
 
@@ -63,7 +80,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = SqlJob(
                 id=job_id,
                 creation_time=creation_time,
-                function_fullname=function_fullname,
+                job_name=job_name,
                 params=params,
                 timeout=timeout,
                 status=JobStatus.PENDING.to_int(),
@@ -189,7 +206,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
     def list_jobs(
         self,
-        function_fullname: str | None = None,
+        job_name: str | None = None,
         statuses: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
@@ -199,7 +216,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         List jobs based on the provided filters.
 
         Args:
-            function_fullname: Filter by function full name (exact match)
+            job_name: Filter by job name (exact match)
             statuses: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED, TIMEOUT)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
@@ -228,8 +245,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 query = session.query(SqlJob)
 
                 # Apply filters
-                if function_fullname is not None:
-                    query = query.filter(SqlJob.function_fullname == function_fullname)
+                if job_name is not None:
+                    query = query.filter(SqlJob.job_name == job_name)
 
                 if statuses:
                     query = query.filter(

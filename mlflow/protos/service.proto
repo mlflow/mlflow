@@ -1580,12 +1580,12 @@ service MlflowService {
   // ========== Secrets Management APIs ==========
 
   // Create a new encrypted secret for LLM provider authentication
-  rpc createSecret(CreateGatewaySecret) returns (CreateGatewaySecret.Response) {
+  rpc createGatewaySecret(CreateGatewaySecret) returns (CreateGatewaySecret.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/secrets/create"
+          path: "/mlflow/gateway/secrets/create"
           since: {
             major: 3
             minor: 0
@@ -1593,17 +1593,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Create Secret"
+      rpc_doc_title: "Create Gateway Secret"
     };
   }
 
   // Get metadata about a secret (does not include the encrypted value)
-  rpc getSecretInfo(GetGatewaySecretInfo) returns (GetGatewaySecretInfo.Response) {
+  rpc getGatewaySecretInfo(GetGatewaySecretInfo) returns (GetGatewaySecretInfo.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/secrets/get"
+          path: "/mlflow/gateway/secrets/get"
           since: {
             major: 3
             minor: 0
@@ -1611,17 +1611,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Get Secret Info"
+      rpc_doc_title: "Get Gateway Secret Info"
     };
   }
 
   // Update an existing secret's value or auth configuration
-  rpc updateSecret(UpdateGatewaySecret) returns (UpdateGatewaySecret.Response) {
+  rpc updateGatewaySecret(UpdateGatewaySecret) returns (UpdateGatewaySecret.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/secrets/update"
+          path: "/mlflow/gateway/secrets/update"
           since: {
             major: 3
             minor: 0
@@ -1629,17 +1629,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Update Secret"
+      rpc_doc_title: "Update Gateway Secret"
     };
   }
 
   // Delete a secret
-  rpc deleteSecret(DeleteGatewaySecret) returns (DeleteGatewaySecret.Response) {
+  rpc deleteGatewaySecret(DeleteGatewaySecret) returns (DeleteGatewaySecret.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/secrets/delete"
+          path: "/mlflow/gateway/secrets/delete"
           since: {
             major: 3
             minor: 0
@@ -1647,17 +1647,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Delete Secret"
+      rpc_doc_title: "Delete Gateway Secret"
     };
   }
 
   // List all secrets with optional filtering by provider
-  rpc listSecretInfos(ListGatewaySecretInfos) returns (ListGatewaySecretInfos.Response) {
+  rpc listGatewaySecretInfos(ListGatewaySecretInfos) returns (ListGatewaySecretInfos.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/secrets/list"
+          path: "/mlflow/gateway/secrets/list"
           since: {
             major: 3
             minor: 0
@@ -1665,19 +1665,19 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "List Secrets"
+      rpc_doc_title: "List Gateway Secrets"
     };
   }
 
   // ========== Endpoints Management APIs ==========
 
   // Create a new endpoint with model configurations
-  rpc createEndpoint(CreateGatewayEndpoint) returns (CreateGatewayEndpoint.Response) {
+  rpc createGatewayEndpoint(CreateGatewayEndpoint) returns (CreateGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/create"
+          path: "/mlflow/gateway/endpoints/create"
           since: {
             major: 3
             minor: 0
@@ -1685,17 +1685,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Create Endpoint"
+      rpc_doc_title: "Create Gateway Endpoint"
     };
   }
 
   // Get endpoint details including all model configurations
-  rpc getEndpoint(GetGatewayEndpoint) returns (GetGatewayEndpoint.Response) {
+  rpc getGatewayEndpoint(GetGatewayEndpoint) returns (GetGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/endpoints/get"
+          path: "/mlflow/gateway/endpoints/get"
           since: {
             major: 3
             minor: 0
@@ -1703,17 +1703,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Get Endpoint"
+      rpc_doc_title: "Get Gateway Endpoint"
     };
   }
 
   // Update an endpoint's name
-  rpc updateEndpoint(UpdateGatewayEndpoint) returns (UpdateGatewayEndpoint.Response) {
+  rpc updateGatewayEndpoint(UpdateGatewayEndpoint) returns (UpdateGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/update"
+          path: "/mlflow/gateway/endpoints/update"
           since: {
             major: 3
             minor: 0
@@ -1721,17 +1721,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Update Endpoint"
+      rpc_doc_title: "Update Gateway Endpoint"
     };
   }
 
   // Delete an endpoint and all its model configurations
-  rpc deleteEndpoint(DeleteGatewayEndpoint) returns (DeleteGatewayEndpoint.Response) {
+  rpc deleteGatewayEndpoint(DeleteGatewayEndpoint) returns (DeleteGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/endpoints/delete"
+          path: "/mlflow/gateway/endpoints/delete"
           since: {
             major: 3
             minor: 0
@@ -1739,17 +1739,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Delete Endpoint"
+      rpc_doc_title: "Delete Gateway Endpoint"
     };
   }
 
   // List endpoints with optional filtering by provider or secret
-  rpc listEndpoints(ListGatewayEndpoints) returns (ListGatewayEndpoints.Response) {
+  rpc listGatewayEndpoints(ListGatewayEndpoints) returns (ListGatewayEndpoints.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/endpoints/list"
+          path: "/mlflow/gateway/endpoints/list"
           since: {
             major: 3
             minor: 0
@@ -1757,19 +1757,19 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "List Endpoints"
+      rpc_doc_title: "List Gateway Endpoints"
     };
   }
 
   // ========== Model Definitions Management APIs ==========
 
   // Create a reusable model definition
-  rpc createModelDefinition(CreateGatewayModelDefinition) returns (CreateGatewayModelDefinition.Response) {
+  rpc createGatewayModelDefinition(CreateGatewayModelDefinition) returns (CreateGatewayModelDefinition.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/model-definitions/create"
+          path: "/mlflow/gateway/model-definitions/create"
           since: {
             major: 3
             minor: 0
@@ -1777,17 +1777,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Create Model Definition"
+      rpc_doc_title: "Create Gateway Model Definition"
     };
   }
 
   // Get a model definition by ID
-  rpc getModelDefinition(GetGatewayModelDefinition) returns (GetGatewayModelDefinition.Response) {
+  rpc getGatewayModelDefinition(GetGatewayModelDefinition) returns (GetGatewayModelDefinition.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/model-definitions/get"
+          path: "/mlflow/gateway/model-definitions/get"
           since: {
             major: 3
             minor: 0
@@ -1795,17 +1795,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Get Model Definition"
+      rpc_doc_title: "Get Gateway Model Definition"
     };
   }
 
   // List all model definitions with optional filters
-  rpc listModelDefinitions(ListGatewayModelDefinitions) returns (ListGatewayModelDefinitions.Response) {
+  rpc listGatewayModelDefinitions(ListGatewayModelDefinitions) returns (ListGatewayModelDefinitions.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/model-definitions/list"
+          path: "/mlflow/gateway/model-definitions/list"
           since: {
             major: 3
             minor: 0
@@ -1813,17 +1813,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "List Model Definitions"
+      rpc_doc_title: "List Gateway Model Definitions"
     };
   }
 
   // Update a model definition
-  rpc updateModelDefinition(UpdateGatewayModelDefinition) returns (UpdateGatewayModelDefinition.Response) {
+  rpc updateGatewayModelDefinition(UpdateGatewayModelDefinition) returns (UpdateGatewayModelDefinition.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/model-definitions/update"
+          path: "/mlflow/gateway/model-definitions/update"
           since: {
             major: 3
             minor: 0
@@ -1831,17 +1831,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Update Model Definition"
+      rpc_doc_title: "Update Gateway Model Definition"
     };
   }
 
   // Delete a model definition (fails if in use by any endpoint)
-  rpc deleteModelDefinition(DeleteGatewayModelDefinition) returns (DeleteGatewayModelDefinition.Response) {
+  rpc deleteGatewayModelDefinition(DeleteGatewayModelDefinition) returns (DeleteGatewayModelDefinition.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/model-definitions/delete"
+          path: "/mlflow/gateway/model-definitions/delete"
           since: {
             major: 3
             minor: 0
@@ -1849,7 +1849,7 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Delete Model Definition"
+      rpc_doc_title: "Delete Gateway Model Definition"
     };
   }
 
@@ -1861,7 +1861,7 @@ service MlflowService {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/models/attach"
+          path: "/mlflow/gateway/endpoints/models/attach"
           since: {
             major: 3
             minor: 0
@@ -1879,7 +1879,7 @@ service MlflowService {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/models/detach"
+          path: "/mlflow/gateway/endpoints/models/detach"
           since: {
             major: 3
             minor: 0
@@ -1899,7 +1899,7 @@ service MlflowService {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/bindings/create"
+          path: "/mlflow/gateway/endpoints/bindings/create"
           since: {
             major: 3
             minor: 0
@@ -1917,7 +1917,7 @@ service MlflowService {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/endpoints/bindings/delete"
+          path: "/mlflow/gateway/endpoints/bindings/delete"
           since: {
             major: 3
             minor: 0
@@ -1935,7 +1935,7 @@ service MlflowService {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/endpoints/bindings/list"
+          path: "/mlflow/gateway/endpoints/bindings/list"
           since: {
             major: 3
             minor: 0
@@ -1947,15 +1947,13 @@ service MlflowService {
     };
   }
 
-  // ========== Secrets Configuration API ==========
-
-  // Get secrets storage configuration status
-  rpc getSecretsConfig(GetSecretsConfig) returns (GetSecretsConfig.Response) {
+  // Set a tag on an endpoint
+  rpc setGatewayEndpointTag(SetGatewayEndpointTag) returns (SetGatewayEndpointTag.Response) {
     option (rpc) = {
       endpoints: [
         {
-          method: "GET"
-          path: "/mlflow/secrets/config"
+          method: "POST"
+          path: "/mlflow/gateway/endpoints/set-tag"
           since: {
             major: 3
             minor: 0
@@ -1963,7 +1961,25 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Get Secrets Config"
+      rpc_doc_title: "Gateway Set Endpoint Tag"
+    };
+  }
+
+  // Delete a tag from an endpoint
+  rpc deleteGatewayEndpointTag(DeleteGatewayEndpointTag) returns (DeleteGatewayEndpointTag.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/endpoints/delete-tag"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Gateway Delete Endpoint Tag"
     };
   }
 }
@@ -4004,8 +4020,10 @@ message GatewaySecretInfo {
   optional string secret_id = 1;
   // User-friendly name for the secret (must be unique)
   optional string secret_name = 2;
-  // Masked version of the secret for display (e.g., "sk-...xyz123")
-  optional string masked_value = 3;
+  // Masked version of the secret values for display as key-value pairs.
+  // For simple API keys: {"api_key": "sk-...xyz123"}
+  // For compound credentials: {"aws_access_key_id": "AKI...1234", "aws_secret_access_key": "***"}
+  map<string, string> masked_values = 3;
   // Timestamp (milliseconds since epoch) when the secret was created
   optional int64 created_at = 4;
   // Timestamp (milliseconds since epoch) when the secret was last updated
@@ -4079,6 +4097,16 @@ message GatewayEndpoint {
   optional string created_by = 6;
   // User ID who last updated the endpoint
   optional string last_updated_by = 7;
+  // Tags associated with the endpoint
+  repeated GatewayEndpointTag tags = 8;
+}
+
+// Tag associated with an endpoint
+message GatewayEndpointTag {
+  // Tag key
+  optional string key = 1;
+  // Tag value
+  optional string value = 2;
 }
 
 // Binding between an endpoint and an MLflow resource.
@@ -4106,13 +4134,17 @@ message GatewayEndpointBinding {
 message CreateGatewaySecret {
   // User-friendly name for the secret (must be unique)
   optional string secret_name = 1;
-  // The secret value to encrypt (e.g., API key)
-  optional string secret_value = 2;
+  // The secret value(s) to encrypt as key-value pairs.
+  // For simple API keys: {"api_key": "sk-xxx"}
+  // For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+  map<string, string> secret_value = 2;
   // Optional LLM provider (e.g., "openai", "anthropic")
   optional string provider = 3;
-  // Optional credential identifier (e.g., "ANTHROPIC_API_KEY")
-  optional string credential_name = 4;
-  // Optional provider-specific auth configuration as JSON string
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
+  reserved 4;
+  reserved "credential_name";
+  // Optional provider-specific auth configuration as JSON string.
+  // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
   optional string auth_config_json = 5;
   // Username of the creator
   optional string created_by = 6;
@@ -4137,11 +4169,15 @@ message GetGatewaySecretInfo {
 message UpdateGatewaySecret {
   // ID of the secret to update
   optional string secret_id = 1;
-  // Optional new secret value (if rotating the key)
-  optional string secret_value = 2;
-  // Optional new credential identifier
-  optional string credential_name = 3;
-  // Optional new auth configuration as JSON string
+  // Optional new secret value(s) for key rotation as key-value pairs (empty map = no change).
+  // For simple API keys: {"api_key": "sk-xxx"}
+  // For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+  map<string, string> secret_value = 2;
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
+  reserved 3;
+  reserved "credential_name";
+  // Optional new auth configuration as JSON string.
+  // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
   optional string auth_config_json = 4;
   // Username of the updater
   optional string updated_by = 5;
@@ -4222,6 +4258,8 @@ message UpdateGatewayModelDefinition {
   optional string model_name = 4;
   // Username of the updater
   optional string updated_by = 5;
+  // Optional new provider
+  optional string provider = 6;
 
   message Response {
     // The updated model definition
@@ -4364,6 +4402,26 @@ message ListGatewayEndpointBindings {
     // List of bindings for the endpoint
     repeated GatewayEndpointBinding bindings = 1;
   }
+}
+
+message SetGatewayEndpointTag {
+  // ID of the endpoint to set tag on
+  optional string endpoint_id = 1;
+  // Tag key to set
+  optional string key = 2;
+  // Tag value to set
+  optional string value = 3;
+
+  message Response {}
+}
+
+message DeleteGatewayEndpointTag {
+  // ID of the endpoint to delete tag from
+  optional string endpoint_id = 1;
+  // Tag key to delete
+  optional string key = 2;
+
+  message Response {}
 }
 
 // ========== Secrets Configuration API Messages ==========

@@ -1,6 +1,9 @@
 import React from 'react';
 import { CardGroup, SmallLogoCard } from '../Card';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '../TabsWrapper';
 
 interface TracingIntegration {
   id: string;
@@ -8,6 +11,7 @@ interface TracingIntegration {
   logoPath: string;
   link: string;
   category: string;
+  languages: ('python' | 'typescript')[];
 }
 
 // Centralized integration definitions with categories
@@ -19,6 +23,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/langchain-logo.png',
     link: '/genai/tracing/integrations/listing/langchain',
     category: 'Agent Frameworks',
+    languages: ['python', 'typescript'],
   },
   {
     id: 'langgraph',
@@ -26,6 +31,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/langgraph-logo.png',
     link: '/genai/tracing/integrations/listing/langgraph',
     category: 'Agent Frameworks',
+    languages: ['python', 'typescript'],
   },
   {
     id: 'vercelai',
@@ -33,6 +39,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/vercel-logo.svg',
     link: '/genai/tracing/integrations/listing/vercelai',
     category: 'Agent Frameworks',
+    languages: ['typescript'],
   },
   {
     id: 'openai-agent',
@@ -40,6 +47,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/openai-agent-logo.png',
     link: '/genai/tracing/integrations/listing/openai-agent',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'dspy',
@@ -47,6 +55,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/dspy-logo.png',
     link: '/genai/tracing/integrations/listing/dspy',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'pydantic_ai',
@@ -54,6 +63,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/pydanticai-logo.png',
     link: '/genai/tracing/integrations/listing/pydantic_ai',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'google-adk',
@@ -61,6 +71,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/google-adk-logo.png',
     link: '/genai/tracing/integrations/listing/google-adk',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'microsoft-agent-framework',
@@ -68,6 +79,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/microsoft-agent-framework-logo.jpg',
     link: '/genai/tracing/integrations/listing/microsoft-agent-framework',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'crewai',
@@ -75,6 +87,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/crewai-logo.png',
     link: '/genai/tracing/integrations/listing/crewai',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'llama_index',
@@ -82,6 +95,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/llamaindex-logo.svg',
     link: '/genai/tracing/integrations/listing/llama_index',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'autogen',
@@ -89,6 +103,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/autogen-logo.png',
     link: '/genai/tracing/integrations/listing/autogen',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'strands',
@@ -96,6 +111,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/strands-logo.png',
     link: '/genai/tracing/integrations/listing/strands',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'mastra',
@@ -103,6 +119,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/mastra-logo.png',
     link: '/genai/tracing/integrations/listing/mastra',
     category: 'Agent Frameworks',
+    languages: ['typescript'],
   },
   {
     id: 'voltagent',
@@ -110,6 +127,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/voltagent-logo.png',
     link: '/genai/tracing/integrations/listing/voltagent',
     category: 'Agent Frameworks',
+    languages: ['typescript'],
   },
   {
     id: 'agno',
@@ -117,6 +135,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/agno-logo.png',
     link: '/genai/tracing/integrations/listing/agno',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'smolagents',
@@ -124,6 +143,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/smolagents-logo.png',
     link: '/genai/tracing/integrations/listing/smolagents',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
 
   {
@@ -132,6 +152,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/semantic-kernel-logo.png',
     link: '/genai/tracing/integrations/listing/semantic_kernel',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'ag2',
@@ -139,6 +160,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/ag2-logo.png',
     link: '/genai/tracing/integrations/listing/ag2',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'haystack',
@@ -146,6 +168,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/haystack-logo.png',
     link: '/genai/tracing/integrations/listing/haystack',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   {
     id: 'instructor',
@@ -153,6 +176,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/instructor-logo.svg',
     link: '/genai/tracing/integrations/listing/instructor',
     category: 'Tools',
+    languages: ['python'],
   },
   {
     id: 'txtai',
@@ -160,6 +184,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/txtai-logo.png',
     link: '/genai/tracing/integrations/listing/txtai',
     category: 'Agent Frameworks',
+    languages: ['python'],
   },
   // Model Providers
   {
@@ -168,6 +193,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/openai-logo.png',
     link: '/genai/tracing/integrations/listing/openai',
     category: 'Model Providers',
+    languages: ['python', 'typescript'],
   },
   {
     id: 'anthropic',
@@ -175,6 +201,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/anthropic-logo.svg',
     link: '/genai/tracing/integrations/listing/anthropic',
     category: 'Model Providers',
+    languages: ['python', 'typescript'],
   },
   {
     id: 'bedrock',
@@ -182,6 +209,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/bedrock-logo.png',
     link: '/genai/tracing/integrations/listing/bedrock',
     category: 'Model Providers',
+    languages: ['python'],
   },
   {
     id: 'gemini',
@@ -189,6 +217,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/google-gemini-logo.svg',
     link: '/genai/tracing/integrations/listing/gemini',
     category: 'Model Providers',
+    languages: ['python', 'typescript'],
   },
   {
     id: 'ollama',
@@ -196,6 +225,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/ollama-logo.png',
     link: '/genai/tracing/integrations/listing/ollama',
     category: 'Model Providers',
+    languages: ['python'],
   },
   {
     id: 'groq',
@@ -203,6 +233,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/groq-logo.svg',
     link: '/genai/tracing/integrations/listing/groq',
     category: 'Model Providers',
+    languages: ['python'],
   },
   {
     id: 'mistral',
@@ -210,6 +241,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/mistral-ai-logo.svg',
     link: '/genai/tracing/integrations/listing/mistral',
     category: 'Model Providers',
+    languages: ['python'],
   },
   {
     id: 'fireworksai',
@@ -217,6 +249,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/fireworks-ai-logo.svg',
     link: '/genai/tracing/integrations/listing/fireworksai',
     category: 'Model Providers',
+    languages: ['python'],
   },
   {
     id: 'deepseek',
@@ -224,6 +257,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/deepseek-logo.png',
     link: '/genai/tracing/integrations/listing/deepseek',
     category: 'Model Providers',
+    languages: ['python'],
   },
   {
     id: 'litellm',
@@ -231,6 +265,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/litellm-logo.jpg',
     link: '/genai/tracing/integrations/listing/litellm',
     category: 'Model Providers',
+    languages: ['python'],
   },
   // Tools
   {
@@ -239,6 +274,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/claude-code-logo.svg',
     link: '/genai/tracing/integrations/listing/claude_code',
     category: 'Tools',
+    languages: ['python'],
   },
 ];
 
@@ -251,13 +287,14 @@ interface TracingIntegrationsProps {
   categorized?: boolean;
 }
 
-export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({
-  cardGroupProps = {},
-  categorized = false,
-}) => {
+const IntegrationContent: React.FC<{
+  integrations: TracingIntegration[];
+  cardGroupProps: TracingIntegrationsProps['cardGroupProps'];
+  categorized: boolean;
+}> = ({ integrations, cardGroupProps = {}, categorized }) => {
   if (categorized) {
     // Group integrations by category
-    const categories = TRACING_INTEGRATIONS.reduce(
+    const categories = integrations.reduce(
       (acc, integration) => {
         if (!acc[integration.category]) {
           acc[integration.category] = [];
@@ -274,14 +311,14 @@ export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({
     return (
       <>
         {categoryOrder.map((category) => {
-          const integrations = categories[category] || [];
-          if (integrations.length === 0) return null;
+          const categoryIntegrations = categories[category] || [];
+          if (categoryIntegrations.length === 0) return null;
 
           return (
             <div key={category} style={{ marginBottom: '2rem' }}>
               <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>{category}</h2>
-              <CardGroup {...cardGroupProps}>
-                {integrations.map((integration) => (
+              <CardGroup isSmall={cardGroupProps.isSmall} cols={cardGroupProps.cols} noGap={cardGroupProps.noGap}>
+                {categoryIntegrations.map((integration) => (
                   <SmallLogoCard key={integration.id} link={integration.link}>
                     <span>
                       <img src={useBaseUrl(integration.logoPath)} alt={`${integration.name} Logo`} />
@@ -297,8 +334,8 @@ export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({
   }
 
   return (
-    <CardGroup {...cardGroupProps}>
-      {TRACING_INTEGRATIONS.map((integration) => (
+    <CardGroup isSmall={cardGroupProps.isSmall} cols={cardGroupProps.cols} noGap={cardGroupProps.noGap}>
+      {integrations.map((integration) => (
         <SmallLogoCard key={integration.id} link={integration.link}>
           <span>
             <img src={useBaseUrl(integration.logoPath)} alt={`${integration.name} Logo`} />
@@ -306,6 +343,37 @@ export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({
         </SmallLogoCard>
       ))}
     </CardGroup>
+  );
+};
+
+export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({
+  cardGroupProps = {},
+  categorized = false,
+}) => {
+  const pythonIntegrations = TRACING_INTEGRATIONS.filter((integration) => integration.languages.includes('python'));
+  const typescriptIntegrations = TRACING_INTEGRATIONS.filter((integration) =>
+    integration.languages.includes('typescript'),
+  );
+
+  return (
+    <TabsWrapper>
+      <Tabs groupId="programming-language">
+        <TabItem value="python" label="Python" default>
+          <IntegrationContent
+            integrations={pythonIntegrations}
+            cardGroupProps={cardGroupProps}
+            categorized={categorized}
+          />
+        </TabItem>
+        <TabItem value="typescript" label="TypeScript">
+          <IntegrationContent
+            integrations={typescriptIntegrations}
+            cardGroupProps={cardGroupProps}
+            categorized={categorized}
+          />
+        </TabItem>
+      </Tabs>
+    </TabsWrapper>
   );
 };
 

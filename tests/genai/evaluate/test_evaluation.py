@@ -624,7 +624,7 @@ def test_empty_scorers_allowed():
     data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is an ML platform"}]
 
     with mock.patch("mlflow.genai.evaluation.base._run_harness") as mock_evaluate_oss:
-        mock_evaluate_oss.return_value = mock_result
+        mock_evaluate_oss.return_value = (mock_result, {})
         result = mlflow.genai.evaluate(data=data, scorers=[])
 
     assert result is mock_result
@@ -1227,3 +1227,51 @@ def test_evaluate_dataset_mixed_traces_with_and_without_sessions():
     # The trace without session should not be scored by session-level scorer
     assert result_df["session_length/value"].notna().sum() == 1
     assert result_df["session_length/value"].dropna().iloc[0] == 2.0
+
+
+def test_max_scorer_workers_env_var(monkeypatch):
+    @scorer
+    def dummy_scorer_1(outputs):
+        return True
+
+    @scorer
+    def dummy_scorer_2(outputs):
+        return True
+
+    @scorer
+    def dummy_scorer_3(outputs):
+        return True
+
+    def _validate_scorer_max_workers(expected_max_workers, num_scorers):
+        scorers_list = [dummy_scorer_1, dummy_scorer_2, dummy_scorer_3][:num_scorers]
+        with mock.patch(
+            "mlflow.genai.evaluation.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
+        ) as mock_executor:
+            mlflow.genai.evaluate(
+                data=[
+                    {
+                        "inputs": {"question": "What is MLflow?"},
+                        "outputs": "MLflow is a tool for ML",
+                    }
+                ],
+                scorers=scorers_list,
+            )
+            # ThreadPoolExecutor is called twice: harness loop + scorer loop
+            # The second call is for scorers
+            scorer_call = mock_executor.call_args_list[1]
+            assert scorer_call[1]["max_workers"] == expected_max_workers
+
+    # default scorer workers is 10, but limited by number of scorers (3)
+    _validate_scorer_max_workers(expected_max_workers=3, num_scorers=3)
+
+    # override scorer workers with env var (limit to 2)
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "2")
+    _validate_scorer_max_workers(expected_max_workers=2, num_scorers=3)
+
+    # when num_scorers < max_scorer_workers, use num_scorers
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "10")
+    _validate_scorer_max_workers(expected_max_workers=2, num_scorers=2)
+
+    # set to 1 for sequential execution
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "1")
+    _validate_scorer_max_workers(expected_max_workers=1, num_scorers=3)

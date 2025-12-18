@@ -321,6 +321,80 @@ def test_invoke_databricks_serving_endpoint_with_response_schema():
         assert output.response == '{"result": 8, "rationale": "Good quality"}'
 
 
+def test_invoke_databricks_serving_endpoint_with_inference_params() -> None:
+    captured_payload = None
+
+    def mock_post(*args, **kwargs):
+        nonlocal captured_payload
+        captured_payload = kwargs.get("json")
+
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "Test response"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+        mock_response.headers = {"x-request-id": "test-id"}
+        return mock_response
+
+    mock_creds = mock.Mock()
+    mock_creds.host = "https://test.databricks.com"
+    mock_creds.token = "test-token"
+
+    inference_params = {"temperature": 0.5, "max_tokens": 100, "top_p": 0.9}
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
+        ),
+    ):
+        result = _invoke_databricks_serving_endpoint(
+            model_name="test-model",
+            prompt="test prompt",
+            num_retries=1,
+            inference_params=inference_params,
+        )
+
+        # Verify inference_params were included in the payload
+        assert captured_payload is not None
+        assert captured_payload["temperature"] == 0.5
+        assert captured_payload["max_tokens"] == 100
+        assert captured_payload["top_p"] == 0.9
+
+    assert result.response == "Test response"
+
+
+@pytest.mark.parametrize(
+    "invalid_prompt",
+    [
+        123,  # Not a string or list
+        ["not a ChatMessage", "also invalid"],  # List but not ChatMessage instances
+    ],
+)
+def test_invoke_databricks_serving_endpoint_invalid_prompt_type(invalid_prompt) -> None:
+    mock_creds = mock.Mock()
+    mock_creds.host = "https://test.databricks.com"
+    mock_creds.token = "test-token"
+
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_creds,
+        ),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="Invalid prompt type: expected str or list\\[ChatMessage\\]",
+        ):
+            _invoke_databricks_serving_endpoint(
+                model_name="test-model", prompt=invalid_prompt, num_retries=0
+            )
+
+
 def test_record_success_telemetry_with_databricks_agents() -> None:
     # Mock the telemetry function separately
     mock_telemetry_module = mock.MagicMock()
