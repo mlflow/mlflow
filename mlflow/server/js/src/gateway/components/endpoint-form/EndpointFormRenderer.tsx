@@ -1,38 +1,74 @@
-import { useState } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Alert, Button, FormUI, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint/ProviderSelect';
-import { ModelSelectorModal } from '../model-selector';
-import { LongFormSection, LongFormSummary } from '../../../common/components/long-form';
+import { ModelSelect } from '../create-endpoint/ModelSelect';
+import { ApiKeyConfigurator, useApiKeyConfiguration } from '../model-configuration';
+import type { ApiKeyConfiguration } from '../model-configuration';
 import { formatProviderName } from '../../utils/providerUtils';
+import { LongFormSection, LongFormSummary } from '../../../common/components/long-form';
+import type { Model, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
-import type { Model } from '../../types';
+import type { SecretMode } from '../secrets/SecretConfigSection';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 
+/**
+ * Shared form data interface for both create and edit endpoint forms.
+ * Both use the same field structure.
+ */
 export interface EndpointFormData {
   name: string;
   provider: string;
   modelName: string;
+  secretMode: SecretMode;
+  existingSecretId: string;
+  newSecret: {
+    name: string;
+    authMode: string;
+    secretFields: Record<string, string>;
+    configFields: Record<string, string>;
+  };
 }
 
 export interface EndpointFormRendererProps {
+  /** Whether this is editing an existing endpoint (affects button labels, etc.) */
   mode: 'create' | 'edit';
+  /** Whether the form is submitting */
   isSubmitting: boolean;
+  /** Error to display */
   error: Error | null;
+  /** User-friendly error message */
   errorMessage: string | null;
+  /** Callback to reset errors when user makes changes */
   resetErrors: () => void;
-  selectedModel: Model | undefined;
+  /** The selected model's full metadata (for summary display in create mode) */
+  selectedModel?: Model;
+  /** Whether all required fields are filled */
   isFormComplete: boolean;
+  /** Whether any fields have changed from their initial values (edit mode only) */
   hasChanges?: boolean;
+  /** Form submission handler */
   onSubmit: (values: EndpointFormData) => Promise<void>;
+  /** Cancel handler */
   onCancel: () => void;
+  /** Handler for name field blur (for duplicate checking) */
   onNameBlur: () => void;
+  /** Component ID prefix for telemetry */
   componentIdPrefix?: string;
 }
 
+/**
+ * Unified presentational component for endpoint forms (create and edit).
+ * All business logic is handled by the parent hook (useCreateEndpointForm or useEditEndpointForm).
+ *
+ * This component expects to be wrapped in a FormProvider by the parent.
+ * Page-level concerns (breadcrumbs, page wrapper, loading/error states) should be
+ * handled by the parent to allow this form to be reused in different contexts
+ * (full page, modal, etc.).
+ */
 export const EndpointFormRenderer = ({
   mode,
   isSubmitting,
@@ -50,11 +86,44 @@ export const EndpointFormRenderer = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const form = useFormContext<EndpointFormData>();
-  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
 
   const provider = form.watch('provider');
   const modelName = form.watch('modelName');
+  const secretMode = form.watch('secretMode');
+  const existingSecretId = form.watch('existingSecretId');
+  const newSecret = form.watch('newSecret');
 
+  // Get API key configuration data for the selected provider
+  const { existingSecrets, isLoadingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } =
+    useApiKeyConfiguration({ provider });
+
+  // Convert form values to ApiKeyConfiguration format for the presentation component
+  const apiKeyConfig: ApiKeyConfiguration = useMemo(
+    () => ({
+      mode: secretMode,
+      existingSecretId: existingSecretId,
+      newSecret: newSecret,
+    }),
+    [secretMode, existingSecretId, newSecret],
+  );
+
+  // Handler to update form values when ApiKeyConfigurator changes
+  const handleApiKeyChange = useCallback(
+    (config: ApiKeyConfiguration) => {
+      if (config.mode !== secretMode) {
+        form.setValue('secretMode', config.mode);
+      }
+      if (config.existingSecretId !== existingSecretId) {
+        form.setValue('existingSecretId', config.existingSecretId);
+      }
+      if (config.newSecret !== newSecret) {
+        form.setValue('newSecret', config.newSecret);
+      }
+    },
+    [form, secretMode, existingSecretId, newSecret],
+  );
+
+  // Determine button disabled state and tooltip
   const isButtonDisabled = mode === 'edit' ? !isFormComplete || !hasChanges : !isFormComplete;
   const buttonTooltip = !isFormComplete
     ? intl.formatMessage({
@@ -89,6 +158,7 @@ export const EndpointFormRenderer = ({
           gap: theme.spacing.md,
           padding: `0 ${theme.spacing.md}px`,
           overflow: 'auto',
+          // Stack vertically on narrow screens
           '@media (max-width: 1023px)': {
             flexDirection: 'column',
           },
@@ -154,53 +224,66 @@ export const EndpointFormRenderer = ({
             hideDivider
           >
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              {/* Provider subsection */}
-              <div>
-                <Controller
-                  control={form.control}
-                  name="provider"
-                  rules={{ required: 'Provider is required' }}
-                  render={({ field, fieldState }) => (
-                    <ProviderSelect
-                      value={field.value}
-                      onChange={(value) => {
-                        field.onChange(value);
-                        form.setValue('modelName', '');
-                      }}
-                      error={fieldState.error?.message}
-                      componentIdPrefix={`${componentIdPrefix}.provider`}
-                    />
-                  )}
-                />
-              </div>
-
-              {/* Model subsection - only show when provider is selected */}
-              {provider && (
-                <div>
-                  <FormUI.Label htmlFor={`${componentIdPrefix}.model`}>
-                    <FormattedMessage defaultMessage="Model" description="Model label" />
-                  </FormUI.Label>
-                  <Button
-                    componentId={`${componentIdPrefix}.select-model`}
-                    onClick={() => setIsModelSelectorOpen(true)}
-                    css={{
-                      width: '100%',
-                      fontWeight: 'normal',
-                      '& > span': {
-                        width: '100%',
-                        justifyContent: 'flex-start',
-                      },
+              <Controller
+                control={form.control}
+                name="provider"
+                rules={{ required: 'Provider is required' }}
+                render={({ field, fieldState }) => (
+                  <ProviderSelect
+                    value={field.value}
+                    onChange={(value) => {
+                      field.onChange(value);
+                      // Reset all dependent fields when provider changes
+                      form.setValue('modelName', '');
+                      form.setValue('existingSecretId', '');
+                      form.setValue('secretMode', 'new');
+                      form.setValue('newSecret', {
+                        name: '',
+                        authMode: '',
+                        secretFields: {},
+                        configFields: {},
+                      });
                     }}
-                  >
-                    {modelName || (
-                      <span css={{ color: theme.colors.textSecondary }}>
-                        <FormattedMessage
-                          defaultMessage="Select a model..."
-                          description="Model selection placeholder"
-                        />
-                      </span>
-                    )}
-                  </Button>
+                    error={fieldState.error?.message}
+                    componentIdPrefix={`${componentIdPrefix}.provider`}
+                  />
+                )}
+              />
+              <Controller
+                control={form.control}
+                name="modelName"
+                rules={{ required: 'Model is required' }}
+                render={({ field, fieldState }) => (
+                  <ModelSelect
+                    provider={provider}
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    componentIdPrefix={`${componentIdPrefix}.model`}
+                  />
+                )}
+              />
+
+              {/* Connections subsection - nested within Model */}
+              {provider && (
+                <div css={{ marginTop: theme.spacing.sm }}>
+                  <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+                    <FormattedMessage
+                      defaultMessage="Connections"
+                      description="Subsection header for API key configuration"
+                    />
+                  </Typography.Text>
+                  <ApiKeyConfigurator
+                    value={apiKeyConfig}
+                    onChange={handleApiKeyChange}
+                    provider={provider}
+                    existingSecrets={existingSecrets}
+                    isLoadingSecrets={isLoadingSecrets}
+                    authModes={authModes}
+                    defaultAuthMode={defaultAuthMode}
+                    isLoadingProviderConfig={isLoadingProviderConfig}
+                    componentIdPrefix={`${componentIdPrefix}.api-key`}
+                  />
                 </div>
               )}
             </div>
@@ -255,6 +338,19 @@ export const EndpointFormRenderer = ({
                   </Typography.Text>
                 )}
               </div>
+
+              {/* API Key */}
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <Typography.Text bold color="secondary">
+                  <FormattedMessage defaultMessage="API Key" description="Summary API key label" />
+                </Typography.Text>
+                <ApiKeySummary
+                  secretMode={secretMode}
+                  newSecretName={newSecret?.name}
+                  existingSecretId={existingSecretId}
+                  existingSecrets={existingSecrets}
+                />
+              </div>
             </div>
           </LongFormSummary>
         </div>
@@ -290,16 +386,6 @@ export const EndpointFormRenderer = ({
           </Button>
         </Tooltip>
       </div>
-
-      <ModelSelectorModal
-        isOpen={isModelSelectorOpen}
-        onClose={() => setIsModelSelectorOpen(false)}
-        onSelect={(model) => {
-          form.setValue('modelName', model.model);
-          setIsModelSelectorOpen(false);
-        }}
-        provider={provider}
-      />
     </>
   );
 };
@@ -373,4 +459,30 @@ const ModelSummary = ({ model, modelName }: { model: Model | undefined; modelNam
       )}
     </div>
   );
+};
+
+/** Helper component to display API key info in the summary */
+const ApiKeySummary = ({
+  secretMode,
+  newSecretName,
+  existingSecretId,
+  existingSecrets,
+}: {
+  secretMode: SecretMode;
+  newSecretName?: string;
+  existingSecretId?: string;
+  existingSecrets?: SecretInfo[];
+}) => {
+  const apiKeyName =
+    secretMode === 'new' ? newSecretName : existingSecrets?.find((s) => s.secret_id === existingSecretId)?.secret_name;
+
+  if (!apiKeyName) {
+    return (
+      <Typography.Text color="secondary">
+        <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
+      </Typography.Text>
+    );
+  }
+
+  return <Typography.Text>{apiKeyName}</Typography.Text>;
 };
