@@ -798,13 +798,18 @@ def test_faithfulness_metric(request):
             examples=[mlflow_example],
         )
 
-    faithfulness_metric.eval_fn(
-        # Inputs with different indices
-        pd.Series([mlflow_prediction], index=[0]),
-        {},
-        pd.Series([input], index=[1]),
-        pd.Series([mlflow_ground_truth], index=[2]),
-    )
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ):
+        faithfulness_metric.eval_fn(
+            # Inputs with different indices
+            pd.Series([mlflow_prediction], index=[0]),
+            {},
+            pd.Series([input], index=[1]),
+            pd.Series([mlflow_ground_truth], index=[2]),
+        )
 
     profiler.disable()
     elapsed_time = time.time() - start_time
