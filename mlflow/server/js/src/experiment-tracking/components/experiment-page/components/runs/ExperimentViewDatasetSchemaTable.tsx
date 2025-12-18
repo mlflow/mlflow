@@ -1,13 +1,8 @@
 import { Table, TableCell, TableHeader, TableRow } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
-export interface SchemaColumn {
-  name: string | string[];
-  type: string;
-}
-
 export interface ExperimentViewDatasetSchemaTableProps {
-  schema: SchemaColumn[];
+  schema: Array<{ name: string | string[]; type: string }>;
   filter: string;
 }
 
@@ -25,7 +20,7 @@ export const ExperimentViewDatasetSchemaTable = ({
     );
   };
 
-  const filteredSchema = schema.filter((row: SchemaColumn) => hasFilter(row.name, row.type));
+  const filteredSchema = schema.filter((row) => hasFilter(row.name, row.type));
 
   const getNameHeader = () => {
     return (
@@ -61,7 +56,7 @@ export const ExperimentViewDatasetSchemaTable = ({
             </TableCell>
           </TableRow>
         ) : (
-          filteredSchema.map((row: SchemaColumn, idx: number) => (
+          filteredSchema.map((row, idx: number) => (
             <TableRow key={`table-body-row-${idx}`}>
               <TableCell>{Array.isArray(row.name) ? row.name.join('.') : row.name}</TableCell>
               <TableCell>{row.type}</TableCell>
