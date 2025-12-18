@@ -8,7 +8,6 @@ from clint.rules.forbidden_make_judge_in_builtin_scorers import (
 
 
 def test_forbidden_make_judge_in_builtin_scorers(index_path: Path) -> None:
-    """Test that make_judge usage is detected in builtin_scorers.py"""
     code = """
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.judges import InstructionsJudge
@@ -32,7 +31,6 @@ judge3 = InstructionsJudge(name="test", instructions="test")
 
 
 def test_make_judge_allowed_in_other_files(index_path: Path) -> None:
-    """Test that make_judge is allowed in files other than builtin_scorers.py"""
     code = """
 from mlflow.genai.judges.make_judge import make_judge
 
@@ -47,7 +45,6 @@ judge = make_judge(name="test", instructions="test")
 
 
 def test_instructions_judge_not_flagged(index_path: Path) -> None:
-    """Test that InstructionsJudge usage is not flagged"""
     code = """
 from mlflow.genai.judges import InstructionsJudge
 
@@ -61,7 +58,6 @@ judge = InstructionsJudge(name="test", instructions="test")
 
 
 def test_nested_make_judge_call(index_path: Path) -> None:
-    """Test that nested make_judge calls are detected"""
     code = """
 from mlflow.genai.judges.make_judge import make_judge
 
@@ -77,7 +73,6 @@ result = some_function(make_judge(name="test", instructions="test"))
 
 
 def test_make_judge_in_comment_not_flagged(index_path: Path) -> None:
-    """Test that make_judge in comments is not flagged"""
     code = """
 from mlflow.genai.judges import InstructionsJudge
 
