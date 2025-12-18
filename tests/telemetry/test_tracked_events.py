@@ -876,7 +876,7 @@ endpoints:
     )
 
     runner = CliRunner(catch_exceptions=False)
-    with mock.patch("mlflow.gateway.cli.run_app") as mock_run_app:
+    with mock.patch("mlflow.gateway.cli.run_app"):
         runner.invoke(start, ["--config-path", str(config)])
 
     mock_telemetry_client.flush()
