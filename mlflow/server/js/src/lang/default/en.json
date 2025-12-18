@@ -714,10 +714,6 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
-  "5IeFBG": {
-    "defaultMessage": "Session scorers{count, plural, =0 {} other { (#)}}",
-    "description": "Section title in a side panel that displays session-level scorers"
-  },
   "5Jg2dq": {
     "defaultMessage": "Last 10 traces",
     "description": "Option for last 10 traces"
