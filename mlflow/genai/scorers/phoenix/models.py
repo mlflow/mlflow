@@ -3,6 +3,9 @@ from __future__ import annotations
 import logging
 
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    call_chat_completions,
+)
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
 )
@@ -32,32 +35,20 @@ class DatabricksPhoenixModel:
     """
     Phoenix model adapter for Databricks managed judge.
 
-    Uses the Databricks Foundation Model API via model serving.
+    Uses the dedicated judge endpoint via call_chat_completions.
     """
 
     def __init__(self):
         self._model_name = _DATABRICKS_DEFAULT_JUDGE_MODEL
-        # Use the default foundation model endpoint for evaluation
-        self._endpoint_name = "databricks-meta-llama-3-3-70b-instruct"
         # Required by Phoenix's set_verbosity context manager
         self._verbose = False
         self._rate_limiter = _NoOpRateLimiter()
 
     def __call__(self, prompt, **kwargs) -> str:
         # Phoenix may pass MultimodalPrompt objects instead of strings
-        # Convert to string if needed
         prompt_str = str(prompt) if not isinstance(prompt, str) else prompt
-        try:
-            output = _invoke_databricks_serving_endpoint(
-                model_name=self._endpoint_name,
-                prompt=prompt_str,
-                num_retries=3,
-                response_format=None,
-            )
-            return output.response
-        except Exception as e:
-            _logger.error(f"Error invoking Databricks Foundation Model: {e}")
-            raise
+        result = call_chat_completions(user_prompt=prompt_str, system_prompt="")
+        return result.output
 
     def get_model_name(self) -> str:
         return self._model_name
@@ -119,35 +110,36 @@ def create_phoenix_model(model_uri: str):
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
 
-        if provider == "openai":
-            from phoenix.evals import OpenAIModel
+        match provider:
+            case "openai":
+                from phoenix.evals import OpenAIModel
 
-            return OpenAIModel(model=model_name)
-        elif provider == "azure_openai":
-            from phoenix.evals import AzureOpenAIModel
+                return OpenAIModel(model=model_name)
+            case "azure_openai":
+                from phoenix.evals import AzureOpenAIModel
 
-            return AzureOpenAIModel(model=model_name)
-        elif provider == "bedrock":
-            from phoenix.evals import BedrockModel
+                return AzureOpenAIModel(model=model_name)
+            case "bedrock":
+                from phoenix.evals import BedrockModel
 
-            return BedrockModel(model_id=model_name)
-        elif provider == "anthropic":
-            from phoenix.evals import AnthropicModel
+                return BedrockModel(model_id=model_name)
+            case "anthropic":
+                from phoenix.evals import AnthropicModel
 
-            return AnthropicModel(model=model_name)
-        elif provider == "gemini":
-            from phoenix.evals import GeminiModel
+                return AnthropicModel(model=model_name)
+            case "gemini":
+                from phoenix.evals import GeminiModel
 
-            return GeminiModel(model=model_name)
-        elif provider == "mistral":
-            from phoenix.evals import MistralAIModel
+                return GeminiModel(model=model_name)
+            case "mistral":
+                from phoenix.evals import MistralAIModel
 
-            return MistralAIModel(model=model_name)
-        else:
-            # Fall back to LiteLLM for other providers
-            from phoenix.evals import LiteLLMModel
+                return MistralAIModel(model=model_name)
+            case _:
+                # Fall back to LiteLLM for other providers
+                from phoenix.evals import LiteLLMModel
 
-            return LiteLLMModel(model=f"{provider}/{model_name}")
+                return LiteLLMModel(model=f"{provider}/{model_name}")
     else:
         raise MlflowException.invalid_parameter_value(
             f"Invalid model_uri format: '{model_uri}'. "

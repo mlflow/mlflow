@@ -10,26 +10,31 @@ _METRIC_REGISTRY = {
     "Hallucination": {
         "evaluator_class": "HallucinationEvaluator",
         "positive_label": "factual",
+        "negative_label": "hallucinated",
         "required_fields": ["input", "output", "reference"],
     },
     "Relevance": {
         "evaluator_class": "RelevanceEvaluator",
         "positive_label": "relevant",
+        "negative_label": "irrelevant",
         "required_fields": ["input", "reference"],
     },
     "Toxicity": {
         "evaluator_class": "ToxicityEvaluator",
         "positive_label": "non-toxic",
+        "negative_label": "toxic",
         "required_fields": ["input"],
     },
     "QA": {
         "evaluator_class": "QAEvaluator",
         "positive_label": "correct",
+        "negative_label": "incorrect",
         "required_fields": ["input", "output", "reference"],
     },
     "Summarization": {
         "evaluator_class": "SummarizationEvaluator",
         "positive_label": "good",
+        "negative_label": "bad",
         "required_fields": ["input", "output"],
     },
 }

@@ -23,7 +23,7 @@ from mlflow.utils.docstring_utils import format_docstring
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class PhoenixScorer(Scorer):
     """
@@ -36,7 +36,7 @@ class PhoenixScorer(Scorer):
 
     _evaluator: Any = PrivateAttr()
     _model: str = PrivateAttr()
-    _positive_label: str = PrivateAttr()
+    _label_map: dict[str, CategoricalRating] = PrivateAttr()
 
     def __init__(
         self,
@@ -55,7 +55,12 @@ class PhoenixScorer(Scorer):
         self._evaluator = evaluator_class(model=phoenix_model)
 
         config = get_metric_config(metric_name)
-        self._positive_label = config["positive_label"]
+        positive_label = config["positive_label"]
+        negative_label = config["negative_label"]
+        self._label_map = {
+            positive_label: CategoricalRating.YES,
+            negative_label: CategoricalRating.NO,
+        }
 
     def __call__(
         self,
@@ -91,35 +96,18 @@ class PhoenixScorer(Scorer):
                 trace=trace,
             )
 
-            result = self._evaluator.evaluate(record=record)
-            label, score, explanation = result
+            label, score, explanation = self._evaluator.evaluate(record=record)
 
-            # Parse score from Phoenix result
-            if score is not None:
-                normalized_score = float(score)
-                # Clamp to 0-1 range if needed
-                if normalized_score < 0.0 or normalized_score > 1.0:
-                    _logger.warning(
-                        f"Phoenix returned score {normalized_score} outside expected 0-1 range. "
-                        "Clamping to valid range."
-                    )
-                    normalized_score = min(1.0, max(0.0, normalized_score))
-            else:
-                normalized_score = 1.0 if label == self._positive_label else 0.0
-
-            rationale = explanation or f"Label: {label}"
-
-            # Use categorical rating based on label
-            value = CategoricalRating.YES if label == self._positive_label else CategoricalRating.NO
+            value = self._label_map.get(label, CategoricalRating.UNKNOWN)
 
             return Feedback(
                 name=self.name,
                 value=value,
-                rationale=rationale,
+                rationale=explanation,
                 source=assessment_source,
                 metadata={
                     FRAMEWORK_METADATA_KEY: "phoenix",
-                    "score": normalized_score,
+                    "score": score,
                     "label": label,
                 },
             )
@@ -132,7 +120,7 @@ class PhoenixScorer(Scorer):
             )
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
@@ -168,7 +156,7 @@ def get_scorer(
 # Lightweight wrapper classes for specific metrics
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class Hallucination(PhoenixScorer):
     """
     Detects hallucinations where the LLM fabricates information not present in the context.
@@ -192,7 +180,7 @@ class Hallucination(PhoenixScorer):
     metric_name: ClassVar[str] = "Hallucination"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class Relevance(PhoenixScorer):
     """
     Evaluates whether the retrieved context is relevant to the input query.
@@ -215,7 +203,7 @@ class Relevance(PhoenixScorer):
     metric_name: ClassVar[str] = "Relevance"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class Toxicity(PhoenixScorer):
     """
     Detects toxic content in the model's response.
@@ -235,7 +223,7 @@ class Toxicity(PhoenixScorer):
     metric_name: ClassVar[str] = "Toxicity"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class QA(PhoenixScorer):
     """
     Evaluates whether the answer correctly addresses the question based on reference.
@@ -259,7 +247,7 @@ class QA(PhoenixScorer):
     metric_name: ClassVar[str] = "QA"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class Summarization(PhoenixScorer):
     """
     Evaluates the quality of a summarization against the original document.

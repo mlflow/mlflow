@@ -60,10 +60,11 @@ def map_scorer_inputs_to_phoenix_record(
     # Handle context/reference from expectations or trace
     reference = None
     if expectations:
-        # Look for context, reference, or expected_output in expectations
-        reference = expectations.get("context") or expectations.get("reference")
-        if not reference and "expected_output" in expectations:
-            reference = str(expectations["expected_output"])
+        reference = (
+            expectations.get("context")
+            or expectations.get("reference")
+            or expectations.get("expected_output")
+        )
 
     # If no reference from expectations, try to extract from trace retrieval spans
     if not reference and trace:
