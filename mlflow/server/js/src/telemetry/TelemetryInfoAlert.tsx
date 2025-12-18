@@ -1,4 +1,7 @@
-import { TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_KEY } from '../telemetry/utils';
+import {
+  TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_KEY,
+  TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_VERSION,
+} from '../telemetry/utils';
 import { useLocalStorage } from '../shared/web-shared/hooks';
 import { Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -9,7 +12,7 @@ export const TelemetryInfoAlert = () => {
 
   const [isTelemetryAlertDismissed, setIsTelemetryAlertDismissed] = useLocalStorage({
     key: TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_KEY,
-    version: 1,
+    version: TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_VERSION,
     initialValue: false,
   });
 
