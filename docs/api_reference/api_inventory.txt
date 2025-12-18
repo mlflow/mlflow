@@ -1586,6 +1586,7 @@ mlflow.types.chat.ImageUrl
 mlflow.types.chat.InputAudio
 mlflow.types.chat.ParamProperty
 mlflow.types.chat.ParamType
+mlflow.types.chat.ResponseFormat
 mlflow.types.chat.TextContentPart
 mlflow.types.chat.ToolCall
 mlflow.types.chat.ToolCallDelta

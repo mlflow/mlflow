@@ -345,6 +345,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         self.anthropic_config: AnthropicConfig = config.model.config
 
     @property
+    def headers(self) -> dict[str, str]:
+        return {
+            "x-api-key": self.anthropic_config.anthropic_api_key,
+            "anthropic-version": self.anthropic_config.anthropic_version,
+        }
+
+    @property
     def base_url(self) -> str:
         return "https://api.anthropic.com/v1"
 
@@ -353,11 +360,8 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         return AnthropicAdapter
 
     def _get_headers(self, payload: dict[str, Any]) -> dict[str, str]:
-        headers = {
-            "x-api-key": self.anthropic_config.anthropic_api_key,
-            "anthropic-version": self.anthropic_config.anthropic_version,
-        }
         # Add beta header for structured outputs if output_format is present
+        headers = self.headers
         if payload.get("output_format") and payload["output_format"].get("type") == "json_schema":
             headers["anthropic-beta"] = "structured-outputs-2025-11-13"
         return headers
