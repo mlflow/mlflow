@@ -714,6 +714,10 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
+  "5IeFBG": {
+    "defaultMessage": "Session scorers{count, plural, =0 {} other { (#)}}",
+    "description": "Section title in a side panel that displays session-level scorers"
+  },
   "5Jg2dq": {
     "defaultMessage": "Last 10 traces",
     "description": "Option for last 10 traces"
@@ -1629,6 +1633,10 @@
   "Csmj/2": {
     "defaultMessage": "Select all runs",
     "description": "Experiment page > runs table > select all rows > accessible label"
+  },
+  "Cu5P8e": {
+    "defaultMessage": "Tokens",
+    "description": "Label for the total token count metric in chat session metrics"
   },
   "CyTYL6": {
     "defaultMessage": "Line chart",
@@ -3580,6 +3588,10 @@
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
   },
+  "XHKE0m": {
+    "defaultMessage": "Latency",
+    "description": "Label for the total latency metric in chat session metrics"
+  },
   "XIWwOm": {
     "defaultMessage": "Session ID",
     "description": "Label for the session id section"
@@ -4882,6 +4894,10 @@
   "iZ0M1Y": {
     "defaultMessage": "Apply filters",
     "description": "Button label for applying the filters in the GenAI Traces Table"
+  },
+  "iZOdRI": {
+    "defaultMessage": "{latency} sec",
+    "description": "Display format for latency value in seconds in chat session metrics"
   },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",

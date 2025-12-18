@@ -1,9 +1,11 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 // BEGIN-EDGE
-import { AssessmentsPaneV2, shouldEnableTracesTabLabelingSchemas } from '@databricks/web-shared/model-trace-explorer';
+// import { AssessmentsPaneV2, shouldEnableTracesTabLabelingSchemas } from '@databricks/web-shared/model-trace-explorer';
 // END-EDGE
 import {
   isSessionLevelAssessment,
+  ModelTraceExplorerUpdateTraceContextProvider,
+  useModelTraceExplorerUpdateTraceContext,
   isV3ModelTraceInfo,
   type ModelTrace,
   AssessmentsPane,
@@ -17,12 +19,16 @@ import { ResizableBox } from 'react-resizable';
 const initialWidth = 300;
 const maxWidth = 600;
 
+// BEGIN-EDGE
+// const getAssessmentsPaneComponent = () => {
+//   if (shouldEnableTracesTabLabelingSchemas()) {
+//     return AssessmentsPaneV2;
+//   }
+//   return AssessmentsPane;
+// };
+// END-EDGE
+
 const getAssessmentsPaneComponent = () => {
-  // BEGIN-EDGE
-  if (shouldEnableTracesTabLabelingSchemas()) {
-    return AssessmentsPaneV2;
-  }
-  // END-EDGE
   return AssessmentsPane;
 };
 
@@ -51,6 +57,8 @@ export const ExperimentSingleChatSessionScoreResults = ({
   const defaultMetadata = useMemo(() => ({ [ASSESSMENT_SESSION_METADATA_KEY]: sessionId }), [sessionId]);
 
   const AssessmentsPaneComponent = getAssessmentsPaneComponent();
+
+  const traceUpdateContext = useModelTraceExplorerUpdateTraceContext();
 
   if (!firstTraceInfoInSession) {
     return null;
@@ -98,16 +106,23 @@ export const ExperimentSingleChatSessionScoreResults = ({
           flex: 1,
         }}
       >
-        <AssessmentsPaneComponent
-          assessments={sessionAssessments}
-          traceId={firstTraceInfoInSession.trace_id}
-          defaultMetadata={defaultMetadata}
-          css={{
-            paddingLeft: 0,
-            border: 0,
-          }}
-          assessmentsTitleOverride={AssessmentsTitleOverride}
-        />
+        {/* Repeat the context from the level above, additionally adding proper trace info and chat session ID */}
+        <ModelTraceExplorerUpdateTraceContextProvider
+          {...traceUpdateContext}
+          modelTraceInfo={firstTraceInfoInSession}
+          chatSessionId={sessionId}
+        >
+          <AssessmentsPaneComponent
+            assessments={sessionAssessments}
+            traceId={firstTraceInfoInSession.trace_id}
+            defaultMetadata={defaultMetadata}
+            css={{
+              paddingLeft: 0,
+              border: 0,
+            }}
+            assessmentsTitleOverride={AssessmentsTitleOverride}
+          />
+        </ModelTraceExplorerUpdateTraceContextProvider>
       </ResizableBox>
     </div>
   );

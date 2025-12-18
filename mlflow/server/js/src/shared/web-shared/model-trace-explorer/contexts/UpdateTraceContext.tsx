@@ -6,10 +6,12 @@ const ModelTraceExplorerUpdateTraceContext = React.createContext<{
   sqlWarehouseId?: string;
   modelTraceInfo?: ModelTrace['info'];
   invalidateTraceQuery?: (traceId?: string) => void;
+  chatSessionId?: string;
 }>({
   sqlWarehouseId: undefined,
   modelTraceInfo: undefined,
   invalidateTraceQuery: undefined,
+  chatSessionId: undefined,
 });
 
 /**
@@ -23,17 +25,18 @@ export const ModelTraceExplorerUpdateTraceContextProvider = ({
   modelTraceInfo,
   children,
   invalidateTraceQuery,
+  chatSessionId,
 }: {
   sqlWarehouseId?: string;
   modelTraceInfo?: ModelTrace['info'];
   children: React.ReactNode;
   invalidateTraceQuery?: (traceId?: string) => void;
+  chatSessionId?: string;
 }) => {
   const contextValue = useMemo(
-    () => ({ sqlWarehouseId, modelTraceInfo, invalidateTraceQuery }),
-    [sqlWarehouseId, modelTraceInfo, invalidateTraceQuery],
+    () => ({ sqlWarehouseId, modelTraceInfo, invalidateTraceQuery, chatSessionId }),
+    [sqlWarehouseId, modelTraceInfo, invalidateTraceQuery, chatSessionId],
   );
-
   return (
     <ModelTraceExplorerUpdateTraceContext.Provider value={contextValue}>
       {children}
