@@ -2547,6 +2547,54 @@ def test_litellm_not_available():
             assert "LiteLLM is not installed" in data["message"]
 
 
+def test_invoke_scorer_missing_experiment_id():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={"serialized_scorer": "test", "trace_ids": ["trace1"]},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "experiment_id" in data["message"]
+
+
+def test_invoke_scorer_missing_serialized_scorer():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={"experiment_id": "123", "trace_ids": ["trace1"]},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "serialized_scorer" in data["message"]
+
+
+def test_invoke_scorer_missing_trace_ids():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={"experiment_id": "123", "serialized_scorer": "test"},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "trace_ids" in data["message"]
+
+
+def test_invoke_scorer_not_implemented():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                "experiment_id": "123",
+                "serialized_scorer": "test",
+                "trace_ids": ["trace1", "trace2"],
+            },
+        )
+        assert response.status_code == 501
+        data = response.get_json()
+        assert "not yet implemented" in data["message"]
+
+
 def test_get_ui_telemetry_handler(
     test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
