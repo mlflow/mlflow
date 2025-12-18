@@ -811,6 +811,8 @@ def test_faithfulness_metric(request):
     print(f"\n=== Profile for {request.node.name} ===")
     print(stream.getvalue())
 
+    assert False, "Intentional failure to see profiling output"
+
 
 def test_answer_correctness_metric():
     answer_correctness_metric = answer_correctness()
