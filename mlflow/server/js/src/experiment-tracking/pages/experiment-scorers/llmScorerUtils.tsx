@@ -16,7 +16,7 @@ export const useTemplateOptions = () => {
         value: LLM_TEMPLATE.CORRECTNESS,
         label: intl.formatMessage({ defaultMessage: 'Correctness', description: 'LLM template option' }),
         hint: intl.formatMessage({
-          defaultMessage: "Is app's response correct compared to ground-truth?",
+          defaultMessage: 'Are the expected facts supported by the response?',
           description: 'Hint for Correctness template',
         }),
       },
