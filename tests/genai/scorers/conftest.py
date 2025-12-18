@@ -1,18 +1,12 @@
 """Conftest for scorer tests - imports telemetry fixtures for telemetry testing."""
 
-import sys
-from pathlib import Path
 from unittest import mock
 
 import pytest
 
-# Add telemetry tests to path so we can import fixtures
-telemetry_tests_path = Path(__file__).parent.parent.parent / "telemetry"
-if str(telemetry_tests_path) not in sys.path:
-    sys.path.insert(0, str(telemetry_tests_path))
-
-# Import telemetry fixtures
-from conftest import (  # noqa: E402, F401
+# Import telemetry fixtures from the telemetry test module
+# These fixtures are used by pytest for test setup and are not directly referenced
+from tests.telemetry.conftest import (  # noqa: F401
     bypass_env_check,
     is_mlflow_testing,
     mock_requests,
