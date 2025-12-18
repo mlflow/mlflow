@@ -137,7 +137,8 @@ def _score_model_on_payloads(
     scores = [None] * len(grading_payloads)
     justifications = [None] * len(grading_payloads)
     with ThreadPoolExecutor(
-        max_workers=max_workers, thread_name_prefix="MlflowGenAiScoring"
+        max_workers=min(max_workers, len(grading_payloads)),
+        thread_name_prefix="MlflowGenAiScoring",
     ) as executor:
         futures = {
             executor.submit(
@@ -620,7 +621,8 @@ def make_genai_metric(
         justifications = [None] * len(inputs)
 
         with ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix="MlflowGenAiEvaluation"
+            max_workers=min(max_workers, len(grading_payloads)),
+            thread_name_prefix="MlflowGenAiEvaluation",
         ) as executor:
             futures = {
                 executor.submit(
