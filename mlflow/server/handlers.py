@@ -4451,7 +4451,7 @@ def get_gateway_endpoints():
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/secrets/config", version=3),
+            _get_ajax_path("/mlflow/gateway/secrets/config", version=3),
             _get_secrets_config,
             ["GET"],
         ),
