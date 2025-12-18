@@ -400,3 +400,109 @@ async def openai_passthrough_responses(request: Request):
     if body.get("stream"):
         return StreamingResponse(response, media_type="text/event-stream")
     return response
+
+
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES])
+@translate_http_exception
+async def anthropic_passthrough_messages(request: Request):
+    """
+    Anthropic passthrough endpoint for the Messages API.
+
+    This endpoint accepts raw Anthropic API format and passes it through to the
+    Anthropic provider with the configured API key and model. The 'model' parameter
+    in the request specifies which MLflow endpoint to use.
+
+    Supports streaming responses when the 'stream' parameter is set to true.
+
+    Example:
+        POST /gateway/anthropic/v1/messages
+        {
+            "model": "my-anthropic-endpoint",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "stream": true
+        }
+    """
+    try:
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    store = _get_store()
+    _validate_store(store)
+
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body)
+
+    if body.get("stream"):
+        return StreamingResponse(response, media_type="text/event-stream")
+    return response
+
+
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_GENERATE_CONTENT])
+@translate_http_exception
+async def gemini_passthrough_generate_content(endpoint_name: str, request: Request):
+    """
+    Gemini passthrough endpoint for generateContent API (non-streaming).
+
+    This endpoint accepts raw Gemini API format and passes it through to the
+    Gemini provider with the configured API key. The endpoint_name in the URL path
+    specifies which MLflow endpoint to use.
+
+    Example:
+        POST /gateway/gemini/v1beta/models/my-gemini-endpoint:generateContent
+        {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": "Hello"}]
+                }
+            ]
+        }
+    """
+    try:
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+
+    store = _get_store()
+    _validate_store(store)
+
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body)
+
+
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT])
+@translate_http_exception
+async def gemini_passthrough_stream_generate_content(endpoint_name: str, request: Request):
+    """
+    Gemini passthrough endpoint for streamGenerateContent API (streaming).
+
+    This endpoint accepts raw Gemini API format and passes it through to the
+    Gemini provider with the configured API key. The endpoint_name in the URL path
+    specifies which MLflow endpoint to use.
+
+    Example:
+        POST /gateway/gemini/v1beta/models/my-gemini-endpoint:streamGenerateContent
+        {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": "Hello"}]
+                }
+            ]
+        }
+    """
+    try:
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+
+    store = _get_store()
+    _validate_store(store)
+
+    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    response = await provider.passthrough(PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body)
+    return StreamingResponse(response, media_type="text/event-stream")
