@@ -33,6 +33,7 @@ export const ModelTraceExplorerUpdateTraceContextProvider = ({
     () => ({ sqlWarehouseId, modelTraceInfo, invalidateTraceQuery }),
     [sqlWarehouseId, modelTraceInfo, invalidateTraceQuery],
   );
+
   return (
     <ModelTraceExplorerUpdateTraceContext.Provider value={contextValue}>
       {children}

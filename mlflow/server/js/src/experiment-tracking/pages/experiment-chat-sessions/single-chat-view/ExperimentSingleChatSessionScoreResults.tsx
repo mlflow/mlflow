@@ -26,7 +26,13 @@ const getAssessmentsPaneComponent = () => {
   return AssessmentsPane;
 };
 
-export const ExperimentSingleChatSessionScoreResults = ({ traces, sessionId }: { traces: ModelTrace[]; sessionId: string }) => {
+export const ExperimentSingleChatSessionScoreResults = ({
+  traces,
+  sessionId,
+}: {
+  traces: ModelTrace[];
+  sessionId: string;
+}) => {
   const { theme } = useDesignSystemTheme();
 
   const firstTraceInfoInSession = useMemo(() => {
@@ -42,10 +48,7 @@ export const ExperimentSingleChatSessionScoreResults = ({ traces, sessionId }: {
     [firstTraceInfoInSession],
   );
 
-  const defaultMetadata = useMemo(
-    () => ({ [ASSESSMENT_SESSION_METADATA_KEY]: sessionId }),
-    [sessionId],
-  );
+  const defaultMetadata = useMemo(() => ({ [ASSESSMENT_SESSION_METADATA_KEY]: sessionId }), [sessionId]);
 
   const AssessmentsPaneComponent = getAssessmentsPaneComponent();
 

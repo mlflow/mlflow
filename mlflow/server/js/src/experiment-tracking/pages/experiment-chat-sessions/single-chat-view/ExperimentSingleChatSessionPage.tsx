@@ -10,10 +10,18 @@ import {
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
 
-import { useParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+// BEGIN-EDGE
+import { useFetchTraceV4LazyQuery } from '@databricks/web-shared/genai-traces-table';
+import { useMonitoringSqlWarehouseId } from '../../experiment-evaluation-monitoring/hooks/useMonitoringSqlWarehouseId';
+import { useUpdateExperimentUCSchemaStorage } from '../../../components/experiment-page/components/traces-v3/hooks/useUpdateExperimentUCSchemaStorage';
+import { LabelingSchemaContextProvider } from '@databricks/web-shared/model-trace-explorer';
+import { useExperimentLabelingSchemas } from '../../../hooks/useExperimentLabelingSchemas';
+// END-EDGE
+import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatSessionScoreResults';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -35,12 +43,43 @@ import {
   ExperimentSingleChatConversationSkeleton,
 } from './ExperimentSingleChatConversation';
 import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
-import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatSessionScoreResults';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
-
+// BEGIN-EDGE
 const ContextProviders = ({
+  sqlWarehouseId,
+  modelTraceInfo,
+  children,
+  labelingSchemasConfig,
+  invalidateTraceQuery,
+}: {
+  sqlWarehouseId?: string;
+  modelTraceInfo?: ModelTrace['info'];
+  children: React.ReactNode;
+  labelingSchemasConfig: ReturnType<typeof useExperimentLabelingSchemas>;
+  invalidateTraceQuery?: (traceId?: string) => void;
+}) => {
+  return (
+    <ModelTraceExplorerUpdateTraceContextProvider
+      sqlWarehouseId={sqlWarehouseId}
+      modelTraceInfo={modelTraceInfo}
+      invalidateTraceQuery={invalidateTraceQuery}
+    >
+      <LabelingSchemaContextProvider
+        schemas={labelingSchemasConfig.schemas}
+        allAvailableSchemas={labelingSchemasConfig.allAvailableSchemas}
+        isLoading={labelingSchemasConfig.isLoading}
+        onAddSchema={labelingSchemasConfig.addSchema}
+        onRemoveSchema={labelingSchemasConfig.removeSchema}
+      >
+        {children}
+      </LabelingSchemaContextProvider>
+    </ModelTraceExplorerUpdateTraceContextProvider>
+  );
+};
+// END-EDGE
+
+const oss_ContextProviders = ({
   children,
   modelTraceInfo,
   invalidateTraceQuery,
@@ -62,7 +101,6 @@ const ContextProviders = ({
 const ExperimentSingleChatSessionPageImpl = () => {
   const { theme } = useDesignSystemTheme();
   const { experimentId, sessionId } = useParams();
-  const location = useLocation();
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number | null>(null);
   const [selectedTrace, setSelectedTrace] = useState<ModelTrace | null>(null);
   const chatRefs = useRef<{ [traceId: string]: HTMLDivElement }>({});
@@ -70,16 +108,8 @@ const ExperimentSingleChatSessionPageImpl = () => {
   invariant(experimentId, 'Experiment ID must be defined');
   invariant(sessionId, 'Session ID must be defined');
 
-  const selectedTraceIdFromUrl = useMemo(() => {
-    const searchParams = new URLSearchParams(location.search);
-    return searchParams.get(SELECTED_TRACE_ID_QUERY_PARAM);
-  }, [location.search]);
-
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
-    options: {
-      fetchPolicy: 'cache-only',
-    },
   });
 
   const traceSearchLocations = useMemo(
@@ -114,106 +144,92 @@ const ExperimentSingleChatSessionPageImpl = () => {
     invalidateSingleTraceQuery,
   } = useGetTraces(getTrace, sortedTraceInfos);
 
-  useEffect(() => {
-    if (selectedTraceIdFromUrl && traces && traces.length > 0 && !isLoadingTraceDatas) {
-      const traceIndex = traces.findIndex((trace) => getModelTraceId(trace) === selectedTraceIdFromUrl);
-      if (traceIndex !== -1) {
-        setSelectedTurnIndex(traceIndex);
-        const traceRef = chatRefs.current[selectedTraceIdFromUrl];
-        if (traceRef) {
-          traceRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-    }
-  }, [selectedTraceIdFromUrl, traces, isLoadingTraceDatas]);
-
   const firstTraceInfo = traces?.[0]?.info;
 
   return (
-    <ContextProviders
-      modelTraceInfo={firstTraceInfo}
-      invalidateTraceQuery={invalidateSingleTraceQuery}
-    >
+    <oss_ContextProviders modelTraceInfo={firstTraceInfo} invalidateTraceQuery={invalidateSingleTraceQuery}>
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <div
-        css={
-          shouldEnableAssessmentsInSessions()
-            ? {
-                '& > div': {
-                  borderBottom: 'none',
-                },
-              }
-            : undefined
-        }
-      >
-        <TracesV3Toolbar
-          // prettier-ignore
-          viewState="single-chat-session"
-          sessionId={sessionId}
-        />
-      </div>
-
-      {shouldEnableAssessmentsInSessions() && (
-        <ExperimentSingleChatSessionMetrics chatSessionMetrics={chatSessionMetrics} />
-      )}
-      {isLoadingTraceDatas || isLoadingTraceInfos ? (
-        <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <ExperimentSingleChatSessionSidebarSkeleton />
-          <ExperimentSingleChatConversationSkeleton />
-        </div>
-      ) : (
-        <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <ExperimentSingleChatSessionSidebar
-            traces={traces ?? []}
-            selectedTurnIndex={selectedTurnIndex}
-            setSelectedTurnIndex={setSelectedTurnIndex}
-            setSelectedTrace={setSelectedTrace}
-            chatRefs={chatRefs}
-          />
-          <ExperimentSingleChatConversation
-            traces={traces ?? []}
-            selectedTurnIndex={selectedTurnIndex}
-            setSelectedTurnIndex={setSelectedTurnIndex}
-            setSelectedTrace={setSelectedTrace}
-            chatRefs={chatRefs}
-            getAssessmentTitle={getAssessmentTitle}
-          />
-          {shouldEnableAssessmentsInSessions() && <ExperimentSingleChatSessionScoreResults traces={traces ?? []} sessionId={sessionId} />}
-        </div>
-      )}
-      <Drawer.Root
-        open={selectedTrace !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedTrace(null);
+          css={
+            shouldEnableAssessmentsInSessions()
+              ? {
+                  '& > div': {
+                    borderBottom: 'none',
+                  },
+                }
+              : undefined
           }
-        }}
-      >
-        <Drawer.Content
-          componentId="mlflow.experiment.chat-session.trace-drawer"
-          title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
-          width="90vw"
-          expandContentToFullHeight
         >
-          <div
-            css={{
-              height: '100%',
-              marginLeft: -theme.spacing.lg,
-              marginRight: -theme.spacing.lg,
-              marginBottom: -theme.spacing.lg,
-            }}
-          >
-            <ContextProviders
-              modelTraceInfo={selectedTrace?.info}
-              invalidateTraceQuery={invalidateSingleTraceQuery}
-            >
-              {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
-            </ContextProviders>
+          <TracesV3Toolbar
+            // prettier-ignore
+            viewState="single-chat-session"
+            sessionId={sessionId}
+          />
+        </div>
+
+        {shouldEnableAssessmentsInSessions() && (
+          <ExperimentSingleChatSessionMetrics chatSessionMetrics={chatSessionMetrics} />
+        )}
+        {isLoadingTraceDatas || isLoadingTraceInfos ? (
+          <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
+            <ExperimentSingleChatSessionSidebarSkeleton />
+            <ExperimentSingleChatConversationSkeleton />
           </div>
-        </Drawer.Content>
-      </Drawer.Root>
-    </div>
-    </ContextProviders>
+        ) : (
+          <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
+            <ExperimentSingleChatSessionSidebar
+              traces={traces ?? []}
+              selectedTurnIndex={selectedTurnIndex}
+              setSelectedTurnIndex={setSelectedTurnIndex}
+              setSelectedTrace={setSelectedTrace}
+              chatRefs={chatRefs}
+            />
+            <ExperimentSingleChatConversation
+              traces={traces ?? []}
+              selectedTurnIndex={selectedTurnIndex}
+              setSelectedTurnIndex={setSelectedTurnIndex}
+              setSelectedTrace={setSelectedTrace}
+              chatRefs={chatRefs}
+              getAssessmentTitle={getAssessmentTitle}
+            />
+            {shouldEnableAssessmentsInSessions() && (
+              <ExperimentSingleChatSessionScoreResults traces={traces ?? []} sessionId={sessionId} />
+            )}
+          </div>
+        )}
+        <Drawer.Root
+          open={selectedTrace !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedTrace(null);
+            }
+          }}
+        >
+          <Drawer.Content
+            componentId="mlflow.experiment.chat-session.trace-drawer"
+            title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
+            width="90vw"
+            expandContentToFullHeight
+          >
+            <div
+              css={{
+                height: '100%',
+                marginLeft: -theme.spacing.lg,
+                marginRight: -theme.spacing.lg,
+                marginBottom: -theme.spacing.lg,
+              }}
+            >
+              <oss_ContextProviders
+                modelTraceInfo={selectedTrace?.info}
+                invalidateTraceQuery={invalidateSingleTraceQuery}
+              >
+                {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
+              </oss_ContextProviders>
+            </div>
+          </Drawer.Content>
+        </Drawer.Root>
+      </div>
+    </oss_ContextProviders>
   );
 };
 

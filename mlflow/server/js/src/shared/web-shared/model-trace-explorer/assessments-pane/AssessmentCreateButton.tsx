@@ -22,8 +22,19 @@ export const AssessmentCreateButton = ({
 
   useEffect(() => {
     if (expanded && ref.current) {
-      // scroll form into view after the form is expanded
-      ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // scroll form into view after the form is expanded, but only if it's not already visible
+      const element = ref.current;
+      const parent = element.offsetParent as HTMLElement;
+      if (parent) {
+        const elementTop = element.offsetTop;
+        const parentScrollTop = parent.scrollTop;
+        const parentHeight = parent.clientHeight;
+
+        // Only scroll if the element is not fully visible
+        if (elementTop < parentScrollTop || elementTop > parentScrollTop + parentHeight) {
+          ref.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
     }
   }, [expanded]);
 
