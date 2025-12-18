@@ -136,6 +136,8 @@ def _score_model_on_payloads(
 ) -> tuple[list[int], list[str]]:
     scores = [None] * len(grading_payloads)
     justifications = [None] * len(grading_payloads)
+    if not grading_payloads:
+        return scores, justifications
     with ThreadPoolExecutor(
         max_workers=min(max_workers, len(grading_payloads)),
         thread_name_prefix="MlflowGenAiScoring",
@@ -621,7 +623,7 @@ def make_genai_metric(
         justifications = [None] * len(inputs)
 
         with ThreadPoolExecutor(
-            max_workers=min(max_workers, len(grading_payloads)),
+            max_workers=max(1, min(max_workers, len(grading_payloads))),
             thread_name_prefix="MlflowGenAiEvaluation",
         ) as executor:
             futures = {
