@@ -21,7 +21,6 @@ from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
-from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.judges.prompts.completeness import (
     COMPLETENESS_ASSESSMENT_NAME,
     COMPLETENESS_PROMPT,
@@ -1638,7 +1637,7 @@ class Fluency(BuiltInScorer):
 
     def _get_judge(self) -> Judge:
         if self._judge is None:
-            self._judge = make_judge(
+            self._judge = InstructionsJudge(
                 name=self.name,
                 instructions=self.instructions,
                 model=self.model,
@@ -1999,7 +1998,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
     description: str = "Evaluate the user's frustration state throughout the conversation."
 
     def _create_judge(self) -> Judge:
-        return make_judge(
+        return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
@@ -2331,7 +2330,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
     )
 
     def _create_judge(self) -> Judge:
-        return make_judge(
+        return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
@@ -2578,7 +2577,7 @@ class Completeness(BuiltInScorer):
 
     def _get_judge(self) -> Judge:
         if self._judge is None:
-            self._judge = make_judge(
+            self._judge = InstructionsJudge(
                 name=self.name,
                 instructions=self.instructions,
                 model=self.model,
@@ -2680,7 +2679,7 @@ class Summarization(BuiltInScorer):
 
     def _get_judge(self) -> Judge:
         if self._judge is None:
-            self._judge = make_judge(
+            self._judge = InstructionsJudge(
                 name=self.name,
                 instructions=self.instructions,
                 model=self.model,

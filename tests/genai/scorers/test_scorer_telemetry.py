@@ -111,6 +111,7 @@ def test_nested_scorer_skips_telemetry(mock_requests, mock_telemetry_client: Tel
     parent = ParentScorer(name="parent_scorer", child_scorer=child)
 
     result = parent(outputs="test output")
+    # Expected: len("test output") * 2 = 22
     assert result.value == 22
 
     mock_telemetry_client.flush()
@@ -130,6 +131,7 @@ def test_multi_level_nesting_skips_telemetry(mock_requests, mock_telemetry_clien
     grandparent = GrandparentScorer(name="grandparent_scorer", parent_scorer=parent)
 
     result = grandparent(outputs="test")
+    # Expected: (len("test") * 2) + 1 = 9
     assert result.value == 9
 
     mock_telemetry_client.flush()
@@ -148,6 +150,7 @@ def test_recursive_scorer_skips_nested_telemetry(
     recursive_scorer = RecursiveScorer(name="recursive_scorer", max_depth=5)
 
     result = recursive_scorer(outputs="test", depth=0)
+    # Expected: len("test") = 4 (after recursing to max_depth=5)
     assert result.value == 4
 
     mock_telemetry_client.flush()
@@ -177,6 +180,8 @@ def test_thread_safety_concurrent_scorers(mock_requests, mock_telemetry_client: 
         parent = ParentScorer(name=f"parent{i}", child_scorer=child)
         thread = threading.Thread(target=run_scorer, args=(parent, f"test{i}"))
         threads.append(thread)
+
+    for thread in threads:
         thread.start()
 
     for thread in threads:
@@ -201,6 +206,7 @@ def test_error_in_nested_scorer_still_records_parent_telemetry(
     parent = ParentWithErrorChild(name="parent_scorer", child_scorer=error_child)
 
     result = parent(outputs="test")
+    # Expected: 10 (hardcoded value returned after handling error)
     assert result.value == 10
 
     mock_telemetry_client.flush()
@@ -216,6 +222,7 @@ def test_direct_child_call_records_telemetry(mock_requests, mock_telemetry_clien
     child = ChildScorer(name="child_scorer")
 
     result = child(outputs="test")
+    # Expected: len("test") = 4
     assert result.value == 4
 
     mock_telemetry_client.flush()
@@ -235,7 +242,9 @@ def test_sequential_parent_calls_each_record_telemetry(
 
     result1 = parent(outputs="test1")
     result2 = parent(outputs="test2")
+    # Expected: len("test1") * 2 = 10
     assert result1.value == 10
+    # Expected: len("test2") * 2 = 10
     assert result2.value == 10
 
     mock_telemetry_client.flush()
@@ -264,6 +273,7 @@ def test_telemetry_disabled_nested_scorers_work(
         parent = ParentScorer(name="parent_scorer", child_scorer=child)
 
         result = parent(outputs="test")
+        # Expected: len("test") * 2 = 8
         assert result.value == 8
 
         mock_telemetry_client.flush()
