@@ -53,8 +53,8 @@ RAGAS scorers are organized into categories based on their evaluation focus:
 
 Evaluate retrieval quality and answer generation in RAG systems:
 
-| Scorer                                                                                                                     | What does it evaluate?                                                     | RAGAS Docs                                                                                         |
-| -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Scorer                                                                                                                     | What does it evaluate?                                                     | RAGAS Docs                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | <APILink fn="mlflow.genai.scorers.ragas.ContextPrecision">ContextPrecision</APILink>                                       | Are relevant retrieved documents ranked higher than irrelevant ones?       | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/)       |
 | <APILink fn="mlflow.genai.scorers.ragas.NonLLMContextPrecisionWithReference">NonLLMContextPrecisionWithReference</APILink> | Non-LLM version of context precision using reference answers               | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/)       |
 | <APILink fn="mlflow.genai.scorers.ragas.ContextRecall">ContextRecall</APILink>                                             | Does retrieval context contain all information needed to answer the query? | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/)          |
@@ -67,22 +67,22 @@ Evaluate retrieval quality and answer generation in RAG systems:
 
 Evaluate answer quality through natural language comparison:
 
-| Scorer                                                                                           | What does it evaluate?                                       | RAGAS Docs                                                                                                    |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| <APILink fn="mlflow.genai.scorers.ragas.FactualCorrectness">FactualCorrectness</APILink>         | Is the output factually correct compared to expected answer? | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/factual_correctness/)               |
+| Scorer                                                                                           | What does it evaluate?                                       | RAGAS Docs                                                                                                        |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.ragas.FactualCorrectness">FactualCorrectness</APILink>         | Is the output factually correct compared to expected answer? | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/factual_correctness/)                   |
 | <APILink fn="mlflow.genai.scorers.ragas.NonLLMStringSimilarity">NonLLMStringSimilarity</APILink> | String similarity between output and expected answer         | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#non-llm-string-similarity) |
-| <APILink fn="mlflow.genai.scorers.ragas.BleuScore">BleuScore</APILink>                           | BLEU score for text comparison                               | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#bleu-score)            |
-| <APILink fn="mlflow.genai.scorers.ragas.ChrfScore">ChrfScore</APILink>                           | CHRF score for text comparison                               | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#chrf-score)            |
-| <APILink fn="mlflow.genai.scorers.ragas.RougeScore">RougeScore</APILink>                         | ROUGE score for text comparison                              | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#rouge-score)           |
-| <APILink fn="mlflow.genai.scorers.ragas.StringPresence">StringPresence</APILink>                 | Is a specific string present in the output?                  | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#string-presence)       |
-| <APILink fn="mlflow.genai.scorers.ragas.ExactMatch">ExactMatch</APILink>                         | Does output exactly match expected output?                   | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#exact-match)           |
+| <APILink fn="mlflow.genai.scorers.ragas.BleuScore">BleuScore</APILink>                           | BLEU score for text comparison                               | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#bleu-score)                |
+| <APILink fn="mlflow.genai.scorers.ragas.ChrfScore">ChrfScore</APILink>                           | CHRF score for text comparison                               | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#chrf-score)                |
+| <APILink fn="mlflow.genai.scorers.ragas.RougeScore">RougeScore</APILink>                         | ROUGE score for text comparison                              | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#rouge-score)               |
+| <APILink fn="mlflow.genai.scorers.ragas.StringPresence">StringPresence</APILink>                 | Is a specific string present in the output?                  | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#string-presence)           |
+| <APILink fn="mlflow.genai.scorers.ragas.ExactMatch">ExactMatch</APILink>                         | Does output exactly match expected output?                   | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#exact-match)               |
 
 ### General Purpose
 
 Flexible evaluation metrics for various use cases:
 
-| Scorer                                                                             | What does it evaluate?                             | RAGAS Docs                                                                                 |
-| ---------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Scorer                                                                             | What does it evaluate?                             | RAGAS Docs                                                                                |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | <APILink fn="mlflow.genai.scorers.ragas.AspectCritic">AspectCritic</APILink>       | Evaluates specific aspects of the output using LLM | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/aspect_critic/) |
 | <APILink fn="mlflow.genai.scorers.ragas.RubricsScore">RubricsScore</APILink>       | Scores output based on predefined rubrics          | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/rubrics_score/) |
 | <APILink fn="mlflow.genai.scorers.ragas.InstanceRubrics">InstanceRubrics</APILink> | Scores output based on instance-specific rubrics   | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/rubrics_score/) |
@@ -91,9 +91,9 @@ Flexible evaluation metrics for various use cases:
 
 Specialized metrics for specific tasks:
 
-| Scorer                                                                                   | What does it evaluate?        | RAGAS Docs                                                                                    |
-| ---------------------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| <APILink fn="mlflow.genai.scorers.ragas.SummarizationScore">SummarizationScore</APILink> | Quality of text summarization | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/summarization/)     |
+| Scorer                                                                                   | What does it evaluate?        | RAGAS Docs                                                                                |
+| ---------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.ragas.SummarizationScore">SummarizationScore</APILink> | Quality of text summarization | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/summarization/) |
 
 ## Configuration
 
