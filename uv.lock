@@ -24,7 +24,10 @@ members = [
     "mlflow",
     "mlflow-test-plugin",
 ]
-constraints = [{ name = "xgboost", specifier = "<3.1.0" }]
+constraints = [
+    { name = "pyspark", specifier = "<4.1.0" },
+    { name = "xgboost", specifier = "<3.1.0" },
+]
 excludes = ["databricks-connect"]
 
 [[package]]

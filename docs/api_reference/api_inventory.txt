@@ -798,6 +798,7 @@ mlflow.genai.judges.is_context_sufficient
 mlflow.genai.judges.is_correct
 mlflow.genai.judges.is_grounded
 mlflow.genai.judges.is_safe
+mlflow.genai.judges.is_tool_call_correct
 mlflow.genai.judges.is_tool_call_efficient
 mlflow.genai.judges.make_judge
 mlflow.genai.judges.meets_guidelines
@@ -874,6 +875,8 @@ mlflow.genai.scorers.Fluency.model_post_init
 mlflow.genai.scorers.Guidelines
 mlflow.genai.scorers.Guidelines.get_input_fields
 mlflow.genai.scorers.Guidelines.model_post_init
+mlflow.genai.scorers.KnowledgeRetention
+mlflow.genai.scorers.KnowledgeRetention.model_post_init
 mlflow.genai.scorers.RelevanceToQuery
 mlflow.genai.scorers.RelevanceToQuery.get_input_fields
 mlflow.genai.scorers.RelevanceToQuery.model_post_init
@@ -894,6 +897,9 @@ mlflow.genai.scorers.ScorerSamplingConfig
 mlflow.genai.scorers.Summarization
 mlflow.genai.scorers.Summarization.get_input_fields
 mlflow.genai.scorers.Summarization.model_post_init
+mlflow.genai.scorers.ToolCallCorrectness
+mlflow.genai.scorers.ToolCallCorrectness.get_input_fields
+mlflow.genai.scorers.ToolCallCorrectness.model_post_init
 mlflow.genai.scorers.ToolCallEfficiency
 mlflow.genai.scorers.ToolCallEfficiency.get_input_fields
 mlflow.genai.scorers.ToolCallEfficiency.model_post_init
@@ -911,12 +917,14 @@ mlflow.genai.scorers.builtin_scorers.Equivalence
 mlflow.genai.scorers.builtin_scorers.ExpectationsGuidelines
 mlflow.genai.scorers.builtin_scorers.Fluency
 mlflow.genai.scorers.builtin_scorers.Guidelines
+mlflow.genai.scorers.builtin_scorers.KnowledgeRetention
 mlflow.genai.scorers.builtin_scorers.RelevanceToQuery
 mlflow.genai.scorers.builtin_scorers.RetrievalGroundedness
 mlflow.genai.scorers.builtin_scorers.RetrievalRelevance
 mlflow.genai.scorers.builtin_scorers.RetrievalSufficiency
 mlflow.genai.scorers.builtin_scorers.Safety
 mlflow.genai.scorers.builtin_scorers.Summarization
+mlflow.genai.scorers.builtin_scorers.ToolCallCorrectness
 mlflow.genai.scorers.builtin_scorers.ToolCallEfficiency
 mlflow.genai.scorers.builtin_scorers.UserFrustration
 mlflow.genai.scorers.deepeval.AnswerRelevancy

@@ -21,6 +21,8 @@ class PassthroughAction(str, Enum):
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_RESPONSES = "openai_responses"
     ANTHROPIC_MESSAGES = "anthropic_messages"
+    GEMINI_GENERATE_CONTENT = "gemini_generate_content"
+    GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
 
 
 # Mapping of passthrough actions to their gateway API routes
@@ -29,6 +31,8 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.OPENAI_EMBEDDINGS: "/openai/v1/embeddings",
     PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
     PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
+    PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
+    PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
 }
 
 
