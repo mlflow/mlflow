@@ -1874,8 +1874,6 @@ class SessionLevelScorer(Judge):
         """
         Create the Judge instance for this scorer.
         Subclasses should implement this to configure their specific judge.
-
-        Note: Instantiate InstructionsJudge directly instead of using make_judge.
         """
 
     def _get_judge(self) -> Judge:
@@ -2001,7 +1999,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
     description: str = "Evaluate the user's frustration state throughout the conversation."
 
     def _create_judge(self) -> Judge:
-        return InstructionsJudge(
+        return make_judge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
@@ -2333,7 +2331,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
     )
 
     def _create_judge(self) -> Judge:
-        return InstructionsJudge(
+        return make_judge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
