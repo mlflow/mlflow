@@ -62,7 +62,9 @@ def test_emit_custom_metric_event():
     ]
     with (
         mock.patch("mlflow.genai.evaluation.telemetry.is_databricks_uri", return_value=True),
-        mock.patch("mlflow.genai.evaluation.telemetry.http_request") as mock_http_request,
+        mock.patch(
+            "mlflow.genai.evaluation.telemetry.http_request", autospec=True
+        ) as mock_http_request,
         mock.patch("mlflow.genai.evaluation.telemetry.get_databricks_host_creds"),
     ):
         emit_custom_metric_event(
@@ -132,7 +134,9 @@ def test_emit_custom_metric_event():
 def test_emit_custom_metric_usage_event_skip_outside_databricks():
     with (
         mock.patch("mlflow.genai.evaluation.telemetry.is_databricks_uri", return_value=False),
-        mock.patch("mlflow.genai.evaluation.telemetry.http_request") as mock_http_request,
+        mock.patch(
+            "mlflow.genai.evaluation.telemetry.http_request", autospec=True
+        ) as mock_http_request,
         mock.patch("mlflow.genai.evaluation.telemetry.get_databricks_host_creds"),
     ):
         emit_custom_metric_event(
@@ -146,7 +150,9 @@ def test_emit_custom_metric_usage_event_skip_outside_databricks():
 def test_emit_custom_metric_usage_event_with_sessions():
     with (
         mock.patch("mlflow.genai.evaluation.telemetry.is_databricks_uri", return_value=True),
-        mock.patch("mlflow.genai.evaluation.telemetry.http_request") as mock_http_request,
+        mock.patch(
+            "mlflow.genai.evaluation.telemetry.http_request", autospec=True
+        ) as mock_http_request,
         mock.patch("mlflow.genai.evaluation.telemetry.get_databricks_host_creds"),
     ):
         for _ in range(3):
