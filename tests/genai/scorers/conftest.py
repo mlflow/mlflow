@@ -5,9 +5,9 @@ from unittest import mock
 import pytest
 
 # Import telemetry fixtures from the telemetry test module
-# These fixtures are used by pytest for test setup and are not directly referenced
+# Autouse fixtures (terminate_telemetry_client, mock_requests_get, is_mlflow_testing)
+# are imported for their side effects and run automatically
 from tests.telemetry.conftest import (  # noqa: F401
-    bypass_env_check,
     is_mlflow_testing,
     mock_requests,
     mock_requests_get,
