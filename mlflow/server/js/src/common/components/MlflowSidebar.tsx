@@ -149,7 +149,7 @@ export function MlflowSidebar() {
     >
       <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger asChild>
-          <Button componentId="mlflow_sidebar.new_button" icon={<PlusIcon />}>
+          <Button componentId="mlflow.sidebar.new_button" icon={<PlusIcon />}>
             <FormattedMessage
               defaultMessage="New"
               description="Sidebar create popover button to create new experiment, model or prompt"
@@ -237,6 +237,15 @@ export function MlflowSidebar() {
               fontWeight: theme.typography.typographyBoldFontWeight,
             },
           }}
+          onClick={() =>
+            logTelemetryEvent({
+              componentId: 'mlflow.sidebar.settings_tab_link',
+              componentViewId: viewId,
+              componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
+              componentSubType: null,
+              eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+            })
+          }
         >
           <GearIcon />
           <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
