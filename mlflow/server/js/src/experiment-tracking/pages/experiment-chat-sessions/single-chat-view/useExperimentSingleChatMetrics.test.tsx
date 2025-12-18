@@ -134,7 +134,7 @@ describe('useExperimentSingleChatMetrics', () => {
     const { result } = renderHook(() => useExperimentSingleChatMetrics({ traceInfos }));
 
     // Assert
-    expect(result.current.sessionTokens).toBeUndefined();
+    expect(result.current.sessionTokens).toEqual({});
     expect(result.current.sessionLatency).toBe(1.5);
   });
 

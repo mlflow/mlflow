@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 
 type TraceTokenUsage = ReturnType<typeof getTraceTokenUsage>;
 export interface ExperimentSingleChatMetrics {
-  sessionTokens: TraceTokenUsage;
+  sessionTokens: TraceTokenUsage | undefined;
   sessionLatency: number | undefined;
   perTurnMetrics?: {
     tokens: TraceTokenUsage;

@@ -19,7 +19,7 @@ export const ExperimentSingleChatSessionMetrics = ({
         gap: theme.spacing.sm,
       }}
     >
-      {chatSessionMetrics.sessionTokens['total_tokens'] && (
+      {chatSessionMetrics.sessionTokens?.['total_tokens'] && (
         <div
           css={{
             display: 'flex',
