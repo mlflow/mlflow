@@ -77,7 +77,7 @@ from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, TraceMetricKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -2890,19 +2890,19 @@ def test_query_trace_metrics(mlflow_client, store_type):
     metrics = mlflow_client._tracing_client.store.query_trace_metrics(
         experiment_ids=[experiment_id],
         view_type=MetricViewType.TRACES,
-        metric_name="trace",
+        metric_name=TraceMetricKey.TRACE_COUNT,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
         dimensions=["status"],
     )
     assert len(metrics) == 2
     assert asdict(metrics[0]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"status": "ERROR"},
         "values": {"COUNT": 1},
     }
 
     assert asdict(metrics[1]) == {
-        "metric_name": "trace",
+        "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {"status": "OK"},
         "values": {"COUNT": 2},
     }
