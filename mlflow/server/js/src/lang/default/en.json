@@ -239,6 +239,10 @@
     "defaultMessage": "Show exceptions",
     "description": "Checkbox label for a setting that enables showing spans with exceptions in the trace explorer regardless of filter conditions."
   },
+  "/y0ZU4": {
+    "defaultMessage": "Updated",
+    "description": "Secret last updated label"
+  },
   "033qfw": {
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
     "description": "Helper text shown at the top of the log traces drawer"
@@ -310,6 +314,10 @@
   "0pdAuV": {
     "defaultMessage": "Active",
     "description": "Linked model dropdown option to show active experiment runs"
+  },
+  "0sy/fq": {
+    "defaultMessage": "Create API key",
+    "description": "Gateway > API keys page > Create API key button"
   },
   "0tU5gv": {
     "defaultMessage": "Cancel",
@@ -638,6 +646,10 @@
     "defaultMessage": "Value (optional)",
     "description": "Key-value tag editor modal > Value input label"
   },
+  "4CNVbz": {
+    "defaultMessage": "API key name",
+    "description": "Label for API key name input"
+  },
   "4GPLHq": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
     "description": "Description for the edit aliases modal on the registered prompt details page"
@@ -809,6 +821,10 @@
   "5m2VPy": {
     "defaultMessage": "Image grid",
     "description": "Experiment tracking > runs charts > add chart menu > image grid"
+  },
+  "5qRFq/": {
+    "defaultMessage": "Delete",
+    "description": "Delete button text"
   },
   "5xPlEu": {
     "defaultMessage": "Source run",
@@ -1186,6 +1202,10 @@
     "defaultMessage": "Pin group",
     "description": "A tooltip for the pin icon button in the runs table next to the not pinned run group"
   },
+  "8iJrii": {
+    "defaultMessage": "Edit API Key",
+    "description": "Gateway > API key details drawer > Edit API key button"
+  },
   "8ikgws": {
     "defaultMessage": "Turn {turnNumber}",
     "description": "Label for a single turn within an experiment chat session"
@@ -1217,6 +1237,10 @@
   "9/KT56": {
     "defaultMessage": "Prompts",
     "description": "Label for the prompts tab in the MLflow experiment navbar"
+  },
+  "90097b": {
+    "defaultMessage": "Masked Key",
+    "description": "Masked API key label"
   },
   "93BFzC": {
     "defaultMessage": "Outputs",
@@ -1373,6 +1397,10 @@
   "AFI74W": {
     "defaultMessage": "Group by: {value}",
     "description": "Experiment page > group by runs control > trigger button label > with value"
+  },
+  "AGLzB5": {
+    "defaultMessage": "my-api-key",
+    "description": "Placeholder for secret name input"
   },
   "AGWpnl": {
     "defaultMessage": "Add tags",
@@ -1562,6 +1590,10 @@
     "defaultMessage": "Only the top {evalResultsCount} results are shown",
     "description": "Evaluation review > evaluations list > sample info tooltip"
   },
+  "BrQez2": {
+    "defaultMessage": "Provider",
+    "description": "Label for provider select field"
+  },
   "Bs2X0L": {
     "defaultMessage": "Created by",
     "description": "Label for the creator of a logged model on the logged model details page"
@@ -1722,6 +1754,10 @@
     "defaultMessage": "Thank you for exploring the new Model Registry UI. We are dedicated to providing the best experience, and your feedback is invaluable. Please share your thoughts with us <link>here</link>.",
     "description": "Model registry > Switcher for the new model registry UI containing aliases > disable confirmation modal content"
   },
+  "DMKCLJ": {
+    "defaultMessage": "API Key Details",
+    "description": "Title for the API key details drawer"
+  },
   "DMOaoR": {
     "defaultMessage": "Safe",
     "description": "Evaluation results > safety assessment > positive value label. Displayed if evaluation result is considered as safe."
@@ -1749,6 +1785,10 @@
   "Dm4Ez0": {
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
+  },
+  "DwsF2a": {
+    "defaultMessage": "Other Providers",
+    "description": "Section header for other providers"
   },
   "E+x0F4": {
     "defaultMessage": "Gateway",
@@ -2350,6 +2390,10 @@
     "defaultMessage": "Hugging Face",
     "description": "Experiment dataset drawer > source type > Hugging Face source type label"
   },
+  "JwhonN": {
+    "defaultMessage": "Authentication method",
+    "description": "Label for auth mode selector"
+  },
   "Jxhb2w": {
     "defaultMessage": "We've automatically detected the experiment type to be ''{kindLabel}''. {isEditable, select, true {You can either confirm or change the type.} other {}}",
     "description": "Popover message for inferred experiment kind"
@@ -2401,6 +2445,10 @@
   "KMVqUP": {
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
+  },
+  "KRzwkL": {
+    "defaultMessage": "Type {itemName} to confirm deletion:",
+    "description": "Type to confirm instruction"
   },
   "KV3BXl": {
     "defaultMessage": "Select as baseline version",
@@ -2537,6 +2585,10 @@
   "LpdcPw": {
     "defaultMessage": "Model versions",
     "description": "Label for the model versions of a logged model on the logged model details page"
+  },
+  "Lpz85i": {
+    "defaultMessage": "Edit API Key",
+    "description": "Title for edit API key modal"
   },
   "Ls2ris": {
     "defaultMessage": "Mark as reviewed",
@@ -2842,6 +2894,10 @@
     "defaultMessage": "Running",
     "description": "Run page > Overview > Run status cell > Value for running state"
   },
+  "OxQK9l": {
+    "defaultMessage": "Key name is required",
+    "description": "Error message when key name is empty"
+  },
   "OzyPl3": {
     "defaultMessage": "Please select parameters",
     "description": "Placeholder text for parameters in parallel coordinates plot in MLflow"
@@ -3049,9 +3105,21 @@
     "defaultMessage": "Advanced settings (optional)",
     "description": "Toggle button for advanced settings in prompt creation modal"
   },
+  "R2NKiZ": {
+    "defaultMessage": "Config",
+    "description": "Auth config label"
+  },
   "R3Lb6z": {
     "defaultMessage": "The requested resource was not found.",
     "description": "Resource not found (HTTP STATUS 404) generic error message"
+  },
+  "R3TrL7": {
+    "defaultMessage": "Provider",
+    "description": "Provider label"
+  },
+  "R7s1xC": {
+    "defaultMessage": "Provider is required",
+    "description": "Error message when provider is not selected"
   },
   "RCjxf0": {
     "defaultMessage": "Compare runs",
@@ -3157,6 +3225,10 @@
     "defaultMessage": "Description",
     "description": "Row heading in a table that contains the description of a function parameter."
   },
+  "SMVe/s": {
+    "defaultMessage": "Save Changes",
+    "description": "Save changes button text"
+  },
   "SNvZyR": {
     "defaultMessage": "Time",
     "description": "Label for the time axis on the runs compare chart"
@@ -3252,6 +3324,10 @@
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
+  },
+  "T6s9Mi": {
+    "defaultMessage": "Delete API Key",
+    "description": "Gateway > API key details drawer > Delete API key button"
   },
   "TBX+Gs": {
     "defaultMessage": "Add/Edit tags",
@@ -3395,6 +3471,10 @@
   "UWHfmZ": {
     "defaultMessage": "Group:",
     "description": "Label for a group of runs in the evaluation runs table"
+  },
+  "UXdH8W": {
+    "defaultMessage": "Create API Key",
+    "description": "Create API key button text"
   },
   "UYSMKb": {
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
@@ -3803,6 +3883,10 @@
     "defaultMessage": "Compare",
     "description": "Label for the compare experiments action on the experiments list page"
   },
+  "YGo9ni": {
+    "defaultMessage": "Select a provider to configure API key",
+    "description": "Message when no provider selected for API key form"
+  },
   "YINJEO": {
     "defaultMessage": "Metric",
     "description": "Column title for the column displaying the metric names for a run"
@@ -3887,6 +3971,10 @@
     "defaultMessage": "Confirm",
     "description": "A label for the confirmation button in the modal displayed when the experiment type could not be inferred"
   },
+  "Z4cZMo": {
+    "defaultMessage": "by {user}",
+    "description": "Created by user"
+  },
   "Z5en2d": {
     "defaultMessage": "Versions",
     "description": "Title text for the versions section under details tab on the\n                       model view page"
@@ -3894,6 +3982,10 @@
   "Z6kodo": {
     "defaultMessage": "Move down",
     "description": "Experiment page > compare runs tab > chart header > move down option"
+  },
+  "ZAqdq9": {
+    "defaultMessage": "Edit API key",
+    "description": "Gateway > API key details drawer > Edit API key button aria label"
   },
   "ZBRK9J": {
     "defaultMessage": "Export traces to datasets",
@@ -4078,6 +4170,10 @@
   "aQxQIF": {
     "defaultMessage": "(empty)",
     "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
+  },
+  "aTnlkS": {
+    "defaultMessage": "Search for a provider...",
+    "description": "Placeholder for provider search input"
   },
   "aUOkOC": {
     "defaultMessage": "The chunk-relevance-precision LLM judge determines whether the chunks returned by the retriever are relevant to the input request. Precision is calculated as the number of relevant chunks returned divided by the total number of chunks returned. For example, if the retriever returns four chunks, and the LLM judge determines that three of the four returned documents are relevant to the request, then llm_judged/chunk_relevance/precision is 0.75.",
@@ -4291,6 +4387,10 @@
     "defaultMessage": "Maximum number of language tokens returned from evaluation.",
     "description": "Experiment page > prompt lab > max tokens parameter help text"
   },
+  "cGGc0A": {
+    "defaultMessage": "Delete API key",
+    "description": "Gateway > API key details drawer > Delete API key button aria label"
+  },
   "cHDnV/": {
     "defaultMessage": "LLM template",
     "description": "Section header for LLM template selection"
@@ -4346,6 +4446,10 @@
   "coo35p": {
     "defaultMessage": "No runs have been logged yet. <link>Learn more</link> about how to create ML model training runs in this experiment.",
     "description": "Empty state description text for experiment runs page when no runs are logged in the experiment"
+  },
+  "crFjQx": {
+    "defaultMessage": "Loading providers...",
+    "description": "Loading message for providers"
   },
   "crTWax": {
     "defaultMessage": "Key",
@@ -4843,6 +4947,10 @@
     "defaultMessage": "Model",
     "description": "Experiment page > runs table > models column > default label for no specific model"
   },
+  "gleX6d": {
+    "defaultMessage": "This key is currently used by {modelCount, plural, one {# model definition} other {# model definitions}}. After deletion, you will need to attach a different API key to {modelCount, plural, one {this model} other {these models}} via the Edit Endpoint page.",
+    "description": "Warning about models using this key"
+  },
   "glxGz2": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > title"
@@ -4898,6 +5006,10 @@
   "hIBLi9": {
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guideline adherence assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
+  },
+  "hJcrnh": {
+    "defaultMessage": "Provider",
+    "description": "Secret provider label"
   },
   "hR2Zvd": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. Implement your scoring logic in the function body. {link}",
@@ -5014,6 +5126,10 @@
   "iLFoPb": {
     "defaultMessage": "State",
     "description": "Filtering label to filter experiments based on state of active or deleted"
+  },
+  "iN/n6b": {
+    "defaultMessage": "Auth Type",
+    "description": "Auth type label"
   },
   "iPTAj8": {
     "defaultMessage": "Retrieval",
@@ -5323,6 +5439,10 @@
     "defaultMessage": "We encountered an issue loading the judges interface. Please refresh the page or contact support if the problem persists.",
     "description": "Error description for experiment judges page loading failure"
   },
+  "lI+Eu2": {
+    "defaultMessage": "Failed to delete {itemType}. Please try again.",
+    "description": "Error message when deletion fails"
+  },
   "lISqyJ": {
     "defaultMessage": "Run details",
     "description": "Compare table title on the compare runs page"
@@ -5446,6 +5566,10 @@
   "mIk1MU": {
     "defaultMessage": "Create Model",
     "description": "Title text for creating model in the model registry"
+  },
+  "mMR/YQ": {
+    "defaultMessage": "Select a provider to configure your API key",
+    "description": "Placeholder message when no provider selected"
   },
   "mN6m2e": {
     "defaultMessage": "Only display data points between the p5 and p95 of the data. This can help with chart readability in cases where outliers significantly affect the Y-axis range",
@@ -5967,6 +6091,10 @@
     "defaultMessage": "Add rationale (optional)",
     "description": "Evaluation review > assessments > rationale input placeholder"
   },
+  "r0mM8+": {
+    "defaultMessage": "An error occurred while creating the API key. Please try again.",
+    "description": "Generic error message for API key creation"
+  },
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
     "description": "Heading text for the prediction section on the registered model from the experiment run"
@@ -6030,6 +6158,10 @@
   "raa3Ij": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
+  },
+  "rdrvCs": {
+    "defaultMessage": "Created",
+    "description": "Secret created label"
   },
   "rgSaFx": {
     "defaultMessage": "Span type",
@@ -6107,6 +6239,10 @@
     "defaultMessage": "Tags",
     "description": "Section header for the tags in a 'group by' selector"
   },
+  "sEheG0": {
+    "defaultMessage": "Key Name",
+    "description": "Key name label"
+  },
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Home page hero title"
@@ -6139,9 +6275,17 @@
     "defaultMessage": "Trace LLM applications for debugging and monitoring.",
     "description": "Home page quick action description for logging traces"
   },
+  "sSLvV0": {
+    "defaultMessage": "by {user}",
+    "description": "Updated by user"
+  },
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab pane title for parallel coordinate plots on the compare runs page"
+  },
+  "sUDP3e": {
+    "defaultMessage": "Common Providers",
+    "description": "Section header for common providers"
   },
   "sWbj1n": {
     "defaultMessage": "Apply filters",
@@ -6195,6 +6339,10 @@
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
   },
+  "tCkDwC": {
+    "defaultMessage": "Create API Key",
+    "description": "Title for create API key modal"
+  },
   "tD0/e2": {
     "defaultMessage": "Model {modelName} does not exist",
     "description": "Sub-message text for error message on overall model page"
@@ -6218,6 +6366,10 @@
   "tNL+F4": {
     "defaultMessage": "Full trace with an agent using the right part of the trace to use to judge",
     "description": "Description for trace variable"
+  },
+  "tPUQUF": {
+    "defaultMessage": "An API key with this name already exists. Please choose a different name.",
+    "description": "Error message for duplicate key name"
   },
   "tQrhZ8": {
     "defaultMessage": "An error occurred while rendering this component.",
@@ -6607,6 +6759,10 @@
     "defaultMessage": "Created by",
     "description": "Column title text for creator username in model version table"
   },
+  "xTsXb6": {
+    "defaultMessage": "Are you sure you want to delete the {itemType} \"{itemName}\"?",
+    "description": "Delete confirmation message"
+  },
   "xUnYdk": {
     "defaultMessage": "Save",
     "description": "experiment page > description modal > save button"
@@ -6822,6 +6978,10 @@
   "zRKlAL": {
     "defaultMessage": "Metadata",
     "description": "Label for the metadata section"
+  },
+  "zRwy1a": {
+    "defaultMessage": "An error occurred while updating the API key. Please try again.",
+    "description": "Generic error message for API key update"
   },
   "zUoxV1": {
     "defaultMessage": "Expectations",

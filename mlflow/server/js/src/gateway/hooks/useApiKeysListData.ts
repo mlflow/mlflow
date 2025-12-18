@@ -4,7 +4,7 @@ import { useEndpointsQuery } from './useEndpointsQuery';
 import { useBindingsQuery } from './useBindingsQuery';
 import { useModelDefinitionsQuery } from './useModelDefinitionsQuery';
 import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../types';
-import type { ApiKeysFilter } from '../components/api-keys/ApiKeysFilterButton';
+import type { ApiKeysFilter } from '../components/api-keys';
 
 interface UseApiKeysListDataParams {
   searchFilter: string;
