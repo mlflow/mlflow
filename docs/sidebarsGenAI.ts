@@ -453,6 +453,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/deepeval',
                       label: 'DeepEval',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/ragas',
+                      label: 'RAGAS',
+                    },
                   ],
                   collapsed: false,
                   link: {
