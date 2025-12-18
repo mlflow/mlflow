@@ -18,7 +18,7 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import { CreateExperimentModal } from '../../experiment-tracking/components/modals/CreateExperimentModal';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useInvalidateExperimentList } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
 import { CreateModelModal } from '../../model-registry/components/CreateModelModal';
 import {
@@ -42,7 +42,7 @@ export function MlflowSidebar() {
   const { theme } = useDesignSystemTheme();
   const invalidateExperimentList = useInvalidateExperimentList();
   const navigate = useNavigate();
-  const viewId = crypto.randomUUID();
+  const viewId = useMemo(() => crypto.randomUUID(), []);
 
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);
