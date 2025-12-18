@@ -102,6 +102,11 @@ export const getRouteDefs = () => [
     element: createLazyRouteElement(() => import('../home/HomePage')),
     pageId: PageId.home,
   },
+  {
+    path: RoutePaths.settingsPage,
+    element: createLazyRouteElement(() => import('../settings/SettingsPage')),
+    pageId: PageId.settingsPage,
+  },
   ...getExperimentPageRouteDefs(),
   {
     path: RoutePaths.experimentLoggedModelDetailsPageTab,

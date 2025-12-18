@@ -222,28 +222,35 @@ def is_correct(
     model: str | None = None,
 ) -> Feedback:
     """
-    LLM judge determines whether the given response is correct for the input request.
+    LLM judge determines whether the expected facts are supported by the response.
+
+    This judge evaluates if the facts specified in ``expected_facts`` or ``expected_response``
+    are contained in or supported by the model's response.
+
+    .. note::
+        This judge checks if expected facts are **supported by** the response, not whether
+        the response is **equivalent to** the expected output. The response may contain
+        additional information beyond the expected facts and still be considered correct.
 
     Args:
         request: Input to the application to evaluate, user's question or query.
         response: The response from the application to evaluate.
-        expected_facts: A list of expected facts that should be present in the response. Optional.
-        expected_response: The expected response from the application. Optional.
+        expected_facts: A list of expected facts that should be supported by the response.
+        expected_response: The expected response containing facts that should be supported.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
-        value indicating whether the response is correct for the request.
+        value indicating whether the expected facts are supported by the response.
 
     Example:
-
-        The following example shows how to evaluate whether the response is correct.
 
         .. code-block:: python
 
             from mlflow.genai.judges import is_correct
 
+            # Response supports the expected response - correct
             feedback = is_correct(
                 request="What is the capital of France?",
                 response="Paris is the capital of France.",
@@ -251,6 +258,7 @@ def is_correct(
             )
             print(feedback.value)  # "yes"
 
+            # Response contradicts the expected facts - incorrect
             feedback = is_correct(
                 request="What is the capital of France?",
                 response="London is the capital of France.",

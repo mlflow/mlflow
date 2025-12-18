@@ -19,6 +19,10 @@ jest.mock('../../../../common/utils/RoutingUtils', () => ({
   useParams: () => ({ experimentId: 'test-experiment-123' }),
 }));
 
+jest.mock('@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent', () => ({
+  useLogTelemetryEvent: jest.fn(() => jest.fn()),
+}));
+
 describe('ExperimentPageSideNav', () => {
   const renderTestComponent = (experimentKind: ExperimentKind, activeTab: ExperimentPageTabName) => {
     const queryClient = new QueryClient();

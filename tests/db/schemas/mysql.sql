@@ -75,7 +75,7 @@ CREATE TABLE inputs (
 CREATE TABLE jobs (
 	id VARCHAR(36) NOT NULL,
 	creation_time BIGINT NOT NULL,
-	function_fullname VARCHAR(500) NOT NULL,
+	job_name VARCHAR(500),
 	params TEXT NOT NULL,
 	timeout DOUBLE,
 	status INTEGER NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE secrets (
 	encrypted_value BLOB NOT NULL,
 	wrapped_dek BLOB NOT NULL,
 	kek_version INTEGER NOT NULL,
-	masked_value VARCHAR(100) NOT NULL,
+	masked_value VARCHAR(500) NOT NULL,
 	provider VARCHAR(64),
 	auth_config TEXT,
 	description TEXT,

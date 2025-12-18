@@ -1,6 +1,6 @@
 import json
 from unittest import mock
-from unittest.mock import call, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 from litellm.types.utils import ModelResponse
@@ -8,7 +8,9 @@ from litellm.types.utils import ModelResponse
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
@@ -23,6 +25,7 @@ from mlflow.genai.scorers import (
     ExpectationsGuidelines,
     Fluency,
     Guidelines,
+    KnowledgeRetention,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
@@ -600,6 +603,7 @@ def test_get_all_scorers():
         "ConversationalSafety",
         "ConversationalToolCallEfficiency",
         "ConversationalRoleAdherence",
+        "KnowledgeRetention",
         "ToolCallEfficiency",
         "ToolCallCorrectness",
     }
@@ -1818,6 +1822,207 @@ def test_conversational_role_adherence_instructions():
     instructions = scorer.instructions
     assert "role" in instructions.lower()
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
+
+
+def _create_test_trace_with_session(
+    turn_name: str,
+    session_id: str,
+    input_data: dict[str, str],
+    output_data: str,
+):
+    """Helper to create a trace for KnowledgeRetention tests."""
+    with mlflow.start_span(name=turn_name) as span:
+        span.set_inputs(input_data)
+        span.set_outputs(output_data)
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    return mlflow.get_trace(span.trace_id)
+
+
+def test_knowledge_retention_uses_default_last_turn_scorer():
+    session_id = "test_session_default_scorer"
+    session = []
+
+    session.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "My name is Alice and I love Python"},
+            output_data="Nice to meet you Alice! Python is great.",
+        )
+    )
+
+    session.append(
+        _create_test_trace_with_session(
+            turn_name="turn_1",
+            session_id=session_id,
+            input_data={"question": "What programming language do I like?"},
+            output_data="You mentioned you love Python!",
+        )
+    )
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="last_turn_knowledge_retention",
+            value="yes",
+            rationale="AI correctly recalled the user loves Python",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="test-model",
+            ),
+        ),
+    ) as mock_invoke_judge:
+        scorer = KnowledgeRetention()
+        result = scorer(session=session)
+
+        assert isinstance(result, Feedback)
+        assert result.value == "yes"
+        assert "successful" in result.rationale.lower()
+
+        assert mock_invoke_judge.call_count == 2
+
+        first_call_kwargs = mock_invoke_judge.call_args_list[0].kwargs
+        assert "prompt" in first_call_kwargs
+        conversation_content = first_call_kwargs["prompt"][1].content
+        assert "My name is Alice and I love Python" in conversation_content
+
+
+def test_knowledge_retention_success():
+    session_id = "test_session_kr_success"
+    traces = []
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "My name is Alice and I love Python"},
+            output_data="Nice to meet you Alice! Python is great.",
+        )
+    )
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_1",
+            session_id=session_id,
+            input_data={"question": "What programming language do I like?"},
+            output_data="You mentioned you love Python!",
+        )
+    )
+
+    fake_scorer = Mock(spec=Scorer)
+    fake_scorer.return_value = Feedback(
+        name="last_turn_knowledge_retention",
+        value="yes",
+        rationale="AI correctly recalled the user loves Python",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="test-model",
+        ),
+    )
+
+    scorer = KnowledgeRetention(last_turn_scorer=fake_scorer)
+    result = scorer(session=traces)
+
+    assert isinstance(result, Feedback)
+    assert result.value == "yes"
+    assert "successful" in result.rationale.lower()
+
+    assert fake_scorer.call_count == 2
+
+    first_call_args = fake_scorer.call_args_list[0]
+    assert len(first_call_args.kwargs["session"]) == 1
+
+    second_call_args = fake_scorer.call_args_list[1]
+    assert len(second_call_args.kwargs["session"]) == 2
+
+
+def test_knowledge_retention_failure():
+    session_id = "test_session_kr_failure"
+    traces = []
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "My name is Alice"},
+            output_data="Nice to meet you Alice!",
+        )
+    )
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_1",
+            session_id=session_id,
+            input_data={"question": "What's my name?"},
+            output_data="Your name is Bob!",
+        )
+    )
+
+    fake_scorer = Mock(spec=Scorer)
+    fake_scorer.return_value = Feedback(
+        name="last_turn_knowledge_retention",
+        value="no",
+        rationale="AI incorrectly recalled name as Bob instead of Alice",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="test-model",
+        ),
+    )
+
+    scorer = KnowledgeRetention(last_turn_scorer=fake_scorer)
+    result = scorer(session=traces)
+
+    assert isinstance(result, Feedback)
+    assert result.value == "no"
+    assert "failed" in result.rationale.lower() or "no" in result.rationale.lower()
+
+    assert "Turn 1" in result.rationale
+
+    assert "AI incorrectly recalled name as Bob instead of Alice" in result.rationale
+
+
+def test_knowledge_retention_single_turn():
+    session_id = "test_session_single"
+    traces = []
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "Hello"},
+            output_data="Hi there!",
+        )
+    )
+
+    fake_scorer = Mock(spec=Scorer)
+    fake_scorer.return_value = Feedback(
+        name="last_turn_knowledge_retention",
+        value="yes",
+        rationale="Single turn evaluated - no prior context to contradict",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="test-model",
+        ),
+    )
+
+    scorer = KnowledgeRetention(last_turn_scorer=fake_scorer)
+    result = scorer(session=traces)
+
+    assert isinstance(result, Feedback)
+    assert result.value == "yes"
+    assert "successful" in result.rationale.lower()
+
+    fake_scorer.assert_called_once()
+    call_args = fake_scorer.call_args
+    assert len(call_args.kwargs["session"]) == 1
+
+
+def test_knowledge_retention_empty_session():
+    scorer = KnowledgeRetention()
+    with pytest.raises(
+        MlflowException, match="cannot evaluate knowledge retention on empty session"
+    ):
+        scorer(session=[])
 
 
 def test_session_level_scorer_with_invalid_kwargs():

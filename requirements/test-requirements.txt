@@ -26,7 +26,7 @@ tqdm[notebook]
 openai
 # Required for showing pytest stats
 psutil
-pyspark
+pyspark<4.1.0
 # Required for testing the opentelemetry exporter of tracing
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
