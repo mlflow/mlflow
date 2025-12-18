@@ -4223,6 +4223,10 @@ message GatewayEndpoint {
   optional string last_updated_by = 7;
   // Tags associated with the endpoint
   repeated GatewayEndpointTag tags = 8;
+  // Routing strategy for the endpoint
+  optional RoutingStrategy routing_strategy = 9;
+  // Fallback configuration (populated if routing_strategy is FALLBACK)
+  optional FallbackConfig fallback_config = 10;
 }
 
 // Tag associated with an endpoint
@@ -4400,6 +4404,30 @@ message DeleteGatewayModelDefinition {
 
 // ========== Endpoints API Messages ==========
 
+// Routing strategy for endpoints
+enum RoutingStrategy {
+  ROUTING_STRATEGY_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Fallback routing strategy: tries models in order until success
+  FALLBACK = 1;
+}
+
+// Fallback strategy for routing (future-proof for additional strategies)
+enum FallbackStrategy {
+  FALLBACK_STRATEGY_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Sequential fallback: tries models in the order specified
+  SEQUENTIAL = 1;
+}
+
+// Configuration for fallback routing
+message FallbackConfig {
+  // The fallback strategy.
+  optional FallbackStrategy strategy = 1;
+  // The max attempts for fallback routing (cannot exceed number of destinations).
+  optional int32 max_attempts = 2;
+  // An ordered list of fallback destination configurations (model definition IDs).
+  repeated string model_definition_ids = 3;
+}
+
 message CreateGatewayEndpoint {
   // Optional user-friendly name for the endpoint
   optional string name = 1;
@@ -4407,6 +4435,10 @@ message CreateGatewayEndpoint {
   repeated string model_definition_ids = 2;
   // Username of the creator
   optional string created_by = 3;
+  // Optional routing strategy for the endpoint
+  optional RoutingStrategy routing_strategy = 4;
+  // Optional fallback configuration (required if routing_strategy is FALLBACK)
+  optional FallbackConfig fallback_config = 5;
 
   message Response {
     // The created endpoint with all model mappings

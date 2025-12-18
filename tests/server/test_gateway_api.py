@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 import mlflow
+from mlflow.entities import FallbackConfig, FallbackStrategy, RoutingStrategy
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AWSBaseConfig,
@@ -20,6 +21,7 @@ from mlflow.gateway.config import (
     OpenAIConfig,
 )
 from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.base import FallbackProvider
 from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.providers.litellm import LiteLLMProvider
@@ -1423,3 +1425,173 @@ async def test_gemini_passthrough_stream_generate_content(store: SqlAlchemyStore
         assert b"!" in chunks[1]
         assert b"How can I help you?" in chunks[2]
         assert b"STOP" in chunks[2]
+
+
+def test_create_fallback_provider_single_model(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-fallback-key",
+        secret_value={"api_key": "sk-test-key"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="gpt-fallback-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-fallback-single-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+        routing_strategy=RoutingStrategy.FALLBACK,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=1,
+            model_definition_ids=[model_def.model_definition_id],
+        ),
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, FallbackProvider)
+    assert len(provider._providers) == 1
+    assert isinstance(provider._providers[0], OpenAIProvider)
+    assert provider._max_attempts == 1
+
+
+def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
+    secret1 = store.create_gateway_secret(
+        secret_name="openai-primary-key",
+        secret_value={"api_key": "sk-primary-key"},
+        provider="openai",
+    )
+    model_def1 = store.create_gateway_model_definition(
+        name="gpt-primary-model",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    secret2 = store.create_gateway_secret(
+        secret_name="anthropic-fallback-key",
+        secret_value={"api_key": "sk-ant-fallback"},
+        provider="anthropic",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="claude-fallback-model",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-sonnet",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="test-fallback-multi-endpoint",
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        routing_strategy=RoutingStrategy.FALLBACK,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+            model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        ),
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, FallbackProvider)
+    assert len(provider._providers) == 2
+    assert isinstance(provider._providers[0], OpenAIProvider)
+    assert isinstance(provider._providers[1], AnthropicProvider)
+    assert provider._max_attempts == 2
+
+
+def test_create_fallback_provider_max_attempts_exceeds_providers(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-fallback-key",
+        secret_value={"api_key": "sk-test-key"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="gpt-fallback-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-fallback-max-attempts-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+        routing_strategy=RoutingStrategy.FALLBACK,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=10,
+            model_definition_ids=[model_def.model_definition_id],
+        ),
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, FallbackProvider)
+    assert provider._max_attempts == 1
+
+
+def test_create_fallback_provider_no_max_attempts(store: SqlAlchemyStore):
+    secret1 = store.create_gateway_secret(
+        secret_name="openai-primary-key",
+        secret_value={"api_key": "sk-primary-key"},
+        provider="openai",
+    )
+    model_def1 = store.create_gateway_model_definition(
+        name="gpt-primary-model",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    secret2 = store.create_gateway_secret(
+        secret_name="anthropic-fallback-key",
+        secret_value={"api_key": "sk-ant-fallback"},
+        provider="anthropic",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="claude-fallback-model",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-sonnet",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="test-fallback-no-max-endpoint",
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        routing_strategy=RoutingStrategy.FALLBACK,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        ),
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, FallbackProvider)
+    assert len(provider._providers) == 2
+    assert provider._max_attempts == 2
+
+
+def test_create_provider_default_routing_single_model(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-default-key",
+        secret_value={"api_key": "sk-test-key"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="gpt-default-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-default-routing-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, OpenAIProvider)
+    assert not isinstance(provider, FallbackProvider)

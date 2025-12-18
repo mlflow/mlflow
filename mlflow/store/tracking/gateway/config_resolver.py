@@ -124,11 +124,15 @@ def get_resource_endpoint_configs(
                     )
                 )
 
+            endpoint_entity = sql_endpoint.to_mlflow_entity()
+
             endpoint_configs.append(
                 GatewayEndpointConfig(
                     endpoint_id=sql_endpoint.endpoint_id,
                     endpoint_name=sql_endpoint.name,
                     models=model_configs,
+                    routing_strategy=endpoint_entity.routing_strategy,
+                    fallback_config=endpoint_entity.fallback_config,
                 )
             )
 
@@ -220,8 +224,12 @@ def get_endpoint_config(
                 )
             )
 
+        endpoint_entity = sql_endpoint.to_mlflow_entity()
+
         return GatewayEndpointConfig(
             endpoint_id=sql_endpoint.endpoint_id,
             endpoint_name=sql_endpoint.name,
             models=model_configs,
+            routing_strategy=endpoint_entity.routing_strategy,
+            fallback_config=endpoint_entity.fallback_config,
         )

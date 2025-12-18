@@ -3,12 +3,15 @@ from pathlib import Path
 import pytest
 
 from mlflow.entities import (
+    FallbackConfig,
+    FallbackStrategy,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
+    RoutingStrategy,
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
@@ -1206,3 +1209,136 @@ def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match="not found"):
         store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+
+
+# =============================================================================
+# Fallback Routing Tests
+# =============================================================================
+
+
+def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
+    # Create secrets and model definitions
+    secret1 = store.create_gateway_secret(
+        secret_name="fallback-key-1", secret_value={"api_key": "sk-model1"}
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="fallback-key-2", secret_value={"api_key": "sk-model2"}
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="fallback-model-1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="fallback-model-2",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+
+    # Create endpoint with fallback configuration
+    fallback_config = FallbackConfig(
+        strategy=FallbackStrategy.SEQUENTIAL,
+        max_attempts=2,
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="fallback-endpoint",
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        created_by="test-user",
+        routing_strategy=RoutingStrategy.FALLBACK,
+        fallback_config=fallback_config,
+    )
+
+    # Verify endpoint was created with fallback config
+    assert isinstance(endpoint, GatewayEndpoint)
+    assert endpoint.endpoint_id.startswith("e-")
+    assert endpoint.name == "fallback-endpoint"
+    assert endpoint.routing_strategy == RoutingStrategy.FALLBACK
+    assert endpoint.fallback_config is not None
+    assert isinstance(endpoint.fallback_config, FallbackConfig)
+    assert endpoint.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert endpoint.fallback_config.max_attempts == 2
+    assert len(endpoint.fallback_config.model_definition_ids) == 2
+    assert model_def1.model_definition_id in endpoint.fallback_config.model_definition_ids
+    assert model_def2.model_definition_id in endpoint.fallback_config.model_definition_ids
+
+
+def test_create_gateway_endpoint_fallback_without_config_raises(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="fallback-no-config-key", secret_value={"api_key": "sk-test"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="fallback-no-config-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    with pytest.raises(MlflowException, match="fallback_config is required") as exc:
+        store.create_gateway_endpoint(
+            name="fallback-no-config-endpoint",
+            model_definition_ids=[model_def.model_definition_id],
+            routing_strategy=RoutingStrategy.FALLBACK,
+            fallback_config=None,
+        )
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_get_gateway_endpoint_with_fallback_preserves_config(store: SqlAlchemyStore):
+    secret1 = store.create_gateway_secret(
+        secret_name="preserve-key-1", secret_value={"api_key": "sk-model1"}
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="preserve-key-2", secret_value={"api_key": "sk-model2"}
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="preserve-model-1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="preserve-model-2",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+
+    fallback_config = FallbackConfig(
+        strategy=FallbackStrategy.SEQUENTIAL,
+        max_attempts=3,
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+    )
+
+    created = store.create_gateway_endpoint(
+        name="preserve-endpoint",
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        routing_strategy=RoutingStrategy.FALLBACK,
+        fallback_config=fallback_config,
+    )
+
+    # Retrieve by ID
+    retrieved_by_id = store.get_gateway_endpoint(endpoint_id=created.endpoint_id)
+    assert retrieved_by_id.routing_strategy == RoutingStrategy.FALLBACK
+    assert isinstance(retrieved_by_id.fallback_config, FallbackConfig)
+    assert retrieved_by_id.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert retrieved_by_id.fallback_config.max_attempts == 3
+    assert (
+        retrieved_by_id.fallback_config.model_definition_ids == fallback_config.model_definition_ids
+    )
+
+    # Retrieve by name
+    retrieved_by_name = store.get_gateway_endpoint(name="preserve-endpoint")
+    assert retrieved_by_name.routing_strategy == RoutingStrategy.FALLBACK
+    assert isinstance(retrieved_by_name.fallback_config, FallbackConfig)
+    assert retrieved_by_name.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert retrieved_by_name.fallback_config.max_attempts == 3
+    assert (
+        retrieved_by_name.fallback_config.model_definition_ids
+        == fallback_config.model_definition_ids
+    )

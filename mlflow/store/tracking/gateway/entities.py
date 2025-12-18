@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from mlflow.entities.gateway_endpoint import FallbackConfig, RoutingStrategy
+
 
 @dataclass
 class GatewayModelConfig:
@@ -36,15 +38,19 @@ class GatewayEndpointConfig:
     Complete endpoint configuration for resource runtime use.
 
     This entity contains all information needed for a resource to make LLM API calls,
-    including decrypted secrets. This is only used server-side and should never be
-    exposed to clients.
+    including decrypted secrets and routing configuration. This is only used server-side
+    and should never be exposed to clients.
 
     Args:
         endpoint_id: Unique identifier for the endpoint.
         endpoint_name: User-friendly name for the endpoint.
         models: List of model configurations with decrypted credentials.
+        routing_strategy: Optional routing strategy (e.g., FALLBACK).
+        fallback_config: Optional fallback configuration from GatewayEndpoint entity.
     """
 
     endpoint_id: str
     endpoint_name: str
     models: list[GatewayModelConfig] = field(default_factory=list)
+    routing_strategy: RoutingStrategy | None = None
+    fallback_config: FallbackConfig | None = None

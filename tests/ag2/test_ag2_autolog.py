@@ -334,7 +334,7 @@ def test_tracing_composite_agent(llm_config):
         agents=[agent_1, agent_2],
         messages=[],
         max_round=3,
-        speaker_selection_method="round_robin",
+        speaker_selection_method="SEQUENTIAL",
     )
     group_chat_manager = GroupChatManager(
         groupchat=group_chat,

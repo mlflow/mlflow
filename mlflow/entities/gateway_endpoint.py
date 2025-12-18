@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import FallbackConfig as ProtoFallbackConfig
+from mlflow.protos.service_pb2 import FallbackStrategy as ProtoFallbackStrategy
 from mlflow.protos.service_pb2 import (
     GatewayEndpoint as ProtoGatewayEndpoint,
 )
@@ -14,12 +16,84 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import (
     GatewayModelDefinition as ProtoGatewayModelDefinition,
 )
+from mlflow.protos.service_pb2 import RoutingStrategy as ProtoRoutingStrategy
 
 
 class GatewayResourceType(str, Enum):
     """Valid MLflow resource types that can use gateway endpoints."""
 
     SCORER_JOB = "scorer_job"
+
+
+class RoutingStrategy(str, Enum):
+    """Routing strategy for gateway endpoints."""
+
+    FALLBACK = "FALLBACK"
+
+    @classmethod
+    def from_proto(cls, value: ProtoRoutingStrategy):
+        try:
+            return cls(ProtoRoutingStrategy.Name(value))
+        except ValueError:
+            return None
+
+    def to_proto(self):
+        return ProtoRoutingStrategy.Value(self.value)
+
+
+class FallbackStrategy(str, Enum):
+    """Fallback strategy for routing."""
+
+    SEQUENTIAL = "SEQUENTIAL"
+
+    @classmethod
+    def from_proto(cls, value: ProtoFallbackStrategy):
+        try:
+            return cls(ProtoFallbackStrategy.Name(value))
+        except ValueError:
+            return None
+
+    def to_proto(self):
+        return ProtoFallbackStrategy.Value(self.value)
+
+
+@dataclass
+class FallbackConfig(_MlflowObject):
+    """
+    Configuration for fallback routing strategy.
+
+    Defines how requests should be routed across multiple models when using
+    fallback routing. Models are tried in the order specified until one succeeds
+    or max_attempts is reached.
+
+    Args:
+        strategy: The fallback strategy to use (e.g., FallbackStrategy.SEQUENTIAL).
+        max_attempts: Maximum number of models to try.
+        model_definition_ids: Ordered list of model definition IDs to try in sequence.
+    """
+
+    strategy: FallbackStrategy | None = None
+    max_attempts: int | None = None
+    model_definition_ids: list[str] = field(default_factory=list)
+
+    def to_proto(self):
+        proto = ProtoFallbackConfig()
+        proto.strategy = self.strategy.to_proto() if self.strategy else None
+        if self.max_attempts is not None:
+            proto.max_attempts = self.max_attempts
+        proto.model_definition_ids.extend(self.model_definition_ids)
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        strategy = (
+            FallbackStrategy.from_proto(proto.strategy) if proto.HasField("strategy") else None
+        )
+        return cls(
+            strategy=strategy,
+            max_attempts=proto.max_attempts,
+            model_definition_ids=list(proto.model_definition_ids),
+        )
 
 
 @dataclass
@@ -189,6 +263,8 @@ class GatewayEndpoint(_MlflowObject):
         tags: List of tags associated with this endpoint.
         created_by: User ID who created the endpoint.
         last_updated_by: User ID who last updated the endpoint.
+        routing_strategy: Routing strategy for the endpoint (e.g., "FALLBACK").
+        fallback_config: Fallback configuration entity (if routing_strategy is FALLBACK).
     """
 
     endpoint_id: str
@@ -199,6 +275,8 @@ class GatewayEndpoint(_MlflowObject):
     tags: list["GatewayEndpointTag"] = field(default_factory=list)
     created_by: str | None = None
     last_updated_by: str | None = None
+    routing_strategy: RoutingStrategy | None = None
+    fallback_config: FallbackConfig | None = None
 
     def to_proto(self):
         proto = ProtoGatewayEndpoint()
@@ -210,10 +288,26 @@ class GatewayEndpoint(_MlflowObject):
         proto.tags.extend([t.to_proto() for t in self.tags])
         proto.created_by = self.created_by or ""
         proto.last_updated_by = self.last_updated_by or ""
+
+        if self.routing_strategy:
+            proto.routing_strategy = ProtoRoutingStrategy.Value(self.routing_strategy.value)
+
+        if self.fallback_config:
+            proto.fallback_config.CopyFrom(self.fallback_config.to_proto())
+
         return proto
 
     @classmethod
     def from_proto(cls, proto):
+        routing_strategy = None
+        if proto.HasField("routing_strategy"):
+            strategy_name = ProtoRoutingStrategy.Name(proto.routing_strategy)
+            routing_strategy = RoutingStrategy(strategy_name)
+
+        fallback_config = None
+        if proto.HasField("fallback_config"):
+            fallback_config = FallbackConfig.from_proto(proto.fallback_config)
+
         return cls(
             endpoint_id=proto.endpoint_id,
             name=proto.name or None,
@@ -225,6 +319,8 @@ class GatewayEndpoint(_MlflowObject):
             tags=[GatewayEndpointTag.from_proto(t) for t in proto.tags],
             created_by=proto.created_by or None,
             last_updated_by=proto.last_updated_by or None,
+            routing_strategy=routing_strategy,
+            fallback_config=fallback_config,
         )
 
 

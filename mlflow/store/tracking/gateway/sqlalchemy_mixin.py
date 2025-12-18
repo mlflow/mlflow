@@ -3,18 +3,21 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from dataclasses import asdict
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from mlflow.entities import (
+    FallbackConfig,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
+    RoutingStrategy,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -506,6 +509,8 @@ class SqlAlchemyGatewayStoreMixin:
         name: str,
         model_definition_ids: list[str],
         created_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -515,17 +520,26 @@ class SqlAlchemyGatewayStoreMixin:
             model_definition_ids: List of model definition IDs to attach to the endpoint.
                                   At least one model definition is required.
             created_by: Username of the creator.
+            routing_strategy: Routing strategy for the endpoint (e.g., "FALLBACK").
+            fallback_config: Fallback configuration (required if routing_strategy is "FALLBACK").
 
         Returns:
             Endpoint entity with model_mappings populated.
 
         Raises:
             MlflowException: If model_definition_ids list is empty (INVALID_PARAMETER_VALUE),
-                or if any referenced model definition does not exist (RESOURCE_DOES_NOT_EXIST).
+                or if any referenced model definition does not exist (RESOURCE_DOES_NOT_EXIST),
+                or if routing_strategy is FALLBACK but fallback_config is missing.
         """
         if not model_definition_ids:
             raise MlflowException(
                 "Endpoint must have at least one model definition",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if routing_strategy == RoutingStrategy.FALLBACK and not fallback_config:
+            raise MlflowException(
+                "fallback_config is required when routing_strategy is FALLBACK",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -552,6 +566,10 @@ class SqlAlchemyGatewayStoreMixin:
                 last_updated_at=current_time,
                 created_by=created_by,
                 last_updated_by=created_by,
+                routing_strategy=routing_strategy.value if routing_strategy else None,
+                fallback_config_json=json.dumps(asdict(fallback_config))
+                if fallback_config
+                else None,
             )
             session.add(sql_endpoint)
 

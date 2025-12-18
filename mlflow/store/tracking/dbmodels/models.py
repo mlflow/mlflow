@@ -37,6 +37,8 @@ from mlflow.entities import (
     Expectation,
     Experiment,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
     Feedback,
     GatewayEndpoint,
     GatewayEndpointBinding,
@@ -48,6 +50,7 @@ from mlflow.entities import (
     InputTag,
     Metric,
     Param,
+    RoutingStrategy,
     Run,
     RunData,
     RunInfo,
@@ -2215,6 +2218,15 @@ class SqlGatewayEndpoint(Base):
     """
     Last update timestamp: `BigInteger`.
     """
+    routing_strategy = Column(String(64), nullable=True)
+    """
+    Routing strategy: `String` (limit 64 characters). E.g., "FALLBACK".
+    """
+    fallback_config_json = Column(Text, nullable=True)
+    """
+    Fallback configuration as JSON: `Text`. Stores FallbackConfig proto as JSON.
+    Example: {"strategy": "SEQUENTIAL", "max_attempts": 3, "model_definition_ids": ["d-1", "d-2"]}
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
@@ -2225,6 +2237,22 @@ class SqlGatewayEndpoint(Base):
         return f"<SqlGatewayEndpoint ({self.endpoint_id}, {self.name})>"
 
     def to_mlflow_entity(self):
+        fallback_config = None
+        if self.fallback_config_json:
+            try:
+                fallback_config_dict = json.loads(self.fallback_config_json)
+                fallback_config = FallbackConfig(
+                    FallbackStrategy(fallback_config_dict.get("strategy"))
+                    if fallback_config_dict.get("strategy")
+                    else None,
+                    fallback_config_dict.get("max_attempts"),
+                    fallback_config_dict.get("model_definition_ids"),
+                )
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        routing_strategy = RoutingStrategy(self.routing_strategy) if self.routing_strategy else None
+
         return GatewayEndpoint(
             endpoint_id=self.endpoint_id,
             name=self.name,
@@ -2234,6 +2262,8 @@ class SqlGatewayEndpoint(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            routing_strategy=routing_strategy,
+            fallback_config=fallback_config,
         )
 
 

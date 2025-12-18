@@ -22,12 +22,15 @@ from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.gateway_endpoint import (
+    FallbackConfig,
+    FallbackStrategy,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
     GatewayResourceType,
+    RoutingStrategy,
 )
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
@@ -130,6 +133,8 @@ __all__ = [
     "DatasetRecordSource",
     "DatasetRecordSourceType",
     "EntityAssociationType",
+    "FallbackConfig",
+    "FallbackStrategy",
     "GatewayEndpoint",
     "GatewayEndpointBinding",
     "GatewayEndpointModelMapping",
@@ -137,6 +142,7 @@ __all__ = [
     "GatewayModelDefinition",
     "GatewayResourceType",
     "GatewaySecretInfo",
+    "RoutingStrategy",
     "Webhook",
     "WebhookEvent",
     "WebhookStatus",

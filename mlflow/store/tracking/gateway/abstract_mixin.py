@@ -1,12 +1,14 @@
 from typing import Any
 
 from mlflow.entities import (
+    FallbackConfig,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
+    RoutingStrategy,
 )
 
 
@@ -212,6 +214,8 @@ class GatewayStoreMixin:
         name: str,
         model_definition_ids: list[str],
         created_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -221,6 +225,8 @@ class GatewayStoreMixin:
             model_definition_ids: List of model definition IDs to attach to the endpoint.
                                   At least one model definition is required.
             created_by: Username of the creator.
+            routing_strategy: Routing strategy for the endpoint (e.g., "FALLBACK").
+            fallback_config: Fallback configuration (required if routing_strategy is "FALLBACK").
 
         Returns:
             Endpoint entity with model_mappings populated.
