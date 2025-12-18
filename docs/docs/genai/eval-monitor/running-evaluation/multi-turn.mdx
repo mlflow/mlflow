@@ -109,6 +109,7 @@ results = mlflow.genai.evaluate(
 MLflow provides built-in scorers for evaluating conversations:
 
 - **<APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink>**: Evaluates whether the agent addressed all user questions throughout the conversation (returns "complete" or "incomplete")
+- **<APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>**: Evaluates whether the assistant correctly retains information from earlier user inputs without contradiction or distortion (returns "yes" or "no")
 - **<APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>**: Detects and tracks user frustration patterns (returns "none", "resolved", or "unresolved")
 
 See the [Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn-scorers) page for detailed usage examples and API documentation.

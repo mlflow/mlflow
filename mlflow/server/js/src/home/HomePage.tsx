@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Header, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, Header, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../common/components/ScrollablePageWrapper';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -11,6 +11,7 @@ import { GetStarted } from './components/GetStarted';
 import { ExperimentsHomeView } from './components/ExperimentsHomeView';
 import { DiscoverNews } from './components/DiscoverNews';
 import { LogTracesDrawer } from './components/LogTracesDrawer';
+import { TelemetryInfoAlert } from '../telemetry/TelemetryInfoAlert';
 
 type ExperimentQueryKey = ['home', 'recent-experiments'];
 
@@ -56,6 +57,7 @@ const HomePage = () => {
       }}
     >
       <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
+      <TelemetryInfoAlert />
       <GetStarted />
       <ExperimentsHomeView
         experiments={experiments}

@@ -26,6 +26,7 @@ from mlflow.genai.utils.prompts.available_tools_extraction import (
     get_available_tools_extraction_prompts,
 )
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
     SpanAttributeKey,
@@ -261,6 +262,47 @@ def parse_tool_call_messages_from_trace(trace: Trace) -> list[dict[str, str]]:
         tool_messages.append({"role": "tool", "content": tool_info})
 
     return tool_messages
+
+
+def validate_session(session: list[Trace]) -> None:
+    """
+    Validate that all traces in session belong to the same session.
+
+    Args:
+        session: List of traces to validate.
+
+    Raises:
+        MlflowException: If traces are missing session_id or belong to different sessions.
+    """
+    session_id_to_trace_ids: dict[str, list[str]] = {}
+    for trace in session:
+        session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+        if session_id is None:
+            raise MlflowException(
+                f"All traces in 'session' must have a session_id. "
+                f"Trace {trace.info.trace_id} is missing session_id. "
+                f"See https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/ "
+                f"for information on how to set session_id on traces.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if session_id not in session_id_to_trace_ids:
+            session_id_to_trace_ids[session_id] = []
+        session_id_to_trace_ids[session_id].append(trace.info.trace_id)
+
+    if len(session_id_to_trace_ids) != 1:
+        session_details = "\n".join(
+            f"session_id '{sid}': trace_ids {trace_ids[:3]}"
+            + (
+                f" and {len(trace_ids) - 3} more trace{'s' if len(trace_ids) - 3 != 1 else ''}"
+                if len(trace_ids) > 3
+                else ""
+            )
+            for sid, trace_ids in session_id_to_trace_ids.items()
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"All traces in 'session' must belong to the same session. "
+            f"Found {len(session_id_to_trace_ids)} different session(s):\n{session_details}"
+        )
 
 
 def resolve_conversation_from_session(
