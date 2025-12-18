@@ -6,7 +6,6 @@ MLflow's third-party scorer integrations provide:
 
 - **Consistent MLflow API** for all evaluation frameworks
 - **Unified evaluation** across multiple metric sources
-- **Rich metadata** including scores, reasons, and pass/fail status
 - **Seamless integration** with `mlflow.genai.evaluate()`
 
 Click an integration below to get started with detailed setup instructions.
@@ -15,13 +14,11 @@ Click an integration below to get started with detailed setup instructions.
 
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
-import { Scale } from 'lucide-react';
 
 <TilesGrid>
   <TileCard
-    icon={Scale}
-    title="DeepEval"
-    description="Comprehensive evaluation framework with 30+ metrics for RAG, agents, conversational AI, and safety"
+    image="/images/logos/deepeval-logo.png"
+    imageHeight={40}
     href="/genai/eval-monitor/scorers/third-party/deepeval"
   />
 </TilesGrid>
