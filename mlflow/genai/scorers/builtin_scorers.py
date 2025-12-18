@@ -21,6 +21,7 @@ from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.judges.prompts.completeness import (
     COMPLETENESS_ASSESSMENT_NAME,
     COMPLETENESS_PROMPT,
@@ -1633,11 +1634,11 @@ class Fluency(BuiltInScorer):
     description: str = (
         "Evaluate grammatical correctness, natural flow, and linguistic quality of text."
     )
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         if self._judge is None:
-            self._judge = InstructionsJudge(
+            self._judge = make_judge(
                 name=self.name,
                 instructions=self.instructions,
                 model=self.model,
@@ -2575,11 +2576,11 @@ class Completeness(BuiltInScorer):
     description: str = (
         "Evaluate whether the assistant fully addresses all user questions in a single turn."
     )
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         if self._judge is None:
-            self._judge = InstructionsJudge(
+            self._judge = make_judge(
                 name=self.name,
                 instructions=self.instructions,
                 model=self.model,
@@ -2677,11 +2678,11 @@ class Summarization(BuiltInScorer):
         "and does not make any assumptions not in the input, with a focus on faithfulness, "
         "coverage, and conciseness."
     )
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         if self._judge is None:
-            self._judge = InstructionsJudge(
+            self._judge = make_judge(
                 name=self.name,
                 instructions=self.instructions,
                 model=self.model,
