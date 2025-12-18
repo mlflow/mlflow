@@ -18,8 +18,9 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useFetchTraceV4LazyQuery } from '@databricks/web-shared/genai-traces-table';
 import { useMonitoringSqlWarehouseId } from '../../experiment-evaluation-monitoring/hooks/useMonitoringSqlWarehouseId';
 import { useUpdateExperimentUCSchemaStorage } from '../../../components/experiment-page/components/traces-v3/hooks/useUpdateExperimentUCSchemaStorage';
-import { LabelingSchemaContextProvider } from '@databricks/web-shared/model-trace-explorer';
-import { useExperimentLabelingSchemas } from '../../../hooks/useExperimentLabelingSchemas';
+// Commented out because these don't exist in OSS:
+// import { LabelingSchemaContextProvider } from '@databricks/web-shared/model-trace-explorer';
+// import { useExperimentLabelingSchemas } from '../../../hooks/useExperimentLabelingSchemas';
 // END-EDGE
 import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatSessionScoreResults';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
@@ -46,40 +47,41 @@ import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
 // BEGIN-EDGE
-const ContextProviders = ({
-  sqlWarehouseId,
-  modelTraceInfo,
-  children,
-  labelingSchemasConfig,
-  invalidateTraceQuery,
-}: {
-  sqlWarehouseId?: string;
-  modelTraceInfo?: ModelTrace['info'];
-  children: React.ReactNode;
-  labelingSchemasConfig: ReturnType<typeof useExperimentLabelingSchemas>;
-  invalidateTraceQuery?: (traceId?: string) => void;
-}) => {
-  return (
-    <ModelTraceExplorerUpdateTraceContextProvider
-      sqlWarehouseId={sqlWarehouseId}
-      modelTraceInfo={modelTraceInfo}
-      invalidateTraceQuery={invalidateTraceQuery}
-    >
-      <LabelingSchemaContextProvider
-        schemas={labelingSchemasConfig.schemas}
-        allAvailableSchemas={labelingSchemasConfig.allAvailableSchemas}
-        isLoading={labelingSchemasConfig.isLoading}
-        onAddSchema={labelingSchemasConfig.addSchema}
-        onRemoveSchema={labelingSchemasConfig.removeSchema}
-      >
-        {children}
-      </LabelingSchemaContextProvider>
-    </ModelTraceExplorerUpdateTraceContextProvider>
-  );
-};
+// Commented out because LabelingSchemaContextProvider and useExperimentLabelingSchemas don't exist in OSS:
+// const ContextProviders = ({
+//   sqlWarehouseId,
+//   modelTraceInfo,
+//   children,
+//   labelingSchemasConfig,
+//   invalidateTraceQuery,
+// }: {
+//   sqlWarehouseId?: string;
+//   modelTraceInfo?: ModelTrace['info'];
+//   children: React.ReactNode;
+//   labelingSchemasConfig: ReturnType<typeof useExperimentLabelingSchemas>;
+//   invalidateTraceQuery?: (traceId?: string) => void;
+// }) => {
+//   return (
+//     <ModelTraceExplorerUpdateTraceContextProvider
+//       sqlWarehouseId={sqlWarehouseId}
+//       modelTraceInfo={modelTraceInfo}
+//       invalidateTraceQuery={invalidateTraceQuery}
+//     >
+//       <LabelingSchemaContextProvider
+//         schemas={labelingSchemasConfig.schemas}
+//         allAvailableSchemas={labelingSchemasConfig.allAvailableSchemas}
+//         isLoading={labelingSchemasConfig.isLoading}
+//         onAddSchema={labelingSchemasConfig.addSchema}
+//         onRemoveSchema={labelingSchemasConfig.removeSchema}
+//       >
+//         {children}
+//       </LabelingSchemaContextProvider>
+//     </ModelTraceExplorerUpdateTraceContextProvider>
+//   );
+// };
 // END-EDGE
 
-const oss_ContextProviders = ({
+const OssContextProviders = ({
   children,
   modelTraceInfo,
   invalidateTraceQuery,
@@ -147,7 +149,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
   const firstTraceInfo = traces?.[0]?.info;
 
   return (
-    <oss_ContextProviders modelTraceInfo={firstTraceInfo} invalidateTraceQuery={invalidateSingleTraceQuery}>
+    <OssContextProviders modelTraceInfo={firstTraceInfo} invalidateTraceQuery={invalidateSingleTraceQuery}>
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <div
           css={
@@ -219,17 +221,17 @@ const ExperimentSingleChatSessionPageImpl = () => {
                 marginBottom: -theme.spacing.lg,
               }}
             >
-              <oss_ContextProviders
+              <OssContextProviders
                 modelTraceInfo={selectedTrace?.info}
                 invalidateTraceQuery={invalidateSingleTraceQuery}
               >
                 {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
-              </oss_ContextProviders>
+              </OssContextProviders>
             </div>
           </Drawer.Content>
         </Drawer.Root>
       </div>
-    </oss_ContextProviders>
+    </OssContextProviders>
   );
 };
 
