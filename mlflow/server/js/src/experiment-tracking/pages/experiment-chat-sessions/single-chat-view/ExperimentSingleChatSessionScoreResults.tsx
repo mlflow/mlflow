@@ -1,7 +1,4 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-// BEGIN-EDGE
-// import { AssessmentsPaneV2, shouldEnableTracesTabLabelingSchemas } from '@databricks/web-shared/model-trace-explorer';
-// END-EDGE
 import {
   isSessionLevelAssessment,
   ModelTraceExplorerUpdateTraceContextProvider,
@@ -11,26 +8,12 @@ import {
   AssessmentsPane,
   ASSESSMENT_SESSION_METADATA_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
-import { first, last } from 'lodash';
+import { first } from 'lodash';
 import { useMemo } from 'react';
-import { FormattedMessage } from 'react-intl';
 import { ResizableBox } from 'react-resizable';
 
 const initialWidth = 300;
 const maxWidth = 600;
-
-// BEGIN-EDGE
-// const getAssessmentsPaneComponent = () => {
-//   if (shouldEnableTracesTabLabelingSchemas()) {
-//     return AssessmentsPaneV2;
-//   }
-//   return AssessmentsPane;
-// };
-// END-EDGE
-
-const getAssessmentsPaneComponent = () => {
-  return AssessmentsPane;
-};
 
 export const ExperimentSingleChatSessionScoreResults = ({
   traces,
@@ -55,8 +38,6 @@ export const ExperimentSingleChatSessionScoreResults = ({
   );
 
   const defaultMetadata = useMemo(() => ({ [ASSESSMENT_SESSION_METADATA_KEY]: sessionId }), [sessionId]);
-
-  const AssessmentsPaneComponent = getAssessmentsPaneComponent();
 
   const traceUpdateContext = useModelTraceExplorerUpdateTraceContext();
 
@@ -118,7 +99,7 @@ export const ExperimentSingleChatSessionScoreResults = ({
               border: 0,
             }}
           >
-            <AssessmentsPaneComponent
+            <AssessmentsPane
               assessments={sessionAssessments}
               traceId={firstTraceInfoInSession.trace_id}
               defaultMetadata={defaultMetadata}
@@ -129,11 +110,3 @@ export const ExperimentSingleChatSessionScoreResults = ({
     </div>
   );
 };
-
-const AssessmentsTitleOverride = (count?: number) => (
-  <FormattedMessage
-    defaultMessage="Session scorers{count, plural, =0 {} other { (#)}}"
-    values={{ count: count ?? 0 }}
-    description="Section title in a side panel that displays session-level scorers"
-  />
-);

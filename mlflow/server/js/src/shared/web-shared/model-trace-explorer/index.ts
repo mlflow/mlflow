@@ -40,7 +40,10 @@ export { getAssessmentValue } from './assessments-pane/utils';
 export { TracesServiceV4 } from './api';
 export { shouldUseTracesV4API } from './FeatureUtils';
 export { useUnifiedTraceTagsModal } from './hooks/useUnifiedTraceTagsModal';
-export { ModelTraceExplorerUpdateTraceContextProvider, useModelTraceExplorerUpdateTraceContext } from './contexts/UpdateTraceContext';
+export {
+  ModelTraceExplorerUpdateTraceContextProvider,
+  useModelTraceExplorerUpdateTraceContext,
+} from './contexts/UpdateTraceContext';
 export { SingleChatTurnMessages } from './session-view/SingleChatTurnMessages';
 export { ModelTraceExplorerChatMessage } from './right-pane/ModelTraceExplorerChatMessage';
 export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessments';

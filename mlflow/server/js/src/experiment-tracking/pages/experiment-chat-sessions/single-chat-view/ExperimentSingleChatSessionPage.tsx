@@ -1,11 +1,8 @@
 import ErrorUtils from '@mlflow/mlflow/src/common/utils/ErrorUtils';
 import { withErrorBoundary } from '@mlflow/mlflow/src/common/utils/withErrorBoundary';
 import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
-import type { GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
   createTraceLocationForExperiment,
-  createTraceLocationForUCSchema,
-  doesTraceSupportV4API,
   useGetTraces,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
@@ -14,14 +11,6 @@ import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 import { useCallback, useMemo, useRef, useState } from 'react';
-// BEGIN-EDGE
-// Commented out because these don't exist in OSS:
-// import { useFetchTraceV4LazyQuery } from '@databricks/web-shared/genai-traces-table';
-// import { useMonitoringSqlWarehouseId } from '../../experiment-evaluation-monitoring/hooks/useMonitoringSqlWarehouseId';
-// import { useUpdateExperimentUCSchemaStorage } from '../../../components/experiment-page/components/traces-v3/hooks/useUpdateExperimentUCSchemaStorage';
-// import { LabelingSchemaContextProvider } from '@databricks/web-shared/model-trace-explorer';
-// import { useExperimentLabelingSchemas } from '../../../hooks/useExperimentLabelingSchemas';
-// END-EDGE
 import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatSessionScoreResults';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
@@ -31,7 +20,6 @@ import {
   ModelTraceExplorer,
   ModelTraceExplorerUpdateTraceContextProvider,
   shouldEnableAssessmentsInSessions,
-  shouldUseTracesV4API,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   ExperimentSingleChatSessionSidebar,
@@ -46,40 +34,6 @@ import {
 import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
-// BEGIN-EDGE
-// Commented out because LabelingSchemaContextProvider and useExperimentLabelingSchemas don't exist in OSS:
-// const ContextProviders = ({
-//   sqlWarehouseId,
-//   modelTraceInfo,
-//   children,
-//   labelingSchemasConfig,
-//   invalidateTraceQuery,
-// }: {
-//   sqlWarehouseId?: string;
-//   modelTraceInfo?: ModelTrace['info'];
-//   children: React.ReactNode;
-//   labelingSchemasConfig: ReturnType<typeof useExperimentLabelingSchemas>;
-//   invalidateTraceQuery?: (traceId?: string) => void;
-// }) => {
-//   return (
-//     <ModelTraceExplorerUpdateTraceContextProvider
-//       sqlWarehouseId={sqlWarehouseId}
-//       modelTraceInfo={modelTraceInfo}
-//       invalidateTraceQuery={invalidateTraceQuery}
-//     >
-//       <LabelingSchemaContextProvider
-//         schemas={labelingSchemasConfig.schemas}
-//         allAvailableSchemas={labelingSchemasConfig.allAvailableSchemas}
-//         isLoading={labelingSchemasConfig.isLoading}
-//         onAddSchema={labelingSchemasConfig.addSchema}
-//         onRemoveSchema={labelingSchemasConfig.removeSchema}
-//       >
-//         {children}
-//       </LabelingSchemaContextProvider>
-//     </ModelTraceExplorerUpdateTraceContextProvider>
-//   );
-// };
-// END-EDGE
 
 const OssContextProviders = ({
   children,
@@ -114,50 +68,22 @@ const ExperimentSingleChatSessionPageImpl = () => {
     experimentId,
   });
 
-  // BEGIN-EDGE
-  // Commented out because useUpdateExperimentUCSchemaStorage doesn't exist in OSS:
-  // const { storageUCSchema, setStorageUCSchema, isUpdatingStorageUCSchema } = useUpdateExperimentUCSchemaStorage({
-  //   experimentId,
-  // });
-  // END-EDGE
   const traceSearchLocations = useMemo(
     () => {
-      // BEGIN-EDGE
-      // Commented out because UC schema doesn't exist in OSS:
-      // // If the experiment is still loading, wait with determining the trace location
-      // if (isLoadingExperiment && shouldUseTracesV4API()) {
-      //   return [];
-      // }
-      // if (storageUCSchema && shouldUseTracesV4API()) {
-      //   return [createTraceLocationForUCSchema(storageUCSchema)];
-      // }
-      // END-EDGE
       return [createTraceLocationForExperiment(experimentId)];
     },
     // prettier-ignore
     [
       experimentId,
-      // BEGIN-EDGE
-      // storageUCSchema,
-      // isLoadingExperiment,
-      // END-EDGE
     ],
   );
 
   const filters = useMemo(() => getChatSessionsFilter({ sessionId }), [sessionId]);
 
-  // BEGIN-EDGE
-  // Commented out because useMonitoringSqlWarehouseId doesn't exist in OSS:
-  // const [selectedWarehouseId, setSelectedWarehouseId] = useMonitoringSqlWarehouseId();
-  // const [warehousesLoading, setWarehousesLoading] = useState(false);
-  // END-EDGE
   const { data: traceInfos, isLoading: isLoadingTraceInfos } = useSearchMlflowTraces({
     locations: traceSearchLocations,
     filters,
     disabled: false,
-    // BEGIN-EDGE
-    // sqlWarehouseId: selectedWarehouseId || undefined,
-    // END-EDGE
   });
 
   const sortedTraceInfos = useMemo(() => {
@@ -166,35 +92,6 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   const chatSessionMetrics = useExperimentSingleChatMetrics({ traceInfos: sortedTraceInfos });
 
-  // BEGIN-EDGE
-  // Commented out because useFetchTraceV4LazyQuery and useExperimentLabelingSchemas don't exist in OSS:
-  // // A function used to fetch trace using V4 API
-  // const getTraceV4 = useFetchTraceV4LazyQuery({ selectedSqlWarehouseId: selectedWarehouseId || undefined });
-  //
-  // // A wrapper function that decides whether to use V4 API or original API to fetch trace
-  // const getTrace = useCallback<GetTraceFunction>(
-  //   (traceId, traceInfo) => {
-  //     if (shouldUseTracesV4API() && traceInfo && isV3ModelTraceInfo(traceInfo) && doesTraceSupportV4API(traceInfo)) {
-  //       return getTraceV4(traceInfo);
-  //     }
-  //     return getTraceV3(traceId, traceInfo);
-  //   },
-  //   [getTraceV4],
-  // );
-  //
-  // const labelingSchemasConfig = useExperimentLabelingSchemas(experimentId);
-  //
-  // const getAssessmentTitle = useCallback(
-  //   (assessmentName: string) => {
-  //     const matchingSchema = labelingSchemasConfig.schemas?.find((schema) => schema?.name === assessmentName);
-  //     if (matchingSchema) {
-  //       return matchingSchema.title ?? assessmentName;
-  //     }
-  //     return assessmentName;
-  //   },
-  //   [labelingSchemasConfig.schemas],
-  // );
-  // END-EDGE
   const getTrace = getTraceV3;
   const getAssessmentTitle = useCallback((assessmentName: string) => assessmentName, []);
   const {
@@ -223,19 +120,6 @@ const ExperimentSingleChatSessionPageImpl = () => {
             // prettier-ignore
             viewState="single-chat-session"
             sessionId={sessionId}
-            // BEGIN-EDGE
-            // Commented out EDGE-only props:
-            // experimentId={experimentId}
-            // selectedWarehouseId={selectedWarehouseId || undefined}
-            // setSelectedWarehouseId={setSelectedWarehouseId}
-            // setWarehousesLoading={setWarehousesLoading}
-            // isListMonitorsLoading={false}
-            // isShinkansenEnabled
-            // shinkansenTraceArchiveTableName={undefined}
-            // selectedStorageUCSchema={storageUCSchema}
-            // setSelectedStorageUCSchema={setStorageUCSchema}
-            // isUpdatingStorageUCSchema={isUpdatingStorageUCSchema}
-            // END-EDGE
           />
         </div>
 
