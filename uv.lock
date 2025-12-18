@@ -24,10 +24,7 @@ members = [
     "mlflow",
     "mlflow-test-plugin",
 ]
-constraints = [
-    { name = "pyspark", specifier = "<4.1.0" },
-    { name = "xgboost", specifier = "<3.1.0" },
-]
+constraints = [{ name = "xgboost", specifier = "<3.1.0" }]
 excludes = ["databricks-connect"]
 
 [[package]]
@@ -4273,7 +4270,7 @@ dev = [
     { name = "pre-commit", specifier = "==4.0.1" },
     { name = "psutil" },
     { name = "pydantic", specifier = ">=2.0" },
-    { name = "pyspark" },
+    { name = "pyspark", specifier = "<4.1.0" },
     { name = "pytest", specifier = "==8.4.0" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -4328,7 +4325,7 @@ test = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "psutil" },
-    { name = "pyspark" },
+    { name = "pyspark", specifier = "<4.1.0" },
     { name = "pytest", specifier = "==8.4.0" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
