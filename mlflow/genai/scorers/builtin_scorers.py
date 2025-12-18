@@ -2452,14 +2452,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
 
         sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
 
-        per_turn_feedbacks = []
-
-        for turn_idx in range(len(sorted_traces)):
-            feedback = self._evaluate_turn(
-                turn_idx=turn_idx,
-                sorted_traces=sorted_traces,
-            )
-            per_turn_feedbacks.append(feedback)
+        per_turn_feedbacks = [
+            self._evaluate_turn(turn_idx=turn_idx, sorted_traces=sorted_traces)
+            for turn_idx in range(len(sorted_traces))
+        ]
 
         return self._compute_aggregate(per_turn_feedbacks)
 

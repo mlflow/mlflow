@@ -10,6 +10,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
@@ -1823,21 +1824,41 @@ def test_conversational_role_adherence_instructions():
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
 
 
+def _create_test_trace_with_session(
+    turn_name: str,
+    session_id: str,
+    input_data: dict[str, str],
+    output_data: str,
+):
+    """Helper to create a trace for KnowledgeRetention tests."""
+    with mlflow.start_span(name=turn_name) as span:
+        span.set_inputs(input_data)
+        span.set_outputs(output_data)
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    return mlflow.get_trace(span.trace_id)
+
+
 def test_knowledge_retention_uses_default_last_turn_scorer():
     session_id = "test_session_default_scorer"
     session = []
 
-    with mlflow.start_span(name="turn_0") as span:
-        span.set_inputs({"question": "My name is Alice and I love Python"})
-        span.set_outputs("Nice to meet you Alice! Python is great.")
-        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
-    session.append(mlflow.get_trace(span.trace_id))
+    session.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "My name is Alice and I love Python"},
+            output_data="Nice to meet you Alice! Python is great.",
+        )
+    )
 
-    with mlflow.start_span(name="turn_1") as span:
-        span.set_inputs({"question": "What programming language do I like?"})
-        span.set_outputs("You mentioned you love Python!")
-        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
-    session.append(mlflow.get_trace(span.trace_id))
+    session.append(
+        _create_test_trace_with_session(
+            turn_name="turn_1",
+            session_id=session_id,
+            input_data={"question": "What programming language do I like?"},
+            output_data="You mentioned you love Python!",
+        )
+    )
 
     with patch(
         "mlflow.genai.judges.instructions_judge.invoke_judge_model",
@@ -1870,17 +1891,23 @@ def test_knowledge_retention_success():
     session_id = "test_session_kr_success"
     traces = []
 
-    with mlflow.start_span(name="turn_0") as span:
-        span.set_inputs({"question": "My name is Alice and I love Python"})
-        span.set_outputs("Nice to meet you Alice! Python is great.")
-        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
-    traces.append(mlflow.get_trace(span.trace_id))
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "My name is Alice and I love Python"},
+            output_data="Nice to meet you Alice! Python is great.",
+        )
+    )
 
-    with mlflow.start_span(name="turn_1") as span:
-        span.set_inputs({"question": "What programming language do I like?"})
-        span.set_outputs("You mentioned you love Python!")
-        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
-    traces.append(mlflow.get_trace(span.trace_id))
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_1",
+            session_id=session_id,
+            input_data={"question": "What programming language do I like?"},
+            output_data="You mentioned you love Python!",
+        )
+    )
 
     fake_scorer = Mock(spec=Scorer)
     fake_scorer.return_value = Feedback(
@@ -1913,17 +1940,23 @@ def test_knowledge_retention_failure():
     session_id = "test_session_kr_failure"
     traces = []
 
-    with mlflow.start_span(name="turn_0") as span:
-        span.set_inputs({"question": "My name is Alice"})
-        span.set_outputs("Nice to meet you Alice!")
-        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
-    traces.append(mlflow.get_trace(span.trace_id))
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "My name is Alice"},
+            output_data="Nice to meet you Alice!",
+        )
+    )
 
-    with mlflow.start_span(name="turn_1") as span:
-        span.set_inputs({"question": "What's my name?"})
-        span.set_outputs("Your name is Bob!")
-        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
-    traces.append(mlflow.get_trace(span.trace_id))
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_1",
+            session_id=session_id,
+            input_data={"question": "What's my name?"},
+            output_data="Your name is Bob!",
+        )
+    )
 
     fake_scorer = Mock(spec=Scorer)
     fake_scorer.return_value = Feedback(
@@ -1952,11 +1985,14 @@ def test_knowledge_retention_single_turn():
     session_id = "test_session_single"
     traces = []
 
-    with mlflow.start_span(name="turn_0") as span:
-        span.set_inputs({"question": "Hello"})
-        span.set_outputs("Hi there!")
-        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
-    traces.append(mlflow.get_trace(span.trace_id))
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "Hello"},
+            output_data="Hi there!",
+        )
+    )
 
     fake_scorer = Mock(spec=Scorer)
     fake_scorer.return_value = Feedback(
@@ -1983,11 +2019,10 @@ def test_knowledge_retention_single_turn():
 
 def test_knowledge_retention_empty_session():
     scorer = KnowledgeRetention()
-    result = scorer(session=[])
-
-    assert isinstance(result, Feedback)
-    assert result.value == "yes"
-    assert "empty session" in result.rationale.lower()
+    with pytest.raises(
+        MlflowException, match="cannot evaluate knowledge retention on empty session"
+    ):
+        scorer(session=[])
 
 
 def test_session_level_scorer_with_invalid_kwargs():
