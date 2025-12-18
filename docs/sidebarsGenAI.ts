@@ -445,6 +445,22 @@ const sidebarsGenAI: SidebarsConfig = {
                   label: 'Agent-as-a-Judge',
                 },
                 {
+                  type: 'category',
+                  label: 'Third-party Scorers',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/deepeval',
+                      label: 'DeepEval',
+                    },
+                  ],
+                  collapsed: false,
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/third-party/index',
+                  },
+                },
+                {
                   type: 'doc',
                   id: 'eval-monitor/scorers/custom',
                   label: 'Code-based Scorers',
