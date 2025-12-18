@@ -126,34 +126,27 @@ def is_scalar(function: "FunctionInfo") -> bool:
     return function.data_type != ColumnTypeName.TABLE_TYPE
 
 
-# Valid Unity Catalog identifier pattern: must start with letter or underscore,
-# followed by letters, digits, or underscores
-_VALID_UC_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
-
-
-def _validate_function_name(full_name: str) -> None:
+def _quote_identifier(identifier: str) -> str:
     """
-    Validate that a Unity Catalog function name contains only safe characters.
+    Quotes a SQL identifier to prevent SQL injection.
+    Databricks SQL uses backticks for quoting identifiers.
+
+    For multi-part identifiers (e.g., catalog.schema.function), each part is quoted separately.
+    Existing backticks around parts are stripped before re-quoting.
 
     Raises:
-        ValueError: If the function name format is invalid or contains unsafe characters.
+        ValueError: If any identifier part contains embedded backticks.
     """
-    if not full_name:
-        raise ValueError("Function name cannot be empty.")
-
-    parts = full_name.split(".")
-    if len(parts) != 3:
-        raise ValueError(
-            f"Invalid function name format: {full_name}. Expected format: catalog.schema.function"
-        )
-
-    for part in parts:
-        if not _VALID_UC_IDENTIFIER.match(part):
+    parts = identifier.split(".")
+    stripped_parts = [part.strip("`") for part in parts]
+    for part in stripped_parts:
+        if "`" in part:
             raise ValueError(
-                f"Invalid identifier in function name: {part}. "
-                "Identifiers must start with a letter or underscore and contain only "
-                "letters, digits, or underscores."
+                f"Invalid identifier: {identifier}. "
+                "Backticks are not allowed within Unity Catalog identifier names."
             )
+    quoted_parts = [f"`{part}`" for part in stripped_parts]
+    return ".".join(quoted_parts)
 
 
 def get_execute_function_sql_stmt(
@@ -163,15 +156,13 @@ def get_execute_function_sql_stmt(
     from databricks.sdk.service.catalog import ColumnTypeName
     from databricks.sdk.service.sql import StatementParameterListItem
 
-    # Validate function name to prevent SQL injection
-    _validate_function_name(function.full_name)
-
     parts = []
     output_params = []
+    quoted_function_name = _quote_identifier(function.full_name)
     if is_scalar(function):
-        parts.append(f"SELECT {function.full_name}(")
+        parts.append(f"SELECT {quoted_function_name}(")
     else:
-        parts.append(f"SELECT * FROM {function.full_name}(")
+        parts.append(f"SELECT * FROM {quoted_function_name}(")
     if function.input_params is None or function.input_params.parameters is None:
         assert not json_params, "Function has no parameters but parameters were provided."
     else:
@@ -186,7 +177,8 @@ def get_execute_function_sql_stmt(
             else:
                 arg_clause = ""
                 if use_named_args:
-                    arg_clause += f"{p.name} => "
+                    quoted_param_name = _quote_identifier(p.name)
+                    arg_clause += f"{quoted_param_name} => "
                 json_value = json_params[p.name]
                 if p.type_name in (
                     ColumnTypeName.ARRAY,
