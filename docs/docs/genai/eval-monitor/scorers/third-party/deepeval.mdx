@@ -3,15 +3,11 @@ import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Bot, GitBranch, Shield } from "lucide-react";
 
-# Third-party Scorers
-
-MLflow integrates with popular third-party evaluation frameworks, allowing you to leverage their specialized metrics within MLflow's evaluation workflow. This provides access to third party library's evaluation metrics while maintaining a consistent MLflow interface.
-
-## DeepEval Integration
+# DeepEval
 
 [DeepEval](https://docs.confident-ai.com/) is a comprehensive evaluation framework for LLM applications that provides metrics for RAG systems, agents, conversational AI, and safety evaluation. MLflow's DeepEval integration allows you to use most DeepEval metrics as MLflow scorers.
 
-### Prerequisites
+## Prerequisites
 
 DeepEval scorers require the `deepeval` package:
 
@@ -19,7 +15,7 @@ DeepEval scorers require the `deepeval` package:
 pip install deepeval
 ```
 
-### Quick Start
+## Quick Start
 
 You can call DeepEval scorers directly:
 
@@ -62,11 +58,11 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-### Available DeepEval Scorers
+## Available DeepEval Scorers
 
 DeepEval scorers are organized into categories based on their evaluation focus:
 
-#### RAG (Retrieval-Augmented Generation) Metrics
+### RAG (Retrieval-Augmented Generation) Metrics
 
 Evaluate retrieval quality and answer generation in RAG systems:
 
@@ -78,7 +74,7 @@ Evaluate retrieval quality and answer generation in RAG systems:
 | <APILink fn="mlflow.genai.scorers.deepeval.ContextualPrecision">ContextualPrecision</APILink> | Are relevant nodes ranked higher than irrelevant ones?     | [Link](https://deepeval.com/docs/metrics-contextual-precision) |
 | <APILink fn="mlflow.genai.scorers.deepeval.ContextualRelevancy">ContextualRelevancy</APILink> | Is the retrieval context relevant to the query?            | [Link](https://deepeval.com/docs/metrics-contextual-relevancy) |
 
-#### Agentic Metrics
+### Agentic Metrics
 
 Evaluate AI agent performance and behavior:
 
@@ -91,7 +87,7 @@ Evaluate AI agent performance and behavior:
 | <APILink fn="mlflow.genai.scorers.deepeval.PlanAdherence">PlanAdherence</APILink>             | Does the agent follow its plan?                         | [Link](https://deepeval.com/docs/metrics-plan-adherence)       |
 | <APILink fn="mlflow.genai.scorers.deepeval.PlanQuality">PlanQuality</APILink>                 | Is the agent's plan well-structured?                    | [Link](https://deepeval.com/docs/metrics-plan-quality)         |
 
-#### Conversational Metrics
+### Conversational Metrics
 
 Evaluate multi-turn conversations and dialogue systems:
 
@@ -105,7 +101,7 @@ Evaluate multi-turn conversations and dialogue systems:
 | <APILink fn="mlflow.genai.scorers.deepeval.ToolUse">ToolUse</APILink>                                   | Does the agent use tools appropriately in conversation? | [Link](https://deepeval.com/docs/metrics-tool-use)                  |
 | <APILink fn="mlflow.genai.scorers.deepeval.TopicAdherence">TopicAdherence</APILink>                     | Does the conversation stay on topic?                    | [Link](https://deepeval.com/docs/metrics-topic-adherence)           |
 
-#### Safety Metrics
+### Safety Metrics
 
 Detect harmful content, bias, and policy violations:
 
@@ -118,7 +114,7 @@ Detect harmful content, bias, and policy violations:
 | <APILink fn="mlflow.genai.scorers.deepeval.PIILeakage">PIILeakage</APILink>       | Does the output leak personally identifiable information?            | [Link](https://deepeval.com/docs/metrics-pii-leakage)    |
 | <APILink fn="mlflow.genai.scorers.deepeval.RoleViolation">RoleViolation</APILink> | Does the assistant break out of its assigned role?                   | [Link](https://deepeval.com/docs/metrics-role-violation) |
 
-#### Other
+### Other
 
 Additional evaluation metrics for common use cases:
 
@@ -129,7 +125,7 @@ Additional evaluation metrics for common use cases:
 | <APILink fn="mlflow.genai.scorers.deepeval.JsonCorrectness">JsonCorrectness</APILink> | Does JSON output match the expected schema?            | [Link](https://deepeval.com/docs/metrics-json-correctness) |
 | <APILink fn="mlflow.genai.scorers.deepeval.PromptAlignment">PromptAlignment</APILink> | Does the output align with prompt instructions?        | [Link](https://deepeval.com/docs/metrics-prompt-alignment) |
 
-#### Non-LLM
+### Non-LLM
 
 Fast, rule-based metrics that don't require LLM calls:
 
@@ -138,7 +134,7 @@ Fast, rule-based metrics that don't require LLM calls:
 | <APILink fn="mlflow.genai.scorers.deepeval.ExactMatch">ExactMatch</APILink>     | Does output exactly match expected output? | [Link](https://deepeval.com/docs/metrics-exact-match)   |
 | <APILink fn="mlflow.genai.scorers.deepeval.PatternMatch">PatternMatch</APILink> | Does output match a regex pattern?         | [Link](https://deepeval.com/docs/metrics-pattern-match) |
 
-### Creating Scorers by Name
+## Creating Scorers by Name
 
 If a particular DeepEval metric is not listed above, you can create it dynamically using <APILink fn="mlflow.genai.scorers.deepeval.get_scorer">get_scorer</APILink>:
 
@@ -158,7 +154,7 @@ feedback = scorer(
 )
 ```
 
-### Configuration
+## Configuration
 
 DeepEval scorers accept all parameters supported by the underlying DeepEval metrics. Any additional keyword arguments are passed directly to the DeepEval metric constructor:
 
