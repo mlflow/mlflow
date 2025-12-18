@@ -2368,7 +2368,7 @@ def test_query_assessment_value_with_null_value(store: SqlAlchemyStore):
     assessment = Feedback(
         trace_id=trace_id,
         name="score",
-        value=12.34,
+        value=12,
         source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"),
     )
     store.create_assessment(assessment)
@@ -2385,5 +2385,5 @@ def test_query_assessment_value_with_null_value(store: SqlAlchemyStore):
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
         "dimensions": {"assessment_name": "score"},
-        "values": {"AVG": 12.34},
+        "values": {"AVG": 12},
     }
