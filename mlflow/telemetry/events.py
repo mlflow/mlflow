@@ -302,6 +302,10 @@ class McpRunEvent(Event):
     name: str = "mcp_run"
 
 
+class GatewayStartEvent(Event):
+    name: str = "gateway_start"
+
+
 class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
 

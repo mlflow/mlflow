@@ -40,6 +40,7 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     CreateWebhookEvent,
     EvaluateEvent,
+    GatewayStartEvent,
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
     GitModelVersioningEvent,
@@ -856,6 +857,32 @@ def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
     mock_run_server.assert_called_once()
     mock_telemetry_client.flush()
     validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
+
+
+def test_gateway_start(tmp_path, mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.gateway.cli import start
+
+    config = tmp_path.joinpath("config.yml")
+    config.write_text(
+        """
+endpoints:
+  - name: test-endpoint
+    endpoint_type: llm/v1/completions
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: test-key
+"""
+    )
+
+    runner = CliRunner(catch_exceptions=False)
+    with mock.patch("mlflow.gateway.cli.run_app") as mock_run_app:
+        runner.invoke(start, ["--config-path", str(config)])
+
+    mock_run_app.assert_called_once()
+    mock_telemetry_client.flush()
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
 
 
 def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
