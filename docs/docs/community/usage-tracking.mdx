@@ -312,7 +312,7 @@ This table describes a list of metadata that may be collected together with a gi
     </tr>
     <tr>
       <td>Component View ID</td>
-      <td>A randomly generated UUID that is regernerated whenever the UI element rerenders. Can be used to link view and click events.</td>
+      <td>A randomly generated UUID that is regenerated whenever the UI element rerenders</td>
       <td>`774db636-5cfa-4ce8-8f56-7e7126dc3439`</td>
     </tr>
     <tr>
@@ -385,7 +385,9 @@ assert get_telemetry_client() is None, "Telemetry is enabled"
 
 ### How to opt-out for your organization?
 
-Organizations can disable telemetry by blocking network access to `https://config.mlflow-telemetry.io`. When this endpoint is unreachable, MLflow automatically disables telemetry.
+Organizations can disable telemetry by blocking network access to `https://config.mlflow-telemetry.io`. When this endpoint is unreachable, MLflow automatically disables telemetry for the SDK.
+
+To opt out of UI telemetry, you can block network access to `https://d139nb52glx00z.cloudfront.net` from the MLflow server. Similar to above, if this endpoint is unreachable, UI telemetry will be disabled.
 
 ### Opting out of UI telemetry
 
