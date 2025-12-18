@@ -139,9 +139,11 @@ def _score_model_on_payloads(
     if not grading_payloads:
         return scores, justifications
     if len(grading_payloads) == 1:
-        scores[0], justifications[0] = _score_model_on_one_payload(
+        score, justification = _score_model_on_one_payload(
             grading_payloads[0], model, parameters, headers, proxy_url
         )
+        scores[0] = score
+        justifications[0] = justification
         return scores, justifications
     with ThreadPoolExecutor(
         max_workers=min(max_workers, len(grading_payloads)),
