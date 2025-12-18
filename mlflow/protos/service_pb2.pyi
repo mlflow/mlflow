@@ -1632,10 +1632,17 @@ class Scorer(_message.Message):
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
 class GatewaySecretInfo(_message.Message):
-    __slots__ = ("secret_id", "secret_name", "masked_value", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config_json")
+    __slots__ = ("secret_id", "secret_name", "masked_values", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config_json")
+    class MaskedValuesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
-    MASKED_VALUE_FIELD_NUMBER: _ClassVar[int]
+    MASKED_VALUES_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     PROVIDER_FIELD_NUMBER: _ClassVar[int]
@@ -1644,14 +1651,14 @@ class GatewaySecretInfo(_message.Message):
     AUTH_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
     secret_id: str
     secret_name: str
-    masked_value: str
+    masked_values: _containers.ScalarMap[str, str]
     created_at: int
     last_updated_at: int
     provider: str
     created_by: str
     last_updated_by: str
     auth_config_json: str
-    def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., masked_value: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., provider: _Optional[str] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., auth_config_json: _Optional[str] = ...) -> None: ...
+    def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., masked_values: _Optional[_Mapping[str, str]] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., provider: _Optional[str] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., auth_config_json: _Optional[str] = ...) -> None: ...
 
 class GatewayModelDefinition(_message.Message):
     __slots__ = ("model_definition_id", "name", "secret_id", "secret_name", "provider", "model_name", "created_at", "last_updated_at", "created_by", "last_updated_by")

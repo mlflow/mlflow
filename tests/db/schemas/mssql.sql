@@ -100,7 +100,7 @@ CREATE TABLE secrets (
 	encrypted_value VARBINARY NOT NULL,
 	wrapped_dek VARBINARY NOT NULL,
 	kek_version INTEGER NOT NULL,
-	masked_value VARCHAR(100) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	masked_value VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	provider VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	auth_config VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",

@@ -4126,15 +4126,18 @@ def test_create_secret_with_dict_value(mlflow_client_with_secrets):
 
     secret = store.create_gateway_secret(
         secret_name="aws-creds",
-        secret_value={"aws_access_key_id": "AKIATEST", "aws_secret_access_key": "secret123"},
+        secret_value={"aws_access_key_id": "AKIATEST1234", "aws_secret_access_key": "secret123abc"},
         provider="bedrock",
     )
 
     assert secret.secret_name == "aws-creds"
     assert secret.provider == "bedrock"
     assert secret.secret_id is not None
-    assert "aws_access_key_id" in secret.masked_value
-    assert "aws_secret_access_key" in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {
+        "aws_access_key_id": "AKI...1234",
+        "aws_secret_access_key": "sec...3abc",
+    }
 
 
 def test_update_secret_with_dict_value(mlflow_client_with_secrets):
@@ -4142,19 +4145,28 @@ def test_update_secret_with_dict_value(mlflow_client_with_secrets):
 
     secret = store.create_gateway_secret(
         secret_name="aws-creds-update",
-        secret_value={"api_key": "initial-value"},
+        secret_value={"api_key": "initial-value-1234"},
         provider="bedrock",
     )
 
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {"api_key": "ini...1234"}
+
     updated = store.update_gateway_secret(
         secret_id=secret.secret_id,
-        secret_value={"aws_access_key_id": "NEWKEY", "aws_secret_access_key": "newsecret"},
+        secret_value={
+            "aws_access_key_id": "NEWKEY123456",
+            "aws_secret_access_key": "newsecret1234",
+        },
     )
 
     assert updated.secret_id == secret.secret_id
     assert updated.secret_name == "aws-creds-update"
-    assert "aws_access_key_id" in updated.masked_value
-    assert "aws_secret_access_key" in updated.masked_value
+    assert isinstance(updated.masked_values, dict)
+    assert updated.masked_values == {
+        "aws_access_key_id": "NEW...3456",
+        "aws_secret_access_key": "new...1234",
+    }
 
 
 def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
@@ -4163,8 +4175,8 @@ def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
     secret = store.create_gateway_secret(
         secret_name="bedrock-aws-creds",
         secret_value={
-            "aws_access_key_id": "AKIAORIGINAL",
-            "aws_secret_access_key": "original-secret-key",
+            "aws_access_key_id": "AKIAORIGINAL1234",
+            "aws_secret_access_key": "original-secret-key-1234",
         },
         provider="bedrock",
         auth_config={"auth_mode": "access_keys", "aws_region_name": "us-east-1"},
@@ -4172,25 +4184,32 @@ def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
 
     assert secret.secret_name == "bedrock-aws-creds"
     assert secret.provider == "bedrock"
-    assert "aws_access_key_id" in secret.masked_value
-    assert "aws_secret_access_key" in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {
+        "aws_access_key_id": "AKI...1234",
+        "aws_secret_access_key": "ori...1234",
+    }
 
     fetched = store.get_secret_info(secret_id=secret.secret_id)
     assert fetched.secret_id == secret.secret_id
-    assert "aws_access_key_id" in fetched.masked_value
+    assert isinstance(fetched.masked_values, dict)
+    assert fetched.masked_values == secret.masked_values
 
     updated = store.update_gateway_secret(
         secret_id=secret.secret_id,
         secret_value={
-            "aws_access_key_id": "AKIAROTATED",
-            "aws_secret_access_key": "rotated-secret-key",
+            "aws_access_key_id": "AKIAROTATED5678",
+            "aws_secret_access_key": "rotated-secret-key-5678",
         },
     )
 
     assert updated.secret_id == secret.secret_id
     assert updated.last_updated_at > secret.created_at
-    assert "aws_access_key_id" in updated.masked_value
-    assert "aws_secret_access_key" in updated.masked_value
+    assert isinstance(updated.masked_values, dict)
+    assert updated.masked_values == {
+        "aws_access_key_id": "AKI...5678",
+        "aws_secret_access_key": "rot...5678",
+    }
 
 
 def test_create_and_get_endpoint(mlflow_client_with_secrets):
@@ -4671,7 +4690,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
 def test_get_secrets_config_with_custom_passphrase(mlflow_client_with_secrets):
     base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
 
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/secrets/config")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/secrets/config")
     assert response.status_code == 200
     data = response.json()
     assert data["secrets_available"] is True
@@ -4694,7 +4713,7 @@ def test_get_secrets_config_with_default_passphrase(tmp_path: Path, monkeypatch)
     initialize_backend_stores(backend_uri, default_artifact_root=artifact_uri)
 
     with ServerThread(app, get_safe_port()) as url:
-        response = requests.get(f"{url}/ajax-api/3.0/mlflow/secrets/config")
+        response = requests.get(f"{url}/ajax-api/3.0/mlflow/gateway/secrets/config")
         assert response.status_code == 200
         data = response.json()
         assert data["secrets_available"] is True
