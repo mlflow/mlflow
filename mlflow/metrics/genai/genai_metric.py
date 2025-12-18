@@ -138,6 +138,11 @@ def _score_model_on_payloads(
     justifications = [None] * len(grading_payloads)
     if not grading_payloads:
         return scores, justifications
+    if len(grading_payloads) == 1:
+        scores[0], justifications[0] = _score_model_on_one_payload(
+            grading_payloads[0], model, parameters, headers, proxy_url
+        )
+        return scores, justifications
     with ThreadPoolExecutor(
         max_workers=min(max_workers, len(grading_payloads)),
         thread_name_prefix="MlflowGenAiScoring",
@@ -622,35 +627,40 @@ def make_genai_metric(
         scores = [None] * len(inputs)
         justifications = [None] * len(inputs)
 
-        with ThreadPoolExecutor(
-            max_workers=max(1, min(max_workers, len(grading_payloads))),
-            thread_name_prefix="MlflowGenAiEvaluation",
-        ) as executor:
-            futures = {
-                executor.submit(
-                    _score_model_on_one_payload,
-                    payload,
-                    eval_model,
-                    eval_parameters,
-                    extra_headers,
-                    proxy_url,
-                ): indx
-                for indx, payload in enumerate(grading_payloads)
-            }
+        if len(grading_payloads) == 1:
+            scores[0], justifications[0] = _score_model_on_one_payload(
+                grading_payloads[0], eval_model, eval_parameters, extra_headers, proxy_url
+            )
+        else:
+            with ThreadPoolExecutor(
+                max_workers=min(max_workers, len(grading_payloads)),
+                thread_name_prefix="MlflowGenAiEvaluation",
+            ) as executor:
+                futures = {
+                    executor.submit(
+                        _score_model_on_one_payload,
+                        payload,
+                        eval_model,
+                        eval_parameters,
+                        extra_headers,
+                        proxy_url,
+                    ): indx
+                    for indx, payload in enumerate(grading_payloads)
+                }
 
-            as_comp = as_completed(futures)
-            try:
-                from tqdm.auto import tqdm
+                as_comp = as_completed(futures)
+                try:
+                    from tqdm.auto import tqdm
 
-                as_comp = tqdm(as_comp, total=len(futures))
-            except ImportError:
-                pass
+                    as_comp = tqdm(as_comp, total=len(futures))
+                except ImportError:
+                    pass
 
-            for future in as_comp:
-                indx = futures[future]
-                score, justification = future.result()
-                scores[indx] = score
-                justifications[indx] = justification
+                for future in as_comp:
+                    indx = futures[future]
+                    score, justification = future.result()
+                    scores[indx] = score
+                    justifications[indx] = justification
 
         aggregate_results = _get_aggregate_results(scores, aggregations)
         return MetricValue(scores, justifications, aggregate_results)
