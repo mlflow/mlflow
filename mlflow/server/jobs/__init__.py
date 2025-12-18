@@ -16,12 +16,20 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-_ALLOWED_JOB_FUNCTION_LIST = [
-    # Putting all allowed job function in the list
+_SUPPORTED_JOB_FUNCTION_LIST = [
+    # Putting all supported job function fullname in the list
 ]
 
-if allowed_job_function_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_FUNCTION_LIST"):
-    _ALLOWED_JOB_FUNCTION_LIST += allowed_job_function_list_env.split(",")
+if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST"):
+    _SUPPORTED_JOB_FUNCTION_LIST += supported_job_function_list_env.split(",")
+
+
+_ALLOWED_JOB_NAME_LIST = [
+    # Putting all allowed job function static name in the list
+]
+
+if allowed_job_name_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_NAME_LIST"):
+    _ALLOWED_JOB_NAME_LIST += allowed_job_name_list_env.split(",")
 
 
 class TransientError(RuntimeError):
@@ -40,6 +48,7 @@ class TransientError(RuntimeError):
 
 @dataclass
 class JobFunctionMetadata:
+    name: str
     fn_fullname: str
     max_workers: int
     transient_error_classes: list[type[Exception]] | None = None
@@ -47,6 +56,7 @@ class JobFunctionMetadata:
 
 
 def job(
+    name: str,
     max_workers: int,
     transient_error_classes: list[type[Exception]] | None = None,
     python_version: str | None = None,
@@ -58,6 +68,7 @@ def job(
     Each job is executed in an individual subprocess.
 
     Args:
+        name: The static name of the job function.
         max_workers: The maximum number of workers that are allowed to run the jobs
             using this job function.
         transient_error_classes: (optional) Specify a list of classes that are regarded as
@@ -96,6 +107,7 @@ def job(
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
         fn._job_fn_metadata = JobFunctionMetadata(
+            name=name,
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
             transient_error_classes=transient_error_classes,
@@ -159,15 +171,17 @@ def submit_job(
 
     func_fullname = f"{function.__module__}.{function.__name__}"
 
-    if func_fullname not in _ALLOWED_JOB_FUNCTION_LIST:
-        raise MlflowException.invalid_parameter_value(
-            f"The function {func_fullname} is not in the allowed job function list"
-        )
-
     if not hasattr(function, "_job_fn_metadata"):
         raise MlflowException(
             f"The job function {func_fullname} is not decorated by "
             "'mlflow.server.jobs.job_function'."
+        )
+
+    fn_meta = function._job_fn_metadata
+
+    if fn_meta.name not in _ALLOWED_JOB_NAME_LIST:
+        raise MlflowException.invalid_parameter_value(
+            f"The function {func_fullname} is not in the allowed job function list"
         )
 
     if not isinstance(params, dict):
@@ -179,12 +193,12 @@ def submit_job(
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(func_fullname, serialized_params, timeout)
+    job = job_store.create_job(fn_meta.name, serialized_params, timeout)
 
     # enqueue job
-    _get_or_init_huey_instance(func_fullname).submit_task(
+    _get_or_init_huey_instance(fn_meta.name).submit_task(
         job.job_id,
-        func_fullname,
+        fn_meta.name,
         params,
         timeout,
     )

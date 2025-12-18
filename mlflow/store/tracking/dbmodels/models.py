@@ -2001,9 +2001,9 @@ class SqlJob(Base):
     Creation timestamp: `BigInteger`.
     """
 
-    function_fullname = Column(String(500), nullable=False)
+    job_name = Column(String(500), nullable=False)
     """
-    Function fullname: `String` (limit 500 characters).
+    Job name: `String` (limit 500 characters).
     """
 
     params = Column(Text, nullable=False)
@@ -2039,15 +2039,15 @@ class SqlJob(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
-            "index_jobs_function_status_creation_time",
-            "function_fullname",
+            "index_jobs_name_status_creation_time",
+            "job_name",
             "status",
             "creation_time",
         ),
     )
 
     def __repr__(self):
-        return f"<SqlJob ({self.id}, {self.function_fullname}, {self.status})>"
+        return f"<SqlJob ({self.id}, {self.job_name}, {self.status})>"
 
     def to_mlflow_entity(self):
         """
@@ -2062,7 +2062,7 @@ class SqlJob(Base):
         return Job(
             job_id=self.id,
             creation_time=self.creation_time,
-            function_fullname=self.function_fullname,
+            job_name=self.job_name,
             params=self.params,
             timeout=self.timeout,
             status=JobStatus.from_int(self.status),
