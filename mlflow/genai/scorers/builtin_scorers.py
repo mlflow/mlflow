@@ -1659,7 +1659,7 @@ class Fluency(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._get_judge()._evaluate_impl(
+        return self._get_judge()(
             outputs=outputs,
             trace=trace,
         )
@@ -1922,7 +1922,7 @@ class SessionLevelScorer(Judge):
         **kwargs,
     ) -> Feedback:
         self._validate_kwargs(kwargs)
-        return self._get_judge()._evaluate_impl(session=session, expectations=expectations)
+        return self._get_judge()(session=session, expectations=expectations)
 
 
 class BuiltInSessionLevelScorer(BuiltInScorer, SessionLevelScorer):
@@ -2617,7 +2617,7 @@ class Completeness(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._get_judge()._evaluate_impl(
+        return self._get_judge()(
             inputs=inputs,
             outputs=outputs,
             trace=trace,
