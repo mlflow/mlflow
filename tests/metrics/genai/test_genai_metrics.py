@@ -727,8 +727,10 @@ def test_similarity_metric(parameters, extra_headers, proxy_url):
 def test_faithfulness_metric(request):
     import cProfile
     import pstats
+    import time
     from io import StringIO
 
+    start_time = time.time()
     profiler = cProfile.Profile()
     profiler.enable()
 
@@ -805,12 +807,17 @@ def test_faithfulness_metric(request):
     )
 
     profiler.disable()
-    stream = StringIO()
-    stats = pstats.Stats(profiler, stream=stream).sort_stats("cumulative")
-    stats.print_stats(30)
-    profile_output = stream.getvalue()
+    elapsed_time = time.time() - start_time
 
-    assert False, f"\n=== Profile for {request.node.name} ===\n{profile_output}"
+    if elapsed_time > 60:
+        stream = StringIO()
+        stats = pstats.Stats(profiler, stream=stream).sort_stats("cumulative")
+        stats.print_stats(30)
+        profile_output = stream.getvalue()
+        assert False, (
+            f"\n=== Profile for {request.node.name} (took {elapsed_time:.2f}s) ===\n"
+            f"{profile_output}"
+        )
 
 
 def test_answer_correctness_metric():
