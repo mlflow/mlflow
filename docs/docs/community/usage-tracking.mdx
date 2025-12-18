@@ -265,7 +265,7 @@ For events with None in the `Tracked Parameters` column, only the event name is 
     <tr>
       <td>ui_event</td>
       <td>A UI interaction event. See the [below table](#ui-interaction-metadata) for a description of the various metadata elements</td>
-      <td>`{ "browserFamily": "Chrome", "isMobile": false, "eventType": "onClick", "componentViewId": "88fc9edd-5e9e-4a17-abd2-c543f505b8eb", "componentId": "mlflow.prompts.list.create", "componentType": "button", timestamp_ns: 1765784028467000000 }`</td>
+      <td>`{ "eventType": "onClick", "componentViewId": "88fc9edd-5e9e-4a17-abd2-c543f505b8eb", "componentId": "mlflow.prompts.list.create", "componentType": "button", timestamp_ns: 1765784028467000000 }`</td>
     </tr>
   </tbody>
 </Table>
@@ -287,16 +287,6 @@ This table describes a list of metadata that may be collected together with a gi
       <td>Component ID of interactive UI elements</td>
       <td>An ID string of an interactive element (e.g. button, switch, link, input field) in the UI. A log is generated upon clicking, typing, or otherwise interacting with such elements. A comprehensive list of component ID values can be found by [this search query](https://github.com/search?q=repo%3Amlflow%2Fmlflow%20componentId%3D&type=code).</td>
       <td>`mlflow.prompts.list.create` (identifier for the "Create prompt" button on the prompts page)</td>
-    </tr>
-    <tr>
-      <td>Browser family</td>
-      <td>An enumerated string describing the browser family</td>
-      <td>`Chrome`, `Safari`, `Firefox`, `Other`</td>
-    </tr>
-    <tr>
-      <td>Mobile status</td>
-      <td>A boolean indicating whether or not the event took place on a mobile device</td>
-      <td>`false`</td>
     </tr>
     <tr>
       <td>Event type</td>
