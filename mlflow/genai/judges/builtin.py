@@ -225,8 +225,7 @@ def is_correct(
     LLM judge determines whether the expected facts are supported by the response.
 
     This judge evaluates if the facts specified in ``expected_facts`` or ``expected_response``
-    are contained in or supported by the model's response. It answers: "Does the response
-    support all the expected facts?"
+    are contained in or supported by the model's response.
 
     .. note::
         This judge checks if expected facts are **supported by** the response, not whether
@@ -247,14 +246,11 @@ def is_correct(
 
     Example:
 
-        The following example shows how to evaluate whether the response supports
-        the expected facts.
-
         .. code-block:: python
 
             from mlflow.genai.judges import is_correct
 
-            # Response contains the expected fact - correct
+            # Response supports the expected response - correct
             feedback = is_correct(
                 request="What is the capital of France?",
                 response="Paris is the capital of France.",
@@ -262,7 +258,7 @@ def is_correct(
             )
             print(feedback.value)  # "yes"
 
-            # Response contradicts the expected fact - incorrect
+            # Response contradicts the expected facts - incorrect
             feedback = is_correct(
                 request="What is the capital of France?",
                 response="London is the capital of France.",
