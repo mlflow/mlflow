@@ -26,6 +26,7 @@ from mlflow.genai.utils.prompts.available_tools_extraction import (
     get_available_tools_extraction_prompts,
 )
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
     SpanAttributeKey,
@@ -273,8 +274,6 @@ def validate_session(session: list[Trace]) -> None:
     Raises:
         MlflowException: If traces are missing session_id or belong to different sessions.
     """
-    from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
     session_id_to_trace_ids: dict[str, list[str]] = {}
     for trace in session:
         session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)

@@ -90,7 +90,9 @@ from mlflow.genai.utils.trace_utils import (
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
+    validate_session,
 )
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
@@ -2441,39 +2443,25 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         self._validate_kwargs(kwargs)
 
         if not session:
-            return Feedback(
-                name=self.name,
-                value=CategoricalRating.YES,
-                rationale="No conversation to evaluate (empty session)",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.LLM_JUDGE,
-                    source_id=self.model or get_default_model(),
-                ),
+            raise MlflowException(
+                "Must specify 'session' - cannot evaluate knowledge retention on empty session.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
-
-        from mlflow.genai.utils.trace_utils import validate_session
 
         validate_session(session)
 
         sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
 
-        per_turn_results = []
+        per_turn_feedbacks = []
 
         for turn_idx in range(len(sorted_traces)):
             feedback = self._evaluate_turn(
                 turn_idx=turn_idx,
                 sorted_traces=sorted_traces,
             )
+            per_turn_feedbacks.append(feedback)
 
-            per_turn_results.append(
-                {
-                    "turn": turn_idx,
-                    "value": feedback.value,
-                    "rationale": feedback.rationale,
-                }
-            )
-
-        return self._compute_aggregate(per_turn_results)
+        return self._compute_aggregate(per_turn_feedbacks)
 
     def _evaluate_turn(
         self,
@@ -2484,22 +2472,22 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
 
         return self.last_turn_scorer(session=session_up_to_turn)
 
-    def _format_per_turn_rationale(self, per_turn_results: list[dict[str, Any]]) -> list[str]:
+    def _format_per_turn_rationale(self, per_turn_feedbacks: list[Feedback]) -> list[str]:
         """Format per-turn results into rationale lines."""
         rationale_lines = []
-        for result in per_turn_results:
-            status = "✗" if str(result["value"]) == CategoricalRating.NO else "✓"
-            turn_summary = result["rationale"]
-            rationale_lines.append(f"- Turn {result['turn'] + 1}: {status} {turn_summary}")
+        for turn_idx, feedback in enumerate(per_turn_feedbacks):
+            status = "✗" if str(feedback.value) == CategoricalRating.NO else "✓"
+            turn_summary = feedback.rationale
+            rationale_lines.append(f"- Turn {turn_idx + 1}: {status} {turn_summary}")
         return rationale_lines
 
-    def _compute_aggregate(self, per_turn_results: list[dict[str, Any]]) -> Feedback:
+    def _compute_aggregate(self, per_turn_feedbacks: list[Feedback]) -> Feedback:
         """Compute aggregate knowledge retention feedback using worst-case logic."""
-        failed_turns = [r for r in per_turn_results if str(r["value"]) == CategoricalRating.NO]
-        total_turns = len(per_turn_results)
+        failed_turns = [f for f in per_turn_feedbacks if str(f.value) == CategoricalRating.NO]
+        total_turns = len(per_turn_feedbacks)
 
         rationale_lines = [f"Knowledge retention evaluation across {total_turns} turn(s):"]
-        rationale_lines.extend(self._format_per_turn_rationale(per_turn_results))
+        rationale_lines.extend(self._format_per_turn_rationale(per_turn_feedbacks))
 
         if failed_turns:
             aggregate_value = CategoricalRating.NO

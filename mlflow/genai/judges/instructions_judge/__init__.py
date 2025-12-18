@@ -38,6 +38,7 @@ from mlflow.genai.utils.trace_utils import (
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
+    validate_session,
 )
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -277,8 +278,6 @@ class InstructionsJudge(Judge):
 
     def _validate_session(self, session: list[Trace]) -> None:
         """Validate that all traces in session belong to the same session."""
-        from mlflow.genai.utils.trace_utils import validate_session
-
         validate_session(session)
 
     def _warn_unused_parameters(
