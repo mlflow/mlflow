@@ -58,9 +58,9 @@ const generateMockEndpoint = (id: string, modelDefinitionSecretId?: string): End
 });
 
 const generateMockBinding = (id: string, endpointId: string): EndpointBinding => ({
-  binding_id: `binding-${id}`,
   endpoint_id: endpointId,
-  experiment_id: `exp-${id}`,
+  resource_type: 'experiment',
+  resource_id: `exp-${id}`,
   created_at: 1700000000000,
 });
 

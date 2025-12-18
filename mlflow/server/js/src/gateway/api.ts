@@ -28,7 +28,26 @@ import type {
   CreateEndpointBindingRequest,
   CreateEndpointBindingResponse,
   ListEndpointBindingsResponse,
+  SecretInfo,
 } from './types';
+
+// Raw API response type before transformation (has auth_config_json string instead of auth_config object)
+interface RawSecretInfo extends Omit<SecretInfo, 'auth_config'> {
+  auth_config_json?: string;
+}
+
+/**
+ * Transforms a raw secret from the API response by parsing auth_config_json into auth_config.
+ * The backend sends auth_config as a JSON string (auth_config_json), but the frontend
+ * expects it as a parsed object (auth_config).
+ */
+const transformSecret = (raw: RawSecretInfo): SecretInfo => {
+  const { auth_config_json, ...rest } = raw;
+  return {
+    ...rest,
+    auth_config: auth_config_json ? JSON.parse(auth_config_json) : undefined,
+  };
+};
 
 const defaultErrorHandler = async ({
   reject,
@@ -88,32 +107,38 @@ export const GatewayApi = {
   },
 
   // Secrets Management
-  createSecret: (request: CreateSecretRequest) => {
+  createSecret: (request: CreateSecretRequest): Promise<CreateSecretInfoResponse> => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/create',
       method: 'POST',
       body: JSON.stringify(request),
       error: defaultErrorHandler,
-    }) as Promise<CreateSecretInfoResponse>;
+    }).then((response) => ({
+      secret: transformSecret((response as { secret: RawSecretInfo }).secret),
+    }));
   },
 
-  getSecret: (secretId: string) => {
+  getSecret: (secretId: string): Promise<GetSecretInfoResponse> => {
     const params = new URLSearchParams();
     params.append('secret_id', secretId);
     const relativeUrl = ['ajax-api/3.0/mlflow/gateway/secrets/get', params.toString()].join('?');
     return fetchEndpoint({
       relativeUrl,
       error: defaultErrorHandler,
-    }) as Promise<GetSecretInfoResponse>;
+    }).then((response) => ({
+      secret: transformSecret((response as { secret: RawSecretInfo }).secret),
+    }));
   },
 
-  updateSecret: (request: UpdateSecretRequest) => {
+  updateSecret: (request: UpdateSecretRequest): Promise<UpdateSecretInfoResponse> => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/update',
       method: 'POST',
       body: JSON.stringify(request),
       error: defaultErrorHandler,
-    }) as Promise<UpdateSecretInfoResponse>;
+    }).then((response) => ({
+      secret: transformSecret((response as { secret: RawSecretInfo }).secret),
+    }));
   },
 
   deleteSecret: (secretId: string) => {
@@ -125,7 +150,7 @@ export const GatewayApi = {
     });
   },
 
-  listSecrets: (provider?: string) => {
+  listSecrets: (provider?: string): Promise<ListSecretInfosResponse> => {
     const params = new URLSearchParams();
     if (provider) {
       params.append('provider', provider);
@@ -134,7 +159,9 @@ export const GatewayApi = {
     return fetchEndpoint({
       relativeUrl,
       error: defaultErrorHandler,
-    }) as Promise<ListSecretInfosResponse>;
+    }).then((response) => ({
+      secrets: (response as { secrets: RawSecretInfo[] }).secrets.map(transformSecret),
+    }));
   },
 
   // Endpoints Management
@@ -270,13 +297,16 @@ export const GatewayApi = {
     });
   },
 
-  listEndpointBindings: (endpointId?: string, experimentId?: string) => {
+  listEndpointBindings: (endpointId?: string, resourceType?: string, resourceId?: string) => {
     const params = new URLSearchParams();
     if (endpointId) {
       params.append('endpoint_id', endpointId);
     }
-    if (experimentId) {
-      params.append('experiment_id', experimentId);
+    if (resourceType) {
+      params.append('resource_type', resourceType);
+    }
+    if (resourceId) {
+      params.append('resource_id', resourceId);
     }
     const relativeUrl = ['ajax-api/3.0/mlflow/gateway/endpoints/bindings/list', params.toString()].join('?');
     return fetchEndpoint({

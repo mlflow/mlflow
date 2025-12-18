@@ -199,16 +199,23 @@ export interface DetachModelFromEndpointRequest {
   model_definition_id: string;
 }
 
+export type ResourceType = 'experiment' | 'registered_model' | 'endpoint_model';
+
 export interface EndpointBinding {
-  binding_id: string;
   endpoint_id: string;
-  experiment_id: string;
+  resource_type: ResourceType;
+  resource_id: string;
   created_at: number;
+  last_updated_at?: number;
+  created_by?: string;
+  last_updated_by?: string;
 }
 
 export interface CreateEndpointBindingRequest {
   endpoint_id: string;
-  experiment_id: string;
+  resource_type: ResourceType;
+  resource_id: string;
+  created_by?: string;
 }
 
 export interface CreateEndpointBindingResponse {
