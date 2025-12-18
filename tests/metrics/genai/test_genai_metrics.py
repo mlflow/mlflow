@@ -723,6 +723,7 @@ def test_similarity_metric(parameters, extra_headers, proxy_url):
         )
 
 
+@pytest.mark.repeat(10)
 def test_faithfulness_metric():
     faithfulness_metric = faithfulness(model="gateway:/gpt-4o-mini", examples=[])
     input = "What is MLflow?"
