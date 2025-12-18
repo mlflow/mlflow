@@ -1866,18 +1866,18 @@ class SessionLevelScorer(Judge):
     """
 
     required_columns: set[str] = {"trace"}
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
     @abstractmethod
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         """
-        Create the InstructionsJudge instance for this scorer.
+        Create the Judge instance for this scorer.
         Subclasses should implement this to configure their specific judge.
 
         Note: Instantiate InstructionsJudge directly instead of using make_judge.
         """
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         """Get or create the cached judge instance."""
         if self._judge is None:
             self._judge = self._create_judge()
@@ -1999,7 +1999,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
     model: str | None = None
     description: str = "Evaluate the user's frustration state throughout the conversation."
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2072,7 +2072,7 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         "the conversation."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2148,7 +2148,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         "checking for harmful content and safety guideline failures."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2222,7 +2222,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         "efficient, checking for redundant calls, unnecessary calls, and poor tool selection."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2295,7 +2295,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         "a conversation, checking for persona consistency and boundary violations."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2331,7 +2331,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
         "provided by users in earlier conversation turns."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2407,7 +2407,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         "in earlier conversation turns without forgetting, contradicting, or distorting it."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         """
         This method is required by BuiltInSessionLevelScorer but is not used.
         KnowledgeRetention uses composition (delegating to last_turn_scorer)
