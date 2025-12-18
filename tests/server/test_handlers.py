@@ -2529,3 +2529,36 @@ def test_litellm_not_available():
             assert response.status_code == 400
             data = response.get_json()
             assert "LiteLLM is not installed" in data["message"]
+
+
+def test_invoke_scorer_missing_experiment_id():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={"serialized_scorer": "test", "trace_ids": ["trace1"]},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "experiment_id" in data["message"]
+
+
+def test_invoke_scorer_missing_serialized_scorer():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={"experiment_id": "123", "trace_ids": ["trace1"]},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "serialized_scorer" in data["message"]
+
+
+def test_invoke_scorer_missing_trace_ids():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={"experiment_id": "123", "serialized_scorer": "test"},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "trace_ids" in data["message"]
