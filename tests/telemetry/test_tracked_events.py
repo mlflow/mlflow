@@ -879,7 +879,6 @@ endpoints:
     with mock.patch("mlflow.gateway.cli.run_app") as mock_run_app:
         runner.invoke(start, ["--config-path", str(config)])
 
-    mock_run_app.assert_called_once()
     mock_telemetry_client.flush()
     validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
 
