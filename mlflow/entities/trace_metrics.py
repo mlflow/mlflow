@@ -16,6 +16,10 @@ class MetricViewType(str, Enum):
     def to_proto(self):
         return pb.MetricViewType.Value(self)
 
+    @classmethod
+    def from_proto(cls, proto: int) -> "MetricViewType":
+        return cls(pb.MetricViewType.Name(proto))
+
 
 class AggregationType(str, Enum):
     COUNT = "COUNT"
@@ -63,6 +67,13 @@ class MetricAggregation(_MlflowObject):
             proto.percentile_value = self.percentile_value
         return proto
 
+    @classmethod
+    def from_proto(cls, proto: pb.MetricAggregation) -> "MetricAggregation":
+        return cls(
+            aggregation_type=AggregationType(pb.AggregationType.Name(proto.aggregation_type)),
+            percentile_value=proto.percentile_value if proto.HasField("percentile_value") else None,
+        )
+
 
 @dataclass
 class MetricDataPoint(_MlflowObject):
@@ -76,4 +87,11 @@ class MetricDataPoint(_MlflowObject):
             metric_name=proto.metric_name,
             dimensions=dict(proto.dimensions),
             values=dict(proto.values),
+        )
+
+    def to_proto(self) -> pb.MetricDataPoint:
+        return pb.MetricDataPoint(
+            metric_name=self.metric_name,
+            dimensions=self.dimensions,
+            values=self.values,
         )

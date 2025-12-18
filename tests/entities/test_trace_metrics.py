@@ -89,3 +89,45 @@ def test_trace_metrics_metric_data_point_from_proto():
         dimensions={"status": "OK"},
         values={"avg": 150.5, "p99": 200},
     )
+
+
+def test_trace_metrics_metric_data_point_to_proto():
+    metric_data_point = MetricDataPoint(
+        metric_name="latency",
+        dimensions={"status": "OK", "model": "gpt-4"},
+        values={"avg": 150.5, "p99": 200.0},
+    )
+    proto = metric_data_point.to_proto()
+    assert proto.metric_name == "latency"
+    assert dict(proto.dimensions) == {"status": "OK", "model": "gpt-4"}
+    assert dict(proto.values) == {"avg": 150.5, "p99": 200.0}
+
+
+@pytest.mark.parametrize(
+    ("view_type", "expected_proto"),
+    zip(MetricViewType, pb.MetricViewType.values(), strict=True),
+)
+def test_trace_metrics_view_type_from_proto(view_type: MetricViewType, expected_proto: int):
+    assert MetricViewType.from_proto(expected_proto) == view_type
+
+
+@pytest.mark.parametrize(
+    "agg_type",
+    [t for t in AggregationType if t is not AggregationType.PERCENTILE],
+)
+def test_metrics_aggregation_from_proto_without_percentile(agg_type: AggregationType):
+    proto = pb.MetricAggregation(aggregation_type=agg_type.to_proto())
+    aggregation = MetricAggregation.from_proto(proto)
+    assert aggregation.aggregation_type == agg_type
+    assert aggregation.percentile_value is None
+
+
+@pytest.mark.parametrize("percentile_value", [50.0, 75.0, 90.0, 95.0, 99.0, 99.9])
+def test_metrics_aggregation_from_proto_with_percentile(percentile_value: float):
+    proto = pb.MetricAggregation(
+        aggregation_type=pb.AggregationType.PERCENTILE,
+        percentile_value=percentile_value,
+    )
+    aggregation = MetricAggregation.from_proto(proto)
+    assert aggregation.aggregation_type == AggregationType.PERCENTILE
+    assert aggregation.percentile_value == percentile_value
