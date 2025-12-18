@@ -1631,30 +1631,6 @@ class Scorer(_message.Message):
     scorer_id: str
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
-class InvokeScorer(_message.Message):
-    __slots__ = ("experiment_id", "serialized_scorer", "trace_ids", "log_assessments")
-    class Job(_message.Message):
-        __slots__ = ("job_id", "trace_ids")
-        JOB_ID_FIELD_NUMBER: _ClassVar[int]
-        TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
-        job_id: str
-        trace_ids: _containers.RepeatedScalarFieldContainer[str]
-        def __init__(self, job_id: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ...) -> None: ...
-    class Response(_message.Message):
-        __slots__ = ("jobs",)
-        JOBS_FIELD_NUMBER: _ClassVar[int]
-        jobs: _containers.RepeatedCompositeFieldContainer[InvokeScorer.Job]
-        def __init__(self, jobs: _Optional[_Iterable[_Union[InvokeScorer.Job, _Mapping]]] = ...) -> None: ...
-    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
-    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
-    LOG_ASSESSMENTS_FIELD_NUMBER: _ClassVar[int]
-    experiment_id: str
-    serialized_scorer: str
-    trace_ids: _containers.RepeatedScalarFieldContainer[str]
-    log_assessments: bool
-    def __init__(self, experiment_id: _Optional[str] = ..., serialized_scorer: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., log_assessments: bool = ...) -> None: ...
-
 class GatewaySecretInfo(_message.Message):
     __slots__ = ("secret_id", "secret_name", "masked_value", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config_json")
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
