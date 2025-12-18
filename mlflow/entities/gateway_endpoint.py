@@ -31,13 +31,13 @@ class RoutingStrategy(str, Enum):
     FALLBACK = "FALLBACK"
 
     @classmethod
-    def from_proto(cls, value: ProtoRoutingStrategy):
+    def from_proto(cls, proto: ProtoRoutingStrategy) -> "RoutingStrategy":
         try:
-            return cls(ProtoRoutingStrategy.Name(value))
+            return cls(ProtoRoutingStrategy.Name(proto))
         except ValueError:
             return None
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoRoutingStrategy:
         return ProtoRoutingStrategy.Value(self.value)
 
 
@@ -47,13 +47,13 @@ class FallbackStrategy(str, Enum):
     SEQUENTIAL = "SEQUENTIAL"
 
     @classmethod
-    def from_proto(cls, value: ProtoFallbackStrategy):
+    def from_proto(cls, proto: ProtoFallbackStrategy) -> "FallbackStrategy":
         try:
-            return cls(ProtoFallbackStrategy.Name(value))
+            return cls(ProtoFallbackStrategy.Name(proto))
         except ValueError:
             return None
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoFallbackStrategy:
         return ProtoFallbackStrategy.Value(self.value)
 
 
@@ -76,7 +76,7 @@ class FallbackConfig(_MlflowObject):
     max_attempts: int | None = None
     model_definition_ids: list[str] = field(default_factory=list)
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoFallbackConfig:
         proto = ProtoFallbackConfig()
         proto.strategy = self.strategy.to_proto() if self.strategy else None
         if self.max_attempts is not None:
@@ -85,7 +85,7 @@ class FallbackConfig(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoFallbackConfig) -> "FallbackConfig":
         strategy = (
             FallbackStrategy.from_proto(proto.strategy) if proto.HasField("strategy") else None
         )
