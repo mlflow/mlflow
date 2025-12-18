@@ -808,10 +808,9 @@ def test_faithfulness_metric(request):
     stream = StringIO()
     stats = pstats.Stats(profiler, stream=stream).sort_stats("cumulative")
     stats.print_stats(30)
-    print(f"\n=== Profile for {request.node.name} ===")
-    print(stream.getvalue())
+    profile_output = stream.getvalue()
 
-    assert False, "Intentional failure to see profiling output"
+    assert False, f"\n=== Profile for {request.node.name} ===\n{profile_output}"
 
 
 def test_answer_correctness_metric():
