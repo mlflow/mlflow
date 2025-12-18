@@ -183,28 +183,6 @@ def test_trulens_agent_trace_scorer_with_custom_params(mock_trulens_openai, samp
     assert call_args[1]["temperature"] == 0.5
 
 
-def test_trulens_agent_trace_scorer_score_clamping(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.logical_consistency_with_cot_reasons.return_value = (
-        1.5,
-        {"reason": "Over max"},
-    )
-
-    from mlflow.genai.scorers import TruLensLogicalConsistencyScorer
-
-    scorer = TruLensLogicalConsistencyScorer()
-    result = scorer(trace=sample_agent_trace)
-
-    assert result.value == 1.0
-
-    mock_trulens_openai.logical_consistency_with_cot_reasons.return_value = (
-        -0.5,
-        {"reason": "Under min"},
-    )
-
-    result = scorer(trace=sample_agent_trace)
-    assert result.value == 0.0
-
-
 def test_trulens_agent_trace_scorer_requires_trace(mock_trulens_openai):
     from mlflow.genai.scorers import TruLensLogicalConsistencyScorer
 
@@ -258,7 +236,7 @@ def test_trulens_agent_trace_scorer_empty_rationale(mock_trulens_openai, sample_
     scorer = TruLensLogicalConsistencyScorer()
     result = scorer(trace=sample_agent_trace)
 
-    assert result.rationale == "No detailed reasoning available."
+    assert result.rationale is None
 
 
 def test_trulens_agent_trace_scorers_available_in_module():

@@ -65,55 +65,33 @@ class _TruLensAgentTraceScorerBase(Scorer):
         """Get the appropriate TruLens provider instance."""
         _check_trulens_installed()
 
-        if self.model_provider == "openai":
-            from trulens.providers.openai import OpenAI
+        match self.model_provider:
+            case "openai":
+                from trulens.providers.openai import OpenAI
 
-            return OpenAI(model_engine=self.model_name or "gpt-4o-mini")
-        elif self.model_provider == "litellm":
-            try:
-                from trulens.providers.litellm import LiteLLM
+                return OpenAI(model_engine=self.model_name or "gpt-4o-mini")
+            case "litellm":
+                try:
+                    from trulens.providers.litellm import LiteLLM
 
-                return LiteLLM(model_engine=self.model_name or "gpt-4o-mini")
-            except ImportError:
+                    return LiteLLM(model_engine=self.model_name or "gpt-4o-mini")
+                except ImportError:
+                    raise MlflowException(
+                        "LiteLLM provider requires 'trulens-providers-litellm'. "
+                        "Install it with: pip install trulens-providers-litellm",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            case _:
                 raise MlflowException(
-                    "LiteLLM provider requires 'trulens-providers-litellm'. "
-                    "Install it with: pip install trulens-providers-litellm",
+                    f"Unsupported model provider: {self.model_provider}. "
+                    "Currently supported: 'openai', 'litellm'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        else:
-            raise MlflowException(
-                f"Unsupported model provider: {self.model_provider}. "
-                "Currently supported: 'openai', 'litellm'",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
 
-    def _validate_score(self, score: float) -> float:
-        """
-        Validate that score is in expected 0-1 range.
-
-        TruLens normalizes scores internally to 0-1 range. If a score falls
-        outside this range, it indicates a potential bug or version incompatibility.
-
-        Args:
-            score: The score from TruLens
-
-        Returns:
-            Validated score (clamped with warning if out of range)
-        """
-        if score < 0.0 or score > 1.0:
-            import logging
-
-            logging.getLogger(__name__).warning(
-                f"TruLens returned score {score} outside expected 0-1 range. "
-                "This may indicate a version incompatibility. Clamping to valid range."
-            )
-            return min(1.0, max(0.0, score))
-        return score
-
-    def _format_rationale(self, reasons: dict[str, Any] | None) -> str:
+    def _format_rationale(self, reasons: dict[str, Any] | None) -> str | None:
         """Format TruLens reasons dict into a readable rationale string."""
         if not reasons:
-            return "No detailed reasoning available."
+            return None
 
         parts = []
         for key, value in reasons.items():
@@ -124,7 +102,7 @@ class _TruLensAgentTraceScorerBase(Scorer):
             else:
                 parts.append(f"{key}: {value}")
 
-        return " | ".join(parts) if parts else "No detailed reasoning available."
+        return " | ".join(parts) if parts else None
 
     def _get_trace_string(self, trace: Trace | str | None) -> str:
         """Convert trace to string format expected by TruLens."""
@@ -146,7 +124,7 @@ class _TruLensAgentTraceScorerBase(Scorer):
             )
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class TruLensLogicalConsistencyScorer(_TruLensAgentTraceScorerBase):
     """
     TruLens logical consistency scorer for agent traces.
@@ -214,17 +192,14 @@ class TruLensLogicalConsistencyScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        validated_score = self._validate_score(score)
-        rationale = self._format_rationale(reasons)
-
         return Feedback(
             name=self.name,
-            value=validated_score,
-            rationale=rationale,
+            value=score,
+            rationale=self._format_rationale(reasons),
         )
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class TruLensExecutionEfficiencyScorer(_TruLensAgentTraceScorerBase):
     """
     TruLens execution efficiency scorer for agent traces.
@@ -294,17 +269,14 @@ class TruLensExecutionEfficiencyScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        validated_score = self._validate_score(score)
-        rationale = self._format_rationale(reasons)
-
         return Feedback(
             name=self.name,
-            value=validated_score,
-            rationale=rationale,
+            value=score,
+            rationale=self._format_rationale(reasons),
         )
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class TruLensPlanAdherenceScorer(_TruLensAgentTraceScorerBase):
     """
     TruLens plan adherence scorer for agent traces.
@@ -373,17 +345,14 @@ class TruLensPlanAdherenceScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        validated_score = self._validate_score(score)
-        rationale = self._format_rationale(reasons)
-
         return Feedback(
             name=self.name,
-            value=validated_score,
-            rationale=rationale,
+            value=score,
+            rationale=self._format_rationale(reasons),
         )
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class TruLensPlanQualityScorer(_TruLensAgentTraceScorerBase):
     """
     TruLens plan quality scorer for agent traces.
@@ -452,17 +421,14 @@ class TruLensPlanQualityScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        validated_score = self._validate_score(score)
-        rationale = self._format_rationale(reasons)
-
         return Feedback(
             name=self.name,
-            value=validated_score,
-            rationale=rationale,
+            value=score,
+            rationale=self._format_rationale(reasons),
         )
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class TruLensToolSelectionScorer(_TruLensAgentTraceScorerBase):
     """
     TruLens tool selection scorer for agent traces.
@@ -531,17 +497,14 @@ class TruLensToolSelectionScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        validated_score = self._validate_score(score)
-        rationale = self._format_rationale(reasons)
-
         return Feedback(
             name=self.name,
-            value=validated_score,
-            rationale=rationale,
+            value=score,
+            rationale=self._format_rationale(reasons),
         )
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 class TruLensToolCallingScorer(_TruLensAgentTraceScorerBase):
     """
     TruLens tool calling scorer for agent traces.
@@ -610,11 +573,8 @@ class TruLensToolCallingScorer(_TruLensAgentTraceScorerBase):
             temperature=self.temperature,
         )
 
-        validated_score = self._validate_score(score)
-        rationale = self._format_rationale(reasons)
-
         return Feedback(
             name=self.name,
-            value=validated_score,
-            rationale=rationale,
+            value=score,
+            rationale=self._format_rationale(reasons),
         )
