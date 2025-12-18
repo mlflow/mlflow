@@ -583,7 +583,9 @@ def initialize_backend_stores(
         _verify_model_registry_store_workspace_support(registry_store)
 
 
-def _store_supports_workspaces(store: object) -> bool:
+def _store_supports_workspaces(
+    store: AbstractTrackingStore | AbstractModelRegistryStore,
+) -> bool:
     """Return whether the provided store reports workspace support."""
     return bool(getattr(store, "supports_workspaces", False))
 
@@ -883,7 +885,7 @@ def _disable_if_workspaces_disabled(func):
             return Response(
                 (
                     f"Endpoint: {request.url_rule} disabled because the server is running "
-                    "without multi-tenancy support. To enable workspace functionality, run "
+                    "without workspaces support. To enable workspace, run "
                     "`mlflow server` with `--enable-workspaces`"
                 ),
                 503,

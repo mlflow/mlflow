@@ -38,7 +38,7 @@ class WorkspaceRestStoreMixin:
         self._workspace_support = supported
         return supported
 
-    def _enforce_workspace_support(self) -> None:
+    def _validate_workspace_support_if_specified(self) -> None:
         """
         Raise an error if a workspace is active but the server doesn't support workspaces.
         """

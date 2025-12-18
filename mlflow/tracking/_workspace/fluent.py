@@ -26,13 +26,13 @@ def _workspace_client_call(func: Callable[[MlflowClient], T]) -> T:
         if exc.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
             raise MlflowException(
                 "The configured tracking server does not expose workspace APIs. "
-                "Ensure multi-tenancy is enabled.",
+                "Ensure workspace is enabled.",
                 error_code=FEATURE_DISABLED,
             ) from exc
         raise
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 def set_workspace(workspace: str | None) -> None:
     """Set the active workspace for subsequent MLflow operations."""
 
@@ -47,21 +47,21 @@ def set_workspace(workspace: str | None) -> None:
         set_context_workspace(workspace)
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 def list_workspaces() -> list[Workspace]:
     """Return the list of workspaces available to the current user."""
 
     return _workspace_client_call(lambda client: client.list_workspaces())
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 def get_workspace(name: str) -> Workspace:
     """Return metadata for the specified workspace."""
 
     return _workspace_client_call(lambda client: client.get_workspace(name))
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 def create_workspace(name: str, description: str | None = None) -> Workspace:
     """Create a new workspace."""
 
@@ -71,7 +71,7 @@ def create_workspace(name: str, description: str | None = None) -> Workspace:
     )
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 def update_workspace(name: str, description: str | None = None) -> Workspace:
     """Update metadata for an existing workspace."""
 
@@ -82,7 +82,7 @@ def update_workspace(name: str, description: str | None = None) -> Workspace:
     )
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 def delete_workspace(name: str) -> None:
     """Delete an existing workspace."""
 

@@ -199,7 +199,7 @@ class RestStore(WorkspaceRestStoreMixin, AbstractStore):
         retry_timeout_seconds=None,
         response_proto=None,
     ):
-        self._enforce_workspace_support()
+        self._validate_workspace_support_if_specified()
 
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
@@ -1768,7 +1768,7 @@ class RestStore(WorkspaceRestStoreMixin, AbstractStore):
         if not spans:
             return []
 
-        self._enforce_workspace_support()
+        self._validate_workspace_support_if_specified()
 
         server_version = self._get_server_version(self.get_host_creds())
         if server_version is None:

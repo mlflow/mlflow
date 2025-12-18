@@ -64,7 +64,7 @@ class RestStore(WorkspaceRestStoreMixin, BaseRestStore):
     """
 
     def _call_endpoint(self, api, json_body, call_all_endpoints=False, extra_headers=None):
-        self._enforce_workspace_support()
+        self._validate_workspace_support_if_specified()
         return super()._call_endpoint(
             api,
             json_body,
