@@ -13,6 +13,7 @@ from functools import partial, wraps
 from typing import Any
 
 import requests
+from cachetools import TTLCache
 from flask import Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
@@ -219,6 +220,13 @@ from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRes
 from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.telemetry import get_telemetry_client
+from mlflow.telemetry.schemas import Record, Status
+from mlflow.telemetry.utils import (
+    FALLBACK_UI_CONFIG,
+    fetch_ui_telemetry_config,
+    is_telemetry_disabled,
+)
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -4725,6 +4733,93 @@ def _get_dataset_records_handler(dataset_id):
         response_message.next_page_token = next_page_token
 
     return _wrap_response(response_message)
+
+
+# Cache for telemetry config with 3 hour TTL
+_telemetry_config_cache = TTLCache(maxsize=1, ttl=10800)
+
+
+def _get_or_fetch_ui_telemetry_config():
+    if (config := _telemetry_config_cache.get("config")) is None:
+        config = fetch_ui_telemetry_config()
+        _telemetry_config_cache["config"] = config
+    return config
+
+
+@catch_mlflow_exception
+def get_ui_telemetry_handler():
+    """
+    GET handler for /telemetry endpoint.
+    Returns the telemetry client configuration by fetching it directly.
+    """
+    if is_telemetry_disabled():
+        return jsonify(FALLBACK_UI_CONFIG)
+
+    config = _get_or_fetch_ui_telemetry_config()
+
+    # UI telemetry should be also disabled if overall telemetry is disabled
+    disable_ui_telemetry = config.get("disable_ui_telemetry", True) or config.get(
+        "disable_telemetry", True
+    )
+    response = {
+        "disable_ui_telemetry": disable_ui_telemetry,
+        "disable_ui_events": config.get("disable_ui_events", []),
+        "ui_rollout_percentage": config.get("ui_rollout_percentage", 0),
+    }
+    return jsonify(response)
+
+
+@catch_mlflow_exception
+def post_ui_telemetry_handler():
+    """
+    POST handler for /telemetry endpoint.
+    Accepts telemetry records and adds them to the telemetry client.
+    """
+    try:
+        if is_telemetry_disabled():
+            return jsonify({"status": "disabled"})
+
+        data = request.json.get("records", [])
+
+        if not data:
+            return jsonify({"status": "success"})
+
+        if (client := get_telemetry_client()) is None:
+            return jsonify({"status": "disabled"})
+
+        # check cached config to see if telemetry is disabled
+        # if so, don't process the records. we don't rely on the
+        # config from the telemetry client because it is only fetched
+        # once, so it won't be updated unless the server is restarted.
+        config = _get_or_fetch_ui_telemetry_config()
+
+        # if updated telemetry config is disabled / missing, tell the UI to stop sending records
+        if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
+            return jsonify({"status": "disabled"})
+
+        records = [
+            Record(
+                event_name=event["event_name"],
+                timestamp_ns=event["timestamp_ns"],
+                params=event["params"],
+                status=Status.SUCCESS,
+                installation_id=event["installation_id"],
+                session_id=event["session_id"],
+                duration_ms=0,
+            )
+            for event in data
+        ]
+
+        client.add_records(records)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        _logger.debug(f"Failed to process UI telemetry records: {e}")
+        # if we run into unexpected errors, likely something is wrong
+        # with the data format. if we return success, the UI will continue
+        # to send records. if we return an error, the UI will retry sending
+        # records. the safest thing to do is to tell the UI to stop sending
+        return jsonify({"status": "disabled"})
 
 
 HANDLERS = {

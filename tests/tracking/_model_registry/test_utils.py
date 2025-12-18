@@ -281,6 +281,7 @@ def test_get_store_sqlalchemy_store(db_type, monkeypatch):
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
         mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
+        mock.patch("mlflow.store.model_registry.sqlalchemy_store._all_tables_exist"),
         mock.patch(
             "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore."
             "_verify_registry_tables_exist"

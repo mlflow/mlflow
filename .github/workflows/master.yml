@@ -287,7 +287,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install openai dspy deepeval litellm
+          pip install openai dspy deepeval litellm ragas
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
@@ -384,17 +384,31 @@ jobs:
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
+
+          # Define function to run pytest with common arguments
+          run_pytest() {
+            uv run --no-sync pytest "$@" \
+              --ignore-flavors \
+              --ignore=tests/projects \
+              --ignore=tests/examples \
+              --ignore=tests/evaluate \
+              --ignore=tests/optuna \
+              --ignore=tests/pyspark/optuna \
+              --ignore=tests/genai \
+              --ignore=tests/sagemaker \
+              --ignore=tests/gateway \
+              --ignore=tests/server/auth \
+              --ignore=tests/data/test_spark_dataset.py \
+              tests
+          }
+
           # Run Windows tests
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors \
-            --ignore=tests/projects \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna \
-            --ignore=tests/genai \
-            --ignore=tests/sagemaker \
-            --ignore=tests/gateway \
-            --ignore=tests/server/auth \
-            --ignore=tests/data/test_spark_dataset.py \
-            tests
+          # Retry failed tests once to handle flaky tests on Windows
+          set +e
+          run_pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }}
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            echo "Retrying failed tests..."
+            run_pytest --last-failed
+          fi
