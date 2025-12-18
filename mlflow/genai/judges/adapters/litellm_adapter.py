@@ -30,6 +30,8 @@ from mlflow.genai.judges.utils.parsing_utils import (
 from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
 from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
 from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.tracking import get_tracking_uri
+from mlflow.utils.uri import append_to_uri_path, is_http_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -105,7 +107,7 @@ _suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 
 def _invoke_litellm(
-    model: str,
+    litellm_model: str,
     messages: list["litellm.Message"],
     tools: list[dict[str, Any]],
     num_retries: int,
@@ -119,7 +121,8 @@ def _invoke_litellm(
     Invoke litellm completion with retry support.
 
     Args:
-        model: The LiteLLM model identifier (e.g., "openai/gpt-4" or endpoint name for gateway).
+        litellm_model: The LiteLLM model identifier
+            (e.g., "openai/gpt-4" or endpoint name for gateway).
         messages: List of litellm Message objects.
         tools: List of tool definitions (empty list if no tools).
         num_retries: Number of retries with exponential backoff.
@@ -139,7 +142,7 @@ def _invoke_litellm(
     import litellm
 
     kwargs = {
-        "model": model,
+        "model": litellm_model,
         "messages": messages,
         "tools": tools or None,
         "tool_choice": "auto" if tools else None,
@@ -209,9 +212,6 @@ def _invoke_litellm_and_handle_tools(
 
     # Construct model URI and gateway params
     if provider == "gateway":
-        from mlflow.tracking import get_tracking_uri
-        from mlflow.utils.uri import append_to_uri_path, is_http_uri
-
         tracking_uri = get_tracking_uri()
 
         # Validate that tracking URI is a valid HTTP(S) URL for gateway
@@ -279,7 +279,7 @@ def _invoke_litellm_and_handle_tools(
         try:
             try:
                 response = _invoke_litellm(
-                    model=model,
+                    litellm_model=model,
                     messages=messages,
                     tools=tools,
                     num_retries=num_retries,
