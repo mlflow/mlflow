@@ -216,6 +216,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.tracing.utils.artifact_utils import (
@@ -3318,6 +3319,21 @@ def _query_trace_metrics() -> Response:
             "page_token": [_assert_string],
         },
     )
+    max_results = (
+        request_message.max_results
+        if request_message.HasField("max_results")
+        else MAX_RESULTS_QUERY_TRACE_METRICS
+    )
+    time_interval_seconds = (
+        request_message.time_interval_seconds
+        if request_message.HasField("time_interval_seconds")
+        else None
+    )
+    start_time_ms = (
+        request_message.start_time_ms if request_message.HasField("start_time_ms") else None
+    )
+    end_time_ms = request_message.end_time_ms if request_message.HasField("end_time_ms") else None
+
     result = _get_tracking_store().query_trace_metrics(
         experiment_ids=request_message.experiment_ids,
         view_type=MetricViewType.from_proto(request_message.view_type),
@@ -3325,10 +3341,10 @@ def _query_trace_metrics() -> Response:
         aggregations=[MetricAggregation.from_proto(agg) for agg in request_message.aggregations],
         dimensions=request_message.dimensions or None,
         filters=request_message.filters or None,
-        time_interval_seconds=request_message.time_interval_seconds or None,
-        start_time_ms=request_message.start_time_ms or None,
-        end_time_ms=request_message.end_time_ms or None,
-        max_results=request_message.max_results or None,
+        time_interval_seconds=time_interval_seconds,
+        start_time_ms=start_time_ms,
+        end_time_ms=end_time_ms,
+        max_results=max_results,
         page_token=request_message.page_token or None,
     )
     response_message = QueryTraceMetrics.Response()

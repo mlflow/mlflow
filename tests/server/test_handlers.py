@@ -76,7 +76,6 @@ from mlflow.protos.service_pb2 import (
     SetTraceTagV3,
     TraceLocation,
 )
-from mlflow.protos.service_pb2 import MetricViewType as ProtoMetricViewType
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
@@ -2623,7 +2622,7 @@ def test_query_trace_metrics_handler(mock_get_request_message, mock_tracking_sto
 def test_query_trace_metrics_handler_empty_result(mock_get_request_message, mock_tracking_store):
     request_msg = QueryTraceMetrics(
         experiment_ids=["exp1"],
-        view_type=ProtoMetricViewType.TRACES,
+        view_type=MetricViewType.TRACES.to_proto(),
         metric_name="latency",
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG).to_proto()],
     )
