@@ -41,7 +41,7 @@ def test_invoke_litellm_basic():
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         result = _invoke_litellm(
-            model="openai/gpt-4",
+            litellm_model="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
             num_retries=5,
@@ -68,7 +68,7 @@ def test_invoke_litellm_with_tools():
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         result = _invoke_litellm(
-            model="openai/gpt-4",
+            litellm_model="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=tools,
             num_retries=3,
@@ -90,7 +90,7 @@ def test_invoke_litellm_with_response_format():
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         result = _invoke_litellm(
-            model="openai/gpt-4",
+            litellm_model="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
             num_retries=3,
@@ -113,7 +113,7 @@ def test_invoke_litellm_exception_propagation():
     ):
         with pytest.raises(litellm.RateLimitError, match="Rate limit exceeded"):
             _invoke_litellm(
-                model="openai/gpt-4",
+                litellm_model="openai/gpt-4",
                 messages=[litellm.Message(role="user", content="Test")],
                 tools=[],
                 num_retries=3,
@@ -127,7 +127,7 @@ def test_invoke_litellm_retry_policy_configured():
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         _invoke_litellm(
-            model="openai/gpt-4",
+            litellm_model="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
             num_retries=7,
@@ -150,7 +150,7 @@ def test_invoke_litellm_with_gateway_params():
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         _invoke_litellm(
-            model="my-endpoint",
+            litellm_model="my-endpoint",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
             num_retries=3,
@@ -222,7 +222,10 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_pr
         mock.patch(
             "mlflow.genai.judges.adapters.litellm_adapter._remove_oldest_tool_call_pair"
         ) as mock_truncate,
-        mock.patch("mlflow.tracking.get_tracking_uri", return_value="http://localhost:5000"),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
     ):
         mock_truncate.return_value = [litellm.Message(role="user", content="Truncated")]
 
@@ -254,7 +257,10 @@ def test_invoke_litellm_and_handle_tools_gateway_context_window_no_tool_calls_to
             "mlflow.genai.judges.adapters.litellm_adapter._remove_oldest_tool_call_pair",
             return_value=None,  # No tool calls to truncate
         ),
-        mock.patch("mlflow.tracking.get_tracking_uri", return_value="http://localhost:5000"),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
     ):
         from mlflow.exceptions import MlflowException
         from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
@@ -331,7 +337,7 @@ def test_gateway_provider_integration():
 
     with (
         mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
-        mock.patch("mlflow.tracking.get_tracking_uri") as mock_get_uri,
+        mock.patch("mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri") as mock_get_uri,
     ):
         mock_get_uri.return_value = "http://localhost:5000"
 
@@ -359,7 +365,9 @@ def test_gateway_provider_requires_http_tracking_uri():
     from mlflow.exceptions import MlflowException
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 
-    with mock.patch("mlflow.tracking.get_tracking_uri", return_value="databricks"):
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri", return_value="databricks"
+    ):
         with pytest.raises(MlflowException, match="Gateway provider requires an HTTP"):
             _invoke_litellm_and_handle_tools(
                 provider="gateway",
