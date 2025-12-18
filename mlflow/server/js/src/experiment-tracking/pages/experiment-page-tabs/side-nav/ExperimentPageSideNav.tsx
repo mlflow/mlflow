@@ -6,6 +6,7 @@ import type { ExperimentPageSideNavSectionKey } from './constants';
 import { COLLAPSED_CLASS_NAME, FULL_WIDTH_CLASS_NAME, useExperimentPageSideNavConfig } from './constants';
 import { ExperimentPageSideNavSection } from './ExperimentPageSideNavSection';
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 
 const SIDE_NAV_WIDTH = 160;
 const SIDE_NAV_COLLAPSED_WIDTH = 32;
