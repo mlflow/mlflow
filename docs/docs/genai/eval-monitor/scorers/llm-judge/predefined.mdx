@@ -75,6 +75,7 @@ results = mlflow.genai.evaluate(
 | <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?    | No                     | No                    |
 | <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?       | Yes\*                  | No                    |
 | <APILink fn="mlflow.genai.scorers.Completeness">Completeness</APILink>\*\*                 | Does the agent address all questions in a single user prompt? | No                     | No                    |
+| <APILink fn="mlflow.genai.scorers.Fluency">Fluency</APILink>                               | Is the response grammatically correct and naturally flowing?  | No                     | No                    |
 | <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?              | Yes\*                  | No                    |
 | <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines?  | Yes\*                  | No                    |
 | <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?       | No                     | No                    |
