@@ -43,15 +43,16 @@ export interface ModelsResponse {
   models: Model[];
 }
 
-export interface Secret {
+export interface SecretInfo {
   secret_id: string;
   secret_name: string;
+  masked_values: Record<string, string>;
   provider?: string;
-  auth_config?: Record<string, any>;
+  auth_config?: Record<string, string>;
   created_at: number;
-  updated_at: number;
+  last_updated_at: number;
   created_by?: string;
-  updated_by?: string;
+  last_updated_by?: string;
 }
 
 export interface CreateSecretRequest {
@@ -62,12 +63,12 @@ export interface CreateSecretRequest {
   created_by?: string;
 }
 
-export interface CreateSecretResponse {
-  secret: Secret;
+export interface CreateSecretInfoResponse {
+  secret: SecretInfo;
 }
 
-export interface GetSecretResponse {
-  secret: Secret;
+export interface GetSecretInfoResponse {
+  secret: SecretInfo;
 }
 
 export interface UpdateSecretRequest {
@@ -77,12 +78,12 @@ export interface UpdateSecretRequest {
   updated_by?: string;
 }
 
-export interface UpdateSecretResponse {
-  secret: Secret;
+export interface UpdateSecretInfoResponse {
+  secret: SecretInfo;
 }
 
-export interface ListSecretsResponse {
-  secrets: Secret[];
+export interface ListSecretInfosResponse {
+  secrets: SecretInfo[];
 }
 
 export interface ModelDefinition {

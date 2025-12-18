@@ -7,6 +7,13 @@ export const getGatewayRouteDefs = () => {
       path: GatewayRoutePaths.gatewayPage,
       element: createLazyRouteElement(() => import('./pages/GatewayPage')),
       pageId: GatewayPageId.gatewayPage,
+      children: [
+        {
+          path: 'api-keys',
+          element: createLazyRouteElement(() => import('./pages/ApiKeysPage')),
+          pageId: GatewayPageId.apiKeysPage,
+        },
+      ],
     },
   ];
 };
