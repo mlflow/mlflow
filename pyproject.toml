@@ -190,7 +190,7 @@ test = [
   "pytest-cov",
   "pytest-timeout",
   "psutil",
-  "pyspark<4.1.0",
+  "pyspark",
   "opentelemetry-exporter-otlp-proto-grpc",
   "opentelemetry-exporter-otlp-proto-http",
 ]
@@ -210,7 +210,7 @@ docs = [
   "nbformat",
   "tensorflow",
   "keras",
-  "pyspark<4.1.0",
+  "pyspark",
   "datasets",
   "plotly",
   "torch>=1.11.0",
@@ -230,6 +230,8 @@ constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
+  # pyspark 4.1.0 causes issues with documentation build
+  "pyspark<4.1.0",
 ]
 exclude-dependencies = ["databricks-connect"]
 

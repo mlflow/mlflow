@@ -24,7 +24,10 @@ members = [
     "mlflow",
     "mlflow-test-plugin",
 ]
-constraints = [{ name = "xgboost", specifier = "<3.1.0" }]
+constraints = [
+    { name = "pyspark", specifier = "<4.1.0" },
+    { name = "xgboost", specifier = "<3.1.0" },
+]
 excludes = ["databricks-connect"]
 
 [[package]]
@@ -4101,8 +4104,7 @@ dev = [
     { name = "pre-commit" },
     { name = "psutil" },
     { name = "pydantic" },
-    { name = "pyspark", version = "3.5.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "pyspark", version = "4.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pyspark" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -4126,8 +4128,7 @@ docs = [
     { name = "openai" },
     { name = "plotly" },
     { name = "polars" },
-    { name = "pyspark", version = "3.5.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "pyspark", version = "4.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pyspark" },
     { name = "sphinx" },
     { name = "sphinx-autobuild", version = "2024.10.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "sphinx-autobuild", version = "2025.8.25", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -4161,8 +4162,7 @@ test = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "psutil" },
-    { name = "pyspark", version = "3.5.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "pyspark", version = "4.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pyspark" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -4270,7 +4270,7 @@ dev = [
     { name = "pre-commit", specifier = "==4.0.1" },
     { name = "psutil" },
     { name = "pydantic", specifier = ">=2.0" },
-    { name = "pyspark", specifier = "<4.1.0" },
+    { name = "pyspark" },
     { name = "pytest", specifier = "==8.4.0" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -4294,7 +4294,7 @@ docs = [
     { name = "openai" },
     { name = "plotly" },
     { name = "polars", specifier = ">=1" },
-    { name = "pyspark", specifier = "<4.1.0" },
+    { name = "pyspark" },
     { name = "sphinx", specifier = "==4.2.0" },
     { name = "sphinx-autobuild" },
     { name = "sphinx-click" },
@@ -4325,7 +4325,7 @@ test = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "psutil" },
-    { name = "pyspark", specifier = "<4.1.0" },
+    { name = "pyspark" },
     { name = "pytest", specifier = "==8.4.0" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -6110,35 +6110,8 @@ wheels = [
 
 [[package]]
 name = "py4j"
-version = "0.10.9.7"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version < '3.11' and sys_platform == 'darwin'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1e/f2/b34255180c72c36ff7097f7c2cdca02abcbd89f5eebf7c7c41262a9a0637/py4j-0.10.9.7.tar.gz", hash = "sha256:0b6e5315bb3ada5cf62ac651d107bb2ebc02def3dee9d9548e3baac644ea8dbb", size = 1508234, upload-time = "2022-08-12T22:49:09.792Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/10/30/a58b32568f1623aaad7db22aa9eafc4c6c194b429ff35bdc55ca2726da47/py4j-0.10.9.7-py2.py3-none-any.whl", hash = "sha256:85defdfd2b2376eb3abf5ca6474b51ab7e0de341c75a02f46dc9b5976f5a5c1b", size = 200481, upload-time = "2022-08-12T22:49:07.05Z" },
-]
-
-[[package]]
-name = "py4j"
 version = "0.10.9.9"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
-    "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-]
 sdist = { url = "https://files.pythonhosted.org/packages/38/31/0b210511177070c8d5d3059556194352e5753602fa64b85b7ab81ec1a009/py4j-0.10.9.9.tar.gz", hash = "sha256:f694cad19efa5bd1dee4f3e5270eb406613c974394035e5bfc4ec1aba870b879", size = 761089, upload-time = "2025-01-15T03:53:18.624Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/db/ea0203e495be491c85af87b66e37acfd3bf756fd985f87e46fc5e3bf022c/py4j-0.10.9.9-py2.py3-none-any.whl", hash = "sha256:c7c26e4158defb37b0bb124933163641a2ff6e3a3913f7811b0ddbe07ed61533", size = 203008, upload-time = "2025-01-15T03:53:15.648Z" },
@@ -6580,37 +6553,10 @@ wheels = [
 
 [[package]]
 name = "pyspark"
-version = "3.5.7"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version < '3.11' and sys_platform == 'darwin'",
-]
-dependencies = [
-    { name = "py4j", version = "0.10.9.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/65/2764b1840aa6ea5f7e668a36702c3128ac54d0b861d3d57669b2453469a6/pyspark-3.5.7.tar.gz", hash = "sha256:80e36514e0c5c126d35a26adf4f405cd4a69de96a8ea8a3c1e9a65fce2fb4eaa", size = 317370347, upload-time = "2025-09-23T19:46:10.326Z" }
-
-[[package]]
-name = "pyspark"
 version = "4.0.1"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform != 'darwin'",
-    "python_full_version >= '3.14' and sys_platform == 'darwin'",
-    "(python_full_version == '3.13.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version == '3.13.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version == '3.13.*' and sys_platform == 'darwin'",
-    "(python_full_version == '3.12.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version == '3.12.*' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version == '3.12.*' and sys_platform == 'darwin'",
-]
 dependencies = [
-    { name = "py4j", version = "0.10.9.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "py4j" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ae/40/1414582f16c1d7b051c668c2e19c62d21a18bd181d944cb24f5ddbb2423f/pyspark-4.0.1.tar.gz", hash = "sha256:9d1f22d994f60369228397e3479003ffe2dd736ba79165003246ff7bd48e2c73", size = 434204896, upload-time = "2025-09-06T07:15:57.091Z" }
 
