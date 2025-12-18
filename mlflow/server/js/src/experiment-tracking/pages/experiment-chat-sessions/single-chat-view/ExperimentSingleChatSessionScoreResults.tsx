@@ -112,16 +112,18 @@ export const ExperimentSingleChatSessionScoreResults = ({
           modelTraceInfo={firstTraceInfoInSession}
           chatSessionId={sessionId}
         >
-          <AssessmentsPaneComponent
-            assessments={sessionAssessments}
-            traceId={firstTraceInfoInSession.trace_id}
-            defaultMetadata={defaultMetadata}
+          <div
             css={{
               paddingLeft: 0,
               border: 0,
             }}
-            assessmentsTitleOverride={AssessmentsTitleOverride}
-          />
+          >
+            <AssessmentsPaneComponent
+              assessments={sessionAssessments}
+              traceId={firstTraceInfoInSession.trace_id}
+              defaultMetadata={defaultMetadata}
+            />
+          </div>
         </ModelTraceExplorerUpdateTraceContextProvider>
       </ResizableBox>
     </div>

@@ -19,7 +19,7 @@ export const ExperimentSingleChatSessionMetrics = ({
         gap: theme.spacing.sm,
       }}
     >
-      {chatSessionMetrics.sessionTokens.total_tokens && (
+      {chatSessionMetrics.sessionTokens['total_tokens'] && (
         <div
           css={{
             display: 'flex',
@@ -33,7 +33,7 @@ export const ExperimentSingleChatSessionMetrics = ({
             />
           </Typography.Text>
           <Tag componentId="mlflow.experiment.chat-session.metrics.tokens-tag" icon={<TokenIcon />}>
-            {chatSessionMetrics.sessionTokens.total_tokens}
+            {chatSessionMetrics.sessionTokens['total_tokens']}
           </Tag>
         </div>
       )}

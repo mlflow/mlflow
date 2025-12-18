@@ -37,7 +37,6 @@ import {
   ExperimentSingleChatSessionSidebar,
   ExperimentSingleChatSessionSidebarSkeleton,
 } from './ExperimentSingleChatSessionSidebar';
-import { shouldEnableChatSessionsTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { getChatSessionsFilter } from '../utils';
 import {
@@ -82,7 +81,7 @@ import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessio
 // };
 // END-EDGE
 
-const oss_ContextProviders = ({
+const OssContextProviders = ({
   children,
   modelTraceInfo,
   invalidateTraceQuery,
@@ -207,7 +206,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
   const firstTraceInfo = traces?.[0]?.info;
 
   return (
-    <oss_ContextProviders modelTraceInfo={firstTraceInfo} invalidateTraceQuery={invalidateSingleTraceQuery}>
+    <OssContextProviders modelTraceInfo={firstTraceInfo} invalidateTraceQuery={invalidateSingleTraceQuery}>
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <div
           css={
@@ -292,17 +291,17 @@ const ExperimentSingleChatSessionPageImpl = () => {
                 marginBottom: -theme.spacing.lg,
               }}
             >
-              <oss_ContextProviders
+              <OssContextProviders
                 modelTraceInfo={selectedTrace?.info}
                 invalidateTraceQuery={invalidateSingleTraceQuery}
               >
                 {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
-              </oss_ContextProviders>
+              </OssContextProviders>
             </div>
           </Drawer.Content>
         </Drawer.Root>
       </div>
-    </oss_ContextProviders>
+    </OssContextProviders>
   );
 };
 
