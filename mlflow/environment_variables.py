@@ -1193,4 +1193,6 @@ _SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID = _EnvironmentVariable(
 
 #: Whether to nable authorization for graphQL routes in MLflow server.
 #: (default: ``True``)
-MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable("MLFLOW_ENABLE_GRAPHQL_AUTH", True)
+MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH", True
+)
