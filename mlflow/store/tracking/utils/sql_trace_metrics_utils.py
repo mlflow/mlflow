@@ -162,7 +162,7 @@ def get_time_bucket_expression(
             case MetricViewType.SPANS:
                 # For spans, timestamp is an expression (start_time_unix_nano / 1000000)
                 # rather than a simple column. Build the complete expression inline.
-                column_name = "start_time_unix_nano // 1000000"
+                column_name = "start_time_unix_nano / 1000000"
             case MetricViewType.ASSESSMENTS:
                 column_name = "created_timestamp"
         expr_str = f"floor({column_name} / {bucket_size_ms}) * {bucket_size_ms}"
@@ -174,7 +174,7 @@ def get_time_bucket_expression(
                 timestamp_column = SqlTraceInfo.timestamp_ms
             case MetricViewType.SPANS:
                 # Convert nanoseconds to milliseconds
-                timestamp_column = SqlSpan.start_time_unix_nano // 1000000
+                timestamp_column = SqlSpan.start_time_unix_nano / 1000000
             case MetricViewType.ASSESSMENTS:
                 timestamp_column = SqlAssessments.created_timestamp
         # This floors the timestamp to the nearest bucket boundary
