@@ -1,5 +1,6 @@
 import json
 import uuid
+from dataclasses import asdict
 from unittest import mock
 
 import pytest
@@ -16,6 +17,12 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
+)
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -58,6 +65,7 @@ from mlflow.protos.service_pb2 import (
     LinkPromptsToTrace,
     ListScorers,
     ListScorerVersions,
+    QueryTraceMetrics,
     RegisterScorer,
     SearchExperiments,
     SearchLoggedModels,
@@ -114,6 +122,7 @@ from mlflow.server.handlers import (
     _list_scorers,
     _list_webhooks,
     _log_batch,
+    _query_trace_metrics,
     _register_scorer,
     _rename_registered_model,
     _search_evaluation_datasets_handler,
@@ -150,6 +159,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -2545,6 +2555,120 @@ def test_litellm_not_available():
             assert response.status_code == 400
             data = response.get_json()
             assert "LiteLLM is not installed" in data["message"]
+
+
+def test_query_trace_metrics_handler(mock_get_request_message, mock_tracking_store):
+    experiment_ids = ["exp1", "exp2"]
+    metric_name = "latency"
+
+    # Create aggregation protos
+    aggregations_proto = [
+        MetricAggregation(aggregation_type=AggregationType.AVG).to_proto(),
+        MetricAggregation(
+            aggregation_type=AggregationType.PERCENTILE, percentile_value=95.0
+        ).to_proto(),
+    ]
+
+    # Create the request message
+    request_msg = QueryTraceMetrics(
+        experiment_ids=experiment_ids,
+        view_type=MetricViewType.TRACES.to_proto(),
+        metric_name=metric_name,
+        aggregations=aggregations_proto,
+        dimensions=["status", "model"],
+        filters=["status = 'OK'"],
+        time_interval_seconds=3600,
+        start_time_ms=1000000,
+        end_time_ms=2000000,
+        max_results=100,
+        page_token="token123",
+    )
+    mock_get_request_message.return_value = request_msg
+
+    # Create mock result
+    mock_data_points = [
+        MetricDataPoint(
+            metric_name="latency",
+            dimensions={"status": "OK", "model": "gpt-4"},
+            values={"AVG": 150.5, "P95.0": 200.0},
+        ),
+        MetricDataPoint(
+            metric_name="latency",
+            dimensions={"status": "ERROR", "model": "gpt-4"},
+            values={"AVG": 50.0, "P95.0": 75.0},
+        ),
+    ]
+
+    # Create a mock result object with next_page_token attribute
+    mock_result = mock.MagicMock()
+    mock_result.__iter__ = mock.MagicMock(return_value=iter(mock_data_points))
+    mock_result.token = "next_token"
+    mock_tracking_store.query_trace_metrics.return_value = mock_result
+
+    # Call the handler
+    response = _query_trace_metrics()
+
+    mock_tracking_store.query_trace_metrics.assert_called_once_with(
+        experiment_ids=experiment_ids,
+        view_type=MetricViewType.TRACES,
+        metric_name=metric_name,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95.0),
+        ],
+        dimensions=["status", "model"],
+        filters=["status = 'OK'"],
+        time_interval_seconds=3600,
+        start_time_ms=1000000,
+        end_time_ms=2000000,
+        max_results=100,
+        page_token="token123",
+    )
+
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert "data_points" in response_data
+    assert len(response_data["data_points"]) == 2
+    assert response_data["data_points"][0] == asdict(mock_data_points[0])
+    assert response_data["data_points"][1] == asdict(mock_data_points[1])
+    assert response_data["next_page_token"] == "next_token"
+
+
+def test_query_trace_metrics_handler_empty_result(mock_get_request_message, mock_tracking_store):
+    request_msg = QueryTraceMetrics(
+        experiment_ids=["exp1"],
+        view_type=MetricViewType.TRACES.to_proto(),
+        metric_name="latency",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG).to_proto()],
+    )
+    mock_get_request_message.return_value = request_msg
+
+    mock_result = mock.MagicMock()
+    mock_result.__iter__ = mock.MagicMock(return_value=iter([]))
+    mock_result.token = None
+    mock_tracking_store.query_trace_metrics.return_value = mock_result
+
+    response = _query_trace_metrics()
+
+    mock_tracking_store.query_trace_metrics.assert_called_once_with(
+        experiment_ids=["exp1"],
+        view_type=MetricViewType.TRACES,
+        metric_name="latency",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=None,
+        filters=None,
+        time_interval_seconds=None,
+        start_time_ms=None,
+        end_time_ms=None,
+        max_results=MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token=None,
+    )
+
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert response_data == {}
 
 
 def test_invoke_scorer_missing_experiment_id():

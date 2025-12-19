@@ -131,6 +131,7 @@ jobs:
             # https://github.com/actions/virtual-environments/issues/5022
             ./tests/db/compose.sh run --rm --no-TTY $service pytest \
               tests/store/tracking/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_store_query_trace_metrics.py \
               tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/db
