@@ -322,8 +322,11 @@ async def openai_passthrough_chat(request: Request):
     store = _get_store()
     _validate_store(store)
 
+    # Extract headers from the request to propagate
+    headers = dict(request.headers)
+
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body)
+    response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
 
     if body.get("stream"):
         return StreamingResponse(response, media_type="text/event-stream")
@@ -357,10 +360,13 @@ async def openai_passthrough_embeddings(request: Request):
     store = _get_store()
     _validate_store(store)
 
+    # Extract headers from the request to propagate
+    headers = dict(request.headers)
+
     provider = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
-    return await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body)
+    return await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES])
@@ -394,8 +400,11 @@ async def openai_passthrough_responses(request: Request):
     store = _get_store()
     _validate_store(store)
 
+    # Extract headers from the request to propagate
+    headers = dict(request.headers)
+
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body)
+    response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
 
     if body.get("stream"):
         return StreamingResponse(response, media_type="text/event-stream")
@@ -433,8 +442,10 @@ async def anthropic_passthrough_messages(request: Request):
     store = _get_store()
     _validate_store(store)
 
+    headers = dict(request.headers)
+
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body)
+    response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
 
     if body.get("stream"):
         return StreamingResponse(response, media_type="text/event-stream")
@@ -470,8 +481,11 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     store = _get_store()
     _validate_store(store)
 
+    # Extract headers from the request to propagate
+    headers = dict(request.headers)
+
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body)
+    return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT])
@@ -503,6 +517,11 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     store = _get_store()
     _validate_store(store)
 
+    # Extract headers from the request to propagate
+    headers = dict(request.headers)
+
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough(PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body)
+    response = await provider.passthrough(
+        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
+    )
     return StreamingResponse(response, media_type="text/event-stream")

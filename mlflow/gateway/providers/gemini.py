@@ -624,6 +624,31 @@ class GeminiProvider(BaseProvider):
     def headers(self):
         return {"x-goog-api-key": self.gemini_config.gemini_api_key}
 
+    def _get_headers(
+        self,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        """
+        Generate headers for Gemini API requests.
+
+        Args:
+            payload: Request payload (reserved for future conditional headers)
+            headers: Optional headers from client request to propagate
+
+        Returns:
+            Merged headers with provider headers taking precedence
+        """
+        result_headers = self.headers.copy()
+
+        if headers:
+            for key, value in headers.items():
+                # Don't overide api key header
+                if key not in headers:
+                    result_headers[key] = value
+
+        return result_headers
+
     @property
     def base_url(self):
         return "https://generativelanguage.googleapis.com/v1beta/models"
@@ -752,23 +777,28 @@ class GeminiProvider(BaseProvider):
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
 
     async def passthrough(
-        self, action: PassthroughAction, payload: dict[str, Any]
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         provider_path = self._validate_passthrough_action(action)
         provider_path = provider_path.format(model=self.config.model.name)
+
+        request_headers = self._get_headers(payload, headers)
 
         is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
 
         if is_streaming:
             return send_stream_request(
-                headers=self.headers,
+                headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
         else:
             return await send_request(
-                headers=self.headers,
+                headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,

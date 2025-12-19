@@ -359,12 +359,35 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     def adapter_class(self) -> type[ProviderAdapter]:
         return AnthropicAdapter
 
-    def _get_headers(self, payload: dict[str, Any]) -> dict[str, str]:
-        # Add beta header for structured outputs if output_format is present
-        headers = self.headers
-        if payload.get("output_format") and payload["output_format"].get("type") == "json_schema":
-            headers["anthropic-beta"] = "structured-outputs-2025-11-13"
-        return headers
+    def _get_headers(
+        self,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        """
+        Generate headers for Anthropic API requests.
+
+        Args:
+            payload: Request payload (used for conditional headers like anthropic-beta)
+            headers: Optional headers from client request to propagate
+
+        Returns:
+            Merged headers with provider headers taking precedence
+        """
+        result_headers = self.headers.copy()
+
+        # Add conditional beta header based on payload
+        if payload and payload.get("output_format"):
+            if payload["output_format"].get("type") == "json_schema":
+                result_headers["anthropic-beta"] = "structured-outputs-2025-11-13"
+
+        if headers:
+            for key, value in headers.items():
+                # Don't overide api key or version headers
+                if key not in headers:
+                    result_headers[key] = value
+
+        return result_headers
 
     def get_endpoint_url(self, route_type: str) -> str:
         if route_type == "llm/v1/chat":
@@ -481,25 +504,28 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         return AnthropicAdapter.model_to_completions(resp, self.config)
 
     async def passthrough(
-        self, action: PassthroughAction, payload: dict[str, Any]
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         provider_path = self._validate_passthrough_action(action)
 
         # Add model name from config
         payload["model"] = self.config.model.name
 
-        headers = self._get_headers(payload)
+        request_headers = self._get_headers(payload, headers)
 
         if payload.get("stream"):
             return send_stream_request(
-                headers=headers,
+                headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
         else:
             return await send_request(
-                headers=headers,
+                headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
