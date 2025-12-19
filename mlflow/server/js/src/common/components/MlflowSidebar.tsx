@@ -121,16 +121,6 @@ export function MlflowSidebar() {
         ),
       },
     },
-    {
-      key: 'gateway',
-      icon: <DatabaseIcon />,
-      linkProps: {
-        to: GatewayRoutes.gatewayPageRoute,
-        isActive: isGatewayActive,
-        children: <FormattedMessage defaultMessage="Gateway" description="Sidebar link for gateway configuration" />,
-      },
-      componentId: 'mlflow.sidebar.gateway_tab_link',
-    },
   ];
 
   const logTelemetryEvent = useLogTelemetryEvent();
