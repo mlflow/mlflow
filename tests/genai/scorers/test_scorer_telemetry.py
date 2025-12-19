@@ -5,6 +5,7 @@ skip telemetry recording while top-level calls record telemetry correctly.
 import asyncio
 import json
 import threading
+from typing import Callable
 from unittest import mock
 
 import pytest
@@ -17,26 +18,28 @@ from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import ScorerCallEvent
 
 
-class ChildScorer(Scorer):
+# Simple child scorer using decorator (kind="decorator")
+# This allows us to verify the parent (kind="class") logs telemetry
+@scorer
+def child_scorer_func(outputs) -> int:
     """Simple child scorer that can be called by parent scorers."""
-
-    def __call__(self, outputs) -> Feedback:
-        return Feedback(name=self.name, value=len(outputs))
+    return len(outputs)
 
 
 class ParentScorer(Scorer):
-    """Parent scorer that calls a child scorer."""
+    """Parent scorer that calls a child scorer (class-based, kind='class')."""
 
-    _child_scorer: Scorer = PrivateAttr()
+    _child_scorer: Callable[..., int] = PrivateAttr()
 
-    def __init__(self, child_scorer: Scorer, **kwargs):
+    def __init__(self, child_scorer: Callable[..., int], **kwargs):
         super().__init__(**kwargs)
         self._child_scorer = child_scorer
 
     def __call__(self, outputs) -> Feedback:
         # Call child scorer - this should NOT generate telemetry
         child_result = self._child_scorer(outputs=outputs)
-        return Feedback(name=self.name, value=child_result.value * 2)
+        # child_result is now an int (from decorator scorer), not Feedback
+        return Feedback(name=self.name, value=child_result * 2)
 
 
 class RecursiveScorer(Scorer):
@@ -107,7 +110,7 @@ def get_event_params(mock_requests):
 
 
 def test_nested_scorer_skips_telemetry(mock_requests, mock_telemetry_client: TelemetryClient):
-    child = ChildScorer(name="child_scorer")
+    child = child_scorer_func  # Use decorator function (kind="decorator")
     parent = ParentScorer(name="parent_scorer", child_scorer=child)
 
     result = parent(outputs="test output")
@@ -116,17 +119,19 @@ def test_nested_scorer_skips_telemetry(mock_requests, mock_telemetry_client: Tel
 
     mock_telemetry_client.flush()
 
+    # Only 1 event recorded (not 2) - nested call was skipped
     scorer_events = get_scorer_call_events(mock_requests)
     assert len(scorer_events) == 1
 
     event_params = get_event_params(mock_requests)
     assert len(event_params) == 1
     assert event_params[0]["scorer_class"] == "UserDefinedScorer"
+    # This verifies it's the parent (kind="class"), not child (kind="decorator")
     assert event_params[0]["scorer_kind"] == "class"
 
 
 def test_multi_level_nesting_skips_telemetry(mock_requests, mock_telemetry_client: TelemetryClient):
-    child = ChildScorer(name="child_scorer")
+    child = child_scorer_func  # Use decorator function (kind="decorator")
     parent = ParentScorer(name="parent_scorer", child_scorer=child)
     grandparent = GrandparentScorer(name="grandparent_scorer", parent_scorer=parent)
 
@@ -136,12 +141,15 @@ def test_multi_level_nesting_skips_telemetry(mock_requests, mock_telemetry_clien
 
     mock_telemetry_client.flush()
 
+    # Only 1 event recorded - nested calls were skipped
     scorer_events = get_scorer_call_events(mock_requests)
     assert len(scorer_events) == 1
 
     event_params = get_event_params(mock_requests)
     assert len(event_params) == 1
     assert event_params[0]["scorer_class"] == "UserDefinedScorer"
+    # This verifies it's the grandparent (kind="class"), not nested scorers
+    assert event_params[0]["scorer_kind"] == "class"
 
 
 def test_recursive_scorer_skips_nested_telemetry(
@@ -163,7 +171,7 @@ def test_recursive_scorer_skips_nested_telemetry(
 
 
 def test_thread_safety_concurrent_scorers(mock_requests, mock_telemetry_client: TelemetryClient):
-    child = ChildScorer(name="child_scorer")
+    child = child_scorer_func  # Use decorator function (kind="decorator")
 
     results = []
     errors = []
@@ -219,11 +227,11 @@ def test_error_in_nested_scorer_still_records_parent_telemetry(
 
 
 def test_direct_child_call_records_telemetry(mock_requests, mock_telemetry_client: TelemetryClient):
-    child = ChildScorer(name="child_scorer")
+    child = child_scorer_func  # Use decorator function (kind="decorator")
 
     result = child(outputs="test")
     # Expected: len("test") = 4
-    assert result.value == 4
+    assert result == 4  # Decorator scorer returns int directly
 
     mock_telemetry_client.flush()
 
@@ -232,12 +240,14 @@ def test_direct_child_call_records_telemetry(mock_requests, mock_telemetry_clien
 
     event_params = get_event_params(mock_requests)
     assert len(event_params) == 1
+    # Verify it's the decorator scorer
+    assert event_params[0]["scorer_kind"] == "decorator"
 
 
 def test_sequential_parent_calls_each_record_telemetry(
     mock_requests, mock_telemetry_client: TelemetryClient
 ):
-    child = ChildScorer(name="child_scorer")
+    child = child_scorer_func  # Use decorator function (kind="decorator")
     parent = ParentScorer(name="parent_scorer", child_scorer=child)
 
     result1 = parent(outputs="test1")
@@ -269,7 +279,7 @@ def test_telemetry_disabled_nested_scorers_work(
     mock_requests, mock_telemetry_client: TelemetryClient
 ):
     with mock.patch("mlflow.telemetry.track.is_telemetry_disabled", return_value=True):
-        child = ChildScorer(name="child_scorer")
+        child = child_scorer_func  # Use decorator function (kind="decorator")
         parent = ParentScorer(name="parent_scorer", child_scorer=child)
 
         result = parent(outputs="test")

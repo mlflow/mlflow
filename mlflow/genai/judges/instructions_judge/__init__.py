@@ -467,15 +467,16 @@ class InstructionsJudge(Judge):
             Evaluation results
 
         **Note on Trace Behavior**:
-        - If template uses {{ trace }}: The trace metadata is used by an agent-based judge that uses
-          tools to fetch aspects of the trace's span data. If inputs/outputs/expectations are also
-          provided, they can augment the agent's context if the template has corresponding
-          placeholders ({{ inputs }}/{{ outputs }}/{{ expectations }}). The agent will still use
-          tools to fetch span data but will have this additional context in the user prompt.
+        - If template uses {{ trace }}: The trace object is passed to an agent-based judge that
+          uses tools to fetch aspects of the trace's span data. The {{ trace }} placeholder itself
+          is not replaced in the prompt - instead, the trace enables tool calling.
+        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} alongside {{ trace }}:
+          These placeholders ARE replaced in the prompt with their values (either from the provided
+          parameters or extracted from the trace), providing additional context to the agent.
         - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} without {{ trace }}:
-          Values are extracted from the trace, if specified, as follows:
+          Values are extracted from the trace parameter (if provided) as follows:
           - inputs/outputs: From the trace's root span
-          - expectations: From the trace's human-set expectation assessments (ground truth only)
+          - expectations: From the trace's expectation assessments
 
         **Note on Session Behavior**:
         - Traces are expected to be in the same session and exception will be raised

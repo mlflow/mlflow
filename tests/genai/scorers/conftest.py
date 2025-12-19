@@ -4,11 +4,12 @@ from unittest import mock
 
 import pytest
 
+import mlflow.telemetry.utils
+
 # Import telemetry fixtures from the telemetry test module
-# Autouse fixtures (terminate_telemetry_client, mock_requests_get, is_mlflow_testing)
+# Autouse fixtures (terminate_telemetry_client, mock_requests_get)
 # are imported for their side effects and run automatically
 from tests.telemetry.conftest import (  # noqa: F401
-    is_mlflow_testing,
     mock_requests,
     mock_requests_get,
     mock_telemetry_client,
@@ -17,8 +18,10 @@ from tests.telemetry.conftest import (  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
-def mock_get_telemetry_client(mock_telemetry_client):
+def mock_get_telemetry_client(mock_telemetry_client, monkeypatch):
     """Auto-patch get_telemetry_client to return the mock client."""
+    # Enable telemetry for tests using this fixture
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING_TELEMETRY", True)
     with mock.patch(
         "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
     ):
