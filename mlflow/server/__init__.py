@@ -281,7 +281,9 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
-def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name, env_file=None, is_factory=False):
+def _build_uvicorn_command(
+    uvicorn_opts, host, port, workers, app_name, env_file=None, is_factory=False
+):
     """Build command to run uvicorn server."""
     opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
     cmd = [
@@ -391,7 +393,9 @@ def _run_server(
     # Determine which server to use
     if using_uvicorn:
         # Use uvicorn (default when no specific server options are provided)
-        full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app, env_file, is_factory)
+        full_command = _build_uvicorn_command(
+            uvicorn_opts, host, port, workers or 4, app, env_file, is_factory
+        )
     elif using_waitress:
         # Use waitress if explicitly requested
         warnings.warn(

@@ -104,18 +104,18 @@ def test_build_uvicorn_command():
     assert server._build_uvicorn_command(
         "", "localhost", "5000", "4", "mlflow.server.fastapi_app:app", None, is_factory=True
     ) == [
-       sys.executable,
-       "-m",
-       "uvicorn",
-       "--host",
-       "localhost",
-       "--port",
-       "5000",
-       "--workers",
-       "4",
-       "--factory",
-       "mlflow.server.fastapi_app:app",
-   ]
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "--host",
+        "localhost",
+        "--port",
+        "5000",
+        "--workers",
+        "4",
+        "--factory",
+        "mlflow.server.fastapi_app:app",
+    ]
 
 
 def test_build_uvicorn_command_with_env_file():
