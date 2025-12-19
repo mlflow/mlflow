@@ -1,6 +1,7 @@
 import {
   BeakerIcon,
   Button,
+  DatabaseIcon,
   DropdownMenu,
   GearIcon,
   HomeIcon,
