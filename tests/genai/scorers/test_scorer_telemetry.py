@@ -64,8 +64,6 @@ class RecursiveScorer(Scorer):
 
 
 class GrandparentScorer(Scorer):
-    """Grandparent scorer that calls a parent, which calls a child."""
-
     _parent_scorer: Scorer = PrivateAttr()
 
     def __init__(self, parent_scorer: Scorer, **kwargs):
@@ -141,7 +139,6 @@ def test_multi_level_nesting_skips_telemetry(mock_requests, mock_telemetry_clien
 
     mock_telemetry_client.flush()
 
-    # Only 1 event recorded - nested calls were skipped
     scorer_events = get_scorer_call_events(mock_requests)
     assert len(scorer_events) == 1
 
@@ -171,7 +168,7 @@ def test_recursive_scorer_skips_nested_telemetry(
 
 
 def test_thread_safety_concurrent_scorers(mock_requests, mock_telemetry_client: TelemetryClient):
-    child = child_scorer_func  # Use decorator function (kind="decorator")
+    child = child_scorer_func
 
     results = []
     errors = []
@@ -226,7 +223,7 @@ def test_error_in_nested_scorer_still_records_parent_telemetry(
 
 
 def test_direct_child_call_records_telemetry(mock_requests, mock_telemetry_client: TelemetryClient):
-    child = child_scorer_func  # Use decorator function (kind="decorator")
+    child = child_scorer_func
 
     result = child(outputs="test")
     # Expected: len("test") = 4
@@ -246,7 +243,7 @@ def test_direct_child_call_records_telemetry(mock_requests, mock_telemetry_clien
 def test_sequential_parent_calls_each_record_telemetry(
     mock_requests, mock_telemetry_client: TelemetryClient
 ):
-    child = child_scorer_func  # Use decorator function (kind="decorator")
+    child = child_scorer_func
     parent = ParentScorer(name="parent_scorer", child_scorer=child)
 
     result1 = parent(outputs="test1")
@@ -278,7 +275,7 @@ def test_telemetry_disabled_nested_scorers_work(
     mock_requests, mock_telemetry_client: TelemetryClient
 ):
     with mock.patch("mlflow.telemetry.track.is_telemetry_disabled", return_value=True):
-        child = child_scorer_func  # Use decorator function (kind="decorator")
+        child = child_scorer_func
         parent = ParentScorer(name="parent_scorer", child_scorer=child)
 
         result = parent(outputs="test")
