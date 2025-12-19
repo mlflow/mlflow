@@ -2949,9 +2949,9 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
     test_file.write_bytes(test_data)
 
     with (
+        app.test_request_context(method="GET"),
         mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
         mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
-        mock.patch("mlflow.server.handlers.current_app") as mock_app,
     ):
         # Setup mocks
         mock_tmp_dir_instance = mock.MagicMock()
@@ -2962,20 +2962,11 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
         mock_artifact_repo.download_artifacts.return_value = str(test_file)
         mock_repo.return_value = mock_artifact_repo
 
-        # Create a mock response class that collects yielded chunks
-        chunks_yielded = []
+        # Call the function and capture the response
+        response = _download_artifact(artifact_path)
 
-        class MockResponse:
-            def __init__(self, generator):
-                self.generator = generator
-                # Collect all chunks from the generator
-                for chunk in generator:
-                    chunks_yielded.append(chunk)
-
-        mock_app.response_class = MockResponse
-
-        # Call the function
-        _download_artifact(artifact_path)
+        # Extract chunks from the response by iterating over its data
+        chunks_yielded = list(response.response)
 
         # Verify that data was streamed in chunks, not line by line
         # For a 2MB+ binary file, line-by-line would produce many small chunks
