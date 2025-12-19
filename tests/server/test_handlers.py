@@ -84,6 +84,7 @@ from mlflow.server import (
     app,
 )
 from mlflow.server.handlers import (
+    ARTIFACT_STREAM_CHUNK_SIZE,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
     _batch_get_traces,
@@ -105,6 +106,7 @@ from mlflow.server.handlers import (
     _delete_trace_tag,
     _delete_trace_tag_v3,
     _deprecated_search_traces_v2,
+    _download_artifact,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
     _get_dataset_records_handler,
@@ -2935,3 +2937,56 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
         # assert that no fetch happens and no client is retrieved
         mock_fetch.assert_not_called()
         mock_get_client.assert_not_called()
+
+
+def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
+    # Create a test file with binary data larger than the chunk size
+    test_file_size = ARTIFACT_STREAM_CHUNK_SIZE * 2 + 1000  # ~2MB
+    test_data = b"x" * test_file_size
+
+    artifact_path = "test_model/model.pkl"
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(test_data)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
+        mock.patch("mlflow.server.handlers.current_app") as mock_app,
+    ):
+        # Setup mocks
+        mock_tmp_dir_instance = mock.MagicMock()
+        mock_tmp_dir_instance.name = str(tmp_path)
+        mock_tmp_dir.return_value = mock_tmp_dir_instance
+
+        mock_artifact_repo = mock.MagicMock()
+        mock_artifact_repo.download_artifacts.return_value = str(test_file)
+        mock_repo.return_value = mock_artifact_repo
+
+        # Create a mock response class that collects yielded chunks
+        chunks_yielded = []
+
+        class MockResponse:
+            def __init__(self, generator):
+                self.generator = generator
+                # Collect all chunks from the generator
+                for chunk in generator:
+                    chunks_yielded.append(chunk)
+
+        mock_app.response_class = MockResponse
+
+        # Call the function
+        _download_artifact(artifact_path)
+
+        # Verify that data was streamed in chunks, not line by line
+        # For a 2MB+ binary file, line-by-line would produce many small chunks
+        # Chunk-based streaming should produce exactly 3 chunks (2*1MB + 1000 bytes)
+        assert len(chunks_yielded) == 3, f"Expected 3 chunks, got {len(chunks_yielded)}"
+
+        # Verify chunk sizes
+        assert len(chunks_yielded[0]) == ARTIFACT_STREAM_CHUNK_SIZE
+        assert len(chunks_yielded[1]) == ARTIFACT_STREAM_CHUNK_SIZE
+        assert len(chunks_yielded[2]) == 1000
+
+        # Verify that all data is correctly streamed
+        streamed_data = b"".join(chunks_yielded)
+        assert streamed_data == test_data
