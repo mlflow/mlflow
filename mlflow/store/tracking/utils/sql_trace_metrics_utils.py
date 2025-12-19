@@ -260,7 +260,7 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
                     return SqlSpan.span_id
                 case SpanMetricKey.LATENCY:
                     # Span latency in milliseconds (nanoseconds converted to ms)
-                    return (SqlSpan.end_time_unix_nano - SqlSpan.start_time_unix_nano) / 1000000
+                    return (SqlSpan.end_time_unix_nano - SqlSpan.start_time_unix_nano) // 1000000
         case MetricViewType.ASSESSMENTS:
             match metric_name:
                 case AssessmentMetricKey.ASSESSMENT_COUNT:
