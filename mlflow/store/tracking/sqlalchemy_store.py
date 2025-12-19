@@ -18,7 +18,7 @@ _T = TypeVar("_T")
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, case, exists, func, or_, sql, text
+from sqlalchemy import and_, case, exists, func, or_, sql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session, aliased, joinedload
