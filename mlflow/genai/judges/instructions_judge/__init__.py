@@ -35,6 +35,7 @@ from mlflow.genai.scorers.base import (
 )
 from mlflow.genai.utils.trace_utils import (
     resolve_conversation_from_session,
+    resolve_expectations_from_session,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
@@ -497,6 +498,8 @@ class InstructionsJudge(Judge):
             conversation = resolve_conversation_from_session(
                 session, include_tool_calls=self._include_tool_calls_in_conversation
             )
+            if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
+                expectations = resolve_expectations_from_session(expectations, session)
 
         self._check_required_parameters(inputs, outputs, expectations, trace, conversation)
         self._warn_unused_parameters(
