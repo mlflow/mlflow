@@ -95,7 +95,8 @@ export const isOpenAIResponsesOutputItem = (obj: unknown): obj is OpenAIResponse
   }
 
   if (get(obj, 'type') === 'reasoning') {
-    return has(obj, 'id') && isArray(get(obj, 'summary'));
+    const summary = get(obj, 'summary');
+    return has(obj, 'id') && (isArray(summary) || summary === null);
   }
 
   return false;
@@ -166,22 +167,19 @@ const extractReasoningText = (reasoning: OpenAIResponsesReasoning): string | nul
 
 // Process output items, attaching reasoning to following messages
 const processOutputItemsWithReasoning = (items: OpenAIResponsesOutputItem[]): ModelTraceChatMessage[] => {
-  const messages: ModelTraceChatMessage[] = [];
+  const messages: (ModelTraceChatMessage | null)[] = [];
   let pendingReasoning: string | null = null;
 
   for (const item of items) {
     if (item.type === 'reasoning') {
       pendingReasoning = extractReasoningText(item as OpenAIResponsesReasoning);
     } else {
-      const message = normalizeOpenAIResponsesOutputItem(item, pendingReasoning);
-      if (message) {
-        messages.push(message);
-      }
+      messages.push(normalizeOpenAIResponsesOutputItem(item, pendingReasoning));
       pendingReasoning = null;
     }
   }
 
-  return messages;
+  return compact(messages);
 };
 
 export const normalizeOpenAIResponsesOutputItem = (
