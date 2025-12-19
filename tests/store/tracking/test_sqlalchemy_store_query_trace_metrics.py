@@ -6,12 +6,14 @@ from datetime import datetime, timezone
 import pytest
 
 from mlflow.entities import (
+    Assessment,
     AssessmentSource,
     AssessmentSourceType,
     Expectation,
     Feedback,
     trace_location,
 )
+from mlflow.entities.assessment import AssessmentError
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
@@ -259,19 +261,19 @@ def test_query_trace_metrics_latency_avg(store: SqlAlchemyStore):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="latency",
+        metric_name=TraceMetricKey.LATENCY,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
         dimensions=["name"],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
-        "metric_name": "latency",
+        "metric_name": TraceMetricKey.LATENCY,
         "dimensions": {"name": "workflow_a"},
         "values": {"AVG": 200.0},
     }
     assert asdict(result[1]) == {
-        "metric_name": "latency",
+        "metric_name": TraceMetricKey.LATENCY,
         "dimensions": {"name": "workflow_b"},
         "values": {"AVG": 200.0},
     }
@@ -309,7 +311,7 @@ def test_query_trace_metrics_latency_percentiles(
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="latency",
+        metric_name=TraceMetricKey.LATENCY,
         aggregations=[
             MetricAggregation(
                 aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
@@ -328,12 +330,12 @@ def test_query_trace_metrics_latency_percentiles(
 
     assert len(result) == 2
     assert asdict(result[0]) == {
-        "metric_name": "latency",
+        "metric_name": TraceMetricKey.LATENCY,
         "dimensions": {"name": "workflow_a"},
         "values": {f"P{percentile_value}": expected_workflow_a},
     }
     assert asdict(result[1]) == {
-        "metric_name": "latency",
+        "metric_name": TraceMetricKey.LATENCY,
         "dimensions": {"name": "workflow_b"},
         "values": {f"P{percentile_value}": expected_workflow_b},
     }
@@ -364,7 +366,7 @@ def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStor
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="latency",
+        metric_name=TraceMetricKey.LATENCY,
         aggregations=[
             MetricAggregation(aggregation_type=AggregationType.AVG),
             MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
@@ -379,7 +381,7 @@ def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStor
     expected_p99 = _get_expected_percentile_value(store, 99.0, 100.0, 500.0, values)
 
     assert asdict(result[0]) == {
-        "metric_name": "latency",
+        "metric_name": TraceMetricKey.LATENCY,
         "dimensions": {"name": "workflow_a"},
         "values": {"AVG": 300.0, "P95": expected_p95, "P99": expected_p99},
     }
@@ -808,19 +810,19 @@ def test_query_trace_metrics_total_tokens_sum(traces_with_token_usage_setup):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="total_tokens",
+        metric_name=TraceMetricKey.TOTAL_TOKENS,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
         dimensions=["name"],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
-        "metric_name": "total_tokens",
+        "metric_name": TraceMetricKey.TOTAL_TOKENS,
         "dimensions": {"name": "workflow_a"},
         "values": {"SUM": 675},
     }
     assert asdict(result[1]) == {
-        "metric_name": "total_tokens",
+        "metric_name": TraceMetricKey.TOTAL_TOKENS,
         "dimensions": {"name": "workflow_b"},
         "values": {"SUM": 825},
     }
@@ -832,19 +834,19 @@ def test_query_trace_metrics_total_tokens_avg(traces_with_token_usage_setup):
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="total_tokens",
+        metric_name=TraceMetricKey.TOTAL_TOKENS,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
         dimensions=["name"],
     )
 
     assert len(result) == 2
     assert asdict(result[0]) == {
-        "metric_name": "total_tokens",
+        "metric_name": TraceMetricKey.TOTAL_TOKENS,
         "dimensions": {"name": "workflow_a"},
         "values": {"AVG": 225.0},
     }
     assert asdict(result[1]) == {
-        "metric_name": "total_tokens",
+        "metric_name": TraceMetricKey.TOTAL_TOKENS,
         "dimensions": {"name": "workflow_b"},
         "values": {"AVG": 412.5},
     }
@@ -857,7 +859,7 @@ def test_query_trace_metrics_total_tokens_percentiles(traces_with_token_usage_se
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="total_tokens",
+        metric_name=TraceMetricKey.TOTAL_TOKENS,
         aggregations=[
             MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=p)
             for p in percentiles
@@ -884,12 +886,12 @@ def test_query_trace_metrics_total_tokens_percentiles(traces_with_token_usage_se
 
     assert len(result) == 2
     assert asdict(result[0]) == {
-        "metric_name": "total_tokens",
+        "metric_name": TraceMetricKey.TOTAL_TOKENS,
         "dimensions": {"name": "workflow_a"},
         "values": expected_workflow_a_values,
     }
     assert asdict(result[1]) == {
-        "metric_name": "total_tokens",
+        "metric_name": TraceMetricKey.TOTAL_TOKENS,
         "dimensions": {"name": "workflow_b"},
         "values": expected_workflow_b_values,
     }
@@ -901,7 +903,7 @@ def test_query_trace_metrics_total_tokens_no_dimensions(traces_with_token_usage_
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="total_tokens",
+        metric_name=TraceMetricKey.TOTAL_TOKENS,
         aggregations=[
             MetricAggregation(aggregation_type=AggregationType.SUM),
             MetricAggregation(aggregation_type=AggregationType.AVG),
@@ -910,7 +912,7 @@ def test_query_trace_metrics_total_tokens_no_dimensions(traces_with_token_usage_
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "total_tokens",
+        "metric_name": TraceMetricKey.TOTAL_TOKENS,
         "dimensions": {},
         "values": {"SUM": 1500, "AVG": 300.0},
     }
@@ -933,13 +935,13 @@ def test_query_trace_metrics_total_tokens_without_token_usage(store: SqlAlchemyS
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.TRACES,
-        metric_name="total_tokens",
+        metric_name=TraceMetricKey.TOTAL_TOKENS,
         aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
     )
 
     assert len(result) == 1
     assert asdict(result[0]) == {
-        "metric_name": "total_tokens",
+        "metric_name": TraceMetricKey.TOTAL_TOKENS,
         "dimensions": {},
         "values": {"SUM": None},
     }
@@ -1823,4 +1825,565 @@ def test_query_assessment_metrics_across_multiple_traces(store: SqlAlchemyStore)
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {"assessment_name": "relevance"},
         "values": {"COUNT": 3},
+    }
+
+
+def test_query_assessment_value_avg_by_name(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_value_avg_by_name")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessments_data = [
+        ("accuracy", 0.8),
+        ("accuracy", 0.9),
+        ("accuracy", 0.85),
+        ("precision", 0.7),
+        ("precision", 0.75),
+        ("quality", "high"),
+    ]
+
+    for name, value in assessments_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=["assessment_name"],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "accuracy"},
+        "values": {"AVG": pytest.approx(0.85, abs=0.01)},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "precision"},
+        "values": {"AVG": pytest.approx(0.725, abs=0.01)},
+    }
+    # non-numeric value result should be None
+    assert asdict(result[2]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "quality"},
+        "values": {"AVG": None},
+    }
+
+
+def test_query_assessment_value_with_boolean_values(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_value_with_boolean")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessments_data = [
+        ("correctness", True),
+        ("correctness", True),
+        ("correctness", False),
+        ("correctness", True),
+    ]
+
+    for name, value in assessments_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=["assessment_name"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "correctness"},
+        "values": {"AVG": pytest.approx(3 / 4, abs=0.01)},
+    }
+
+
+@pytest.mark.parametrize(
+    "percentile_value",
+    [50.0, 75.0, 90.0, 95.0, 99.0],
+)
+def test_query_assessment_value_percentiles(
+    store: SqlAlchemyStore,
+    percentile_value: float,
+):
+    exp_id = store.create_experiment(f"test_assessment_value_p{percentile_value}")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessments_data_accuracy = [
+        ("accuracy", 0.1),
+        ("accuracy", 0.2),
+        ("accuracy", 0.3),
+        ("accuracy", 0.4),
+        ("accuracy", 0.5),
+    ]
+    assessments_data_score = [
+        ("score", 10.0),
+        ("score", 20.0),
+        ("score", 30.0),
+    ]
+
+    for name, value in assessments_data_accuracy + assessments_data_score:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[
+            MetricAggregation(
+                aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
+            )
+        ],
+        dimensions=["assessment_name"],
+    )
+
+    accuracy_values = [0.1, 0.2, 0.3, 0.4, 0.5]
+    score_values = [10.0, 20.0, 30.0]
+
+    expected_accuracy = pytest.approx(
+        _get_expected_percentile_value(
+            store, percentile_value, min(accuracy_values), max(accuracy_values), accuracy_values
+        ),
+        abs=0.01,
+    )
+    expected_score = pytest.approx(
+        _get_expected_percentile_value(
+            store, percentile_value, min(score_values), max(score_values), score_values
+        ),
+        abs=0.01,
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "accuracy"},
+        "values": {f"P{percentile_value}": expected_accuracy},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "score"},
+        "values": {f"P{percentile_value}": expected_score},
+    }
+
+
+def test_query_assessment_value_mixed_types(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_value_mixed_types")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessments_data = [
+        ("rating", 5.0),
+        ("rating", 4.5),
+        ("rating", 3.0),
+        ("status", "good"),
+        ("status", "bad"),
+        ("passed", True),
+        ("passed", False),
+        ("passed", True),
+    ]
+
+    for name, value in assessments_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=["assessment_name"],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "passed"},
+        "values": {"AVG": pytest.approx(2.0 / 3.0, abs=0.01)},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "rating"},
+        "values": {"AVG": pytest.approx(12.5 / 3.0, abs=0.01)},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "status"},
+        "values": {"AVG": None},
+    }
+
+
+def test_query_assessment_value_multiple_aggregations(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_value_multiple_aggs")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessments_data = [
+        ("score", 10.0),
+        ("score", 20.0),
+        ("score", 30.0),
+        ("score", 40.0),
+        ("score", 50.0),
+    ]
+
+    for name, value in assessments_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=50),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
+        ],
+        dimensions=["assessment_name"],
+    )
+
+    values = [10.0, 20.0, 30.0, 40.0, 50.0]
+    expected_p50 = pytest.approx(
+        _get_expected_percentile_value(store, 50.0, 10.0, 50.0, values), abs=0.01
+    )
+    expected_p95 = pytest.approx(
+        _get_expected_percentile_value(store, 95.0, 10.0, 50.0, values), abs=0.01
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "score"},
+        "values": {"AVG": 30.0, "P50": expected_p50, "P95": expected_p95},
+    }
+
+
+@pytest.mark.parametrize(
+    "assessment_type",
+    [Feedback, Expectation],
+)
+def test_query_assessment_value_no_dimensions(
+    store: SqlAlchemyStore, assessment_type: type[Assessment]
+):
+    exp_id = store.create_experiment("test_assessment_value_no_dimensions")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessments_data = [
+        ("accuracy", 0.8),
+        ("accuracy", 0.9),
+        ("precision", 0.7),
+        ("recall", 0.85),
+    ]
+
+    for name, value in assessments_data:
+        assessment = assessment_type(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {},
+        "values": {"AVG": pytest.approx(3.25 / 4, abs=0.01)},
+    }
+
+
+def test_query_assessment_value_with_time_bucket(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_value_time_bucket")
+
+    # Base time in milliseconds (2020-01-01 00:00:00 UTC)
+    base_time_ms = 1577836800000
+    hour_ms = 60 * 60 * 1000
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=base_time_ms,
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create assessments with numeric values at different times
+    assessment_data = [
+        # Hour 0: avg should be (0.8 + 0.9) / 2 = 0.85
+        (base_time_ms, "accuracy", 0.8),
+        (base_time_ms + 10 * 60 * 1000, "accuracy", 0.9),
+        # Hour 1: avg should be (0.7 + 0.75) / 2 = 0.725
+        (base_time_ms + hour_ms, "precision", 0.7),
+        (base_time_ms + hour_ms + 30 * 60 * 1000, "precision", 0.75),
+        # Hour 2: avg should be 0.95
+        (base_time_ms + 2 * hour_ms, "recall", 0.95),
+    ]
+
+    for timestamp, name, value in assessment_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            create_time_ms=timestamp,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        time_interval_seconds=3600,
+        start_time_ms=base_time_ms,
+        end_time_ms=base_time_ms + 3 * hour_ms,
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(base_time_ms / 1000, tz=timezone.utc).isoformat()
+        },
+        "values": {"AVG": pytest.approx(0.85, abs=0.01)},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(
+                (base_time_ms + hour_ms) / 1000, tz=timezone.utc
+            ).isoformat()
+        },
+        "values": {"AVG": pytest.approx(0.725, abs=0.01)},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(
+                (base_time_ms + 2 * hour_ms) / 1000, tz=timezone.utc
+            ).isoformat()
+        },
+        "values": {"AVG": pytest.approx(0.95, abs=0.01)},
+    }
+
+
+@pytest.mark.parametrize(
+    "assessment_type",
+    [Feedback, Expectation],
+)
+def test_query_assessment_invalid_values(store: SqlAlchemyStore, assessment_type: type[Assessment]):
+    exp_id = store.create_experiment("test_assessment_invalid_values")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessments_data = [
+        ("string_score", json.dumps("test")),
+        ("list_score", json.dumps([1, 2, 3])),
+        ("dict_score", json.dumps({"a": 1, "b": 2})),
+    ]
+
+    for name, value in assessments_data:
+        assessment = assessment_type(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=["assessment_name"],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "dict_score"},
+        "values": {"AVG": None},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "list_score"},
+        "values": {"AVG": None},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "string_score"},
+        "values": {"AVG": None},
+    }
+
+
+def test_query_assessment_value_with_null_value(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_value_null_value")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessment = Feedback(
+        trace_id=trace_id,
+        name="score",
+        value=None,
+        error=AssessmentError(
+            error_message="Null value",
+            error_code="NULL_VALUE",
+        ),
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"),
+    )
+    store.create_assessment(assessment)
+    assessment = Feedback(
+        trace_id=trace_id,
+        name="score",
+        value=12,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"),
+    )
+    store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=["assessment_name"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {"assessment_name": "score"},
+        "values": {"AVG": 12},
     }

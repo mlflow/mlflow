@@ -177,3 +177,4 @@ class AssessmentMetricKey:
     """
 
     ASSESSMENT_COUNT = "assessment_count"
+    ASSESSMENT_VALUE = "assessment_value"

@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Column, and_, exists, func, literal_column
+import sqlalchemy
+from sqlalchemy import Column, and_, case, exists, func, literal_column
 from sqlalchemy.orm.query import Query
 
 from mlflow.entities.trace_metrics import (
@@ -72,6 +73,10 @@ ASSESSMENTS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
     AssessmentMetricKey.ASSESSMENT_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
         dimensions={"assessment_name", "assessment_value"},
+    ),
+    AssessmentMetricKey.ASSESSMENT_VALUE: TraceMetricsConfig(
+        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={"assessment_name"},
     ),
 }
 
@@ -184,6 +189,32 @@ def _get_aggregation_expression(aggregation: MetricAggregation, db_type: str, co
             )
 
 
+def _get_assessment_numeric_value_column(json_column: Column) -> Column:
+    """
+    Extract numeric value from JSON-encoded assessment value.
+
+    Handles conversion of JSON primitives to numeric values:
+    - JSON true/false -> 1/0
+    - JSON numbers -> numeric value
+    - other JSON-encoded values -> NULL
+
+    Args:
+        json_column: Column containing JSON-encoded value
+
+    Returns:
+        Column expression that extracts numeric value or NULL for non-numeric values
+    """
+    return case(
+        (json_column == "true", 1.0),
+        (json_column == "false", 0.0),
+        # Skip null, strings, lists, and dicts (JSON null/objects/arrays)
+        (json_column == "null", None),
+        (func.substring(json_column, 1, 1).in_(['"', "[", "{"]), None),
+        # For numbers, cast to float
+        else_=func.cast(json_column, sqlalchemy.Float),
+    )
+
+
 def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Column:
     """
     Get the SQL column for the given metric name and view type.
@@ -212,6 +243,8 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
             match metric_name:
                 case AssessmentMetricKey.ASSESSMENT_COUNT:
                     return SqlAssessments.assessment_id
+                case "assessment_value":
+                    return _get_assessment_numeric_value_column(SqlAssessments.value)
 
     raise MlflowException.invalid_parameter_value(
         f"Unsupported metric name: {metric_name} for view type {view_type}",
