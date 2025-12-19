@@ -1,6 +1,8 @@
 import { Drawer, Empty, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { Link } from '../../../common/utils/RoutingUtils';
 import { timestampToDate } from '../../utils/dateUtils';
+import GatewayRoutes from '../../routes';
 import type { Endpoint } from '../../types';
 
 interface EndpointsUsingKeyDrawerProps {
@@ -73,8 +75,12 @@ export const EndpointsUsingKeyDrawer = ({ open, keyName, endpoints, onClose }: E
                     borderBottom: index < endpoints.length - 1 ? `1px solid ${theme.colors.borderDecorative}` : 'none',
                   }}
                 >
-                  {/* TODO: Replace with Link to endpoint details page when route is added */}
-                  <Typography.Text bold>{endpoint.name || endpoint.endpoint_id}</Typography.Text>
+                  <Link
+                    to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
+                    css={{ fontWeight: theme.typography.typographyBoldFontWeight }}
+                  >
+                    {endpoint.name || endpoint.endpoint_id}
+                  </Link>
                   <div
                     css={{
                       display: 'flex',

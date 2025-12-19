@@ -87,6 +87,10 @@
     "defaultMessage": "Time created",
     "description": "Label for the start time select dropdown for experiment runs view"
   },
+  "+gGVhu": {
+    "defaultMessage": "Output: {cost}",
+    "description": "Output cost"
+  },
   "+gqcru": {
     "defaultMessage": "System",
     "description": "Display text for the 'system' role in a GenAI chat message."
@@ -798,6 +802,10 @@
     "defaultMessage": "Overall assessment added by LLM-as-a-judge",
     "description": "Evaluation review > assessments > tooltip > overall assessment added by LLM-as-a-judge"
   },
+  "4xriyG": {
+    "defaultMessage": "API key not found",
+    "description": "API key not found message"
+  },
   "4yjF8O": {
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
@@ -1266,6 +1274,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
+  "8ToywI": {
+    "defaultMessage": "Specs:",
+    "description": "Model specs label"
+  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
@@ -1541,6 +1553,10 @@
   "ARCnv6": {
     "defaultMessage": "Connections",
     "description": "Summary connections label"
+  },
+  "AST2FF": {
+    "defaultMessage": "API Key:",
+    "description": "API key name label"
   },
   "AX7L9r": {
     "defaultMessage": "Error",
@@ -2090,6 +2106,10 @@
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
   },
+  "FVFQR+": {
+    "defaultMessage": "Edit",
+    "description": "Gateway > Endpoint details page > Edit endpoint button"
+  },
   "FVP/7B": {
     "defaultMessage": "3. Configure encryption passphrase (production deployments)",
     "description": "AI Gateway setup guide > Step 3 title"
@@ -2198,6 +2218,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
   },
+  "GIBO90": {
+    "defaultMessage": "Delete",
+    "description": "Gateway > Endpoint details page > Delete endpoint button"
+  },
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
@@ -2241,6 +2265,10 @@
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
+  },
+  "Gms7Gk": {
+    "defaultMessage": "No resources are using this endpoint",
+    "description": "Empty state for connected resources"
   },
   "GogRws": {
     "defaultMessage": "Loading judges...",
@@ -2378,6 +2406,10 @@
     "defaultMessage": "Aliases",
     "description": "Aliases section in the metadata on model version page"
   },
+  "I2cpdw": {
+    "defaultMessage": "No API key configured",
+    "description": "No API key configured message"
+  },
   "IAyAgH": {
     "defaultMessage": "Move up",
     "description": "Experiment page > compare runs tab > chart header > move up option"
@@ -2457,6 +2489,10 @@
   "Isig6r": {
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
+  },
+  "J0En95": {
+    "defaultMessage": "Connected resources",
+    "description": "Connected resources label"
   },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
@@ -2886,6 +2922,10 @@
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
   },
+  "Mjj9bh": {
+    "defaultMessage": "About this endpoint",
+    "description": "Sidebar title"
+  },
   "Mn7Kss": {
     "defaultMessage": "OK",
     "description": "Experiment page > traces table > status label > ok"
@@ -3085,6 +3125,10 @@
   "OWfx/j": {
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
+  },
+  "OZ0hWS": {
+    "defaultMessage": "Created",
+    "description": "Created at label"
   },
   "OZXWas": {
     "defaultMessage": "False",
@@ -3501,6 +3545,10 @@
     "defaultMessage": "Time",
     "description": "Label for the time axis on the runs compare chart"
   },
+  "SPqqrV": {
+    "defaultMessage": "Models",
+    "description": "Models section label"
+  },
   "SQUVnW": {
     "defaultMessage": "Dataset",
     "description": "Label for the dataset column in the evaluation runs table"
@@ -3727,6 +3775,10 @@
   "UI3HSV": {
     "defaultMessage": "Select",
     "description": "Select button"
+  },
+  "UKCnLU": {
+    "defaultMessage": "Active configuration",
+    "description": "Section title for active config"
   },
   "ULljUX": {
     "defaultMessage": "Filter: {filterString}",
@@ -4143,6 +4195,10 @@
     "defaultMessage": "No metrics recorded",
     "description": "Placeholder text when no metrics are recorded for a logged model"
   },
+  "Y+XlMX": {
+    "defaultMessage": "Loading...",
+    "description": "Loading secret"
+  },
   "Y1eg9D": {
     "defaultMessage": "In progress",
     "description": "Model trace header > status label > in progress"
@@ -4411,6 +4467,10 @@
     "defaultMessage": "Type",
     "description": "Header for \"type\" column in the UC table schema"
   },
+  "a1HWFD": {
+    "defaultMessage": "Input: {cost}",
+    "description": "Input cost"
+  },
   "a1liZ7": {
     "defaultMessage": "Export",
     "description": "Export traces to dataset modal action button"
@@ -4486,6 +4546,10 @@
   "aW3CeS": {
     "defaultMessage": "Bound {date}",
     "description": "Gateway > Bindings using key drawer > Binding created date"
+  },
+  "aXS2IB": {
+    "defaultMessage": "Model:",
+    "description": "Model name label"
   },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
@@ -4799,6 +4863,10 @@
     "defaultMessage": "This endpoint is currently used by {bindingCount, plural, one {# resource} other {# resources}}. Deleting it will break those connections.",
     "description": "Warning about resources using this endpoint"
   },
+  "cx7Ksv": {
+    "defaultMessage": "Created by",
+    "description": "Created by label"
+  },
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
@@ -5074,6 +5142,10 @@
   "f4CfIz": {
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
+  },
+  "fFsTIx": {
+    "defaultMessage": "No models configured for this endpoint",
+    "description": "Message when no models configured"
   },
   "fKx4kG": {
     "defaultMessage": "Aggregation: {value}",
@@ -5603,6 +5675,10 @@
     "defaultMessage": "Edit API key",
     "description": "Gateway > API keys list > Edit API key button aria label"
   },
+  "jEAMLP": {
+    "defaultMessage": "Scorer jobs",
+    "description": "Scorer jobs resource type plural"
+  },
   "jGHQgn": {
     "defaultMessage": "Select an LLM template",
     "description": "Placeholder for LLM template selection"
@@ -5922,6 +5998,10 @@
   "luV/3W": {
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guidelines assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
+  },
+  "lx0teD": {
+    "defaultMessage": "Last modified",
+    "description": "Last modified label"
   },
   "lxGVDu": {
     "defaultMessage": "Percentage of traces evaluated by this judge.",
@@ -7422,6 +7502,10 @@
   "z42Rsj": {
     "defaultMessage": "Source run",
     "description": "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
+  },
+  "z8dR1t": {
+    "defaultMessage": "Context: {tokens}",
+    "description": "Context window size"
   },
   "z94r4F": {
     "defaultMessage": "This assessment is produced by a human judge.",
