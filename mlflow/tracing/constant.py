@@ -178,3 +178,77 @@ class AssessmentMetricKey:
 
     ASSESSMENT_COUNT = "assessment_count"
     ASSESSMENT_VALUE = "assessment_value"
+
+
+class TraceMetricSearchKey:
+    """
+    Search key for trace metrics view type.
+    VIEW_TYPE must be the prefix of the search string
+    e.g. "trace.<entity> = <value>" or "trace.<entity>.<key> = <value>"
+    """
+
+    VIEW_TYPE = "trace"
+    STATUS = "status"
+    TAG = "tag"
+    METADATA = "metadata"
+
+    @classmethod
+    def entity_to_key_requirement(cls) -> dict[str, bool]:
+        """
+        Mapping of entity to a boolean indicating if it requires a key
+        For example, "tag" requires a key: "trace.tag.<key> = <value>"
+        "status" does not require a key: "trace.status = <value>"
+        """
+        return {
+            cls.STATUS: False,
+            cls.TAG: True,
+            cls.METADATA: True,
+        }
+
+
+class SpanMetricSearchKey:
+    """
+    Search key for span metrics view type.
+    VIEW_TYPE must be the prefix of the search string
+    e.g. "span.<entity> = <value>"
+    """
+
+    VIEW_TYPE = "span"
+    NAME = "name"
+    STATUS = "status"
+    TYPE = "type"
+
+    @classmethod
+    def entity_to_key_requirement(cls) -> dict[str, bool]:
+        """
+        Mapping of entity to a boolean indicating if it requires a key
+        For example, "name" does not require a key: "span.name = <value>"
+        """
+        return {
+            cls.NAME: False,
+            cls.STATUS: False,
+            cls.TYPE: False,
+        }
+
+
+class AssessmentMetricSearchKey:
+    """
+    Search key for assessment metrics view type.
+    VIEW_TYPE must be the prefix of the search string
+    e.g. "assessment.<entity> = <value>"
+    """
+
+    VIEW_TYPE = "assessment"
+    NAME = "name"
+    TYPE = "type"
+
+    @classmethod
+    def entity_to_key_requirement(cls) -> dict[str, bool]:
+        """
+        Mapping of entity to a boolean indicating if it requires a key
+        For example, "name" does not require a key: "assessment.name = <value>"
+        """
+        return {
+            cls.NAME: False,
+            cls.TYPE: False,
+        }
