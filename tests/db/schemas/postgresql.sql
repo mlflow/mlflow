@@ -102,7 +102,7 @@ CREATE TABLE secrets (
 	encrypted_value BYTEA NOT NULL,
 	wrapped_dek BYTEA NOT NULL,
 	kek_version INTEGER NOT NULL,
-	masked_value VARCHAR(100) NOT NULL,
+	masked_value VARCHAR(500) NOT NULL,
 	provider VARCHAR(64),
 	auth_config TEXT,
 	description TEXT,

@@ -2115,11 +2115,12 @@ class SqlGatewaySecret(Base):
     KEK version: `Integer`. Indicates which KEK version was used to wrap the DEK.
     Used for KEK rotation - allows multiple KEK versions to coexist during migration.
     """
-    masked_value = Column(String(100), nullable=False)
+    masked_value = Column(String(500), nullable=False)
     """
-    Masked secret value: `String` (limit 100 characters). Shows partial secret for identification.
-    Format: prefix (3-4 chars) + "..." + suffix (last 4 chars), e.g., "sk-...xyz123".
-    Helps users identify secrets without exposing the full value.
+    Masked secret value: `String` (limit 500 characters). JSON-serialized dict showing partial
+    secret values for identification. Format: ``{"key": "prefix...suffix"}``, e.g.,
+    ``{"api_key": "sk-...xyz123"}`` or ``{"aws_access_key_id": "AKI...1234", ...}``.
+    Helps users identify secrets without exposing the full values.
     """
     provider = Column(String(64), nullable=True)
     """
@@ -2163,10 +2164,15 @@ class SqlGatewaySecret(Base):
         return f"<SqlGatewaySecret ({self.secret_id}, {self.secret_name})>"
 
     def to_mlflow_entity(self):
+        try:
+            masked_value = json.loads(self.masked_value)
+        except (json.JSONDecodeError, TypeError):
+            masked_value = {"value": "***"}
+
         return GatewaySecretInfo(
             secret_id=self.secret_id,
             secret_name=self.secret_name,
-            masked_value=self.masked_value,
+            masked_values=masked_value,
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             provider=self.provider,

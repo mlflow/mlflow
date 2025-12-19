@@ -4413,6 +4413,45 @@ def _get_secrets_config():
     )
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _invoke_scorer_handler():
+    """
+    Invoke a scorer on traces asynchronously.
+
+    This is a UI-only AJAX endpoint for invoking scorers from the frontend.
+    For SDK-based invocation, use the gateway proxy route.
+    """
+    _validate_content_type(request, ["application/json"])
+
+    args = request.json
+    experiment_id = args.get("experiment_id")
+    serialized_scorer = args.get("serialized_scorer")
+    trace_ids = args.get("trace_ids", [])
+
+    if not experiment_id:
+        raise MlflowException(
+            "Missing required parameter: experiment_id",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not serialized_scorer:
+        raise MlflowException(
+            "Missing required parameter: serialized_scorer",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not trace_ids:
+        raise MlflowException(
+            "Missing required parameter: trace_ids",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # TODO: Implement invoke_scorer on tracking store
+    raise MlflowException(
+        "Scorer invocation is not yet implemented",
+        error_code=databricks_pb2.NOT_IMPLEMENTED,
+    )
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4490,7 +4529,7 @@ def get_endpoints(get_handler=get_handler):
 
 
 def get_gateway_endpoints():
-    """Returns endpoint tuples for gateway provider/model discovery APIs."""
+    """Returns endpoint tuples for gateway provider/model discovery APIs and scorer invocation."""
     return [
         (
             _get_ajax_path("/mlflow/gateway/supported-providers", version=3),
@@ -4508,9 +4547,14 @@ def get_gateway_endpoints():
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/secrets/config", version=3),
+            _get_ajax_path("/mlflow/gateway/secrets/config", version=3),
             _get_secrets_config,
             ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/scorer/invoke", version=3),
+            _invoke_scorer_handler,
+            ["POST"],
         ),
     ]
 

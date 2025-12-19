@@ -167,10 +167,6 @@ git commit -s -m "Your commit message"
 # Then check all files changed in your PR
 uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
 
-# Fix any issues and amend your commit if needed
-git add <fixed files>
-git commit --amend -s
-
 # Re-run pre-commit to verify fixes
 uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
 
