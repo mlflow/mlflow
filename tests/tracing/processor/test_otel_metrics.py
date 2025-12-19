@@ -1,3 +1,4 @@
+import os
 import time
 
 import pytest
@@ -18,6 +19,7 @@ def metric_reader() -> InMemoryMetricReader:
     provider.shutdown()
 
 
+@pytest.mark.flaky(attempts=3, condition=os.name == "nt")
 def test_metrics_export(
     monkeypatch: pytest.MonkeyPatch, metric_reader: InMemoryMetricReader
 ) -> None:

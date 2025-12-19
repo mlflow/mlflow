@@ -85,6 +85,7 @@ def pytest_addoption(parser):
 def pytest_configure(config: pytest.Config):
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
+    config.addinivalue_line("markers", "flaky: mark test as flaky to allow reruns")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
     config.addinivalue_line(
         "markers", "do_not_disable_new_import_hook_firing_if_module_already_exists"
@@ -233,12 +234,66 @@ def generate_duration_stats() -> str:
     return to_md_table(table_rows)
 
 
-@pytest.hookimpl(hookwrapper=True)
+@pytest.hookimpl(tryfirst=True)
 def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
-    start = time.perf_counter()
-    yield  # This includes setup + call + teardown
-    duration = time.perf_counter() - start
-    _test_results.append(TestResult(path=item.path, test_name=item.name, execution_time=duration))
+    """
+    Custom test protocol that supports rerunning failed tests marked with @pytest.mark.flaky.
+
+    This is a simplified implementation inspired by pytest-rerunfailures:
+    https://github.com/pytest-dev/pytest-rerunfailures/blob/365dc54ba3069f55a870cda2c3e1e3c33c68f326/src/pytest_rerunfailures.py#L564-L619
+
+    Usage:
+        @pytest.mark.flaky(attempts=3)
+        def test_something():
+            # Will run up to 3 times total if it keeps failing
+            ...
+
+        @pytest.mark.flaky(attempts=3, condition=sys.platform == "win32")
+        def test_windows_only_flaky():
+            ...
+    """
+    from _pytest.runner import runtestprotocol
+
+    # Get attempts from the flaky marker
+    flaky_marker = item.get_closest_marker("flaky")
+    if flaky_marker is None:
+        # No flaky marker, use default behavior
+        return None
+
+    # Check condition - if False, skip rerun logic
+    condition = flaky_marker.kwargs.get("condition", True)
+    if not condition:
+        return None
+
+    attempts = flaky_marker.kwargs.get("attempts", 2)
+
+    item.execution_count = 0
+    need_to_run = True
+    total_duration = 0.0
+
+    while need_to_run:
+        item.execution_count += 1
+        start = time.perf_counter()
+        reports = runtestprotocol(item, nextitem=nextitem, log=False)
+        total_duration += time.perf_counter() - start
+
+        for report in reports:
+            if report.when == "call" and report.failed:
+                if item.execution_count < attempts:
+                    report.outcome = "rerun"
+                    # Re-initialize the test item for the next run
+                    if hasattr(item, "_request"):
+                        item._initrequest()
+                    break
+            item.ihook.pytest_runtest_logreport(report=report)
+        else:
+            # No rerun needed (passed or exhausted attempts), exit the loop
+            need_to_run = False
+
+    _test_results.append(
+        TestResult(path=item.path, test_name=item.name, execution_time=total_duration)
+    )
+    return True  # Indicate that we handled this protocol
 
 
 def pytest_runtest_setup(item):
@@ -265,6 +320,12 @@ def fetch_pr_labels():
 @pytest.hookimpl(hookwrapper=True)
 def pytest_report_teststatus(report, config):
     outcome = yield
+
+    # Handle rerun outcome
+    if report.outcome == "rerun":
+        outcome.force_result(("rerun", "R", ("RERUN", {"yellow": True})))
+        return
+
     if report.when == "call":
         try:
             import psutil
