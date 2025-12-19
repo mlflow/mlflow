@@ -18,6 +18,8 @@ from mlflow.genai.scorers import RelevanceToQuery, Safety, Scorer, UserFrustrati
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import _sanitize_scorer_feedback
+from mlflow.genai.utils.type import FunctionCall
+from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 from tests.genai.conftest import databricks_only
 
@@ -580,3 +582,88 @@ def test_ser_deser_session_level_scorer():
     deserialized2 = Scorer.model_validate(serialized_obj)
     assert isinstance(deserialized2, UserFrustration)
     assert deserialized2.is_session_level_scorer is True
+
+
+def test_is_tool_call_efficient_with_custom_name_and_model():
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="custom_efficiency_check",
+            value=CategoricalRating.YES,
+            rationale="Let's think step by step. Tool usage is optimal.",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="anthropic:/claude-3-sonnet",
+            ),
+        ),
+    ) as mock_invoke:
+        feedback = judges.is_tool_call_efficient(
+            request="Get weather for Paris",
+            tools_called=[
+                FunctionCall(
+                    name="get_weather",
+                    arguments={"city": "Paris"},
+                    outputs="Sunny, 22°C",
+                    exception=None,
+                )
+            ],
+            available_tools=[
+                ChatTool(
+                    type="function",
+                    function=FunctionToolDefinition(name="get_weather", description="Get weather"),
+                )
+            ],
+            name="custom_efficiency_check",
+            model="anthropic:/claude-3-sonnet",
+        )
+
+    assert feedback.name == "custom_efficiency_check"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.source.source_id == "anthropic:/claude-3-sonnet"
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args[0] == "anthropic:/claude-3-sonnet"
+    assert kwargs["assessment_name"] == "custom_efficiency_check"
+
+
+def test_is_tool_call_correct_with_custom_name_and_model():
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="custom_correctness_check",
+            value=CategoricalRating.YES,
+            rationale="Let's think step by step. Tool calls and arguments are appropriate.",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="anthropic:/claude-3-sonnet",
+            ),
+        ),
+    ) as mock_invoke:
+        feedback = judges.is_tool_call_correct(
+            request="Get weather for Paris",
+            tools_called=[
+                FunctionCall(
+                    name="get_weather",
+                    arguments={"city": "Paris"},
+                    outputs="Sunny, 22°C",
+                )
+            ],
+            available_tools=[
+                ChatTool(
+                    type="function",
+                    function=FunctionToolDefinition(name="get_weather", description="Get weather"),
+                )
+            ],
+            name="custom_correctness_check",
+            model="anthropic:/claude-3-sonnet",
+        )
+
+    assert feedback.name == "custom_correctness_check"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.source.source_id == "anthropic:/claude-3-sonnet"
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args[0] == "anthropic:/claude-3-sonnet"
+    assert kwargs["assessment_name"] == "custom_correctness_check"

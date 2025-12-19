@@ -19,6 +19,7 @@ export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
 
 export type ExperimentPageSideNavItem = {
+  componentId: string;
   label: React.ReactNode;
   icon: React.ReactNode;
   tabName: ExperimentPageTabName;
@@ -41,6 +42,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <ForkHorizontalIcon />,
       tabName: ExperimentPageTabName.Traces,
+      componentId: 'mlflow.experiment-side-nav.genai.traces',
     },
   ],
   evaluation: [
@@ -53,6 +55,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <DatabaseIcon />,
       tabName: ExperimentPageTabName.Datasets,
+      componentId: 'mlflow.experiment-side-nav.genai.datasets',
     },
     {
       label: (
@@ -63,6 +66,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <PlusMinusSquareIcon />,
       tabName: ExperimentPageTabName.EvaluationRuns,
+      componentId: 'mlflow.experiment-side-nav.genai.evaluation-runs',
     },
   ],
   'prompts-versions': [
@@ -75,6 +79,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <TextBoxIcon />,
       tabName: ExperimentPageTabName.Prompts,
+      componentId: 'mlflow.experiment-side-nav.genai.prompts',
     },
     {
       label: (
@@ -85,6 +90,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <ModelsIcon />,
       tabName: ExperimentPageTabName.Models,
+      componentId: 'mlflow.experiment-side-nav.genai.agent-versions',
     },
   ],
 };
@@ -97,6 +103,7 @@ const ExperimentPageSideNavCustomModelConfig = {
       ),
       icon: <ListIcon />,
       tabName: ExperimentPageTabName.Runs,
+      componentId: 'mlflow.experiment-side-nav.classic-ml.runs',
     },
     {
       label: (
@@ -107,6 +114,7 @@ const ExperimentPageSideNavCustomModelConfig = {
       ),
       icon: <ModelsIcon />,
       tabName: ExperimentPageTabName.Models,
+      componentId: 'mlflow.experiment-side-nav.classic-ml.models',
     },
     {
       label: (
@@ -117,6 +125,7 @@ const ExperimentPageSideNavCustomModelConfig = {
       ),
       icon: <ForkHorizontalIcon />,
       tabName: ExperimentPageTabName.Traces,
+      componentId: 'mlflow.experiment-side-nav.classic-ml.traces',
     },
   ],
 };
@@ -177,6 +186,7 @@ export const useExperimentPageSideNavConfig = ({
                 ),
                 icon: <ListIcon />,
                 tabName: ExperimentPageTabName.Runs,
+                componentId: 'mlflow.experiment-side-nav.genai.training-runs',
               },
             ],
           }
@@ -195,6 +205,7 @@ export const useExperimentPageSideNavConfig = ({
           ),
           icon: <SpeechBubbleIcon />,
           tabName: ExperimentPageTabName.ChatSessions,
+          componentId: 'mlflow.experiment-side-nav.genai.chat-sessions',
         },
       ],
       evaluation: enableScorersUI()
@@ -209,6 +220,7 @@ export const useExperimentPageSideNavConfig = ({
               ),
               icon: <GavelIcon />,
               tabName: ExperimentPageTabName.Judges,
+              componentId: 'mlflow.experiment-side-nav.genai.judges',
             },
           ]
         : ExperimentPageSideNavGenAIConfig.evaluation,

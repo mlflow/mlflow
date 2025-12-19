@@ -4126,15 +4126,18 @@ def test_create_secret_with_dict_value(mlflow_client_with_secrets):
 
     secret = store.create_gateway_secret(
         secret_name="aws-creds",
-        secret_value={"aws_access_key_id": "AKIATEST", "aws_secret_access_key": "secret123"},
+        secret_value={"aws_access_key_id": "AKIATEST1234", "aws_secret_access_key": "secret123abc"},
         provider="bedrock",
     )
 
     assert secret.secret_name == "aws-creds"
     assert secret.provider == "bedrock"
     assert secret.secret_id is not None
-    assert "aws_access_key_id" in secret.masked_value
-    assert "aws_secret_access_key" in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {
+        "aws_access_key_id": "AKI...1234",
+        "aws_secret_access_key": "sec...3abc",
+    }
 
 
 def test_update_secret_with_dict_value(mlflow_client_with_secrets):
@@ -4142,19 +4145,28 @@ def test_update_secret_with_dict_value(mlflow_client_with_secrets):
 
     secret = store.create_gateway_secret(
         secret_name="aws-creds-update",
-        secret_value={"api_key": "initial-value"},
+        secret_value={"api_key": "initial-value-1234"},
         provider="bedrock",
     )
 
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {"api_key": "ini...1234"}
+
     updated = store.update_gateway_secret(
         secret_id=secret.secret_id,
-        secret_value={"aws_access_key_id": "NEWKEY", "aws_secret_access_key": "newsecret"},
+        secret_value={
+            "aws_access_key_id": "NEWKEY123456",
+            "aws_secret_access_key": "newsecret1234",
+        },
     )
 
     assert updated.secret_id == secret.secret_id
     assert updated.secret_name == "aws-creds-update"
-    assert "aws_access_key_id" in updated.masked_value
-    assert "aws_secret_access_key" in updated.masked_value
+    assert isinstance(updated.masked_values, dict)
+    assert updated.masked_values == {
+        "aws_access_key_id": "NEW...3456",
+        "aws_secret_access_key": "new...1234",
+    }
 
 
 def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
@@ -4163,8 +4175,8 @@ def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
     secret = store.create_gateway_secret(
         secret_name="bedrock-aws-creds",
         secret_value={
-            "aws_access_key_id": "AKIAORIGINAL",
-            "aws_secret_access_key": "original-secret-key",
+            "aws_access_key_id": "AKIAORIGINAL1234",
+            "aws_secret_access_key": "original-secret-key-1234",
         },
         provider="bedrock",
         auth_config={"auth_mode": "access_keys", "aws_region_name": "us-east-1"},
@@ -4172,25 +4184,32 @@ def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
 
     assert secret.secret_name == "bedrock-aws-creds"
     assert secret.provider == "bedrock"
-    assert "aws_access_key_id" in secret.masked_value
-    assert "aws_secret_access_key" in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {
+        "aws_access_key_id": "AKI...1234",
+        "aws_secret_access_key": "ori...1234",
+    }
 
     fetched = store.get_secret_info(secret_id=secret.secret_id)
     assert fetched.secret_id == secret.secret_id
-    assert "aws_access_key_id" in fetched.masked_value
+    assert isinstance(fetched.masked_values, dict)
+    assert fetched.masked_values == secret.masked_values
 
     updated = store.update_gateway_secret(
         secret_id=secret.secret_id,
         secret_value={
-            "aws_access_key_id": "AKIAROTATED",
-            "aws_secret_access_key": "rotated-secret-key",
+            "aws_access_key_id": "AKIAROTATED5678",
+            "aws_secret_access_key": "rotated-secret-key-5678",
         },
     )
 
     assert updated.secret_id == secret.secret_id
     assert updated.last_updated_at > secret.created_at
-    assert "aws_access_key_id" in updated.masked_value
-    assert "aws_secret_access_key" in updated.masked_value
+    assert isinstance(updated.masked_values, dict)
+    assert updated.masked_values == {
+        "aws_access_key_id": "AKI...5678",
+        "aws_secret_access_key": "rot...5678",
+    }
 
 
 def test_create_and_get_endpoint(mlflow_client_with_secrets):
@@ -4574,7 +4593,7 @@ def test_list_providers(mlflow_client_with_secrets):
     import requests
 
     base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-providers")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-providers")
     assert response.status_code == 200
     data = response.json()
     assert "providers" in data
@@ -4590,7 +4609,7 @@ def test_list_models(mlflow_client_with_secrets):
     import requests
 
     base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-models")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models")
     assert response.status_code == 200
     data = response.json()
     assert "models" in data
@@ -4603,7 +4622,7 @@ def test_list_models(mlflow_client_with_secrets):
     assert "mode" in model
 
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-models", params={"provider": "openai"}
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models", params={"provider": "openai"}
     )
     assert response.status_code == 200
     filtered_data = response.json()
@@ -4620,7 +4639,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
     # Test simple provider (openai) - should have single api_key auth mode
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
         params={"provider": "openai"},
     )
     assert response.status_code == 200
@@ -4634,7 +4653,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
     # Test multi-mode provider (bedrock) - should have multiple auth modes
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
         params={"provider": "bedrock"},
     )
     assert response.status_code == 200
@@ -4655,7 +4674,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
     # Unknown providers get a generic fallback
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
         params={"provider": "unknown_provider"},
     )
     assert response.status_code == 200
@@ -4664,5 +4683,107 @@ def test_get_provider_config(mlflow_client_with_secrets):
     assert data["auth_modes"][0]["mode"] == "api_key"
 
     # Missing provider parameter returns 400
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config")
     assert response.status_code == 400
+
+
+def test_get_secrets_config_with_custom_passphrase(mlflow_client_with_secrets):
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/secrets/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["secrets_available"] is True
+    assert data["using_default_passphrase"] is False
+
+
+def test_get_secrets_config_with_default_passphrase(tmp_path: Path, monkeypatch):
+    from tests.tracking.integration_test_utils import ServerThread, get_safe_port
+
+    monkeypatch.delenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", raising=False)
+
+    backend_uri = f"sqlite:///{tmp_path}/mlflow.db"
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+
+    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store.engine.dispose()
+
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=artifact_uri)
+
+    with ServerThread(app, get_safe_port()) as url:
+        response = requests.get(f"{url}/ajax-api/3.0/mlflow/gateway/secrets/config")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["secrets_available"] is True
+        assert data["using_default_passphrase"] is True
+
+
+def test_endpoint_with_orphaned_model_definition(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="orphan-test-key",
+        secret_value={"api_key": "sk-orphan-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="orphan-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="orphan-test-endpoint",
+        model_definition_ids=[model_def.model_definition_id],
+    )
+
+    assert len(endpoint.model_mappings) == 1
+    assert endpoint.model_mappings[0].model_definition.secret_id == secret.secret_id
+    assert endpoint.model_mappings[0].model_definition.secret_name == "orphan-test-key"
+
+    store.delete_gateway_secret(secret.secret_id)
+
+    fetched_endpoint = store.get_gateway_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint.model_mappings) == 1
+    assert fetched_endpoint.model_mappings[0].model_definition.secret_id is None
+    assert fetched_endpoint.model_mappings[0].model_definition.secret_name is None
+
+
+def test_update_model_definition_provider(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="provider-update-secret",
+        secret_value={"api_key": "sk-provider-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="provider-update-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    assert model_def.provider == "openai"
+    assert model_def.model_name == "gpt-4"
+
+    updated = store.update_gateway_model_definition(
+        model_definition_id=model_def.model_definition_id,
+        provider="anthropic",
+        model_name="claude-3-5-haiku-latest",
+    )
+
+    assert updated.provider == "anthropic"
+    assert updated.model_name == "claude-3-5-haiku-latest"
+
+    fetched = store.get_gateway_model_definition(model_def.model_definition_id)
+    assert fetched.provider == "anthropic"
+    assert fetched.model_name == "claude-3-5-haiku-latest"
+
+    store.delete_gateway_model_definition(model_def.model_definition_id)
+    store.delete_gateway_secret(secret.secret_id)

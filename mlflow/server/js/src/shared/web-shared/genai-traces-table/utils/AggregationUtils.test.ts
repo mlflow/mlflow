@@ -344,6 +344,36 @@ describe('getAssessmentInfos', () => {
       ]),
     );
   });
+
+  it('should collect all unique values from assessments even when some have errors', () => {
+    const currentEvaluationResults = makeTracesFromAssessments([
+      {
+        responseAssessmentsByName: {
+          mixedAssessment: [
+            { name: 'mixedAssessment', errorMessage: 'Some error occurred' },
+            { name: 'mixedAssessment', stringValue: 'yes' },
+          ],
+        },
+      },
+      {
+        responseAssessmentsByName: {
+          mixedAssessment: [{ name: 'mixedAssessment', stringValue: 'no' }],
+        },
+      },
+      {
+        responseAssessmentsByName: {
+          mixedAssessment: [{ name: 'mixedAssessment', errorMessage: 'Another error' }],
+        },
+      },
+    ]);
+
+    const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
+    const mixedAssessmentInfo = result.find((info) => info.name === 'mixedAssessment');
+
+    expect(mixedAssessmentInfo?.uniqueValues).toEqual(new Set(['yes', 'no', undefined]));
+    expect(mixedAssessmentInfo?.dtype).toBe('pass-fail');
+    expect(mixedAssessmentInfo?.containsErrors).toBe(true);
+  });
 });
 
 describe('getAssessmentAggregateOverallFraction', () => {

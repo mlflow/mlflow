@@ -242,6 +242,7 @@ class AmazonBedrockProvider(BaseProvider):
                 "aws_session_token": aws_config.aws_session_token,
             }
         else:
+            # TODO: handle session token authentication
             return {}
 
     @property

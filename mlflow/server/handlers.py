@@ -13,6 +13,7 @@ from functools import partial, wraps
 from typing import Any
 
 import requests
+from cachetools import TTLCache
 from flask import Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
@@ -115,11 +116,11 @@ from mlflow.protos.service_pb2 import (
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
-    DeleteEndpointTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -181,8 +182,8 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     SetDatasetTags,
-    SetEndpointTag,
     SetExperimentTag,
+    SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
@@ -216,6 +217,13 @@ from mlflow.store.model_registry.abstract_store import AbstractStore as Abstract
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.telemetry import get_telemetry_client
+from mlflow.telemetry.schemas import Record, Status
+from mlflow.telemetry.utils import (
+    FALLBACK_UI_CONFIG,
+    fetch_ui_telemetry_config,
+    is_telemetry_disabled,
+)
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -225,6 +233,7 @@ from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils.crypto import KEKManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -2812,6 +2821,22 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+def _get_graphql_auth_middleware():
+    """
+    Get GraphQL authorization middleware if basic-auth is enabled.
+
+    Returns:
+        A list of middleware instances if auth is enabled, empty list otherwise.
+    """
+    try:
+        from mlflow.server.auth import get_graphql_authorization_middleware
+
+        return get_graphql_authorization_middleware()
+    except Exception:
+        # Auth not configured or other error
+        return []
+
+
 @catch_mlflow_exception
 def _graphql():
     from graphql import parse
@@ -2829,8 +2854,16 @@ def _graphql():
     if check_result := check_query_safety(node):
         result = check_result
     else:
+        # Get auth middleware if basic-auth is enabled
+        middleware = _get_graphql_auth_middleware()
+
         # Executing the GraphQL query using the Graphene schema
-        result = schema.execute(query, variables=variables, operation_name=operation_name)
+        result = schema.execute(
+            query,
+            variables=variables,
+            operation_name=operation_name,
+            middleware=middleware,
+        )
 
     # Convert execution result into json.
     result_data = {
@@ -4121,6 +4154,7 @@ def _update_gateway_model_definition():
             "secret_id": [_assert_string],
             "model_name": [_assert_string],
             "updated_by": [_assert_string],
+            "provider": [_assert_string],
         },
     )
     model_definition = _get_tracking_store().update_gateway_model_definition(
@@ -4129,6 +4163,7 @@ def _update_gateway_model_definition():
         secret_id=request_message.secret_id or None,
         model_name=request_message.model_name or None,
         updated_by=request_message.updated_by or None,
+        provider=request_message.provider or None,
     )
     response_message = UpdateGatewayModelDefinition.Response()
     response_message.model_definition.CopyFrom(model_definition.to_proto())
@@ -4267,7 +4302,7 @@ def _list_gateway_endpoint_bindings():
 @_disable_if_artifacts_only
 def _set_gateway_endpoint_tag():
     request_message = _get_request_message(
-        SetEndpointTag(),
+        SetGatewayEndpointTag(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4276,7 +4311,7 @@ def _set_gateway_endpoint_tag():
     )
     tag = GatewayEndpointTag(request_message.key, request_message.value)
     _get_tracking_store().set_gateway_endpoint_tag(request_message.endpoint_id, tag)
-    response_message = SetEndpointTag.Response()
+    response_message = SetGatewayEndpointTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4286,7 +4321,7 @@ def _set_gateway_endpoint_tag():
 @_disable_if_artifacts_only
 def _delete_gateway_endpoint_tag():
     request_message = _get_request_message(
-        DeleteEndpointTag(),
+        DeleteGatewayEndpointTag(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4295,7 +4330,7 @@ def _delete_gateway_endpoint_tag():
     _get_tracking_store().delete_gateway_endpoint_tag(
         request_message.endpoint_id, request_message.key
     )
-    response_message = DeleteEndpointTag.Response()
+    response_message = DeleteGatewayEndpointTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4331,6 +4366,57 @@ def _get_provider_config():
         return jsonify(config)
     except (ImportError, ValueError) as e:
         raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_secrets_config():
+    kek_manager = KEKManager()
+    return jsonify(
+        {
+            "secrets_available": True,
+            "using_default_passphrase": kek_manager.using_default_passphrase,
+        }
+    )
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _invoke_scorer_handler():
+    """
+    Invoke a scorer on traces asynchronously.
+
+    This is a UI-only AJAX endpoint for invoking scorers from the frontend.
+    For SDK-based invocation, use the gateway proxy route.
+    """
+    _validate_content_type(request, ["application/json"])
+
+    args = request.json
+    experiment_id = args.get("experiment_id")
+    serialized_scorer = args.get("serialized_scorer")
+    trace_ids = args.get("trace_ids", [])
+
+    if not experiment_id:
+        raise MlflowException(
+            "Missing required parameter: experiment_id",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not serialized_scorer:
+        raise MlflowException(
+            "Missing required parameter: serialized_scorer",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not trace_ids:
+        raise MlflowException(
+            "Missing required parameter: trace_ids",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # TODO: Implement invoke_scorer on tracking store
+    raise MlflowException(
+        "Scorer invocation is not yet implemented",
+        error_code=databricks_pb2.NOT_IMPLEMENTED,
+    )
 
 
 def _get_rest_path(base_path, version=2):
@@ -4410,22 +4496,32 @@ def get_endpoints(get_handler=get_handler):
 
 
 def get_gateway_endpoints():
-    """Returns endpoint tuples for gateway provider/model discovery APIs."""
+    """Returns endpoint tuples for gateway provider/model discovery APIs and scorer invocation."""
     return [
         (
-            _get_ajax_path("/mlflow/endpoints/supported-providers", version=3),
+            _get_ajax_path("/mlflow/gateway/supported-providers", version=3),
             _list_supported_providers,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/endpoints/supported-models", version=3),
+            _get_ajax_path("/mlflow/gateway/supported-models", version=3),
             _list_supported_models,
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/endpoints/provider-config", version=3),
+            _get_ajax_path("/mlflow/gateway/provider-config", version=3),
             _get_provider_config,
             ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/gateway/secrets/config", version=3),
+            _get_secrets_config,
+            ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/scorer/invoke", version=3),
+            _invoke_scorer_handler,
+            ["POST"],
         ),
     ]
 
@@ -4650,6 +4746,93 @@ def _get_dataset_records_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+# Cache for telemetry config with 3 hour TTL
+_telemetry_config_cache = TTLCache(maxsize=1, ttl=10800)
+
+
+def _get_or_fetch_ui_telemetry_config():
+    if (config := _telemetry_config_cache.get("config")) is None:
+        config = fetch_ui_telemetry_config()
+        _telemetry_config_cache["config"] = config
+    return config
+
+
+@catch_mlflow_exception
+def get_ui_telemetry_handler():
+    """
+    GET handler for /telemetry endpoint.
+    Returns the telemetry client configuration by fetching it directly.
+    """
+    if is_telemetry_disabled():
+        return jsonify(FALLBACK_UI_CONFIG)
+
+    config = _get_or_fetch_ui_telemetry_config()
+
+    # UI telemetry should be also disabled if overall telemetry is disabled
+    disable_ui_telemetry = config.get("disable_ui_telemetry", True) or config.get(
+        "disable_telemetry", True
+    )
+    response = {
+        "disable_ui_telemetry": disable_ui_telemetry,
+        "disable_ui_events": config.get("disable_ui_events", []),
+        "ui_rollout_percentage": config.get("ui_rollout_percentage", 0),
+    }
+    return jsonify(response)
+
+
+@catch_mlflow_exception
+def post_ui_telemetry_handler():
+    """
+    POST handler for /telemetry endpoint.
+    Accepts telemetry records and adds them to the telemetry client.
+    """
+    try:
+        if is_telemetry_disabled():
+            return jsonify({"status": "disabled"})
+
+        data = request.json.get("records", [])
+
+        if not data:
+            return jsonify({"status": "success"})
+
+        if (client := get_telemetry_client()) is None:
+            return jsonify({"status": "disabled"})
+
+        # check cached config to see if telemetry is disabled
+        # if so, don't process the records. we don't rely on the
+        # config from the telemetry client because it is only fetched
+        # once, so it won't be updated unless the server is restarted.
+        config = _get_or_fetch_ui_telemetry_config()
+
+        # if updated telemetry config is disabled / missing, tell the UI to stop sending records
+        if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
+            return jsonify({"status": "disabled"})
+
+        records = [
+            Record(
+                event_name=event["event_name"],
+                timestamp_ns=event["timestamp_ns"],
+                params=event["params"],
+                status=Status.SUCCESS,
+                installation_id=event["installation_id"],
+                session_id=event["session_id"],
+                duration_ms=0,
+            )
+            for event in data
+        ]
+
+        client.add_records(records)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        _logger.debug(f"Failed to process UI telemetry records: {e}")
+        # if we run into unexpected errors, likely something is wrong
+        # with the data format. if we return success, the UI will continue
+        # to send records. if we return an error, the UI will retry sending
+        # records. the safest thing to do is to tell the UI to stop sending
+        return jsonify({"status": "disabled"})
+
+
 HANDLERS = {
     # Tracking Server APIs
     CreateExperiment: _create_experiment,
@@ -4794,6 +4977,6 @@ HANDLERS = {
     DeleteGatewayEndpointBinding: _delete_gateway_endpoint_binding,
     ListGatewayEndpointBindings: _list_gateway_endpoint_bindings,
     # Endpoint Tags APIs
-    SetEndpointTag: _set_gateway_endpoint_tag,
-    DeleteEndpointTag: _delete_gateway_endpoint_tag,
+    SetGatewayEndpointTag: _set_gateway_endpoint_tag,
+    DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
 }

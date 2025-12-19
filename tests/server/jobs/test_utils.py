@@ -3,7 +3,7 @@ import os
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.jobs.utils import _validate_function_parameters
+from mlflow.server.jobs.utils import _load_function, _validate_function_parameters
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -74,3 +74,18 @@ def test_job_status_conversion():
         MlflowException, match="The string 'ABC' can't be converted to JobStatus enum value."
     ):
         JobStatus.from_str("ABC")
+
+
+def test_load_function_invalid_function_format():
+    with pytest.raises(MlflowException, match="Invalid function fullname format"):
+        _load_function("invalid_format_no_module")
+
+
+def test_load_function_module_not_found():
+    with pytest.raises(MlflowException, match="Module not found"):
+        _load_function("non_existent_module.some_function")
+
+
+def test_load_function_function_not_found():
+    with pytest.raises(MlflowException, match="Function not found in module"):
+        _load_function("os.non_exist_function")

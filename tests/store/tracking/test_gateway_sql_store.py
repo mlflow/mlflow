@@ -89,8 +89,9 @@ def test_create_gateway_secret(store: SqlAlchemyStore):
     assert secret.secret_name == "my-api-key"
     assert secret.provider == "openai"
     assert secret.created_by == "test-user"
-    assert secret.masked_value is not None
-    assert "sk-test-123456" not in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert "api_key" in secret.masked_values
+    assert "sk-test-123456" not in secret.masked_values["api_key"]
 
 
 def test_create_gateway_secret_with_auth_config(store: SqlAlchemyStore):
@@ -118,9 +119,11 @@ def test_create_gateway_secret_with_dict_value(store: SqlAlchemyStore):
 
     assert secret.secret_name == "multi-secret"
     assert secret.provider == "bedrock"
-    # Multi-key dict secrets show all keys with masked values
-    assert "aws_access_key_id:" in secret.masked_value
-    assert "aws_secret_access_key:" in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert "aws_access_key_id" in secret.masked_values
+    assert "aws_secret_access_key" in secret.masked_values
+    assert "AKIA1234567890" not in secret.masked_values["aws_access_key_id"]
+    assert "secret-key-here" not in secret.masked_values["aws_secret_access_key"]
 
 
 def test_create_gateway_secret_duplicate_name_raises(store: SqlAlchemyStore):
@@ -971,7 +974,7 @@ def test_get_gateway_endpoint_config(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -1004,7 +1007,7 @@ def test_get_gateway_endpoint_config_with_auth_config(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -1039,7 +1042,7 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -1053,7 +1056,7 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
 def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found") as exc:
         get_endpoint_config(
-            endpoint_id="nonexistent-endpoint-id",
+            endpoint_name="nonexistent-endpoint",
             store=store,
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

@@ -811,6 +811,39 @@ class SqlTraceMetadata(Base):
     )
 
 
+class SqlTraceMetrics(Base):
+    __tablename__ = "trace_metrics"
+
+    request_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Request ID to which this metric belongs: *Foreign Key* into ``trace_info`` table.
+    **Corresponding to the "trace_id" in V3 format.**
+    """
+    key = Column(String(250), nullable=False)
+    """
+    Metric key: `String` (limit 250 characters). Examples: "input_tokens", "output_tokens",
+    "total_tokens", "cost", etc.
+    """
+    value = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Metric value: `Float`. Could be *null* if not available. Supports both integer values
+    (e.g., token counts) and decimal values (e.g., API costs).
+    """
+    trace_info = relationship("SqlTraceInfo", backref=backref("metrics", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    # Composite primary key: (request_id, key)
+    __table_args__ = (
+        PrimaryKeyConstraint("request_id", "key", name="trace_metrics_pk"),
+        Index(f"index_{__tablename__}_request_id", "request_id"),
+    )
+
+
 class SqlAssessments(Base):
     __tablename__ = "assessments"
 
@@ -1968,9 +2001,9 @@ class SqlJob(Base):
     Creation timestamp: `BigInteger`.
     """
 
-    function_fullname = Column(String(500), nullable=False)
+    job_name = Column(String(500), nullable=False)
     """
-    Function fullname: `String` (limit 500 characters).
+    Job name: `String` (limit 500 characters).
     """
 
     params = Column(Text, nullable=False)
@@ -2006,15 +2039,15 @@ class SqlJob(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
-            "index_jobs_function_status_creation_time",
-            "function_fullname",
+            "index_jobs_name_status_creation_time",
+            "job_name",
             "status",
             "creation_time",
         ),
     )
 
     def __repr__(self):
-        return f"<SqlJob ({self.id}, {self.function_fullname}, {self.status})>"
+        return f"<SqlJob ({self.id}, {self.job_name}, {self.status})>"
 
     def to_mlflow_entity(self):
         """
@@ -2029,7 +2062,7 @@ class SqlJob(Base):
         return Job(
             job_id=self.id,
             creation_time=self.creation_time,
-            function_fullname=self.function_fullname,
+            job_name=self.job_name,
             params=self.params,
             timeout=self.timeout,
             status=JobStatus.from_int(self.status),
@@ -2082,11 +2115,12 @@ class SqlGatewaySecret(Base):
     KEK version: `Integer`. Indicates which KEK version was used to wrap the DEK.
     Used for KEK rotation - allows multiple KEK versions to coexist during migration.
     """
-    masked_value = Column(String(100), nullable=False)
+    masked_value = Column(String(500), nullable=False)
     """
-    Masked secret value: `String` (limit 100 characters). Shows partial secret for identification.
-    Format: prefix (3-4 chars) + "..." + suffix (last 4 chars), e.g., "sk-...xyz123".
-    Helps users identify secrets without exposing the full value.
+    Masked secret value: `String` (limit 500 characters). JSON-serialized dict showing partial
+    secret values for identification. Format: ``{"key": "prefix...suffix"}``, e.g.,
+    ``{"api_key": "sk-...xyz123"}`` or ``{"aws_access_key_id": "AKI...1234", ...}``.
+    Helps users identify secrets without exposing the full values.
     """
     provider = Column(String(64), nullable=True)
     """
@@ -2130,10 +2164,15 @@ class SqlGatewaySecret(Base):
         return f"<SqlGatewaySecret ({self.secret_id}, {self.secret_name})>"
 
     def to_mlflow_entity(self):
+        try:
+            masked_value = json.loads(self.masked_value)
+        except (json.JSONDecodeError, TypeError):
+            masked_value = {"value": "***"}
+
         return GatewaySecretInfo(
             secret_id=self.secret_id,
             secret_name=self.secret_name,
-            masked_value=self.masked_value,
+            masked_values=masked_value,
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             provider=self.provider,
