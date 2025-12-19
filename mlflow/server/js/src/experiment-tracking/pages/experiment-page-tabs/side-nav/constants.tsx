@@ -2,6 +2,7 @@ import React from 'react';
 import { ExperimentKind } from '../../../constants';
 import { ExperimentPageTabName } from '../../../constants';
 import {
+  ChartLineIcon,
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
@@ -173,10 +174,20 @@ export const useExperimentPageSideNavConfig = ({
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
     return {
-      ...(hasTrainingRuns
-        ? {
-            // append training runs to top-level if they exist
-            'top-level': [
+      'top-level': [
+        {
+          label: (
+            <FormattedMessage
+              defaultMessage="Overview"
+              description="Label for the overview tab in the MLflow experiment navbar"
+            />
+          ),
+          icon: <ChartLineIcon />,
+          tabName: ExperimentPageTabName.Overview,
+          componentId: 'mlflow.experiment-side-nav.genai.overview',
+        },
+        ...(hasTrainingRuns
+          ? [
               {
                 label: (
                   <FormattedMessage
@@ -188,11 +199,9 @@ export const useExperimentPageSideNavConfig = ({
                 tabName: ExperimentPageTabName.Runs,
                 componentId: 'mlflow.experiment-side-nav.genai.training-runs',
               },
-            ],
-          }
-        : {
-            'top-level': [],
-          }),
+            ]
+          : []),
+      ],
       ...ExperimentPageSideNavGenAIConfig,
       observability: [
         ...ExperimentPageSideNavGenAIConfig.observability,
