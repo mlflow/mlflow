@@ -757,11 +757,12 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
 
     Any other type mismatch will raise error.
     """
+    from pandas import StringDtype
 
     if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
-    if t == DataType.string and values.dtype == object:
+    if t == DataType.string and (values.dtype == object or isinstance(values.dtype, StringDtype)):
         # NB: the object can contain any type and we currently cannot cast to pandas Strings
         # due to how None is cast
         return values
