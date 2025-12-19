@@ -327,6 +327,10 @@
     "defaultMessage": "Active",
     "description": "Linked model dropdown option to show active experiment runs"
   },
+  "0r2ub6": {
+    "defaultMessage": "Overview",
+    "description": "Label for the overview tab in the MLflow experiment navbar"
+  },
   "0skVwM": {
     "defaultMessage": "No endpoints found",
     "description": "Empty state title when filter returns no results"
@@ -4823,6 +4827,10 @@
     "defaultMessage": "Error",
     "description": "Experiment page > traces data drawer > error state title"
   },
+  "ecUdab": {
+    "defaultMessage": "Usage",
+    "description": "Label for the usage tab in the experiment overview page"
+  },
   "eeLqSn": {
     "defaultMessage": "Submit",
     "description": "Experiment page > artifact compare view > \"add new row\" modal submit button label"
@@ -5350,6 +5358,10 @@
   "j25Ttg": {
     "defaultMessage": "Model metrics",
     "description": "Run details page > tab selector > Model metrics tab"
+  },
+  "j3E+jq": {
+    "defaultMessage": "Search charts",
+    "description": "Placeholder for search charts input"
   },
   "j3yKcX": {
     "defaultMessage": "Select the experiment you configured above.",
