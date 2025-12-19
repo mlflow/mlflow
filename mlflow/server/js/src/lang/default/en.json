@@ -6475,6 +6475,10 @@
     "defaultMessage": "Response",
     "description": "Evaluation review > Response section > title"
   },
+  "x7NsCC": {
+    "defaultMessage": "Reasoning",
+    "description": "Label for the collapsible reasoning section in chat message"
+  },
   "xBVMQz": {
     "defaultMessage": "LLM",
     "description": "Example text snippet for LLM"

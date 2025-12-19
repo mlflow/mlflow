@@ -8,6 +8,7 @@ import type {
   OpenAIResponsesInputMessageRole,
   OpenAIResponsesInputText,
   OpenAIResponsesOutputItem,
+  OpenAIResponsesReasoning,
   OpenAIResponsesStreamingOutputDelta,
   OpenAIResponsesStreamingOutputDone,
 } from './openai.types';
@@ -156,9 +157,40 @@ export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessa
   return null;
 };
 
-export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputItem): ModelTraceChatMessage | null => {
+const extractReasoningText = (reasoning: OpenAIResponsesReasoning): string | null => {
+  if (!reasoning.summary) {
+    return null;
+  }
+  return reasoning.summary.map((s) => s.text).join('\n\n') || null;
+};
+
+// Process output items, attaching reasoning to following messages
+const processOutputItemsWithReasoning = (items: OpenAIResponsesOutputItem[]): ModelTraceChatMessage[] => {
+  const messages: ModelTraceChatMessage[] = [];
+  let pendingReasoning: string | null = null;
+
+  for (const item of items) {
+    if (item.type === 'reasoning') {
+      pendingReasoning = extractReasoningText(item as OpenAIResponsesReasoning);
+    } else {
+      const message = normalizeOpenAIResponsesOutputItem(item, pendingReasoning);
+      if (message) {
+        messages.push(message);
+      }
+      pendingReasoning = null;
+    }
+  }
+
+  return messages;
+};
+
+export const normalizeOpenAIResponsesOutputItem = (
+  obj: OpenAIResponsesOutputItem,
+  reasoning?: string | null,
+): ModelTraceChatMessage | null => {
   if (obj.type === 'message') {
-    return prettyPrintChatMessage(obj);
+    const message = prettyPrintChatMessage(obj);
+    return message && reasoning ? { ...message, reasoning } : message;
   }
 
   if (obj.type === 'function_call') {
@@ -173,6 +205,7 @@ export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputIte
           },
         }),
       ],
+      ...(reasoning && { reasoning }),
     };
   }
 
@@ -211,7 +244,8 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
 
   // list of output items
   if (isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
-    return compact(output.map(normalizeOpenAIResponsesOutputItem).filter(Boolean));
+    const messages = processOutputItemsWithReasoning(output);
+    return messages.length > 0 ? messages : null;
   }
 
   // list of output chunks
@@ -220,7 +254,9 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
     output.length > 0 &&
     output.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
   ) {
-    return compact(output.map((chunk) => normalizeOpenAIResponsesOutputItem(chunk.item)));
+    const items = output.map((chunk) => chunk.item);
+    const messages = processOutputItemsWithReasoning(items);
+    return messages.length > 0 ? messages : null;
   }
 
   return null;
