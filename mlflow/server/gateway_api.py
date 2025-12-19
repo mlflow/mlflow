@@ -222,7 +222,9 @@ def _create_fallback_provider(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return FallbackProvider(configs=configs, max_attempts=max_attempts)
+    return FallbackProvider(
+        configs=configs, max_attempts=max_attempts, strategy=fallback_config.strategy
+    )
 
 
 def _create_provider(

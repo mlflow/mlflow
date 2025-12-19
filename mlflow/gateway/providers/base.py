@@ -242,7 +242,7 @@ class FallbackProvider(BaseProvider):
     def __init__(
         self,
         configs: list[EndpointConfig],
-        strategy: FallbackStrategy,
+        strategy: FallbackStrategy | None = None,
         max_attempts: int | None = None,
     ):
         from mlflow.gateway.providers import get_provider
