@@ -383,7 +383,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         if headers:
             for key, value in headers.items():
-                # Don't overide api key or version headers
+                # Don't override api key or version headers
                 if key not in headers:
                     result_headers[key] = value
 

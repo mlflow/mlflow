@@ -338,7 +338,7 @@ class OpenAIProvider(BaseProvider):
 
         if headers:
             for key, value in headers.items():
-                # Don't overide api key or organization headers
+                # Don't override api key or organization headers
                 if key not in headers:
                     result_headers[key] = value
 
