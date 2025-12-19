@@ -22,8 +22,11 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.tracing.constant import (
     AssessmentMetricKey,
+    AssessmentMetricSearchKey,
     SpanMetricKey,
+    SpanMetricSearchKey,
     TraceMetricKey,
+    TraceMetricSearchKey,
     TraceTagKey,
 )
 from mlflow.utils.search_utils import SearchTraceMetricsUtils
@@ -346,7 +349,7 @@ def _apply_metric_specific_joins(
     return query
 
 
-def apply_filters(query: Query, filters: list[str], view_type: MetricViewType) -> Query:
+def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) -> Query:
     """
     Apply filters to the query.
 
@@ -362,13 +365,13 @@ def apply_filters(query: Query, filters: list[str], view_type: MetricViewType) -
         return query
 
     for filter_string in filters:
-        parsed_filter = SearchTraceMetricsUtils.parse_search_filter_for_trace_metrics(filter_string)
+        parsed_filter = SearchTraceMetricsUtils.parse_search_filter(filter_string)
         match parsed_filter.view_type:
-            case "trace":
+            case TraceMetricSearchKey.VIEW_TYPE:
                 match parsed_filter.entity:
-                    case "status":
+                    case TraceMetricSearchKey.STATUS:
                         query = query.filter(SqlTraceInfo.status == parsed_filter.value)
-                    case "metadata":
+                    case TraceMetricSearchKey.METADATA:
                         metadata_filter = exists().where(
                             and_(
                                 SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
@@ -377,7 +380,7 @@ def apply_filters(query: Query, filters: list[str], view_type: MetricViewType) -
                             )
                         )
                         query = query.filter(metadata_filter)
-                    case "tag":
+                    case TraceMetricSearchKey.TAG:
                         tag_filter = exists().where(
                             and_(
                                 SqlTraceTag.request_id == SqlTraceInfo.request_id,
@@ -386,29 +389,29 @@ def apply_filters(query: Query, filters: list[str], view_type: MetricViewType) -
                             )
                         )
                         query = query.filter(tag_filter)
-            case "span":
+            case SpanMetricSearchKey.VIEW_TYPE:
                 if view_type != MetricViewType.SPANS:
                     raise MlflowException.invalid_parameter_value(
                         f"Filtering by span is only supported for {MetricViewType.SPANS} view "
                         f"type, got {view_type}",
                     )
                 match parsed_filter.entity:
-                    case "name":
+                    case SpanMetricSearchKey.NAME:
                         query = query.filter(SqlSpan.name == parsed_filter.value)
-                    case "status":
+                    case SpanMetricSearchKey.STATUS:
                         query = query.filter(SqlSpan.status == parsed_filter.value)
-                    case "type":
+                    case SpanMetricSearchKey.TYPE:
                         query = query.filter(SqlSpan.type == parsed_filter.value)
-            case "assessment":
+            case AssessmentMetricSearchKey.VIEW_TYPE:
                 if view_type != MetricViewType.ASSESSMENTS:
                     raise MlflowException.invalid_parameter_value(
                         "Filtering by assessment is only supported for "
                         f"{MetricViewType.ASSESSMENTS} view type, got {view_type}",
                     )
                 match parsed_filter.entity:
-                    case "name":
+                    case AssessmentMetricSearchKey.NAME:
                         query = query.filter(SqlAssessments.name == parsed_filter.value)
-                    case "type":
+                    case AssessmentMetricSearchKey.TYPE:
                         query = query.filter(SqlAssessments.assessment_type == parsed_filter.value)
 
     return query
@@ -444,7 +447,7 @@ def query_metrics(
     # Apply view-specific initial join
     query = _apply_view_initial_join(query, view_type)
 
-    query = apply_filters(query, filters, view_type)
+    query = _apply_filters(query, filters, view_type)
 
     # Group by dimension columns, labeled for SELECT
     dimension_columns = []

@@ -26,7 +26,13 @@ from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    AssessmentMetricSearchKey,
+    SpanMetricSearchKey,
+    TraceMetadataKey,
+    TraceMetricSearchKey,
+    TraceTagKey,
+)
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
@@ -2021,33 +2027,15 @@ class TraceMetricsFilter:
 
 
 class SearchTraceMetricsUtils(SearchTraceUtils):
-    # Entities that are supported for each view type
-    # Mapping of entity to a boolean indicating if it requires a key
-    # For example, "tag" requires a key: "trace.tag.<key> = <value>"
-    # "status" does not require a key: "trace.status = <value>"
-    _VALID_TRACE_ENTITIES = {
-        "status": False,
-        "tag": True,
-        "metadata": True,
-    }
-    _VALID_SPAN_ENTITIES = {
-        "name": False,
-        "status": False,
-        "type": False,
-    }
-    _VALID_ASSESSMENT_ENTITIES = {
-        "name": False,
-        "type": False,
-    }
     _VALID_VIEW_TYPES_TO_ENTITIES = {
-        "trace": _VALID_TRACE_ENTITIES,
-        "span": _VALID_SPAN_ENTITIES,
-        "assessment": _VALID_ASSESSMENT_ENTITIES,
+        TraceMetricSearchKey.VIEW_TYPE: TraceMetricSearchKey.entity_to_key_requirement(),
+        SpanMetricSearchKey.VIEW_TYPE: SpanMetricSearchKey.entity_to_key_requirement(),
+        AssessmentMetricSearchKey.VIEW_TYPE: AssessmentMetricSearchKey.entity_to_key_requirement(),
     }
 
     @classmethod
-    def parse_search_filter_for_trace_metrics(cls, filter_string: str) -> TraceMetricsFilter:
-        parsed = cls.parse_search_filter(filter_string)
+    def parse_search_filter(cls, filter_string: str) -> TraceMetricsFilter:
+        parsed = super().parse_search_filter(filter_string)
         if len(parsed) != 1:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid filter: '{filter_string}'. Expected one filter clause."
