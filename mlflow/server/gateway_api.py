@@ -322,9 +322,7 @@ async def openai_passthrough_chat(request: Request):
     store = _get_store()
     _validate_store(store)
 
-    # Extract headers from the request to propagate
     headers = dict(request.headers)
-
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
 
@@ -360,9 +358,7 @@ async def openai_passthrough_embeddings(request: Request):
     store = _get_store()
     _validate_store(store)
 
-    # Extract headers from the request to propagate
     headers = dict(request.headers)
-
     provider = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
@@ -400,9 +396,7 @@ async def openai_passthrough_responses(request: Request):
     store = _get_store()
     _validate_store(store)
 
-    # Extract headers from the request to propagate
     headers = dict(request.headers)
-
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
 
@@ -443,7 +437,6 @@ async def anthropic_passthrough_messages(request: Request):
     _validate_store(store)
 
     headers = dict(request.headers)
-
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
 
@@ -481,9 +474,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     store = _get_store()
     _validate_store(store)
 
-    # Extract headers from the request to propagate
     headers = dict(request.headers)
-
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
 
@@ -517,9 +508,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     store = _get_store()
     _validate_store(store)
 
-    # Extract headers from the request to propagate
     headers = dict(request.headers)
-
     provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough(
         PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
