@@ -32,7 +32,11 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import (
+    _MLFLOW_SGI_NAME,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
+)
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -1602,6 +1606,8 @@ def get_graphql_authorization_middleware():
         A list containing the middleware instance if auth is enabled,
         empty list otherwise. Suitable for passing to schema.execute(middleware=...).
     """
+    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
+        return []
     if not is_auth_enabled():
         return []
     return [GraphQLAuthorizationMiddleware()]
