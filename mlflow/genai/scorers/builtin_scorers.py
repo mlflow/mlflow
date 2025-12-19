@@ -1692,18 +1692,16 @@ class BuiltInSessionLevelScorer(BuiltInScorer):
     """
 
     required_columns: set[str] = {"trace"}
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
     @abstractmethod
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         """
-        Create the InstructionsJudge instance for this scorer.
+        Create the Judge instance for this scorer.
         Subclasses should implement this to configure their specific judge.
-
-        Note: Instantiate InstructionsJudge directly instead of using make_judge.
         """
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         """Get or create the cached judge instance."""
         if self._judge is None:
             self._judge = self._create_judge()
@@ -1734,7 +1732,7 @@ class BuiltInSessionLevelScorer(BuiltInScorer):
                 f"Session level scorers can only accept the `session` and `expectations` "
                 f"parameters. Got unexpected keyword argument(s): {invalid_args}"
             )
-        return self._get_judge()._evaluate_impl(session=session, expectations=expectations)
+        return self._get_judge()(session=session, expectations=expectations)
 
 
 @experimental(version="3.7.0")
@@ -1798,7 +1796,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
     model: str | None = None
     description: str = "Evaluate the user's frustration state throughout the conversation."
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -1873,7 +1871,7 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         "the conversation."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -1949,7 +1947,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         "checking for harmful content and safety guideline failures."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2023,7 +2021,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         "efficient, checking for redundant calls, unnecessary calls, and poor tool selection."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2096,7 +2094,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         "a conversation, checking for persona consistency and boundary violations."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2167,9 +2165,9 @@ class Completeness(BuiltInScorer):
     description: str = (
         "Evaluate whether the assistant fully addresses all user questions in a single turn."
     )
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
                 name=self.name,
@@ -2209,7 +2207,7 @@ class Completeness(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._get_judge()._evaluate_impl(
+        return self._get_judge()(
             inputs=inputs,
             outputs=outputs,
             trace=trace,
@@ -2269,9 +2267,9 @@ class Summarization(BuiltInScorer):
         "and does not make any assumptions not in the input, with a focus on faithfulness, "
         "coverage, and conciseness."
     )
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
                 name=self.name,
