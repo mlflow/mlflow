@@ -18,17 +18,24 @@ from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import ScorerCallEvent
 
 
-# Simple child scorer using decorator (kind="decorator")
-# This allows us to verify the parent (kind="class") logs telemetry
 @scorer
 def child_scorer_func(outputs) -> int:
     """Simple child scorer that can be called by parent scorers."""
     return len(outputs)
 
 
-class ParentScorer(Scorer):
-    """Parent scorer that calls a child scorer (class-based, kind='class')."""
+def parent_scorer_func(child_scorer: Callable[..., int]) -> Scorer:
+    """Get a parent scorer that calls into a child scorer and returns the result *2"""
 
+    @scorer
+    def scorer_func(outputs) -> Feedback:
+        child_result = child_scorer(outputs=outputs)
+        return Feedback(name="parent_scorer_func", value=2 * child_result)
+
+    return scorer_func
+
+
+class ParentScorer(Scorer):
     _child_scorer: Callable[..., int] = PrivateAttr()
 
     def __init__(self, child_scorer: Callable[..., int], **kwargs):
@@ -43,8 +50,6 @@ class ParentScorer(Scorer):
 
 
 class RecursiveScorer(Scorer):
-    """Scorer that can call itself recursively."""
-
     _max_depth: int = PrivateAttr()
 
     def __init__(self, max_depth=3, **kwargs):
@@ -72,21 +77,17 @@ class GrandparentScorer(Scorer):
         return Feedback(name=self.name, value=parent_result.value + 1)
 
 
-class ErrorNestedScorer(Scorer):
-    """Child scorer that raises an error."""
-
+class ErrorScorer(Scorer):
     def __call__(self, outputs) -> Feedback:
-        raise ValueError("Test error in nested scorer")
+        raise ValueError("Test error")
 
 
 class ParentWithErrorChild(Scorer):
-    """Parent scorer that calls a child that errors."""
-
     _child_scorer: Scorer = PrivateAttr()
 
-    def __init__(self, child_scorer: Scorer, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._child_scorer = child_scorer
+        self._child_scorer = ErrorScorer(name="error_scorer")
 
     def __call__(self, outputs) -> Feedback:
         try:
@@ -110,7 +111,7 @@ def get_event_params(mock_requests):
 
 
 def test_nested_scorer_skips_telemetry(mock_requests, mock_telemetry_client: TelemetryClient):
-    child = child_scorer_func  # Use decorator function (kind="decorator")
+    child = child_scorer_func
     parent = ParentScorer(name="parent_scorer", child_scorer=child)
 
     result = parent(outputs="test output")
@@ -119,7 +120,6 @@ def test_nested_scorer_skips_telemetry(mock_requests, mock_telemetry_client: Tel
 
     mock_telemetry_client.flush()
 
-    # Only 1 event recorded (not 2) - nested call was skipped
     scorer_events = get_scorer_call_events(mock_requests)
     assert len(scorer_events) == 1
 
@@ -131,8 +131,8 @@ def test_nested_scorer_skips_telemetry(mock_requests, mock_telemetry_client: Tel
 
 
 def test_multi_level_nesting_skips_telemetry(mock_requests, mock_telemetry_client: TelemetryClient):
-    child = child_scorer_func  # Use decorator function (kind="decorator")
-    parent = ParentScorer(name="parent_scorer", child_scorer=child)
+    child = child_scorer_func
+    parent = parent_scorer_func(child_scorer=child)
     grandparent = GrandparentScorer(name="grandparent_scorer", parent_scorer=parent)
 
     result = grandparent(outputs="test")
@@ -148,7 +148,7 @@ def test_multi_level_nesting_skips_telemetry(mock_requests, mock_telemetry_clien
     event_params = get_event_params(mock_requests)
     assert len(event_params) == 1
     assert event_params[0]["scorer_class"] == "UserDefinedScorer"
-    # This verifies it's the grandparent (kind="class"), not nested scorers
+    # Verifies it's the grandparent (kind="class"), not nested (kind="decorator")
     assert event_params[0]["scorer_kind"] == "class"
 
 
@@ -210,8 +210,7 @@ def test_thread_safety_concurrent_scorers(mock_requests, mock_telemetry_client: 
 def test_error_in_nested_scorer_still_records_parent_telemetry(
     mock_requests, mock_telemetry_client: TelemetryClient
 ):
-    error_child = ErrorNestedScorer(name="error_child")
-    parent = ParentWithErrorChild(name="parent_scorer", child_scorer=error_child)
+    parent = ParentWithErrorChild(name="parent_scorer")
 
     result = parent(outputs="test")
     # Expected: 10 (hardcoded value returned after handling error)

@@ -19,7 +19,6 @@ from tests.telemetry.conftest import (  # noqa: F401
 
 @pytest.fixture(autouse=True)
 def mock_get_telemetry_client(mock_telemetry_client, monkeypatch):
-    """Auto-patch get_telemetry_client to return the mock client."""
     # Enable telemetry for tests using this fixture
     monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING_TELEMETRY", True)
     with mock.patch(
