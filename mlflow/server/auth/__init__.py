@@ -1502,7 +1502,6 @@ class GraphQLAuthorizationMiddleware:
         "mlflowListArtifacts",
         "mlflowGetMetricHistoryBulkInterval",
         "mlflowSearchRuns",
-        "mlflowSearchModelVersions",
         "mlflowSearchDatasets",
     }
 
@@ -1540,12 +1539,8 @@ class GraphQLAuthorizationMiddleware:
             if not self._check_authorization(field_name, args, username):
                 _logger.debug(f"GraphQL authorization denied for {field_name} by user {username}")
                 return None
-        except MlflowException as e:
-            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                return None
-            else:
-                _logger.warning(f"GraphQL authorization error for {field_name}: {e}")
-                return None
+        except MlflowException:
+            return None
         except Exception:
             _logger.warning(f"GraphQL authorization error for {field_name}", exc_info=True)
             return None
@@ -1585,25 +1580,7 @@ class GraphQLAuthorizationMiddleware:
                 if not _graphql_can_read_run(run_id, username):
                     return False
 
-        elif field_name == "mlflowSearchRuns":
-            if experiment_ids := (getattr(input_obj, "experiment_ids", None) or []):
-                readable_ids = [
-                    exp_id
-                    for exp_id in experiment_ids
-                    if _graphql_can_read_experiment(exp_id, username)
-                ]
-                if not readable_ids:
-                    return False
-                input_obj.experiment_ids = readable_ids
-
-        elif field_name == "mlflowSearchModelVersions":
-            # Model version search doesn't filter by specific model name in input
-            # The filter string might contain model name, but parsing that is complex
-            # Allow the search and rely on model registry permissions
-            # being checked when individual models are accessed
-            pass
-
-        elif field_name == "mlflowSearchDatasets":
+        elif field_name in ("mlflowSearchRuns", "mlflowSearchDatasets"):
             if experiment_ids := (getattr(input_obj, "experiment_ids", None) or []):
                 readable_ids = [
                     exp_id

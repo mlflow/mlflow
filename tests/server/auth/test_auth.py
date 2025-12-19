@@ -868,7 +868,9 @@ def test_graphql_get_experiment_authorization(client, monkeypatch):
     )
     assert response.status_code == 200
     data = response.json()
-    assert data.get("data", {}).get("mlflowGetExperiment", {}).get("experiment") is not None
+    experiment_data = data["data"]["mlflowGetExperiment"]["experiment"]
+    assert experiment_data["experimentId"] == experiment_id
+    assert experiment_data["name"] == "graphql_test_exp"
 
     # user2 (NO_PERMISSIONS) should NOT be able to read the experiment
     response = _graphql_query(
@@ -926,7 +928,9 @@ def test_graphql_get_run_authorization(client, monkeypatch):
     )
     assert response.status_code == 200
     data = response.json()
-    assert data.get("data", {}).get("mlflowGetRun", {}).get("run") is not None
+    run_data = data["data"]["mlflowGetRun"]["run"]
+    assert run_data["info"]["runId"] == run_id
+    assert run_data["info"]["experimentId"] == experiment_id
 
     # user2 (NO_PERMISSIONS) should NOT be able to read the run
     response = _graphql_query(

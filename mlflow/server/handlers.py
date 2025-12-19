@@ -2829,14 +2829,9 @@ def _get_graphql_auth_middleware():
         A list of middleware instances if auth is enabled, empty list otherwise.
     """
     try:
-        from mlflow.server.auth import get_graphql_authorization_middleware, is_auth_enabled
+        from mlflow.server.auth import get_graphql_authorization_middleware
 
-        if not is_auth_enabled():
-            return []
         return get_graphql_authorization_middleware()
-    except ImportError:
-        # Auth module not available
-        return []
     except Exception:
         # Auth not configured or other error
         return []
