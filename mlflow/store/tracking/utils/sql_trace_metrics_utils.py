@@ -21,10 +21,13 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.constant import (
+    AssessmentMetricDimensionKey,
     AssessmentMetricKey,
     AssessmentMetricSearchKey,
+    SpanMetricDimensionKey,
     SpanMetricKey,
     SpanMetricSearchKey,
+    TraceMetricDimensionKey,
     TraceMetricKey,
     TraceMetricSearchKey,
     TraceTagKey,
@@ -49,22 +52,24 @@ class TraceMetricsConfig:
 # TraceMetricKey -> TraceMetricsConfig mapping for traces
 TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
     TraceMetricKey.TRACE_COUNT: TraceMetricsConfig(
-        aggregation_types={AggregationType.COUNT}, dimensions={"name", "status"}
+        aggregation_types={AggregationType.COUNT},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.TRACE_STATUS},
     ),
     TraceMetricKey.LATENCY: TraceMetricsConfig(
-        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE}, dimensions={"name"}
+        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.INPUT_TOKENS: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={"name"},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.OUTPUT_TOKENS: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={"name"},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.TOTAL_TOKENS: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={"name"},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
 }
 
@@ -72,18 +77,25 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
 SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
     SpanMetricKey.SPAN_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
-        dimensions={"span_type"},
+        dimensions={SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_TYPE},
+    ),
+    SpanMetricKey.LATENCY: TraceMetricsConfig(
+        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_STATUS},
     ),
 }
 
 ASSESSMENTS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
     AssessmentMetricKey.ASSESSMENT_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
-        dimensions={"assessment_name", "assessment_value"},
+        dimensions={
+            AssessmentMetricDimensionKey.ASSESSMENT_NAME,
+            AssessmentMetricDimensionKey.ASSESSMENT_VALUE,
+        },
     ),
     AssessmentMetricKey.ASSESSMENT_VALUE: TraceMetricsConfig(
         aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={"assessment_name"},
+        dimensions={AssessmentMetricDimensionKey.ASSESSMENT_NAME},
     ),
 }
 
@@ -246,6 +258,9 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
             match metric_name:
                 case SpanMetricKey.SPAN_COUNT:
                     return SqlSpan.span_id
+                case SpanMetricKey.LATENCY:
+                    # Span latency in milliseconds (nanoseconds converted to ms)
+                    return (SqlSpan.end_time_unix_nano - SqlSpan.start_time_unix_nano) // 1000000
         case MetricViewType.ASSESSMENTS:
             match metric_name:
                 case AssessmentMetricKey.ASSESSMENT_COUNT:
@@ -275,7 +290,7 @@ def _apply_dimension_to_query(
     match view_type:
         case MetricViewType.TRACES:
             match dimension:
-                case "name":
+                case TraceMetricDimensionKey.TRACE_NAME:
                     # Join with SqlTraceTag to get trace name
                     query = query.join(
                         SqlTraceTag,
@@ -284,19 +299,27 @@ def _apply_dimension_to_query(
                             SqlTraceTag.key == TraceTagKey.TRACE_NAME,
                         ),
                     )
-                    return query, SqlTraceTag.value.label("name")
-                case "status":
-                    return query, SqlTraceInfo.status.label("status")
+                    return query, SqlTraceTag.value.label(TraceMetricDimensionKey.TRACE_NAME)
+                case TraceMetricDimensionKey.TRACE_STATUS:
+                    return query, SqlTraceInfo.status.label(TraceMetricDimensionKey.TRACE_STATUS)
         case MetricViewType.SPANS:
             match dimension:
-                case "span_type":
-                    return query, SqlSpan.type.label("span_type")
+                case SpanMetricDimensionKey.SPAN_NAME:
+                    return query, SqlSpan.name.label(SpanMetricDimensionKey.SPAN_NAME)
+                case SpanMetricDimensionKey.SPAN_TYPE:
+                    return query, SqlSpan.type.label(SpanMetricDimensionKey.SPAN_TYPE)
+                case SpanMetricDimensionKey.SPAN_STATUS:
+                    return query, SqlSpan.status.label(SpanMetricDimensionKey.SPAN_STATUS)
         case MetricViewType.ASSESSMENTS:
             match dimension:
-                case "assessment_name":
-                    return query, SqlAssessments.name.label("assessment_name")
-                case "assessment_value":
-                    return query, SqlAssessments.value.label("assessment_value")
+                case AssessmentMetricDimensionKey.ASSESSMENT_NAME:
+                    return query, SqlAssessments.name.label(
+                        AssessmentMetricDimensionKey.ASSESSMENT_NAME
+                    )
+                case AssessmentMetricDimensionKey.ASSESSMENT_VALUE:
+                    return query, SqlAssessments.value.label(
+                        AssessmentMetricDimensionKey.ASSESSMENT_VALUE
+                    )
     raise MlflowException.invalid_parameter_value(
         f"Unsupported dimension `{dimension}` with view type {view_type}"
     )
