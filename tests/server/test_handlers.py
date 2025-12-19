@@ -459,7 +459,7 @@ def test_catch_mlflow_exception_with_custom_headers():
     assert json_response["message"] == "test error"
 
     for header in custom_headers:
-        assert response.headers.get(header) == custom_headers[header]
+        assert response.headers.get(header) == str(custom_headers[header])
 
 
 def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
