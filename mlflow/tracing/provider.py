@@ -394,11 +394,18 @@ def _initialize_tracer_provider(disabled=False):
                 "An existing TracerProvider is detected. Adding MLflow's span processors "
                 "to the existing provider for unified tracing."
             )
-            existing_processors = set(existing_provider._active_span_processor._span_processors)
-            for processor in processors:
-                if not any(isinstance(p, type(processor)) for p in existing_processors):
-                    existing_provider.add_span_processor(processor)
-            return
+            try:
+                existing_processors = set(existing_provider._active_span_processor._span_processors)
+                for processor in processors:
+                    if not any(isinstance(p, type(processor)) for p in existing_processors):
+                        existing_provider.add_span_processor(processor)
+                return
+            except Exception as e:
+                _logger.debug(
+                    f"An error occurred while adding span processors to the existing provider: {e}."
+                    " Overriding the existing provider with MLflow trace provider.",
+                    exc_info=True,
+                )
 
     # NB: If otel resource env vars are set explicitly, don't create an empty resource
     # so that they are propagated to otel spans.
