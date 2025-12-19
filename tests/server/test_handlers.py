@@ -441,6 +441,27 @@ def test_catch_mlflow_exception():
     assert json_response["message"] == "test error"
 
 
+def test_catch_mlflow_exception_with_custom_headers():
+    custom_headers = {
+        "X-Error-Code": 400,
+        "X-Request-Id": "test-id",
+        "Retry-After": 120,
+    }
+
+    @catch_mlflow_exception
+    def test_handler():
+        raise MlflowException("test error", error_code=INTERNAL_ERROR, headers=custom_headers)
+
+    response = test_handler()
+    json_response = json.loads(response.get_data())
+    assert response.status_code == 500
+    assert json_response["error_code"] == ErrorCode.Name(INTERNAL_ERROR)
+    assert json_response["message"] == "test error"
+
+    for header in custom_headers:
+        assert response.headers.get(header) == custom_headers[header]
+
+
 def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
     from mlflow_test_plugin.file_store import PluginFileStore
 
