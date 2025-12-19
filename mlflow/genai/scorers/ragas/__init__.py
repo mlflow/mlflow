@@ -30,7 +30,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.ragas.models import create_ragas_model
 from mlflow.genai.scorers.ragas.registry import get_metric_class, is_deterministic_metric
 from mlflow.genai.scorers.ragas.utils import (
@@ -79,6 +79,10 @@ class RagasScorer(Scorer):
         else:
             ragas_llm = create_ragas_model(model)
             self._metric = metric_class(llm=ragas_llm, **metric_kwargs)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
 
     def __call__(
         self,
