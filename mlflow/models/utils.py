@@ -207,7 +207,7 @@ def _convert_dataframe_to_split_dict(df):
     result = _handle_dataframe_nans(df).to_dict(orient="split")
     # Do not include row index
     del result["index"]
-    if all(df.columns == range(len(df.columns))):
+    if all(df.columns == list(range(len(df.columns)))):
         # No need to write default column index out
         del result["columns"]
     return result
