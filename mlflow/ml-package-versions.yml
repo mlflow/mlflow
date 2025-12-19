@@ -32,7 +32,7 @@ pytorch:
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
-    minimum: "2.1.2"
+    minimum: "2.2.0"
     maximum: "2.9.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
@@ -42,7 +42,7 @@ pytorch:
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
   autologging:
-    minimum: "2.1.2"
+    minimum: "2.2.0"
     maximum: "2.9.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
@@ -91,7 +91,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.12.0"
+    maximum: "3.13.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -101,7 +101,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.12.0"
+    maximum: "3.13.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -145,7 +145,7 @@ xgboost:
       pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
-    minimum: "2.0.3"
+    minimum: "2.1.0"
     maximum: "3.1.2"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
@@ -153,7 +153,7 @@ xgboost:
       pytest tests/xgboost/test_xgboost_model_export.py
 
   autologging:
-    minimum: "2.0.3"
+    minimum: "2.1.0"
     maximum: "3.1.2"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
@@ -275,13 +275,13 @@ statsmodels:
       pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
-    minimum: "0.14.1"
+    minimum: "0.14.2"
     maximum: "0.14.6"
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
-    minimum: "0.14.1"
+    minimum: "0.14.2"
     maximum: "0.14.6"
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
@@ -303,7 +303,7 @@ spark:
 
   models:
     minimum: "3.2.1"
-    maximum: "4.0.1"
+    maximum: "4.1.0"
     java:
       "<= 3.4.1": "11"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
@@ -332,7 +332,7 @@ spark:
 
   autologging:
     minimum: "3.3.0"
-    maximum: "4.0.1"
+    maximum: "4.1.0"
     java:
       "<= 3.4.1": "11"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
@@ -536,8 +536,8 @@ openai:
     install_dev: |
       pip install git+https://github.com/openai/openai-python
   models:
-    minimum: "1.57.3"
-    maximum: "2.9.0"
+    minimum: "1.59.2"
+    maximum: "2.13.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -554,8 +554,8 @@ openai:
     # many test tasks for openai. Reducing the number of testing only for every 10 version.
     test_every_n_versions: 10
   autologging:
-    minimum: "1.57.3"
-    maximum: "2.9.0"
+    minimum: "1.59.2"
+    maximum: "2.13.0"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -579,14 +579,14 @@ dspy:
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
-    minimum: "2.5.43"
+    minimum: "2.6.0"
     maximum: "3.0.4"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
-    minimum: "2.5.43"
+    minimum: "2.6.0"
     maximum: "3.0.4"
     requirements:
       ">= 0.0.0": ["openai"]
@@ -603,8 +603,8 @@ langchain:
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain_v1
   models:
     # Where the large package update was made (langchain-core, community, ...)
-    minimum: "0.3.12"
-    maximum: "1.1.3"
+    minimum: "0.3.14"
+    maximum: "1.2.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -646,8 +646,8 @@ langchain:
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
-    minimum: "0.3.12"
-    maximum: "1.1.3"
+    minimum: "0.3.14"
+    maximum: "1.2.0"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -683,8 +683,8 @@ langgraph:
       pip install --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
 
   models:
-    minimum: "0.2.60"
-    maximum: "1.0.4"
+    minimum: "0.2.61"
+    maximum: "1.0.5"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -700,8 +700,8 @@ langgraph:
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
   autologging:
-    minimum: "0.2.60"
-    maximum: "1.0.4"
+    minimum: "0.2.61"
+    maximum: "1.0.5"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -727,7 +727,7 @@ llama_index:
       pip install git+https://github.com/run-llama/llama_index.git
   models:
     # New event/span framework is fully implemented in 0.10.44
-    minimum: "0.12.6"
+    minimum: "0.12.7"
     maximum: "0.14.10"
     requirements:
       ">= 0.0.0": [
@@ -748,7 +748,7 @@ llama_index:
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
-    minimum: "0.12.6"
+    minimum: "0.12.7"
     maximum: "0.14.10"
     requirements:
       ">= 0.0.0": [
@@ -814,7 +814,7 @@ gemini:
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.55.0"
+    maximum: "1.56.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK
@@ -831,7 +831,7 @@ anthropic:
     install_dev: |
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
-    minimum: "0.41.0"
+    minimum: "0.43.0"
     maximum: "0.75.0"
     requirements:
     run: pytest tests/anthropic
@@ -850,7 +850,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.95.0"
-    maximum: "1.7.0"
+    maximum: "1.7.1"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
@@ -867,7 +867,7 @@ agno:
       pip install git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
   autologging:
     minimum: "1.7.0"
-    maximum: "2.3.10"
+    maximum: "2.3.14"
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
       ">= 2.0.0": ["opentelemetry-exporter-otlp", "openinference-instrumentation-agno"]
@@ -897,7 +897,7 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.1.9"
-    maximum: "1.30.0"
+    maximum: "1.35.0"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
@@ -932,7 +932,7 @@ strands:
       pip install "git+https://github.com/strands-agents/sdk-python"
   autologging:
     minimum: "1.4.0"
-    maximum: "1.19.0"
+    maximum: "1.20.0"
     run: pytest tests/strands
     test_tracing_sdk: true
 
@@ -966,7 +966,7 @@ mistral:
       rm -rf $TMP_DIR
   autologging:
     minimum: "1.2.6"
-    maximum: "1.9.11"
+    maximum: "1.10.0"
     requirements:
     run: pytest tests/mistral
     test_tracing_sdk: true
@@ -980,7 +980,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.3.1"
-    maximum: "5.1.2"
+    maximum: "5.2.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -1043,8 +1043,8 @@ groq:
     install_dev: |
       pip install git+https://github.com/groq/groq-python
   autologging:
-    minimum: "0.13.1"
-    maximum: "0.37.1"
+    minimum: "0.14.0"
+    maximum: "1.0.0"
     requirements:
     run: pytest tests/groq
     test_tracing_sdk: true
@@ -1057,7 +1057,7 @@ bedrock:
     module_name: "boto3"
   autologging:
     # BedrockRuntime client is added in boto3 1.33
-    minimum: "1.35.80"
-    maximum: "1.42.7"
+    minimum: "1.35.85"
+    maximum: "1.42.12"
     run: pytest tests/bedrock
     test_tracing_sdk: true
